@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Rich list / supply stats page (spec explorer-coverage-completion row 33,
- * M5.2). Drives the SHIPPED renders in src/content/js/rich-list-render.js and
+ * M5.2). Drives the SHIPPED renders in src/content/js/rich_list_render.js and
  * the SHIPPED inline script of src/content/html/rich_list.html against stubbed
  * /api/rich_list payloads.
  *
@@ -45,7 +45,7 @@ const { expect } = require('chai');
 
 const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/rich-list-render.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/rich_list_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/rich_list.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
 

@@ -45,7 +45,7 @@ const ROOT    = path.resolve(__dirname, '../..');
 const CONTENT = path.join(ROOT, 'src', 'content');
 const JQUERY  = fs.readFileSync(path.join(CONTENT, 'js', 'jquery.min.js'), 'utf8');
 const NUMERAL = fs.readFileSync(path.join(CONTENT, 'js', 'numeral.js'), 'utf8');
-const RENDER_SRC  = fs.readFileSync(path.join(CONTENT, 'js', 'poll-tally-render.js'), 'utf8');
+const RENDER_SRC  = fs.readFileSync(path.join(CONTENT, 'js', 'poll_tally_render.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(CONTENT, 'html', 'action.html'), 'utf8');
 
 const SOURCE     = require('../helpers/content-source.js');

@@ -91,7 +91,7 @@ function bootWindow(){
         'chart.umd.js',
         'chartjs-adapter-moment.js',
         'chartjs-chart-financial.js',
-        'xchain-charts.js'
+        'xchain_charts.js'
     ];
     for(const file of files){
         const src = fs.readFileSync(path.join(JS_DIR, file), 'utf8');
@@ -133,7 +133,7 @@ describe('market chart views render against the vendored Chart.js stack', functi
 
     it('loads Chart.js and the market chart layer as browser globals', () => {
         expect(typeof window.Chart, 'chart.umd.js did not attach window.Chart').to.equal('function');
-        expect(typeof XCC, 'xchain-charts.js did not attach window.XCC').to.equal('object');
+        expect(typeof XCC, 'xchain_charts.js did not attach window.XCC').to.equal('object');
         expect(typeof XCC.render, 'XCC loaded without its browser layer').to.equal('function');
     });
 

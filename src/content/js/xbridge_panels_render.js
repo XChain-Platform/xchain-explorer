@@ -13,7 +13,7 @@
  **********************************************************************
  * Bridge panels for token.html and the XBRIDGE action detail card.
  *
- * Split out of the pages' inline scripts, on the xcall-timeline-render.js
+ * Split out of the pages' inline scripts, on the xcall_timeline_render.js
  * precedent, so a test drives the real derivation with stubbed payloads.
  *
  * WHY A DERIVATION LAYER. The explorer is per-coin routed: a BTC explorer node

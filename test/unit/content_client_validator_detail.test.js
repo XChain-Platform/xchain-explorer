@@ -13,7 +13,7 @@
  **********************************************************************
  * Validator detail page (/{COIN}/validator/{QUERY}).
  *
- * Drives the SHIPPED derivation + render (src/content/js/validator-detail-render.js)
+ * Drives the SHIPPED derivation + render (src/content/js/validator_detail_render.js)
  * and the SHIPPED inline loader in src/content/html/validator.html with stubbed
  * /api/validator responses, in the same JSDOM-eval harness
  * content-client-xcall-timeline.test.js uses.
@@ -52,7 +52,7 @@ const SRC_DIR     = path.resolve(__dirname, '../../src/content');
 // which of the two a given function ended up in.
 const XCHAIN_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.join(SRC_DIR, 'js/formatters.js'), 'utf8');
-const RENDER_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/validator-detail-render.js'), 'utf8');
+const RENDER_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/validator_detail_render.js'), 'utf8');
 const PAGE_HTML   = fs.readFileSync(path.join(SRC_DIR, 'html/validator.html'), 'utf8');
 const JQUERY_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/numeral.js'), 'utf8');

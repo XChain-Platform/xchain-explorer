@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * ATTEST attestation detail page. Drives the SHIPPED renders in
- * src/content/js/attestation-detail-render.js and the SHIPPED inline script of
+ * src/content/js/attestation_detail_render.js and the SHIPPED inline script of
  * src/content/html/attestation.html against stubbed endpoint payloads, in the
  * same JSDOM harness the other content-client-*-detail tests use.
  *
@@ -56,7 +56,7 @@ const { expect } = require('chai');
 // which of the two a given function ended up in.
 const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/attestation-detail-render.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/attestation_detail_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/attestation.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
 

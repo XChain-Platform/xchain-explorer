@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Checkpoint verify verdict render leg. Drives the SHIPPED renderCheckpointVerdict
- * (src/content/js/checkpoint-verify-render.js) with a stubbed verify-endpoint
+ * (src/content/js/checkpoint_verify_render.js) with a stubbed verify-endpoint
  * response, in the same JSDOM-eval harness the other content-client-*-detail
  * tests use for action.html panels.
  *
@@ -38,7 +38,7 @@ const { expect } = require('chai');
 // which of the two a given function ended up in.
 const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/checkpoint-verify-render.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/checkpoint_verify_render.js'), 'utf8');
 
 function extractFn(src, name) {
     const sig = 'function ' + name + '(';

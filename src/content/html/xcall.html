@@ -68,7 +68,7 @@
     </div>
 </div>
 
-<script type="text/javascript" src="/js/xcall-timeline-render.js"></script>
+<script type="text/javascript" src="/js/xcall_timeline_render.js"></script>
 <script type="text/javascript">
 $(document).ready(function() {
 
@@ -118,7 +118,7 @@ $(document).ready(function() {
         html += fieldRow('Method',       isNull(d.method) ? '-' : esc(d.method));
         $('#xcall-header').html(html);
 
-        // Timeline derivation and render live in xcall-timeline-render.js so a test
+        // Timeline derivation and render live in xcall_timeline_render.js so a test
         // can drive the real path with a stubbed response.
         $('#xcall-timeline').html(renderXcallTimeline(d));
     }).fail(function(xhr){

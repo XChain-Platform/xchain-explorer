@@ -15,7 +15,7 @@
  * xchain-token-bridge.md section 9 / row 8, policy spec section 10 / row 7).
  *
  * Drives the SHIPPED derivation and render in
- * src/content/js/xbridge-panels-render.js and the SHIPPED loadBridgePanels()
+ * src/content/js/xbridge_panels_render.js and the SHIPPED loadBridgePanels()
  * out of src/content/html/token.html, in the JSDOM-eval harness
  * content-client-xcall-timeline.test.js established.
  *
@@ -51,7 +51,7 @@ const { JSDOM } = require('jsdom');
 const SRC_DIR    = path.resolve(__dirname, '../../src/content');
 const XCHAIN_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.join(SRC_DIR, 'js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/xbridge-panels-render.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/xbridge_panels_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.join(SRC_DIR, 'html/token.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8');
 const CLASSIC    = fs.readFileSync(path.join(SRC_DIR, 'themes/classic/tokens.css'), 'utf8');

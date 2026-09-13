@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Conformance test: the bundled browser WS client (src/content/js/xchain-ws.js)
+ * Conformance test: the bundled browser WS client (src/content/js/xchain_ws.js)
  * hardcodes CLIENT_WS_SCHEMA_VERSION because it is a plain, un-bundled script
  * that cannot require() src/ws/schema-version.js's WS_SCHEMA_VERSION. This test
  * fails if the two values are ever allowed to drift, which would otherwise make
@@ -28,10 +28,10 @@ const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema-version.js');
 describe('xchain-ws.js CLIENT_WS_SCHEMA_VERSION conformance', function () {
 
     it('matches src/ws/schema-version.js WS_SCHEMA_VERSION', function () {
-        const clientPath = path.join(__dirname, '../../../src/content/js/xchain-ws.js');
+        const clientPath = path.join(__dirname, '../../../src/content/js/xchain_ws.js');
         const source      = fs.readFileSync(clientPath, 'utf8');
         const match       = source.match(/var\s+CLIENT_WS_SCHEMA_VERSION\s*=\s*(\d+)\s*;/);
-        expect(match, 'CLIENT_WS_SCHEMA_VERSION declaration not found in xchain-ws.js').to.not.equal(null);
+        expect(match, 'CLIENT_WS_SCHEMA_VERSION declaration not found in xchain_ws.js').to.not.equal(null);
         const clientVersion = Number(match[1]);
         expect(clientVersion).to.equal(WS_SCHEMA_VERSION);
     });
@@ -42,7 +42,7 @@ describe('xchain-ws.js CLIENT_WS_SCHEMA_VERSION conformance', function () {
         // upgraded server stayed silent after the first warning. The SDK client
         // (xchain-sdk/src/websocket.js) resets the flag in its 'open' handler;
         // this client must do the same.
-        const clientPath = path.join(__dirname, '../../../src/content/js/xchain-ws.js');
+        const clientPath = path.join(__dirname, '../../../src/content/js/xchain_ws.js');
         const source      = fs.readFileSync(clientPath, 'utf8');
 
         const stateBlockMatch = source.match(/var\s+XChainWS\s*=\s*\{([\s\S]*?)_onOpen:/);
@@ -66,10 +66,10 @@ describe('xchain-ws.js catch-up cursor precision', function () {
 
     function loadClient() {
         const vm = require('node:vm');
-        const clientPath = path.join(__dirname, '../../../src/content/js/xchain-ws.js');
+        const clientPath = path.join(__dirname, '../../../src/content/js/xchain_ws.js');
         const sandbox = { console: { log() {}, warn() {}, error() {} } };
         vm.createContext(sandbox);
-        vm.runInContext(fs.readFileSync(clientPath, 'utf8'), sandbox, { filename: 'xchain-ws.js' });
+        vm.runInContext(fs.readFileSync(clientPath, 'utf8'), sandbox, { filename: 'xchain_ws.js' });
         return sandbox.XChainWS;
     }
 

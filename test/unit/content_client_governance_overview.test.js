@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Unified governance view (spec explorer-coverage-completion row 34, M5.3).
- * Drives the SHIPPED renders in src/content/js/governance-overview-render.js
+ * Drives the SHIPPED renders in src/content/js/governance_overview_render.js
  * and the SHIPPED inline script of src/content/html/governance.html.
  *
  * The row's whole substance is a design decision, and these are the assertions
@@ -41,7 +41,7 @@ const { expect } = require('chai');
 
 const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/governance-overview-render.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/governance_overview_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/governance.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
 

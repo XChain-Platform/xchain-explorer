@@ -14,7 +14,7 @@
  * XCALL detail page lifecycle timeline (/{COIN}/xcall/{CALL_ID}).
  *
  * Drives the SHIPPED buildXcallTimeline / renderXcallTimeline
- * (src/content/js/xcall-timeline-render.js) and the SHIPPED inline loader in
+ * (src/content/js/xcall_timeline_render.js) and the SHIPPED inline loader in
  * src/content/html/xcall.html with stubbed /api/xcall responses, in the same
  * JSDOM-eval harness checkpoint-verify-render.test.js uses.
  *
@@ -43,7 +43,7 @@ const SRC_DIR     = path.resolve(__dirname, '../../src/content');
 // which of the two a given function ended up in.
 const XCHAIN_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.join(SRC_DIR, 'js/formatters.js'), 'utf8');
-const RENDER_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/xcall-timeline-render.js'), 'utf8');
+const RENDER_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/xcall_timeline_render.js'), 'utf8');
 const PAGE_HTML   = fs.readFileSync(path.join(SRC_DIR, 'html/xcall.html'), 'utf8');
 const JQUERY_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/numeral.js'), 'utf8');

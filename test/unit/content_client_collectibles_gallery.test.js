@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Collectibles gallery (spec explorer-coverage-completion row 32, M5.1).
- * Drives the SHIPPED renders in src/content/js/collectibles-gallery-render.js
+ * Drives the SHIPPED renders in src/content/js/collectibles_gallery_render.js
  * and the SHIPPED inline script of src/content/html/collectibles.html against
  * stubbed endpoint payloads, in the same JSDOM harness the other
  * content-client-* tests use.
@@ -45,7 +45,7 @@ const { expect } = require('chai');
 
 const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/collectibles-gallery-render.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/collectibles_gallery_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/collectibles.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
 

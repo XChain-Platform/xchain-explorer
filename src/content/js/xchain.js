@@ -4490,7 +4490,7 @@ function showAnchorDetails(data){
     // alone, so say how many chains the action commits and where the full per-chain
     // view is; presenting one section's chain, checkpoint_seq and hashes as the whole
     // anchor elides every other chain with nothing on the page to show it happened.
-    // The section table itself lives on the anchor page (anchor-detail-render.js),
+    // The section table itself lives on the anchor page (anchor_detail_render.js),
     // which is the single renderer for it.
     let sections = Array.isArray(data.sections) ? data.sections : [];
     if(sections.length > 1){

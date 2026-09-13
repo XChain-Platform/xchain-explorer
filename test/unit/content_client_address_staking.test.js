@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Address staking panel (address.html + js/address-staking-render.js),
+ * Address staking panel (address.html + js/address_staking_render.js),
  * fed by /{COIN}/api/staking/{QUERY} (getAddressStaking, src/db.js).
  *
  * Drives the SHIPPED derivation, the SHIPPED render and the SHIPPED inline
@@ -63,7 +63,7 @@ const SRC_DIR     = path.resolve(__dirname, '../../src/content');
 // which of the two a given function ended up in.
 const XCHAIN_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.join(SRC_DIR, 'js/formatters.js'), 'utf8');
-const RENDER_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/address-staking-render.js'), 'utf8');
+const RENDER_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/address_staking_render.js'), 'utf8');
 const PAGE_HTML   = fs.readFileSync(path.join(SRC_DIR, 'html/address.html'), 'utf8');
 const JQUERY_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/numeral.js'), 'utf8');

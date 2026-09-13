@@ -15,7 +15,7 @@
  *
  * Split out of the page's inline script so a test can drive the real
  * derivation with stubbed /api/validator responses, the same way
- * xcall-timeline-render.js is driven by content-client-xcall-timeline.test.js.
+ * xcall_timeline_render.js is driven by content-client-xcall-timeline.test.js.
  *
  * WHY A DERIVATION LAYER AT ALL. Everything a reader needs to judge a
  * validator is a JUDGEMENT over several rows, never a column:

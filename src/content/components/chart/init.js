@@ -13,7 +13,7 @@
  **********************************************************************
  * chart / init.js
  *
- * A Chart.js canvas with the explorer toolbar. Wraps the existing xchain-charts.js entry points so a theme can move a chart without touching the chart code.
+ * A Chart.js canvas with the explorer toolbar. Wraps the existing xchain_charts.js entry points so a theme can move a chart without touching the chart code.
  *
  * Declared props live in component.json beside this file; they are restated in
  * the register() call because the runtime validates against what it was given,
@@ -42,7 +42,7 @@
         },
 
         mount: function(el, props, ctx){
-            // Charts already have a home in xchain-charts.js; this exists so a layout can
+            // Charts already have a home in xchain_charts.js; this exists so a layout can
     // place one declaratively. It delegates rather than wrapping Chart.js again,
     // because two chart layers would drift.
         if(!el) throw new Error('no mount point');

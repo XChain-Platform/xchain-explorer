@@ -26,7 +26,7 @@ const ANCHOR = {
     // these same version bytes under an older, unrelated meaning; this query has
     // no version filter and selects every row identically regardless of version
     // or activation, so a legacy row's columns come back exactly as stored and
-    // it is the RENDERER's job (anchor-detail-render.js) to tell a legacy row
+    // it is the RENDERER's job (anchor_detail_render.js) to tell a legacy row
     // from a current one, not this query's. archive_b64 is omitted (large; only
     // the recovery assembler needs it). The SPV root columns (state_root,
     // state_root_version, block_merkle_root, block_merkle_version) and

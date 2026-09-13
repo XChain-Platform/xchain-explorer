@@ -43,7 +43,7 @@ const CSS_DIR     = path.join(CONTENT_DIR, 'css');
 const CHARTS_DIR  = path.join(CONTENT_DIR, 'charts');
 const TEMPLATE    = path.join(CONTENT_DIR, 'html', 'template.html');
 
-const XCC = require(path.join(JS_DIR, 'xchain-charts.js'));
+const XCC = require(path.join(JS_DIR, 'xchain_charts.js'));
 
 // Every file under src/content is served verbatim to the browser and is
 // checked into a repo slated to go public, so both legs of the Highcharts
@@ -110,7 +110,7 @@ describe('src/content charting assets: licence hygiene', () => {
     it('loads the chart stack from template.html and nothing proprietary', () => {
         const html = fs.readFileSync(TEMPLATE, 'utf8');
         for(const src of ['/js/chart.umd.js', '/js/chartjs-adapter-moment.js',
-                          '/js/chartjs-chart-financial.js', '/js/xchain-charts.js'])
+                          '/js/chartjs-chart-financial.js', '/js/xchain_charts.js'])
             expect(html, `template.html does not load ${src}`).to.include(src);
         expect(html).to.include('/css/xchain-charts.css');
         expect(fs.existsSync(path.join(CSS_DIR, 'xchain-charts.css'))).to.equal(true);
@@ -151,7 +151,7 @@ describe('src/content charting assets: licence hygiene', () => {
         const at = s => html.indexOf(s);
         expect(at('/js/chart.umd.js')).to.be.below(at('/js/chartjs-adapter-moment.js'));
         expect(at('/js/chart.umd.js')).to.be.below(at('/js/chartjs-chart-financial.js'));
-        expect(at('/js/chart.umd.js')).to.be.below(at('/js/xchain-charts.js'));
+        expect(at('/js/chart.umd.js')).to.be.below(at('/js/xchain_charts.js'));
         // moment is a peer of the adapter and must already be on the page.
         expect(at('/js/moment.min.js')).to.be.below(at('/js/chartjs-adapter-moment.js'));
     });

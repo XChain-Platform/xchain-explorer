@@ -15,7 +15,7 @@
  *
  * Split out of the page's inline script so a test can drive the real
  * derivation with stubbed /api/xcall responses, the same way
- * checkpoint-verify-render.js is driven by checkpoint-verify-render.test.js.
+ * checkpoint_verify_render.js is driven by checkpoint-verify-render.test.js.
  *
  * WHY A DERIVATION LAYER AT ALL. An XCALL's phase transitions are written
  * WITHOUT an action row of their own, so no generic action feed carries them:
@@ -221,7 +221,7 @@ function xcallLifecycleSummary(data){
 }
 
 // Builds the timeline's inner HTML. Local esc/row helpers, matching the
-// per-function local-esc pattern used by xchain.js and checkpoint-verify-render.js.
+// per-function local-esc pattern used by xchain.js and checkpoint_verify_render.js.
 function renderXcallTimeline(data){
     var d    = data || {};
     var coin = (typeof XC !== 'undefined' && XC && XC.coin) ? XC.coin : '';

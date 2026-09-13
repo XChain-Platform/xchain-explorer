@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * ANCHOR detail render leg. Drives the SHIPPED renders in
- * src/content/js/anchor-detail-render.js and the SHIPPED inline script of
+ * src/content/js/anchor_detail_render.js and the SHIPPED inline script of
  * src/content/html/anchor.html against stubbed /api/anchor/{QUERY} responses,
  * in the same JSDOM harness the poll and xcall detail tests use.
  *
@@ -56,7 +56,7 @@ const { expect } = require('chai');
 // which of the two a given function ended up in.
 const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/anchor-detail-render.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/anchor_detail_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/anchor.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/numeral.js'), 'utf8');

@@ -2,7 +2,7 @@
  * CSS for the XChain explorer chart layer
  */
 
-/* Styles for the XChain chart layer (js/xchain-charts.js). Replaces the
+/* Styles for the XChain chart layer (js/xchain_charts.js). Replaces the
    Highcharts stylesheet this file was swapped in for; Chart.js draws to a
    canvas, so the only CSS it needs covers the surrounding chrome: the
    toolbar, the floating HTML tooltip, and the empty-state message. */

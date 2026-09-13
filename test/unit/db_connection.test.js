@@ -23,6 +23,18 @@ const { expect } = require('chai');
 const Utility    = require('../../src/utility.js');
 const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
 
+// The pool code lives in src/db/connection.js since proposal B stage 1, and
+// db.js no longer requires mariadb at all. proxyquire only substitutes a
+// module's OWN direct requires, so the driver stub has to be injected into the
+// connection module and that module handed to db.js; stubbing mariadb on db.js
+// would silently do nothing and every pool assertion would run against a real
+// connection attempt.
+function databaseWithDriver(mockMariadb) {
+    return proxyquire('../../src/db.js', {
+        './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
+    });
+}
+
 function createMockConnection() {
     return {
         query:   sinon.stub().resolves([]),
@@ -60,7 +72,7 @@ describe('Database – connection management', function () {
         // Re-create the mariadb stub and re-require Database each test so
         // createPool call counts are isolated.
         mockMariadb = { createPool: sinon.stub().returns(createMockPool()) };
-        Database    = proxyquire('../../src/db.js', { mariadb: mockMariadb });
+        Database    = databaseWithDriver(mockMariadb);
     });
 
     afterEach(function () {
@@ -245,7 +257,7 @@ describe('Database – connection management', function () {
             const poolA = createMockPool();
             const poolB = createMockPool();
             mockMariadb = { createPool: sinon.stub().onFirstCall().returns(poolA).onSecondCall().returns(poolB) };
-            Database    = proxyquire('../../src/db.js', { mariadb: mockMariadb });
+            Database    = databaseWithDriver(mockMariadb);
 
             const db = freshDatabase(null, config);
             await db.setupConnectionPools();
@@ -300,7 +312,7 @@ describe('Database – connection management', function () {
             const poolA = createMockPool();
             const poolB = createMockPool();
             mockMariadb = { createPool: sinon.stub().onFirstCall().returns(poolA).onSecondCall().returns(poolB) };
-            Database    = proxyquire('../../src/db.js', { mariadb: mockMariadb });
+            Database    = databaseWithDriver(mockMariadb);
 
             const db = freshDatabase(null, config);
             await db.setupConnectionPools();
@@ -414,7 +426,7 @@ describe('Database – connection management', function () {
         it('returns a connection from the correct pool for the given coin', async function () {
             const mockConn = createMockConnection();
             mockMariadb    = { createPool: sinon.stub().returns(createMockPool(mockConn)) };
-            Database       = proxyquire('../../src/db.js', { mariadb: mockMariadb });
+            Database       = databaseWithDriver(mockMariadb);
 
             const db = freshDatabase();
             await db.setupConnectionPools();
@@ -433,7 +445,7 @@ describe('Database – connection management', function () {
             // Pool whose getConnection always rejects
             const failingPool = { getConnection: sinon.stub().rejects(new Error('timeout')) };
             mockMariadb       = { createPool: sinon.stub().returns(failingPool) };
-            Database          = proxyquire('../../src/db.js', { mariadb: mockMariadb });
+            Database          = databaseWithDriver(mockMariadb);
 
             const db        = freshDatabase();
             const sleepStub = sinon.stub(db.util, 'sleep').resolves();

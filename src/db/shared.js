@@ -1,0 +1,101 @@
+/*********************************************************************
+ *
+ * Copyright © 2025–2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available -
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
+ *
+ * XChain Explorer - bindings db.js shares with its extracted modules
+ *
+ * Proposal B splits the Database class across src/db/, and every extracted
+ * module exports a PROTOTYPE: anything else hung on that export would be copied
+ * onto Database.prototype by mixinReaders and become a method. So a module-level
+ * binding that more than one family needs, or that db.js must keep exporting,
+ * lives here instead of travelling with one family.
+ *
+ * db.js re-exports these under their original names, because that is how every
+ * caller already reaches them (XChainExplorer.js's error mapping, the route
+ * layer, and the suites via `const { DbQueryError } = Database`).
+ *
+ ********************************************************************/
+
+'use strict';
+
+// Lifecycle fields whose value the indexer writes AFTER the action confirmed.
+// A getActionData response carrying any of them is NOT immutable and must never
+// enter the action LRU, which has no TTL and reorg-only invalidation
+// (_isCacheableAction, and the header comment on
+// test/unit/db.action-state-cache.test.js for the family's first two members).
+//
+// The `state` block that guard already refuses is the same defect wearing the
+// one shape DISPENSER / ORDER / SWAP / LIST happen to share. These types carry
+// their mutable state as PLAIN COLUMNS instead, so they slipped past it:
+//
+//   request_status      ATTEST v0 request: pending -> completed, and pending ->
+//                       expired, the latter written by an ATTEST v2 that persists
+//                       NO ROW of its own (it only flips this column and stamps
+//                       resolved_block). Also XCALL's request row, pending ->
+//                       completed / expired. Measured on regtest: after an
+//                       expiry, /api/action/{idx} kept reporting `pending` while
+//                       /api/attestations reported `expired` for the same action.
+//   response_status     ATTEST response leg.
+//   result_status       XCALL execution outcome, null until the call executes.
+//   resolved_block      XCALL and VOTE poll, null until the round resolves.
+//   poll_status         VOTE poll: open -> passed / failed, with its tallies.
+//   feed_status         BET feed: open -> closed -> resolved / expired.
+//   bet_status          BET wager, and settled_block with it.
+//   settled_block       BET wager, null until the feed resolves.
+//   deactivation_block  DELEGATE: null until a later revoke deactivates the row.
+//
+// Matched by PRESENCE, not by value. Null is exactly the pending state these
+// fields hold at the moment a detail page is most likely to be asked for, so a
+// value test would cache the very reads that go stale (resolved_block is null
+// while the request is live and non-null forever after). Anything selecting one
+// of these columns is a lifecycle response, and recomputing one is cheaper than
+// serving a frozen answer for the life of the process.
+const MUTABLE_ACTION_FIELDS = Object.freeze([
+    'request_status', 'response_status', 'result_status', 'resolved_block',   // ATTEST, XCALL
+    'poll_status',                                                            // VOTE
+    'feed_status', 'bet_status', 'settled_block',                             // BET
+    'deactivation_block'                                                      // DELEGATE
+]);
+
+// Raised by doQuery when the underlying query genuinely FAILED (connection
+// unavailable after retries, or the DB rejected the statement), as opposed to
+// succeeding with an empty result set. The request layer maps it to a 5xx so a
+// transient DB outage reads as an outage, not as "no data" (M-4): before this,
+// doQuery swallowed the error into `false` and callers rendered it as an empty
+// result (e.g. an address showing a zero balance during an outage).
+class DbQueryError extends Error {
+    constructor(message, cause){
+        super(message);
+        this.name = 'DbQueryError';
+        this.code = 'DB_ERROR';
+        if(cause) this.cause = cause;
+    }
+}
+
+// Raised by a reader when the CALLER's own parameter is malformed, as opposed to
+// the query failing (DbQueryError above). The distinction matters because MariaDB
+// silently coerces a non-numeric string to 0 in a numeric comparison, so a reader
+// that binds a path segment straight into `WHERE <int column>=?` answers 200 with
+// a real, entirely wrong record instead of erroring (/api/block/zzz returned
+// block 0). Refusing in the reader protects every caller, not only the HTTP
+// route; the request layer maps it to a 4xx carrying `code`, never the 5xx
+// DbQueryError gets, because nothing is wrong with the service.
+class DbInputError extends Error {
+    constructor(message, code){
+        super(message);
+        this.name = 'DbInputError';
+        this.code = code || 'INVALID_PARAMETER';
+    }
+}
+
+module.exports = { DbQueryError, DbInputError, MUTABLE_ACTION_FIELDS };

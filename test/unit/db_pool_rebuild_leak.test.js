@@ -73,7 +73,15 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
                 return pool;
             })
         };
-        Database = proxyquire(process.env.POOL_REBUILD_TEST_DB_SRC || '../../src/db.js', { mariadb: mockMariadb });
+        // setupConnectionPools moved to src/db/connection.js (proposal B stage 1),
+        // so the mariadb stub and the falsification override both name THAT file:
+        // proxyquire substitutes only a module's own direct requires, and db.js
+        // no longer requires the driver.
+        Database = proxyquire('../../src/db.js', {
+            './db/connection.js': proxyquire(
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                { mariadb: mockMariadb })
+        });
     });
 
     afterEach(function () {

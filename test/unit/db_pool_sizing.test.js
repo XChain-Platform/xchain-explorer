@@ -68,7 +68,13 @@ describe('explorer pool sizing is per dbType', function () {
                 };
             })
         };
-        Database = proxyquire('../../src/db.js', { mariadb: mockMariadb });
+        // The pool code moved to src/db/connection.js (proposal B stage 1), and
+        // proxyquire only substitutes a module's own direct requires: db.js no
+        // longer requires mariadb, so the driver stub goes into the connection
+        // module and that module is handed to db.js.
+        Database = proxyquire('../../src/db.js', {
+            './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
+        });
 
         saved = {};
         for (const k of POOL_ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }

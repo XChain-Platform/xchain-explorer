@@ -98,4 +98,20 @@ class DbInputError extends Error {
     }
 }
 
-module.exports = { DbQueryError, DbInputError, MUTABLE_ACTION_FIELDS };
+// A stale coin is SERVED, not refused. The indexed rows are a true record of
+// the chain up to the tip this instance holds; what a stale tip means is that
+// newer blocks exist somewhere that are not here yet. Refusing the read turned
+// every indexer stall into a whole-coin blackout that presented, through the
+// explorer and every wallet the SDK drives from it, as the network being down,
+// with years of history sitting unread in the database behind a 503. So the
+// data routes answer normally and carry a freshness marker instead (headers on
+// every data response, a `freshness` body field while the coin is stale, and
+// `stale` on /status), and the consumer that knows whether it is reading or
+// spending decides what a stale tip means for it. The old refusal is kept
+// behind this opt-in for a deployment that would rather go dark than serve a
+// tip it cannot vouch for; it mirrors MIRROR_LAG_FAIL_CLOSED for the hub mirror.
+function staleFailClosed() {
+    return process.env.EXPLORER_STALE_FAIL_CLOSED === '1';
+}
+
+module.exports = { DbQueryError, DbInputError, MUTABLE_ACTION_FIELDS, staleFailClosed };

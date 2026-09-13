@@ -3185,7 +3185,7 @@ class XChainExplorer {
 // The explorer's copy of the XCHECKPOINT canonical signing string, byte-identical
 // to the hub's StateCheckpointEngine.canonicalCheckpoint, the indexer's ANCHOR verifier,
 // xchain-sdk/src/checkpoint.js canonicalCheckpoint, xchain-sync/src/checkpoint.js
-// canonicalCheckpoint, xchain-indexer/src/recovery.js's _wrapperCanonical (rebuilds the
+// canonicalCheckpoint, xchain-indexer/bin/recovery.js's wrapperCanonical (rebuilds the
 // same base from parsed ANCHOR bytes), and xchain-hub/src/StateAnchorPublisher.js's
 // _archiveCanonical (nests _rawCanonicalCheckpoint). Six independent sibling copies;
 // all must change in lockstep with this one.

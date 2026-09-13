@@ -41,7 +41,9 @@ const path = require('path');
 const assert = require('assert');
 const { JSDOM } = require('jsdom');
 
-const SRC_DB   = fs.readFileSync(path.resolve(__dirname, '../../src/db.js'), 'utf8');
+// The bet feed readers live in the polls and bets reader family since db.js
+// became the composition root, so the pinned bodies are read from there.
+const SRC_DB   = fs.readFileSync(path.resolve(__dirname, '../../src/db/readers/polls_bets.js'), 'utf8');
 const SRC_JS   = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
 

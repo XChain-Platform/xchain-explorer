@@ -33,6 +33,7 @@ const { expect }     = require('chai');
 const Database       = require('../../src/db.js');
 const ChangeDetector = require('../../src/ws/ChangeDetector.js');
 const Broadcaster    = require('../../src/ws/Broadcaster.js');
+const { envView }    = require('../fixtures/mock-config.js');
 
 const hex = (s) => Buffer.from(s, 'utf8').toString('hex');
 
@@ -41,6 +42,10 @@ function mkDb(rows) {
     const db = Object.create(Database.prototype);
     const Utility = require('../../src/utility.js');
     db.util = new Utility();
+    // The db/ readers read every environment variable through config.js's
+    // env object, so a hand-built Database needs the same key the real
+    // configInfo carries; the fixture's view is live over process.env.
+    db.configInfo = { env: envView };
     db.decoderDb = { RBTC: 'XChain_BTC_Decoder' };
     db.doQuery = sinon.stub().resolves(rows);
     // getMempool TYPE=address forward-resolves the queried address to its index
@@ -180,7 +185,7 @@ describe('decoder mempool surface', () => {
         function mkApiDb(rows) {
             const db = mkDb(rows);
             db.decoderApiUrl = { RBTC: 'http://decoder.example:3002' };
-            db.configInfo = { getConfig: async () => ({
+            db.configInfo = { env: envView, getConfig: async () => ({
                 COIN_NETWORKS: { BTC: {} },
                 COIN_PREFIXES: { mainnet: '', testnet: 'T', regtest: 'R' },
             }) };

@@ -266,7 +266,7 @@ class StakingGovernanceReaders {
                 rows = await this.doQuery(config,
                     'SELECT signing_pubkey, addr, chains, status FROM ' + src.table, []);
             } catch(e){
-                if(process.env.DEBUG) log.debug('FEDERATION_REGISTRY_SCHEMA_FAILED', { err: e && e.message ? e.message : e });
+                if(this.configInfo.env.DEBUG) log.debug('FEDERATION_REGISTRY_SCHEMA_FAILED', { err: e && e.message ? e.message : e });
                 rows = null;
             }
         }
@@ -320,7 +320,7 @@ class StakingGovernanceReaders {
                 'SELECT signing_pubkey, qualified, self_test_ok, enabled FROM ' + src.table, []);
             return Array.isArray(rows) ? rows : null;
         } catch(e){
-            if(process.env.DEBUG) log.debug('FEDERATION_CAPABILITY_SCHEMA_FAILED', { err: e && e.message ? e.message : e });
+            if(this.configInfo.env.DEBUG) log.debug('FEDERATION_CAPABILITY_SCHEMA_FAILED', { err: e && e.message ? e.message : e });
             return null;
         }
     }

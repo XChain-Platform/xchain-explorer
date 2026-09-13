@@ -142,8 +142,12 @@ class DbInputError extends Error {
 // spending decides what a stale tip means for it. The old refusal is kept
 // behind this opt-in for a deployment that would rather go dark than serve a
 // tip it cannot vouch for; it mirrors MIRROR_LAG_FAIL_CLOSED for the hub mirror.
-function staleFailClosed() {
-    return process.env.EXPLORER_STALE_FAIL_CLOSED === '1';
+// configInfo is passed rather than reached through a require: this is a plain
+// function with no `this`, and config.js is the one place allowed to read
+// process.env, so the caller (always a Database method) hands over the config
+// object it already holds.
+function staleFailClosed(configInfo) {
+    return configInfo.env.EXPLORER_STALE_FAIL_CLOSED === '1';
 }
 
 module.exports = { ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS, DbQueryError, DbInputError, staleFailClosed };

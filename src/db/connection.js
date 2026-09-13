@@ -152,7 +152,7 @@ class DatabaseConnection {
     // serve a possibly-stale list because the freshness check itself broke.
     async resultCacheGeneration(config){
         const coin = config.coin;
-        const ttl  = parseInt(process.env.EXPLORER_TIP_MEMO_MS, 10);
+        const ttl  = parseInt(this.configInfo.env.EXPLORER_TIP_MEMO_MS, 10);
         const memo = this._tipMemo[coin];
         if(memo && (Date.now() - memo.at) < (Number.isFinite(ttl) ? ttl : 1000))
             return memo.tip;
@@ -553,7 +553,7 @@ class DatabaseConnection {
                 'point database.checkpoint at an externally-maintained hub schema. Set ' +
                 'ALLOW_NO_COLOCATED_HUB_DB=1 to start anyway (hub-mirrored endpoints then fail loud ' +
                 'per request instead of serving a mirror nothing updates).';
-            if(process.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
+            if(this.configInfo.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
                 log.warn('CHECKPOINT_HUB_URL_MISSING', { coins: unwritable, detail: msg });
             } else {
                 throw new Error(msg);
@@ -569,7 +569,7 @@ class DatabaseConnection {
                 'either self-synced (self_sync: true + HUB_API_URL) or pointing at an ' +
                 'externally-maintained hub schema. Set ALLOW_NO_COLOCATED_HUB_DB=1 to start ' +
                 'anyway (hub-mirrored endpoints will fail loud per request instead).';
-            if(process.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
+            if(this.configInfo.env.ALLOW_NO_COLOCATED_HUB_DB === '1'){
                 log.warn('CHECKPOINT_SCHEMA_MISSING', { coins: missing, detail: msg });
                 return;
             }
@@ -601,7 +601,7 @@ class DatabaseConnection {
                 try {
                     connection = await pool.getConnection();
                 } catch (e){
-                    if(process.env.DEBUG) log.debug('DB_CONNECTION_ERROR', { coin: config && config.coin, err: e && e.message ? e.message : e });
+                    if(this.configInfo.env.DEBUG) log.debug('DB_CONNECTION_ERROR', { coin: config && config.coin, err: e && e.message ? e.message : e });
                     connection = null;
                     if(retryCount <= maxRetrys){
                         retryCount++;
@@ -678,7 +678,7 @@ class DatabaseConnection {
             try {
                 db = await pool.getConnection();
             } catch (e){
-                if(process.env.DEBUG) log.debug('DB_CONNECTION_ERROR', { coin: config && config.coin, err: e && e.message ? e.message : e });
+                if(this.configInfo.env.DEBUG) log.debug('DB_CONNECTION_ERROR', { coin: config && config.coin, err: e && e.message ? e.message : e });
                 db = null;
                 if(retryCount <= maxRetrys){
                     retryCount++;
@@ -694,7 +694,7 @@ class DatabaseConnection {
         try {
             result = await db.query(query, args);
         } catch (error){
-            if(process.env.DEBUG) log.debug('SQL_QUERY_ERROR', { coin: config && config.coin, err: error && error.message, stack: error && error.stack });
+            if(this.configInfo.env.DEBUG) log.debug('SQL_QUERY_ERROR', { coin: config && config.coin, err: error && error.message, stack: error && error.stack });
             else log.error('SQL_QUERY_FAILED', { coin: config && config.coin, err: error.message, stack: error.stack });
             throw new DbQueryError('SQL query failed: ' + (error && error.message), error);
         } finally {

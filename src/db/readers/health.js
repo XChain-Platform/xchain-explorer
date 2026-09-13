@@ -109,9 +109,9 @@ class HealthReaders {
      * @returns {number} max age in seconds, 0 when the gate is disabled
      */
     tipMaxAgeSeconds(coin) {
-        let perCoin = parseInt(process.env['EXPLORER_TIP_MAX_AGE_S_' + String(coin).toUpperCase()], 10);
+        let perCoin = parseInt(this.configInfo.env['EXPLORER_TIP_MAX_AGE_S_' + String(coin).toUpperCase()], 10);
         if (Number.isFinite(perCoin) && perCoin >= 0) return perCoin;
-        let global = parseInt(process.env.EXPLORER_TIP_MAX_AGE_S, 10);
+        let global = parseInt(this.configInfo.env.EXPLORER_TIP_MAX_AGE_S, 10);
         if (Number.isFinite(global) && global >= 0) return global;
         return TIP_MAX_AGE_DEFAULT_S;
     }
@@ -125,9 +125,9 @@ class HealthReaders {
      * @returns {number} max future skew in seconds, 0 when the check is disabled
      */
     tipMaxFutureSkewSeconds(coin) {
-        let perCoin = parseInt(process.env['EXPLORER_TIP_MAX_FUTURE_SKEW_S_' + String(coin).toUpperCase()], 10);
+        let perCoin = parseInt(this.configInfo.env['EXPLORER_TIP_MAX_FUTURE_SKEW_S_' + String(coin).toUpperCase()], 10);
         if (Number.isFinite(perCoin) && perCoin >= 0) return perCoin;
-        let global = parseInt(process.env.EXPLORER_TIP_MAX_FUTURE_SKEW_S, 10);
+        let global = parseInt(this.configInfo.env.EXPLORER_TIP_MAX_FUTURE_SKEW_S, 10);
         if (Number.isFinite(global) && global >= 0) return global;
         return TIP_MAX_FUTURE_SKEW_DEFAULT_S;
     }
@@ -171,7 +171,7 @@ class HealthReaders {
      * @returns {boolean}
      */
     staleFailClosed() {
-        return staleFailClosed();
+        return staleFailClosed(this.configInfo);
     }
 
     // Cached per-coin freshness snapshot: the newest indexed block, how old it is
@@ -363,7 +363,7 @@ class HealthReaders {
     // unconfigured/unreachable with nothing cached.
     async getDecoderMempoolSnapshot(config){
         const code = config.coin;
-        const ttl  = parseInt(process.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
+        const ttl  = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
         const now  = Date.now();
         this._mempoolApiCache = this._mempoolApiCache || {};
         const hit = this._mempoolApiCache[code];
@@ -421,7 +421,7 @@ class HealthReaders {
         // dbName is config-derived, not client input, but database identifiers
         // can't be bound; restrict to a safe identifier charset before use.
         if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return 0;
-        const ttl = parseInt(process.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
+        const ttl = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
         const now = Date.now();
         this._mempoolCountCache = this._mempoolCountCache || {};
         const hit = this._mempoolCountCache[config.coin];
@@ -613,10 +613,10 @@ class HealthReaders {
     // configured or it's unreachable.
     async getFeeEstimate(config) {
         const fallback = { low: 1, medium: 2, high: 3 };
-        const base = process.env.ENCODER_URL;
+        const base = this.configInfo.env.ENCODER_URL;
         if(!base) return fallback;
         const code = config.coin;
-        const ttl  = parseInt(process.env.FEE_CACHE_MS, 10) || 60000;
+        const ttl  = parseInt(this.configInfo.env.FEE_CACHE_MS, 10) || 60000;
         const now  = Date.now();
         this._feeCache = this._feeCache || {};
         const hit = this._feeCache[code];
@@ -655,7 +655,7 @@ class HealthReaders {
     // null and getNetwork keeps the $0.00 placeholder. Returns a price string
     // (8-decimal, as published) or null.
     async getCoinPriceUsd(config) {
-        const hubUrl = process.env.HUB_URL;
+        const hubUrl = this.configInfo.env.HUB_URL;
         if(!hubUrl) return null;
         // Resolve the base mainnet symbol. The oracle only prices the real asset,
         // so a request is eligible only when its route code IS the base symbol
@@ -670,7 +670,7 @@ class HealthReaders {
         } catch(e){ return null; }
         if(!sym) return null;
 
-        const ttl = parseInt(process.env.PRICE_CACHE_MS, 10) || 60000;
+        const ttl = parseInt(this.configInfo.env.PRICE_CACHE_MS, 10) || 60000;
         const now = Date.now();
         this._priceCache = this._priceCache || {};
         const hit = this._priceCache[sym];

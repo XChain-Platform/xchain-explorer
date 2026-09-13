@@ -223,13 +223,13 @@ class ContractReaders {
 
             // Feature discovery for the contract page's Read Contract card:
             // mirrors the env gate on POST /{COIN}/api/contract/{idx}/call.
-            row.vm_query_enabled = process.env.EXPLORER_VM_QUERY_ENABLED === 'true';
+            row.vm_query_enabled = this.configInfo.env.EXPLORER_VM_QUERY_ENABLED === 'true';
 
             // Wallet handoff target for the Write Contract card. An explicitly
             // EMPTY EXPLORER_WALLET_URL disables the card, so only default over
             // an unset variable, never over ''.
-            row.wallet_url = process.env.EXPLORER_WALLET_URL !== undefined
-                ? process.env.EXPLORER_WALLET_URL : 'https://wallet.xchain.io';
+            row.wallet_url = this.configInfo.env.EXPLORER_WALLET_URL !== undefined
+                ? this.configInfo.env.EXPLORER_WALLET_URL : 'https://wallet.xchain.io';
 
             data = row;
         }

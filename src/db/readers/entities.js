@@ -269,7 +269,7 @@ class EntityReaders {
     // unreachable, so getAddress can fall back to an honest "Unavailable" instead of fake values.
     async getAddressTrackerInfo(config, address){
         const code = config.coin;
-        const base = process.env['UTXO_TRACKER_URL_' + code] || process.env.UTXO_TRACKER_URL;
+        const base = this.configInfo.env['UTXO_TRACKER_URL_' + code] || this.configInfo.env.UTXO_TRACKER_URL;
         if(!base || !address) return null;
         try {
             const url = base.replace(/\/+$/, '') + '/info/' + encodeURIComponent(address);
@@ -703,7 +703,7 @@ class EntityReaders {
     // own ('none') rather than falling through to null.
     async totalsTipGeneration(config){
         const coin = config.coin;
-        const ttl  = parseInt(process.env.EXPLORER_TIP_MEMO_MS, 10);
+        const ttl  = parseInt(this.configInfo.env.EXPLORER_TIP_MEMO_MS, 10);
         if(!this._totalsTipMemo) this._totalsTipMemo = {};
         const memo = this._totalsTipMemo[coin];
         if(memo && (Date.now() - memo.at) < (Number.isFinite(ttl) ? ttl : 1000))
@@ -744,7 +744,7 @@ class EntityReaders {
     // separate cache with its own recovery path, not a browser HTTP cache.
     async getActionTotals(config){
         const coin = config.coin;
-        const ttl  = parseInt(process.env.EXPLORER_TOTALS_CACHE_MS, 10) || 60000;
+        const ttl  = parseInt(this.configInfo.env.EXPLORER_TOTALS_CACHE_MS, 10) || 60000;
         const gen  = await this.totalsTipGeneration(config);
         // Only the newest generation for a coin is ever useful, so keep one entry per coin
         // and compare its key rather than accumulating an entry per block.
@@ -943,7 +943,7 @@ class EntityReaders {
                 // tip_age_seconds, last_block and indexer_state to draw its degraded
                 // banner. Only the fail-closed opt-in still delists it, because
                 // there the data routes really do answer 503.
-                if (data.stale[coin] && staleFailClosed()) delete data.available[coin];
+                if (data.stale[coin] && staleFailClosed(this.configInfo)) delete data.available[coin];
                 // Published beside stale, not folded into it: a halted replica keeps
                 // reporting a small lag until its source mints past it, so stale
                 // detects it eventually and halted detects it immediately.

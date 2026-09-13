@@ -26,6 +26,7 @@
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const Database   = require('../../src/db.js');
+const { envView } = require('../fixtures/mock-config.js');
 
 function mkDb(rows) {
     const db = Object.create(Database.prototype);
@@ -33,6 +34,10 @@ function mkDb(rows) {
     db.util = new Utility();
     db.decoderDb = { RBTC: 'XChain_BTC_Decoder' };
     db.doQuery = sinon.stub().resolves(rows);
+    // The db/ readers read every environment variable through config.js's
+    // frozen `env` object (row 19), so a hand-built Database needs the same key
+    // the real configInfo carries; the fixture's view is live over process.env.
+    db.configInfo = { env: envView };
     return db;
 }
 

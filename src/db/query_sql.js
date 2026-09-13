@@ -87,7 +87,7 @@ class QueryBuilder {
                 cacheKey = [config.coin, this._reorgGen[config.coin] || 0, gen,
                             config.type, config.data.type, config.data.search,
                             q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action].join('|');
-                const ttl = parseInt(process.env[envPrefix + '_MS'], 10) || 15000;
+                const ttl = parseInt(this.configInfo.env[envPrefix + '_MS'], 10) || 15000;
                 if(!this[cacheName]) this[cacheName] = new Map();
                 const hit = this[cacheName].get(cacheKey);
                 if(hit && (Date.now() - hit.at) < ttl)
@@ -198,7 +198,7 @@ class QueryBuilder {
         // cache without bound.
         if(cacheKey !== null){
             const envPrefix = RESULT_CACHES[config.data.method][1];
-            const MAX = parseInt(process.env[envPrefix + '_MAX'], 10) || 500;
+            const MAX = parseInt(this.configInfo.env[envPrefix + '_MAX'], 10) || 500;
             if(this[cacheName].size >= MAX)
                 this[cacheName].delete(this[cacheName].keys().next().value);
             this[cacheName].set(cacheKey, { at: Date.now(), data, total });

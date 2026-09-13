@@ -29,6 +29,7 @@
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const Database   = require('../../src/db.js');
+const { envView } = require('../fixtures/mock-config.js');
 const Utility    = require('../../src/utility.js');
 
 // `ids` maps address -> index id; anything absent resolves null (never indexed).
@@ -39,6 +40,10 @@ function mkDb(rows, ids) {
     db.doQuery   = sinon.stub().resolves(rows);
     db.getExactAddressId = sinon.stub().callsFake(async (config, address) =>
         Object.prototype.hasOwnProperty.call(ids || {}, address) ? ids[address] : null);
+    // The db/ readers read every environment variable through config.js's
+    // frozen `env` object (row 19), so a hand-built Database needs the same key
+    // the real configInfo carries; the fixture's view is live over process.env.
+    db.configInfo = { env: envView };
     return db;
 }
 

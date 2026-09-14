@@ -93,7 +93,6 @@ describe('db.mempoolRowMatchesAddress (shared REST/WS matcher)', () => {
 });
 
 describe('db.getMempool TYPE=address forward-resolves ^<id> (M1.1)', () => {
-
     it('matches a destination that arrived COMPACTED as ^<id>', async () => {
         const db = mkDb([COMPACT_ROW, MINT_ROW], { destAddr: 42 });
         const [data, , total] = await db.getMempool(cfg('destAddr', 'address'));
@@ -148,7 +147,9 @@ describe('db.getMempool TYPE=address forward-resolves ^<id> (M1.1)', () => {
         expect(data[0].tx_hash).to.equal('cc33');                   // uppercased tick match
         expect(db.getExactAddressId.called).to.equal(false);
     });
+});
 
+describe('db.getMempool TYPE=address forward-resolves ^<id> (M1.1)', () => {
     it('never resolves an id in list-all mode, and lists every decoded row', async () => {
         const db = mkDb([COMPACT_ROW, MINT_ROW], { destAddr: 42 });
         const [data, args, total] = await db.getMempool(cfg(null, null));

@@ -88,5 +88,6 @@ class XChainDecoderConnector {
     }
 }
 
-module.exports = XChainDecoderConnector;
-module.exports.resolveDecoderUrl = resolveDecoderUrl;
+// One export shape: the class is the export and the URL resolver hangs on it,
+// so a requirer reads DecoderConnector.resolveDecoderUrl exactly as before.
+module.exports = Object.assign(XChainDecoderConnector, { resolveDecoderUrl });

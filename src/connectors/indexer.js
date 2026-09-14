@@ -107,5 +107,6 @@ class XChainIndexerConnector {
     }
 }
 
-module.exports = XChainIndexerConnector;
-module.exports.resolveIndexerUrl = resolveIndexerUrl;
+// One export shape: the class is the export and the URL resolver hangs on it,
+// so a requirer reads IndexerConnector.resolveIndexerUrl exactly as before.
+module.exports = Object.assign(XChainIndexerConnector, { resolveIndexerUrl });

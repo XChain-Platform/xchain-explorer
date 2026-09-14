@@ -293,6 +293,7 @@ describe('/explorer/validators datatables row shape', function () {
     });
 });
 
+// Reads the browser script and page markup that actually ship, not copies, so drift in either breaks this test
 describe('client: the validators table renders the hub registry columns', function () {
 
     // formatters.js is read alongside xchain.js because the cell-rendering helpers

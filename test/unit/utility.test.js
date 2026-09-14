@@ -183,7 +183,9 @@ describe('Utility', function () {
         });
 
         it('respects decimal precision truncation', function () {
-            // Repeating-decimal operand so truncation to 4 places is meaningfully tested.
+            // Repeating-decimal operand so truncation to 4 places is meaningfully tested:
+            // 1 minus 0.666... has far more than 4 digits, so 0.3333 only comes back if
+            // the result is really cut to the requested precision.
             const result = u.bcsub('1', '0.6666666666666666666', 4);
             expect(result.toString()).to.equal('0.3333');
         });
@@ -282,6 +284,7 @@ describe('Utility', function () {
 
     });
 
+    // Comparison operators: amounts are compared as exact decimals, never as rounded floating-point numbers
     describe('bcgt()', function () {
 
         let u;
@@ -760,6 +763,8 @@ describe('Utility', function () {
             u.logTimer(t, 'Quick');
             const output = stub.firstCall.args[0];
             // At ~0ms timeString is '', so no tab section should be appended.
+            // A slow run can tick past 0ms and print a timing, so a tab is tolerated, which
+            // means this check alone cannot catch the condition being forced to always true.
             expect(output).to.satisfy(s => s === 'Quick' || s.includes('\t'));
         });
 

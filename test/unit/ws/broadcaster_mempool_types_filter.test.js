@@ -105,7 +105,6 @@ const frames = (client) => client.ws.send.getCalls().map((c) => JSON.parse(c.arg
 const MINT_PAIR = [[], [MINT_ROW], []];
 
 describe('Broadcaster mempool frames under a types filter', () => {
-
     it('gives a types:[MINT] subscriber BOTH frames of a MINT', async () => {
         const venue = mkVenue(MINT_PAIR);
         const mint  = subscribe(venue, 1, ['MINT']);
@@ -161,7 +160,9 @@ describe('Broadcaster mempool frames under a types filter', () => {
 
         expect(types(client)).to.deep.equal(['MEMPOOL_ACTION', 'MEMPOOL_REMOVED']);
     });
+});
 
+describe('Broadcaster mempool frames under a types filter', () => {
     // An undecodable row announced no action and claims no family, so its
     // removal reaches whoever filtered on nothing and nobody who named a family.
     it('withholds a nameless removal from a types-filtered subscriber, not from an unfiltered one', async () => {

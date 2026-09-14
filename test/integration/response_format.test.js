@@ -45,7 +45,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-describe('Response Format', function () {
+function registerResponseHeaders() {
 
     it('API responses have correct Content-Type', async function () {
         const res = await request.get('/RBTC/api/sends/5/block');
@@ -83,6 +83,10 @@ describe('Response Format', function () {
         expect(res.headers).to.not.have.property('xchain-runtime-ms');
         expect(res.body).to.have.property('runtime');
     });
+
+}
+
+function registerResponseShapes() {
 
     it('API response properties are alphabetically sorted', async function () {
         const res = await request.get('/RBTC/api/sends/5/block');
@@ -124,6 +128,10 @@ describe('Response Format', function () {
         expect(res.body.runtime).to.match(/\d+/);
     });
 
+}
+
+function registerResponseValues() {
+
     it('null fields are actual null not string "null"', async function () {
         // action_index 9 is a send with no memo_id (memo_id is NULL in the seed)
         const res = await request.get('/RBTC/api/sends/5/block');
@@ -150,5 +158,10 @@ describe('Response Format', function () {
             expect(row.amount).to.match(/^\d+\.\d{8}$/);
         }
     });
+}
 
+describe('Response Format', function () {
+    registerResponseHeaders();
+    registerResponseShapes();
+    registerResponseValues();
 });

@@ -32,7 +32,7 @@
 
 const assert = require('assert');
 const M      = require('../../src/merkle.js');
-const ProofServer = require('../../src/proofServer.js');
+const ProofServer = require('../../src/http/proof_server.js');
 const XChainExplorer = require('../../src/XChainExplorer.js');
 
 const EMPTY_ROOT = M.toHex(M.EMPTY_SMT_ROOT);

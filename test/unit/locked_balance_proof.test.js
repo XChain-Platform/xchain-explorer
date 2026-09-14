@@ -30,7 +30,7 @@
 const assert = require('assert');
 const M      = require('../../src/merkle.js');
 const SUB    = require('../../src/state_subtree_activation.js');
-const ProofServer = require('../../src/proofServer.js');
+const ProofServer = require('../../src/http/proof_server.js');
 
 const EMPTY_ROOT = M.toHex(M.EMPTY_SMT_ROOT);
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);

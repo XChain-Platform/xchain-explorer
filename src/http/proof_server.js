@@ -29,9 +29,9 @@
 
 'use strict';
 
-const M   = require('./merkle.js');
-const SUB = require('./state_subtree_activation.js');   // byte-identical fourth carrier; escrow-leaf liveness only
-const swq = require('./stake_weighted_quorum.js');
+const M   = require('../merkle.js');
+const SUB = require('../state_subtree_activation.js');   // byte-identical fourth carrier; escrow-leaf liveness only
+const swq = require('../stake_weighted_quorum.js');
 
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
 

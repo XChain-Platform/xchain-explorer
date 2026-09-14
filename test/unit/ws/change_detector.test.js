@@ -41,6 +41,9 @@ describe('ChangeDetector', function () {
         if (clock) { clock.restore(); clock = null; }
     });
 
+    // The first poll seeds the cursors and emits nothing, because everything at or
+    // below the tip already happened: replaying it would tell every subscriber that
+    // old blocks and actions are arriving right now.
     describe('initialization', function () {
 
         it('seeds state on first poll without emitting events', async function () {
@@ -51,6 +54,8 @@ describe('ChangeDetector', function () {
             cd.on('block', blockSpy);
             cd.on('action', actionSpy);
 
+            // Drive one pass by hand rather than letting the timer run, so the seeding
+            // step can be observed on its own.
             cd.state['BTC'] = { blockIndex: 0, actionIndex: 0, initialized: false };
             await cd.checkCoin('BTC');
 
@@ -168,6 +173,8 @@ describe('ChangeDetector', function () {
 
             await cd.checkCoin('BTC');
 
+            // Two frames, not one: the match itself, then the COINPAY_REQUIRED that
+            // tells the paying side it now owes an on-chain payment.
             expect(lifecycleSpy.callCount).to.equal(2);
             const types = lifecycleSpy.getCalls().map(c => c.args[1].type);
             expect(types).to.include('ORDER_MATCH');
@@ -247,6 +254,8 @@ describe('ChangeDetector', function () {
         });
     });
 
+    // The deadline latch is the one BET transition with no action row behind it, so it
+    // needs a cursor of its own over closed_block (spec §11.1).
     describe('bet latch cursor', function () {
 
         // Feeds the fake getBetFeedsClosedSince hands back, filtered by the cursor

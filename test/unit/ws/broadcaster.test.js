@@ -22,6 +22,9 @@ const EventEmitter = require('events');
 const ChannelManager = require('../../../src/ws/channel_manager.js');
 const Broadcaster    = require('../../../src/ws/broadcaster.js');
 
+// A socket the broadcaster will actually send on: OPEN, and with nothing queued,
+// because the backpressure gate silently skips any client whose buffered bytes sit
+// above the cap.
 function createMockWs() {
     return {
         readyState:     1, // OPEN
@@ -30,6 +33,9 @@ function createMockWs() {
     };
 }
 
+// A connected client the way the server tracks one. Its coin is half of every channel
+// key it can receive on, and `subscriptions` is the set a spent once-subscription is
+// removed from.
 function createClient(id, coin, ws) {
     return {
         id:            id,
@@ -41,10 +47,15 @@ function createClient(id, coin, ws) {
     };
 }
 
+// The broadcaster never calls the change detector, it only listens to it, so a bare
+// EventEmitter is a complete stand-in: emitting on it is exactly what a real poll does.
 function createMockChangeDetector() {
     return new EventEmitter();
 }
 
+// The two things the broadcaster reads off its server: a REAL ChannelManager, so
+// routing and filters are exercised rather than faked, and the client map it looks
+// each subscriber up in.
 function createMockWsServer() {
     const cm = new ChannelManager({ maxSubscriptions: 25 });
     const clients = new Map();
@@ -236,9 +247,9 @@ describe('Broadcaster', function () {
         });
 
         it('omits the destination field from NEW_ACTION (honesty contract)', function () {
-            // The block-derived actions feed never selects a destination column, so
-            // the live event shape must not advertise routing it cannot honor: even
-            // when the raw action carries a destination, the emitted event omits it.
+            // The block-derived actions feed never selects a destination column, and the
+            // catch-up replay path already omits the field, so the live shape must match
+            // it: a raw action carrying a destination still emits an event without one.
             const client = createClient(1, 'BTC');
             wsServer.addClient(client);
             wsServer.channelManager.subscribe(client, ['actions']);
@@ -317,6 +328,8 @@ describe('Broadcaster', function () {
                 action_index: 501, action: 'SEND', source: '1abc', status: 'valid'
             });
 
+            // This client subscribed to one address, not to the global actions feed, so
+            // the frame reached it only because the action named that address.
             expect(client.ws.send.called).to.be.true;
         });
 
@@ -350,6 +363,8 @@ describe('Broadcaster', function () {
             expect(unsubMsg.type).to.equal('UNSUBSCRIBED');
             expect(unsubMsg.data.reason).to.equal('once');
 
+            // A once-subscription is spent by the first frame that matches it, so the
+            // client is left holding none and will receive nothing further.
             expect(client.subscriptions.size).to.equal(0);
         });
     });

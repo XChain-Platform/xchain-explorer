@@ -42,8 +42,7 @@ const CIPHERTEXT = Buffer.from('aabbccddeeff', 'hex');
 
 const DECODER_DB = 'XChain_BTC_Regtest_Decoder';
 
-before(async function () {
-    this.timeout(30000);
+async function seedIndexerFixtures() {
     await db.setupDatabase();
 
     // --- NFT-pattern token seeds (on top of the baseline fixture) ----------
@@ -80,7 +79,9 @@ before(async function () {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci`);
     await db.query(`INSERT IGNORE INTO gated_files (action_index, gate_ticker, encryption_method, key_hash, status_id, raw_data) VALUES
         (96, 'PEPEUNIQUE', 1, '${'a'.repeat(64)}', 1, ?)`, [CIPHERTEXT]);
+}
 
+async function seedDecoderFixtures() {
     // --- Decoder DB (colocated, same creds; matches src/config behavior) ---
     // The decoder numbers tx_index independently of the indexer, so the seeds
     // deliberately use DIFFERENT tx_index values (505/507). The explorer must
@@ -107,7 +108,12 @@ before(async function () {
     await db.query(`INSERT IGNORE INTO ${DECODER_DB}.transactions (tx_index, tx_hash_id, block_index, data, raw_data) VALUES
         (505, 505, 3, 'FILE|0|pepe.png', ?),
         (507, 507, 4, 'FILE|0|page.html', ?)`, [PNG_BYTES, HTML_BYTES]);
+}
 
+before(async function () {
+    this.timeout(30000);
+    await seedIndexerFixtures();
+    await seedDecoderFixtures();
     const { app } = await createApp();
     request = supertest(app);
 });

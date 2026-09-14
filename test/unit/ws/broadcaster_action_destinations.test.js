@@ -125,6 +125,10 @@ describe('Broadcaster NEW_ACTION destination fan-out (M1.4)', () => {
         expect(got[0].data.destinations).to.deep.equal(['destA', 'destB']);
     });
 
+});
+
+describe('Broadcaster NEW_ACTION destination fan-out (M1.4)', () => {
+
     it('delivers a MULTI-OUTPUT send to EVERY destination channel', () => {
         const venue = mkVenue();
         const a     = subscribeAddress(venue, 2, 'destA');
@@ -151,6 +155,10 @@ describe('Broadcaster NEW_ACTION destination fan-out (M1.4)', () => {
         expect(frames(src)[0].data.destinations).to.deep.equal([]);
         expect(other.ws.send.callCount).to.equal(0);
     });
+
+});
+
+describe('Broadcaster NEW_ACTION destination fan-out (M1.4)', () => {
 
     it('does NOT double-broadcast when a destination equals the source', () => {
         const venue = mkVenue();

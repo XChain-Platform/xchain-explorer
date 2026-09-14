@@ -41,10 +41,7 @@ let request;
 // 10. Cooldown gating is resolved against this tip.
 const TIP = 10;
 
-before(async function () {
-    this.timeout(30000);
-    await db.setupDatabase();
-
+async function seedContracts() {
     // DEPLOY action type (not in the baseline index_actions set) + the actions/
     // transactions chain the contract SELECT joins through.
     await db.query(`INSERT IGNORE INTO index_actions (id, action) VALUES (20,'DEPLOY')`);
@@ -65,7 +62,9 @@ before(async function () {
     await db.query(`INSERT IGNORE INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format) VALUES (91, 6, 61, 0, 20, 0)`);
     await db.query(`INSERT IGNORE INTO contracts (action_index, source_id, code, code_hash, api_version, status_id, block_index) VALUES
         (91, 60, 'module.exports={}', 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef0', 1, 1, 6)`);
+}
 
+async function seedTokenControllers() {
     // --- Token controller bindings (TOKENONE = tick_id 2) -------------------
     // transfer → guard 90 (active bind)
     await db.query(`INSERT IGNORE INTO token_controllers
@@ -88,7 +87,9 @@ before(async function () {
         (106, 2, 'mint', 91, 1, 1, 5, 15, 9)`);
 
     // --- A token with NO bindings (TOKENTWO = tick_id 3): no rows ----------
+}
 
+async function seedAddressControllers() {
     // --- Address controller bindings (addr id 1) ---------------------------
     await db.query(`INSERT IGNORE INTO address_controllers
         (action_index, address_id, action_class, contract_index, is_unbind, cooldown_blocks, cooldown_end_block, block_index) VALUES
@@ -98,7 +99,14 @@ before(async function () {
         (action_index, address_id, action_class, contract_index, is_unbind, cooldown_blocks, cooldown_end_block, block_index) VALUES
         (111, 2, 'transfer', 90, 0, 3, NULL, 2),
         (112, 2, 'transfer', 90, 1, 3, 7, 4)`);
+}
 
+before(async function () {
+    this.timeout(30000);
+    await db.setupDatabase();
+    await seedContracts();
+    await seedTokenControllers();
+    await seedAddressControllers();
     const { app } = await createApp();
     request = supertest(app);
 });

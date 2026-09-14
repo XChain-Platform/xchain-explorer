@@ -81,7 +81,6 @@ function makeDoQuery(opts) {
 }
 
 describe('getActionData: transaction-less / row-less action rendering @regression', function() {
-
     it('de-blanks a branchless mirror-injected type (XEXEC) with baseline fields', async function() {
         const db = makeDb();
         db.doQuery = makeDoQuery({
@@ -130,7 +129,9 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         expect(data.gas_used).to.equal('12000');
         expect(data.block_index).to.equal(710);
     });
+});
 
+describe('getActionData: transaction-less / row-less action rendering @regression', function() {
     it('CROSS_SETTLE renders its cross_chain_settlements row (match_id / local offer / both legs)', async function() {
         const db = makeDb();
         db.doQuery = async function(config, sql, args) {
@@ -180,7 +181,9 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         expect(Number(data.version)).to.equal(2);
         expect(data.signatures).to.be.an('array').that.is.empty;
     });
+});
 
+describe('getActionData: transaction-less / row-less action rendering @regression', function() {
     it('UNSTAKE v2 completion surfaces the returned credit as the amount', async function() {
         const db = makeDb();
         db.doQuery = makeDoQuery({

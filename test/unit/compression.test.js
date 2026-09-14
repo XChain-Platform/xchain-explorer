@@ -74,6 +74,10 @@ describe('explorer FILE decompression', function () {
         });
     });
 
+});
+
+describe('explorer FILE decompression', function () {
+
     // A FILE may ride inside a BATCH, and what the serve path is handed is the
     // decoder's TRANSACTION-level string, so the marker arrives wrapped. Reading
     // it as a non-FILE served deflated bytes inline under the declared MIME.
@@ -123,6 +127,10 @@ describe('explorer FILE decompression', function () {
         });
     });
 
+});
+
+describe('explorer FILE decompression', function () {
+
     describe('resolveServedBytes', function () {
         it('inflates a compressed public FILE and reports both sizes', async function () {
             const r = await compression.resolveServedBytes(DEFLATED, PUBLIC_COMPRESSED);
@@ -166,6 +174,10 @@ describe('explorer FILE decompression', function () {
         });
     });
 
+});
+
+describe('explorer FILE decompression', function () {
+
     describe('fail-closed serving', function () {
         it('a lying field over plain text serves stored bytes with an indicator', async function () {
             const plain = Buffer.from('I am not deflate output', 'utf8');
@@ -202,6 +214,14 @@ describe('explorer FILE decompression', function () {
             assert.strictEqual(r.error, 'RATIO_GUARD_TRIPPED');
         });
 
+    });
+
+});
+
+describe('explorer FILE decompression', function () {
+
+    describe('fail-closed serving', function () {
+
         it('a payload just UNDER the ratio guard still serves', async function () {
             // Guard boundary from the safe side: this must not be rejected.
             const body = Buffer.from(crypto.randomBytes(200000).toString('hex'), 'utf8');
@@ -231,6 +251,10 @@ describe('explorer FILE decompression', function () {
             }
         });
     });
+
+});
+
+describe('explorer FILE decompression', function () {
 
     describe('round trip with the encoder (sibling-gated)', function () {
         const path = require('path');

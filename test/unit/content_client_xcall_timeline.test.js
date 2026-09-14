@@ -231,7 +231,9 @@ describe('xcall.html lifecycle timeline @regression', function () {
         const t = timeline({ ...COMPLETED, resolved_block: 900500, deadline_block: 900500 });
         expect(t.domState.deadline).to.equal('done');
     });
+});
 
+describe('xcall.html lifecycle timeline @regression', function () {
     it('[rejected] a reverted far-chain execution and a skipped callback are told apart from success', function () {
         const t = timeline({
             ...COMPLETED, result_status: 'reverted',
@@ -271,7 +273,9 @@ describe('xcall.html lifecycle timeline @regression', function () {
         const t = timeline({ ...COMPLETED, execution: null });
         expect(t.domState.execution).to.equal('missing');
     });
+});
 
+describe('xcall.html lifecycle timeline @regression', function () {
     it('[page] loads the singular API route and renders the timeline from a bare object', async function () {
         const $ = await page('success', COMPLETED);
         expect($('#xcall-timeline .xcall-phase').length).to.equal(5);

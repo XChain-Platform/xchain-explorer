@@ -52,16 +52,22 @@ function domWith(html){
 }
 
 function noopMount(){ return 'mounted'; }
+function registerWidget(){
+    XCComponents.register('widget', {
+        props: {
+            id:      { type: 'string',  required: true },
+            rows:    { type: 'array' },
+            size:    { type: 'number',  default: 10 },
+            open:    { type: 'boolean', default: true },
+            query:   { type: 'string' }
+        },
+        mount: noopMount
+    });
+}
 
 describe('component registry and runtime (M2.1)', function () {
-
-    beforeEach(function () {
-        XCComponents.reset();
-    });
-
-    afterEach(function () {
-        delete global.document;
-    });
+    beforeEach(function () { XCComponents.reset(); });
+    afterEach(function () { delete global.document; });
 
     describe('register', function () {
 
@@ -86,20 +92,15 @@ describe('component registry and runtime (M2.1)', function () {
         });
     });
 
+});
+
+describe('component registry and runtime (M2.1)', function () {
+    beforeEach(function () { XCComponents.reset(); });
+    afterEach(function () { delete global.document; });
+
     describe('validate', function () {
 
-        beforeEach(function () {
-            XCComponents.register('widget', {
-                props: {
-                    id:      { type: 'string',  required: true },
-                    rows:    { type: 'array' },
-                    size:    { type: 'number',  default: 10 },
-                    open:    { type: 'boolean', default: true },
-                    query:   { type: 'string' }
-                },
-                mount: noopMount
-            });
-        });
+        beforeEach(function () { return registerWidget.call(this); });
 
         it('fills declared defaults without touching the caller object', function () {
             const input = { id: 'a' };
@@ -144,6 +145,12 @@ describe('component registry and runtime (M2.1)', function () {
         });
     });
 
+});
+
+describe('component registry and runtime (M2.1)', function () {
+    beforeEach(function () { XCComponents.reset(); });
+    afterEach(function () { delete global.document; });
+
     describe('mount', function () {
 
         it('mounts into an element resolved by id and records it', function () {
@@ -185,6 +192,12 @@ describe('component registry and runtime (M2.1)', function () {
             assert.match(res.errors[0], /is not on the page/);
         });
     });
+
+});
+
+describe('component registry and runtime (M2.1)', function () {
+    beforeEach(function () { XCComponents.reset(); });
+    afterEach(function () { delete global.document; });
 
     describe('mountManifest', function () {
 
@@ -228,6 +241,12 @@ describe('component registry and runtime (M2.1)', function () {
         });
     });
 
+});
+
+describe('component registry and runtime (M2.1)', function () {
+    beforeEach(function () { XCComponents.reset(); });
+    afterEach(function () { delete global.document; });
+
     describe('resolveOrder and permuteRows: the ordering contract three components share', function () {
 
         it('keeps array order when the config asks for nothing', function () {
@@ -258,6 +277,16 @@ describe('component registry and runtime (M2.1)', function () {
             assert.deepEqual(XCComponents.resolveOrder(null), []);
         });
 
+    });
+
+});
+
+describe('component registry and runtime (M2.1)', function () {
+    beforeEach(function () { XCComponents.reset(); });
+    afterEach(function () { delete global.document; });
+
+    describe('resolveOrder and permuteRows: the ordering contract three components share', function () {
+
         it('reorders a tbody to match the config', function () {
             const dom = domWith('<table><tbody id="b">'
                 + '<tr id="r0"><th>A</th><td>1</td></tr>'
@@ -279,6 +308,16 @@ describe('component registry and runtime (M2.1)', function () {
             XCComponents.permuteRows(tbody, [{ hidden: true }, {}]);
             assert.deepEqual([...tbody.children].map((r) => r.id), ['r1']);
         });
+
+    });
+
+});
+
+describe('component registry and runtime (M2.1)', function () {
+    beforeEach(function () { XCComponents.reset(); });
+    afterEach(function () { delete global.document; });
+
+    describe('resolveOrder and permuteRows: the ordering contract three components share', function () {
 
         it('LEAVES THE TABLE ALONE when the config and the markup disagree on row count', function () {
             // The dangerous case. If the page grew a row the config does not know
@@ -315,6 +354,12 @@ describe('component registry and runtime (M2.1)', function () {
             assert.deepEqual([...tbody.children].map((r) => r.id), ['r0', 'r1']);
         });
     });
+
+});
+
+describe('component registry and runtime (M2.1)', function () {
+    beforeEach(function () { XCComponents.reset(); });
+    afterEach(function () { delete global.document; });
 
     describe('load-order contract with xchain.js', function () {
 

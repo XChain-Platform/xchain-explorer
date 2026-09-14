@@ -42,7 +42,7 @@
 
 const mariadb = require('mariadb');
 const poolSizing = require('../mirror/pool_sizing');
-const { resolveHubUrl } = require('../hub-mirror-url.js');
+const { resolveHubUrl } = require('../mirror/url.js');
 const { DbQueryError, MUTABLE_ACTION_FIELDS } = require('./shared.js');
 
 // Structured logging. Cached at require time on purpose: getLogger() resolves

@@ -27,7 +27,7 @@
  *
  * Opt-in per coin/network via database.checkpoint.self_sync = true, plus a hub
  * REST base URL (database.checkpoint.hub_url, else the HUB_API_URL env; see
- * hub-mirror-url.js) and HUB_API_KEY when the hub gates its feed. With no
+ * mirror/url.js) and HUB_API_KEY when the hub gates its feed. With no
  * self_sync flags set this manager is a no-op and deployments that point
  * database.checkpoint at an externally-maintained hub schema behave exactly
  * as before.
@@ -52,7 +52,7 @@
 const HubDbSync     = require('../hub/hub_db_sync.js');
 const HubMirrorPool = require('./pool.js');
 const { ensureMirrorColumns } = require('./migrate.js');
-const { resolveHubUrl }       = require('../hub-mirror-url.js');
+const { resolveHubUrl }       = require('./url.js');
 const path          = require('path');
 
 // How often an unconfigured self_sync target re-reports itself. A single boot

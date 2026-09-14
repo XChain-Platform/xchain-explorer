@@ -21,7 +21,7 @@ const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const Utility    = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { resolveHubUrl }        = require('../../src/hub-mirror-url.js');
+const { resolveHubUrl }        = require('../../src/mirror/url.js');
 
 const Database = proxyquire('../../src/db.js', {
     mariadb: { createPool: () => ({}) }

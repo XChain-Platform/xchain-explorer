@@ -74,7 +74,6 @@ function emissionsConfig(type, search, extras = {}) {
 }
 
 describe('Database#getEmissions (M3.1 data leg)', () => {
-
     it('returns a 3-element [query, args, count] array', async () => {
         const db = makeRealDb();
         const result = await db.getEmissions(emissionsConfig());
@@ -127,7 +126,9 @@ describe('Database#getEmissions (M3.1 data leg)', () => {
         expect(count.trim().startsWith('SELECT')).to.equal(true);
         expect(count).to.include('count(*) as total');
     });
+});
 
+describe('Database#getEmissions (M3.1 data leg)', () => {
     it('the list query carries a LIMIT sourced from config.data.sql.limit, interpolated (not bound)', async () => {
         const db = makeRealDb();
         const [query] = await db.getEmissions(emissionsConfig('contract', '73', { sql: { limit: 37 } }));
@@ -160,7 +161,9 @@ describe('Database#getEmissions (M3.1 data leg)', () => {
         expect(orderIdx).to.be.greaterThan(-1);
         expect(offsetIdx).to.be.lessThan(orderIdx);
     });
+});
 
+describe('Database#getEmissions (M3.1 data leg)', () => {
     // ── getQueryWhereSql: type -> WHERE branch (proposal item 2) ──────────
 
     describe('getQueryWhereSql routing for getEmissions', () => {

@@ -124,6 +124,27 @@ describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
         expect(hub.hits).to.equal(0);
     });
 
+});
+
+describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
+
+    let hub;
+    let savedHubUrl, savedCacheMs;
+
+    beforeEach(async function () {
+        savedHubUrl  = process.env.HUB_URL;
+        savedCacheMs = process.env.PRICE_CACHE_MS;
+        hub = await startStubHub();
+        process.env.HUB_URL = hub.url;
+        process.env.PRICE_CACHE_MS = '60000';
+    });
+
+    afterEach(function (done) {
+        if (savedHubUrl === undefined) delete process.env.HUB_URL; else process.env.HUB_URL = savedHubUrl;
+        if (savedCacheMs === undefined) delete process.env.PRICE_CACHE_MS; else process.env.PRICE_CACHE_MS = savedCacheMs;
+        if (hub && hub.server) hub.server.close(() => done()); else done();
+    });
+
     it('returns null for a testnet route code (mainnet-only gating)', async function () {
         const db = makeDb();
         const usd = await db.getCoinPriceUsd({ coin: 'TDOGE' });
@@ -143,6 +164,27 @@ describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
         hub.respond = (coinPair) => ({ coin_pair: coinPair, price: '0', status: 'finalized' });
         const usd = await db.getCoinPriceUsd({ coin: 'BTC' });
         expect(usd).to.equal(null);
+    });
+
+});
+
+describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
+
+    let hub;
+    let savedHubUrl, savedCacheMs;
+
+    beforeEach(async function () {
+        savedHubUrl  = process.env.HUB_URL;
+        savedCacheMs = process.env.PRICE_CACHE_MS;
+        hub = await startStubHub();
+        process.env.HUB_URL = hub.url;
+        process.env.PRICE_CACHE_MS = '60000';
+    });
+
+    afterEach(function (done) {
+        if (savedHubUrl === undefined) delete process.env.HUB_URL; else process.env.HUB_URL = savedHubUrl;
+        if (savedCacheMs === undefined) delete process.env.PRICE_CACHE_MS; else process.env.PRICE_CACHE_MS = savedCacheMs;
+        if (hub && hub.server) hub.server.close(() => done()); else done();
     });
 
     it('returns null when HUB_URL is unset', async function () {
@@ -176,9 +218,30 @@ describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
         expect(hub.hits).to.equal(2);                // it re-fetched (cache was stale) before falling back
     });
 
-    // The hub's stale verdict is a well-formed answer, not a malformed body: during
+});
+
+// The hub's stale verdict is a well-formed answer, not a malformed body: during
     // a long Bitcoin block gap the latest finalized snapshot ages past the oracle
-    // bound and getprice returns {error: "... is stale ..."} until the next round.
+// bound and getprice returns {error: "... is stale ..."} until the next round.
+describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
+
+    let hub;
+    let savedHubUrl, savedCacheMs;
+
+    beforeEach(async function () {
+        savedHubUrl  = process.env.HUB_URL;
+        savedCacheMs = process.env.PRICE_CACHE_MS;
+        hub = await startStubHub();
+        process.env.HUB_URL = hub.url;
+        process.env.PRICE_CACHE_MS = '60000';
+    });
+
+    afterEach(function (done) {
+        if (savedHubUrl === undefined) delete process.env.HUB_URL; else process.env.HUB_URL = savedHubUrl;
+        if (savedCacheMs === undefined) delete process.env.PRICE_CACHE_MS; else process.env.PRICE_CACHE_MS = savedCacheMs;
+        if (hub && hub.server) hub.server.close(() => done()); else done();
+    });
+
     describe('hub stale verdict', function () {
         let logs, warns;
         beforeEach(function () {
@@ -216,6 +279,38 @@ describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
             expect(await db.getCoinPriceUsd({ coin: 'BTC' })).to.equal(ORACLE_BTC_USD);
             expect(logs.filter(l => /getCoinPriceUsd/.test(l))).to.have.length(2);
         });
+
+    });
+
+});
+
+describe('Database#getCoinPriceUsd: oracle -> Explorer USD', function () {
+
+    let hub;
+    let savedHubUrl, savedCacheMs;
+
+    beforeEach(async function () {
+        savedHubUrl  = process.env.HUB_URL;
+        savedCacheMs = process.env.PRICE_CACHE_MS;
+        hub = await startStubHub();
+        process.env.HUB_URL = hub.url;
+        process.env.PRICE_CACHE_MS = '60000';
+    });
+
+    afterEach(function (done) {
+        if (savedHubUrl === undefined) delete process.env.HUB_URL; else process.env.HUB_URL = savedHubUrl;
+        if (savedCacheMs === undefined) delete process.env.PRICE_CACHE_MS; else process.env.PRICE_CACHE_MS = savedCacheMs;
+        if (hub && hub.server) hub.server.close(() => done()); else done();
+    });
+
+    describe('hub stale verdict', function () {
+        let logs, warns;
+        beforeEach(function () {
+            logs  = []; warns = [];
+            sinon.stub(console, 'log').callsFake((...a) => logs.push(a.join(' ')));
+            sinon.stub(console, 'warn').callsFake((...a) => warns.push(a.join(' ')));
+        });
+        afterEach(function () { sinon.restore(); });
 
         it('names the hub verdict, not "malformed", for any other hub-declared error', async function () {
             const db = makeDb();

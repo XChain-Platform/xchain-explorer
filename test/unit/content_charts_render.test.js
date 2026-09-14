@@ -117,20 +117,9 @@ function sampleSeries(){
     return { ohlc, volume, trades, maxTs: now - 3600000 };
 }
 
-describe('market chart views render against the vendored Chart.js stack', function(){
+let window, XCC, series;
 
-    let window, XCC, series;
-
-    before(function(){
-        window = bootWindow();
-        XCC    = window.XCC;
-        series = sampleSeries();
-    });
-
-    afterEach(function(){
-        if(XCC) XCC.destroy('market-chart');
-    });
-
+function registerLoadTests() {
     it('loads Chart.js and the market chart layer as browser globals', () => {
         expect(typeof window.Chart, 'chart.umd.js did not attach window.Chart').to.equal('function');
         expect(typeof XCC, 'xchain_charts.js did not attach window.XCC').to.equal('object');
@@ -164,7 +153,9 @@ describe('market chart views render against the vendored Chart.js stack', functi
         expect(chart.scales.price.height).to.be.above(chart.scales.volume.height);
         expect(chart.scales.x.min).to.equal(series.maxTs - 86400000);
     });
+}
 
+function registerViewTests() {
     it('draws the line view', () => {
         const cfg = XCC.lineConfig({ trades: series.trades, volume: series.volume }, {});
         const chart = XCC.render('market-chart', cfg, { rangeSelector: true, range: '1m', maxTs: series.maxTs });
@@ -194,7 +185,9 @@ describe('market chart views render against the vendored Chart.js stack', functi
         expect(container.querySelectorAll('.xc-chart-export')).to.have.length(1);
         expect(container.querySelector('.xc-chart-ranges button.active').getAttribute('data-range')).to.equal('1m');
     });
+}
 
+function registerInteractionTests() {
     it('re-windows the x scale and persists the choice when a preset is clicked', () => {
         const cfg = XCC.lineConfig({ trades: series.trades, volume: series.volume }, {});
         const chart = XCC.render('market-chart', cfg, { rangeSelector: true, range: '1m', maxTs: series.maxTs });
@@ -235,7 +228,9 @@ describe('market chart views render against the vendored Chart.js stack', functi
         external({ chart, tooltip: { opacity: 0 } });
         expect(el.style.opacity).to.equal('0');
     });
+}
 
+function registerStateTests() {
     it('shows the empty-state message instead of an axis-only chart', () => {
         const chart = XCC.render('market-chart', XCC.lineConfig({ trades: [], volume: [] }, {}), {
             noData: 'No Trades Found'
@@ -256,4 +251,21 @@ describe('market chart views render against the vendored Chart.js stack', functi
         expect(second).to.not.equal(first);
         expect(window.document.getElementById('market-chart').querySelectorAll('canvas')).to.have.length(1);
     });
+}
+
+describe('market chart views render against the vendored Chart.js stack', function(){
+    before(function(){
+        window = bootWindow();
+        XCC    = window.XCC;
+        series = sampleSeries();
+    });
+
+    afterEach(function(){
+        if(XCC) XCC.destroy('market-chart');
+    });
+
+    registerLoadTests();
+    registerViewTests();
+    registerInteractionTests();
+    registerStateTests();
 });

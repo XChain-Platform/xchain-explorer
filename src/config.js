@@ -80,7 +80,7 @@ const configChangedEmisor = new EventTarget();
 // registered after startSync() has already ticked get an immediate replay.
 let configChangedFired = false;
 // Interval handle for the periodic hub-config refresh, retained so stopSync()
-// can clear it during the shutdown drain (src/shutdown.js). Null when sync was
+// can clear it during the shutdown drain (src/http/shutdown.js). Null when sync was
 // never started, which is the standalone NO_HUB case.
 let syncTimer = null;
 

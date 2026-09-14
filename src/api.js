@@ -37,7 +37,7 @@ const { limitedHandler } = require('./http/rate_limit_log.js');  // limiter coun
 const staticMounts    = require('./http/static_mounts.js');     // the one file-serving mount list, shared with XChainExplorer
 const { applyTrustProxy } = require('./http/trust_proxy.js');   // proxy-hop policy, shared with the WS path's hop count
 const { resolveMaxBatch, makeRpcBatchGuard } = require('./http/rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
-const { createShutdown, createExplorerDrain } = require('./shutdown.js');
+const { createShutdown, createExplorerDrain } = require('./http/shutdown.js');
 const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
 const coins           = require('./coins');
 
@@ -460,7 +460,7 @@ if(vmQuery.isEnabled()){
 // also never ran in production, because npm was PID 1 and swallowed the signal,
 // so it read as drain coverage while providing none.
 //
-// The drain is bounded by its own hard-exit timer (src/shutdown.js): installing
+// The drain is bounded by its own hard-exit timer (src/http/shutdown.js): installing
 // a handler removes node's default terminate, so a drain that hangs must still
 // end the process rather than linger until the supervisor's SIGKILL.
 // `runtime` is passed by reference and read when the drain RUNS, never captured

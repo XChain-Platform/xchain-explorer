@@ -15,7 +15,7 @@
 // ran at all. Both halves are asserted here.
 
 const assert = require('assert');
-const { createShutdown, createExplorerDrain, closeServer, resolveTimeoutMs, DEFAULT_SHUTDOWN_TIMEOUT_MS } = require('../../src/shutdown');
+const { createShutdown, createExplorerDrain, closeServer, resolveTimeoutMs, DEFAULT_SHUTDOWN_TIMEOUT_MS } = require('../../src/http/shutdown');
 const configInfo = require('../../src/config.js');
 const { waitUntil } = require('../helpers/wait-until.js');
 

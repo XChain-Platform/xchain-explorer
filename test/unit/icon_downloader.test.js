@@ -88,7 +88,7 @@ function makeStubs(opts) {
         readFile:  sinon.stub().resolves(Buffer.from('PNGOUT')),
         unlink:    sinon.stub().resolves(),
         // The orphan sweep reads the flavor's icon directory. Empty by default, so
-        // the sweep short-circuits and every pre-existing _processFlavor test keeps
+        // the sweep short-circuits and every pre-existing processFlavor test keeps
         // its query call-order.
         readdir:   sinon.stub().resolves([]),
     };
@@ -374,11 +374,11 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             d._running = true;
-            d._listFlavors = sinon.stub().resolves([]);
+            d.listFlavors = sinon.stub().resolves([]);
 
             await d.runOnce();
 
-            expect(d._listFlavors.callCount).to.equal(0);
+            expect(d.listFlavors.callCount).to.equal(0);
         });
 
         it('sets _running during execution and clears it after', async function () {
@@ -388,7 +388,7 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             let seenRunning = false;
-            d._listFlavors = sinon.stub().callsFake(async () => {
+            d.listFlavors = sinon.stub().callsFake(async () => {
                 seenRunning = d._running;
                 return [];
             });
@@ -405,8 +405,8 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._listFlavors   = sinon.stub().resolves([{ coin: 'BTC', network: 'mainnet' }]);
-            d._processFlavor = sinon.stub().rejects(new Error('boom'));
+            d.listFlavors   = sinon.stub().resolves([{ coin: 'BTC', network: 'mainnet' }]);
+            d.processFlavor = sinon.stub().rejects(new Error('boom'));
 
             await d.runOnce();
 
@@ -420,11 +420,11 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             const processed = [];
-            d._listFlavors = sinon.stub().resolves([
+            d.listFlavors = sinon.stub().resolves([
                 { coin: 'BTC', network: 'mainnet' },
                 { coin: 'LTC', network: 'mainnet' },
             ]);
-            d._processFlavor = sinon.stub().callsFake(async (flavor) => {
+            d.processFlavor = sinon.stub().callsFake(async (flavor) => {
                 if (flavor.coin === 'BTC') throw new Error('btc fail');
                 processed.push(flavor.coin);
             });
@@ -441,11 +441,11 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             const processed = [];
-            d._listFlavors = sinon.stub().resolves([
+            d.listFlavors = sinon.stub().resolves([
                 { coin: 'BTC', network: 'mainnet' },
                 { coin: 'LTC', network: 'mainnet' },
             ]);
-            d._processFlavor = sinon.stub().callsFake(async (flavor) => {
+            d.processFlavor = sinon.stub().callsFake(async (flavor) => {
                 processed.push(flavor.coin);
                 d._stop = true;   // stop after first
             });
@@ -464,7 +464,7 @@ describe('IconDownloader', function () {
             explorer.db = null;
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
             expect(result).to.deep.equal([]);
         });
 
@@ -475,7 +475,7 @@ describe('IconDownloader', function () {
             explorer.configInfo.getConfig.resolves(null);
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
             expect(result).to.deep.equal([]);
         });
 
@@ -490,7 +490,7 @@ describe('IconDownloader', function () {
             });
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
             expect(result).to.deep.equal([]);
         });
 
@@ -503,7 +503,7 @@ describe('IconDownloader', function () {
             }, { BTC: { pool } });
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
 
             expect(result).to.have.length(1);
             expect(result[0].coin).to.equal('BTC');
@@ -521,7 +521,7 @@ describe('IconDownloader', function () {
             }, { TBTC: { pool } });
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
 
             expect(result).to.have.length(1);
             expect(result[0].poolKey).to.equal('TBTC');
@@ -536,7 +536,7 @@ describe('IconDownloader', function () {
             }, { RBTC: { pool } });
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
 
             expect(result[0].poolKey).to.equal('RBTC');
         });
@@ -549,7 +549,7 @@ describe('IconDownloader', function () {
             }, { BTC: { pool: makeMockPool(makeMockConn([])) } });
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
             expect(result).to.deep.equal([]);
         });
 
@@ -564,7 +564,7 @@ describe('IconDownloader', function () {
             });
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
             expect(result).to.deep.equal([]);
         });
 
@@ -585,7 +585,7 @@ describe('IconDownloader', function () {
             });
 
             const d = new IconDownloader(explorer);
-            const result = await d._listFlavors();
+            const result = await d.listFlavors();
 
             const coins = result.map(f => f.coin);
             expect(coins).to.include('BTC');
@@ -602,7 +602,7 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             const conn = makeMockConn([[], [], []]);
-            await d._discover(conn);
+            await d.discover(conn);
 
             expect(conn.query.callCount).to.equal(3);
             const firstSql  = conn.query.firstCall.args[0];
@@ -640,7 +640,7 @@ describe('IconDownloader', function () {
     });
 
     // #5290: the one-shot re-stale has to be ONE-shot. It selects rows in the
-    // terminal ok-with-no-icon state, which is exactly the state _processToken
+    // terminal ok-with-no-icon state, which is exactly the state processToken
     // writes for a description that resolves to no source at all - so a predicate
     // any wider than the resolver's own grammar re-stales those same rows on every
     // cycle for as long as the token exists: a permanent write loop on the
@@ -697,7 +697,7 @@ describe('IconDownloader', function () {
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
             const conn = makeMockConn([[], [], []]);
-            await d._discover(conn);
+            await d.discover(conn);
             const sql = conn.query.thirdCall.args[0];
             const m = /CONVERT\(TRIM\(t\.description\) USING binary\)\s+REGEXP\s+'([^']+)'/.exec(sql);
             expect(m, 'the re-stale must test the WHOLE description against a regexp, ' +
@@ -752,14 +752,14 @@ describe('IconDownloader', function () {
             expect(runRestale()).to.deep.equal([]);
 
             // And these rows really do sit in the state the statement selects on:
-            // drive each one through _processToken and watch it take the terminal
+            // drive each one through processToken and watch it take the terminal
             // ok-with-null-icon_hash path. That is the loop's other half.
             const stubs = makeStubs({ resolveDescriptionToSource: sinon.stub().callsFake(realResolve) });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
             for (const row of table) {
                 const conn = { query: sinon.stub().resolves([]), release: sinon.stub().resolves() };
-                await d._processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' },
+                await d.processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' },
                     { icon_id: row.icon_id, attempts: 0, description: row.description, tick: 'TOK' + row.icon_id });
                 expect(conn.query.callCount).to.equal(1);
                 const [sql, params] = conn.query.firstCall.args;
@@ -780,7 +780,7 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             const conn = makeMockConn([[]]);
-            await d._markOk(conn, 99, 'https://example.com/a.png', 'srchash', 'iconhash', 'deschash');
+            await d.markOk(conn, 99, 'https://example.com/a.png', 'srchash', 'iconhash', 'deschash');
 
             expect(conn.query.callCount).to.equal(1);
             const [sql, args] = conn.query.firstCall.args;
@@ -796,7 +796,7 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             const conn = makeMockConn([[]]);
-            await d._markOk(conn, 7, null, null, null, 'dh');
+            await d.markOk(conn, 7, null, null, null, 'dh');
 
             const [, args] = conn.query.firstCall.args;
             expect(args[0]).to.equal(null);
@@ -816,7 +816,7 @@ describe('IconDownloader', function () {
             d.cfg.maxAttempts = 4;
 
             const conn = makeMockConn([[]]);
-            await d._markFailure(conn, 5, 4, 'too many');
+            await d.markFailure(conn, 5, 4, 'too many');
 
             const [sql, args] = conn.query.firstCall.args;
             expect(sql).to.include("status='failed'");
@@ -832,7 +832,7 @@ describe('IconDownloader', function () {
             d.cfg.maxAttempts = 4;
 
             const conn = makeMockConn([[]]);
-            await d._markFailure(conn, 5, 1, 'first fail');
+            await d.markFailure(conn, 5, 1, 'first fail');
 
             const [sql, args] = conn.query.firstCall.args;
             expect(sql).to.include('INTERVAL');
@@ -852,7 +852,7 @@ describe('IconDownloader', function () {
             d.cfg.maxAttempts = 4;
 
             const conn = makeMockConn([[]]);
-            await d._markFailure(conn, 5, 2, 'second fail');
+            await d.markFailure(conn, 5, 2, 'second fail');
 
             const [, args] = conn.query.firstCall.args;
             expect(args[2]).to.equal(86400);
@@ -866,7 +866,7 @@ describe('IconDownloader', function () {
             d.cfg.maxAttempts = 4;
 
             const conn = makeMockConn([[]]);
-            await d._markFailure(conn, 5, 3, 'third fail');
+            await d.markFailure(conn, 5, 3, 'third fail');
 
             const [, args] = conn.query.firstCall.args;
             expect(args[2]).to.equal(7 * 86400);
@@ -897,19 +897,19 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             const conn = makeMockConn([[]]);
-            d._markOk      = sinon.stub().resolves();
-            d._markFailure = sinon.stub().resolves();
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('X'));
-            d._writeIcon   = sinon.stub().resolves('hash123');
+            d.markOk      = sinon.stub().resolves();
+            d.markFailure = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from('X'));
+            d.writeIcon   = sinon.stub().resolves('hash123');
 
-            await d._processToken(conn, makeFlavor(), makeRow({ description: 'no-match' }));
+            await d.processToken(conn, makeFlavor(), makeRow({ description: 'no-match' }));
 
-            expect(d._markOk.callCount).to.equal(1);
-            const [, , url, srcHash, iconHash] = d._markOk.firstCall.args;
+            expect(d.markOk.callCount).to.equal(1);
+            const [, , url, srcHash, iconHash] = d.markOk.firstCall.args;
             expect(url).to.equal(null);
             expect(srcHash).to.equal(null);
             expect(iconHash).to.equal(null);
-            expect(d._markFailure.callCount).to.equal(0);
+            expect(d.markFailure.callCount).to.equal(0);
         });
 
         it('calls _markFailure when _fetchSourceBytes throws', async function () {
@@ -921,18 +921,18 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().rejects(new Error('network error'));
-            d._markFailure = sinon.stub().resolves();
-            d._markOk      = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().rejects(new Error('network error'));
+            d.markFailure = sinon.stub().resolves();
+            d.markOk      = sinon.stub().resolves();
 
             const conn = makeMockConn([]);
-            await d._processToken(conn, makeFlavor(), makeRow({ attempts: 0 }));
+            await d.processToken(conn, makeFlavor(), makeRow({ attempts: 0 }));
 
-            expect(d._markFailure.callCount).to.equal(1);
-            const [, , attempts, errMsg] = d._markFailure.firstCall.args;
+            expect(d.markFailure.callCount).to.equal(1);
+            const [, , attempts, errMsg] = d.markFailure.firstCall.args;
             expect(attempts).to.equal(1);   // row.attempts + 1
             expect(errMsg).to.include('network error');
-            expect(d._markOk.callCount).to.equal(0);
+            expect(d.markOk.callCount).to.equal(0);
         });
 
         it('calls _markFailure with "empty body" when bytes is empty', async function () {
@@ -944,15 +944,15 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.alloc(0));
-            d._markFailure = sinon.stub().resolves();
-            d._markOk      = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.alloc(0));
+            d.markFailure = sinon.stub().resolves();
+            d.markOk      = sinon.stub().resolves();
 
             const conn = makeMockConn([]);
-            await d._processToken(conn, makeFlavor(), makeRow({ attempts: 2 }));
+            await d.processToken(conn, makeFlavor(), makeRow({ attempts: 2 }));
 
-            expect(d._markFailure.callCount).to.equal(1);
-            const [, , attempts, msg] = d._markFailure.firstCall.args;
+            expect(d.markFailure.callCount).to.equal(1);
+            const [, , attempts, msg] = d.markFailure.firstCall.args;
             expect(attempts).to.equal(3);
             expect(msg).to.equal('empty body');
         });
@@ -966,22 +966,22 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from([0xDE, 0xAD]));
-            d._writeIcon   = sinon.stub().rejects(new Error('unsupported mime'));
-            d._markOk      = sinon.stub().resolves();
-            d._markFailure = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from([0xDE, 0xAD]));
+            d.writeIcon   = sinon.stub().rejects(new Error('unsupported mime'));
+            d.markOk      = sinon.stub().resolves();
+            d.markFailure = sinon.stub().resolves();
 
             const conn = makeMockConn([]);
             stubs.fspStub.mkdir.resolves();
 
-            await d._processToken(conn, makeFlavor(), makeRow());
+            await d.processToken(conn, makeFlavor(), makeRow());
 
-            expect(d._markOk.callCount).to.equal(1);
-            const [, , url, srcH, iconH] = d._markOk.firstCall.args;
+            expect(d.markOk.callCount).to.equal(1);
+            const [, , url, srcH, iconH] = d.markOk.firstCall.args;
             expect(url).to.equal(null);
             expect(srcH).to.equal(null);
             expect(iconH).to.equal(null);
-            expect(d._markFailure.callCount).to.equal(0);
+            expect(d.markFailure.callCount).to.equal(0);
         });
 
         it('calls _markFailure when non-stamp _writeIcon throws', async function () {
@@ -993,18 +993,18 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGBYTES'));
-            d._writeIcon   = sinon.stub().rejects(new Error('convert failed'));
-            d._markOk      = sinon.stub().resolves();
-            d._markFailure = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGBYTES'));
+            d.writeIcon   = sinon.stub().rejects(new Error('convert failed'));
+            d.markOk      = sinon.stub().resolves();
+            d.markFailure = sinon.stub().resolves();
 
             const conn = makeMockConn([]);
             stubs.fspStub.mkdir.resolves();
 
-            await d._processToken(conn, makeFlavor(), makeRow({ attempts: 1 }));
+            await d.processToken(conn, makeFlavor(), makeRow({ attempts: 1 }));
 
-            expect(d._markFailure.callCount).to.equal(1);
-            const [, , attempts, msg] = d._markFailure.firstCall.args;
+            expect(d.markFailure.callCount).to.equal(1);
+            const [, , attempts, msg] = d.markFailure.firstCall.args;
             expect(attempts).to.equal(2);
             expect(msg).to.include('convert failed');
         });
@@ -1018,18 +1018,18 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from([0x89, 0x50]));
-            d._writeIcon   = sinon.stub().resolves(null);   // returns null => no icon hash
-            d._markOk      = sinon.stub().resolves();
-            d._markFailure = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from([0x89, 0x50]));
+            d.writeIcon   = sinon.stub().resolves(null);   // returns null => no icon hash
+            d.markOk      = sinon.stub().resolves();
+            d.markFailure = sinon.stub().resolves();
 
             const conn = makeMockConn([]);
             stubs.fspStub.mkdir.resolves();
 
-            await d._processToken(conn, makeFlavor(), makeRow());
+            await d.processToken(conn, makeFlavor(), makeRow());
 
-            expect(d._markOk.callCount).to.equal(1);
-            expect(d._markFailure.callCount).to.equal(0);
+            expect(d.markOk.callCount).to.equal(1);
+            expect(d.markFailure.callCount).to.equal(0);
         });
 
         it('calls _markFailure("image conversion failed") when non-stamp _writeIcon returns null', async function () {
@@ -1041,18 +1041,18 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGBYTES'));
-            d._writeIcon   = sinon.stub().resolves(null);
-            d._markOk      = sinon.stub().resolves();
-            d._markFailure = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGBYTES'));
+            d.writeIcon   = sinon.stub().resolves(null);
+            d.markOk      = sinon.stub().resolves();
+            d.markFailure = sinon.stub().resolves();
 
             const conn = makeMockConn([]);
             stubs.fspStub.mkdir.resolves();
 
-            await d._processToken(conn, makeFlavor(), makeRow({ attempts: 0 }));
+            await d.processToken(conn, makeFlavor(), makeRow({ attempts: 0 }));
 
-            expect(d._markFailure.callCount).to.equal(1);
-            const [, , attempts, msg] = d._markFailure.firstCall.args;
+            expect(d.markFailure.callCount).to.equal(1);
+            const [, , attempts, msg] = d.markFailure.firstCall.args;
             expect(msg).to.equal('image conversion failed');
             expect(attempts).to.equal(1);
         });
@@ -1066,18 +1066,18 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGDATA'));
-            d._writeIcon   = sinon.stub().resolves('abc123');
-            d._markOk      = sinon.stub().resolves();
-            d._markFailure = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGDATA'));
+            d.writeIcon   = sinon.stub().resolves('abc123');
+            d.markOk      = sinon.stub().resolves();
+            d.markFailure = sinon.stub().resolves();
 
             const conn = makeMockConn([]);
             stubs.fspStub.mkdir.resolves();
 
-            await d._processToken(conn, makeFlavor(), makeRow());
+            await d.processToken(conn, makeFlavor(), makeRow());
 
-            expect(d._markOk.callCount).to.equal(1);
-            const [, , url, , iconHash] = d._markOk.firstCall.args;
+            expect(d.markOk.callCount).to.equal(1);
+            const [, , url, , iconHash] = d.markOk.firstCall.args;
             expect(url).to.equal('https://example.com/a.png');
             expect(iconHash).to.equal('abc123');
         });
@@ -1096,7 +1096,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             // "hello" in base64 = aGVsbG8=
             const src = { scheme: 'stamp', data: 'aGVsbG8=' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(result.toString()).to.equal('hello');
         });
 
@@ -1104,7 +1104,7 @@ describe('IconDownloader', function () {
             const stubs = makeStubs();
             const d = makeDownloader(stubs);
             const src = { scheme: 'stamp', data: 'AA==' };  // decodes to 0x00 (single byte, fine)
-            const r = await d._fetchSourceBytes(src, 2);
+            const r = await d.fetchSourceBytes(src, 2);
             expect(r).to.be.instanceOf(Buffer);
         });
 
@@ -1115,12 +1115,12 @@ describe('IconDownloader', function () {
             // decodes to zero bytes and must throw.
             const src = { scheme: 'stamp', data: '' };
             try {
-                await d._fetchSourceBytes({ scheme: 'stamp', data: 'AA==' }, 2);
+                await d.fetchSourceBytes({ scheme: 'stamp', data: 'AA==' }, 2);
             } catch (e) {
                 throw new Error('unexpected throw for valid stamp');
             }
             try {
-                await d._fetchSourceBytes({ scheme: 'stamp', data: '' }, 2);
+                await d.fetchSourceBytes({ scheme: 'stamp', data: '' }, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('empty after base64 decode');
@@ -1138,7 +1138,7 @@ describe('IconDownloader', function () {
             });
             const d = makeDownloader(stubs);
             const src = { scheme: 'ord', url: 'https://inscription-decoder.vercel.app/api/image?tx=abc' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(result.toString()).to.equal('FAKEIMAGE');
         });
 
@@ -1153,7 +1153,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'ord', url: 'https://example.com' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('bad decoder JSON');
@@ -1171,7 +1171,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'ord', url: 'https://example.com' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('missing images[0].data');
@@ -1191,7 +1191,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'ord', url: 'https://example.com' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('data URL not base64');
@@ -1212,7 +1212,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'ord', url: 'https://example.com' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('empty after base64 decode');
@@ -1256,7 +1256,7 @@ describe('IconDownloader', function () {
                 });
 
             const src = { scheme: 'json_url', url: 'https://example.com/meta.json' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(result.toString()).to.equal('IMGBYTES');
         });
 
@@ -1274,7 +1274,7 @@ describe('IconDownloader', function () {
             const src = { scheme: 'json_url', url: 'https://example.com/meta.json' };
 
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('no usable image');
@@ -1292,7 +1292,7 @@ describe('IconDownloader', function () {
             });
             const d = makeDownloader(stubs);
             const src = { scheme: 'ipfs', url: 'https://ipfsc.crystalsuite.com/Qmabc123' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(result).to.deep.equal(imgBytes);
         });
 
@@ -1307,7 +1307,7 @@ describe('IconDownloader', function () {
             });
             const d = makeDownloader(stubs);
             const src = { scheme: 'arweave', url: 'https://arweave.net/abc123' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(result).to.deep.equal(imgBytes);
         });
 
@@ -1322,7 +1322,7 @@ describe('IconDownloader', function () {
             });
             const d = makeDownloader(stubs);
             const src = { scheme: 'arweave_url', url: 'https://arweave.net/abc456' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(result).to.deep.equal(imgBytes);
         });
 
@@ -1337,7 +1337,7 @@ describe('IconDownloader', function () {
             });
             const d = makeDownloader(stubs);
             const src = { scheme: 'image_url', url: 'https://example.com/icon.png' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(result).to.deep.equal(imgBytes);
         });
 
@@ -1352,7 +1352,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'image_url', url: 'https://example.com/page' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include("not an image");
@@ -1371,7 +1371,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'imgur', url: 'https://i.imgur.com/abc123' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include("not an image");
@@ -1389,7 +1389,7 @@ describe('IconDownloader', function () {
             });
             const d = makeDownloader(stubs);
             const src = { scheme: 'imgur', url: 'https://i.imgur.com/abc123.gif' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(result).to.deep.equal(imgBytes);
         });
 
@@ -1397,7 +1397,7 @@ describe('IconDownloader', function () {
             const stubs = makeStubs();
             const d = makeDownloader(stubs);
             try {
-                await d._fetchSourceBytes({ scheme: 'image_url', url: 'https://x.com/a.png' }, -1);
+                await d.fetchSourceBytes({ scheme: 'image_url', url: 'https://x.com/a.png' }, -1);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.equal('recursion limit hit');
@@ -1411,7 +1411,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'image_url', url: 'https://example.com/missing.png' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.equal('HTTP 404');
@@ -1425,7 +1425,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'image_url', url: 'https://example.com/x.png' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.equal('ECONNREFUSED');
@@ -1438,7 +1438,7 @@ describe('IconDownloader', function () {
             const d = makeDownloader(stubs);
             const src = { scheme: 'image_url', url: 'https://example.com/x.png' };
             try {
-                await d._fetchSourceBytes(src, 2);
+                await d.fetchSourceBytes(src, 2);
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.equal('timeout exceeded');
@@ -1456,7 +1456,7 @@ describe('IconDownloader', function () {
             });
             const d = makeDownloader(stubs);
             const src = { scheme: 'image_url', url: 'https://example.com/icon.png' };
-            const result = await d._fetchSourceBytes(src, 2);
+            const result = await d.fetchSourceBytes(src, 2);
             expect(Buffer.isBuffer(result)).to.equal(true);
         });
     });
@@ -1467,8 +1467,8 @@ describe('IconDownloader', function () {
     // them, so nothing here opens a socket.
     //
     // The load-bearing property is the FAILURE shape, not the happy path: answering
-    // "no source" for an unreadable FILE would put the row on _processToken's terminal
-    // _markOk path, where only a description change can ever revive it, and getFileRaw
+    // "no source" for an unreadable FILE would put the row on processToken's terminal
+    // markOk path, where only a description change can ever revive it, and getFileRaw
     // returns null for a decoder DB that is merely unreachable exactly as it does for a
     // FILE that does not exist. So every failure throws into the retry backoff instead.
     describe('_fetchSourceBytes(): action scheme', function () {
@@ -1493,7 +1493,7 @@ describe('IconDownloader', function () {
             const { d, explorer } = makeActionDownloader({
                 getFileRaw: sinon.stub().resolves({ raw_data: Buffer.from('PNGBYTES'), data: 'FILE|0|x', type: 'image/png' }),
             });
-            const out = await d._fetchSourceBytes({ scheme: 'action', coin: null, index: '42' }, 2, FLAVOR);
+            const out = await d.fetchSourceBytes({ scheme: 'action', coin: null, index: '42' }, 2, FLAVOR);
             expect(out.toString()).to.equal('PNGBYTES');
             expect(explorer.db.getFileRaw.firstCall.args[0]).to.deep.equal({ coin: 'BTC', data: {} });
             expect(explorer.db.getFileRaw.firstCall.args[1]).to.equal('42');
@@ -1510,7 +1510,7 @@ describe('IconDownloader', function () {
             explorer.db.getFileRaw = sinon.stub().resolves({ raw_data: Buffer.from(tis), data: 'FILE|0|x', type: 'application/json' });
             const d = new IconDownloader(explorer);
 
-            const out = await d._fetchSourceBytes({ scheme: 'action', coin: null, index: '7' }, 2, FLAVOR);
+            const out = await d.fetchSourceBytes({ scheme: 'action', coin: null, index: '7' }, 2, FLAVOR);
             expect(out.toString()).to.equal('hello');
             expect(stubs.axiosStub.get.called).to.equal(false, 'an on-chain icon must cost no egress');
         });
@@ -1518,7 +1518,7 @@ describe('IconDownloader', function () {
         it('throws rather than answering no-source when the FILE is unreadable here', async function () {
             const { d } = makeActionDownloader({ getFileRaw: sinon.stub().resolves(null) });
             let threw = null;
-            try { await d._fetchSourceBytes({ scheme: 'action', coin: null, index: '9' }, 2, FLAVOR); }
+            try { await d.fetchSourceBytes({ scheme: 'action', coin: null, index: '9' }, 2, FLAVOR); }
             catch (e) { threw = e; }
             expect(threw).to.be.an('error');
             expect(threw.message).to.include('no readable bytes');
@@ -1529,7 +1529,7 @@ describe('IconDownloader', function () {
                 getGatedFileRaw: sinon.stub().resolves([{ raw_data: Buffer.from('CIPHER') }]),
             });
             let threw = null;
-            try { await d._fetchSourceBytes({ scheme: 'action', coin: null, index: '9' }, 2, FLAVOR); }
+            try { await d.fetchSourceBytes({ scheme: 'action', coin: null, index: '9' }, 2, FLAVOR); }
             catch (e) { threw = e; }
             expect(threw).to.be.an('error');
             expect(threw.message).to.include('token-gated');
@@ -1541,7 +1541,7 @@ describe('IconDownloader', function () {
             });
             // A regtest BTC flavor naming DOGE means RDOGE, the same rule the page's
             // actionRefToRawPath applies to the current chain's tier.
-            await d._fetchSourceBytes({ scheme: 'action', coin: 'DOGE', index: '3' }, 2,
+            await d.fetchSourceBytes({ scheme: 'action', coin: 'DOGE', index: '3' }, 2,
                 { coin: 'BTC', network: 'regtest', poolKey: 'RBTC' });
             expect(explorer.db.getFileRaw.firstCall.args[0].coin).to.equal('RDOGE');
         });
@@ -1549,7 +1549,7 @@ describe('IconDownloader', function () {
         it('throws when the sibling chain has no pool on this instance', async function () {
             const { d } = makeActionDownloader({}, { BTC: { pool: makeMockPool(makeMockConn([])) } });
             let threw = null;
-            try { await d._fetchSourceBytes({ scheme: 'action', coin: 'LTC', index: '3' }, 2, FLAVOR); }
+            try { await d.fetchSourceBytes({ scheme: 'action', coin: 'LTC', index: '3' }, 2, FLAVOR); }
             catch (e) { threw = e; }
             expect(threw).to.be.an('error');
             expect(threw.message).to.include('no pool configured for LTC');
@@ -1588,7 +1588,7 @@ describe('IconDownloader', function () {
             const bytes    = Buffer.from('PNGBYTES');
             const iconPath = '/tmp/icons/BTC/mainnet/MYTOKEN.png';
 
-            const hash = await d._writeIcon(bytes, iconPath);
+            const hash = await d.writeIcon(bytes, iconPath);
 
             expect(fspStub.writeFile.callCount).to.equal(1);
             expect(fspStub.writeFile.firstCall.args[1]).to.deep.equal(bytes);
@@ -1612,7 +1612,7 @@ describe('IconDownloader', function () {
                 ['--mime-type', new Error('file not found')],
             ]);
             try {
-                await d._writeIcon(Buffer.from('X'), '/tmp/out.png');
+                await d.writeIcon(Buffer.from('X'), '/tmp/out.png');
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.equal('mime sniff failed');
@@ -1625,7 +1625,7 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             try {
-                await d._writeIcon(Buffer.from('X'), '/tmp/out.png');
+                await d.writeIcon(Buffer.from('X'), '/tmp/out.png');
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include("unsupported mime 'application/pdf'");
@@ -1640,7 +1640,7 @@ describe('IconDownloader', function () {
                 ['-resize',     convertErr],
             ]);
             try {
-                await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+                await d.writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('convert failed');
@@ -1660,7 +1660,7 @@ describe('IconDownloader', function () {
                     unlink:    sinon.stub().resolves(),
                 }
             );
-            const result = await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+            const result = await d.writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
             expect(result).to.equal(null);
         });
 
@@ -1669,7 +1669,7 @@ describe('IconDownloader', function () {
                 ['--mime-type', { stdout: 'image/gif\n', stderr: '' }],
                 ['-resize',     null],
             ]);
-            await d._writeIcon(Buffer.from('GIFDATA'), '/tmp/out.png');
+            await d.writeIcon(Buffer.from('GIFDATA'), '/tmp/out.png');
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(execCmdText(convertCall)).to.include('[0]');
         });
@@ -1683,7 +1683,7 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             try {
-                await d._writeIcon(Buffer.from('<svg><image xlink:href="http://169.254.169.254/"/></svg>'), '/tmp/out.png');
+                await d.writeIcon(Buffer.from('<svg><image xlink:href="http://169.254.169.254/"/></svg>'), '/tmp/out.png');
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include("unsupported mime 'image/svg+xml'");
@@ -1696,7 +1696,7 @@ describe('IconDownloader', function () {
                 ['--mime-type', { stdout: 'image/webp\n', stderr: '' }],
                 ['-resize',     null],
             ]);
-            await d._writeIcon(Buffer.from('WEBPDATA'), '/tmp/out.png');
+            await d.writeIcon(Buffer.from('WEBPDATA'), '/tmp/out.png');
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(execCmdText(convertCall)).to.include('[0]');
         });
@@ -1706,7 +1706,7 @@ describe('IconDownloader', function () {
                 ['--mime-type', { stdout: 'image/jpeg\n', stderr: '' }],
                 ['-resize',     null],
             ]);
-            await d._writeIcon(Buffer.from('JPEGDATA'), '/tmp/out.png');
+            await d.writeIcon(Buffer.from('JPEGDATA'), '/tmp/out.png');
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(execCmdText(convertCall)).to.not.match(/\[0\]/);
         });
@@ -1719,7 +1719,7 @@ describe('IconDownloader', function () {
         it('bounds convert with a wall-clock timeout and a SIGKILL', async function () {
             const { d, execStub } = makeWriteIconDownloader();
             d.cfg.convertTimeoutMs = 12345;
-            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+            await d.writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
 
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(convertCall.args[2]).to.include({ timeout: 12345, killSignal: 'SIGKILL' });
@@ -1728,7 +1728,7 @@ describe('IconDownloader', function () {
         it('bounds the mime sniff the same way, so a hung `file` cannot wedge the pass', async function () {
             const { d, execStub } = makeWriteIconDownloader();
             d.cfg.convertTimeoutMs = 12345;
-            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+            await d.writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
 
             const sniffCall = execStub.getCalls().find(c => execCmdText(c).includes('--mime-type'));
             expect(sniffCall.args[2]).to.include({ timeout: 12345, killSignal: 'SIGKILL' });
@@ -1736,7 +1736,7 @@ describe('IconDownloader', function () {
 
         it('caps ImageMagick pixel-cache allocation with -limit before the input file', async function () {
             const { d, execStub } = makeWriteIconDownloader();
-            await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+            await d.writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
 
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             const argv  = convertCall.args[1];
@@ -1762,7 +1762,7 @@ describe('IconDownloader', function () {
             ]);
             d.cfg.convertTimeoutMs = 777;
             try {
-                await d._writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
+                await d.writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('convert failed: timed out after 777ms');
@@ -1771,7 +1771,7 @@ describe('IconDownloader', function () {
 
         it('spawns convert without a shell, so no argv element needs escaping', async function () {
             const { d, execStub } = makeWriteIconDownloader();
-            await d._writeIcon(Buffer.from('PNGBYTES'), "/tmp/it's odd.png");
+            await d.writeIcon(Buffer.from('PNGBYTES'), "/tmp/it's odd.png");
 
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(convertCall.args[0]).to.equal('/usr/bin/convert');
@@ -1796,7 +1796,7 @@ describe('IconDownloader', function () {
         }
         const flavor = { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' };
 
-        /** The path _processToken computes for MYTOKEN on BTC/mainnet. */
+        /** The path processToken computes for MYTOKEN on BTC/mainnet. */
         function iconPathFor(d, tick) {
             return require('path').join(d.iconRoot, 'BTC', 'mainnet', tick + '.png');
         }
@@ -1805,14 +1805,14 @@ describe('IconDownloader', function () {
             const stubs = makeStubs({ resolveDescriptionToSource: sinon.stub().returns(null) });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._markOk = sinon.stub().resolves();
-            d._log    = () => {};
+            d.markOk = sinon.stub().resolves();
+            d.log    = () => {};
 
-            await d._processToken(makeMockConn([]), flavor, makeRow({ description: 'no-match' }));
+            await d.processToken(makeMockConn([]), flavor, makeRow({ description: 'no-match' }));
 
             expect(stubs.fspStub.unlink.callCount).to.equal(1);
             expect(stubs.fspStub.unlink.firstCall.args[0]).to.equal(iconPathFor(d, 'MYTOKEN'));
-            expect(d._markOk.callCount).to.equal(1);
+            expect(d.markOk.callCount).to.equal(1);
         });
 
         it('unlinks the icon when stamp bytes fail _writeIcon', async function () {
@@ -1821,12 +1821,12 @@ describe('IconDownloader', function () {
             });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from([0xDE, 0xAD]));
-            d._writeIcon = sinon.stub().rejects(new Error('unsupported mime'));
-            d._markOk    = sinon.stub().resolves();
-            d._log       = () => {};
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from([0xDE, 0xAD]));
+            d.writeIcon = sinon.stub().rejects(new Error('unsupported mime'));
+            d.markOk    = sinon.stub().resolves();
+            d.log       = () => {};
 
-            await d._processToken(makeMockConn([]), flavor, makeRow());
+            await d.processToken(makeMockConn([]), flavor, makeRow());
 
             // convert writes straight to iconPath, so a failed conversion can leave a
             // truncated file on top of the previous good icon. That is the file this
@@ -1841,12 +1841,12 @@ describe('IconDownloader', function () {
             });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from([0x89, 0x50]));
-            d._writeIcon = sinon.stub().resolves(null);
-            d._markOk    = sinon.stub().resolves();
-            d._log       = () => {};
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from([0x89, 0x50]));
+            d.writeIcon = sinon.stub().resolves(null);
+            d.markOk    = sinon.stub().resolves();
+            d.log       = () => {};
 
-            await d._processToken(makeMockConn([]), flavor, makeRow());
+            await d.processToken(makeMockConn([]), flavor, makeRow());
 
             expect(stubs.fspStub.unlink.callCount).to.equal(1);
             expect(stubs.fspStub.unlink.firstCall.args[0]).to.equal(iconPathFor(d, 'MYTOKEN'));
@@ -1858,12 +1858,12 @@ describe('IconDownloader', function () {
             });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGBYTES'));
-            d._writeIcon = sinon.stub().resolves('hash123');
-            d._markOk    = sinon.stub().resolves();
-            d._log       = () => {};
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNGBYTES'));
+            d.writeIcon = sinon.stub().resolves('hash123');
+            d.markOk    = sinon.stub().resolves();
+            d.log       = () => {};
 
-            await d._processToken(makeMockConn([]), flavor, makeRow());
+            await d.processToken(makeMockConn([]), flavor, makeRow());
 
             expect(stubs.fspStub.unlink.callCount).to.equal(0);
         });
@@ -1875,19 +1875,19 @@ describe('IconDownloader', function () {
             });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._fetchSourceBytes = sinon.stub().rejects(new Error('network error'));
-            d._markFailure = sinon.stub().resolves();
-            d._log = () => {};
+            d.fetchSourceBytes = sinon.stub().rejects(new Error('network error'));
+            d.markFailure = sinon.stub().resolves();
+            d.log = () => {};
 
-            await d._processToken(makeMockConn([]), flavor, makeRow());
+            await d.processToken(makeMockConn([]), flavor, makeRow());
 
-            expect(d._markFailure.callCount).to.equal(1);
+            expect(d.markFailure.callCount).to.equal(1);
             expect(stubs.fspStub.unlink.callCount).to.equal(0);
         });
     });
 
     // The backlog half. ok-with-no-icon is terminal, so files already stranded in
-    // that state are never revisited by _processToken and the unlink above cannot
+    // that state are never revisited by processToken and the unlink above cannot
     // reach them.
     describe('_sweepOrphanIcons()', function () {
         const flavor = { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' };
@@ -1896,10 +1896,10 @@ describe('IconDownloader', function () {
             const stubs = makeStubs({ fspReaddirResult: ['AAA.png', 'BBB.png', 'CCC.png', 'notes.txt'] });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._log = () => {};
+            d.log = () => {};
 
             const conn = makeMockConn([[{ tick: 'BBB' }]]);
-            await d._sweepOrphanIcons(conn, flavor);
+            await d.sweepOrphanIcons(conn, flavor);
 
             const unlinked = stubs.fspStub.unlink.getCalls().map(c => c.args[0]);
             const dir = require('path').join(d.iconRoot, 'BTC', 'mainnet');
@@ -1920,9 +1920,9 @@ describe('IconDownloader', function () {
             const stubs = makeStubs({ fspReaddirResult: ['AAA.png', 'BBB.png'] });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._log = () => {};
+            d.log = () => {};
 
-            await d._sweepOrphanIcons(makeMockConn([[]]), flavor);
+            await d.sweepOrphanIcons(makeMockConn([[]]), flavor);
 
             expect(stubs.fspStub.unlink.callCount).to.equal(0);
         });
@@ -1933,7 +1933,7 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(makeExplorer());
             const conn = makeMockConn([]);
 
-            await d._sweepOrphanIcons(conn, flavor);
+            await d.sweepOrphanIcons(conn, flavor);
 
             expect(conn.query.callCount).to.equal(0);
             expect(stubs.fspStub.unlink.callCount).to.equal(0);
@@ -1945,7 +1945,7 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(makeExplorer());
             const conn = makeMockConn([]);
 
-            await d._sweepOrphanIcons(conn, flavor);
+            await d.sweepOrphanIcons(conn, flavor);
 
             expect(conn.query.callCount).to.equal(0);
         });
@@ -1957,10 +1957,10 @@ describe('IconDownloader', function () {
             const stubs = makeStubs({ fspReaddirResult: names });
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._log = () => {};
+            d.log = () => {};
 
             const conn = makeMockConn([]);
-            await d._sweepOrphanIcons(conn, flavor);
+            await d.sweepOrphanIcons(conn, flavor);
 
             expect(conn.query.callCount).to.equal(3);
             expect(conn.query.getCall(0).args[1]).to.have.length(500);
@@ -1971,18 +1971,18 @@ describe('IconDownloader', function () {
             const stubs = makeStubs();
             const IconDownloader = loadIconDownloader(stubs);
             const d = new IconDownloader(makeExplorer());
-            d._log    = () => {};
-            d._logErr = sinon.stub();
-            d._discover = sinon.stub().resolves();
-            d._sweepOrphanIcons = sinon.stub().rejects(new Error('sweep boom'));
-            d._processToken = sinon.stub().resolves();
+            d.log    = () => {};
+            d.logErr = sinon.stub();
+            d.discover = sinon.stub().resolves();
+            d.sweepOrphanIcons = sinon.stub().rejects(new Error('sweep boom'));
+            d.processToken = sinon.stub().resolves();
             d.cfg.requestDelayMs = 0;
 
             const conn = makeMockConn([[{ icon_id: 1, token_id: 10, attempts: 0, description: null, tick: 'AAA' }]]);
-            await d._processFlavor({ coin: 'BTC', network: 'mainnet', pool: makeMockPool(conn) });
+            await d.processFlavor({ coin: 'BTC', network: 'mainnet', pool: makeMockPool(conn) });
 
-            expect(d._logErr.callCount).to.equal(1);
-            expect(d._processToken.callCount).to.equal(1);
+            expect(d.logErr.callCount).to.equal(1);
+            expect(d.processToken.callCount).to.equal(1);
         });
     });
 
@@ -1994,24 +1994,24 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
 
             const conn = makeMockConn([
-                [],  // _discover INSERT
-                [],  // _discover UPDATE
+                [],  // discover INSERT
+                [],  // discover UPDATE
                 [],  // SELECT batch (empty)
             ]);
             const pool  = makeMockPool(conn);
             const flavor = { coin: 'BTC', network: 'mainnet', pool };
 
             const logMsgs = [];
-            d._log = (m) => logMsgs.push(m);
-            d._discover    = sinon.stub().resolves();
-            d._processToken = sinon.stub().resolves();
+            d.log = (m) => logMsgs.push(m);
+            d.discover    = sinon.stub().resolves();
+            d.processToken = sinon.stub().resolves();
 
             conn.query.reset();
             conn.query.resolves([]);
 
-            await d._processFlavor(flavor);
+            await d.processFlavor(flavor);
 
-            expect(d._processToken.callCount).to.equal(0);
+            expect(d.processToken.callCount).to.equal(0);
             expect(logMsgs.some(m => m.includes('queue empty'))).to.equal(true);
         });
 
@@ -2030,7 +2030,7 @@ describe('IconDownloader', function () {
                 query:   sinon.stub(),
                 release: sinon.stub().resolves(),
             };
-            // First three calls: _discover (insert, description-drift re-stale, action:
+            // First three calls: discover (insert, description-drift re-stale, action:
             // one-shot re-stale); fourth call: SELECT
             conn.query.onCall(0).resolves([]);
             conn.query.onCall(1).resolves([]);
@@ -2040,14 +2040,14 @@ describe('IconDownloader', function () {
             const pool = makeMockPool(conn);
             const flavor = { coin: 'BTC', network: 'mainnet', pool };
 
-            d._processToken = sinon.stub().resolves();
+            d.processToken = sinon.stub().resolves();
             // Override sleep so test is fast
             const sleepCalls = [];
             d.cfg.requestDelayMs = 0;
 
-            await d._processFlavor(flavor);
+            await d.processFlavor(flavor);
 
-            expect(d._processToken.callCount).to.equal(2);
+            expect(d.processToken.callCount).to.equal(2);
             expect(conn.release.callCount).to.equal(1);
         });
 
@@ -2065,7 +2065,7 @@ describe('IconDownloader', function () {
             const flavor = { coin: 'BTC', network: 'mainnet', pool };
 
             try {
-                await d._processFlavor(flavor);
+                await d.processFlavor(flavor);
             } catch (e) {
             }
             expect(conn.release.callCount).to.equal(1);
@@ -2086,7 +2086,7 @@ describe('IconDownloader', function () {
                 query:   sinon.stub(),
                 release: sinon.stub().resolves(),
             };
-            // First three calls: _discover (insert, description-drift re-stale, action:
+            // First three calls: discover (insert, description-drift re-stale, action:
             // one-shot re-stale); fourth call: SELECT
             conn.query.onCall(0).resolves([]);
             conn.query.onCall(1).resolves([]);
@@ -2097,17 +2097,17 @@ describe('IconDownloader', function () {
             const flavor = { coin: 'BTC', network: 'mainnet', pool };
 
             const processed = [];
-            d._processToken = sinon.stub().callsFake(async (conn2, flv, row) => {
+            d.processToken = sinon.stub().callsFake(async (conn2, flv, row) => {
                 processed.push(row.tick);
                 d._stop = true;  // stop after first
             });
             d.cfg.requestDelayMs = 0;
 
-            await d._processFlavor(flavor);
+            await d.processFlavor(flavor);
             expect(processed).to.deep.equal(['AAA']);
         });
 
-        // The batch SELECT is the only reader of the backoff _markFailure writes.
+        // The batch SELECT is the only reader of the backoff markFailure writes.
         // Without the 'failed' branch below, a retryable failure is parked with a
         // next_retry_at no query ever looks at again. Shape only; the row-level
         // proof runs against a real MariaDB in
@@ -2125,11 +2125,11 @@ describe('IconDownloader', function () {
             };
             const pool = makeMockPool(conn);
 
-            d._log = () => {};
-            await d._processFlavor({ coin: 'BTC', network: 'mainnet', pool });
+            d.log = () => {};
+            await d.processFlavor({ coin: 'BTC', network: 'mainnet', pool });
 
             const select = sqls.find(s => s.includes('FROM icons i') && /^\s*SELECT/.test(s));
-            expect(select, 'expected _processFlavor to emit a batch SELECT').to.be.a('string');
+            expect(select, 'expected processFlavor to emit a batch SELECT').to.be.a('string');
             const flat = select.replace(/\s+/g, ' ');
             expect(flat).to.include("i.status IN ('pending','stale')");
             expect(flat).to.include("i.status = 'failed'");
@@ -2145,7 +2145,7 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            await d._httpFetch('https://example.com/img.png');
+            await d.httpFetch('https://example.com/img.png');
 
             expect(stubs.axiosStub.get.callCount).to.equal(1);
             const [url, opts] = stubs.axiosStub.get.firstCall.args;
@@ -2169,7 +2169,7 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            const result = await d._httpFetch('https://example.com/img.png');
+            const result = await d.httpFetch('https://example.com/img.png');
             expect(result.mime).to.equal('image/png');
         });
 
@@ -2185,7 +2185,7 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            const result = await d._httpFetch('https://example.com/x');
+            const result = await d.httpFetch('https://example.com/x');
             expect(result.mime).to.equal('');
         });
     });
@@ -2200,7 +2200,7 @@ describe('IconDownloader', function () {
             const lines = [];
             const orig = console.log;
             console.log = (...args) => lines.push(args.join(' '));
-            d._log('test message');
+            d.log('test message');
             console.log = orig;
 
             expect(lines[0]).to.include('[icon-downloader]');
@@ -2216,7 +2216,7 @@ describe('IconDownloader', function () {
             const errs = [];
             const orig = console.error;
             console.error = (...args) => errs.push(args);
-            d._logErr('test-ctx', new Error('boom'));
+            d.logErr('test-ctx', new Error('boom'));
             console.error = orig;
 
             expect(errs.length).to.be.at.least(1);
@@ -2232,7 +2232,7 @@ describe('IconDownloader', function () {
             const errs = [];
             const orig = console.error;
             console.error = (...args) => errs.push(args);
-            d._logErr('test-ctx', 'a string error');
+            d.logErr('test-ctx', 'a string error');
             console.error = orig;
 
             expect(errs.length).to.be.at.least(1);
@@ -2248,7 +2248,7 @@ describe('IconDownloader', function () {
             d.cfg.maxAttempts = 4;
 
             const conn = makeMockConn([[]]);
-            await d._markFailure(conn, 1, 0, 'err');
+            await d.markFailure(conn, 1, 0, 'err');
             const [, args] = conn.query.firstCall.args;
             expect(args[2]).to.equal(3600);
         });
@@ -2262,7 +2262,7 @@ describe('IconDownloader', function () {
             d.cfg.maxAttempts = 99;
 
             const conn = makeMockConn([[]]);
-            await d._markFailure(conn, 1, 4, 'fourth fail');
+            await d.markFailure(conn, 1, 4, 'fourth fail');
             const [sql, args] = conn.query.firstCall.args;
             expect(sql).to.include('INTERVAL');
             expect(args[2]).to.equal(30 * 86400);
@@ -2281,16 +2281,16 @@ describe('IconDownloader', function () {
             d.cfg.maxAttempts = 99;
 
             const longMsg = 'E'.repeat(300);
-            d._fetchSourceBytes = sinon.stub().rejects(new Error(longMsg));
+            d.fetchSourceBytes = sinon.stub().rejects(new Error(longMsg));
 
             const markFailureCalls = [];
-            d._markFailure = sinon.stub().callsFake(async (conn2, iconId, attempts, errMsg) => {
+            d.markFailure = sinon.stub().callsFake(async (conn2, iconId, attempts, errMsg) => {
                 markFailureCalls.push(errMsg);
             });
-            d._markOk = sinon.stub().resolves();
+            d.markOk = sinon.stub().resolves();
 
             const conn = makeMockConn([[]]);
-            await d._processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' }, {
+            await d.processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' }, {
                 icon_id: 1, token_id: 10, attempts: 0, description: 'https://example.com/a.png', tick: 'TOK',
             });
 
@@ -2308,21 +2308,21 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
             d.cfg.maxAttempts = 99;
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('DATA'));
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from('DATA'));
 
             const longMsg = 'F'.repeat(300);
-            d._writeIcon = sinon.stub().rejects(new Error(longMsg));
+            d.writeIcon = sinon.stub().rejects(new Error(longMsg));
 
             const markFailureCalls = [];
-            d._markFailure = sinon.stub().callsFake(async (conn2, iconId, attempts, errMsg) => {
+            d.markFailure = sinon.stub().callsFake(async (conn2, iconId, attempts, errMsg) => {
                 markFailureCalls.push(errMsg);
             });
-            d._markOk = sinon.stub().resolves();
+            d.markOk = sinon.stub().resolves();
 
             const conn = makeMockConn([[]]);
             stubs.fspStub.mkdir.resolves();
 
-            await d._processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' }, {
+            await d.processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' }, {
                 icon_id: 1, token_id: 10, attempts: 0, description: 'https://example.com/a.png', tick: 'TOK',
             });
 
@@ -2341,7 +2341,7 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
             try {
-                await d._httpFetch('https://example.com/img.png');
+                await d.httpFetch('https://example.com/img.png');
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.equal('fetch failed');
@@ -2362,16 +2362,16 @@ describe('IconDownloader', function () {
 
             const weirdErr = new Error();
             weirdErr.message = 42;   // number, not string
-            d._fetchSourceBytes = sinon.stub().rejects(weirdErr);
+            d.fetchSourceBytes = sinon.stub().rejects(weirdErr);
 
             const receivedMsgs = [];
-            d._markFailure = sinon.stub().callsFake(async (conn2, iconId, attempts, errMsg) => {
+            d.markFailure = sinon.stub().callsFake(async (conn2, iconId, attempts, errMsg) => {
                 receivedMsgs.push(errMsg);
             });
-            d._markOk = sinon.stub().resolves();
+            d.markOk = sinon.stub().resolves();
 
             const conn = makeMockConn([[]]);
-            await d._processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' }, {
+            await d.processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' }, {
                 icon_id: 1, token_id: 10, attempts: 0, description: 'https://example.com/a.png', tick: 'TOK',
             });
 
@@ -2407,7 +2407,7 @@ describe('IconDownloader', function () {
             d.cfg.iconSize   = 64;
 
             try {
-                await d._writeIcon(Buffer.from('DATA'), '/tmp/out.png');
+                await d.writeIcon(Buffer.from('DATA'), '/tmp/out.png');
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.include('convert failed');
@@ -2427,20 +2427,20 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNG'));
-            d._writeIcon        = sinon.stub().resolves('abc123');
-            d._markOk           = sinon.stub().resolves();
-            d._markFailure      = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from('PNG'));
+            d.writeIcon        = sinon.stub().resolves('abc123');
+            d.markOk           = sinon.stub().resolves();
+            d.markFailure      = sinon.stub().resolves();
 
             const conn = makeMockConn([[]]);
             stubs.fspStub.mkdir.resolves();
 
-            await d._processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' }, {
+            await d.processToken(conn, { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' }, {
                 icon_id: 1, token_id: 10, attempts: 0, description: 'stamp:aGVsbG8=', tick: 'TOK',
             });
 
-            expect(d._markOk.callCount).to.equal(1);
-            const [, , url] = d._markOk.firstCall.args;
+            expect(d.markOk.callCount).to.equal(1);
+            const [, , url] = d.markOk.firstCall.args;
             expect(url).to.equal(null);
         });
     });
@@ -2472,7 +2472,7 @@ describe('IconDownloader', function () {
             d.cfg.iconSize   = 64;
 
             try {
-                await d._writeIcon(Buffer.from('DATA'), '/tmp/out.png');
+                await d.writeIcon(Buffer.from('DATA'), '/tmp/out.png');
                 throw new Error('should have thrown');
             } catch (e) {
                 expect(e.message).to.equal('convert failed: ');
@@ -2490,27 +2490,27 @@ describe('IconDownloader', function () {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            d._fetchSourceBytes = sinon.stub().resolves(Buffer.from('DATA'));
-            d._writeIcon        = sinon.stub().resolves('hash');
-            d._markOk           = sinon.stub().resolves();
-            d._markFailure      = sinon.stub().resolves();
+            d.fetchSourceBytes = sinon.stub().resolves(Buffer.from('DATA'));
+            d.writeIcon        = sinon.stub().resolves('hash');
+            d.markOk           = sinon.stub().resolves();
+            d.markFailure      = sinon.stub().resolves();
 
             const conn = makeMockConn([[]]);
             const flavor = { coin: 'BTC', network: 'mainnet', poolKey: 'BTC' };
 
-            await d._processToken(conn, flavor, {
+            await d.processToken(conn, flavor, {
                 icon_id: 1, token_id: 10, attempts: 0, description: 'https://example.com/a.png', tick: 'TOK',
             });
 
             expect(stubs.fspStub.mkdir.callCount).to.equal(1);
             const mkdirArgs = stubs.fspStub.mkdir.firstCall.args;
             expect(mkdirArgs[1]).to.deep.equal({ recursive: true });
-            expect(d._writeIcon.callCount).to.equal(1);
+            expect(d.writeIcon.callCount).to.equal(1);
         });
     });
 
     // Literal-IP URLs bypass the dns.lookup shim (Node skips a custom `lookup`
-    // for IP-literal hosts), so _httpFetch must reject a private literal before
+    // for IP-literal hosts), so httpFetch must reject a private literal before
     // connecting. Icon URLs come from on-chain token descriptions and are fully
     // attacker-controlled.
     describe('_httpFetch SSRF literal-IP guard', function () {
@@ -2534,8 +2534,8 @@ describe('IconDownloader', function () {
                 const stubs = makeStubs();
                 const d = downloader(stubs);
                 let threw = null;
-                try { await d._httpFetch(url); } catch (e) { threw = e; }
-                expect(threw, 'expected _httpFetch to reject').to.be.an('error');
+                try { await d.httpFetch(url); } catch (e) { threw = e; }
+                expect(threw, 'expected httpFetch to reject').to.be.an('error');
                 expect(threw.code).to.equal('RELAY_DENIED');
                 expect(stubs.axiosStub.get.called, 'axios must not be called for a private literal').to.be.false;
             });
@@ -2544,7 +2544,7 @@ describe('IconDownloader', function () {
         it('allows a public DNS-name URL through with the lookup shim + beforeRedirect wired', async function () {
             const stubs = makeStubs();
             const d = downloader(stubs);
-            await d._httpFetch('https://example.com/icon.png');
+            await d.httpFetch('https://example.com/icon.png');
             expect(stubs.axiosStub.get.calledOnce).to.be.true;
             const opts = stubs.axiosStub.get.firstCall.args[1];
             expect(opts.lookup).to.be.a('function');       // guards DNS-name hosts + redirects
@@ -2554,7 +2554,7 @@ describe('IconDownloader', function () {
         it('allows a PUBLIC IP literal through (only private literals are blocked)', async function () {
             const stubs = makeStubs();
             const d = downloader(stubs);
-            await d._httpFetch('http://93.184.216.34/icon.png');
+            await d.httpFetch('http://93.184.216.34/icon.png');
             expect(stubs.axiosStub.get.calledOnce).to.be.true;
         });
     });

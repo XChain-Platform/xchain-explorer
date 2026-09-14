@@ -36,14 +36,14 @@ const IPFS_GATEWAY = 'https://ipfsc.crystalsuite.com/';
 // The `action:` on-chain TIS reference grammar, written once in a dialect both
 // consumers read: this file compiles it as a JS regex, and the icon worker embeds
 // the same source text in a SQL REGEXP (the one-shot re-stale in
-// IconDownloader._discover). Plain capture groups rather than `(?:`, so the one
+// IconDownloader.discover). Plain capture groups rather than `(?:`, so the one
 // string is legal to both engines; the language it matches is exactly the page's
 // actionRefToRawPath regex.
 //
 // Shared rather than copied because the two have to agree or the worker LOOPS: a
 // re-stale predicate wider than this grammar (a bare `LIKE 'action:%'`) selects
 // rows whose description resolves to no source at all, and those land straight
-// back on _processToken's terminal ok-with-no-icon state, to be re-staled again
+// back on processToken's terminal ok-with-no-icon state, to be re-staled again
 // on the next cycle, forever (#5290).
 //
 // CASE IS SPELT OUT, never delegated to a case-folding operator on either side,

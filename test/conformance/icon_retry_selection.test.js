@@ -15,8 +15,8 @@
  *
  * The invariant this tier exists to hold:
  *
- *   every icons row _markFailure parks in BACKOFF (status 'failed' with a
- *   next_retry_at) re-enters _processFlavor's batch once that timer elapses,
+ *   every icons row markFailure parks in BACKOFF (status 'failed' with a
+ *   next_retry_at) re-enters processFlavor's batch once that timer elapses,
  *   and every row it RETIRES (status 'failed', next_retry_at NULL) never does.
  *
  * Why a real engine and not a SQL-text assertion. The unit tier can only check
@@ -110,7 +110,7 @@ describe('IconDownloader batch selection vs a real MariaDB', function () {
     }
 
     /**
-     * Capture the statement _processFlavor actually emits. Binding to the shipped
+     * Capture the statement processFlavor actually emits. Binding to the shipped
      * text rather than to a copy of it is the point: a test that rebuilt the
      * predicate here would pass just as happily against the version that shipped
      * the bug.
@@ -122,13 +122,13 @@ describe('IconDownloader batch selection vs a real MariaDB', function () {
             release: async () => {},
         };
         const downloader = new IconDownloader({ util: {} });
-        downloader._log = () => {};
+        downloader.log = () => {};
         // Point the icon root at an empty directory so the orphan sweep short-circuits
         // and cannot touch this checkout's real src/content/icons tree while we are
         // only here to read a statement back out.
         downloader.iconRoot = await require('fs/promises')
             .mkdtemp(path.join(require('os').tmpdir(), 'iconcapture_'));
-        await downloader._processFlavor({
+        await downloader.processFlavor({
             coin: 'BTC', network: 'mainnet', poolKey: 'BTC',
             pool: { getConnection: async () => conn },
         });
@@ -166,7 +166,7 @@ describe('IconDownloader batch selection vs a real MariaDB', function () {
         }
 
         selectSql = await shippedSelect();
-        expect(selectSql, 'expected _processFlavor to emit a batch SELECT').to.be.a('string');
+        expect(selectSql, 'expected processFlavor to emit a batch SELECT').to.be.a('string');
         whereSql = selectSql.slice(selectSql.indexOf('WHERE ') + 'WHERE '.length,
                                    selectSql.indexOf('ORDER BY')).trim();
         expect(whereSql, 'expected a WHERE clause between FROM and ORDER BY').to.have.length.above(10);
@@ -237,7 +237,7 @@ describe('IconDownloader batch selection vs a real MariaDB', function () {
         const rows = await q(selectSql, [50]);
         expect(rows.map(r => r.tick).sort())
             .to.deep.equal(SEED.filter(s => s.expect).map(s => s.tick).sort());
-        // Every column _processToken reads must actually arrive.
+        // Every column processToken reads must actually arrive.
         for (const r of rows) {
             expect(r).to.have.property('icon_id');
             expect(r).to.have.property('token_id');
@@ -277,9 +277,9 @@ describe('IconDownloader batch selection vs a real MariaDB', function () {
             for (const f of files) await fsp.writeFile(path.join(dir, f), 'x');
             const d = new IconDownloader({ util: {} });
             d.iconRoot = tmpRoot;
-            d._log = () => {};
+            d.log = () => {};
             const conn = await pool.getConnection();
-            try { await d._sweepOrphanIcons(conn, { coin: 'BTC', network: 'mainnet' }); }
+            try { await d.sweepOrphanIcons(conn, { coin: 'BTC', network: 'mainnet' }); }
             finally { conn.release(); }
             return (await fsp.readdir(dir)).sort();
         }

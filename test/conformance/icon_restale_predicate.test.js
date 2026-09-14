@@ -15,12 +15,12 @@
  *
  * The invariant this tier exists to hold:
  *
- *     { descriptions IconDownloader._discover statement (c) CAN SELECT }
+ *     { descriptions IconDownloader.discover statement (c) CAN SELECT }
  *   ⊆ { descriptions IconResolver.resolveDescriptionToSource CAN RESOLVE }
  *
  * A row the predicate selects but the resolver cannot resolve is not a cosmetic
  * mismatch. Statement (c) selects rows in the terminal ok-with-NULL-icon_hash
- * state, and _processToken writes that exact state back for any description that
+ * state, and processToken writes that exact state back for any description that
  * resolves to nothing, so such a row is re-staled on every cycle forever: a
  * permanent write loop on the indexer-owned icons table plus permanent occupancy
  * of the batch queue, mintable by anyone who can issue a token, because token
@@ -125,7 +125,7 @@ describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function
     }
 
     /**
-     * Capture the three statements _discover actually emits. Binding to the
+     * Capture the three statements discover actually emits. Binding to the
      * shipped text rather than to a copy of it is the point: a test that
      * rebuilds the predicate from ACTION_REF_PATTERN itself would pass just as
      * happily against the LOWER() version that shipped the bug.
@@ -134,7 +134,7 @@ describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function
         const sqls = [];
         const downloader = new IconDownloader({ util: {} });
         const conn = { query: async (sql) => { sqls.push(sql); return []; }, release: async () => {} };
-        return downloader._discover(conn).then(() => sqls);
+        return downloader.discover(conn).then(() => sqls);
     }
 
     before(async function () {
@@ -172,7 +172,7 @@ describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function
         }
 
         const statements = await shippedDiscoverStatements();
-        expect(statements, 'expected _discover to emit three statements').to.have.length(3);
+        expect(statements, 'expected discover to emit three statements').to.have.length(3);
         restaleSql = statements[2];
 
         // The description conjunct of the shipped statement, pulled out so the
@@ -287,7 +287,7 @@ describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function
         async function () {
             await seed(UNRESOLVABLE);
             expect(await runShippedRestale(), 'cycle 1').to.deep.equal([]);
-            // _processToken writes these rows straight back to ok/NULL, so the
+            // processToken writes these rows straight back to ok/NULL, so the
             // state the statement selects on is unchanged going into cycle 2.
             expect(await runShippedRestale(), 'cycle 2').to.deep.equal([]);
         });

@@ -402,7 +402,7 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
             './resolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
         });
         const dl = new IconDownloader({ util: {} });
-        await dl._httpFetch('https://example.com/icon.png');
+        await dl.httpFetch('https://example.com/icon.png');
         const opts = axiosStub.get.firstCall.args[1];
         expect(opts.lookup, 'IconDownloader fetch must set a lookup guard').to.be.a('function');
     });
@@ -416,7 +416,7 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
             './resolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
         });
         const dl = new IconDownloader({ util: {} });
-        dl._httpFetch('https://metadata.attacker.example/x.png').then(() => {
+        dl.httpFetch('https://metadata.attacker.example/x.png').then(() => {
             // force the request so the lookup runs
         }).catch(() => {});
         const opts = axiosStub.get.firstCall.args[1];
@@ -443,7 +443,7 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
             for (const url of ['https://victim.example:6379/x.png', 'http://victim.example:22/x.png',
                                'http://victim.example:8080/x.png']) {
                 let err = null;
-                try { await dl._httpFetch(url); } catch (e) { err = e; }
+                try { await dl.httpFetch(url); } catch (e) { err = e; }
                 expect(err, url).to.be.an('error');
                 expect(err.code, url).to.equal('RELAY_DENIED');
             }
@@ -455,7 +455,7 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
             const dl = new (load(axiosStub))({ util: {} });
             for (const url of ['https://example.com/icon.png', 'http://example.com/icon.png',
                                'https://example.com:443/icon.png', 'http://example.com:80/icon.png']) {
-                await dl._httpFetch(url);
+                await dl.httpFetch(url);
             }
             expect(axiosStub.get.callCount).to.equal(4);
         });
@@ -463,7 +463,7 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
         it('re-checks the port on a redirect hop', async function () {
             const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
             const dl = new (load(axiosStub))({ util: {} });
-            await dl._httpFetch('https://example.com/icon.png');
+            await dl.httpFetch('https://example.com/icon.png');
             const opts = axiosStub.get.firstCall.args[1];
             expect(() => opts.beforeRedirect({ href: 'http://example.com:6379/icon.png' }))
                 .to.throw(/port is not permitted/);

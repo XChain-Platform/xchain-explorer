@@ -64,7 +64,7 @@ const {
     resolveDescriptionToSource,
     selectIconUrlFromCip25Json,
     // The resolver's own `action:` grammar, borrowed as SQL-REGEXP source by the
-    // one-shot re-stale in _discover so that predicate can never select a row this
+    // one-shot re-stale in discover so that predicate can never select a row this
     // module cannot resolve.
     ACTION_REF_PATTERN,
 } = require('./resolver');
@@ -94,7 +94,7 @@ const DEFAULTS = {
     // still costs ImageMagick minutes of grinding. runOnce holds the _running
     // re-entrancy guard for the whole pass, so one such image would otherwise
     // stall the icon pipeline for every coin and network until the process is
-    // restarted. On expiry Node SIGKILLs the child and _writeIcon fails the row
+    // restarted. On expiry Node SIGKILLs the child and writeIcon fails the row
     // into the normal backoff path.
     convertTimeoutMs: 20000,
     // ImageMagick pixel-cache ceilings, passed as -limit on every invocation.
@@ -111,10 +111,10 @@ const DEFAULTS = {
 
 // Raster formats only. SVG is deliberately absent: these bytes come from
 // on-chain token descriptions (anyone can ISSUE a token with any description),
-// _writeIcon hands them to ImageMagick `convert`, and IM's SVG renderer
+// writeIcon hands them to ImageMagick `convert`, and IM's SVG renderer
 // dereferences external references (xlink:href, XML entities, nested image
 // URLs). Those fetches leave `convert`, not the axios client below, so they
-// never pass SAFE_LOOKUP or _rejectPrivateLiteral: an SVG naming
+// never pass SAFE_LOOKUP or rejectPrivateLiteral: an SVG naming
 // http://169.254.169.254/ is an egress this pipeline's SSRF guard cannot see,
 // and no ImageMagick policy.xml ships with this service to disable the coders.
 // The trade is that a token whose only icon is an SVG gets no rendered icon.
@@ -153,11 +153,11 @@ class IconDownloader {
         }
         const intervalMs = Math.max(1, this.cfg.intervalMinutes) * 60 * 1000;
         // Run once on startup, then every intervalMs
-        setImmediate(() => { this.runOnce().catch(e => this._logErr('initial run', e)); });
+        setImmediate(() => { this.runOnce().catch(e => this.logErr('initial run', e)); });
         this.timer = setInterval(() => {
-            this.runOnce().catch(e => this._logErr('scheduled run', e));
+            this.runOnce().catch(e => this.logErr('scheduled run', e));
         }, intervalMs);
-        this._log(`started (interval: ${this.cfg.intervalMinutes}min, batchSize: ${this.cfg.batchSize}, iconSize: ${this.cfg.iconSize}px)`);
+        this.log(`started (interval: ${this.cfg.intervalMinutes}min, batchSize: ${this.cfg.batchSize}, iconSize: ${this.cfg.iconSize}px)`);
     }
 
     stop(){
@@ -174,18 +174,18 @@ class IconDownloader {
 
     async runOnce(){
         if(this._running){
-            this._log('previous run still in progress, skipping tick');
+            this.log('previous run still in progress, skipping tick');
             return;
         }
         this._running = true;
         try {
-            const flavors = await this._listFlavors();
+            const flavors = await this.listFlavors();
             for(const flavor of flavors){
                 if(this._stop) break;
                 try {
-                    await this._processFlavor(flavor);
+                    await this.processFlavor(flavor);
                 } catch (e){
-                    this._logErr(`flavor ${flavor.coin}/${flavor.network}`, e);
+                    this.logErr(`flavor ${flavor.coin}/${flavor.network}`, e);
                 }
             }
         } finally {
@@ -197,7 +197,7 @@ class IconDownloader {
      * Build the list of (coin, network) pairs the explorer is configured
      * for that have an indexer DB and a matching pool.
      */
-    async _listFlavors(){
+    async listFlavors(){
         const out = [];
         const pools = (this.explorer.db && this.explorer.db.pools) || null;
         if(!pools) return out;
@@ -227,32 +227,32 @@ class IconDownloader {
      * Per-flavor pass: discovery + queue drain
      *****************************************************************/
 
-    async _processFlavor(flavor){
+    async processFlavor(flavor){
         const conn = await flavor.pool.getConnection();
         try {
             // Discovery: insert new tokens, mark stale ones
-            await this._discover(conn);
+            await this.discover(conn);
             // Reconcile disk against the DB before draining, and never let a
             // reconcile failure cost this flavor its pass.
-            try { await this._sweepOrphanIcons(conn, flavor); }
-            catch (e){ this._logErr(`sweep ${flavor.coin}/${flavor.network}`, e); }
+            try { await this.sweepOrphanIcons(conn, flavor); }
+            catch (e){ this.logErr(`sweep ${flavor.coin}/${flavor.network}`, e); }
             // Process: drain a batch
             // Order: never-checked first (newest tokens at the front so
             // freshly-minted ones get icons within minutes instead of waiting
             // behind the initial-backfill queue), then re-evaluate
             // already-checked rows from oldest to newest.
             //
-            // The 'failed' branch is what makes _markFailure's backoff live. That
+            // The 'failed' branch is what makes markFailure's backoff live. That
             // writer parks a RETRYABLE failure at status='failed' with a
             // next_retry_at, and retires a TERMINAL one (attempts >= maxAttempts)
             // at status='failed' with next_retry_at NULL. So on a failed row the
             // NULL-ness of next_retry_at is the terminal flag, and no other writer
-            // can forge it: _markOk and _discover (b) both clear next_retry_at only
+            // can forge it: markOk and discover (b) both clear next_retry_at only
             // while moving the row off 'failed'. Without this branch the timer
             // predicate below is dead for exactly the rows it was written for, and
             // one 5s fetch timeout permanently costs an icon on a
             // description-locked token - which is the opposite of the contract
-            // _fetchActionFileBytes documents when it throws rather than answering
+            // fetchActionFileBytes documents when it throws rather than answering
             // "no source".
             const rows = await conn.query(
                 `SELECT i.id           AS icon_id,
@@ -276,13 +276,13 @@ class IconDownloader {
             );
 
             if(!rows.length){
-                this._log(`[${flavor.coin}/${flavor.network}] queue empty`);
+                this.log(`[${flavor.coin}/${flavor.network}] queue empty`);
                 return;
             }
-            this._log(`[${flavor.coin}/${flavor.network}] processing ${rows.length} row(s)`);
+            this.log(`[${flavor.coin}/${flavor.network}] processing ${rows.length} row(s)`);
             for(const row of rows){
                 if(this._stop) break;
-                await this._processToken(conn, flavor, row);
+                await this.processToken(conn, flavor, row);
                 await sleep(this.cfg.requestDelayMs);
             }
         } finally {
@@ -293,8 +293,8 @@ class IconDownloader {
     /**
      * Delete the PNGs of tokens this flavor's DB says have NO icon.
      *
-     * _markNoIcon keeps disk and DB in step from here on, but ok-with-NULL-icon_hash
-     * is a TERMINAL state: _discover only revisits a row when the description drifts
+     * markNoIcon keeps disk and DB in step from here on, but ok-with-NULL-icon_hash
+     * is a TERMINAL state: discover only revisits a row when the description drifts
      * (b) or when statement (c)'s one-shot matches, so every file already stranded in
      * that state would go on being served forever. This drains that backlog, and is a
      * permanent no-op once it has.
@@ -317,12 +317,12 @@ class IconDownloader {
      *
      * Rows in 'stale', 'pending' or 'failed' are deliberately left alone: they may
      * still hold a perfectly good icon that is merely due for re-evaluation, and
-     * _processFlavor's batch drain is what decides their fate.
+     * processFlavor's batch drain is what decides their fate.
      *
      * index_tickers.tick is utf8mb4_bin, so IN (...) compares the filename bytes with
-     * no case folding - the same reason _discover statement (c) converts to binary.
+     * no case folding - the same reason discover statement (c) converts to binary.
      */
-    async _sweepOrphanIcons(conn, flavor){
+    async sweepOrphanIcons(conn, flavor){
         const iconDir = path.join(this.iconRoot, flavor.coin, flavor.network);
 
         let entries;
@@ -361,7 +361,7 @@ class IconDownloader {
         }
         // Silent when it removes nothing, which is every pass after the first.
         if(removed)
-            this._log(`[${flavor.coin}/${flavor.network}] removed ${removed} orphaned icon file(s)`);
+            this.log(`[${flavor.coin}/${flavor.network}] removed ${removed} orphaned icon file(s)`);
     }
 
     /**
@@ -369,7 +369,7 @@ class IconDownloader {
      * stale any whose description has drifted from the last hash we
      * processed. NULL-safe via the `<=>` operator.
      */
-    async _discover(conn){
+    async discover(conn){
         // SHARED-WRITE EXCEPTION (#3752): these statements write the indexer-owned
         // `icons` table. This is the sanctioned exception to the explorer's read-only
         // boundary and requires an INSERT + UPDATE grant on the indexer DB's icons
@@ -401,7 +401,7 @@ class IconDownloader {
         // prefix test. That is what makes this one-shot rather than a permanent write
         // loop on the indexer-owned table: a description merely starting with `action:`
         // (`action:foo`, `action:BTC:`, `action:12a`) resolves to NOTHING, so
-        // _processToken marks it ok-with-no-icon again, which is precisely the state this
+        // processToken marks it ok-with-no-icon again, which is precisely the state this
         // statement selects, and a wider predicate would re-stale it on every cycle for as
         // long as the token exists - mintable by anyone who can issue a token with such a
         // description (#5290). Every description this predicate CAN select resolves to an
@@ -457,7 +457,7 @@ class IconDownloader {
      * Process a single icons row.
      *****************************************************************/
 
-    async _processToken(conn, flavor, row){
+    async processToken(conn, flavor, row){
         const tick = row.tick;
         const desc = row.description;
         const iconDir  = path.join(this.iconRoot, flavor.coin, flavor.network);
@@ -466,23 +466,23 @@ class IconDownloader {
 
         const src = resolveDescriptionToSource(desc);
         if(!src){
-            await this._markNoIcon(conn, row.icon_id, iconPath, descHash);
-            this._log(`    - ${tick}: no icon source`);
+            await this.markNoIcon(conn, row.icon_id, iconPath, descHash);
+            this.log(`    - ${tick}: no icon source`);
             return;
         }
 
         let bytes;
         try {
-            bytes = await this._fetchSourceBytes(src, this.cfg.recursionLimit, flavor);
+            bytes = await this.fetchSourceBytes(src, this.cfg.recursionLimit, flavor);
         } catch (e){
-            await this._markFailure(conn, row.icon_id, row.attempts + 1, truncate(e.message, 255));
-            this._log(`    ✗ ${tick} (${src.scheme}): ${e.message}`);
+            await this.markFailure(conn, row.icon_id, row.attempts + 1, truncate(e.message, 255));
+            this.log(`    ✗ ${tick} (${src.scheme}): ${e.message}`);
             return;
         }
 
         if(!bytes || bytes.length === 0){
-            await this._markFailure(conn, row.icon_id, row.attempts + 1, 'empty body');
-            this._log(`    ✗ ${tick} (${src.scheme}): empty body`);
+            await this.markFailure(conn, row.icon_id, row.attempts + 1, 'empty body');
+            this.log(`    ✗ ${tick} (${src.scheme}): empty body`);
             return;
         }
 
@@ -491,31 +491,31 @@ class IconDownloader {
         let iconHash;
         try {
             await fsp.mkdir(iconDir, { recursive: true });
-            iconHash = await this._writeIcon(bytes, iconPath);
+            iconHash = await this.writeIcon(bytes, iconPath);
         } catch (e){
             // Stamp descriptions are immutable: if the decoded bytes aren't a
             // usable image, retrying won't help; mark terminal as no-icon-source.
             if(src.scheme === 'stamp'){
-                await this._markNoIcon(conn, row.icon_id, iconPath, descHash);
-                this._log(`    - ${tick}: stamp bytes are not a usable image`);
+                await this.markNoIcon(conn, row.icon_id, iconPath, descHash);
+                this.log(`    - ${tick}: stamp bytes are not a usable image`);
                 return;
             }
-            await this._markFailure(conn, row.icon_id, row.attempts + 1, truncate(e.message, 255));
-            this._log(`    ✗ ${tick} (${src.scheme}): convert failed (${e.message})`);
+            await this.markFailure(conn, row.icon_id, row.attempts + 1, truncate(e.message, 255));
+            this.log(`    ✗ ${tick} (${src.scheme}): convert failed (${e.message})`);
             return;
         }
         if(!iconHash){
             if(src.scheme === 'stamp'){
-                await this._markNoIcon(conn, row.icon_id, iconPath, descHash);
-                this._log(`    - ${tick}: stamp bytes are not a usable image`);
+                await this.markNoIcon(conn, row.icon_id, iconPath, descHash);
+                this.log(`    - ${tick}: stamp bytes are not a usable image`);
                 return;
             }
-            await this._markFailure(conn, row.icon_id, row.attempts + 1, 'image conversion failed');
+            await this.markFailure(conn, row.icon_id, row.attempts + 1, 'image conversion failed');
             return;
         }
 
-        await this._markOk(conn, row.icon_id, src.url || null, sourceHash, iconHash, descHash);
-        this._log(`    ✓ ${tick} <- ${src.scheme}`);
+        await this.markOk(conn, row.icon_id, src.url || null, sourceHash, iconHash, descHash);
+        this.log(`    ✓ ${tick} <- ${src.scheme}`);
     }
 
     /******************************************************************
@@ -528,15 +528,15 @@ class IconDownloader {
      * reached from one flavor resolves its nested refs against the same one.
      *****************************************************************/
 
-    async _fetchSourceBytes(src, depth, flavor){
+    async fetchSourceBytes(src, depth, flavor){
         if(depth < 0) throw new Error('recursion limit hit');
 
         switch(src.scheme){
             case 'action': {
-                const bytes = await this._fetchActionFileBytes(src, flavor);
+                const bytes = await this.fetchActionFileBytes(src, flavor);
                 // An on-chain TIS document, or the image itself. Same order the
                 // json_url branch below uses: try JSON, fall back to raw bytes and
-                // let _writeIcon sniff the type out of them.
+                // let writeIcon sniff the type out of them.
                 let json = null;
                 try { json = JSON.parse(bytes.toString('utf8')); } catch (e) {}
                 if(json && typeof json === 'object'){
@@ -553,7 +553,7 @@ class IconDownloader {
                     }
                     let next = resolveDescriptionToSource(picked);
                     if(!next) next = { scheme: 'image_url', url: picked };
-                    return await this._fetchSourceBytes(next, depth - 1, flavor);
+                    return await this.fetchSourceBytes(next, depth - 1, flavor);
                 }
                 return bytes;
             }
@@ -565,7 +565,7 @@ class IconDownloader {
             }
 
             case 'ord': {
-                const resp = await this._httpFetch(src.url);
+                const resp = await this.httpFetch(src.url);
                 let json;
                 try { json = JSON.parse(resp.body.toString('utf8')); }
                 catch (e) { throw new Error('ord: bad decoder JSON from ' + src.url + ': ' + e.message + ' | head=' + resp.body.toString('utf8').slice(0, 80)); }
@@ -586,7 +586,7 @@ class IconDownloader {
                 // Could be JSON (CIP25/TIS) or a direct image. Don't trust
                 // the Content-Type header (IPFS gateways routinely serve
                 // content as text/plain regardless of the actual bytes).
-                const resp = await this._httpFetch(src.url);
+                const resp = await this.httpFetch(src.url);
 
                 // Try JSON parse first
                 let json = null;
@@ -596,10 +596,10 @@ class IconDownloader {
                     if(!picked) throw new Error(`${src.scheme}: JSON has no usable image`);
                     let next = resolveDescriptionToSource(picked);
                     if(!next) next = { scheme: 'image_url', url: picked };
-                    return await this._fetchSourceBytes(next, depth - 1, flavor);
+                    return await this.fetchSourceBytes(next, depth - 1, flavor);
                 }
 
-                // Not JSON: return raw bytes; _writeIcon sniffs MIME from
+                // Not JSON: return raw bytes; writeIcon sniffs MIME from
                 // the bytes themselves and rejects anything that isn't an
                 // allowed image type.
                 return resp.body;
@@ -608,7 +608,7 @@ class IconDownloader {
             case 'imgur':
             case 'image_url':
             default: {
-                const resp = await this._httpFetch(src.url);
+                const resp = await this.httpFetch(src.url);
                 const mime = (resp.mime || '').toLowerCase();
                 if(!mime.startsWith('image/'))
                     throw new Error(`${src.scheme}: not an image (got '${mime}')`);
@@ -624,19 +624,19 @@ class IconDownloader {
      * the ones the token page fetches same-origin from
      * /{COIN}/api/file/{index}/raw, and this reads them the way that route does
      * (getGatedFileRaw first, then getFileRaw, then resolveServedBytes). No
-     * network means no SSRF surface, so _rejectPrivateLiteral has nothing to
+     * network means no SSRF surface, so rejectPrivateLiteral has nothing to
      * relax.
      *
      * EVERY failure here THROWS, deliberately. The caller turns a throw into
-     * _markFailure, which retries with backoff; the alternative shape - answering
-     * "no source" - lands in _markOk and is TERMINAL until the (usually
+     * markFailure, which retries with backoff; the alternative shape - answering
+     * "no source" - lands in markOk and is TERMINAL until the (usually
      * description-locked) description changes. A decoder DB that is briefly
      * unreachable, or a FILE this node has not indexed yet, must not permanently
      * mark a token icon-less, and getFileRaw answers null for a miss and for an
      * unreachable decoder DB alike, so a null can never be read as a verdict.
      *****************************************************************/
 
-    async _fetchActionFileBytes(src, flavor){
+    async fetchActionFileBytes(src, flavor){
         if(!flavor || !flavor.poolKey)
             throw new Error('action: no flavor context to resolve the FILE against');
         const db = this.explorer && this.explorer.db;
@@ -696,7 +696,7 @@ class IconDownloader {
     // (databases, admin panels) sitting on a PUBLIC address, which is exactly what
     // the private-range check above lets through. The probe's result is readable:
     // the icons row keeps status and last_error.
-    _rejectPrivateLiteral(rawUrl){
+    rejectPrivateLiteral(rawUrl){
         let parsed;
         try { parsed = new URL(rawUrl); }
         catch(_){ return; } // malformed URL: axios/URL will reject it downstream
@@ -715,8 +715,8 @@ class IconDownloader {
         }
     }
 
-    async _httpFetch(url){
-        this._rejectPrivateLiteral(url);
+    async httpFetch(url){
+        this.rejectPrivateLiteral(url);
         let resp;
         try {
             resp = await axios.get(url, {
@@ -733,7 +733,7 @@ class IconDownloader {
                 // every DNS-name redirect hop. beforeRedirect additionally
                 // re-checks a literal-IP redirect target (which the shim skips).
                 lookup:           SAFE_LOOKUP,
-                beforeRedirect:   (options) => { this._rejectPrivateLiteral(options.href || (options.protocol + '//' + options.hostname)); },
+                beforeRedirect:   (options) => { this.rejectPrivateLiteral(options.href || (options.protocol + '//' + options.hostname)); },
                 headers: { 'User-Agent': 'xchain-icon-downloader/1.0' },
                 validateStatus: s => s >= 200 && s < 300,
             });
@@ -753,7 +753,7 @@ class IconDownloader {
      * convert to produce a NxN PNG at iconPath, return md5 of result.
      *****************************************************************/
 
-    async _writeIcon(bytes, iconPath){
+    async writeIcon(bytes, iconPath){
         const tmp = path.join(os.tmpdir(), 'iconw_' + process.pid + '_' + crypto.randomBytes(4).toString('hex'));
         await fsp.writeFile(tmp, bytes);
 
@@ -814,7 +814,7 @@ class IconDownloader {
      * State updates
      *****************************************************************/
 
-    async _markOk(conn, iconId, sourceUrl, sourceHash, iconHash, descHash){
+    async markOk(conn, iconId, sourceUrl, sourceHash, iconHash, descHash){
         // SHARED-WRITE EXCEPTION (#3752): UPDATE on the indexer-owned `icons` table.
         // Sanctioned write outside the explorer read-only boundary; needs an UPDATE
         // grant on the indexer DB. Icon-state ownership relocation is a post-launch follow-up.
@@ -831,12 +831,12 @@ class IconDownloader {
      * Terminal "this token has no usable icon": clear the DB metadata AND remove
      * whatever PNG is on disk for it.
      *
-     * The unlink is the load-bearing half. _markOk alone writes icon_hash NULL and
+     * The unlink is the load-bearing half. markOk alone writes icon_hash NULL and
      * touches no filesystem, while processIconRequest (XChainExplorer) serves any
      * file that EXISTS and only 302s to /icon/default.png when it does not. So the
      * database and the disk disagree and the disk wins: a token whose description
      * changed to one with no icon source keeps serving its old image, and this
-     * state is terminal (_discover only re-stales on a further description change),
+     * state is terminal (discover only re-stales on a further description change),
      * so it never self-corrects.
      *
      * The stamp branches need it for a second reason: `convert` writes straight to
@@ -846,12 +846,12 @@ class IconDownloader {
      * safeUnlink swallows ENOENT, so the common case (a token that never had an
      * icon) costs one failed unlink and no branch.
      */
-    async _markNoIcon(conn, iconId, iconPath, descHash){
+    async markNoIcon(conn, iconId, iconPath, descHash){
         await safeUnlink(iconPath);
-        await this._markOk(conn, iconId, null, null, null, descHash);
+        await this.markOk(conn, iconId, null, null, null, descHash);
     }
 
-    async _markFailure(conn, iconId, attempts, errMsg){
+    async markFailure(conn, iconId, attempts, errMsg){
         // SHARED-WRITE EXCEPTION (#3752): UPDATE on the indexer-owned `icons` table.
         // Sanctioned write outside the explorer read-only boundary; needs an UPDATE
         // grant on the indexer DB. Icon-state ownership relocation is a post-launch follow-up.
@@ -878,12 +878,12 @@ class IconDownloader {
      * Logging helpers
      *****************************************************************/
 
-    _log(msg){
+    log(msg){
         const ts = new Date().toISOString();
         console.log(`[${ts}] [icon-downloader] ${msg}`);
     }
 
-    _logErr(where, err){
+    logErr(where, err){
         const ts = new Date().toISOString();
         console.error(`[${ts}] [icon-downloader] error in ${where}:`, err && err.stack ? err.stack : err);
     }
@@ -913,7 +913,7 @@ async function safeUnlink(p){
 // MIME sniff via the `file` command (works without adding a dependency).
 // Bounded like the conversion below it: `file` reads the same hostile bytes,
 // and a sniff that never returns wedges the whole pass just as a hung convert
-// does, because runOnce holds _running until _processToken resolves.
+// does, because runOnce holds _running until processToken resolves.
 async function sniffMime(filePath, timeoutMs){
     const { stdout } = await execFileAsync('file', ['--mime-type', '-b', filePath], {
         timeout:    timeoutMs,

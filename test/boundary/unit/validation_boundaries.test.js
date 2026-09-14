@@ -31,7 +31,6 @@ const util = new Utility(null);
 // ===========================================================================
 
 describe('Boundary: isInteger()', function () {
-
     // --- Valid integers that SHOULD pass ---
 
     it('accepts 0', function () {
@@ -86,7 +85,9 @@ describe('Boundary: isInteger()', function () {
     it('rejects NaN', function () {
         expect(util.isInteger(NaN)).to.be.false;
     });
+});
 
+describe('Boundary: isInteger()', function () {
     it('rejects Infinity', function () {
         expect(util.isInteger(Infinity)).to.be.false;
     });
@@ -144,7 +145,9 @@ describe('Boundary: isInteger()', function () {
     it('Number("9999999999") passes isInteger (large numeric strings now accepted)', function () {
         expect(util.isInteger(Number('9999999999'))).to.be.true;
     });
+});
 
+describe('Boundary: isInteger()', function () {
     it('Number("1e10") passes isInteger (10000000000 is a valid safe integer)', function () {
         expect(util.isInteger(Number('1e10'))).to.be.true;
     });
@@ -155,7 +158,6 @@ describe('Boundary: isInteger()', function () {
 // ===========================================================================
 
 describe('Boundary: isNumeric()', function () {
-
     it('accepts 0', function () {
         expect(util.isNumeric(0)).to.be.true;
     });
@@ -211,7 +213,9 @@ describe('Boundary: isNumeric()', function () {
     it('rejects empty string', function () {
         expect(util.isNumeric('')).to.be.false;
     });
+});
 
+describe('Boundary: isNumeric()', function () {
     it('rejects null', function () {
         expect(util.isNumeric(null)).to.be.false;
     });

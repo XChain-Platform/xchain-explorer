@@ -72,7 +72,7 @@ const {
 // (XChainExplorer.processFileRawRequest), so an `action:` FILE resolves to the
 // identical bytes the token page renders from. Contractually non-throwing: it
 // reports storedForm rather than handing back partial output.
-const compression = require('./compression.js');
+const compression = require('./http/compression.js');
 
 // Shared SSRF lookup shim: rejects fetches whose hostname resolves to a
 // private/internal/metadata address. Built once at module load.

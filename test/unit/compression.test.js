@@ -29,7 +29,7 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const zlib = require('zlib');
-const compression = require('../../src/compression.js');
+const compression = require('../../src/http/compression.js');
 
 const PUBLIC_RAW = 'FILE|0|doc.txt|text/plain|Doc|memo';
 const PUBLIC_COMPRESSED = 'FILE|0|doc.txt|text/plain|Doc|memo|||||1';

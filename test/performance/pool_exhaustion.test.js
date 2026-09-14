@@ -40,83 +40,89 @@ function httpGet(url) {
     });
 }
 
-describe('Pool exhaustion: concurrent requests beyond pool limit', function () {
+async function setUpPoolExhaustion() {
+    this.timeout(60000);
+    await db.setupDatabase('../performance/helpers/seed-performance.sql');
+    await bootServer();
+}
 
-    before(async function () {
-        this.timeout(60000);
-        await db.setupDatabase('../performance/helpers/seed-performance.sql');
-        await bootServer();
-    });
+async function tearDownPoolExhaustion() {
+    this.timeout(10000);
+    await stopServer();
+    await db.closePool();
+}
 
-    after(async function () {
-        this.timeout(10000);
-        await stopServer();
-        await db.closePool();
-    });
+async function testThirtyRequests() {
+    this.timeout(30000);
+    const url      = getServerUrl() + '/RBTC/explorer/tokens';
+    const promises = Array.from({ length: 30 }, () => httpGet(url));
+    const results  = await Promise.all(promises);
 
-    it('handles 30 simultaneous requests with < 10% errors (pool limit = 25)', async function () {
-        this.timeout(30000);
-        const url      = getServerUrl() + '/RBTC/explorer/tokens';
-        const promises = Array.from({ length: 30 }, () => httpGet(url));
-        const results  = await Promise.all(promises);
+    const errors    = results.filter(r => r.status !== 200).length;
+    const errorRate = errors / results.length;
 
-        const errors    = results.filter(r => r.status !== 200).length;
-        const errorRate = errors / results.length;
+    expect(errorRate).to.be.below(0.10,
+        `${errors}/30 requests failed (${(errorRate * 100).toFixed(0)}%); expected < 10% error rate`);
+}
 
-        expect(errorRate).to.be.below(0.10,
-            `${errors}/30 requests failed (${(errorRate * 100).toFixed(0)}%); expected < 10% error rate`);
-    });
+async function testFiftyRequests() {
+    this.timeout(30000);
+    const url   = getServerUrl() + '/RBTC/api/sends/50/block';
+    const start = Date.now();
+    const promises = Array.from({ length: 50 }, () => httpGet(url));
+    await Promise.all(promises);
+    const elapsed = Date.now() - start;
 
-    it('handles 50 simultaneous requests without hanging (timeout < 20s)', async function () {
-        this.timeout(30000);
-        const url   = getServerUrl() + '/RBTC/api/sends/50/block';
-        const start = Date.now();
-        const promises = Array.from({ length: 50 }, () => httpGet(url));
-        await Promise.all(promises);
-        const elapsed = Date.now() - start;
+    expect(elapsed).to.be.below(20000,
+        `Requests took ${elapsed}ms (possible pool deadlock)`);
+}
 
-        expect(elapsed).to.be.below(20000,
-            `Requests took ${elapsed}ms (possible pool deadlock)`);
-    });
+async function testRecovery() {
+    this.timeout(30000);
+    const url = getServerUrl() + '/RBTC/explorer/tokens';
 
-    it('recovers to normal latency after pool saturation burst', async function () {
-        this.timeout(30000);
-        const url = getServerUrl() + '/RBTC/explorer/tokens';
+    // Burst: saturate the pool
+    const burst = Array.from({ length: 40 }, () => httpGet(url));
+    await Promise.all(burst);
 
-        // Burst: saturate the pool
-        const burst = Array.from({ length: 40 }, () => httpGet(url));
-        await Promise.all(burst);
+    // Recovery: single requests should be fast again
+    const recovery = await httpGet(url);
+    expect(recovery.elapsed).to.be.below(1000,
+        `Post-saturation recovery took ${recovery.elapsed}ms; pool may not be releasing connections`);
+    expect(recovery.status).to.equal(200);
+}
 
-        // Recovery: single requests should be fast again
-        const recovery = await httpGet(url);
-        expect(recovery.elapsed).to.be.below(1000,
-            `Post-saturation recovery took ${recovery.elapsed}ms; pool may not be releasing connections`);
-        expect(recovery.status).to.equal(200);
-    });
+async function testSharedPool() {
+    this.timeout(30000);
+    const base = getServerUrl();
+    const endpoints = [
+        '/RBTC/explorer/tokens',
+        '/RBTC/api/sends/50/block',
+        '/RBTC/explorer/blocks',
+        '/RBTC/explorer/broadcasts',
+        '/RBTC/explorer/issues',
+    ];
 
-    it('concurrent requests to different endpoints share pool gracefully', async function () {
-        this.timeout(30000);
-        const base = getServerUrl();
-        const endpoints = [
-            '/RBTC/explorer/tokens',
-            '/RBTC/api/sends/50/block',
-            '/RBTC/explorer/blocks',
-            '/RBTC/explorer/broadcasts',
-            '/RBTC/explorer/issues',
-        ];
-
-        // 5 requests to each endpoint simultaneously (25 total)
-        const promises = [];
-        for (const ep of endpoints) {
-            for (let i = 0; i < 5; i++) {
-                promises.push(httpGet(base + ep));
-            }
+    // 5 requests to each endpoint simultaneously (25 total)
+    const promises = [];
+    for (const ep of endpoints) {
+        for (let i = 0; i < 5; i++) {
+            promises.push(httpGet(base + ep));
         }
-        const results = await Promise.all(promises);
+    }
+    const results = await Promise.all(promises);
 
-        const errors = results.filter(r => r.status !== 200).length;
-        expect(errors).to.be.below(5,
-            `${errors}/25 mixed-endpoint requests failed`);
-    });
+    const errors = results.filter(r => r.status !== 200).length;
+    expect(errors).to.be.below(5,
+        `${errors}/25 mixed-endpoint requests failed`);
+}
+
+describe('Pool exhaustion: concurrent requests beyond pool limit', function () {
+    before(setUpPoolExhaustion);
+    after(tearDownPoolExhaustion);
+    it('handles 30 simultaneous requests with < 10% errors (pool limit = 25)', testThirtyRequests);
+    it('handles 50 simultaneous requests without hanging (timeout < 20s)', testFiftyRequests);
+    it('recovers to normal latency after pool saturation burst', testRecovery);
+    it('concurrent requests to different endpoints share pool gracefully', testSharedPool);
 
 });

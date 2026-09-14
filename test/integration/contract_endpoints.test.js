@@ -58,6 +58,8 @@ describe('Contract endpoints (integration)', function () {
         await db.teardownDatabase();
     });
 
+    // These cases cover the fields getContract computes from the stored source
+    // (the integrity check, the callable method list), not the stored row itself.
     describe('GET /RBTC/api/contract/{idx}', function () {
 
         it('returns the source with a passing integrity check', async function () {

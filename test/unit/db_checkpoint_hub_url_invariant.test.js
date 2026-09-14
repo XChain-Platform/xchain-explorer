@@ -24,7 +24,7 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { resolveHubUrl }        = require('../../src/mirror/url.js');
 
 const Database = proxyquire('../../src/db.js', {
-    mariadb: { createPool: () => ({}) }
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo = createConfigInfoStub();

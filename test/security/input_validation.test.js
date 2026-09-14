@@ -68,6 +68,13 @@ describe('Security: Input Validation: Type confusion', function () {
         expect(['ASC', 'DESC']).to.include(config.data.sql.order);
     });
 
+});
+
+describe('Security: Input Validation: Type confusion', function () {
+
+    let db;
+    before(() => { db = makeDb(); });
+
     it('handles limit as object', async () => {
         const config = makeConfig({
             data: {

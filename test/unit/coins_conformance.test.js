@@ -15,8 +15,10 @@
 // from canonical xchain-hub/src/coins into every consumer repo; a consumer-only
 // edit to the coin file and its pin can pass that repo's own CI while forking
 // from the canonical hub. This guard runs in THIS repo's suite and asserts BOTH:
-//   1. CONFORMANCE - the vendored pin equals the vendored files' consensusHash.
-//   2. IDENTITY    - every vendored file is byte-identical to the canonical copy.
+//   1. CONFORMANCE - the vendored pin equals the vendored files' consensusHash,
+//      which catches a coin edit and a pin edit that were not made in lockstep.
+//   2. IDENTITY    - every vendored file is byte-identical to the canonical copy,
+//      which catches a consumer-only edit even when it is self-consistent.
 // When the sibling xchain-hub checkout is absent (standalone deploy), the identity
 // tier skips rather than fails; set XCHAIN_REQUIRE_SIBLINGS=1 in CI so a missing
 // sibling hard-fails instead of green-by-skip.

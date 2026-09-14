@@ -71,7 +71,6 @@ const NATIVE_PAIR_ROW = {
 afterEach(() => sinon.restore());
 
 describe('market readers: a side with no ticker', () => {
-
     it('getMarkets reaches index_coins and never inner-joins the ticker', async () => {
         const db = makeDb();
         const seen = [];
@@ -112,7 +111,9 @@ describe('market readers: a side with no ticker', () => {
         expect(data[0].tick2).to.equal('DOGESWAP');
         expect(data[0].tick1_price).to.equal('0.001');
     });
+});
 
+describe('market readers: a side with no ticker', () => {
     it('getMarkets keeps a token/token pair on the keys it always returned', async () => {
         const db = makeDb();
         const tokenPair = { ...NATIVE_PAIR_ROW, tick1: 'AAA', tick2: 'BBB' };
@@ -160,7 +161,9 @@ describe('market readers: a side with no ticker', () => {
         expect(data.bids, 'a give side of NULL is the coin, which is tick2, so this is a bid')
             .to.have.lengthOf(1);
     });
+});
 
+describe('market readers: a side with no ticker', () => {
     it('getOrderInfoBatch left-joins the ticker and carries give_coin', async () => {
         const db = makeDb();
         let firstQuery = null;

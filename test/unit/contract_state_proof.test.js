@@ -18,12 +18,17 @@
  * reassembled from every stored root, so a reassembly that counts only two of
  * them refuses every proof at an armed height with PROOF_STATE_ROOT_MISMATCH.
  *
+ * That failure would be loud but total, and it would arrive with the arming
+ * flag day rather than with a deploy, which is why the reassembly is driven here
+ * against a height where the slot is already populated.
+ *
  * Second, the endpoint must REFUSE below an armed height rather than answer.
  * The slot commits EMPTY_SMT_ROOT there, and a non-membership proof for any key
  * verifies against it perfectly while meaning nothing, so serving one as "no such
  * key" lets a client conclude a key is absent from a commitment that never
  * covered contract state. A typed CONTRACT_STATE_NOT_COMMITTED says so instead
- * (spec §4).
+ * (spec §4), so a client can tell an absent key from an uncommitted subtree
+ * rather than reading silence as proof.
  *
  *********************************************************************/
 

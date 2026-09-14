@@ -18,7 +18,7 @@
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
-const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../../src/hub-mirror-migrate.js');
+const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../../src/mirror/migrate.js');
 
 // Fake doQuery-bearing connection simulating a price_snapshots table with a
 // given set of columns/indexes; records every non-SHOW statement.

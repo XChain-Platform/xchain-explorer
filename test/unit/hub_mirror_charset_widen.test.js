@@ -23,7 +23,7 @@
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
-const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../../src/hub-mirror-migrate.js');
+const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../../src/mirror/migrate.js');
 
 const TWIN_DIR = path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror');
 const noLog = () => {};

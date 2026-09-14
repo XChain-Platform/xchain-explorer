@@ -444,7 +444,7 @@ describe('vm-query protocol size-cap parity @regression', () => {
     it('the compiled consensus pin equals the canonical sibling xchain-vm epoch', function(){
         const VM_DIR = process.env.XCHAIN_VM_SOURCE ||
             path.join(__dirname, '..', '..', '..', 'xchain-vm');
-        const RUNTIME = path.join(VM_DIR, 'src', 'consensus-runtime.js');
+        const RUNTIME = path.join(VM_DIR, 'src', 'consensus_runtime.js');
         if(!fs.existsSync(RUNTIME)) this.skip();
         const m = /CONSENSUS_VERSION\s*=\s*'([^']+)'/.exec(fs.readFileSync(RUNTIME, 'utf8'));
         expect(m, 'canonical CONSENSUS_VERSION not found in ' + RUNTIME).to.not.equal(null);

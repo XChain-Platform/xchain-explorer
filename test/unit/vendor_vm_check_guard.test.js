@@ -60,7 +60,7 @@ describe('vendored-VM check mode write boundary @regression', function () {
 
         const src = path.join(root, 'canonical-vm');
         fs.mkdirSync(path.join(src, 'src'), { recursive: true });
-        fs.writeFileSync(path.join(src, 'src', 'consensus-runtime.js'), CANONICAL_RUNTIME);
+        fs.writeFileSync(path.join(src, 'src', 'consensus_runtime.js'), CANONICAL_RUNTIME);
         fs.writeFileSync(path.join(src, 'package.json'), '{ "name": "xchain-vm", "version": "1.2.3" }\n');
 
         return { root, src, dest: path.join(root, 'xchain-vm') };
@@ -81,7 +81,7 @@ describe('vendored-VM check mode write boundary @regression', function () {
         if (!haveRsync()) return this.skip();
         const fixture = stageRoot();
         fs.mkdirSync(path.join(fixture.dest, 'src'), { recursive: true });
-        fs.writeFileSync(path.join(fixture.dest, 'src', 'consensus-runtime.js'), DRIFTED_RUNTIME);
+        fs.writeFileSync(path.join(fixture.dest, 'src', 'consensus_runtime.js'), DRIFTED_RUNTIME);
         fs.copyFileSync(path.join(fixture.src, 'package.json'), path.join(fixture.dest, 'package.json'));
 
         const run = runCheck(fixture);
@@ -92,7 +92,7 @@ describe('vendored-VM check mode write boundary @regression', function () {
         assert.match(out, /DRIFT/,
             `check exited non-zero without naming drift:\n${out}`);
         assert.strictEqual(
-            fs.readFileSync(path.join(fixture.dest, 'src', 'consensus-runtime.js'), 'utf8'),
+            fs.readFileSync(path.join(fixture.dest, 'src', 'consensus_runtime.js'), 'utf8'),
             DRIFTED_RUNTIME,
             'check overwrote a vendored tree that was present, which repairs the drift it is meant to report');
     });
@@ -108,7 +108,7 @@ describe('vendored-VM check mode write boundary @regression', function () {
             `check failed a state no commit can satisfy: the copy is gitignored, so an isolated `
             + `checkout never carries one (exit ${run.status}):\n${out}`);
         assert.strictEqual(
-            fs.readFileSync(path.join(fixture.dest, 'src', 'consensus-runtime.js'), 'utf8'),
+            fs.readFileSync(path.join(fixture.dest, 'src', 'consensus_runtime.js'), 'utf8'),
             CANONICAL_RUNTIME,
             'check reported in sync without staging the canonical source files');
     });
@@ -117,7 +117,7 @@ describe('vendored-VM check mode write boundary @regression', function () {
         if (!haveRsync()) return this.skip();
         const fixture = stageRoot();
         fs.mkdirSync(path.join(fixture.dest, 'src'), { recursive: true });
-        fs.writeFileSync(path.join(fixture.dest, 'src', 'consensus-runtime.js'),
+        fs.writeFileSync(path.join(fixture.dest, 'src', 'consensus_runtime.js'),
             CANONICAL_RUNTIME.replace("'3'", "'2'"));
         fs.copyFileSync(path.join(fixture.src, 'package.json'), path.join(fixture.dest, 'package.json'));
 

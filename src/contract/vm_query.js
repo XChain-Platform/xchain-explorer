@@ -95,7 +95,7 @@ const VM_OPTIONS = {
 };
 
 // Wire-format limits mirrored from the VM's own emit.execute validation
-// (xchain-vm/src/gateway-emit.js): method <= 64 bytes, params <= 32 entries of
+// (xchain-vm/src/gateway_emit.js): method <= 64 bytes, params <= 32 entries of
 // <= 1024 bytes each. Requests beyond these could never be real EXECUTEs.
 const MAX_METHOD_BYTES = 64;
 const MAX_PARAMS       = 32;

@@ -89,7 +89,6 @@ function blockBoundConfig(search, extras = {}) {
 }
 
 describe('Database#getCommitments (M3.8 data leg)', () => {
-
     it('returns a 3-element array', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
@@ -133,7 +132,9 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         expect(query).to.not.match(/INNER JOIN `[^`]+`\.state_checkpoints/);
         expect(query).to.not.match(/INNER JOIN anchor_actions/);
     });
+});
 
+describe('Database#getCommitments (M3.8 data leg)', () => {
     it('emits the seam-contract column list, in order, under the exact names', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
@@ -185,7 +186,9 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         // Anchor leg applies the identical shape against anchor_actions.
         expect(query).to.match(/an\.checkpoint_seq = \(SELECT MAX\(a2\.checkpoint_seq\)/);
     });
+});
 
+describe('Database#getCommitments (M3.8 data leg)', () => {
     it('the checkpoint leg is scoped by chain/network on both the outer join and the correlated subquery', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
@@ -241,7 +244,9 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         expect(err).to.be.an('error');
         expect(err.message).to.match(/co-located hub DB/i);
     });
+});
 
+describe('Database#getCommitments (M3.8 data leg)', () => {
     it('rejects an unsafe hub DB identifier by failing loud, without leaking it', async () => {
         const db = makeRealDb();
         db.checkpointDb = { BTC: { name: 'bad name; DROP', chain: 'BTC', network: 'mainnet' } };

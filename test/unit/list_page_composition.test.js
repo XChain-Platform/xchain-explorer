@@ -47,6 +47,7 @@ const SOURCE   = require('../helpers/content-source.js');
 const BASELINE = JSON.parse(fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'list-page-baseline.json'), 'utf8'));
 const HTML_DIR = path.join(ROOT, 'src', 'content', 'html');
 const EXPLORER = fs.readFileSync(path.join(ROOT, 'src', 'XChainExplorer.js'), 'utf8');
+const pages = listPage.pages();
 
 // Everything before the first <script> is what a reader sees.
 function markup(src){
@@ -69,8 +70,6 @@ function pageInfoOf(src){
 }
 
 describe('list-page composition (M2.3)', function () {
-
-    const pages = listPage.pages();
 
     it('collapsed the bulk of the list pages, not a token few', function () {
         assert.ok(pages.length >= 70, 'only ' + pages.length + ' pages are composed');
@@ -102,6 +101,10 @@ describe('list-page composition (M2.3)', function () {
         for(const file of pages)
             assert.match(listPage.render(file), /updatePageInfo\(\);/, file + ' stopped updating its meta tags');
     });
+
+});
+
+describe('list-page composition (M2.3)', function () {
 
     describe('the mount manifest each page ships', function () {
 
@@ -148,6 +151,10 @@ describe('list-page composition (M2.3)', function () {
         });
     });
 
+});
+
+describe('list-page composition (M2.3)', function () {
+
     describe('routing', function () {
 
         function htmlRoutes(){
@@ -181,6 +188,10 @@ describe('list-page composition (M2.3)', function () {
             assert.equal(listPage.has('coin_home.html'), false);
         });
     });
+
+});
+
+describe('list-page composition (M2.3)', function () {
 
     describe('escaping in the composed script block', function () {
 

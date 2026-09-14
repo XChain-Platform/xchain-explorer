@@ -99,11 +99,24 @@ describe('db.js composes its extracted reader families', function(){
     });
 
     it('wires every module file into the composition', function(){
-        const src = fs.readFileSync(path.join(SRC, 'db/index.js'), 'utf8');
         // Only reader families (a module declaring a class body) are composed onto
         // Database; statement-text modules are required by the handlers that use them.
+        // A family split into parts is wired through its own entry, so a module counts
+        // as wired when any file reachable from db/index.js by relative require names it.
         const readers = MODULES.filter((rel) => rel !== path.join('db', 'index.js') && classBodyMethods(rel).length > 0);
-        const unwired = readers.filter((rel) => !src.includes(`./${path.relative('db', rel).split(path.sep).join('/')}`));
+        const wired = new Set();
+        const queue = [path.join('db', 'index.js')];
+        while (queue.length) {
+            const rel = queue.shift();
+            if (wired.has(rel)) continue;
+            wired.add(rel);
+            const text = fs.readFileSync(path.join(SRC, rel), 'utf8');
+            for (const m of text.matchAll(/require\(\s*'(\.{1,2}\/[^']+\.js)'\s*\)/g)) {
+                const next = path.relative(SRC, path.resolve(path.dirname(path.join(SRC, rel)), m[1]));
+                if (!next.startsWith('..') && fs.existsSync(path.join(SRC, next))) queue.push(next);
+            }
+        }
+        const unwired = readers.filter((rel) => !wired.has(rel));
         expect(unwired, 'module file(s) under src/db/ that db.js never requires')
             .to.deep.equal([]);
     });

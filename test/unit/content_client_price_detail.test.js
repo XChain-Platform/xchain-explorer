@@ -242,6 +242,10 @@ describe('PRICE detail render: validator batch rounds', function () {
         expect(out.pairs).to.contain('2 per round');
     });
 
+});
+
+describe('PRICE detail render: validator batch rounds', function () {
+
     it('links a round BTC anchor height into the BTC explorer for this network', function () {
         const out = renderPriceDetails({ ...BATCH, __xc: { status: { available: { TBTC: 'BTC (testnet)' } } } });
         // Anchored on Bitcoin whatever chain the action landed on, so TBTC, never the page coin.

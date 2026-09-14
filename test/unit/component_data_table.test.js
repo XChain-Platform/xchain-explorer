@@ -57,6 +57,23 @@ const KNOWN_FIXES = {
         + 'the colspan from the rendered column count, so it cannot be short again'
 };
 
+// One realm with the shipped client and a stubbed dataTable(), so the
+// real loadDatatablesData config can be inspected.
+function boot(){
+    const dom = new JSDOM('<!doctype html><html><body>'
+        + '<table id="datatable-send"><thead><tr><th>#</th></tr></thead><tbody></tbody></table>'
+        + '</body></html>', { runScripts: 'outside-only', url: 'https://xchain.test/RDOGE/sends' });
+    const win = dom.window;
+    win.numeral = function(v){ return { format: function(){ return String(v); } }; };
+    win.eval(JQUERY);
+    win.jQuery.fn.ready = function(){ return this; };
+    win.eval(SOURCE.clientSource());
+    const captured = {};
+    win.jQuery.fn.dataTable = function(config){ captured.config = config; return this; };
+    win.jQuery.fn.DataTable = win.jQuery.fn.dataTable;
+    return { win, captured };
+}
+
 describe('data-table: config-driven columns (M2.2)', function () {
 
     describe('generated <thead> against the pre-component pages', function () {
@@ -100,7 +117,9 @@ describe('data-table: config-driven columns (M2.2)', function () {
             assert.match(listPage.render('sweeps.html'), /colspan="11"/);
         });
     });
+});
 
+describe('data-table: config-driven columns (M2.2)', function () {
     describe('a theme resequencing or dropping a column', function () {
 
         it('renders the header in the configured order', function () {
@@ -143,7 +162,11 @@ describe('data-table: config-driven columns (M2.2)', function () {
             assert.deepEqual(cells, ['3', '1', '2'],
                 'the body must follow the same map as the header, or every value is relabelled');
         });
+    });
+});
 
+describe('data-table: config-driven columns (M2.2)', function () {
+    describe('a theme resequencing or dropping a column', function () {
         it('does not permute a row twice when the table is redrawn', function () {
             const dom = new JSDOM('<!doctype html><html><body>'
                 + '<table id="t"><thead><tr><th>A</th><th>B</th></tr></thead>'
@@ -177,26 +200,10 @@ describe('data-table: config-driven columns (M2.2)', function () {
             assert.equal(table.querySelector('tbody td').textContent, 'Loading...');
         });
     });
+});
 
+describe('data-table: config-driven columns (M2.2)', function () {
     describe('paging, offsets and per-page length survive the component seam', function () {
-
-        // One realm with the shipped client and a stubbed dataTable(), so the
-        // real loadDatatablesData config can be inspected.
-        function boot(){
-            const dom = new JSDOM('<!doctype html><html><body>'
-                + '<table id="datatable-send"><thead><tr><th>#</th></tr></thead><tbody></tbody></table>'
-                + '</body></html>', { runScripts: 'outside-only', url: 'https://xchain.test/RDOGE/sends' });
-            const win = dom.window;
-            win.numeral = function(v){ return { format: function(){ return String(v); } }; };
-            win.eval(JQUERY);
-            win.jQuery.fn.ready = function(){ return this; };
-            win.eval(SOURCE.clientSource());
-            const captured = {};
-            win.jQuery.fn.dataTable = function(config){ captured.config = config; return this; };
-            win.jQuery.fn.DataTable = win.jQuery.fn.dataTable;
-            return { win, captured };
-        }
-
         it('still tracks the offset cursor from the first and last row of a draw', function () {
             const { win, captured } = boot();
             win.loadDatatablesData('RDOGE', 'send', null, null);
@@ -229,7 +236,11 @@ describe('data-table: config-driven columns (M2.2)', function () {
             win.loadDatatablesData('RDOGE', 'send', null, null);
             assert.equal(captured.config.pageLength, 50);
         });
+    });
+});
 
+describe('data-table: config-driven columns (M2.2)', function () {
+    describe('paging, offsets and per-page length survive the component seam', function () {
         it('asks for first/next/prev/last with the matching offset', function () {
             const { win, captured } = boot();
             win.loadDatatablesData('RDOGE', 'send', null, null);
@@ -282,7 +293,9 @@ describe('data-table: config-driven columns (M2.2)', function () {
             assert.equal(captured.config.ajax.url, '/RDOGE/explorer/sends');
         });
     });
+});
 
+describe('data-table: config-driven columns (M2.2)', function () {
     describe('the component declaration', function () {
 
         it('ships a template, a mount script, a stylesheet and a prop table', function () {

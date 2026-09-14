@@ -76,7 +76,6 @@ const TARGET = (over = {}) => ({
 });
 
 describe('HubMirrorSyncManager', function () {
-
     afterEach(function () { sinon.restore(); });
 
     it('is a no-op when no checkpoint entry sets self_sync', async function () {
@@ -124,6 +123,10 @@ describe('HubMirrorSyncManager', function () {
             expect(errLog.callCount).to.equal(2, 'reported again after the interval');
         } finally { clock.restore(); restoreEnv(); }
     });
+});
+
+describe('HubMirrorSyncManager', function () {
+    afterEach(function () { sinon.restore(); });
 
     it('takes the hub URL from the checkpoint config block, over the env', async function () {
         const { HubMirrorSyncManager, FakeSync, restoreEnv } = load({ env: { HUB_API_URL: 'http://env-hub:10000' } });
@@ -178,6 +181,10 @@ describe('HubMirrorSyncManager', function () {
             expect(mgr.instances.size).to.equal(1);
         } finally { restoreEnv(); }
     });
+});
+
+describe('HubMirrorSyncManager', function () {
+    afterEach(function () { sinon.restore(); });
 
     it('dedupes by unique (host, port, schema) target, not by coin', async function () {
         const { HubMirrorSyncManager, syncStart, restoreEnv } = load({ env: { HUB_API_URL: 'http://hub:10000' } });

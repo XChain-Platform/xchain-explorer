@@ -112,6 +112,10 @@ describe('list-page cells fed a null feed column', function () {
         expect(cells[6]).to.equal('');
     });
 
+});
+
+describe('list-page cells fed a null feed column', function () {
+
     it('renders an EMPTY Method cell for an EXECUTE that names none', function () {
         // getExecutions: count, block, timestamp, contract_index, caller, method_name,
         // gas_used, status, action_index. contract_executions.method_name is nullable.

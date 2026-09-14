@@ -143,7 +143,6 @@ function makeInert() {
 }
 
 describe('SPV Stage A: existing proofs survive an armed contract_state_root @regression', function () {
-
     it('a balance proof still serves and still binds at an armed height', async function () {
         // THE regression this stage exists to avoid. With a two-root reassembly this
         // returns PROOF_STATE_ROOT_MISMATCH for every address on the chain.
@@ -176,7 +175,6 @@ describe('SPV Stage A: existing proofs survive an armed contract_state_root @reg
 });
 
 describe('SPV Stage A: contractStateProof @regression', function () {
-
     it('a membership proof verifies and binds into the signed state_root', async function () {
         const { server, stateRoot, contractRoot } = makeArmed();
         const r = await server.contractStateProof({ coin: COIN }, CHAIN, NET, CIDX, KEY, HEIGHT);
@@ -225,28 +223,27 @@ describe('SPV Stage A: contractStateProof @regression', function () {
     });
 });
 
-describe('SPV Stage A: contractStateProof verifies through the real SDK verifier @regression', function () {
-
-    // Strongest available check short of a live venue: the server's actual response
-    // is fed to the SDK's client-side verifier, so the two independent
-    // implementations of "what does this proof mean" have to agree. Skipped rather
-    // than failed when the sibling repo is absent (standalone checkout).
-    // The SDK's layout pass moved src/light.js to src/protocol/light_client.js,
-    // so a sibling checkout sits on one side of that move or the other. Pinning
-    // one spelling leaves `light` null against the other side, which skips every
-    // assertion below while the suite still reports green.
-    let light = null;
-    for (const spec of ['../../../xchain-sdk/src/protocol/light_client.js',
-                        '../../../xchain-sdk/src/light.js']) {
-        try { light = require(spec); break; }
-        catch (e) {
-            // Only an unresolvable module falls through: to the next spelling, or
-            // to the skip below in a standalone checkout with no sibling SDK. A
-            // verifier that is present and throws while loading is a real error.
-            if (e.code !== 'MODULE_NOT_FOUND') throw e;
-        }
+// Strongest available check short of a live venue: the server's actual response
+// is fed to the SDK's client-side verifier, so the two independent
+// implementations of "what does this proof mean" have to agree. Skipped rather
+// than failed when the sibling repo is absent (standalone checkout).
+// The SDK's layout pass moved src/light.js to src/protocol/light_client.js,
+// so a sibling checkout sits on one side of that move or the other. Pinning
+// one spelling leaves `light` null against the other side, which skips every
+// assertion below while the suite still reports green.
+let light = null;
+for (const spec of ['../../../xchain-sdk/src/protocol/light_client.js',
+                    '../../../xchain-sdk/src/light.js']) {
+    try { light = require(spec); break; }
+    catch (e) {
+        // Only an unresolvable module falls through: to the next spelling, or
+        // to the skip below in a standalone checkout with no sibling SDK. A
+        // verifier that is present and throws while loading is a real error.
+        if (e.code !== 'MODULE_NOT_FOUND') throw e;
     }
+}
 
+describe('SPV Stage A: contractStateProof verifies through the real SDK verifier @regression', function () {
     it('a membership proof verifies and yields the raw stored value', async function () {
         if (!light) return this.skip();
         const { server, stateRoot } = makeArmed();
@@ -278,7 +275,9 @@ describe('SPV Stage A: contractStateProof verifies through the real SDK verifier
         // the trusted checkpoint rather than from the proof body.
         assert.strictEqual(light.verifyContractStateProof(r.proof, stateRoot, 'LTC', NET).reason, 'KEY_MISMATCH');
     });
+});
 
+describe('SPV Stage A: contractStateProof verifies through the real SDK verifier @regression', function () {
     it('rejects a value that does not preimage the committed leaf', async function () {
         if (!light) return this.skip();
         const { server, stateRoot } = makeArmed();
@@ -300,33 +299,32 @@ describe('SPV Stage A: contractStateProof verifies through the real SDK verifier
     });
 });
 
+// The handler is exercised directly: every rule below must run BEFORE the key
+// reaches merkle.joinFields (which throws on 0x00) or decodeURIComponent, so a
+// hostile path segment gets a typed 400 and never a 500 or a crash.
+function runHandler(params, query) {
+    const captured = {};
+    const res = {
+        status(code){ captured.code = code; return this; },
+        json(body){ captured.body = body; return this; }
+    };
+    const self = {
+        db: { pools: { [COIN]: {} } },
+        mirrorGate: () => ({ blocked: null }),
+        parseCoinCode: () => ({ coin: CHAIN, network: NET }),
+        configInfo: { getConfig: async () => ({}) },
+        proofServer: { contractStateProof: async (cfg, chain, net, idx, key) => {
+            captured.reachedServer = true;
+            captured.serverKey = key;          // what the handler actually proves over
+            return { proof: {}, checkpoint: {} };
+        } }
+    };
+    const req = { params: Object.assign({ coin: COIN }, params), query: query || {} };
+    return XChainExplorer.prototype.processContractStateProofRequest.call(self, req, res)
+        .then(() => captured);
+}
+
 describe('SPV Stage A: contract-state request validation @regression', function () {
-
-    // The handler is exercised directly: every rule below must run BEFORE the key
-    // reaches merkle.joinFields (which throws on 0x00) or decodeURIComponent, so a
-    // hostile path segment gets a typed 400 and never a 500 or a crash.
-    function runHandler(params, query) {
-        const captured = {};
-        const res = {
-            status(code){ captured.code = code; return this; },
-            json(body){ captured.body = body; return this; }
-        };
-        const self = {
-            db: { pools: { [COIN]: {} } },
-            mirrorGate: () => ({ blocked: null }),
-            parseCoinCode: () => ({ coin: CHAIN, network: NET }),
-            configInfo: { getConfig: async () => ({}) },
-            proofServer: { contractStateProof: async (cfg, chain, net, idx, key) => {
-                captured.reachedServer = true;
-                captured.serverKey = key;          // what the handler actually proves over
-                return { proof: {}, checkpoint: {} };
-            } }
-        };
-        const req = { params: Object.assign({ coin: COIN }, params), query: query || {} };
-        return XChainExplorer.prototype.processContractStateProofRequest.call(self, req, res)
-            .then(() => captured);
-    }
-
     it('rejects a NUL byte in the key with a 400, never letting it reach joinFields', async function () {
         // joinFields THROWS on 0x00 to keep the field join injective. Unguarded, an
         // unauthenticated `%00` request would surface as a 500 from a throwing
@@ -367,7 +365,9 @@ describe('SPV Stage A: contract-state request validation @regression', function 
         assert.notStrictEqual(out.code, 400);
         assert.notStrictEqual(out.body && out.body.code, 'INVALID_KEY_ENCODING');
     });
+});
 
+describe('SPV Stage A: contract-state request validation @regression', function () {
     it('still forwards an ordinary key unchanged', async function () {
         const out = await runHandler({ contractIndex: '7', key: 'seed/bulk/27' });
         assert.ok(out.reachedServer);

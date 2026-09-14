@@ -74,10 +74,20 @@ after(async function () {
     await stopServer();
 });
 
+registerDatabaseUnavailableBaseline();
+registerDatabaseUnavailableRecovery();
+registerSlowQueryResponses();
+registerConnectionPoolExhaustion();
+registerIntermittentDropsSequential();
+registerIntermittentDropsRecovery();
+
+}); // describe('Chaos: Database Resilience')
+
 // -------------------------------------------------------------------------
 // CE-DB-01: Complete Database Unavailability (30 s)
 // -------------------------------------------------------------------------
 
+function registerDatabaseUnavailableBaseline() {
 describe('CE-DB-01: Complete Database Unavailability', function () {
 
     afterEach(async function () {
@@ -132,6 +142,16 @@ describe('CE-DB-01: Complete Database Unavailability', function () {
         expect(recoveryMs).to.be.below(30000);
     });
 
+});
+}
+
+function registerDatabaseUnavailableRecovery() {
+describe('CE-DB-01: Complete Database Unavailability', function () {
+
+    afterEach(async function () {
+        await resetProxy();
+    });
+
     it('health poller confirms outage then recovery transition', async function () {
         const pollResults = [];
         const stopPoller  = startHealthPoller(HEALTH, pollResults, 500);
@@ -167,11 +187,13 @@ describe('CE-DB-01: Complete Database Unavailability', function () {
         expect(successes.length).to.be.above(0);
     });
 });
+}
 
 // -------------------------------------------------------------------------
 // CE-DB-02: Slow Query Responses
 // -------------------------------------------------------------------------
 
+function registerSlowQueryResponses() {
 describe('CE-DB-02: Slow Query Responses', function () {
 
     afterEach(async function () {
@@ -220,11 +242,13 @@ describe('CE-DB-02: Slow Query Responses', function () {
         expect(ms).to.be.below(2000);
     });
 });
+}
 
 // -------------------------------------------------------------------------
 // CE-DB-03: Connection Pool Exhaustion
 // -------------------------------------------------------------------------
 
+function registerConnectionPoolExhaustion() {
 describe('CE-DB-03: Connection Pool Exhaustion', function () {
 
     afterEach(async function () {
@@ -275,11 +299,13 @@ describe('CE-DB-03: Connection Pool Exhaustion', function () {
         expect(recoveryMs).to.be.below(30000);
     });
 });
+}
 
 // -------------------------------------------------------------------------
 // CE-DB-04: Intermittent Connection Drops
 // -------------------------------------------------------------------------
 
+function registerIntermittentDropsSequential() {
 describe('CE-DB-04: Intermittent Connection Drops (30 % TCP reset probability)', function () {
 
     afterEach(async function () {
@@ -313,6 +339,16 @@ describe('CE-DB-04: Intermittent Connection Drops (30 % TCP reset probability)',
             'Majority of requests should succeed (retry logic handles TCP resets)');
         // Total must equal 50
         expect(successCount + failureCount).to.equal(50);
+    });
+
+});
+}
+
+function registerIntermittentDropsRecovery() {
+describe('CE-DB-04: Intermittent Connection Drops (30 % TCP reset probability)', function () {
+
+    afterEach(async function () {
+        await resetProxy();
     });
 
     it('total failure rate does not exceed 80 % under 30 % reset probability', async function () {
@@ -356,5 +392,4 @@ describe('CE-DB-04: Intermittent Connection Drops (30 % TCP reset probability)',
         expect(successCount).to.equal(10);
     });
 });
-
-}); // describe('Chaos: Database Resilience')
+}

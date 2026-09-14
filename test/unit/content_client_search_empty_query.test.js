@@ -135,6 +135,10 @@ describe('search page with no query makes no feed request', () => {
         }
     });
 
+});
+
+describe('search page with no query makes no feed request', () => {
+
     it('still fetches the real feed once a query exists', () => {
         const { captured } = loadSearchTabs('CAMPA');
         for(let i = 0; i < captured.length; i++){

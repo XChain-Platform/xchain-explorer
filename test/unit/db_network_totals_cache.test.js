@@ -77,9 +77,9 @@ function cfg(coin = 'BTC') {
     return makeConfig({ coin, data: { method: 'getNetwork' } });
 }
 
-describe('Database#getActionTotals cache', () => {
-    let state, db;
+let state, db;
 
+describe('Database#getActionTotals cache', () => {
     beforeEach(() => {
         // Probe the tip on every call so the tests drive the generation directly
         // rather than the memo window.
@@ -133,6 +133,20 @@ describe('Database#getActionTotals cache', () => {
         const after = await db.getActionTotals(cfg());
         expect(state.counts).to.equal(2);
         expect(after.sends).to.equal(9);
+    });
+});
+
+describe('Database#getActionTotals cache', () => {
+    beforeEach(() => {
+        process.env.EXPLORER_TIP_MEMO_MS = '0';
+        state = { tip: 100, sends: 7, counts: 0, failTip: false };
+        db = makeDb(state);
+    });
+
+    afterEach(() => {
+        sinon.restore();
+        delete process.env.EXPLORER_TIP_MEMO_MS;
+        delete process.env.EXPLORER_TOTALS_CACHE_MS;
     });
 
     it('neither reads nor writes the cache when the tip probe fails', async () => {

@@ -59,6 +59,10 @@ describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
         assert.strictEqual(sync.priceSyncHeight, 50, 'a failed query must not reset the barrier to 0');
     });
 
+});
+
+describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
+
     it('waitForPriceSyncHeight resolves immediately when already caught up', async function () {
         const { sync } = makeSync(0);
         sync.priceSyncHeight = 200;

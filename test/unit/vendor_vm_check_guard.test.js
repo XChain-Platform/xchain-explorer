@@ -43,35 +43,36 @@ const DRIFTED_RUNTIME =
     "const GATES = ['STATE_KEY_NUL'];\n"
     + 'module.exports = { GATES };\n';
 
+const roots = [];
+
+function haveRsync() {
+    return spawnSync('sh', ['-c', 'command -v rsync'], { encoding: 'utf8' }).status === 0;
+}
+
+// A fake repo root carrying only bin/vendor-vm.sh, because DEST is derived
+// from the script's own location and must never be this checkout's copy.
+function stageRoot() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vendor-vm-guard-'));
+    roots.push(root);
+    fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
+    fs.copyFileSync(SCRIPT, path.join(root, 'bin', 'vendor-vm.sh'));
+
+    const src = path.join(root, 'canonical-vm');
+    fs.mkdirSync(path.join(src, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(src, 'src', 'consensus_runtime.js'), CANONICAL_RUNTIME);
+    fs.writeFileSync(path.join(src, 'package.json'), '{ "name": "xchain-vm", "version": "1.2.3" }\n');
+
+    return { root, src, dest: path.join(root, 'xchain-vm') };
+}
+
+function runCheck(fixture) {
+    return spawnSync('bash', [path.join(fixture.root, 'bin', 'vendor-vm.sh'), 'check'], {
+        encoding: 'utf8',
+        env: Object.assign({}, process.env, { XCHAIN_VM_SOURCE: fixture.src })
+    });
+}
+
 describe('vendored-VM check mode write boundary @regression', function () {
-    const roots = [];
-
-    function haveRsync() {
-        return spawnSync('sh', ['-c', 'command -v rsync'], { encoding: 'utf8' }).status === 0;
-    }
-
-    // A fake repo root carrying only bin/vendor-vm.sh, because DEST is derived
-    // from the script's own location and must never be this checkout's copy.
-    function stageRoot() {
-        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vendor-vm-guard-'));
-        roots.push(root);
-        fs.mkdirSync(path.join(root, 'bin'), { recursive: true });
-        fs.copyFileSync(SCRIPT, path.join(root, 'bin', 'vendor-vm.sh'));
-
-        const src = path.join(root, 'canonical-vm');
-        fs.mkdirSync(path.join(src, 'src'), { recursive: true });
-        fs.writeFileSync(path.join(src, 'src', 'consensus_runtime.js'), CANONICAL_RUNTIME);
-        fs.writeFileSync(path.join(src, 'package.json'), '{ "name": "xchain-vm", "version": "1.2.3" }\n');
-
-        return { root, src, dest: path.join(root, 'xchain-vm') };
-    }
-
-    function runCheck(fixture) {
-        return spawnSync('bash', [path.join(fixture.root, 'bin', 'vendor-vm.sh'), 'check'], {
-            encoding: 'utf8',
-            env: Object.assign({}, process.env, { XCHAIN_VM_SOURCE: fixture.src })
-        });
-    }
 
     after(function () {
         for (const root of roots) fs.rmSync(root, { recursive: true, force: true });

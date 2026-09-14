@@ -43,7 +43,7 @@ function makeClient(coin) {
 
 module.exports = { expect, sinon, makeServer, makeReq, makeClient };
 
-require('./websocket_server.test/subscriptions.js');
-require('./websocket_server.test/protocol.js');
-require('./websocket_server.test/limits.js');
-require('./websocket_server.test/snapshots.js');
+require('./websocket_server.test/support/subscriptions.js');
+require('./websocket_server.test/support/protocol.js');
+require('./websocket_server.test/support/limits.js');
+require('./websocket_server.test/support/snapshots.js');

@@ -49,7 +49,7 @@ const {
 // The coin prefix used for regtest endpoints.
 const COIN   = 'RBTC';
 const HEALTH = `/${COIN}/explorer/blocks/all`;
-const registerConfigSuite = require('./external_deps.test/config_sync.js');
+const registerConfigSuite = require('./external_deps.test/support/config_sync.js');
 
 // -------------------------------------------------------------------------
 // Suite-level setup / teardown

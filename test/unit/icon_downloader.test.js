@@ -14,7 +14,7 @@ const {
     ACTION_REF_PATTERN, expect, execCmdText, iconSuite, loadIconDownloader,
     makeExecStub, makeExplorer, makeMockConn, makeMockPool, makeStubs, path,
     setClock, sinon, tickClock,
-} = require('./icon_downloader.test/helpers.js');
+} = require('./icon_downloader.test/support/helpers.js');
 
 
 {
@@ -43,14 +43,14 @@ const {
     });
 }
 
-require('./icon_downloader.test/lifecycle.js');
-require('./icon_downloader.test/flavors_discovery.js');
-require('./icon_downloader.test/discovery_status.js');
-require('./icon_downloader.test/token_processing.js');
-require('./icon_downloader.test/source_bytes_1.js');
-require('./icon_downloader.test/source_bytes_2.js');
-require('./icon_downloader.test/source_storage.js');
-require('./icon_downloader.test/cleanup.js');
-require('./icon_downloader.test/flavor_processing.js');
-require('./icon_downloader.test/networking_logging.js');
-require('./icon_downloader.test/edge_cases.js');
+require('./icon_downloader.test/support/lifecycle.js');
+require('./icon_downloader.test/support/flavors_discovery.js');
+require('./icon_downloader.test/support/discovery_status.js');
+require('./icon_downloader.test/support/token_processing.js');
+require('./icon_downloader.test/support/source_bytes_1.js');
+require('./icon_downloader.test/support/source_bytes_2.js');
+require('./icon_downloader.test/support/source_storage.js');
+require('./icon_downloader.test/support/cleanup.js');
+require('./icon_downloader.test/support/flavor_processing.js');
+require('./icon_downloader.test/support/networking_logging.js');
+require('./icon_downloader.test/support/edge_cases.js');

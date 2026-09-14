@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { stripComments } = require('./theme_token_literal_gate.test/helpers.js');
+const { stripComments } = require('./theme_token_literal_gate.test/support/helpers.js');
 
 // Static companion to tools/theme-parity/parity-probe.js. That probe diffs
 // computed styles on live pages, but only 79 of the 120 selectors in these
@@ -366,4 +366,4 @@ describe('theme parity probe (static contract)', () => {
 
 });
 
-require('./theme_token_literal_gate.test/bootstrap_surface_bridge.js');
+require('./theme_token_literal_gate.test/support/bootstrap_surface_bridge.js');

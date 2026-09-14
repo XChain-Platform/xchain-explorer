@@ -310,4 +310,4 @@ describe('action detail render: fields that reached the API with nowhere to go',
 
 });
 
-require('./content_client_action_detail_render.test/deploy_card.js');
+require('./content_client_action_detail_render.test/support/deploy_card.js');

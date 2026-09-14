@@ -41,7 +41,7 @@
 
 const {
     expect, PUBKEY, SOURCE, makeWindow, page, BASE, SLASHED, REGISTRY_UNKNOWN, EMPTY
-} = require('./content_client_validator_detail.test/helpers.js');
+} = require('./content_client_validator_detail.test/support/helpers.js');
 
 describe('validator.html detail page @regression', function () {
 

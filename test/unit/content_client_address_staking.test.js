@@ -301,4 +301,4 @@ module.exports = {
     addressPage, cardShown, expect, makeWindow, page, stakingCardIsAboveTabs
 };
 
-require('./content_client_address_staking.test/staking_panel.js');
+require('./content_client_address_staking.test/support/staking_panel.js');

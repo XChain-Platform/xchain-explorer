@@ -47,7 +47,7 @@
 const {
     expect, renderDom, paint, loadPage, REQ_ID, requestLeg, responseLeg,
     completed, expired, expiredLinked, pendingPastDeadline, relayed, URL_FOR
-} = require('./content_client_attestation_detail.test/helpers.js');
+} = require('./content_client_attestation_detail.test/support/helpers.js');
 
 /* -------------------------------- tests -------------------------------- */
 
@@ -313,4 +313,4 @@ describe('attestation.html detail page @regression', function () {
     });
 });
 
-require('./content_client_attestation_detail.test/page_and_relay.js');
+require('./content_client_attestation_detail.test/support/page_and_relay.js');

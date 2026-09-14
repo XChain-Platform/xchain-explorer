@@ -165,5 +165,5 @@ function renderBetDetails(data) {
 
 module.exports = { expect, SRC, extractFn, loadClientFns, inspect, PAYLOADS, renderBetDetails };
 
-require('./content_client_xss.test/core.js');
-require('./content_client_xss.test/rendering.js');
+require('./content_client_xss.test/support/core.js');
+require('./content_client_xss.test/support/rendering.js');

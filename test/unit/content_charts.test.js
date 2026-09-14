@@ -305,4 +305,4 @@ describe('XCC chart configs', () => {
     });
 });
 
-require('./content_charts.test/tooltips.js');
+require('./content_charts.test/support/tooltips.js');

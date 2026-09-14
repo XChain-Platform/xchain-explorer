@@ -18,6 +18,6 @@
 
 'use strict';
 
-require('./change_detector.test/polling.js');
-require('./change_detector.test/events.js');
-require('./change_detector.test/batching_and_state.js');
+require('./change_detector.test/support/polling.js');
+require('./change_detector.test/support/events.js');
+require('./change_detector.test/support/batching_and_state.js');

@@ -201,5 +201,5 @@ module.exports = {
     derivationRule, SOURCE, pageSource, theadColumns, renderRow, NULL_ROWS,
     REAL_ROWS, SRC_ADDR
 };
-require('./content_client_cancel_edit_list_pages.test/list_pages.js');
-require('./content_client_cancel_edit_list_pages.test/dispenser_legs.js');
+require('./content_client_cancel_edit_list_pages.test/support/list_pages.js');
+require('./content_client_cancel_edit_list_pages.test/support/dispenser_legs.js');

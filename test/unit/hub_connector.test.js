@@ -10,10 +10,10 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const core = require('./hub_connector.test/core.js');
-const retryEndpoints = require('./hub_connector.test/retry_endpoints.js');
-const configResults = require('./hub_connector.test/config_results.js');
-const credentials = require('./hub_connector.test/credentials.js');
+const core = require('./hub_connector.test/support/core.js');
+const retryEndpoints = require('./hub_connector.test/support/retry_endpoints.js');
+const configResults = require('./hub_connector.test/support/config_results.js');
+const credentials = require('./hub_connector.test/support/credentials.js');
 
 describe('XChainHubConnector', function () {
     for (const register of [...core, ...retryEndpoints, ...configResults, ...credentials]) register();

@@ -336,5 +336,5 @@ describe('explorer bridge panels: the XBRIDGE action card, v0 to v5 @regression'
 });
 
 module.exports = { makeWindow, INVARIANT, CLASSIC, SKIN, PAGE_HTML };
-require('./content_client_bridge_panels.test/wiring.js');
-require('./content_client_bridge_panels.test/theme_tokens.js');
+require('./content_client_bridge_panels.test/support/wiring.js');
+require('./content_client_bridge_panels.test/support/theme_tokens.js');

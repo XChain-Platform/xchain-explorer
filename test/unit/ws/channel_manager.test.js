@@ -16,5 +16,5 @@
 
 'use strict';
 
-require('./channel_manager.test/subscriptions.js');
-require('./channel_manager.test/management.js');
+require('./channel_manager.test/support/subscriptions.js');
+require('./channel_manager.test/support/management.js');

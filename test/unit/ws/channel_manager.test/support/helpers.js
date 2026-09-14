@@ -11,23 +11,24 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for ChangeDetector (src/ws/change_detector.js)
+ * Unit tests for ChannelManager (src/ws/channel_manager.js)
  */
 
 'use strict';
 
-const sinon      = require('sinon');
+const { expect } = require('chai');
+const ChannelManager = require('../../../../../src/ws/channel_manager.js');
 
-const basic = require('./change_detector.test/support/basic.js');
-const betLatch = require('./change_detector.test/support/bet_latch.js');
+// Helper: create a mock client object
+function createClient(id, coin) {
+    return {
+        id:            id || 1,
+        coin:          coin || 'BTC',
+        chain:         'BTC',
+        network:       'mainnet',
+        subscriptions: new Set()
+    };
+}
 
-describe('ChangeDetector', function () {
+module.exports = { expect, ChannelManager, createClient };
 
-    let clock;
-
-    afterEach(function () {
-        if (clock) { clock.restore(); clock = null; }
-    });
-
-    for (const register of [...basic, ...betLatch]) register();
-});

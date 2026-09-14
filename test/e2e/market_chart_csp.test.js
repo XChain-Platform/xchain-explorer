@@ -123,6 +123,10 @@ describe('market charts draw under a CSP without unsafe-eval', function(){
             'the script node survived into the DOM').to.equal(null);
     });
 
+});
+
+describe('market charts draw under a CSP without unsafe-eval', function(){
+
     it('the removed path is what used to break: jQuery .html() evals an injected script', function(){
         // Witness for the defect, so a future refactor back onto .load()/.html()
         // cannot look harmless. This asserts the vendored jQuery's behaviour,

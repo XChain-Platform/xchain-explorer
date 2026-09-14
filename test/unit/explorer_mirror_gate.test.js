@@ -99,7 +99,7 @@ describe('explorer hub-mirror staleness gate', function () {
             const warn = sinon.stub(console, 'warn');
             const gate = makeExplorer({ ...OK_STATUS, mirrorLagSeconds: 120 }).mirrorGate('BTC');
             expect(gate.blocked).to.equal(null);
-            expect(warn.calledWithMatch(sinon.match(/exceeds MIRROR_MAX_LAG_S/))).to.equal(true);
+            expect(warn.calledWithMatch(sinon.match(/HUB_MIRROR_LAG_EXCEEDED[\s\S]*exceeds MIRROR_MAX_LAG_S/))).to.equal(true);
         });
 
         it('lag past MIRROR_MAX_LAG_S blocks under MIRROR_LAG_FAIL_CLOSED=1', function () {

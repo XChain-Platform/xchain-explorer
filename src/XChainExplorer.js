@@ -44,6 +44,11 @@ const listPage         = require('./render/list_page.js');
 const componentTpl     = require('./render/component_templates.js');
 const staticMounts     = require('./http/static_mounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
 
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that.
+const { getLogger } = require('./observability');
+const log = getLogger();
+
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
 // maxStateKeySize default (xchain-vm/src/state.js). A key longer than this cannot
 // exist in contract_state, so rejecting it here refuses work that could only ever
@@ -150,7 +155,7 @@ class XChainExplorer {
         try {
             await this.hubMirrorSync.start();
         } catch (e){
-            console.error('hub-mirror sync failed to start:', e && e.stack ? e.stack : e);
+            log.error('HUB_MIRROR_START_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
         }
         // Optional: in-process icon downloader. Opt-in via configInfo.iconDownload.enabled.
         // Requires sql/icons.sql installed in each indexer DB and ImageMagick `convert` on PATH.
@@ -158,7 +163,7 @@ class XChainExplorer {
         try {
             await this.iconDownloader.start();
         } catch (e){
-            console.error('icon-downloader failed to start:', e && e.stack ? e.stack : e);
+            log.error('ICON_DOWNLOADER_START_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
         }
     }
 
@@ -1019,7 +1024,7 @@ class XChainExplorer {
     // single-request DoS. Degrade to a 500, and stay minimal so it cannot throw.
     sendUnhandled(err, req, res){
         try {
-            console.error('processRequest unhandled error for', req && req.path, '-', (err && err.message) ? err.message : err);
+            log.error('PROCESS_REQUEST_UNHANDLED', { path: req && req.path, err: (err && err.message) ? err.message : err });
             if(res && !res.headersSent)
                 res.status(500).type('json').send('{"error":"An unexpected error occurred while serving this request.","code":"INTERNAL_ERROR"}');
         } catch(_){ /* nothing more we can safely do */ }
@@ -1274,7 +1279,7 @@ class XChainExplorer {
                         // throws (db.js DbQueryError, M-4); answer 5xx instead of a
                         // misleading empty 200. A successful empty SELECT does not
                         // throw and still returns 200 with total:0.
-                        console.error('processRequest: data query failed for', req.path, '-', (e && e.message ? e.message : e));
+                        log.error('PROCESS_REQUEST_QUERY_FAILED', { path: req.path, err: e && e.message ? e.message : e });
                         dbError       = true;
                         response.code = 500;
                         response.json = { error: 'A database error occurred while serving this request.', code: 'DB_ERROR' };
@@ -1483,7 +1488,7 @@ class XChainExplorer {
 
         if(response.time > 400){
             slowRequests++;
-            console.warn('SLOW_REQUEST', req.path, response.time + 'ms');
+            log.warn('SLOW_REQUEST', { path: req.path, time: response.time + 'ms' });
         }
 
         if(process.env.DEBUG){
@@ -2073,7 +2078,7 @@ class XChainExplorer {
         try {
             await this.processRequest({ path: '/' + coin + '/api' + apiPath, query: query || {} }, res);
         } catch(err){
-            console.error('batch read failed for', apiPath, '-', (err && err.message) ? err.message : err);
+            log.error('BATCH_READ_FAILED', { api_path: apiPath, err: (err && err.message) ? err.message : err });
             return { code: 500, json: { error: 'An unexpected error occurred while serving this request.', code: 'INTERNAL_ERROR' } };
         }
         let json = null;
@@ -2248,7 +2253,7 @@ class XChainExplorer {
             if(!raw)
                 file = await this.db.getFileRaw(config, actionIndex);
         } catch (e) {
-            console.error('processFileRawRequest error:', e);
+            log.error('FILE_RAW_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
         if(!raw && !file)
@@ -2288,7 +2293,7 @@ class XChainExplorer {
         } catch (e) {
             // resolveServedBytes is contractually non-throwing; this is a
             // belt-and-braces guard so a reader bug can never 500 a file route.
-            console.warn('processFileRawRequest: decompression guard failed, serving stored bytes:', e && e.message ? e.message : e);
+            log.warn('FILE_RAW_DECOMPRESSION_GUARD_FAILED', { err: e && e.message ? e.message : e, detail: 'serving stored bytes' });
             served = { bytes: file.raw_data, inflated: false, storedForm: true, error: 'GUARD_FAILURE' };
         }
         if(served.storedForm){
@@ -2339,9 +2344,11 @@ class XChainExplorer {
         let annotate = { mirror_bootstrapped: true, mirror_lag_seconds: status.mirrorLagSeconds };
         let maxLag = parseInt(process.env.MIRROR_MAX_LAG_S, 10) || 0;
         if(maxLag > 0 && status.mirrorLagSeconds !== null && status.mirrorLagSeconds > maxLag){
-            console.warn('[hub-mirror] ' + coin + ' mirror lag ' + status.mirrorLagSeconds +
-                's exceeds MIRROR_MAX_LAG_S=' + maxLag +
-                (process.env.MIRROR_LAG_FAIL_CLOSED === '1' ? ' (failing closed)' : ' (serving with annotation)'));
+            log.warn('HUB_MIRROR_LAG_EXCEEDED', {
+                coin, lag_s: status.mirrorLagSeconds, max_lag_s: maxLag,
+                detail: 'mirror lag exceeds MIRROR_MAX_LAG_S' +
+                    (process.env.MIRROR_LAG_FAIL_CLOSED === '1' ? ' (failing closed)' : ' (serving with annotation)')
+            });
             if(process.env.MIRROR_LAG_FAIL_CLOSED === '1')
                 return { blocked: 'MIRROR_STALE', annotate };
         }
@@ -2395,7 +2402,7 @@ class XChainExplorer {
             let rows = await this.db.getCheckpointRows({ coin, data: {} }, null, limit);
             return res.json({ checkpoints: rows || [], count: (rows || []).length, ...(gate.annotate || {}) });
         } catch (e) {
-            console.error('processCheckpointsRequest error:', e);
+            log.error('CHECKPOINTS_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2442,7 +2449,7 @@ class XChainExplorer {
             // array (api-contracts wire-type unification); keep the string
             // branch for defense in depth against an unnormalized row.
             if (Array.isArray(cp.validator_signatures)) sigs = cp.validator_signatures;
-            else { try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ console.error('processCheckpointVerifyRequest: validator_signatures parse failed for ' + cp.chain + '/' + cp.block_index + ':', e); sigs = []; sigsParseFailed = true; } }
+            else { try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ log.error('CHECKPOINT_VERIFY_SIGNATURES_PARSE_FAILED', { chain: cp.chain, block_index: cp.block_index, err: e && e.message ? e.message : e, stack: e && e.stack }); sigs = []; sigsParseFailed = true; } }
             let validSigs = 0, seen = new Set(), validSigners = [];
             for(let s of sigs){
                 let pk  = String(s && s.pubkey || '').toLowerCase();
@@ -2501,7 +2508,7 @@ class XChainExplorer {
                 signatures_unparseable:  sigsParseFailed
             });
         } catch (e) {
-            console.error('processCheckpointVerifyRequest error:', e);
+            log.error('CHECKPOINT_VERIFY_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2543,7 +2550,7 @@ class XChainExplorer {
             }
             return res.json(result);
         } catch(e){
-            console.error('processBalanceProofRequest error:', e && e.message);
+            log.error('BALANCE_PROOF_REQUEST_FAILED', { err: e && e.message });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2568,7 +2575,7 @@ class XChainExplorer {
             let config = { coin, data: {} };
             return res.json(await this.proofServer.checkpointRange(config, from, to, limit));
         } catch(e){
-            console.error('processCheckpointsRangeRequest error:', e && e.message);
+            log.error('CHECKPOINTS_RANGE_REQUEST_FAILED', { err: e && e.message });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2611,7 +2618,7 @@ class XChainExplorer {
             }
             return res.json(result);
         } catch(e){
-            console.error('processActionProofRequest error:', e && e.message);
+            log.error('ACTION_PROOF_REQUEST_FAILED', { err: e && e.message });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2666,7 +2673,7 @@ class XChainExplorer {
             }
             return res.json(result);
         } catch(e){
-            console.error('processValidatorSetProofRequest error:', e && e.message);
+            log.error('VALIDATOR_SET_PROOF_REQUEST_FAILED', { err: e && e.message });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2735,7 +2742,7 @@ class XChainExplorer {
             }
             return res.json(result);
         } catch(e){
-            console.error('processContractStateProofRequest error:', e && e.message);
+            log.error('CONTRACT_STATE_PROOF_REQUEST_FAILED', { err: e && e.message });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2781,7 +2788,7 @@ class XChainExplorer {
             }
             return res.json(result);
         } catch(e){
-            console.error('processLockedBalanceProofRequest error:', e && e.message);
+            log.error('LOCKED_BALANCE_PROOF_REQUEST_FAILED', { err: e && e.message });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2837,7 +2844,7 @@ class XChainExplorer {
         } catch(e){
             if(e && e.code && e.httpStatus)
                 return res.status(e.httpStatus).json({ error: e.message, code: e.code });
-            console.error('processContractCallRequest error:', e && e.message);
+            log.error('CONTRACT_CALL_REQUEST_FAILED', { err: e && e.message });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
         }
     }
@@ -2902,7 +2909,7 @@ class XChainExplorer {
             });
             return res.json(result);
         } catch(e){
-            console.error('processFeeQuoteRequest error:', e.message || e);
+            log.error('FEE_QUOTE_REQUEST_FAILED', { err: e.message || e });
             // `retryable` so a client can tell a transient upstream blip from a verdict; the
             // code and status stay as they were, because callers already branch on them.
             return res.status(502).json({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true });
@@ -2975,7 +2982,7 @@ class XChainExplorer {
             let result = await connector.oraclefeequote(q);
             return res.json(result);
         } catch(e){
-            console.error('processOracleFeeQuoteRequest error:', e.message || e);
+            log.error('ORACLE_FEE_QUOTE_REQUEST_FAILED', { err: e.message || e });
             return res.status(502).json({ error: 'oracle fee quote upstream error', code: 'UPSTREAM_ERROR' });
         }
     }
@@ -3038,7 +3045,7 @@ class XChainExplorer {
             let result = await connector.preflight({ action, params, source, feeMode });
             return res.json(result);
         } catch(e){
-            console.error('processPreflightRequest error:', e.message || e);
+            log.error('PREFLIGHT_REQUEST_FAILED', { err: e.message || e });
             return res.status(502).json({ error: 'pre-flight upstream error', code: 'UPSTREAM_ERROR' });
         }
     }
@@ -3057,7 +3064,7 @@ class XChainExplorer {
             let connector = new IndexerConnector(url);
             return res.json(await connector.feeschedule());
         } catch(e){
-            console.error('processFeeScheduleRequest error:', e.message || e);
+            log.error('FEE_SCHEDULE_REQUEST_FAILED', { err: e.message || e });
             return res.status(502).json({ error: 'fee schedule upstream error', code: 'UPSTREAM_ERROR' });
         }
     }

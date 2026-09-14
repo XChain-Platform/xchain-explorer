@@ -392,7 +392,7 @@ describe('config', function () {
                 await Promise.resolve();
                 await Promise.resolve();
                 expect(getConfigStub.called).to.be.true;
-                expect(warnStub.calledWithMatch(/sync tick failed/i)).to.be.true;
+                expect(warnStub.calledWithMatch(/CONFIG_SYNC_TICK_FAILED/)).to.be.true;
             } finally {
                 getConfigStub.restore();
                 warnStub.restore();

@@ -25,6 +25,11 @@ const path                  = require('path');
 const util                  = require('./utility.js');
 const xchainHubConnector    = require('./connectors/hub')
 
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that.
+const { getLogger }         = require('./observability');
+const log                   = getLogger();
+
 const API_HOST       = process.env.API_HOST || '127.0.0.1';
 const API_USER       = false;
 const API_PASS       = false;
@@ -55,7 +60,7 @@ try {
         ca:   fs.readFileSync(path.join(SSL_DIR, "ca.pem"))
     };
 } catch (err) {
-    console.log("SSL files not found in " + SSL_DIR + "; HTTPS server will not start");
+    log.info('SSL_FILES_NOT_FOUND', { ssl_dir: SSL_DIR, detail: 'HTTPS server will not start' });
 }
 
 //This will hold the connection with the xchain-hub if a url and port are provided
@@ -99,7 +104,7 @@ function persistConfigCache(flattenedConfig){
         fs.mkdirSync(path.dirname(CONFIG_CACHE_FILE), { recursive: true });
         fs.writeFileSync(CONFIG_CACHE_FILE, JSON.stringify(flattenedConfig));
     } catch (err){
-        console.warn('Could not persist config cache to ' + CONFIG_CACHE_FILE + ': ', err);
+        log.warn('CONFIG_CACHE_PERSIST_FAILED', { file: CONFIG_CACHE_FILE, err: err && err.message ? err.message : err, stack: err && err.stack });
     }
 }
 
@@ -113,7 +118,7 @@ function loadConfigCacheFromDisk(){
         if(parsed && Array.isArray(parsed.configs) && parsed.configs.length > 0)
             return parsed;
     } catch (err){
-        console.warn('Could not load config cache from ' + CONFIG_CACHE_FILE + ': ', err);
+        log.warn('CONFIG_CACHE_LOAD_FAILED', { file: CONFIG_CACHE_FILE, err: err && err.message ? err.message : err, stack: err && err.stack });
     }
     return null;
 }
@@ -176,7 +181,7 @@ module.exports = {
         this.stopSync();
         syncTimer = setInterval(() => {
             this.getConfig(endpoints, false) //cache=false to replace the current cache
-                .catch(err => console.warn('Config sync tick failed; continuing with cached config: ' + (err && err.message || err)));
+                .catch(err => log.warn('CONFIG_SYNC_TICK_FAILED', { err: err && err.message || err, detail: 'continuing with cached config' }));
         }, UPDATE_CONFIG_INTERVAL);
     },
 
@@ -228,9 +233,10 @@ module.exports = {
                 // coins it then discarded. Records that, and only in that state.
                 if(!configCache || Object.keys(configCache['COIN_AVAILABLE'] || {}).length === 0){
                     const polled = (jsonConfig && typeof jsonConfig === 'object') ? Object.keys(jsonConfig) : null;
-                    console.warn('Config poll while serving no coins: hub returned ' +
-                        (polled === null ? 'null' : polled.length + ' key(s) [' + polled.join(',') + ']') +
-                        '; next delta cursor ' + hubConnector.lastWatermark);
+                    log.warn('CONFIG_POLL_NO_COINS', {
+                        hub_returned: polled === null ? 'null' : polled.length + ' key(s) [' + polled.join(',') + ']',
+                        next_cursor: hubConnector.lastWatermark
+                    });
                 }
 
                 // Detect an unusable hub response (null after all retries, or an
@@ -256,7 +262,7 @@ module.exports = {
                     // hub is down and the served config is now stale, instead of
                     // discovering it only when downstream DB queries start failing.
                     if (configCache){
-                        console.error(hubCause + '. Serving last-known-good cached config (may be stale until the hub recovers).');
+                        log.error('CONFIG_HUB_UNUSABLE_SERVING_CACHE', { cause: hubCause, detail: 'serving last-known-good cached config (may be stale until the hub recovers)' });
                         return configCache;
                     }
 
@@ -267,13 +273,13 @@ module.exports = {
                     // shape, so skip the hub-shape transform below.
                     const diskConfig = loadConfigCacheFromDisk();
                     if (diskConfig){
-                        console.warn(hubCause + ' at startup; loading last-known-good config from disk cache (' + diskConfig.configs.length + ' entries)');
+                        log.warn('CONFIG_HUB_UNUSABLE_LOADING_DISK_CACHE', { cause: hubCause, entries: diskConfig.configs.length });
                         jsonConfig = diskConfig;
                     } else {
                         // No cache anywhere (first-ever boot during an outage).
                         // Come up degraded with zero coins rather than crash;
                         // the sync loop will populate once the hub returns.
-                        console.warn(hubCause + ' at startup, and no config cache is available; starting in degraded mode (no coins configured). The sync loop retries every UPDATE_CONFIG_INTERVAL ms.');
+                        log.warn('CONFIG_HUB_UNUSABLE_DEGRADED_START', { cause: hubCause, detail: 'no config cache is available; starting in degraded mode (no coins configured); the sync loop retries every UPDATE_CONFIG_INTERVAL ms' });
                         lastObtainedConfigValue = JSON.stringify(null);
                         jsonConfig = {"configs":[]};
                     }
@@ -305,7 +311,7 @@ module.exports = {
                             if(!nextCoinLabel){
                                 if(!warnedUnknownCoins.has(nextCoin)){
                                     warnedUnknownCoins.add(nextCoin);
-                                    console.warn('Config: skipping unrecognized coin key from hub config: ' + nextCoin);
+                                    log.warn('CONFIG_UNKNOWN_COIN_KEY_SKIPPED', { key: nextCoin });
                                 }
                                 continue;
                             }
@@ -343,7 +349,7 @@ module.exports = {
                 try {
                     fileConfig = require('./config.json');
                 } catch (error){
-                    console.log('caught error :' + error);
+                    log.info('CONFIG_FILE_NOT_LOADED', { err: String(error) });
                 }
 
                 jsonConfig = (fileConfig) ? fileConfig : nodeConfig;
@@ -394,7 +400,7 @@ module.exports = {
                     let cfg    = require(coinFile);
                     coinConfig = cfg.getConfig(info.network);
                 } else {
-                    console.warn('Config: skipping config entry, missing COIN config file : ' + coinFile);
+                    log.warn('CONFIG_COIN_FILE_MISSING', { file: coinFile });
                     continue;
                 }
 

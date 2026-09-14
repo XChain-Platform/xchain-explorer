@@ -38,7 +38,7 @@ const staticMounts    = require('./http/static_mounts.js');     // the one file-
 const { applyTrustProxy } = require('./http/trust_proxy.js');   // proxy-hop policy, shared with the WS path's hop count
 const { resolveMaxBatch, makeRpcBatchGuard } = require('./http/rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
 const { createShutdown, createExplorerDrain } = require('./http/shutdown.js');
-const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
+const { installObservability, getLogger } = require('./observability');   // default-off /metrics + structured log shim
 const coins           = require('./coins');
 
 dotenv.config();
@@ -52,6 +52,9 @@ patchConsole({
     version: require('../package.json').version,
     network: process.env.NETWORK || ''
 });
+// Resolves to the shipper once installObservability runs in startApi(), and to
+// bare console before that.
+const log = getLogger();
 
 //xchain-hub endpoints (multi-instance with fallback)
 const xchainHubConnector = require('./connectors/hub');
@@ -310,11 +313,11 @@ async function startApi(){
     // stack dump. The HTTP server is the primary serving socket: log one clear line and
     // exit non-zero so the supervisor (systemd) reports and restarts cleanly.
     httpServer.on('error', (err) => {
-        console.error('HTTP server failed to listen on port ' + EXPLORER_API_PORT_HTTP + ': ' + err.code + ' (' + err.message + ')');
+        log.error('HTTP_LISTEN_FAILED', { port: EXPLORER_API_PORT_HTTP, code: err.code, err: err.message });
         process.exit(1);
     });
     httpServer.listen(EXPLORER_API_PORT_HTTP, () => {
-        console.log('HTTP  server listening on port', EXPLORER_API_PORT_HTTP);
+        log.info('HTTP_SERVER_LISTENING', { port: EXPLORER_API_PORT_HTTP });
     });
     // Published as soon as it exists, not at the end of startApi(): a SIGTERM
     // arriving mid-boot must still be able to close a listener already bound.
@@ -329,14 +332,14 @@ async function startApi(){
         // process down: log a warning and keep serving over HTTP. Same async-'error'
         // caveat as above, so attach the handler before listen().
         httpsServer.on('error', (err) => {
-            console.warn('HTTPS server failed to listen on port ' + EXPLORER_API_PORT_HTTPS + ': ' + err.code + ' (' + err.message + '); continuing HTTP-only');
+            log.warn('HTTPS_LISTEN_FAILED', { port: EXPLORER_API_PORT_HTTPS, code: err.code, err: err.message, detail: 'continuing HTTP-only' });
             httpsServer = null;
             // Cleared here too: a listener that never bound must not be handed to
             // the drain, which would wait on a close() callback that never fires.
             runtime.httpsServer = null;
         });
         httpsServer.listen(EXPLORER_API_PORT_HTTPS, () => {
-            console.log('HTTPS server listening on port', EXPLORER_API_PORT_HTTPS);
+            log.info('HTTPS_SERVER_LISTENING', { port: EXPLORER_API_PORT_HTTPS });
         });
         runtime.httpsServer = httpsServer;
     }
@@ -438,7 +441,7 @@ async function startApi(){
 // is read-only and holds no per-request shared mutable state, so logging and staying
 // alive is the correct availability posture (the error is still logged for triage).
 process.on('unhandledRejection', (reason) => {
-    console.error('UNHANDLED_REJECTION (process kept alive):', (reason && reason.stack) ? reason.stack : reason);
+    log.error('UNHANDLED_REJECTION', { detail: 'process kept alive', err: reason && reason.message ? reason.message : reason, stack: reason && reason.stack });
 });
 
 // Say at boot that contract simulation is refusing, not only under the first
@@ -449,8 +452,11 @@ process.on('unhandledRejection', (reason) => {
 if(vmQuery.isEnabled()){
     const vmFault = vmQuery.consensusFault();
     if(vmFault)
-        console.error('EXPLORER_VM_QUERY_ENABLED is set but contract simulation is REFUSING: ' + vmFault +
-            '. Check the deployed VM with bin/check-explorer-vm-drift.sh, refresh it, then restart.');
+        log.error('VM_QUERY_REFUSING', {
+            fault: vmFault,
+            detail: 'EXPLORER_VM_QUERY_ENABLED is set but contract simulation is refusing; check the deployed VM with ' +
+                'bin/check-explorer-vm-drift.sh, refresh it, then restart'
+        });
 }
 
 // Graceful shutdown. node is PID 1 in the image, so `docker stop` delivers
@@ -474,6 +480,6 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
 }
 
 startApi().catch(err => {
-    console.error('Fatal startup error:', err);
+    log.error('FATAL_STARTUP_ERROR', { err: err && err.message ? err.message : err, stack: err && err.stack });
     process.exit(1);
 });

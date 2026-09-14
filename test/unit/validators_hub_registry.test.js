@@ -308,4 +308,4 @@ describe('/explorer/validators datatables row shape', function () {
     });
 });
 
-require('./validators_hub_registry.test/client_rendering.js');
+require('./validators_hub_registry.test/support/client_rendering.js');

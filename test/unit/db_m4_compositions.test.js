@@ -335,6 +335,6 @@ module.exports = {
     makeDb, detailConfig, stubQueries, captured, findQuery, assertEveryQueryBounded, pageBoundedQueries,
 };
 
-require('./db_m4_compositions.test/attestation.js');
-require('./db_m4_compositions.test/anchor.js');
-require('./db_m4_compositions.test/address_staking.js');
+require('./db_m4_compositions.test/support/attestation.js');
+require('./db_m4_compositions.test/support/anchor.js');
+require('./db_m4_compositions.test/support/address_staking.js');

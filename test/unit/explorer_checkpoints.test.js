@@ -24,7 +24,7 @@
 
 'use strict';
 
-const { sinon, eq, swq } = require('./explorer_checkpoints.test/helpers.js');
+const { sinon, eq, swq } = require('./explorer_checkpoints.test/support/helpers.js');
 
 beforeEach(function () {
     // Default: legacy count quorum, no EQUIV header. Individual tests override.
@@ -33,6 +33,6 @@ beforeEach(function () {
 });
 afterEach(function () { sinon.restore(); });
 
-require('./explorer_checkpoints.test/routes.js');
-require('./explorer_checkpoints.test/parity.js');
-require('./explorer_checkpoints.test/database.js');
+require('./explorer_checkpoints.test/support/routes.js');
+require('./explorer_checkpoints.test/support/parity.js');
+require('./explorer_checkpoints.test/support/database.js');

@@ -30,14 +30,14 @@
 
 'use strict';
 
-require('./db_data_methods.test/query_execution.js');
-require('./db_data_methods.test/core_records.js');
-require('./db_data_methods.test/status.js');
-require('./db_data_methods.test/tip_freshness.js');
-require('./db_data_methods.test/tip_freshness_status.js');
-require('./db_data_methods.test/network.js');
-require('./db_data_methods.test/token.js');
-require('./db_data_methods.test/transaction_ids.js');
-require('./db_data_methods.test/decoder_health.js');
-require('./db_data_methods.test/contracts.js');
-require('./db_data_methods.test/controllers_state.js');
+require('./db_data_methods.test/support/query_execution.js');
+require('./db_data_methods.test/support/core_records.js');
+require('./db_data_methods.test/support/status.js');
+require('./db_data_methods.test/support/tip_freshness.js');
+require('./db_data_methods.test/support/tip_freshness_status.js');
+require('./db_data_methods.test/support/network.js');
+require('./db_data_methods.test/support/token.js');
+require('./db_data_methods.test/support/transaction_ids.js');
+require('./db_data_methods.test/support/decoder_health.js');
+require('./db_data_methods.test/support/contracts.js');
+require('./db_data_methods.test/support/controllers_state.js');

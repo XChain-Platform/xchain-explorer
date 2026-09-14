@@ -49,9 +49,9 @@ const path        = require('path');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
 
-const { makeRealDb, HUB } = require('./explorer_capability_snapshots.test/helpers.js');
+const { makeRealDb, HUB } = require('./explorer_capability_snapshots.test/support/helpers.js');
 
-require('./explorer_capability_snapshots.test/data_leg.js');
+require('./explorer_capability_snapshots.test/support/data_leg.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // Regression: the existing raw reader getCapabilitySnapshotRows (db/index.js:7673-7682,

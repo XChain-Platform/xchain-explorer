@@ -18,7 +18,7 @@
 // integration suite, which skips itself when isolated-vm is unavailable.
 
 const { expect } = require('chai');
-const { loadVmQuery, dbStub, fakeVmModule, CFG } = require('./vm_query.test/helpers.js');
+const { loadVmQuery, dbStub, fakeVmModule, CFG } = require('./vm_query.test/support/helpers.js');
 
 let envBackup;
     describe('vm-query', () => {
@@ -305,4 +305,4 @@ let envBackup;
 
     }
 
-require('./vm_query.test/consensus.js');
+require('./vm_query.test/support/consensus.js');

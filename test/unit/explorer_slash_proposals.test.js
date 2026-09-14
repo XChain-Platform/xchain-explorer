@@ -86,7 +86,7 @@ const fs         = require('fs');
 const path       = require('path');
 const { expect } = require('chai');
 
-require('./explorer_slash_proposals.test/data_leg.js');
+require('./explorer_slash_proposals.test/support/data_leg.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // The page fragment IS an owned in-tree file, so these run today. They pin the

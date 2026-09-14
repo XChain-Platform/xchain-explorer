@@ -29,4 +29,4 @@
 
 'use strict';
 
-require('./db_contract_meta.test/contract_meta.js');
+require('./db_contract_meta.test/support/contract_meta.js');

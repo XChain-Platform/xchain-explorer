@@ -10,6 +10,6 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-require('./config.test/core.js');
-require('./config.test/hub.js');
-require('./config.test/sync.js');
+require('./config.test/support/core.js');
+require('./config.test/support/hub.js');
+require('./config.test/support/sync.js');

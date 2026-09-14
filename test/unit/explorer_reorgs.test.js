@@ -87,7 +87,7 @@
 
 const { expect }  = require('chai');
 
-require('./explorer_reorgs.test/data_leg.js');
+require('./explorer_reorgs.test/support/data_leg.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // Row-mapping documentation: the getPagingDataResults branch lives in

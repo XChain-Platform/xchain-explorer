@@ -329,4 +329,4 @@ describe('Security: SSRF: DNS resolution bypass', function () {
     });
 });
 
-require('./ssrf_protection.test/guards.js');
+require('./ssrf_protection.test/support/guards.js');

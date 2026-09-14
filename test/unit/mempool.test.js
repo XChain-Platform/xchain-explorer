@@ -26,6 +26,6 @@
 
 'use strict';
 
-require('./mempool.test/basic.js');
-require('./mempool.test/events.js');
-require('./mempool.test/encoding.js');
+require('./mempool.test/support/basic.js');
+require('./mempool.test/support/events.js');
+require('./mempool.test/support/encoding.js');

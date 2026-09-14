@@ -62,9 +62,9 @@ const proxyquire  = require('proxyquire');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
 
-const { makeRealDb, HUB } = require('./explorer_anchor_reward_attestations.test/helpers.js');
+const { makeRealDb, HUB } = require('./explorer_anchor_reward_attestations.test/support/helpers.js');
 
-require('./explorer_anchor_reward_attestations.test/data_leg.js');
+require('./explorer_anchor_reward_attestations.test/support/data_leg.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // checkpointSource: the new rewardTable accessor this row proposes adding.

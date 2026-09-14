@@ -46,20 +46,20 @@
 
 'use strict';
 
-require('./db_more_queries.test/cache_and_coinpays.js');
-require('./db_more_queries.test/markets_and_actions.js');
-require('./db_more_queries.test/blocks_and_search.js');
-require('./db_more_queries.test/history_and_files.js');
-require('./db_more_queries.test/projects_and_orders.js');
-require('./db_more_queries.test/contracts_and_staking.js');
-require('./db_more_queries.test/prices_and_query_filters.js');
-require('./db_more_queries.test/query_execution.js');
-require('./db_more_queries.test/query_branches.js');
-require('./db_more_queries.test/query_offsets.js');
-require('./db_more_queries.test/query_offsets_more.js');
-require('./db_more_queries.test/explorer_paging.js');
-require('./db_more_queries.test/action_data_core.js');
-require('./db_more_queries.test/action_data_protocol.js');
-require('./db_more_queries.test/action_data_extended.js');
-require('./db_more_queries.test/staking_and_cross_chain.js');
-require('./db_more_queries.test/hub_and_checkpoints.js');
+require('./db_more_queries.test/support/cache_and_coinpays.js');
+require('./db_more_queries.test/support/markets_and_actions.js');
+require('./db_more_queries.test/support/blocks_and_search.js');
+require('./db_more_queries.test/support/history_and_files.js');
+require('./db_more_queries.test/support/projects_and_orders.js');
+require('./db_more_queries.test/support/contracts_and_staking.js');
+require('./db_more_queries.test/support/prices_and_query_filters.js');
+require('./db_more_queries.test/support/query_execution.js');
+require('./db_more_queries.test/support/query_branches.js');
+require('./db_more_queries.test/support/query_offsets.js');
+require('./db_more_queries.test/support/query_offsets_more.js');
+require('./db_more_queries.test/support/explorer_paging.js');
+require('./db_more_queries.test/support/action_data_core.js');
+require('./db_more_queries.test/support/action_data_protocol.js');
+require('./db_more_queries.test/support/action_data_extended.js');
+require('./db_more_queries.test/support/staking_and_cross_chain.js');
+require('./db_more_queries.test/support/hub_and_checkpoints.js');

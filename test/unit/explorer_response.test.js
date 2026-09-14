@@ -25,7 +25,7 @@
 
 'use strict';
 
-const { sinon, state } = require('./explorer_response.test/helpers.js');
+const { sinon, state } = require('./explorer_response.test/support/helpers.js');
 
 // Undo every stub or spy a test installed and put the shared getData result back to
 // empty, so one test's fakes cannot leak into the next and make it pass for the
@@ -35,7 +35,7 @@ afterEach(function () {
     state.getDataResult = [[], null];
 });
 
-require('./explorer_response.test/api.js');
-require('./explorer_response.test/special.js');
-require('./explorer_response.test/errors.js');
-require('./explorer_response.test/serialization.js');
+require('./explorer_response.test/support/api.js');
+require('./explorer_response.test/support/special.js');
+require('./explorer_response.test/support/errors.js');
+require('./explorer_response.test/support/serialization.js');

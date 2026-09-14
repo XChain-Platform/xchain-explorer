@@ -102,7 +102,7 @@ describe('Database#getMaxMethodResults', () => {
 
 module.exports = { expect, makeConfig, makeDb, cfg, cfgOffset };
 
-require('./db_query_builder.test/where_sql.js');
-require('./db_query_builder.test/offset_sql.js');
-require('./db_query_builder.test/cross_chain.js');
-require('./db_query_builder.test/get_query.js');
+require('./db_query_builder.test/support/where_sql.js');
+require('./db_query_builder.test/support/offset_sql.js');
+require('./db_query_builder.test/support/cross_chain.js');
+require('./db_query_builder.test/support/get_query.js');

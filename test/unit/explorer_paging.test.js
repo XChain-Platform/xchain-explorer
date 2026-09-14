@@ -16,7 +16,7 @@
  * Unit tests for XChainExplorer.getPagingDataResults(config, data, total)
  */
 
-const { makeExplorer, state } = require('./explorer_paging.test/helpers.js');
+const { makeExplorer, state } = require('./explorer_paging.test/support/helpers.js');
 
 describe('XChainExplorer.getPagingDataResults', function () {
 
@@ -24,7 +24,7 @@ describe('XChainExplorer.getPagingDataResults', function () {
         state.explorer = makeExplorer();
     });
 
-    require('./explorer_paging.test/pagination.js');
-    require('./explorer_paging.test/methods.js');
-    require('./explorer_paging.test/search.js');
+    require('./explorer_paging.test/support/pagination.js');
+    require('./explorer_paging.test/support/methods.js');
+    require('./explorer_paging.test/support/search.js');
 });

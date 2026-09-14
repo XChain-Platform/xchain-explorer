@@ -383,4 +383,4 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
 
 });
 
-require('./action_detail_deploy_resolution.test/cache.js');
+require('./action_detail_deploy_resolution.test/support/cache.js');

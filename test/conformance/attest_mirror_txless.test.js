@@ -214,7 +214,7 @@ function makeDb(){
 
 let hadHubDbOptOut;
 
-const attestTests = require('./attest_mirror_txless.test/tests.js');
+const attestTests = require('./attest_mirror_txless.test/support/tests.js');
 
 describe('mirror-applied ATTEST response with no transaction row (real MariaDB)', function () {
     this.timeout(120000);

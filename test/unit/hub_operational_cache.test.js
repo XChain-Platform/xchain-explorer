@@ -15,5 +15,5 @@
 // TTL/stale cache behavior, endpoint resolution, filter param mapping, and JS
 // paging parity with the SQL cursor semantics it replaces.
 
-require('./hub_operational_cache.test/cache.js');
-require('./hub_operational_cache.test/database.js');
+require('./hub_operational_cache.test/support/cache.js');
+require('./hub_operational_cache.test/support/database.js');

@@ -20,7 +20,7 @@
  * to getData(), letting each test inspect what processRequest() built from the URL.
  */
 
-const { makeExplorer, state } = require('./explorer_routing.test/helpers.js');
+const { makeExplorer, state } = require('./explorer_routing.test/support/helpers.js');
 
 describe('XChainExplorer.processRequest – routing', function () {
 
@@ -28,8 +28,8 @@ describe('XChainExplorer.processRequest – routing', function () {
         state.explorer = makeExplorer();
     });
 
-    require('./explorer_routing.test/parsing.js');
-    require('./explorer_routing.test/responses.js');
-    require('./explorer_routing.test/freshness.js');
-    require('./explorer_routing.test/remaining.js');
+    require('./explorer_routing.test/support/parsing.js');
+    require('./explorer_routing.test/support/responses.js');
+    require('./explorer_routing.test/support/freshness.js');
+    require('./explorer_routing.test/support/remaining.js');
 });

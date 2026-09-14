@@ -355,4 +355,4 @@ describe('Batch read endpoints: body validation (C53)', function () {
     });
 });
 
-require('./batch_routes.test/degradation_and_gates.js');
+require('./batch_routes.test/support/degradation_and_gates.js');

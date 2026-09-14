@@ -17,4 +17,4 @@
 
 'use strict';
 
-require('./db_connection.test/connection_management.js');
+require('./db_connection.test/support/connection_management.js');

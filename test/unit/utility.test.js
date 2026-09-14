@@ -10,6 +10,6 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-require('./utility.test/numbers.js');
-require('./utility.test/objects.js');
-require('./utility.test/time_and_io.js');
+require('./utility.test/support/numbers.js');
+require('./utility.test/support/objects.js');
+require('./utility.test/support/time_and_io.js');

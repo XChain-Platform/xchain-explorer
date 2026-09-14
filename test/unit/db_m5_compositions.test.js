@@ -103,5 +103,5 @@ function stubQueries(db, plan = []){
 
 module.exports = { sinon, expect, LIMIT, makeDb, cfg, flat, stubQueries };
 
-require('./db_m5_compositions.test/rich_list.js');
-require('./db_m5_compositions.test/xcall_phases.js');
+require('./db_m5_compositions.test/support/rich_list.js');
+require('./db_m5_compositions.test/support/xcall_phases.js');

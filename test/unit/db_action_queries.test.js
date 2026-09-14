@@ -24,9 +24,9 @@
 
 'use strict';
 
-require('./db_action_queries.test/issuance.js');
-require('./db_action_queries.test/files_lists_messages.js');
-require('./db_action_queries.test/orders_swaps.js');
-require('./db_action_queries.test/transfers_balances.js');
-require('./db_action_queries.test/pagination.js');
-require('./db_action_queries.test/attestations_xcalls.js');
+require('./db_action_queries.test/support/issuance.js');
+require('./db_action_queries.test/support/files_lists_messages.js');
+require('./db_action_queries.test/support/orders_swaps.js');
+require('./db_action_queries.test/support/transfers_balances.js');
+require('./db_action_queries.test/support/pagination.js');
+require('./db_action_queries.test/support/attestations_xcalls.js');

@@ -90,6 +90,10 @@ describe('Single-Item API Endpoints', function () {
         expect(first.address).to.equal('bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa');
     });
 
+});
+
+describe('Single-Item API Endpoints', function () {
+
     it('GET /RBTC/api/token/{tick}: returns token detail', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
         expect(res.status).to.equal(200);
@@ -124,6 +128,10 @@ describe('Single-Item API Endpoints', function () {
         expect(Number(res.body.info.bridged)).to.equal(0);
     });
 
+});
+
+describe('Single-Item API Endpoints', function () {
+
     it('GET /RBTC/api/token/{tick}: token with all locks', async function () {
         const res = await request.get('/RBTC/api/token/TOKENTHREE');
         expect(res.status).to.equal(200);
@@ -153,6 +161,10 @@ describe('Single-Item API Endpoints', function () {
         expect(String(res.body.info.min_depth)).to.equal('6');
         expect(Number(res.body.info.bridged)).to.equal(1);
     });
+
+});
+
+describe('Single-Item API Endpoints', function () {
 
     it('GET /RBTC/api/transaction/{hash}/tx_hash: returns transaction by hash', async function () {
         // tx_index=1 uses hash 'aaa1111...111' (index_transactions id=1)
@@ -191,6 +203,10 @@ describe('Single-Item API Endpoints', function () {
         ];
         expect(first).to.have.all.keys(expectedFields);
     });
+
+});
+
+describe('Single-Item API Endpoints', function () {
 
     it('GET /RBTC/api/debits/{address}/address: returns debits for address', async function () {
         const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';

@@ -31,7 +31,7 @@ const path           = require('path');
 const sinon          = require('sinon');
 const { expect }     = require('chai');
 const Database       = require('../../src/db.js');
-const ChangeDetector = require('../../src/ws/ChangeDetector.js');
+const ChangeDetector = require('../../src/ws/change_detector.js');
 const Broadcaster    = require('../../src/ws/broadcaster.js');
 const { envView }    = require('../fixtures/mock-config.js');
 

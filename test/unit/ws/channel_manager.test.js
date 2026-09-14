@@ -483,7 +483,7 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts)', fun
     // restated here: a local copy of the inline names is what previously let the
     // two ATTESTATION types ship emitted-but-unfilterable.
     function emittedNames() {
-        const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
+        const ChangeDetector = require('../../../src/ws/change_detector.js');
         return new Set(
             Object.values(ChangeDetector.LIFECYCLE_MAP).flat()
                 .concat(ChangeDetector.NON_ACTION_LIFECYCLE_TYPES || [])
@@ -509,7 +509,7 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts)', fun
     // at all. Every BET name was in exactly that state (emitted, never accepted)
     // until the filter was fixed to admit them.
     it('every type ChangeDetector emits is accepted by the types filter', function () {
-        const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
+        const ChangeDetector = require('../../../src/ws/change_detector.js');
         // Both halves matter: the filter matches on the event type OR the causing
         // action name (Broadcaster.passesFilter), so the map's keys are filterable
         // names too.

@@ -28,7 +28,7 @@
 
 const { expect } = require('chai');
 const WebSocketServer = require('../../../src/ws/WebSocketServer.js');
-const ChangeDetector  = require('../../../src/ws/ChangeDetector.js');
+const ChangeDetector  = require('../../../src/ws/change_detector.js');
 
 // Collect every frame the server writes to this client.
 function makeClient(coin) {

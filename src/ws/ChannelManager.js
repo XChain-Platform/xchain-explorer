@@ -73,7 +73,7 @@ const VALID_TYPES = new Set([
     // actionData.action value and whitelisting it would silently match nothing.
     'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF', 'ROLLCALL',
     // Lifecycle event types (emitted by ChangeDetector, not indexed directly).
-    // Only names the producer actually emits belong here (ChangeDetector.js's
+    // Only names the producer actually emits belong here (ws/change_detector.js's
     // LIFECYCLE_MAP, NON_ACTION_LIFECYCLE_TYPES and INLINE_LIFECYCLE_TYPES): the
     // WELCOME envelope advertises this set verbatim, so a phantom name would
     // be accepted by subscribe() yet silently match zero events - same

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for src/ws/ChangeDetector.js: the indexer-DB poller that turns
+ * Unit tests for src/ws/change_detector.js: the indexer-DB poller that turns
  * new blocks/actions into WebSocket events. All collaborators are injected, so
  * no real DB or timers are needed (fake timers used only for the poll loop).
  */
@@ -20,7 +20,7 @@
 
 const sinon          = require('sinon');
 const { expect }     = require('chai');
-const ChangeDetector = require('../../src/ws/ChangeDetector.js');
+const ChangeDetector = require('../../src/ws/change_detector.js');
 
 function mk(over) {
     over = over || {};

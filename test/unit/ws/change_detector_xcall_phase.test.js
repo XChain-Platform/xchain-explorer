@@ -42,7 +42,7 @@
 
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
+const ChangeDetector = require('../../../src/ws/change_detector.js');
 const ChannelManager = require('../../../src/ws/ChannelManager.js');
 
 const CALL_A = 'a'.repeat(64);

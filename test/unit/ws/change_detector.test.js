@@ -11,14 +11,14 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for ChangeDetector (src/ws/ChangeDetector.js)
+ * Unit tests for ChangeDetector (src/ws/change_detector.js)
  */
 
 'use strict';
 
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
+const ChangeDetector = require('../../../src/ws/change_detector.js');
 
 // Helper: create a mock db object
 function createMockDb(opts) {

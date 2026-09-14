@@ -582,7 +582,7 @@ class Broadcaster {
         // never runs). Left evaluating rather than short-circuited: proving it dead
         // requires tracing every passesFilter caller (live actions/lifecycle/ATTEST
         // path and the catch-up replay path in WebSocketServer.handleCatchUp) plus
-        // every producer in ChangeDetector.js, which is not a change safe to make
+        // every producer in ws/change_detector.js, which is not a change safe to make
         // as a drive-by; WebSocketServer.handleSubscribe now echoes
         // `ignored_filters: ['statuses']` so a client sending it can observe the
         // no-op without relying on this evaluation being removed.

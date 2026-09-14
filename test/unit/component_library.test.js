@@ -39,7 +39,7 @@ const { JSDOM } = require('jsdom');
 const ROOT           = path.resolve(__dirname, '..', '..');
 const COMPONENT_DIR  = path.join(ROOT, 'src', 'content', 'components');
 const HTML_DIR       = path.join(ROOT, 'src', 'content', 'html');
-const componentTpl   = require(path.join(ROOT, 'src', 'component-templates.js'));
+const componentTpl   = require(path.join(ROOT, 'src', 'render', 'component_templates.js'));
 const XCComponents   = require(path.join(ROOT, 'src', 'content', 'js', 'components.js'));
 
 const NAMES = fs.readdirSync(COMPONENT_DIR).filter((d) =>

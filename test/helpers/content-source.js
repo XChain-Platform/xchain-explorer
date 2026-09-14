@@ -36,7 +36,7 @@ const HTML_DIR = path.join(ROOT, 'src', 'content', 'html');
 const JS_DIR   = path.join(ROOT, 'src', 'content', 'js');
 
 const listPage     = require(path.join(ROOT, 'src', 'render', 'list_page.js'));
-const componentTpl = require(path.join(ROOT, 'src', 'component-templates.js'));
+const componentTpl = require(path.join(ROOT, 'src', 'render', 'component_templates.js'));
 
 /**
  * The client source a suite slices shipped functions out of: formatters.js

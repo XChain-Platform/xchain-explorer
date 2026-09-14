@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * component-templates.js
+ * render/component_templates.js
  *
  * Server-side rendering of a component's template.html (spec M2.4).
  *
@@ -34,7 +34,7 @@
 const fs   = require('fs');
 const path = require('path');
 
-const COMPONENT_DIR = path.join(__dirname, 'content', 'components');
+const COMPONENT_DIR = path.join(__dirname, '..', 'content', 'components');
 
 // Component templates are static files read once per process.
 const cache = new Map();

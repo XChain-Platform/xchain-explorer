@@ -41,7 +41,7 @@ const { limitedHandler } = require('./http/rate_limit_log.js');   // limiter cou
 const vmQuery          = require('./vm-query.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
 const listPage         = require('./render/list_page.js');
-const componentTpl     = require('./component-templates.js');
+const componentTpl     = require('./render/component_templates.js');
 const staticMounts     = require('./http/static_mounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
 
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's

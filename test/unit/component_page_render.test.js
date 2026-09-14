@@ -37,7 +37,7 @@ const JS_DIR     = path.join(ROOT, 'src', 'content', 'js');
 const COMP_DIR   = path.join(ROOT, 'src', 'content', 'components');
 
 const listPage     = require(path.join(ROOT, 'src', 'render', 'list_page.js'));
-const componentTpl = require(path.join(ROOT, 'src', 'component-templates.js'));
+const componentTpl = require(path.join(ROOT, 'src', 'render', 'component_templates.js'));
 const { renderPlatformSwitcher } = require(path.join(ROOT, 'src', 'platform_links.js'));
 
 // The html branch of processRequest, reproduced. Kept in the same order as the

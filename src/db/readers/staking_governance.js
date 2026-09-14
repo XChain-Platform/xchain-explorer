@@ -470,7 +470,7 @@ class StakingGovernanceReaders {
         return [query, null, count];
     }
 
-    // Controller bind/unbind event stream (programmable-policy guards, Controller_Bound_Tokens.md).
+    // Controller bind/unbind event stream (programmable-policy guards, controller-bound-tokens.md).
     // UNION of BOTH logs: token_controllers (ISSUE-bound, per-tick) + address_controllers
     // (ADDRESS-bound, self-signed). Each is append-only (one immutable row per bind/unbind); the
     // *effective* gating set is resolved on the token/address detail pages; this list surfaces the

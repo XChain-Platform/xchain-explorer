@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Integration tests: Controller + Permissions-Manifest surfaces
- * (protocol/Controller_Bound_Tokens.md)
+ * (protocol/controller-bound-tokens.md)
  *
  * Covers:
  *   - /{COIN}/api/contract/{idx}: `permissions` (parsed JSON array | null)

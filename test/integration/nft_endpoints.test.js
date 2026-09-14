@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests: NFT display surfaces (protocol/NFT_Standard.md)
+ * Integration tests: NFT display surfaces (protocol/nft-standard.md)
  *
  * Covers:
  *   - /{COIN}/api/tokens/null/nft + /{COIN}/explorer/tokens/null/nft:

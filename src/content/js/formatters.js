@@ -176,7 +176,7 @@ function formatLocks(locks=null){
     return html;
 }
 
-// Canonical NFT-pattern classification (NFT_Standard.md#classification-rule-for-clients):
+// Canonical NFT-pattern classification (nft-standard.md#classification-rule-for-clients):
 // a token follows the NFT pattern when DECIMALS=0 AND LOCK_MAX_SUPPLY=1.
 // Mirrors sdk.nft.isNft; keep the two in sync.
 function isNftToken(decimals, lockMaxSupply){

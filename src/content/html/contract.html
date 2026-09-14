@@ -27,7 +27,7 @@
     </div>
 </div>
 
-<!-- Permissions Manifest (protocol/Controller_Bound_Tokens.md): hidden until
+<!-- Permissions Manifest (protocol/controller-bound-tokens.md): hidden until
      the contract declares a manifest (permissions / max_take_bps). -->
 <div class="container" id="contract-manifest-card" style="display:none;">
     <div class="row">
@@ -343,7 +343,7 @@ $(document).ready(function() {
                 $('.contract-slash').html(isNull(o.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + o.slash_destination, o.slash_destination));
                 $('.contract-staking-row').removeClass('d-none');
             }
-            // Permissions manifest (protocol/Controller_Bound_Tokens.md): the
+            // Permissions manifest (protocol/controller-bound-tokens.md): the
             // declared emission allowlist + per-contract fee cap. Both are null
             // when the contract has no manifest row; show the card only when at
             // least one is declared (an empty permissions array means "emits
@@ -357,7 +357,7 @@ $(document).ready(function() {
                 $('#contract-manifest-card').show();
             }
             // Partition methods into Read/Write cards via the declared abi
-            // view flags (protocol/Contract_ABI.md). Undeclared methods show
+            // view flags (protocol/contract-abi.md). Undeclared methods show
             // in BOTH cards; the abi is author-declared and unverified, so
             // the split is presentation only, never a safety boundary.
             let abi = (o.abi && o.abi.methods) ? o.abi : null;
@@ -500,7 +500,7 @@ $(document).ready(function() {
 
     // Build the Write Contract card: same per-method forms, but the action is
     // an "Open in Wallet" deep link (xchain:{COIN}/execute, spec:
-    // protocol/XChain_URI_Scheme.md). The explorer only constructs the URL;
+    // protocol/xchain-uri-scheme.md). The explorer only constructs the URL;
     // signing and broadcast happen entirely in the user's wallet.
     function buildWriteContractForms(methods, abi, walletUrl){
         let container = $('#contract-write-methods');

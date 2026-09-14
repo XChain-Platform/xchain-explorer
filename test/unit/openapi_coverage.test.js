@@ -129,6 +129,40 @@ describe('openapi.json route coverage', () => {
             ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'gatedFile.js')
             : path.resolve(__dirname, '../../../xchain-sdk/src/gatedFile.js');
 
+        // The SDK keeps its old import paths alive as bare re-export shims, so the
+        // pinned path can be four lines that carry no crypto at all. Reading it
+        // directly would turn a moved module into a content failure here, and
+        // fattening the shim to satisfy this check would mean two implementations
+        // of one module. Follow the re-export to the module that really holds the
+        // bytes, and assert against THAT source.
+        function resolveModule(start) {
+            const BARE_REEXPORT = /^\s*module\.exports\s*=\s*require\(\s*['"](\.[^'"]*)['"]\s*\)\s*;?\s*$/m;
+            let current = start;
+            // Two hops is one shim plus one re-spelling; a longer chain is a
+            // layout the explorer should not be silently following.
+            for (let hop = 0; hop <= 2; hop++) {
+                const source = fs.readFileSync(current, 'utf8');
+                // Strip comments so a shim's header banner cannot hide the body,
+                // and so a mention of require() inside prose cannot fake one.
+                const body = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+                const m = body.match(BARE_REEXPORT);
+                // Anything other than a lone re-export statement is the real module.
+                if (!m || body.replace(m[0], '').trim() !== '') return { path: current, source };
+                // Read to resolve, never existsSync to decide: an unreadable target
+                // must fail by name here, not turn this case quiet.
+                const target = path.resolve(path.dirname(current), m[1]);
+                const next = [target, target + '.js'].find((p) => {
+                    try { fs.readFileSync(p); return true; } catch { return false; }
+                });
+                if (!next)
+                    throw new Error('the gated-file re-export at ' + current + ' points at ' + m[1] +
+                        ', which does not exist; the SDK layout moved without a working shim');
+                current = next;
+            }
+            throw new Error('the gated-file re-export chain from ' + start +
+                ' did not reach a real module within 2 hops');
+        }
+
         before(function () {
             if (!fs.existsSync(SDK_GATED_FILE)) {
                 if (process.env.XCHAIN_REQUIRE_SIBLINGS === '1')
@@ -139,10 +173,10 @@ describe('openapi.json route coverage', () => {
         });
 
         it('concatenates [iv][authTag][ciphertext]', function () {
-            const source = fs.readFileSync(SDK_GATED_FILE, 'utf8');
-            expect(source, 'the SDK stopped writing [iv][authTag][ciphertext] at ' + SDK_GATED_FILE +
-                '; the 200-response doc string follows the producer, so re-derive it before ' +
-                'editing the layout assertion above')
+            const producer = resolveModule(SDK_GATED_FILE);
+            expect(producer.source, 'the SDK stopped writing [iv][authTag][ciphertext] at ' +
+                producer.path + '; the 200-response doc string follows the producer, so re-derive ' +
+                'it before editing the layout assertion above')
                 .to.match(/Buffer\.concat\(\[\s*iv\s*,\s*authTag\s*,\s*encrypted\s*\]\)/);
         });
     });

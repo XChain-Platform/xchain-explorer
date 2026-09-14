@@ -18,7 +18,7 @@
  * `coin.price.usd` in GET /{COIN}/api/network (db.getNetwork, db.js:~3705).
  *
  * The hub-side leg (real round -> finalized snapshot -> getprice) is covered by
- * xchain-hub/test/e2e/oracle.e2e.test.js. This closes the previously-untested
+ * xchain-hub/test/e2e/oracle.test.js. This closes the previously-untested
  * Explorer leg with a stub hub whose getprice response is shaped exactly like a
  * finalized round's (price string + finalized status), plus the two "invisible
  * walls" that hid this gap: the mainnet-only route gating, and graceful

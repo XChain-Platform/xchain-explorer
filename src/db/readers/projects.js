@@ -40,7 +40,7 @@
 
 class ProjectReaders {
     /******************************************************************
-     * Project Registry queries (protocol/Project_Registry.md)
+     * Project Registry queries (protocol/project-registry.md)
      *
      * A project's current roster is the TICK-type LIST referenced by
      * the most recent valid LINK targeting one of the project tick's
@@ -179,7 +179,7 @@ class ProjectReaders {
     }
 
     /******************************************************************
-     * Controller bindings (protocol/Controller_Bound_Tokens.md)
+     * Controller bindings (protocol/controller-bound-tokens.md)
      *
      * token_controllers / address_controllers are append-only bind/unbind
      * event logs. The effective (still-gating) controller for a

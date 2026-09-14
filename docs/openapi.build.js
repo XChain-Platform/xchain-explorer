@@ -667,10 +667,10 @@ const spec = {
             + 'are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters '
             + '(limit max 100; balances/holders max 500). Errors are '
             + '`{error: "message", code: "STABLE_CODE"}`. See the error-code registry at '
-            + 'https://docs.xchain.io/protocol/Error_Codes.md. A WebSocket API lives at '
-            + '/{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/WEBSOCKET.md.\n\n'
+            + 'https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at '
+            + '/{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\n'
             + 'LLM-friendly docs: https://docs.xchain.io/llms.txt',
-        license: { name: 'AGPL-3.0-or-later', url: 'https://docs.xchain.io/legal/LICENSING.md' },
+        license: { name: 'AGPL-3.0-or-later', url: 'https://docs.xchain.io/legal/licensing.md' },
     },
     servers: [{ url: 'https://explorer.xchain.io' }],
     tags: [
@@ -907,7 +907,7 @@ const spec = {
                 type: 'object',
                 properties: {
                     error: { type: 'string', description: 'Human-readable message' },
-                    code: { type: 'string', description: 'Stable machine-readable code (see https://docs.xchain.io/protocol/Error_Codes.md)' },
+                    code: { type: 'string', description: 'Stable machine-readable code (see https://docs.xchain.io/protocol/error-codes.md)' },
                 },
                 required: ['error'],
             },

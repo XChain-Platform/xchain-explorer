@@ -240,7 +240,7 @@ class EntityReaders {
             };
         }
         // Controller bindings still gating this address's native actions
-        // (protocol/Controller_Bound_Tokens.md). [] when nothing gates.
+        // (protocol/controller-bound-tokens.md). [] when nothing gates.
         data.controllers = await this.getAddressControllerBindings(config, config.data.search);
         // Surface the immutable index_addresses id (mirrors how getToken surfaces
         // tick_id in info). The SDK address compactor reads info.address_id to rewrite
@@ -1180,21 +1180,21 @@ class EntityReaders {
             }
             // Expose the token's own decimals (the grouping loop above skips every
             // *decimals* column so callback_decimals doesn't leak into info).
-            // Clients need it for NFT-pattern classification (NFT_Standard.md:
+            // Clients need it for NFT-pattern classification (nft-standard.md:
             // DECIMALS=0 AND LOCK_MAX_SUPPLY=1 (the lock is already in locks.max_supply).
             data.info.decimals   = Number(row.decimals);
             data.supply.decimals = Number(row.decimals);
             // Expose the immutable numeric ticker id (index_tickers.id) so clients
             // (e.g. the SDK) can compact a ticker name into its `^<id>` wire form.
             data.info.tick_id    = (row.tick_id !== undefined && row.tick_id !== null) ? Number(row.tick_id) : null;
-            // Project registry surfaces (protocol/Project_Registry.md):
+            // Project registry surfaces (protocol/project-registry.md):
             // projects = registries whose CURRENT roster includes this token
             // (drives the "Official: part of X" banner); registry = this token's
             // own roster metadata when it IS a project (null otherwise).
             data.projects = await this.getTokenProjects(config, data.info.tick);
             data.registry = await this.getProjectRosterInfo(config, data.info.tick);
             // Controller bindings still gating this token's native actions
-            // (protocol/Controller_Bound_Tokens.md). [] when nothing gates.
+            // (protocol/controller-bound-tokens.md). [] when nothing gates.
             data.controllers = await this.getTokenControllerBindings(config, data.info.tick);
             // Open governance polls over this token (VOTE v0, poll_status='open').
             // Drives the token page's Active Governance card: voter apathy is the

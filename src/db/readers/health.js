@@ -468,7 +468,7 @@ class HealthReaders {
     // the canonical UTF-8 ACTION string ("SEND|0|TICK|..."), the exact same
     // representation the decoder's confirmed-block path writes to
     // transactions.data. It is NOT hex. The decoder pins that contract in
-    // test/unit/mempoolPayloadRepresentation.test.js (uuid:26220713); this read
+    // test/unit/mempool_payload_representation.test.js (uuid:26220713); this read
     // and decodeMempoolRow below are the other half of it.
     async getDecoderMempoolRows(config, limit) {
         let max = Math.max(1, Math.min(Number(limit) || 200, 500));

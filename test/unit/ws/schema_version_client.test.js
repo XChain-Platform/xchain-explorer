@@ -25,9 +25,9 @@ const path = require('path');
 const { expect } = require('chai');
 const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema_version.js');
 
-describe('xchain-ws.js CLIENT_WS_SCHEMA_VERSION conformance', function () {
+describe('xchain_ws.js CLIENT_WS_SCHEMA_VERSION conformance', function () {
 
-    it('matches src/ws/schema-version.js WS_SCHEMA_VERSION', function () {
+    it('matches src/ws/schema_version.js WS_SCHEMA_VERSION', function () {
         const clientPath = path.join(__dirname, '../../../src/content/js/xchain_ws.js');
         const source      = fs.readFileSync(clientPath, 'utf8');
         const match       = source.match(/var\s+CLIENT_WS_SCHEMA_VERSION\s*=\s*(\d+)\s*;/);

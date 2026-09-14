@@ -148,7 +148,7 @@ class CheckpointReaders {
 
     // One wire type for the BIGINT columns these three endpoints serve, on both
     // transports. The hub RPC path carries them as JS Numbers (the hub's pool sets
-    // bigIntAsNumber, xchain-hub/src/db.js), while the legacy co-located-schema read
+    // bigIntAsNumber, xchain-hub/src/db/index.js), while the legacy co-located-schema read
     // returns BigInt that the response sink stringifies (utility.jsonStringify), so
     // an unnormalized pass-through flips `id` between 100 and "100" whenever the hub
     // goes unreachable mid-deployment. Coerce to decimal STRING, matching

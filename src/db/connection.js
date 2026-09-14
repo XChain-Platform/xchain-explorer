@@ -330,7 +330,7 @@ class DatabaseConnection {
         this.checkpointDb = {};
         // Per-key base chain name (RBTC → 'BTC'), used by the project-registry
         // queries to honor only same-chain LINKs (LINK skips owner validation
-        // when COIN2 is remote; see protocol/Project_Registry.md).
+        // when COIN2 is remote; see protocol/project-registry.md).
         this.baseCoin = {};
         let networks = ['mainnet', 'testnet', 'regtest'];
         for(let coin in coinConfigs){

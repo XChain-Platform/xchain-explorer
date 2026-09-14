@@ -154,7 +154,7 @@ class ContractReaders {
         let results = await this.doQuery(config, query, args);
         if(results && results.length){
             let row = results[0];
-            // Permissions manifest (protocol/Controller_Bound_Tokens.md): the
+            // Permissions manifest (protocol/controller-bound-tokens.md): the
             // declared emission allowlist + per-contract fee cap. permissions is
             // stored as a JSON array (NULL = unrestricted / no manifest); parse
             // it, falling back to null on absence or malformed JSON. max_take_bps
@@ -270,7 +270,7 @@ class ContractReaders {
         return (s.length > SNIPPET_MAX) ? s.slice(0, SNIPPET_MAX - 1) + '…' : s;
     }
 
-    // Get a contract's permissions manifest (protocol/Controller_Bound_Tokens.md):
+    // Get a contract's permissions manifest (protocol/controller-bound-tokens.md):
     // the declared emission allowlist + per-contract fee cap, or null when the
     // contract declared no manifest. permissions is a JSON array on the wire
     // (NULL = unrestricted); parse it, falling back to null on malformed JSON.

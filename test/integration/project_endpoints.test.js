@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Integration tests: Project Registry surfaces (protocol/Project_Registry.md)
+ * Integration tests: Project Registry surfaces (protocol/project-registry.md)
  *
  * Covers:
  *   - /{COIN}/api/project/{TICK}: current roster resolution (latest

@@ -26,10 +26,10 @@
  * entries, and the normalizeHubOperationalRows bigintKeys extension). Every
  * test below is written to be RUN once the main loop splices the proposal in
  * (m3-proposal-row23.md), not to pass vacuously today, matching
- * test/unit/explorer.reorgs.test.js from the same wave. The hub half of this
+ * test/unit/explorer_reorgs.test.js from the same wave. The hub half of this
  * row is real, landed code in the sibling checkout
- * (xchain-hub/src/SlashDetector.js getSlashProposals + api.js
- * getslashproposals, covered by xchain-hub/test/unit/slashProposalsRpc.test.js).
+ * (xchain-hub/src/validators/slash_detector.js getSlashProposals + api.js
+ * getslashproposals, covered by xchain-hub/test/unit/slash_proposals_rpc.test.js).
  *
  * THE RULING THIS ROW IMPLEMENTS (operator, 2026-08-20, option b): publish all
  * statuses, label pending rows as unadjudicated, and return the evidence as a
@@ -93,7 +93,7 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig } = require('../fixtures/mock-query-args.js');
 
 // Real Database class with the mariadb driver stubbed out (no live connection),
-// matching explorer.reorgs.test.js / explorer.checkpoints.test.js.
+// matching explorer_reorgs.test.js / explorer_checkpoints.test.js.
 const DatabaseReal = proxyquire('../../src/db.js', {
     './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });

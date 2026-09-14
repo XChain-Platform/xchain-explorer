@@ -16,7 +16,7 @@
  * Tests all API input parameters with malicious values:
  * type confusion, special characters, extreme lengths, null bytes, unicode.
  *
- * Run: mocha test/security/input-validation.test.js --timeout 0
+ * Run: mocha test/security/input_validation.test.js --timeout 0
  */
 
 'use strict';

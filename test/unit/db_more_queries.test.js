@@ -1019,7 +1019,7 @@ describe('Database#getFileRaw', () => {
     });
 });
 
-// Project registry queries (protocol/Project_Registry.md).
+// Project registry queries (protocol/project-registry.md).
 describe('Database#getProjectRosterInfo', () => {
     let db;
     beforeEach(() => {
@@ -1033,7 +1033,7 @@ describe('Database#getProjectRosterInfo', () => {
         stub.onFirstCall().resolves([{ link_action_index: 74, roster_action_index: 73 }]);
         stub.onSecondCall().resolves([{ total: 2 }]);
         // Edit resolution off: the pinned index IS the membership index (the armed
-        // case is covered in db.list-edit-resolution.test.js).
+        // case is covered in db_list_edit_resolution.test.js).
         sinon.stub(db, 'isListEditResolutionActiveAtTip').resolves(false);
         const info = await db.getProjectRosterInfo(cfg(), 'PROJECTX');
         expect(info).to.deep.equal({ roster_action_index: 73, membership_action_index: 73, link_action_index: 74, total: 2 });
@@ -1067,7 +1067,7 @@ describe('Database#getTokenProjects', () => {
 
     // Edit resolution off: the single-query legacy form runs, and the pinned
     // index IS the membership index (the armed, two-phase path is covered in
-    // db.list-edit-resolution.test.js).
+    // db_list_edit_resolution.test.js).
     beforeEach(() => { sinon.stub(Database.prototype, 'isListEditResolutionActiveAtTip').resolves(false); });
 
     it('returns normalized membership rows', async () => {
@@ -1549,7 +1549,7 @@ describe('Database#getContracts', () => {
 describe('Database#getContract', () => {
     // getContract is a single-record data method (returns [data]); the
     // /api/contract/{idx} route serves one record, not a datatable. It LEFT
-    // JOINs the permissions manifest (protocol/Controller_Bound_Tokens.md).
+    // JOINs the permissions manifest (protocol/controller-bound-tokens.md).
     afterEach(() => { sinon.restore(); });
 
     function contractRow(overrides = {}) {

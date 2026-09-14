@@ -397,7 +397,7 @@ class XChainExplorer {
                 '/{COIN}/api/prices'                          : ['getPrices'],
                 '/{COIN}/api/price_snapshots/{QUERY}/{TYPE}'  : ['getPriceSnapshots',    ['pair', 'round', 'status']],
                 '/{COIN}/api/price_snapshots'                 : ['getPriceSnapshots'],
-                // Controller-bound token / address policy guards (Controller_Bound_Tokens.md): bind/unbind event stream
+                // Controller-bound token / address policy guards (controller-bound-tokens.md): bind/unbind event stream
                 '/{COIN}/api/controllers'                     : ['getControllers'],
                 // VM / Contract Endpoints
                 // 'name' searches the contract identity manifest (meta_name, meta_description)
@@ -596,7 +596,7 @@ class XChainExplorer {
                 '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
                 '/{COIN}/api/network'                          : ['getNetwork'],   
                 '/{COIN}/api/pubkey/{QUERY}'                   : ['getPublicKey',        'address'],
-                // Project registry: current roster of a project tick (protocol/Project_Registry.md)
+                // Project registry: current roster of a project tick (protocol/project-registry.md)
                 '/{COIN}/api/project/{QUERY}'                  : ['getProject',          'token'],
                 // M5.1 collectibles: `tokens` filtered to the indivisible + frozen-ceiling
                 // classification. Registered on /api only: the gallery is a card grid,
@@ -809,13 +809,13 @@ class XChainExplorer {
         // Raw bytes for a FILE action, registered before the wildcard so the matcher
         // hits it first. Gated files return ciphertext as application/octet-stream for
         // client-side decryption (protocol/token-gated-content.md); non-gated files
-        // serve stored bytes inline only for safe media MIME types (NFT_Standard.md).
+        // serve stored bytes inline only for safe media MIME types (nft-standard.md).
         this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processFileRawRequest(req, res); });
 
         // Native-coin fee pre-flight + schedule: thin proxies to the colocated indexer's
         // read-only feequote/feeschedule JSON-RPC, so fee and oracle-price logic stays
         // single-sourced there. Registered before the wildcard so the matcher hits these
-        // first. See xchain-documentation/concepts/GAS.md (client pre-validation).
+        // first. See xchain-documentation/concepts/gas.md (client pre-validation).
 
         // All three carry a dedicated limiter, not the platform default: each is a
         // JSON-RPC round trip, so an uncapped caller amplifies into a second process.
@@ -911,7 +911,7 @@ class XChainExplorer {
         // /checkpoints lists the coin chain's latest; /checkpoint/:blockIndex/verify
         // re-verifies the 2f+1 oracle_publish signatures server-side AND returns what a
         // client needs to verify independently (canonical string, sigs, qualifying set).
-        // Spec: xchain-documentation/protocol/actions/ANCHOR.md
+        // Spec: xchain-documentation/protocol/actions/anchor.md
 
         // The list is a hub-mirror scan; verify re-runs Ed25519 once per signature over
         // the qualifying validator set and reads that set's capability snapshot, so it
@@ -3296,8 +3296,8 @@ class XChainExplorer {
 // to the hub's StateCheckpointEngine.canonicalCheckpoint, the indexer's ANCHOR verifier,
 // xchain-sdk/src/checkpoint.js canonicalCheckpoint, xchain-sync/src/checkpoint.js
 // canonicalCheckpoint, xchain-indexer/bin/recovery.js's wrapperCanonical (rebuilds the
-// same base from parsed ANCHOR bytes), and xchain-hub/src/StateAnchorPublisher.js's
-// _archiveCanonical (nests _rawCanonicalCheckpoint). Six independent sibling copies;
+// same base from parsed ANCHOR bytes), and xchain-hub/src/anchor/publisher.js's
+// archiveCanonical (nests rawCanonicalCheckpoint). Six independent sibling copies;
 // all must change in lockstep with this one.
 // At/above the EQUIV flag-day (gated on the BTC snapshot_block + network) the v0
 // canonical is wrapped in the uniform header (TAG=XCHECKPOINT, v0 ROUND_ID, VIEW=0).

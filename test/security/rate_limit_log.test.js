@@ -32,7 +32,7 @@
  * The clock and the log sink are injected, so nothing here waits on a timer
  * and the module can hold none.
  *
- * Run: mocha test/security/rate-limit-log.test.js --timeout 5000 --exit
+ * Run: mocha test/security/rate_limit_log.test.js --timeout 5000 --exit
  */
 
 'use strict';

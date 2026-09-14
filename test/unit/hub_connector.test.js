@@ -414,7 +414,7 @@ describe('XChainHubConnector', function () {
 
     });
 
-    describe('_applyConfigResult() and config-delta merge', function () {
+    describe('applyConfigResult() and config-delta merge', function () {
 
         it('accepts an array of endpoint URLs directly', function () {
             const Connector = loadConnector(makeAxiosStub());

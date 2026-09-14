@@ -1285,7 +1285,7 @@ function loadDatatablesData(coin, action, query, type, opts){
     // Automatically convert token searches on token page to subtoken
     if(type=='token' && action=='token')
         type = 'subtoken';
-    // The Official Tokens tab loads the project's roster (Project_Registry.md)
+    // The Official Tokens tab loads the project's roster (project-registry.md)
     if(type=='token' && action=='project')
         type = 'roster';
     // Set the explorer API endpoint name based on the action
@@ -1812,7 +1812,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 locks   = data[7];
                 // data[8] = ownership-transfer destination; when set, this issue
                 // moved the token's ownership record (the provenance trail for
-                // NFT collections (NFT_Standard.md#collections))
+                // NFT collections (nft-standard.md#collections))
                 let transfer = data[8];
                 if(!isNull(transfer))
                     $('td', row).eq(3).html(source_link + ' <i class="fa fa-arrow-right ps-1 pe-1" title="Token ownership transferred"></i> ' + formatLink('/' + coin + '/address/' + transfer, transfer));
@@ -5390,7 +5390,7 @@ function showTokenContent(json){
         $('#additionalInfoNotAvailable').hide();
 }
 
-// Render a token's/address's controller bindings (protocol/Controller_Bound_Tokens.md)
+// Render a token's/address's controller bindings (protocol/controller-bound-tokens.md)
 // into a table body, revealing the card when at least one binding is gating.
 // `controllers` is the API's `controllers` array; bodyId/cardId are element ids.
 // Each row: action class, linked guard contract, cooldown, Active/Unbinding badge.
@@ -5482,7 +5482,7 @@ function showTokenInfo(){
     // Basic Token Information
     $('.xchain-tick').text(o.info.tick);
 
-    // Project registry surfaces (protocol/Project_Registry.md). Both surfaces
+    // Project registry surfaces (protocol/project-registry.md). Both surfaces
     // render as green banners in #project-banners, the full-width row under
     // the Token Information / Market Information cards.
     let projectBanners = '';
@@ -5521,7 +5521,7 @@ function showTokenInfo(){
         });
     }
 
-    // Controller bindings (protocol/Controller_Bound_Tokens.md): guard contracts
+    // Controller bindings (protocol/controller-bound-tokens.md): guard contracts
     // that gate this token's native actions. Hidden until at least one is gating.
     renderControllerBindings(o.controllers, 'token-controllers-body', 'token-controllers-card');
 

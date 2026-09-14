@@ -39,7 +39,7 @@
  * table for both. See the 'legitimate empty vs hub outage' describe block.
  *
  * Schema facts (read from xchain-hub/src/sql/reorg_attestations.sql and
- * ReorgHandler.js):
+ * anchor/reorg_handler.js):
  *   CREATE TABLE reorg_attestations (
  *       id               BIGINT AUTO_INCREMENT PRIMARY KEY,
  *       reorg_id         VARCHAR(100) NOT NULL UNIQUE,   -- '<chain>:<height>:<ts>'

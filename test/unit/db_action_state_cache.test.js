@@ -81,6 +81,25 @@ describe('action LRU skips responses carrying a live state block', function () {
         expect(db.isCacheableAction(null)).to.equal(false);
     });
 
+});
+
+describe('action LRU skips responses carrying a live state block', function () {
+
+    it('a state-bearing action stays absent from the LRU, so a later read recomputes', function () {
+        const db  = makeDb();
+        const key = db.cacheKey('BTC', 3508);
+        // What getActionData does now: consult the cache, then write back only
+        // when the response is cacheable.
+        expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
+        const fresh = { action: 'DISPENSER', state: { give_remaining: '0', status: 'empty' } };
+        if (db.isCacheableAction(fresh))
+            db.cacheSet(db._actionDataCache, key, fresh);
+        expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
+    });
+});
+
+describe('action LRU skips responses carrying a live state block', function () {
+
     // The sibling of the defect above, in the other direction: the LRU was also
     // memoizing responses for actions that DO NOT EXIST YET.
     //
@@ -124,6 +143,8 @@ describe('action LRU skips responses carrying a live state block', function () {
         });
     });
 
+});
+
     // The third member of the family, and the one the `state` guard could not
     // see. ATTEST / XCALL / VOTE / BET / DELEGATE carry their mutable lifecycle
     // as PLAIN COLUMNS, so a response with no `state` block was memoized in
@@ -135,6 +156,8 @@ describe('action LRU skips responses carrying a live state block', function () {
     // /rdoge/api/attestations reported `expired` for the same action. ATTEST v2
     // writes no row of its own - it only flips the v0 request row's column - so
     // nothing about the cached payload's shape said it had gone stale.
+describe('action LRU skips responses carrying a live state block', function () {
+
     describe('[REGRESSION] a mutable lifecycle response must not be memoized', function () {
 
         it('refuses a pending ATTEST request, whose request_status still flips', function () {
@@ -186,6 +209,14 @@ describe('action LRU skips responses carrying a live state block', function () {
             })).to.equal(false);
         });
 
+    });
+
+});
+
+describe('action LRU skips responses carrying a live state block', function () {
+
+    describe('[REGRESSION] a mutable lifecycle response must not be memoized', function () {
+
         // Presence, not value: null IS the pending state, and it is precisely the
         // read that goes stale. A value test would cache exactly the wrong rows.
         it('a null lifecycle field blocks caching just as a populated one does', function () {
@@ -227,15 +258,4 @@ describe('action LRU skips responses carrying a live state block', function () {
         });
     });
 
-    it('a state-bearing action stays absent from the LRU, so a later read recomputes', function () {
-        const db  = makeDb();
-        const key = db.cacheKey('BTC', 3508);
-        // What getActionData does now: consult the cache, then write back only
-        // when the response is cacheable.
-        expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
-        const fresh = { action: 'DISPENSER', state: { give_remaining: '0', status: 'empty' } };
-        if (db.isCacheableAction(fresh))
-            db.cacheSet(db._actionDataCache, key, fresh);
-        expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
-    });
 });

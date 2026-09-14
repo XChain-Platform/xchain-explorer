@@ -64,8 +64,9 @@ function cfg(method, overrides = {}) {
     return makeConfig(Object.assign({}, overrides, { data }));
 }
 
+let db, tip;
+
 describe('Database#getData result cache', () => {
-    let db, tip;
     beforeEach(() => { db = makeDb(); tip = stubTip(db); });
     afterEach(() => {
         sinon.restore();
@@ -111,6 +112,16 @@ describe('Database#getData result cache', () => {
         await db.getData(config());
         await db.getData(config());
         expect(stub.callCount).to.equal(2);
+    });
+});
+
+describe('Database#getData result cache', () => {
+    beforeEach(() => { db = makeDb(); tip = stubTip(db); });
+    afterEach(() => {
+        sinon.restore();
+        delete process.env.EXPLORER_TOKENS_CACHE_MS;
+        delete process.env.EXPLORER_TOKENS_CACHE_MAX;
+        delete process.env.EXPLORER_TIP_MEMO_MS;
     });
 
     it('re-queries after the TTL expires', async () => {
@@ -159,6 +170,16 @@ describe('Database#getData result cache', () => {
         expect(stub.callCount, 'new tip: the entry read at the old tip is unreachable').to.equal(2);
         await db.getData(config());
         expect(stub.callCount, 'the new tip caches in turn').to.equal(2);
+    });
+});
+
+describe('Database#getData result cache', () => {
+    beforeEach(() => { db = makeDb(); tip = stubTip(db); });
+    afterEach(() => {
+        sinon.restore();
+        delete process.env.EXPLORER_TOKENS_CACHE_MS;
+        delete process.env.EXPLORER_TOKENS_CACHE_MAX;
+        delete process.env.EXPLORER_TIP_MEMO_MS;
     });
 
     it('keeps a pre-genesis (empty blocks table) read cacheable', async () => {

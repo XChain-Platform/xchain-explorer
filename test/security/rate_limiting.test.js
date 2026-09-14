@@ -31,7 +31,7 @@ const express     = require('express');
 const request     = require('supertest');
 const { HTTP_TRUST_PROXY_HOPS, applyTrustProxy } = require('../../src/trustProxy.js');
 const WebSocketServer = require('../../src/ws/WebSocketServer.js');
-const staticMounts    = require('../../src/staticMounts.js');
+const staticMounts    = require('../../src/http/static_mounts.js');
 
 const apiSource = fs.readFileSync(
     path.join(__dirname, '../../src/api.js'),
@@ -108,7 +108,7 @@ describe('Security: Rate Limiting: static-asset exemption', function () {
     it('is the predicate both guards actually use, from the one mount list', function () {
         // Source assertions: the app is built inside startApi() and cannot be
         // constructed here, so this pins the wiring the unit tests above cannot see.
-        expect(apiSource).to.include("require('./staticMounts.js')");
+        expect(apiSource).to.include("require('./http/static_mounts.js')");
         expect(apiSource).to.include('const isStaticAsset = staticMounts.isStaticAsset');
         expect(apiSource).to.match(/skip:\s*isStaticAsset,[\s\S]*skip:\s*isStaticAsset,/);
         expect(apiSource).to.not.match(/png\|jpg\|jpeg/);

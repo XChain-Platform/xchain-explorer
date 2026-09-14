@@ -34,7 +34,7 @@ const Broadcaster     = require('./ws/Broadcaster.js');
 const vmQuery         = require('./vm-query.js');
 const concurrencyGate = require('./concurrencyGate.js');
 const { limitedHandler } = require('./http/rate_limit_log.js');  // limiter counter line, shared with XChainExplorer's per-route limiters
-const staticMounts    = require('./staticMounts.js');     // the one file-serving mount list, shared with XChainExplorer
+const staticMounts    = require('./http/static_mounts.js');     // the one file-serving mount list, shared with XChainExplorer
 const { applyTrustProxy } = require('./trustProxy.js');   // proxy-hop policy, shared with the WS path's hop count
 const { resolveMaxBatch, makeRpcBatchGuard } = require('./http/rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
 const { createShutdown, createExplorerDrain } = require('./shutdown.js');
@@ -180,7 +180,7 @@ async function startApi(){
     // them would shed real queries to make room for favicons.
     //
     // Exempt by FIRST PATH SEGMENT, from the one mount list in
-    // src/staticMounts.js, never by file extension: a suffix is a claim about
+    // src/http/static_mounts.js, never by file extension: a suffix is a claim about
     // what a URL looks like, not about what serves it. Match on it and
     // /BTC/api/search/needle.png reads as an image, skips both guards, and
     // still routes to the catch-all API handler, so any suffixed path buys

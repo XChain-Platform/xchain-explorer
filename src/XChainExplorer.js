@@ -42,7 +42,7 @@ const vmQuery          = require('./vm-query.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
 const listPage         = require('./list-page.js');
 const componentTpl     = require('./component-templates.js');
-const staticMounts     = require('./staticMounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
+const staticMounts     = require('./http/static_mounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
 
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
 // maxStateKeySize default (xchain-vm/src/state.js). A key longer than this cannot
@@ -166,7 +166,7 @@ class XChainExplorer {
 
         let urls = {
 
-            // Mount list lives in src/staticMounts.js, which is also what the rate
+            // Mount list lives in src/http/static_mounts.js, which is also what the rate
             // limiter and concurrency gate read to decide what to exempt: one list, so
             // a directory added here can never be silently limited (or, worse, a
             // limiter exemption granted to something that is not served from disk).

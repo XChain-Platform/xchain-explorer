@@ -19,7 +19,7 @@ const { testCorsOptions } = require('../helpers/cors.js');
 const rateLimit      = require('express-rate-limit');
 const { createTestConfigInfo } = require('../integration/helpers/app-setup');
 const XChainExplorer = require('../../src/XChainExplorer.js');
-const staticMounts   = require('../../src/staticMounts.js');
+const staticMounts   = require('../../src/http/static_mounts.js');
 const autocannon     = require('autocannon');
 
 const {

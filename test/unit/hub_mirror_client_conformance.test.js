@@ -97,6 +97,10 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
             });
         });
     });
+});
+
+describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
+    before(function(){ if(!CANON_PRESENT) this.skip(); });
 
     it('the HUB_FILES list matches the sync script HUB_FILES list', function(){
         assert.deepStrictEqual([...HUB_FILES].sort(), scriptHubFiles(),
@@ -135,6 +139,10 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
             'disagree about which SQL twins are vendored; run that script and update its SQL_FILES= line ' +
             'so the vendored set and the sync list stay one definition.');
     });
+});
+
+describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
+    before(function(){ if(!CANON_PRESENT) this.skip(); });
 
     SQL_FILES.forEach(function(f){
         it('sql/hub-mirror/' + f + ' is byte-identical to xchain-indexer/src/sql', function(){

@@ -44,8 +44,18 @@ const mockExplorer = { configInfo, util };
 function makeDb() { return new Database(mockExplorer); }
 function cfg(overrides = {}) { return makeConfig({ coin: 'BTC', ...overrides }); }
 
+let db;
+
+// Route doQuery by SQL: the tip query vs the previous-height hash probe.
+function stubTip(db, tipRow, atRow) {
+    return sinon.stub(db, 'doQuery').callsFake(async (config, query) => {
+        if (query.includes('ORDER BY b1.block_index DESC')) return tipRow;
+        if (query.includes('WHERE b1.block_index=?'))       return atRow;
+        return [];
+    });
+}
+
 describe('reorg cache invalidation', function () {
-    let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
@@ -98,18 +108,13 @@ describe('reorg cache invalidation', function () {
             expect(db.cacheGet(db._actionDataCache, db.cacheKey('BTC', 7))).to.be.undefined;
         });
     });
+});
+
+describe('reorg cache invalidation', function () {
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
 
     describe('checkReorgAndInvalidate (tip-poll detection)', function () {
-
-        // Route doQuery by SQL: the tip query vs the previous-height hash probe.
-        function stubTip(db, tipRow, atRow) {
-            return sinon.stub(db, 'doQuery').callsFake(async (config, query) => {
-                if (query.includes('ORDER BY b1.block_index DESC')) return tipRow;
-                if (query.includes('WHERE b1.block_index=?'))       return atRow;
-                return [];
-            });
-        }
-
         it('seeds the tip on first poll without invalidating', async function () {
             stubTip(db, [{ block_index: 100, block_hash: 'h100' }], []);
             const reorg = await db.checkReorgAndInvalidate(cfg());
@@ -158,7 +163,14 @@ describe('reorg cache invalidation', function () {
             expect(reorg).to.equal(true);
             expect(db._reorgGen.BTC).to.equal(1);
         });
+    });
+});
 
+describe('reorg cache invalidation', function () {
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
+
+    describe('checkReorgAndInvalidate (tip-poll detection)', function () {
         it('does nothing on an empty chain (no blocks yet)', async function () {
             stubTip(db, [], []);
             const reorg = await db.checkReorgAndInvalidate(cfg());

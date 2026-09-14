@@ -80,6 +80,10 @@ describe('Error Handling', function () {
         expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
 
+});
+
+describe('Error Handling', function () {
+
     it('invalid limit param defaults to 100 and does not crash', async function () {
         // Non-numeric limit should be ignored; explorer defaults to 100
         const res = await request.get('/RBTC/api/sends/1/block?limit=abc');

@@ -52,20 +52,7 @@ function timedGet(url) {
     });
 }
 
-describe('Performance baseline: single-request latency', function () {
-
-    before(async function () {
-        this.timeout(60000);
-        await db.setupDatabase('../performance/helpers/seed-performance.sql');
-        await bootServer();
-    });
-
-    after(async function () {
-        this.timeout(10000);
-        await stopServer();
-        await db.closePool();
-    });
-
+function registerEndpointLatencyTests() {
     for (const endpoint of ENDPOINTS) {
         it(`${endpoint.name} (${endpoint.path}) responds in < ${LATENCY_THRESHOLD_MS}ms`, async function () {
             this.timeout(10000);
@@ -87,7 +74,9 @@ describe('Performance baseline: single-request latency', function () {
                 `Median latency ${median}ms exceeds ${LATENCY_THRESHOLD_MS}ms threshold (samples: ${times.join(', ')})`);
         });
     }
+}
 
+function registerAdditionalLatencyTests() {
     it('paginated API request (page=2) responds in < ' + LATENCY_THRESHOLD_MS + 'ms', async function () {
         this.timeout(10000);
         const url = getServerUrl() + '/RBTC/api/sends/50/block?page=2&limit=10';
@@ -116,5 +105,23 @@ describe('Performance baseline: single-request latency', function () {
         expect(lastAvg).to.be.below(firstAvg * 2 + 50,
             `Latency degraded: first 5 avg=${firstAvg.toFixed(0)}ms, last 5 avg=${lastAvg.toFixed(0)}ms`);
     });
+}
+
+describe('Performance baseline: single-request latency', function () {
+
+    before(async function () {
+        this.timeout(60000);
+        await db.setupDatabase('../performance/helpers/seed-performance.sql');
+        await bootServer();
+    });
+
+    after(async function () {
+        this.timeout(10000);
+        await stopServer();
+        await db.closePool();
+    });
+
+    registerEndpointLatencyTests();
+    registerAdditionalLatencyTests();
 
 });

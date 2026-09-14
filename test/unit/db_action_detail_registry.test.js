@@ -89,7 +89,10 @@ describe('action-detail registry @regression', function () {
                 'an action changed whether it queries credits/debits/escrows');
         });
     });
+});
 
+describe('action-detail registry @regression', function () {
+    this.timeout(20000);
     describe('behaviour is byte-identical to the pre-extraction if-chain', function () {
         for (const type of Object.keys(GOLDEN.captures)) {
             for (const mode of ['empty', 'rows']) {
@@ -104,14 +107,18 @@ describe('action-detail registry @regression', function () {
             }
         }
     });
+});
 
-    // The item this extraction closes is a god-file regression: the if-chain had
-    // grown from 2,105 to ~2,667 lines because every new action was appended to
-    // it. Pin the method small so the chain cannot quietly grow back. The method
-    // moved to src/db/readers/action_detail_io.js with proposal B stage 4; the
-    // pin follows the method rather than the file, because reading db.js after
-    // the carve would find no marker and the assertion below is what catches that.
-    const ACTION_DETAIL_IO = ['..', '..', 'src', 'db', 'readers', 'action_detail_io.js'];
+// The item this extraction closes is a god-file regression: the if-chain had
+// grown from 2,105 to ~2,667 lines because every new action was appended to
+// it. Pin the method small so the chain cannot quietly grow back. The method
+// moved to src/db/readers/action_detail_io.js with proposal B stage 4; the
+// pin follows the method rather than the file, because reading db.js after
+// the carve would find no marker and the assertion below is what catches that.
+const ACTION_DETAIL_IO = ['..', '..', 'src', 'db', 'readers', 'action_detail_io.js'];
+
+describe('action-detail registry @regression', function () {
+    this.timeout(20000);
     describe('getActionData stays a pipeline', function () {
         function getActionDataBody() {
             const src    = fs.readFileSync(path.join(__dirname, ...ACTION_DETAIL_IO), 'utf8');

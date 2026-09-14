@@ -86,6 +86,10 @@ describe('WS frozen-replica freshness gate', function () {
         });
     });
 
+});
+
+describe('WS frozen-replica freshness gate', function () {
+
     describe('SNAPSHOT', function () {
 
         const subs = [{ channel: 'address', address: 'addr1' }, { channel: 'blocks' }];
@@ -121,6 +125,10 @@ describe('WS frozen-replica freshness gate', function () {
         });
     });
 
+});
+
+describe('WS frozen-replica freshness gate', function () {
+
     describe('CATCH_UP', function () {
 
         it('replays past a stale tip with every frame marked stale, so a short replay is not read as caught-up', async function () {
@@ -152,6 +160,14 @@ describe('WS frozen-replica freshness gate', function () {
             expect(errs[0].id).to.equal('req-1');
         });
 
+    });
+
+});
+
+describe('WS frozen-replica freshness gate', function () {
+
+    describe('CATCH_UP', function () {
+
         it('leaves the in-progress latch clear so a later request is not wedged', async function () {
             const s = makeServer(true);
             const { client } = makeClient('BTC');
@@ -179,6 +195,10 @@ describe('WS frozen-replica freshness gate', function () {
         });
     });
 
+});
+
+describe('WS frozen-replica freshness gate', function () {
+
     describe('gate probe', function () {
 
         it('fails open for a db double that has no isCoinTipStale, never throwing in a send path', async function () {
@@ -192,6 +212,10 @@ describe('WS frozen-replica freshness gate', function () {
             expect(await s.isCoinTipStale('BTC')).to.equal(false);
         });
     });
+
+});
+
+describe('WS frozen-replica freshness gate', function () {
 
     // A FROZEN replica emits nothing here (every emit is triggered by the tip
     // advancing), but one REPLAYING history from a snapshot advances while its

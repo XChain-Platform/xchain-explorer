@@ -37,7 +37,6 @@ const {
     httpGet,
     concurrentRequests,
     waitUntil,
-    waitForRecovery,
     seedDatabase,
 } = require('./helpers/chaos-setup');
 
@@ -50,24 +49,23 @@ const {
 // The coin prefix used for regtest endpoints.
 const COIN   = 'RBTC';
 const HEALTH = `/${COIN}/explorer/blocks/all`;
+const registerConfigSuite = require('./external_deps.test/config_sync.js');
 
 // -------------------------------------------------------------------------
 // Suite-level setup / teardown
 // -------------------------------------------------------------------------
 
-describe('Chaos: External Dependencies', function () {
-
-before(async function () {
+async function setupExternalDependencies() {
     await waitForToxiproxy();
     await createProxy();
     await seedDatabase();
     await bootServer();
-});
+}
 
-after(async function () {
+async function teardownExternalDependencies() {
     await resetProxy();
     await stopServer();
-});
+}
 
 // -------------------------------------------------------------------------
 // CE-EXT-01: Relay Endpoint (Slow Upstream)
@@ -87,19 +85,43 @@ after(async function () {
 //      event-loop time (the server stays responsive under concurrent relay load).
 // -------------------------------------------------------------------------
 
-describe('CE-EXT-01: Relay Endpoint (Slow Upstream)', function () {
 
-    // URL that is syntactically valid but will never respond:
-    //   - example.invalid  ->  DNS lookup fails quickly with ENOTFOUND
-    // This exercises the relay's error-handling path without introducing a
-    // multi-second wait caused by a real TCP timeout.
-    const INVALID_URL = encodeURIComponent('http://example.invalid/test.json');
+// URL that is syntactically valid but will never respond:
+//   - example.invalid  ->  DNS lookup fails quickly with ENOTFOUND
+// This exercises the relay's error-handling path without introducing a
+// multi-second wait caused by a real TCP timeout.
+const INVALID_URL = encodeURIComponent('http://example.invalid/test.json');
 
-    // Slower but deterministic alternative: TEST-NET address that is routable
-    // but has no listener, triggering the 5 s axios timeout.  Only used in the
-    // event-loop isolation test where we deliberately accept slow relay calls.
-    const TIMEOUT_URL  = encodeURIComponent('http://192.0.2.1/test.json');
+// Slower but deterministic alternative: TEST-NET address that is routable
+// but has no listener, triggering the 5 s axios timeout.  Only used in the
+// event-loop isolation test where we deliberately accept slow relay calls.
+const TIMEOUT_URL  = encodeURIComponent('http://192.0.2.1/test.json');
 
+async function startRelayRequests() {
+    // Fire 10 relay requests targeting the slow TEST-NET address (will each
+    // run for up to the 5 s axios timeout before failing).  Simultaneously
+    // fire 10 normal API requests.  The API requests must complete promptly
+    // even though the relay requests are blocking their own async chains.
+    const relayPath  = `/relay?url=${TIMEOUT_URL}`;
+
+    // Count relay requests as the server receives them, so the head-start
+    // below waits on the real condition ("all 10 are in flight") instead of
+    // a fixed pause that a loaded venue can outrun.
+    const server = getServer();
+    let relayArrivals = 0;
+    const countRelay = (req) => { if (req.url.startsWith('/relay')) relayArrivals++; };
+    server.on('request', countRelay);
+
+    // Kick off relay requests in the background. Don't await yet.
+    const relayPromise = concurrentRequests(relayPath, 10, { timeout: 12000 });
+
+    const allInFlight = await waitUntil(() => relayArrivals >= 10,
+        { timeout: 10000, interval: 20 });
+    server.removeListener('request', countRelay);
+    return { relayPromise, allInFlight };
+}
+
+function registerRelayBasics() {
     it('baseline: normal API endpoint returns 200 before any relay activity', async function () {
         const res = await httpGet(HEALTH);
         expect(res.statusCode).to.be.below(500);
@@ -129,27 +151,12 @@ describe('CE-EXT-01: Relay Endpoint (Slow Upstream)', function () {
         // graceful relay error.
     });
 
+}
+
+function registerRelayConcurrency() {
     it('server remains responsive to normal API requests while relay requests are in-flight', async function () {
-        // Fire 10 relay requests targeting the slow TEST-NET address (will each
-        // run for up to the 5 s axios timeout before failing).  Simultaneously
-        // fire 10 normal API requests.  The API requests must complete promptly
-        // even though the relay requests are blocking their own async chains.
-        const relayPath  = `/relay?url=${TIMEOUT_URL}`;
+        const { relayPromise, allInFlight } = await startRelayRequests();
 
-        // Count relay requests as the server receives them, so the head-start
-        // below waits on the real condition ("all 10 are in flight") instead of
-        // a fixed pause that a loaded venue can outrun.
-        const server = getServer();
-        let relayArrivals = 0;
-        const countRelay = (req) => { if (req.url.startsWith('/relay')) relayArrivals++; };
-        server.on('request', countRelay);
-
-        // Kick off relay requests in the background. Don't await yet.
-        const relayPromise = concurrentRequests(relayPath, 10, { timeout: 12000 });
-
-        const allInFlight = await waitUntil(() => relayArrivals >= 10,
-            { timeout: 10000, interval: 20 });
-        server.removeListener('request', countRelay);
         expect(allInFlight, 'all 10 relay requests should reach the server').to.equal(true);
 
         // Normal API requests should complete well within 5 s regardless of
@@ -192,6 +199,9 @@ describe('CE-EXT-01: Relay Endpoint (Slow Upstream)', function () {
             'Relay requests to an unreachable upstream must produce failures');
     });
 
+}
+
+function registerRelayRecovery() {
     it('server is still alive after concurrent relay errors', async function () {
         // After the chaos above, confirm the server did not crash.
         let serverAlive = false;
@@ -221,6 +231,9 @@ describe('CE-EXT-01: Relay Endpoint (Slow Upstream)', function () {
         expect(statusCode).to.be.above(299);
     });
 
+}
+
+function registerRelaySsrf() {
     it('relay rejects a private IP (SSRF protection) with a 4xx or 5xx (no crash)', async function () {
         // 10.0.0.1 is a private RFC-1918 address; the relay's SSRF guard must
         // block it before making any outbound connection.
@@ -237,142 +250,18 @@ describe('CE-EXT-01: Relay Endpoint (Slow Upstream)', function () {
         expect(statusCode).to.be.above(299,
             'Relay must block private-IP requests via SSRF protection');
     });
-});
+}
 
-// -------------------------------------------------------------------------
-// CE-EXT-02: Config Sync Resilience
-//
-// The explorer's configInfo (the test stub from createTestConfigInfo) exposes:
-//   - getConfig()            : returns cached config or builds a fresh one
-//   - _clearCache()          : nulls the in-memory cache
-//   - triggerConfigChanged() : fires all registered "changed" listeners
-//   - onConfigChanged(cb)    : registers a listener
-//
-// The real src/config.js runs a setInterval every 60 s (startSync) and calls
-// triggerConfigChanged() when new hub data differs from the cached value.
-//
-// Chaos hypothesis: rapid cache clears and config-changed events must not
-// destabilise the server. Requests should continue to succeed.
-// -------------------------------------------------------------------------
+describe('Chaos: External Dependencies', function () {
+    before(function () { return setupExternalDependencies.call(this); });
+    after(function () { return teardownExternalDependencies.call(this); });
 
-describe('CE-EXT-02: Config Sync Resilience', function () {
-
-    it('baseline: API works normally before any config manipulation', async function () {
-        const res = await httpGet(HEALTH);
-        expect(res.statusCode).to.be.below(500);
+    describe('CE-EXT-01: Relay Endpoint (Slow Upstream)', function () {
+        registerRelayBasics();
+        registerRelayConcurrency();
+        registerRelayRecovery();
+        registerRelaySsrf();
     });
 
-    it('API remains available immediately after cache is cleared', async function () {
-        const { configInfo } = await bootServer();
-
-        // Simulate what happens when the 60 s sync interval fires and the hub
-        // returns a new config string: the cache is invalidated.
-        configInfo._clearCache();
-
-        // The next getConfig() call (triggered by the next API request) should
-        // rebuild the cache from the static test fixture, transparently.
-        const res = await httpGet(HEALTH, { timeout: 5000 });
-        expect(res.statusCode).to.be.below(500,
-            'API must serve requests after cache is cleared (next call rebuilds cache)');
-    });
-
-    it('API remains available after triggerConfigChanged() is called once', async function () {
-        const { configInfo } = await bootServer();
-
-        configInfo.triggerConfigChanged();
-
-        const res = await httpGet(HEALTH, { timeout: 5000 });
-        expect(res.statusCode).to.be.below(500,
-            'API must remain stable after a single config-changed event');
-    });
-
-    it('API remains stable after 20 rapid config-changed events', async function () {
-        const { configInfo } = await bootServer();
-
-        // Simulate a burst of hub push-notifications (e.g. a misconfigured
-        // hub sending repeated updates) arriving faster than normal.
-        for (let i = 0; i < 5; i++) {
-            configInfo.triggerConfigChanged();
-        }
-
-        // Wait for the server to serve again, not for a fixed second to pass:
-        // the churn recreates the DB pools, and how long that takes is a
-        // property of the venue. waitForRecovery polls until a request comes
-        // back under 500 and reports -1 if it never does.
-        const recoveredMs = await waitForRecovery(HEALTH, 15000);
-        expect(recoveredMs).to.be.above(-1,
-            'Server must survive rapid config-changed events without crashing');
-    });
-
-    it('API remains stable after interleaved cache clears and config-changed events', async function () {
-        const { configInfo } = await bootServer();
-
-        // Simulate the worst-case: hub connectivity flapping causes alternating
-        // cache invalidations and change notifications.
-        for (let i = 0; i < 3; i++) {
-            configInfo._clearCache();
-            configInfo.triggerConfigChanged();
-        }
-
-        // Poll for pool recreation to finish rather than guessing a second at it.
-        const recoveredMs = await waitForRecovery(HEALTH, 15000);
-        expect(recoveredMs).to.be.above(-1,
-            'Server must survive interleaved cache clears and config events');
-    });
-
-    it('concurrent API requests succeed during rapid config reloads', async function () {
-        const { configInfo } = await bootServer();
-
-        // Fire config churn and API requests simultaneously.
-        const churnPromise = (async () => {
-            for (let i = 0; i < 5; i++) {
-                configInfo._clearCache();
-                configInfo.triggerConfigChanged();
-                // Yield to the event loop between churns so requests can interleave.
-                await new Promise(r => setImmediate(r));
-            }
-        })();
-
-        const { responses, errors } = await concurrentRequests(HEALTH, 10, { timeout: 8000 });
-
-        await churnPromise;
-
-        // Config churn triggers setupConnectionPools() which recreates DB pools.
-        // During pool recreation, queries may fail. This is expected behavior.
-        // The key assertion is that all requests settle (no hangs) and the server
-        // does not crash. Some or all may fail during active churn.
-        const total = responses.length + errors.length;
-        expect(total).to.equal(10, 'All concurrent requests must settle (no hangs)');
-    });
-
-    it('config-changed listeners registered via onConfigChanged() are invoked', async function () {
-        const { configInfo } = await bootServer();
-
-        let callCount = 0;
-        configInfo.onConfigChanged(() => { callCount++; });
-
-        configInfo.triggerConfigChanged();
-        configInfo.triggerConfigChanged();
-        configInfo.triggerConfigChanged();
-
-        // Allow any microtasks/event-loop turns to settle.
-        await new Promise(r => setImmediate(r));
-
-        expect(callCount).to.equal(3,
-            'onConfigChanged listeners must be called once per triggerConfigChanged()');
-    });
-
-    it('server is alive and healthy after all config chaos', async function () {
-        let serverAlive = false;
-        try {
-            const res = await httpGet(HEALTH, { timeout: 5000 });
-            serverAlive = typeof res.statusCode === 'number';
-        } catch (e) {
-            serverAlive = !e.message.includes('ECONNREFUSED');
-        }
-        expect(serverAlive).to.equal(true,
-            'Server must be alive after all config chaos experiments');
-    });
-});
-
+    registerConfigSuite();
 }); // describe('Chaos: External Dependencies')

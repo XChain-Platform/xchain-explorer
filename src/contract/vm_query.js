@@ -64,7 +64,7 @@ const GAS_SCHEDULE = {
 // would reject contract code the chain itself indexed, silently breaking
 // contract-query previews on a canonical bump. Parity against the canonical
 // constant is asserted in test/unit/vm-query.test.js.
-const MAX_CODE_SIZE        = require('./protocol/constants.js').MAX_CODE_SIZE;
+const MAX_CODE_SIZE        = require('../protocol/constants.js').MAX_CODE_SIZE;
 // State-value size cap for the query isolate, mirroring the VM's own isolate
 // limit (xchain-vm/src/index.js maxStateValueSize). Named alongside MAX_CODE_SIZE
 // so neither cap re-enters the codebase as a bare drift-prone literal.

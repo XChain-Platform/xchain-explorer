@@ -38,7 +38,7 @@ const ckpt             = require('./checkpoint_commitment_activation.js');
 const ProofServer      = require('./http/proof_server.js');
 const rateLimit        = require('express-rate-limit');
 const { limitedHandler } = require('./http/rate_limit_log.js');   // limiter counter line, shared with api.js's app-wide limiter
-const vmQuery          = require('./vm-query.js');
+const vmQuery          = require('./contract/vm_query.js');
 const { renderPlatformSwitcher } = require('./render/platform_links.js');
 const listPage         = require('./render/list_page.js');
 const componentTpl     = require('./render/component_templates.js');
@@ -2788,7 +2788,7 @@ class XChainExplorer {
 
     // POST /{COIN}/api/contract/{contractIndex}/call  body: {method, params?, caller?}
     // Read-only simulation of a contract method against current state (see
-    // vm-query.js). Contract-level failures (unknown method, revert, gas) come
+    // contract/vm_query.js). Contract-level failures (unknown method, revert, gas) come
     // back as success:false in a 200 body, exactly as the VM reports them;
     // request/infra failures map to typed HTTP errors.
     async processContractCallRequest(req, res){

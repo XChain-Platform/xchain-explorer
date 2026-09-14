@@ -12,7 +12,7 @@
  *
  **********************************************************************/
 
-// Unit tests for src/vm-query.js with the xchain-vm module STUBBED, so the
+// Unit tests for src/contract/vm_query.js with the xchain-vm module STUBBED, so the
 // suite runs on hosts where isolated-vm never built (the exact degraded mode
 // the module must survive). The one real-VM execution path is covered by the
 // integration suite, which skips itself when isolated-vm is unavailable.
@@ -27,7 +27,7 @@ const proxyquire = require('proxyquire').noPreserveCache().noCallThru();
 function loadVmQuery(vmStub){
     const stubs = {};
     if(vmStub !== undefined) stubs['xchain-vm'] = vmStub;
-    return proxyquire('../../src/vm-query.js', stubs);
+    return proxyquire('../../src/contract/vm_query.js', stubs);
 }
 
 // Minimal db stub satisfying simulate()'s reads.
@@ -414,7 +414,7 @@ describe('vm-query protocol size-cap parity @regression', () => {
     const fs   = require('fs');
     const path = require('path');
     // Load the module WITHOUT stubbing xchain-vm so we read its real exports.
-    const vmq  = require('../../src/vm-query.js');
+    const vmq  = require('../../src/contract/vm_query.js');
 
     const DOCS_DIR   = process.env.XCHAIN_DOCS_DIR ||
         path.join(__dirname, '..', '..', '..', 'xchain-documentation');

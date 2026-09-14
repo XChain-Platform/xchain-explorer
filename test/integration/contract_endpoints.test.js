@@ -54,7 +54,7 @@ describe('Contract endpoints (integration)', function () {
         if (envBackup === undefined) delete process.env.EXPLORER_VM_QUERY_ENABLED;
         else process.env.EXPLORER_VM_QUERY_ENABLED = envBackup;
         // Tear down the VM subprocess so mocha can exit cleanly.
-        try { await require('../../src/vm-query.js').shutdown(); } catch (e) { /* vm never loaded */ }
+        try { await require('../../src/contract/vm_query.js').shutdown(); } catch (e) { /* vm never loaded */ }
         await db.teardownDatabase();
     });
 

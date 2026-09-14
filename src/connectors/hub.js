@@ -21,6 +21,10 @@
 
 const axios = require('axios');
 const coins = require('../coins');
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that.
+const { getLogger } = require('../observability');
+const log = getLogger();
 
 // Local { coin -> consensusHash } per network, computed on first use. The vendored
 // bundle cannot change under a running process, so re-hashing it on every config
@@ -186,7 +190,7 @@ class XChainHubConnector {
                     } else {
                         this.lastFailures.push(url + ' -> ' + (err.code || err.message));
                         if(out) out.failures.push(url + ' -> ' + (err.code || err.message));
-                        console.warn('Hub endpoint ' + url + ' failed (attempt ' + attempt + '/' + attempts + '): ', err);
+                        log.warn('HUB_ENDPOINT_FAILED', { url, attempt, attempts, code: err.code, err: err.message, stack: err.stack });
                     }
                 }
             }
@@ -199,7 +203,7 @@ class XChainHubConnector {
             // this was the final attempt.
             if(attempt < attempts){
                 const backoff = delayMs * Math.pow(2, attempt - 1);
-                console.warn('All hub endpoints unreachable (attempt ' + attempt + '/' + attempts + '); retrying in ' + backoff + 'ms');
+                log.warn('HUB_ENDPOINTS_UNREACHABLE', { attempt, attempts, retry_in_ms: backoff });
                 await new Promise(resolve => setTimeout(resolve, backoff));
             }
         }
@@ -216,7 +220,7 @@ class XChainHubConnector {
         // body. The hub is up, so report it as reachable, but log the degraded
         // state so it stays visible to operators.
         if(result && typeof result === 'object' && result.status === 'degraded'){
-            console.warn('Hub reachable but reporting degraded state: ', result);
+            log.warn('HUB_DEGRADED', { result });
         }
         return result !== null;
     }
@@ -248,10 +252,13 @@ class XChainHubConnector {
         if(!result || typeof result !== 'object' || result.secrets_redacted !== true) return;
         if(this._warnedRedacted) return;
         this._warnedRedacted = true;
-        console.error('Hub served a CREDENTIAL-REDACTED config tree (' + (result.redacted_params || 0) +
-            ' params withheld): this explorer asked for secrets but is not authorized for them. ' +
-            'Set HUB_API_KEY (or the hub\'s HUB_CONFIG_SECRETS_API_KEY) to the value the hub expects; ' +
-            'until then every DB pool built from this config will fail to authenticate.');
+        log.error('HUB_CONFIG_CREDENTIALS_REDACTED', {
+            redacted_params: result.redacted_params || 0,
+            detail: 'the hub served a CREDENTIAL-REDACTED config tree (' + (result.redacted_params || 0) +
+                ' params withheld): this explorer asked for secrets but is not authorized for them. ' +
+                'Set HUB_API_KEY (or the hub\'s HUB_CONFIG_SECRETS_API_KEY) to the value the hub expects; ' +
+                'until then every DB pool built from this config will fail to authenticate.'
+        });
     }
 
     async getAllConfig(){
@@ -302,7 +309,7 @@ class XChainHubConnector {
         // last-known-good cache, but log the accurate cause so the operator
         // sees "degraded" rather than a misleading "unreachable".
         if(degraded(result)){
-            console.warn('Hub reachable but DB degraded; cannot fetch config. Falling back to cached config.');
+            log.warn('HUB_CONFIG_DB_DEGRADED', { detail: 'hub reachable but DB degraded; cannot fetch config, falling back to cached config' });
             return null;
         }
         // A config-DB read failure is signaled by the hub as an HTTP-200 { error: ... }
@@ -316,7 +323,7 @@ class XChainHubConnector {
         // `configs`) so a legitimate config tree can never match.
         let errorEnvelope = (r) => r && typeof r === 'object' && typeof r.error === 'string' && !r.configs;
         if(errorEnvelope(result)){
-            console.warn('Hub reachable but reported a config-DB read error; cannot fetch config. Falling back to cached config.');
+            log.warn('HUB_CONFIG_READ_ERROR', { detail: 'hub reachable but reported a config-DB read error; cannot fetch config, falling back to cached config' });
             return null;
         }
         // Hub restart / restore from an older snapshot: the same endpoint now serves a
@@ -328,10 +335,11 @@ class XChainHubConnector {
         // config state is an operator event), drop the cache, reset the cursor and
         // re-fetch the full tree once, exactly as the failover block above does.
         if(this.lastWatermark > 0 && this.configs && this.hubConfigRegressed(result)){
-            console.error('XChainHubConnector: HUB CONFIG REGRESSION: hub served seq ' + (Number(result.seq) || 0) +
-                          '/watermark ' + (Number(result.watermark) || 0) + ', below last-seen ' + this.lastSeq +
-                          '/' + this.lastWatermark +
-                          ' (hub restart or restore from an older snapshot); discarding cached config and re-fetching the full tree.');
+            log.error('HUB_CONFIG_REGRESSION', {
+                seq: Number(result.seq) || 0, watermark: Number(result.watermark) || 0,
+                last_seq: this.lastSeq, last_watermark: this.lastWatermark,
+                detail: 'hub restart or restore from an older snapshot; discarding cached config and re-fetching the full tree'
+            });
             this.lastWatermark = 0;
             this.configs       = null;
             result = await this.call({
@@ -341,7 +349,7 @@ class XChainHubConnector {
                 id:      1
             });
             if(result === null || degraded(result) || errorEnvelope(result)){
-                console.warn('Hub full re-fetch after config regression failed; falling back to cached config until the next poll.');
+                log.warn('HUB_CONFIG_REFETCH_FAILED', { detail: 'full re-fetch after config regression failed; falling back to cached config until the next poll' });
                 return null;
             }
         }
@@ -440,8 +448,10 @@ class XChainHubConnector {
         if(key === (this._lastConsensusMismatchKey || '')) return;
         this._lastConsensusMismatchKey = key;
         if(mismatches.length)
-            console.error('CONSENSUS HASH MISMATCH: the hub serves consensus config differing from this service\'s bundled coin files (' +
-                mismatches.join('; ') + '). Hub consensus values are never applied (they are pinned locally); upgrade the lagging side.');
+            log.error('CONSENSUS_HASH_MISMATCH', {
+                mismatches: mismatches.join('; '),
+                detail: 'the hub serves consensus config differing from this service\'s bundled coin files; hub consensus values are never applied (they are pinned locally); upgrade the lagging side'
+            });
     }
 }
 

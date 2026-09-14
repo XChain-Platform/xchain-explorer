@@ -510,7 +510,7 @@ describe('XChainHubConnector', function () {
             expect(second.BTC.mainnet['xchain-indexer'].name).to.equal('restored');
             expect(c.lastWatermark).to.equal(3000);
             expect(c.lastSeq).to.equal(3);
-            expect(errStub.calledWithMatch(/HUB CONFIG REGRESSION/)).to.equal(true);
+            expect(errStub.calledWithMatch(/HUB_CONFIG_REGRESSION/)).to.equal(true);
 
             // Poll 3: steady state resumes as a delta against the new watermark.
             axiosStub.post.onCall(3).resolves({ data: { result: { configs: {}, seq: 3, watermark: 3000 } } });

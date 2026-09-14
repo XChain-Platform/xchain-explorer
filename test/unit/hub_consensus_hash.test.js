@@ -59,7 +59,7 @@ describe('XChainHubConnector hub-vs-bundle consensus-hash cross-check', function
     it('logs when the hub serves a consensus hash this build does not bundle', function(){
         connector.applyConfigResult(envelope(driftedHashes('BTC', 'testnet')));
         assert.strictEqual(errors.length, 1, 'a drifted hub must report exactly once');
-        assert.match(errors[0], /CONSENSUS HASH MISMATCH/);
+        assert.match(errors[0], /CONSENSUS_HASH_MISMATCH/);
         assert.match(errors[0], /BTC\/testnet/);
         assert.match(errors[0], /never applied/);
     });

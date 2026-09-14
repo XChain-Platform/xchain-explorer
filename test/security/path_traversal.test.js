@@ -28,6 +28,7 @@ const path       = require('path');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes }              = require('../fixtures/mock-query-args.js');
 
+// Builds an explorer over a fake filesystem, so each attack path can be tried without touching real files
 function makeExplorer(fsStub) {
     const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
         axios:    { get: sinon.stub().resolves({ data: {} }) },

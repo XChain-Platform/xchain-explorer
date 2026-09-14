@@ -27,6 +27,7 @@ const { expect } = require('chai');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockReq, mockRes }     = require('../fixtures/mock-query-args.js');
 
+// What the fake database hands back; each test sets it to shape the response it checks for leaks
 let getDataResult = [[], null];
 
 class MockDB {

@@ -34,6 +34,8 @@ function makeDb() {
     return new Database(explorer);
 }
 
+// Type confusion: repeating a query parameter (?limit=1&limit=2) turns it into an
+// array, and code expecting a number must not carry that array into the SQL
 describe('Security: Input Validation: Type confusion', function () {
 
     let db;

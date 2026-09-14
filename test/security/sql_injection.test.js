@@ -26,6 +26,7 @@ const sinon      = require('sinon');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
+// A database object that never connects: these tests only inspect the SQL text and arguments it builds
 function makeDb() {
     const Database = require('../../src/db.js');
     const Utility  = require('../../src/utility.js');
@@ -35,6 +36,7 @@ function makeDb() {
     return new Database(explorer);
 }
 
+// Builds a paging request (start and stop of an offset window), the part of a paged URL an attacker controls
 function cfgOffset(method, action, start, stop) {
     return makeConfig({
         data: {
@@ -226,6 +228,8 @@ describe('Security: SQL Injection: WHERE clause parameterization', function () {
     });
 });
 
+// In a search, % and _ are wildcards: left unescaped, a user could match every row
+// or force a slow full scan, so search input is escaped before it reaches a LIKE
 describe('Security: SQL Injection: LIKE wildcard escaping', function () {
 
     let db;
@@ -251,6 +255,8 @@ describe('Security: SQL Injection: LIKE wildcard escaping', function () {
     });
 });
 
+// A second layer behind parameterized queries: numbers from a request are parsed
+// to plain integers, so injected text cannot ride along with them
 describe('Security: sanitizeInt defense-in-depth', function () {
 
     let db;

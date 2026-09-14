@@ -83,6 +83,10 @@ describe('Fuzz: Utility BC math', function () {
       expect(u.bclte(a, a), `bclte reflexive a=${a}`).to.equal(true);
     }
   });
+});
+
+describe('Fuzz: Utility BC math', function () {
+  this.timeout(60000);
 
   it(`sub-1e-12 values compare exactly (epsilon-bug guard) across ${ITERATIONS} values`, function () {
     // Explicit anchor for the documented regression.

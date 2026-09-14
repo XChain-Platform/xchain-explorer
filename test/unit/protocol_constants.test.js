@@ -47,7 +47,9 @@ describe('protocol/constants', function () {
             'a single chunk part plus its push prefix must fit one on-chain ACTION push'
         );
     });
+});
 
+describe('protocol/constants', function () {
     it('shapes the genesis-testnet activation maps as {mainnet>0, testnet:0, regtest:0}', function () {
         // CHECKPOINT_COMMITMENT_ACTIVATION is deliberately excluded here: its testnet
         // activation is armed to 146000, not 0, because the SPV root suffix must not

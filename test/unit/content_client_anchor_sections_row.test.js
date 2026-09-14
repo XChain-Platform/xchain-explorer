@@ -125,6 +125,20 @@ describe('ANCHOR action detail: section count and elision label', function () {
         expect(r.sections).to.not.contain('chains');
     });
 
+    it('escapes a hostile chain name rather than injecting it', function () {
+        const hostile = Object.assign({}, BUNDLE, {
+            sections: [{ section_index: 0, chain: '<img src=x onerror=alert(1)>' },
+                       { section_index: 1, chain: 'LTC' }]
+        });
+        const r = render(hostile);
+        expect(r.sectionsHtml).to.not.contain('<img src=x');
+        expect(r.sectionsHtml).to.contain('&lt;img');
+    });
+
+});
+
+describe('ANCHOR action detail: section count and elision label', function () {
+
     // SNAPSHOT_BLOCK is a BITCOIN height (the oracle_publish capability snapshot is
     // BTC-keyed) while an ANCHOR is only valid on DOGE, so the page coin is NEVER the
     // right namespace for it. Linking it there resolved a DOGE block of the same
@@ -176,13 +190,4 @@ describe('ANCHOR action detail: section count and elision label', function () {
         });
     });
 
-    it('escapes a hostile chain name rather than injecting it', function () {
-        const hostile = Object.assign({}, BUNDLE, {
-            sections: [{ section_index: 0, chain: '<img src=x onerror=alert(1)>' },
-                       { section_index: 1, chain: 'LTC' }]
-        });
-        const r = render(hostile);
-        expect(r.sectionsHtml).to.not.contain('<img src=x');
-        expect(r.sectionsHtml).to.contain('&lt;img');
-    });
 });

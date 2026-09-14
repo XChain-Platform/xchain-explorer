@@ -32,13 +32,20 @@
  *
  ********************************************************************/
 
+// Every environment read goes through config.js's live read-through view of
+// process.env, so config.js stays the one place the gate lets env be read. The
+// view is looked up per read so that requiring this module never loads config.js,
+// whose SSL probe and log line would otherwise run in every tool and suite that
+// never reads a variable.
+const configEnv = () => require('../config.js').env;
+
 // Resolve the hub REST base URL for one checkpoint target (a db.js
 // checkpointDb entry, or any object carrying hubUrl). Returns '' when neither
 // source names one; callers treat that as "this mirror has no writer".
 function resolveHubUrl(target){
     let fromConfig = (target && target.hubUrl != null) ? String(target.hubUrl).trim() : '';
     if(fromConfig) return fromConfig;
-    return String(process.env.HUB_API_URL || '').trim();
+    return String(configEnv().HUB_API_URL || '').trim();
 }
 
 module.exports = { resolveHubUrl };

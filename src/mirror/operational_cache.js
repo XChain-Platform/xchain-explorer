@@ -50,17 +50,24 @@ const XChainHubConnector = require('../connectors/hub');
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+// Every environment read goes through config.js's live read-through view of
+// process.env, so config.js stays the one place the gate lets env be read. The
+// view is looked up per read so that requiring this module never loads config.js,
+// whose SSL probe and log line would otherwise run in every tool and suite that
+// never reads a variable.
+const configEnv = () => require('../config.js').env;
+
 class HubOperationalCache {
 
     constructor(explorer){
         this.util = explorer.util;
-        this.ttlMs      = parseInt(process.env.EXPLORER_HUB_CACHE_MS, 10) || 15000;
-        this.staleMaxMs = parseInt(process.env.EXPLORER_HUB_CACHE_STALE_MAX_MS, 10) || 600000;
+        this.ttlMs      = parseInt(configEnv().EXPLORER_HUB_CACHE_MS, 10) || 15000;
+        this.staleMaxMs = parseInt(configEnv().EXPLORER_HUB_CACHE_STALE_MAX_MS, 10) || 600000;
         this._cache = new Map();
 
         let endpoints = null;
-        if(process.env.HUB_API_URL){
-            endpoints = String(process.env.HUB_API_URL).split(',')
+        if(configEnv().HUB_API_URL){
+            endpoints = String(configEnv().HUB_API_URL).split(',')
                 .map(e => e.trim())
                 .filter(e => e)
                 .map(e => e.startsWith('http') ? e : 'http://' + e);

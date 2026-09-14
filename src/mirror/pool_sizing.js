@@ -37,6 +37,13 @@
  *
  ********************************************************************/
 
+// Every environment read goes through config.js's live read-through view of
+// process.env, so config.js stays the one place the gate lets env be read. The
+// view is looked up per read so that requiring this module never loads config.js,
+// whose SSL probe and log line would otherwise run in every tool and suite that
+// never reads a variable.
+const configEnv = () => require('../config.js').env;
+
 const DEFAULT_POOL_SIZE = {
     indexer:      10,
     decoder:      5,
@@ -54,7 +61,7 @@ function normalizeDbType(dbType){
 // count. Dashes in a dbType become underscores so 'hub-mirror' maps to
 // DB_POOL_SIZE_HUB_MIRROR.
 function readEnvOverride(name, dbType, env){
-    let source = env || process.env;
+    let source = env || configEnv();
     let suffix = normalizeDbType(dbType).toUpperCase().replace(/-/g, '_');
     let scoped = source[name + '_' + suffix];
     if(scoped !== undefined && String(scoped).trim() !== '') return scoped;

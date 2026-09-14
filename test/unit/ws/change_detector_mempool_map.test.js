@@ -55,7 +55,6 @@ const MINT_ROW  = { tx_hash: 'bb22', source: 'otherAddr', data: 'MINT|0|OTHER|9'
 const TRASH_ROW = { tx_hash: 'cc33', source: 'thirdAddr', data: 'zz-not-an-action-!!' };
 
 describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
-
     it('starts a coin with a Map, not a Set', () => {
         const cd = new ChangeDetector({ db: mkDb([]), pollInterval: 999999 });
         cd.start(['RBTC']);
@@ -102,7 +101,9 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         expect(seen).to.deep.equal([]);
         expect(removed).to.deep.equal([{ tx_hash: 'cc33', source: 'thirdAddr', action: null, data: null }]);
     });
+});
 
+describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
     it('does not re-decode or re-announce a row that is still in the window', async () => {
         const db = mkDb([[SEND_ROW], [SEND_ROW, MINT_ROW]]);
         const cd = mkDetector(db);

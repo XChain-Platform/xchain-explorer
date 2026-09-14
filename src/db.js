@@ -51,9 +51,9 @@ const { ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS,
 // site moved.
 const connectionMethods        = require('./db/connection.js');
 const queryBuilder             = require('./db/query_sql.js');
-const actionListReaders        = require('./db/readers/action-lists.js');
+const actionListReaders        = require('./db/readers/action_lists.js');
 const marketReaders            = require('./db/readers/markets.js');
-const stakingGovernanceReaders = require('./db/readers/staking-governance.js');
+const stakingGovernanceReaders = require('./db/readers/staking_governance.js');
 const checkpointReaders        = require('./db/readers/checkpoints.js');
 const entityReaders            = require('./db/readers/entities.js');
 const actionDetailIoReaders    = require('./db/readers/action_detail_io.js');

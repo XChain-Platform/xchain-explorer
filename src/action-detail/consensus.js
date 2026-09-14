@@ -430,7 +430,7 @@ const ROLLCALL = {
         // what the row holds even when no transaction joins. A ROLLCALL eviction
         // (action_format 3) has no broadcast transaction behind it, so its action row
         // carries tx_index NULL and an INNER join it can never satisfy drops it. This is
-        // the tx-less-safe shape getUnstakes (src/db/readers/staking-governance.js) and
+        // the tx-less-safe shape getUnstakes (src/db/readers/staking_governance.js) and
         // getAttestations (src/db.js) use: blocks joins off a block_index that is set on
         // both paths, and transactions stays optional.
         query = `SELECT

@@ -1489,7 +1489,7 @@ CREATE        INDEX source_id          ON stakes (source_id);
 CREATE        INDEX signing_pubkey_id  ON stakes (signing_pubkey_id);
 
 -- Capability UNSTAKE v0 (`unstakes`; see getUnstakes in
--- src/db/readers/staking-governance.js). Every row keys one
+-- src/db/readers/staking_governance.js). Every row keys one
 -- UNSTAKE action_index. A user-broadcast unstake writes one behind a real
 -- transaction; a ROLLCALL eviction (xchain-indexer rollcall_close.js
 -- evictSource()) writes one with STATUS 'valid' and no transaction at all - the

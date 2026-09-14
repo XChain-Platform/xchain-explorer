@@ -74,6 +74,12 @@ const {
 // reports storedForm rather than handing back partial output.
 const compression = require('../http/compression.js');
 
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that. Named
+// logger here because this class already has log() and logErr() helper methods.
+const { getLogger } = require('../observability');
+const logger = getLogger();
+
 // Shared SSRF lookup shim: rejects fetches whose hostname resolves to a
 // private/internal/metadata address. Built once at module load.
 const SAFE_LOOKUP = makeSafeLookup(dns);
@@ -879,13 +885,11 @@ class IconDownloader {
      *****************************************************************/
 
     log(msg){
-        const ts = new Date().toISOString();
-        console.log(`[${ts}] [icon-downloader] ${msg}`);
+        logger.info('ICON_DOWNLOADER', { msg });
     }
 
     logErr(where, err){
-        const ts = new Date().toISOString();
-        console.error(`[${ts}] [icon-downloader] error in ${where}:`, err && err.stack ? err.stack : err);
+        logger.error('ICON_DOWNLOADER_FAILED', { where, err: err && err.message ? err.message : err, stack: err && err.stack });
     }
 }
 

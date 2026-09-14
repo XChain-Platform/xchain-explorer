@@ -2203,7 +2203,7 @@ describe('IconDownloader', function () {
             d.log('test message');
             console.log = orig;
 
-            expect(lines[0]).to.include('[icon-downloader]');
+            expect(lines[0]).to.include('ICON_DOWNLOADER');
             expect(lines[0]).to.include('test message');
         });
 
@@ -2220,7 +2220,9 @@ describe('IconDownloader', function () {
             console.error = orig;
 
             expect(errs.length).to.be.at.least(1);
-            expect(errs[0][0]).to.include('[icon-downloader]');
+            expect(errs[0][0]).to.include('ICON_DOWNLOADER_FAILED');
+            expect(errs[0][0]).to.include('test-ctx');
+            expect(errs[0][0]).to.include('boom');
         });
 
         it('_logErr handles non-Error objects (no stack)', function () {

@@ -72,6 +72,9 @@ function makeExplorer(configOverrides) {
     return explorer;
 }
 
+// Undo every stub or spy a test installed and put the shared getData result back to
+// empty, so one test's fakes cannot leak into the next and make it pass for the
+// wrong reason.
 afterEach(function () {
     sinon.restore();
     getDataResult = [[], null];

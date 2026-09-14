@@ -130,6 +130,9 @@ function makeStubs(opts) {
         });
     }
 
+    // The two resolver entry points are stubbed so a test can dictate what a token's
+    // DESCRIPTION resolves to. The resolver has its own suite; what is under test here
+    // is what the downloader does with the answer.
     const resolveDescriptionToSource    = opts.resolveDescriptionToSource    || sinon.stub().returns(null);
     const selectIconUrlFromCip25Json    = opts.selectIconUrlFromCip25Json    || sinon.stub().returns(null);
 
@@ -366,6 +369,9 @@ describe('IconDownloader', function () {
         });
     });
 
+    // runOnce is the re-entrancy guard around a sweep: a second call while one is still
+    // in flight must do nothing, and the in-flight flag has to clear afterwards even
+    // when a flavor throws, or the downloader wedges and never runs again.
     describe('runOnce()', function () {
         it('skips if _running is already true', async function () {
             const stubs = makeStubs();
@@ -873,6 +879,9 @@ describe('IconDownloader', function () {
         });
     });
 
+    // The decision tree for one token: resolve its DESCRIPTION to a source, fetch the
+    // bytes, write the icon, and record either success or a retryable failure. Every
+    // step below is a place that walk can stop.
     describe('_processToken()', function () {
         function makeFlavor(coin, network) {
             return { coin: coin || 'BTC', network: network || 'mainnet', poolKey: coin || 'BTC' };
@@ -1083,8 +1092,13 @@ describe('IconDownloader', function () {
         });
     });
 
+    // One group per source scheme a DESCRIPTION can resolve to (stamp, ord, json_url,
+    // arweave, image_url, imgur), because each one reaches its bytes a different way
+    // and each one fails a different way.
     describe('_fetchSourceBytes()', function () {
 
+        // A fresh downloader per test: the module is re-loaded through proxyquire each
+        // time, so one test's stubbed HTTP client or filesystem cannot leak into the next.
         function makeDownloader(stubs) {
             const IconDownloader = loadIconDownloader(stubs);
             const explorer = makeExplorer();
@@ -1231,6 +1245,8 @@ describe('IconDownloader', function () {
                     data:    Buffer.from(jsonBody),
                 },
                 selectIconUrlFromCip25Json: sinon.stub().returns(imageUrl),
+                // Always null, so the URL pulled out of the JSON falls through to the
+                // plain image_url branch instead of being resolved to another scheme.
                 resolveDescriptionToSource: sinon.stub().callsFake((desc) => {
                     callCount++;
                     if (callCount === 1) return null;
@@ -1446,6 +1462,8 @@ describe('IconDownloader', function () {
         });
 
         it('_httpFetch: converts non-buffer resp.data to Buffer', async function () {
+            // An HTTP client can hand a response body back as a Uint8Array rather than a
+            // Buffer, so the fetch helper normalises it and no caller has to check which.
             const arr = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
             const stubs = makeStubs({
                 axiosResponse: {
@@ -1593,17 +1611,24 @@ describe('IconDownloader', function () {
             expect(fspStub.writeFile.callCount).to.equal(1);
             expect(fspStub.writeFile.firstCall.args[1]).to.deep.equal(bytes);
 
+            // The type is sniffed from the bytes on disk rather than taken from the
+            // serving host's content-type header, which any host can lie about.
             const sniffCall = execStub.getCalls().find(c => execCmdText(c).includes('--mime-type'));
             expect(sniffCall).to.not.equal(undefined);
 
+            // The convert step is where the size and output format are pinned, so the
+            // command line it builds is the contract worth asserting on.
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(convertCall).to.not.equal(undefined);
             expect(execCmdText(convertCall)).to.include('64x64!');
             expect(execCmdText(convertCall)).to.include('-format png');
 
+            // The file read back is the CONVERTED one, not the temp file written above.
             expect(fspStub.readFile.callCount).to.equal(1);
             expect(fspStub.readFile.firstCall.args[0]).to.equal(iconPath);
 
+            // 32 hex characters: the md5 of the converted image, which is what identifies
+            // the stored icon to everything downstream.
             expect(hash).to.be.a('string').with.length(32);
         });
 
@@ -1707,6 +1732,9 @@ describe('IconDownloader', function () {
                 ['-resize',     null],
             ]);
             await d.writeIcon(Buffer.from('JPEGDATA'), '/tmp/out.png');
+            // The [0] selector picks the first frame of a multi-frame image, which is what
+            // the WebP case above needs. A JPEG has a single frame, so the selector is
+            // left off rather than applied everywhere.
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(execCmdText(convertCall)).to.not.match(/\[0\]/);
         });
@@ -1986,6 +2014,9 @@ describe('IconDownloader', function () {
         });
     });
 
+    // One coin/network flavor end to end: discovery, then the batch SELECT that picks
+    // the due tokens, then the loop over them. Only the database connection is faked,
+    // so the ordering between those three is exercised for real.
     describe('_processFlavor()', function () {
         it('logs "queue empty" when SELECT returns no rows', async function () {
             const stubs = makeStubs();
@@ -2138,6 +2169,9 @@ describe('IconDownloader', function () {
         });
     });
 
+    // Driven directly rather than through a scheme, so the outbound request options and
+    // the way a failure is turned into a message can be pinned with no decode path in
+    // the way.
     describe('_httpFetch()', function () {
         it('passes correct axios options (timeout, maxBytes, maxRedirects, User-Agent)', async function () {
             const stubs = makeStubs();
@@ -2241,6 +2275,9 @@ describe('IconDownloader', function () {
         });
     });
 
+    // backoffSeconds is not exported on its own, so it is read back off the retry delay
+    // markFailure writes into its SQL arguments. That delay is the only place the
+    // schedule is visible from outside.
     describe('backoffSeconds via _markFailure', function () {
         it('attempt=0 gives 3600s (same branch as <=1)', async function () {
             const stubs = makeStubs();
@@ -2266,11 +2303,16 @@ describe('IconDownloader', function () {
             const conn = makeMockConn([[]]);
             await d.markFailure(conn, 1, 4, 'fourth fail');
             const [sql, args] = conn.query.firstCall.args;
+            // A retry rather than a terminal give-up: only the retry path stamps a
+            // next-attempt time, so an INTERVAL in the SQL is what tells the two apart.
             expect(sql).to.include('INTERVAL');
             expect(args[2]).to.equal(30 * 86400);
         });
     });
 
+    // truncate has no export of its own either. It is observed through the error message
+    // processToken hands to markFailure, which has to fit the 255-character column the
+    // failure is stored in.
     describe('truncate(): via _processToken error message path', function () {
         it('truncates fetch error messages to 255 chars via _processToken', async function () {
             const src = { scheme: 'image_url', url: 'https://example.com/a.png' };
@@ -2282,6 +2324,7 @@ describe('IconDownloader', function () {
             const d = new IconDownloader(explorer);
             d.cfg.maxAttempts = 99;
 
+            // A failure message longer than the column can hold, so it must arrive cut.
             const longMsg = 'E'.repeat(300);
             d.fetchSourceBytes = sinon.stub().rejects(new Error(longMsg));
 

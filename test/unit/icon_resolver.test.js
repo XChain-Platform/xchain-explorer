@@ -18,6 +18,8 @@ const {
     rewriteSchemeUrl,
 } = require('../../src/icons/resolver');
 
+// One case per DESCRIPTION scheme the resolver understands, so the table below is
+// the full list of what a token is allowed to point its icon at.
 describe('IconResolver.resolveDescriptionToSource', function(){
 
     // [description, expected_scheme, substring_or_null_for_url_or_data]
@@ -101,6 +103,8 @@ describe('IconResolver json_url lane mirrors the token page scheme', function(){
     });
 });
 
+// CIP25 and TIS token metadata can carry several image fields at once, so the order
+// they are tried decides which picture a wallet actually shows. These lock that order.
 describe('IconResolver.selectIconUrlFromCip25Json', function(){
 
     it('falls back to top-level image field', function(){

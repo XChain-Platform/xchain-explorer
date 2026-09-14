@@ -333,6 +333,9 @@ describe('XChainHubConnector', function () {
 
     });
 
+    // Where the explorer looks for a hub: the host/port overrides, an explicit
+    // validator list, or standalone mode, where there is no hub at all and the local
+    // config file drives configuration instead.
     describe('parseEndpoints()', function () {
 
         const HUB_ENV = ['NO_HUB', 'HUB_VALIDATORS', 'HUB_API_HOST', 'HUB_PORT'];

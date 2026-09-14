@@ -76,6 +76,9 @@ describe('XChainIndexerConnector', function () {
         });
     });
 
+    // The shared JSON-RPC call helper and the fee-quote, fee-schedule and preflight
+    // wrappers built on it: every one of them fails the same way, so the error cases
+    // are proved once on the helper.
     describe('JSON-RPC calls', function () {
         it('_call posts a JSON-RPC envelope and returns the result', async function () {
             let post = sinon.stub(axios, 'post').resolves({ data: { result: { ok: 1 } } });

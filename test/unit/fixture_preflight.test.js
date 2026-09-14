@@ -66,6 +66,10 @@ describe('integration fixture preflight', function () {
         });
     });
 
+});
+
+describe('integration fixture preflight', function () {
+
     describe('foreign-server error recognition', function () {
         it('sees through the pool wrapper to the handshake rejection', function () {
             assert.ok(pre.looksLikeForeignServerError(pooledAccessDenied()));
@@ -89,6 +93,10 @@ describe('integration fixture preflight', function () {
             assert.ok(!pre.looksLikeForeignServerError(err));
         });
     });
+
+});
+
+describe('integration fixture preflight', function () {
 
     describe('probeFixture classification', function () {
         const never = async () => { throw new Error('auth must not be attempted'); };
@@ -121,6 +129,10 @@ describe('integration fixture preflight', function () {
         });
     });
 
+});
+
+describe('integration fixture preflight', function () {
+
     describe('the report', function () {
         it('names the port, the fixture file, and both ways out', function () {
             const msg = pre.collisionMessage("Access denied for user 'root'@'127.0.0.1'", []);
@@ -149,6 +161,10 @@ describe('integration fixture preflight', function () {
         });
     });
 
+});
+
+describe('integration fixture preflight', function () {
+
     describe('describeHolders', function () {
         it('keeps only the lines that mention the fixture port', function () {
             const runner = (cmd) => cmd === 'ss'
@@ -164,6 +180,10 @@ describe('integration fixture preflight', function () {
             assert.deepStrictEqual(holders, []);
         });
     });
+
+});
+
+describe('integration fixture preflight', function () {
 
     describe('decorateFixtureError', function () {
         it('replaces the misleading access-denied with the collision report', function () {
@@ -184,6 +204,10 @@ describe('integration fixture preflight', function () {
             assert.strictEqual(pre.decorateFixtureError(err, []), err);
         });
     });
+
+});
+
+describe('integration fixture preflight', function () {
 
     describe('wiring', function () {
         const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
@@ -227,6 +251,10 @@ describe('integration fixture preflight', function () {
             assert.strictEqual(dbSetup.DB_CONFIG.database, pre.FIXTURE_DB.database);
         });
     });
+
+});
+
+describe('integration fixture preflight', function () {
 
     // Where a venue publishes a shared CI database, the server on the port is the
     // one to use, not a foreign holder. Parsing is guarded because a half-read

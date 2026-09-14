@@ -117,12 +117,15 @@ describe('Security: Info Leakage: Runtime header', function () {
     });
 });
 
+// Stubbed on the lazy logger object XChainExplorer.js holds, so the dump is seen
+// whether or not an earlier suite installed the real shipper.
+let infoStub;
+
+function requestConfigDumps() {
+    return infoStub.getCalls().filter(c => c.args[0] === 'REQUEST_CONFIG');
+}
+
 describe('Security: Info Leakage: Debug logging', function () {
-
-    // Stubbed on the lazy logger object XChainExplorer.js holds, so the dump is seen
-    // whether or not an earlier suite installed the real shipper.
-    let infoStub;
-
     beforeEach(() => {
         infoStub = sinon.stub(getLogger(), 'info');
     });
@@ -131,10 +134,6 @@ describe('Security: Info Leakage: Debug logging', function () {
         infoStub.restore();
         delete process.env.DEBUG;
     });
-
-    function requestConfigDumps() {
-        return infoStub.getCalls().filter(c => c.args[0] === 'REQUEST_CONFIG');
-    }
 
     it('does NOT log request config when DEBUG is not set', async function () {
         delete process.env.DEBUG;
@@ -154,6 +153,17 @@ describe('Security: Info Leakage: Debug logging', function () {
         const dumps = requestConfigDumps();
         expect(dumps).to.have.length(1);
         expect(dumps[0].args[1].data.path).to.equal('/BTC/api/sends/addr1/address');
+    });
+});
+
+describe('Security: Info Leakage: Debug logging', function () {
+    beforeEach(() => {
+        infoStub = sinon.stub(getLogger(), 'info');
+    });
+
+    afterEach(() => {
+        infoStub.restore();
+        delete process.env.DEBUG;
     });
 
     it('the request config dump carries no credential, from the config or the query', async function () {

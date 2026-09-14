@@ -35,7 +35,7 @@ const vmQuery         = require('./vm-query.js');
 const concurrencyGate = require('./concurrencyGate.js');
 const { limitedHandler } = require('./http/rate_limit_log.js');  // limiter counter line, shared with XChainExplorer's per-route limiters
 const staticMounts    = require('./http/static_mounts.js');     // the one file-serving mount list, shared with XChainExplorer
-const { applyTrustProxy } = require('./trustProxy.js');   // proxy-hop policy, shared with the WS path's hop count
+const { applyTrustProxy } = require('./http/trust_proxy.js');   // proxy-hop policy, shared with the WS path's hop count
 const { resolveMaxBatch, makeRpcBatchGuard } = require('./http/rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
 const { createShutdown, createExplorerDrain } = require('./shutdown.js');
 const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
@@ -254,7 +254,7 @@ async function startApi(){
     });
 
     // Trust only the first proxy hop (prevents X-Forwarded-For spoofing).
-    // The hop count and the topology it encodes live in src/trustProxy.js,
+    // The hop count and the topology it encodes live in src/http/trust_proxy.js,
     // which the WS path's WS_TRUST_PROXY_HOPS default must stay in step with.
     applyTrustProxy(app);
 

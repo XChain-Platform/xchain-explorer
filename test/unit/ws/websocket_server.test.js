@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Stress-sweep unit tests for src/ws/WebSocketServer.js:
+ * Stress-sweep unit tests for src/ws/websocket_server.js:
  *   - ws-1: per-IP cap key must not trust a spoofable X-Forwarded-For token
  *   - ws-2: snapshot-on-subscribe must not re-fire for already-subscribed entities
  */
@@ -20,7 +20,7 @@
 
 const { expect } = require('chai');
 const sinon      = require('sinon');
-const WebSocketServer = require('../../../src/ws/WebSocketServer.js');
+const WebSocketServer = require('../../../src/ws/websocket_server.js');
 
 function makeServer(opts = {}) {
     return new WebSocketServer({ explorer: { db: {} }, broadcaster: null, ...opts });
@@ -800,7 +800,7 @@ describe('WebSocketServer maxPayload (ws-5: the cap has to reach the receiver)',
 describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame', function () {
 
     const ChannelManager  = require('../../../src/ws/channel_manager.js');
-    const WebSocketServer = require('../../../src/ws/WebSocketServer.js');
+    const WebSocketServer = require('../../../src/ws/websocket_server.js');
 
     afterEach(() => sinon.restore());
 

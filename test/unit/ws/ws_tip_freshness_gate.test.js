@@ -27,7 +27,7 @@
 'use strict';
 
 const { expect } = require('chai');
-const WebSocketServer = require('../../../src/ws/WebSocketServer.js');
+const WebSocketServer = require('../../../src/ws/websocket_server.js');
 const ChangeDetector  = require('../../../src/ws/change_detector.js');
 
 // Collect every frame the server writes to this client.

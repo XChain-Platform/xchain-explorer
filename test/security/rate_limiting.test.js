@@ -30,7 +30,7 @@ const path        = require('path');
 const express     = require('express');
 const request     = require('supertest');
 const { HTTP_TRUST_PROXY_HOPS, applyTrustProxy } = require('../../src/http/trust_proxy.js');
-const WebSocketServer = require('../../src/ws/WebSocketServer.js');
+const WebSocketServer = require('../../src/ws/websocket_server.js');
 const staticMounts    = require('../../src/http/static_mounts.js');
 
 const apiSource = fs.readFileSync(

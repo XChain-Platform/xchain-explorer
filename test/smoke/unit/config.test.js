@@ -102,6 +102,10 @@ describe('SM-01: Config loads successfully', function () {
         expect(result.COIN_SUPPORTED).to.include.keys('BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC', 'DOGE', 'TDOGE', 'RDOGE');
     });
 
+});
+
+describe('SM-01: Config loads successfully', function () {
+
     it('COIN_AVAILABLE includes the configured coin/network', async function () {
         const config = loadConfig();
         const result = await config.getConfig(null, false);

@@ -101,9 +101,9 @@ async function runDispenser(db, edits) {
     return { result, editQuery };
 }
 
-describe('db.getActionData - DISPENSER list-edit activation delay', () => {
-    let db;
+let db;
 
+describe('db.getActionData - DISPENSER list-edit activation delay', () => {
     beforeEach(() => { db = new Database(mockExplorer); });
     afterEach(() => { sinon.restore(); });
 
@@ -153,6 +153,11 @@ describe('db.getActionData - DISPENSER list-edit activation delay', () => {
         const { result: applied } = await runDispenser(db, [matured]);
         expect(applied.state.block_list).to.equal(9);
     });
+});
+
+describe('db.getActionData - DISPENSER list-edit activation delay', () => {
+    beforeEach(() => { db = new Database(mockExplorer); });
+    afterEach(() => { sinon.restore(); });
 
     it('boundary: the delay must fully elapse, an exactly-aged edit stays withheld', async () => {
         // bcgt is strict, mirroring the indexer's own bcgt gate.

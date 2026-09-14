@@ -100,6 +100,10 @@ describe('API Action Endpoints: Sends', function () {
         }
     });
 
+});
+
+describe('API Action Endpoints: Sends', function () {
+
     it('GET /RBTC/api/sends/{address}/destination: filters by destination only', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR2}/destination`);
 
@@ -150,6 +154,10 @@ describe('API Action Endpoints: Sends', function () {
         expect(overlap).to.be.empty;
     });
 
+});
+
+describe('API Action Endpoints: Sends', function () {
+
     it('total count is accurate', async function () {
         const res = await request.get('/RBTC/api/sends/2/block');
 
@@ -166,6 +174,10 @@ describe('API Action Endpoints: Sends', function () {
         expect(Number(res.body.total)).to.equal(0);
         expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
+
+});
+
+describe('API Action Endpoints: Sends', function () {
 
     it('response fields have correct structure', async function () {
         const res = await request.get('/RBTC/api/sends/XCHAIN/token');

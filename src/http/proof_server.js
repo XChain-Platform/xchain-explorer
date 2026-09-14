@@ -52,7 +52,7 @@ class ProofServer {
 
     // Descend a key's path through the persistent node store as-of `rootHex`,
     // collecting the 256 siblings (top-down). Mirrors PersistentSMT._descend.
-    async _descend(config, rootHex, keyBuf) {
+    async descend(config, rootHex, keyBuf) {
         const siblings = new Array(M.SMT_DEPTH);
         let cur = rootHex;
         let empty = false;
@@ -71,8 +71,8 @@ class ProofServer {
     // Membership / non-membership proof for keyBuf as-of rootHex. Same shape as
     // merkle.SparseMerkleTree.prove / PersistentSMT.prove (verify with
     // M.verifyCompressedSmtProof). leaf_value null => non-inclusion (zero).
-    async _prove(config, rootHex, keyBuf) {
-        const { siblings, oldLeaf } = await this._descend(config, rootHex, keyBuf);
+    async prove(config, rootHex, keyBuf) {
+        const { siblings, oldLeaf } = await this.descend(config, rootHex, keyBuf);
         const present = (oldLeaf !== EMPTY0_HEX);
         return {
             key:        M.toHex(keyBuf),
@@ -84,7 +84,7 @@ class ProofServer {
 
     // Shape a checkpoint row for the response: keep the signed fields + parse the
     // validator_signatures JSON so a client can re-verify quorum locally.
-    _shapeCheckpoint(cp, chainTip) {
+    shapeCheckpoint(cp, chainTip) {
         let sigs = [];
         // Rows may arrive pre-parsed (db._normalizeCheckpointRows now emits an
         // array) or raw from a direct query; accept both.
@@ -139,7 +139,7 @@ class ProofServer {
     // The constraint this accepts in exchange: nothing may write these columns for
     // a height at which the slot was NOT committed. In particular a shadow-compute
     // window must persist its candidate somewhere else, not here (spec §7).
-    _subRoots(tr) {
+    subRoots(tr) {
         const subRoots = { balances_root: tr.balances_root, stakes_root: tr.stakes_root };
         for (const slot of EXTENSION_SLOTS)
             if (tr[slot]) subRoots[slot] = tr[slot];
@@ -150,8 +150,8 @@ class ProofServer {
     // state_tree_roots row at the checkpoint height must reassemble to the signed
     // state_root, else the indexer DB and the signed checkpoint disagree (a server
     // bug / divergence) and we refuse to serve a proof a client could not bind.
-    _bindRoots(cp, tr) {
-        const assembled = M.toHex(M.stateRoot(this._subRoots(tr)));
+    bindRoots(cp, tr) {
+        const assembled = M.toHex(M.stateRoot(this.subRoots(tr)));
         if (cp.state_root && String(cp.state_root).toLowerCase() !== assembled)
             throw new Error('PROOF_STATE_ROOT_MISMATCH');
         return assembled;
@@ -166,11 +166,11 @@ class ProofServer {
         const tr = await this.db.getStateTreeRow(config, cp.block_index);
         if (!tr) return { error: 'NO_STATE_TREE' };                                // not a full indexer DB
         let stateRoot;
-        try { stateRoot = this._bindRoots(cp, tr); }
+        try { stateRoot = this.bindRoots(cp, tr); }
         catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
         const keyBuf = M.balanceKey(chain, network, address, tick);
-        const smt    = await this._prove(config, tr.balances_root, keyBuf);
-        const sub    = M.stateRootProof(this._subRoots(tr), 'balances_root');
+        const smt    = await this.prove(config, tr.balances_root, keyBuf);
+        const sub    = M.stateRootProof(this.subRoots(tr), 'balances_root');
         // Authoritative amount (never the balances cache). Non-inclusion => "0".
         // Height-bounded to cp.block_index (the SAME row getStateTreeRow committed
         // the leaf from), NOT the current tip: the SDK verifier requires
@@ -188,7 +188,7 @@ class ProofServer {
                 balances_root: tr.balances_root, stakes_root: tr.stakes_root,
                 state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version
             },
-            checkpoint: this._shapeCheckpoint(cp, tip)
+            checkpoint: this.shapeCheckpoint(cp, tip)
         };
     }
 
@@ -222,11 +222,11 @@ class ProofServer {
         const tr = await this.db.getStateTreeRow(config, cp.block_index);
         if (!tr) return { error: 'NO_STATE_TREE' };
         let stateRoot;
-        try { stateRoot = this._bindRoots(cp, tr); }
+        try { stateRoot = this.bindRoots(cp, tr); }
         catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
         const keyBuf = M.escrowKey(chain, network, address, tick);
-        const smt    = await this._prove(config, tr.balances_root, keyBuf);
-        const sub    = M.stateRootProof(this._subRoots(tr), 'balances_root');
+        const smt    = await this.prove(config, tr.balances_root, keyBuf);
+        const sub    = M.stateRootProof(this.subRoots(tr), 'balances_root');
         // Preimage AS-OF the checkpoint height from the journal (latest row at or
         // below it; append-only, so exact). Non-inclusion means ZERO LOCKED, and
         // at an armed height that is a real claim (delete-on-zero: released and
@@ -244,7 +244,7 @@ class ProofServer {
                 balances_root: tr.balances_root, stakes_root: tr.stakes_root,
                 state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version
             },
-            checkpoint: this._shapeCheckpoint(cp, tip)
+            checkpoint: this.shapeCheckpoint(cp, tip)
         };
     }
 
@@ -300,7 +300,7 @@ class ProofServer {
                 merkle_proof: { index: mp.index, siblings: mp.siblings },
                 block_merkle_root: cp.block_merkle_root, block_merkle_version: cp.block_merkle_version
             },
-            checkpoint: this._shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
+            checkpoint: this.shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
         };
     }
 
@@ -319,9 +319,9 @@ class ProofServer {
         const tr = await this.db.getStateTreeRow(config, snapshotHeight);
         if (!tr || tr.stakes_root == null) return { error: 'NO_STATE_TREE' };
         let stateRoot;
-        try { stateRoot = this._bindRoots(cp, tr); }
+        try { stateRoot = this.bindRoots(cp, tr); }
         catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
-        const sub  = M.stateRootProof(this._subRoots(tr), 'stakes_root');
+        const sub  = M.stateRootProof(this.subRoots(tr), 'stakes_root');
         const caps = (capabilities && capabilities.length) ? capabilities : ['oracle_publish', 'cross_chain'];
         const out  = {};
         for (const cap of caps) {
@@ -352,13 +352,13 @@ class ProofServer {
             catch (e) { return { error: 'STAKE_SNAPSHOT_MALFORMED:' + cap + ':' + ((e && e.message) || '') }; }
             const proven = [];
             for (const v of validators) {
-                const smt = await this._prove(config, tr.stakes_root, M.stakeKey(String(v.pubkey), cap));
+                const smt = await this.prove(config, tr.stakes_root, M.stakeKey(String(v.pubkey), cap));
                 proven.push({ pubkey: v.pubkey, source: v.source, weight: String(v.weight),
                               smt_proof: { key: smt.key, leaf_value: smt.leaf_value, compressed: smt.compressed } });
             }
             let totalProof = null;
             if (total !== M.canonicalAmount('0')) {
-                const tsmt = await this._prove(config, tr.stakes_root, M.stakeKey(M.STAKE_TOTAL_PUBKEY, cap));
+                const tsmt = await this.prove(config, tr.stakes_root, M.stakeKey(M.STAKE_TOTAL_PUBKEY, cap));
                 totalProof = { key: tsmt.key, leaf_value: tsmt.leaf_value, compressed: tsmt.compressed };
             }
             out[cap] = { total, total_proof: totalProof, validators: proven };
@@ -371,7 +371,7 @@ class ProofServer {
                 state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version,
                 capabilities: out
             },
-            checkpoint: this._shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
+            checkpoint: this.shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
         };
     }
 
@@ -402,12 +402,12 @@ class ProofServer {
         if (!tr) return { error: 'NO_STATE_TREE' };
         if (!tr.contract_state_root) return { error: 'CONTRACT_STATE_NOT_COMMITTED' };
         let stateRoot;
-        try { stateRoot = this._bindRoots(cp, tr); }
+        try { stateRoot = this.bindRoots(cp, tr); }
         catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
 
         const keyBuf = M.contractStateKey(chain, network, contractIndex, key);
-        const smt    = await this._prove(config, tr.contract_state_root, keyBuf);
-        const sub    = M.stateRootProof(this._subRoots(tr), 'contract_state_root');
+        const smt    = await this.prove(config, tr.contract_state_root, keyBuf);
+        const sub    = M.stateRootProof(this.subRoots(tr), 'contract_state_root');
         // Leaf preimage AS-OF the checkpoint height, never the current tip: the
         // client checks leafHash(state_value) against the proven leaf, and a
         // tip-latest value would false-reject every key written after the
@@ -436,14 +436,14 @@ class ProofServer {
                 balances_root: tr.balances_root, stakes_root: tr.stakes_root,
                 state_root: cp.state_root || stateRoot, state_root_version: cp.state_root_version
             },
-            checkpoint: this._shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
+            checkpoint: this.shapeCheckpoint(cp, await this.db.getMaxBlockIndex(config))
         };
     }
 
     // GET /:coin/api/checkpoints/range?from=&to=  (spec §8.1, forward-following)
     async checkpointRange(config, fromH, toH, limit) {
         const rows = await this.db.getCheckpointRange(config, fromH, toH, limit);
-        return { checkpoints: (rows || []).map(r => this._shapeCheckpoint(r)), count: (rows || []).length };
+        return { checkpoints: (rows || []).map(r => this.shapeCheckpoint(r)), count: (rows || []).length };
     }
 }
 

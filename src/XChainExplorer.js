@@ -952,7 +952,7 @@ class XChainExplorer {
             legacyHeaders:   false,
             handler:         limitedHandler({ service: 'Explorer', name: 'action-proof', ...actionProofPolicy })
         });
-        // The validator-set proof is the heaviest endpoint: its handler calls _prove
+        // The validator-set proof is the heaviest endpoint: its handler calls prove
         // once per validator per capability (up to VALIDATOR_QUERY_LIMIT), each a
         // 256-deep SMT descent reading the DB per non-empty level, plus an indexer RPC
         // per capability. Worst case ~2000 descents, so it caps below the action tier.

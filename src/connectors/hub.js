@@ -322,7 +322,7 @@ class XChainHubConnector {
         // this guard the envelope falls through applyConfigResult's else branch and is
         // returned as if it were the bare config map, so config.js wipes every coin to zero
         // AND refreshes its staleness timestamp on a failed fetch. Treat it like an
-        // unreachable/degraded hub (mirrors the indexer's _unwrapHubConfigResponse ok:false
+        // unreachable/degraded hub (mirrors the indexer's unwrapHubConfigResponse ok:false
         // path): return null so config.js keeps last-known-good config with an honest
         // staleness signal. Scoped to the exact envelope shape (a bare `error` string, no
         // `configs`) so a legitimate config tree can never match.

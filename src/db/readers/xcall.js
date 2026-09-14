@@ -476,7 +476,7 @@ class XcallReaders {
     // attests.callback_execute_action_index is stamped on the v1 RESPONSE row only
     // (xchain-indexer setAttestationResponseCallbackIndex ... WHERE version = 1), so an
     // EXPIRED request has no stored link anywhere: the v2 sweep injects the expired
-    // callback (_injectExpiredCallback) and there is no v1 row to stamp. The execution
+    // callback (injectExpiredCallback) and there is no v1 row to stamp. The execution
     // itself is unambiguous on its own columns: the injected EXECUTE calls the request's
     // OWN contract and callback method with the request_id as its first positional
     // parameter (INPUT_PARAMS is the '|'-joined argument list), and a request id is

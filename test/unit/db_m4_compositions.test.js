@@ -383,7 +383,7 @@ describe('Database#getAttestation (M4 composed attestation lifecycle)', () => {
         expect(data.expiry.expired).to.equal(true);
         expect(data.expiry.request_status).to.equal('expired');
         expect(data.expiry.resolved_block).to.equal(1200);
-        // Nothing may go looking for a version-2 row: the indexer's _parseExpire
+        // Nothing may go looking for a version-2 row: the indexer's parseExpire
         // only flips the v0 row's status, so such a query would always be empty.
         for(const q of captured(db))
             expect(q.query, 'queried for a v2 row that cannot exist').to.not.match(/version\s*=\s*2/);

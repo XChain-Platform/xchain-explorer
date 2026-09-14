@@ -122,7 +122,7 @@ describe('ATTEST expiry: in-block correlation of the v2 expire action', () => {
         const q = findQuery(db, EXPIRED_REQS);
         expect(q.query).to.include('ORDER BY m.deadline_block ASC, m.action_index ASC');
         expect(q.args).to.deep.equal([1480]);
-        // Never a query for a v2 ROW: _parseExpire writes none, so it is always empty.
+        // Never a query for a v2 ROW: parseExpire writes none, so it is always empty.
         for(const c of captured(db))
             expect(c.query, 'queried for a v2 attests row that cannot exist').to.not.match(/version\s*=\s*2/);
     });

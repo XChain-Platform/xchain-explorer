@@ -47,12 +47,12 @@ function sourceSpecialRoutes() {
     return out;
 }
 
-describe('openapi.json route coverage', () => {
+const specTable   = new Set();
+const specSpecial = new Set();
+for (const [p, def] of Object.entries(SPEC.paths))
+    (def['x-registered'] === 'express' ? specSpecial : specTable).add(p);
 
-    const specTable   = new Set();
-    const specSpecial = new Set();
-    for (const [p, def] of Object.entries(SPEC.paths))
-        (def['x-registered'] === 'express' ? specSpecial : specTable).add(p);
+function registerRouteTableTests() {
 
     it('documents every urls.api table route (and nothing extra)', () => {
         const src = sourceApiRoutes();
@@ -72,6 +72,13 @@ describe('openapi.json route coverage', () => {
         expect(extra, 'spec documents special routes that no longer exist').to.deep.equal([]);
     });
 
+}
+
+describe('openapi.json route coverage', () => {
+    registerRouteTableTests();
+});
+
+function registerSdkProducerTests() {
     it('every path has operationId, tag, summary, and error responses', () => {
         // Method-agnostic: a path documents GET, POST, or both (the contract-call
         // simulation route is POST-only), so this checks whichever operations are
@@ -119,12 +126,22 @@ describe('openapi.json route coverage', () => {
         expect(tag, 'the tag precedes the ciphertext on the wire').to.be.lessThan(ciphertext);
     });
 
-    // The doc string asserted above is derived from the producer rather than
-    // independently true, so an unreachable producer must not pass unnoticed: CI
-    // declares xchain-sdk in .ci-siblings and runs with XCHAIN_REQUIRE_SIBLINGS=1,
-    // where a missing encoder fails by name, and a standalone explorer clone records
-    // a pending case instead of a silent green.
-    describe('the SDK producer still writes the documented byte order', function () {
+}
+
+describe('openapi.json route coverage', () => {
+    registerSdkProducerTests();
+});
+
+// The doc string asserted above is derived from the producer rather than
+// independently true, so an unreachable producer must not pass unnoticed: CI
+// declares xchain-sdk in .ci-siblings and runs with XCHAIN_REQUIRE_SIBLINGS=1,
+// where a missing encoder fails by name, and a standalone explorer clone records
+// a pending case instead of a silent green.
+function registerGatedFileProducerTests() {
+    describe('the SDK producer still writes the documented byte order', gatedFileProducerSuite);
+}
+
+function gatedFileProducerSuite() {
         const SDK_GATED_FILE = process.env.XCHAIN_SDK_DIR
             ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'gatedFile.js')
             : path.resolve(__dirname, '../../../xchain-sdk/src/gatedFile.js');
@@ -179,7 +196,9 @@ describe('openapi.json route coverage', () => {
                 'it before editing the layout assertion above')
                 .to.match(/Buffer\.concat\(\[\s*iv\s*,\s*authTag\s*,\s*encrypted\s*\]\)/);
         });
-    });
+}
+
+describe('openapi.json route coverage', () => {
 
     it('declares the checkpoint routes with their real body and params', () => {
         // Both answer {checkpoints, count}, not the {total, data} list envelope, and
@@ -215,4 +234,8 @@ describe('openapi.json route coverage', () => {
             expect(param.schema.enum, `${route} TYPE enum`).to.have.members(types);
         }
     });
+});
+
+describe('openapi.json route coverage', () => {
+    registerGatedFileProducerTests();
 });

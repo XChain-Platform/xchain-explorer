@@ -44,6 +44,8 @@ function makeDb() {
     return new Database(explorer);
 }
 
+// sanitizeInt is a second guard behind route validation: anything that does not
+// parse as a whole number falls back to the default instead of reaching a query
 describe('@p0 @core sanitizeInt regression', function () {
 
     let u;

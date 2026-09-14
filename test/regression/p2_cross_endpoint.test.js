@@ -50,6 +50,8 @@ after(async function () {
 describe('@p2 @consistency Transaction-Send cross-reference regression', function () {
 
     it('send at action_index 9 shares tx_hash with its transaction', async function () {
+        // Read the transaction first, so the send found below can be checked
+        // against its hash and block
         const txRes = await request.get('/RBTC/api/transaction/9/tx_index');
         expect(txRes.status).to.equal(200);
 

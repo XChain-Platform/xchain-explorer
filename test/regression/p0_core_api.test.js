@@ -27,6 +27,7 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
+// Addresses that appear in the seeded test data, so the queries below find rows
 const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const ADDR3 = 'bc1qaddr3ccccccccccccccccccccccccccc';
@@ -184,7 +185,8 @@ describe('@p0 @core Token API regression', function () {
     it('GET /RBTC/api/token/{tick}: returns full token detail', async function () {
         const res = await request.get('/RBTC/api/token/TOKENONE');
         expect(res.status).to.equal(200);
-        // projects/registry hold additional token display metadata
+        // projects and registry are the project-registry fields a token page shows:
+        // the projects that list this token, and its own registry entry
         expect(res.body).to.have.all.keys(['callback', 'info', 'lists', 'locks', 'market', 'mints', 'projects', 'registry', 'runtime', 'supply']);
         expect(res.body.info.tick).to.equal('TOKENONE');
         expect(res.body.info.description).to.equal('Test Token One');

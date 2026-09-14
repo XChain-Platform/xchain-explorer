@@ -136,6 +136,10 @@ describe('ROLLCALL eviction: /api/unstakes surfaces a synthetic UNSTAKE with no 
         expect(row.status).to.equal('valid');
     });
 
+});
+
+describe('ROLLCALL eviction: /api/unstakes surfaces a synthetic UNSTAKE with no transaction', function () {
+
     it('filters by the evicted validator source address and still finds the eviction row', async function () {
         const res = await request.get(`/RBTC/api/unstakes/${VALIDATOR_ADDR}/source`);
 

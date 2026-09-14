@@ -115,6 +115,10 @@ describe('token page: files LINKed to the token', function(){
             .to.equal(1);
     });
 
+});
+
+describe('token page: files LINKed to the token', function(){
+
     it('labels a gated file instead of offering a raw link that would refuse', function(){
         const win = bootPage();
         win.renderLinkedFiles([GATED], 'token-linked-files-body', 'token-linked-files-card');

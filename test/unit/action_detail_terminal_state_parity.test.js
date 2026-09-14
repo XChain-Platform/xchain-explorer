@@ -62,7 +62,6 @@ async function runHandler(handler, data, { query2Rows = [], query3Rows = [] } = 
 }
 
 describe('terminal offer state is consistent across ORDER, SWAP and DISPENSER', () => {
-
     describe('the shared whitelist', () => {
         it('treats complete, cancelled and expired as terminal', () => {
             expect([...shared.TERMINAL_OFFER_STATUSES].sort())
@@ -100,7 +99,9 @@ describe('terminal offer state is consistent across ORDER, SWAP and DISPENSER', 
             }
         });
     });
+});
 
+describe('terminal offer state is consistent across ORDER, SWAP and DISPENSER', () => {
     describe('ORDER - the unfilled-expiry case the registry skips afterQuery3 for', () => {
         // This is defect 1's exact shape: order 1306, expired, never matched.
         it('zeroes an expired order that has NO order_matches rows', async () => {

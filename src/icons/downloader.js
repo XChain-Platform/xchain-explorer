@@ -51,7 +51,7 @@ const dns     = require('dns');
 const netmod  = require('net');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
-const { makeSafeLookup, isPrivateAddress } = require('./http/ssrf_guard');
+const { makeSafeLookup, isPrivateAddress } = require('../http/ssrf_guard');
 // execFile, not exec: both subprocesses below are handed attacker-influenced
 // input (a tmp path this process chose, and image bytes from an on-chain
 // description). Without a shell there is no word-splitting to escape, and,
@@ -67,12 +67,12 @@ const {
     // one-shot re-stale in _discover so that predicate can never select a row this
     // module cannot resolve.
     ACTION_REF_PATTERN,
-} = require('./IconResolver');
+} = require('../IconResolver');
 // The same decompression the live /{COIN}/api/file/{index}/raw route applies
 // (XChainExplorer.processFileRawRequest), so an `action:` FILE resolves to the
 // identical bytes the token page renders from. Contractually non-throwing: it
 // reports storedForm rather than handing back partial output.
-const compression = require('./http/compression.js');
+const compression = require('../http/compression.js');
 
 // Shared SSRF lookup shim: rejects fetches whose hostname resolves to a
 // private/internal/metadata address. Built once at module load.
@@ -134,7 +134,7 @@ class IconDownloader {
         this._stop    = false;
         this.cfg      = Object.assign({}, DEFAULTS);   // overwritten by start()
 
-        this.iconRoot = path.resolve(path.join(__dirname, 'content/icons'));
+        this.iconRoot = path.resolve(path.join(__dirname, '../content/icons'));
     }
 
     /******************************************************************

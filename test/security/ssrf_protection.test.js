@@ -397,9 +397,9 @@ describe('Security: SSRF: canonical range classifier (ssrf-guard.js)', function 
 describe('Security: SSRF: IconDownloader fetch guard', function () {
     it('wires the SSRF lookup shim into its axios request options', async function () {
         const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
-        const IconDownloader = proxyquire('../../src/IconDownloader.js', {
+        const IconDownloader = proxyquire('../../src/icons/downloader.js', {
             axios: axiosStub,
-            './IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+            '../IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
         });
         const dl = new IconDownloader({ util: {} });
         await dl._httpFetch('https://example.com/icon.png');
@@ -410,10 +410,10 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
     it('the wired lookup rejects a private resolution (RELAY_DENIED)', function (done) {
         const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
         const dnsStub   = { lookup: (h, o, cb) => { if (typeof o === 'function') { cb = o; } cb(null, '169.254.169.254', 4); } };
-        const IconDownloader = proxyquire('../../src/IconDownloader.js', {
+        const IconDownloader = proxyquire('../../src/icons/downloader.js', {
             axios: axiosStub,
             dns:   dnsStub,
-            './IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+            '../IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
         });
         const dl = new IconDownloader({ util: {} });
         dl._httpFetch('https://metadata.attacker.example/x.png').then(() => {
@@ -432,9 +432,9 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
     // an unrestricted port makes this fetch a service probe whose result is
     // readable in the icons row (status, last_error).
     describe('web-port restriction', function () {
-        const load = (axiosStub) => proxyquire('../../src/IconDownloader.js', {
+        const load = (axiosStub) => proxyquire('../../src/icons/downloader.js', {
             axios: axiosStub,
-            './IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+            '../IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
         });
 
         it('refuses a non-web port before any socket opens', async function () {

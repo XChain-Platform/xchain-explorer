@@ -41,7 +41,7 @@ const path    = require('path');
 const mariadb = require('mariadb');
 const { expect } = require('chai');
 
-const IconDownloader = require('../../src/IconDownloader.js');
+const IconDownloader = require('../../src/icons/downloader.js');
 
 const DB_HOST = process.env.CONFORMANCE_DB_HOST || '127.0.0.1';
 const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || 3307);

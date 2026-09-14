@@ -146,12 +146,12 @@ const { ACTION_REF_PATTERN } = require('../../src/IconResolver.js');
  * Load IconDownloader through proxyquire using the provided stubs.
  */
 function loadIconDownloader(stubs) {
-    return proxyquire('../../src/IconDownloader.js', {
+    return proxyquire('../../src/icons/downloader.js', {
         'axios':          stubs.axiosStub,
         'fs':             stubs.fsStub,
         'fs/promises':    stubs.fspStub,
         'child_process':  { execFile: stubs.execStub },
-        './IconResolver': {
+        '../IconResolver': {
             resolveDescriptionToSource: stubs.resolveDescriptionToSource,
             selectIconUrlFromCip25Json: stubs.selectIconUrlFromCip25Json,
             ACTION_REF_PATTERN,

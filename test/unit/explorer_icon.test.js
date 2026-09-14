@@ -48,7 +48,6 @@ function makeIconReq(iconPath) {
 }
 
 describe('XChainExplorer#processIconRequest', function () {
-
     it('serves the file when icon exists', async function () {
         const existingIcon = '/icon/BTC.png';
         const expectedFile = path.resolve(path.join(ICONS_DIR, '/BTC.png'));
@@ -94,7 +93,9 @@ describe('XChainExplorer#processIconRequest', function () {
         // fs.existsSync must NOT be called; we blocked before reaching it
         expect(fsStub.existsSync.called).to.be.false;
     });
+});
 
+describe('XChainExplorer#processIconRequest', function () {
     // A .. segment is only a traversal if it escapes: one that stays inside the
     // icons directory is an edge case that must still be served.
     it('allows a .. segment that resolves back into the icons directory', async function () {

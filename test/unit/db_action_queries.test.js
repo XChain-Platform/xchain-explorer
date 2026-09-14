@@ -219,6 +219,8 @@ describe('Database#getDestroys', () => {
     });
 });
 
+// getDispensers builds its own args: an address search is bound twice, so it
+// matches either the source or the dispenser address.
 describe('Database#getDispensers', () => {
     let result;
     before(async () => {
@@ -339,6 +341,7 @@ describe('Database#getDispenserExpires', () => {
     });
 });
 
+// Builds its own args, binding an address search twice like getDispensers above.
 describe('Database#getDispenses', () => {
     let result;
     before(async () => {
@@ -439,6 +442,8 @@ describe('Database#getFiles (non-token type)', () => {
     });
 });
 
+// A token search reads the interned mappings_files table, not the base files
+// table every other search mode uses.
 describe('Database#getFiles (token type)', () => {
     let result;
     before(async () => {
@@ -466,8 +471,8 @@ describe('Database#getFiles (token type)', () => {
 // Both getFiles paths select the gated_files columns, and the wallet reads
 // row.gate_min_amount straight off /api/files, so the column name is fixed
 // by an already-shipped consumer: an alias here, or a missing column on
-// either path, silently degrades a gated file to "no threshold" instead of
-// raising an error. Pinned on both paths since they are separate SQL
+// either path, silently degrades a gated file to "no threshold", which the
+// wallet reads as an unconditional gate rather than as an error. Pinned on both paths since they are separate SQL
 // literals that have drifted out of sync before.
 
 ['address', 'token'].forEach((type) => {
@@ -562,6 +567,8 @@ describe('Database#getLists', () => {
     });
 });
 
+// Builds its own args: an address search is bound twice, matching either the
+// sender or the destination.
 describe('Database#getMessages', () => {
     let result;
     before(async () => {
@@ -587,6 +594,7 @@ describe('Database#getMessages', () => {
     });
 });
 
+// Builds its own args: an address search is bound twice (source or destination).
 describe('Database#getMints', () => {
     let result;
     before(async () => {
@@ -610,6 +618,8 @@ describe('Database#getMints', () => {
     });
 });
 
+// Builds its own args: an address or token search is bound twice, matching
+// either party, or either side of the order for a token.
 describe('Database#getOrders', () => {
     let result;
     before(async () => {
@@ -742,6 +752,7 @@ describe('Database#getOrderMatches', () => {
     });
 });
 
+// Builds its own args: an address search is bound twice (source or destination).
 describe('Database#getSends', () => {
     let result;
     before(async () => {
@@ -809,6 +820,8 @@ describe('Database#getSleeps', () => {
     });
 });
 
+// Builds its own args: an address or token search is bound twice, matching
+// either party, or either side of the swap for a token.
 describe('Database#getSwaps', () => {
     let result;
     before(async () => {
@@ -930,6 +943,7 @@ describe('Database#getSwapMatches', () => {
     });
 });
 
+// Builds its own args: an address search is bound twice (source or destination).
 describe('Database#getSweeps', () => {
     let result;
     before(async () => {
@@ -954,6 +968,8 @@ describe('Database#getSweeps', () => {
     });
 });
 
+// Builds its own args from the search term: a LIKE pattern for a token search,
+// the plain value for a block or address search.
 describe('Database#getTokens', () => {
     let result;
     before(async () => {
@@ -1339,6 +1355,8 @@ describe('Database#getAttestationsSince / getAttestationByActionIndex expose pay
     });
 });
 
+// XCALL is a cross-chain contract call: getXcalls lists them, getXcall below
+// follows one call through its lifecycle.
 describe('Database#getXcalls', () => {
     let result;
     before(async () => {
@@ -1369,6 +1387,7 @@ describe('Database#getXcalls', () => {
     });
 });
 
+// One XCALL by call_id, read together with its execution and callback records.
 describe('Database#getXcall', () => {
     let captured, originalDoQuery;
 

@@ -178,6 +178,10 @@ describe('collectibles gallery (M5.1)', function () {
         });
     });
 
+});
+
+describe('collectibles gallery (M5.1)', function () {
+
     describe('what a card claims', function () {
 
         it('renders supply as a COUNT of an edition, not as a divisible amount', function () {
@@ -228,6 +232,10 @@ describe('collectibles gallery (M5.1)', function () {
         });
     });
 
+});
+
+describe('collectibles gallery (M5.1)', function () {
+
     describe('empty and paging', function () {
 
         it('says the chain has none, and says what the rule is', function () {
@@ -252,6 +260,10 @@ describe('collectibles gallery (M5.1)', function () {
             expect($('.collectibles-next').closest('li').hasClass('disabled')).to.equal(true);
         });
     });
+
+});
+
+describe('collectibles gallery (M5.1)', function () {
 
     describe('the shipped page', function () {
 

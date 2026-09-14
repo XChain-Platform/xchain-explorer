@@ -90,7 +90,6 @@ for (const rel of jsFilesUnder(DB_DIR))
     for (const name of classBodyMethods(rel)) DECLARED.push({ rel, name });
 
 describe('mixinReaders installs every extracted method non-enumerably', function(){
-
     it('found methods to check (the walk itself is not silently empty)', function(){
         assert.ok(DECLARED.length >= 100,
             'only ' + DECLARED.length + ' methods found under src/db/; the source walk broke, ' +
@@ -143,7 +142,9 @@ describe('mixinReaders installs every extracted method non-enumerably', function
             'method(s) installed with a descriptor a class body would not produce; ' +
             'sinon.stub and every test double depend on writable+configurable');
     });
+});
 
+describe('mixinReaders installs every extracted method non-enumerably', function(){
     it('installs a real function with its arity intact', function(){
         const broken = DECLARED
             .filter(({ name }) => typeof Database.prototype[name] !== 'function')

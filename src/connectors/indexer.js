@@ -23,6 +23,13 @@
 
 const axios = require('axios');
 
+// Every environment read goes through config.js's live read-through view of
+// process.env, so config.js stays the one place the gate lets env be read. The
+// view is looked up per read so that requiring this module never loads config.js,
+// whose SSL probe and log line would otherwise run in every tool and suite that
+// never reads a variable.
+const configEnv = () => require('../config.js').env;
+
 // Resolve the indexer JSON-RPC API URL for a coin + network from the environment. Mirrors the
 // FEE_DESTINATION env-override convention used elsewhere in the stack:
 //   INDEXER_API_URL_<COIN>_<NETWORK>   (e.g. INDEXER_API_URL_BTC_REGTEST)
@@ -32,8 +39,8 @@ const axios = require('axios');
 function resolveIndexerUrl(coin, network){
     let c = String(coin || '').toUpperCase();
     let n = String(network || '').toUpperCase();
-    return process.env['INDEXER_API_URL_' + c + '_' + n]
-        || process.env['INDEXER_API_URL']
+    return configEnv()['INDEXER_API_URL_' + c + '_' + n]
+        || configEnv()['INDEXER_API_URL']
         || null;
 }
 
@@ -41,14 +48,14 @@ class XChainIndexerConnector {
 
     constructor(url){
         this.url     = url;
-        this.timeout = Number(process.env.INDEXER_API_TIMEOUT_MS) || 5000;
+        this.timeout = Number(configEnv().INDEXER_API_TIMEOUT_MS) || 5000;
         // Optional API key for the indexer's fail-closed federation-read gate
         // (getstakeweightsbycapability is a FEDERATION_READ method). When the peer
         // indexer has INDEXER_API_KEY set, this must be presented or the gated call
         // gets a 401; plumbing it here lets a hardened indexer serve the explorer's
         // validator-set proof without INDEXER_ALLOW_UNAUTHENTICATED=true. Unset
         // keeps behavior byte-identical for open-gate/regtest indexers. Never logged.
-        this.apiKey  = process.env.EXPLORER_INDEXER_API_KEY || '';
+        this.apiKey  = configEnv().EXPLORER_INDEXER_API_KEY || '';
     }
 
     async call(method, params){

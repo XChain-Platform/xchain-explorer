@@ -26,6 +26,11 @@ const coins = require('../coins');
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+// Environment reads go through config.js's live read-through view of process.env.
+// config.js requires this module at its top, before it has built its exports, so
+// the view is looked up each time a read runs and never captured at load.
+const configEnv = () => require('../config.js').env;
+
 // Local { coin -> consensusHash } per network, computed on first use. The vendored
 // bundle cannot change under a running process, so re-hashing it on every config
 // poll would be pure waste.
@@ -73,9 +78,9 @@ class XChainHubConnector {
         // few times with exponential backoff bridges the gap. ping() opts out
         // (passes attempts:1) so liveness checks stay fast. Overridable via
         // HUB_RETRY_ATTEMPTS / HUB_RETRY_DELAY_MS (tests set delay 0).
-        this.maxAttempts  = Number(process.env.HUB_RETRY_ATTEMPTS) || 4;
-        this.retryDelayMs = process.env.HUB_RETRY_DELAY_MS !== undefined
-            ? Number(process.env.HUB_RETRY_DELAY_MS) : 2000;
+        this.maxAttempts  = Number(configEnv().HUB_RETRY_ATTEMPTS) || 4;
+        this.retryDelayMs = configEnv().HUB_RETRY_DELAY_MS !== undefined
+            ? Number(configEnv().HUB_RETRY_DELAY_MS) : 2000;
         // Sticky-last-good endpoint: start each endpoint pass at the last
         // endpoint that answered, so a degraded first endpoint isn't retried
         // first every call (which would cost the full timeout per call before
@@ -155,7 +160,7 @@ class XChainHubConnector {
             // and one request carries one x-api-key header. Unset, the bulk key
             // authorizes both tiers, which is the ordinary deployment.
             let headers = {};
-            let hubKey = process.env.HUB_CONFIG_SECRETS_API_KEY || process.env.HUB_API_KEY;
+            let hubKey = configEnv().HUB_CONFIG_SECRETS_API_KEY || configEnv().HUB_API_KEY;
             if(hubKey) headers['x-api-key'] = hubKey;
             for(let i = 0; i < this.urls.length; i++){
                 let idx = (this._lastGoodIdx + i) % this.urls.length;
@@ -463,16 +468,16 @@ XChainHubConnector.parseEndpoints = function(){
     // null makes getConfig()/startSync() take the file/NODE_CONFIG path (see
     // config.js). This is how a single-server instance points at a local/synced
     // MariaDB the hub doesn't advertise (the hub publishes docker-internal db_host).
-    if(['1','true','yes'].includes(String(process.env.NO_HUB || '').toLowerCase()))
+    if(['1','true','yes'].includes(String(configEnv().NO_HUB || '').toLowerCase()))
         return null;
-    if(process.env.HUB_VALIDATORS){
-        return process.env.HUB_VALIDATORS.split(',')
+    if(configEnv().HUB_VALIDATORS){
+        return configEnv().HUB_VALIDATORS.split(',')
             .map(e => e.trim())
             .filter(e => e)
             .map(e => e.startsWith('http') ? e : 'http://' + e);
     }
-    let host = process.env.HUB_API_HOST || 'localhost';
-    let port = process.env.HUB_PORT || '10000';
+    let host = configEnv().HUB_API_HOST || 'localhost';
+    let port = configEnv().HUB_PORT || '10000';
     return ['http://' + host + ':' + port];
 };
 

@@ -391,6 +391,24 @@ describe('XChainHubConnector', function () {
             }
         });
 
+        it('reads its env when config.js is loaded first, the order api.js boots in', function () {
+            // config.js requires this connector at its top, before config.js has built
+            // its exports. A connector that captured config.js's env view at load would
+            // hold undefined and throw here. Run in a child process because this mocha
+            // process has long since cached both modules.
+            const { spawnSync } = require('child_process');
+            const path = require('path');
+            const script = "require('./src/config.js');" +
+                "process.stdout.write('\\nENDPOINTS=' + JSON.stringify(require('./src/connectors/hub.js').parseEndpoints()) + '\\n');";
+            const run = spawnSync(process.execPath, ['-e', script], {
+                cwd: path.resolve(__dirname, '../..'), encoding: 'utf8',
+                env: { ...process.env, XCHAIN_LOG_PATCH: '0', NO_HUB: '', HUB_VALIDATORS: 'a:1' }
+            });
+            expect(run.status, run.stderr).to.equal(0);
+            const line = run.stdout.split('\n').find((l) => l.startsWith('ENDPOINTS='));
+            expect(JSON.parse(line.slice('ENDPOINTS='.length))).to.deep.equal(['http://a:1']);
+        });
+
     });
 
     describe('_applyConfigResult() and config-delta merge', function () {

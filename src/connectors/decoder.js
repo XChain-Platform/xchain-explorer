@@ -26,6 +26,13 @@
 
 const axios = require('axios');
 
+// Every environment read goes through config.js's live read-through view of
+// process.env, so config.js stays the one place the gate lets env be read. The
+// view is looked up per read so that requiring this module never loads config.js,
+// whose SSL probe and log line would otherwise run in every tool and suite that
+// never reads a variable.
+const configEnv = () => require('../config.js').env;
+
 // Resolve the decoder JSON-RPC API URL for a coin + network. Priority:
 //   1. DECODER_API_URL_<COIN>_<NETWORK>  (e.g. DECODER_API_URL_BTC_REGTEST)
 //   2. configUrl, the per-chain endpoint the caller derived from the config the
@@ -48,10 +55,10 @@ function resolveDecoderUrl(coin, network, configUrl){
     let n = String(network || '').toUpperCase();
     // Only consult the specific key when both halves are known: a code the
     // caller could not parse would otherwise read DECODER_API_URL__.
-    if(c && n && process.env['DECODER_API_URL_' + c + '_' + n])
-        return process.env['DECODER_API_URL_' + c + '_' + n];
+    if(c && n && configEnv()['DECODER_API_URL_' + c + '_' + n])
+        return configEnv()['DECODER_API_URL_' + c + '_' + n];
     if(configUrl) return configUrl;
-    return process.env['DECODER_API_URL'] || null;
+    return configEnv()['DECODER_API_URL'] || null;
 }
 
 class XChainDecoderConnector {
@@ -61,7 +68,7 @@ class XChainDecoderConnector {
         // Tighter default than the indexer connector: health aggregation runs on
         // the /api/status hot path, so a stalled decoder must not hold the whole
         // status response for long.
-        this.timeout = Number(process.env.DECODER_API_TIMEOUT_MS) || 2500;
+        this.timeout = Number(configEnv().DECODER_API_TIMEOUT_MS) || 2500;
     }
 
     async call(method, params){

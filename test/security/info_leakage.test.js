@@ -24,8 +24,10 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
+const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
 const { mockReq, mockRes }     = require('../fixtures/mock-query-args.js');
+const { getLogger }            = require('../../src/observability');
+const { createLogShipper }     = require('../../src/observability/logShipper.js');
 
 // What the fake database hands back; each test sets it to shape the response it checks for leaks
 let getDataResult = [[], null];
@@ -51,8 +53,7 @@ const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     }
 });
 
-function makeExplorer() {
-    const configInfo = createConfigInfoStub();
+function makeExplorer(configInfo = createConfigInfoStub()) {
     const explorer   = new XChainExplorer(mockApp, configInfo);
     sinon.stub(explorer.util, 'fileExists').resolves(true);
     sinon.stub(explorer.util, 'fileGetContents')
@@ -118,18 +119,22 @@ describe('Security: Info Leakage: Runtime header', function () {
 
 describe('Security: Info Leakage: Debug logging', function () {
 
-    let consoleLogStub, consoleDirStub;
+    // Stubbed on the lazy logger object XChainExplorer.js holds, so the dump is seen
+    // whether or not an earlier suite installed the real shipper.
+    let infoStub;
 
     beforeEach(() => {
-        consoleLogStub = sinon.stub(console, 'log');
-        consoleDirStub = sinon.stub(console, 'dir');
+        infoStub = sinon.stub(getLogger(), 'info');
     });
 
     afterEach(() => {
-        consoleLogStub.restore();
-        consoleDirStub.restore();
+        infoStub.restore();
         delete process.env.DEBUG;
     });
+
+    function requestConfigDumps() {
+        return infoStub.getCalls().filter(c => c.args[0] === 'REQUEST_CONFIG');
+    }
 
     it('does NOT log request config when DEBUG is not set', async function () {
         delete process.env.DEBUG;
@@ -137,9 +142,7 @@ describe('Security: Info Leakage: Debug logging', function () {
         const explorer = makeExplorer();
         await handle(explorer, '/BTC/api/sends/addr1/address');
 
-        const logCalls = consoleLogStub.getCalls().map(c => c.args[0]);
-        expect(logCalls).to.not.include('--- REQUEST CONFIG ---');
-        expect(consoleDirStub.called).to.be.false;
+        expect(requestConfigDumps()).to.have.length(0);
     });
 
     it('logs request config when DEBUG is set', async function () {
@@ -148,9 +151,47 @@ describe('Security: Info Leakage: Debug logging', function () {
         const explorer = makeExplorer();
         await handle(explorer, '/BTC/api/sends/addr1/address');
 
-        const logCalls = consoleLogStub.getCalls().map(c => c.args[0]);
-        expect(logCalls).to.include('--- REQUEST CONFIG ---');
-        expect(consoleDirStub.called).to.be.true;
+        const dumps = requestConfigDumps();
+        expect(dumps).to.have.length(1);
+        expect(dumps[0].args[1].data.path).to.equal('/BTC/api/sends/addr1/address');
+    });
+
+    it('the request config dump carries no credential, from the config or the query', async function () {
+        process.env.DEBUG = '1';
+        getDataResult = [[{ action_index: 1 }], 1];
+
+        // Plant one sentinel in every credential slot of the config the explorer
+        // holds: a dump widened from the request config to the service config
+        // would carry it.
+        const CONFIG_SECRET = 'cfg-secret-7f3a9c';
+        const config = getFullConfig();
+        (function plant(node) {
+            if (!node || typeof node !== 'object') return;
+            for (const key of Object.keys(node)) {
+                if (/^(pass|password|token|api_key)$/i.test(key)) node[key] = CONFIG_SECRET;
+                else plant(node[key]);
+            }
+        })(config);
+        const explorer = makeExplorer(createConfigInfoStub(config));
+
+        const QUERY_SECRET = 'query-secret-51d2e8';
+        await handle(explorer, '/BTC/api/sends/addr1/address', { api_key: QUERY_SECRET, limit: '5' });
+
+        const dumps = requestConfigDumps();
+        expect(dumps).to.have.length(1);
+        const fields = dumps[0].args[1];
+        expect(JSON.stringify(fields)).to.not.include(CONFIG_SECRET);
+
+        // What reaches a sink is the shipper's record, which redacts secret-named
+        // keys in the client-supplied query while keeping the rest of it.
+        const lines = [];
+        const sink  = { log: (l) => lines.push(l), warn: (l) => lines.push(l), error: (l) => lines.push(l) };
+        createLogShipper({ service: 'xchain-explorer', env: { LOG_FORMAT: 'json' }, console: sink })
+            .info(dumps[0].args[0], fields);
+        expect(lines).to.have.length(1);
+        expect(lines[0]).to.not.include(QUERY_SECRET);
+        expect(lines[0]).to.not.include(CONFIG_SECRET);
+        expect(JSON.parse(lines[0]).data.query.limit).to.equal('5');
     });
 });
 

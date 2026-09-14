@@ -1499,12 +1499,10 @@ class XChainExplorer {
             log.warn('SLOW_REQUEST', { path: req.path, time: response.time + 'ms' });
         }
 
+        // The request config as fields, so the shipper's key redaction applies to the
+        // client-supplied query it carries before the record reaches any log sink.
         if(configEnv().DEBUG){
-            console.log('--- REQUEST CONFIG ---');
-            console.dir(cfg, {
-                colors: true,
-                depth: 3
-            });
+            log.info('REQUEST_CONFIG', { coin: cfg.coin, type: cfg.type, file: cfg.file, data: cfg.data });
         }
     }
 

@@ -40,7 +40,7 @@
 'use strict';
 
 const crypto  = require('crypto');
-const { extractMethods } = require('../../contract-introspect.js');
+const { extractMethods } = require('../../contract/introspect.js');
 
 class ContractReaders {
     // Deployed contracts. Every contract query is an explicit column list, so the

@@ -40,7 +40,7 @@
  */
 
 const acorn = require('acorn');
-const { extractAbi, findModuleExports, ABI_PARAM_TYPES, CONTRACT_ECMA_VERSION } = require('./abi-core.js');
+const { extractAbi, findModuleExports, ABI_PARAM_TYPES, CONTRACT_ECMA_VERSION } = require('../abi-core.js');
 
 // Collect top-level function bindings (declarations plus const/let/var
 // initialized with a function or arrow expression). Object-export properties

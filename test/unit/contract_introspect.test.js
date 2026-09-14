@@ -12,14 +12,14 @@
  *
  **********************************************************************/
 
-// Unit tests for src/contract-introspect.js: the presentation-only AST method
+// Unit tests for src/contract/introspect.js: the presentation-only AST method
 // extractor behind getContract's `methods` field. The cases mirror the VM
 // wrapper's dispatch rules (object exports by key, function export as
 // 'default') plus every way extraction must degrade to null instead of
 // throwing into db.js.
 
 const { expect } = require('chai');
-const { extractMethods } = require('../../src/contract-introspect.js');
+const { extractMethods } = require('../../src/contract/introspect.js');
 
 describe('contract-introspect.extractMethods', () => {
 

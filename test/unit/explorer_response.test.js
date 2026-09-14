@@ -473,11 +473,11 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
     });
 
     // The catch-all route handler is fire-and-forget, so processRequest's rejection is
-    // routed to _sendUnhandled, which must degrade to a 500 instead of crashing.
+    // routed to sendUnhandled, which must degrade to a 500 instead of crashing.
     it('_sendUnhandled emits a 500 for an unexpected processRequest error', function () {
         const explorer = makeExplorer();
         const res      = mockRes();
-        explorer._sendUnhandled(new Error('boom'), { path: '/BTC/api/sends' }, res);
+        explorer.sendUnhandled(new Error('boom'), { path: '/BTC/api/sends' }, res);
         expect(res._status).to.equal(500);
         expect(res._body).to.be.a('string').and.include('INTERNAL_ERROR');
     });

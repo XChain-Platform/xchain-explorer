@@ -105,13 +105,13 @@ class HubMirrorSyncManager {
             if(!hubUrl){
                 // Registered, not skipped: an unconfigured instance is what makes
                 // managesCoin() true for this coin, which is what makes the gate in
-                // XChainExplorer._mirrorGate() refuse the consensus routes instead of
+                // XChainExplorer.mirrorGate() refuse the consensus routes instead of
                 // serving a mirror nothing writes. Reached only when the operator
                 // downgraded the db.js startup refusal with ALLOW_NO_COLOCATED_HUB_DB=1.
                 inst = { target: t, coins: [coinKey], pool: null, sync: null,
                          hubUrl: '', unconfigured: true, warnedAt: 0 };
                 this.instances.set(key, inst);
-                this._warnUnconfigured(inst);
+                this.warnUnconfigured(inst);
                 continue;
             }
             inst = { target: t, coins: [coinKey], pool: null, sync: null, hubUrl, unconfigured: false };
@@ -167,7 +167,7 @@ class HubMirrorSyncManager {
     // instance. Called from start() and from every status read, so the condition
     // stays visible in the log for as long as it lasts instead of scrolling away
     // after boot.
-    _warnUnconfigured(inst){
+    warnUnconfigured(inst){
         let now = Date.now();
         if(inst.warnedAt && (now - inst.warnedAt) < UNCONFIGURED_WARN_INTERVAL_MS) return;
         inst.warnedAt = now;
@@ -189,7 +189,7 @@ class HubMirrorSyncManager {
         let inst = this.instanceForCoin(coinKey);
         if(!inst) return null;
         if(inst.unconfigured){
-            this._warnUnconfigured(inst);
+            this.warnUnconfigured(inst);
             return {
                 enabled:           true,
                 configured:        false,

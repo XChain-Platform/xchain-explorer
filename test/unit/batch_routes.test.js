@@ -112,9 +112,9 @@ const coinpayRoute  = routeHandler('/:coin/api/coinpay_obligations');
  * Drive a registered batch route and return { code, body, headers }.
  *
  * The registered handler is fire-and-forget (it hands the promise to
- * _sendUnhandled and returns), which is what express calls it for, so this
+ * sendUnhandled and returns), which is what express calls it for, so this
  * waits on the RESPONSE rather than on a returned promise. A handler that
- * threw still lands here as _sendUnhandled's 500, not as a hang.
+ * threw still lands here as sendUnhandled's 500, not as a hang.
  */
 async function post(handler, coin, body, query = {}) {
     const res = mockRes();

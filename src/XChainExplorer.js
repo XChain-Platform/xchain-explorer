@@ -850,7 +850,7 @@ class XChainExplorer {
         // concurrency gate rather than removed: what changes is that the gate and the
         // rate limiter now see one caller-visible request instead of twenty, and the
         // work inside it is capped at BATCH_READ_CONCURRENCY in flight. Both halves are
-        // produced by the same dispatcher that answers the per-address GETs (_readApi
+        // produced by the same dispatcher that answers the per-address GETs (readApi
         // re-drives processRequest), so a batch entry and its GET can never drift.
         //
         // One limiter for both routes on purpose: the wallet's balance beat and its
@@ -870,9 +870,9 @@ class XChainExplorer {
             handler:         limitedHandler({ service: 'Explorer', name: 'batch', ...batchPolicy })
         });
         this.app.post('/:coin/api/balances', batchLimiter,
-            (req, res) => { this.processBalancesBatchRequest(req, res).catch(err => this._sendUnhandled(err, req, res)); });
+            (req, res) => { this.processBalancesBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
         this.app.post('/:coin/api/coinpay_obligations', batchLimiter,
-            (req, res) => { this.processCoinpayObligationsBatchRequest(req, res).catch(err => this._sendUnhandled(err, req, res)); });
+            (req, res) => { this.processCoinpayObligationsBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
 
         this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { this.processFeeScheduleRequest(req, res); });
 
@@ -1008,7 +1008,7 @@ class XChainExplorer {
         // the wildcard MUST be braced ('/{*path}') to match the bare root '/': the
         // unbraced form requires a trailing segment, dropping '/' through to the
         // JSON-RPC router as a -32600.
-        this.app.get('/{*path}', (req, res) => { this.processRequest(req, res).catch(err => this._sendUnhandled(err, req, res)); });
+        this.app.get('/{*path}', (req, res) => { this.processRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
 
         return urls;
     }
@@ -1017,7 +1017,7 @@ class XChainExplorer {
     // is fire-and-forget, so a throw outside its narrow db.getData try/catch would
     // terminate the process under Node's --unhandled-rejections=throw default, a
     // single-request DoS. Degrade to a 500, and stay minimal so it cannot throw.
-    _sendUnhandled(err, req, res){
+    sendUnhandled(err, req, res){
         try {
             console.error('processRequest unhandled error for', req && req.path, '-', (err && err.message) ? err.message : err);
             if(res && !res.headersSent)
@@ -1224,7 +1224,7 @@ class XChainExplorer {
             // SELF-SYNCED mirror has never bootstrapped, refuse to serve (an
             // empty mirror must read as an outage, not an empty ledger), and
             // otherwise annotate lag. Same gate as the checkpoint routes.
-            let mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? this._mirrorGate(cfg.coin) : null;
+            let mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? this.mirrorGate(cfg.coin) : null;
             // /{COIN}/api/action/{QUERY} binds its path segment against the BIGINT
             // action_index column, and MariaDB coerces the string, so `/api/action/7junk`
             // answered 200 with action 7 and `/api/action/junk` with action 0. Reject the
@@ -1339,7 +1339,7 @@ class XChainExplorer {
             if(mirrorGate){
                 if(mirrorGate.blocked){
                     response.code = 503;
-                    response.json = this._mirrorBlockedBody(mirrorGate.blocked);
+                    response.json = this.mirrorBlockedBody(mirrorGate.blocked);
                 } else if(mirrorGate.annotate){
                     Object.assign(response.json, mirrorGate.annotate);
                 }
@@ -2047,7 +2047,7 @@ class XChainExplorer {
      * the SAME dispatcher that answers the per-address GETs, so a batch body
      * and a GET body cannot disagree about a field, a paging default or a
      * freshness marker; only the number of HTTP requests it takes to get them
-     * changes. See _readApi for why re-driving is sound.
+     * changes. See readApi for why re-driving is sound.
      *********************************************************/
 
     /**
@@ -2062,7 +2062,7 @@ class XChainExplorer {
      * rather than propagated: one address failing must not lose the other
      * nineteen answers the caller already paid for.
      */
-    async _readApi(coin, apiPath, query){
+    async readApi(coin, apiPath, query){
         let code = 200;
         const body = [];
         const res  = {
@@ -2086,7 +2086,7 @@ class XChainExplorer {
      * Returns { addresses } (deduplicated, input order preserved) or
      * { refusal } carrying the 400 body to send.
      */
-    _parseBatchAddresses(body){
+    parseBatchAddresses(body){
         const list = (body && Array.isArray(body.addresses)) ? body.addresses : null;
         if(list === null || list.length === 0 || list.some(entry => typeof entry !== 'string'))
             return { refusal: { error: 'addresses must be a non-empty array of address strings', code: 'INVALID_ADDRESSES' } };
@@ -2108,7 +2108,7 @@ class XChainExplorer {
     // explicitly rather than through res.type(), and the body serialized by
     // util.jsonStringify, so a batch body and a per-address body are encoded by
     // the same code path.
-    _sendBatchJson(res, code, json){
+    sendBatchJson(res, code, json){
         res.status(code);
         res.set('Content-Type', 'application/json; charset=utf-8');
         res.send(this.util.jsonStringify(json));
@@ -2119,11 +2119,11 @@ class XChainExplorer {
      * entry is built from, in the order their failures take precedence:
      * [{ key, path(address) }, ..].
      */
-    async _processBatchRequest(req, res, parts){
+    async processBatchRequest(req, res, parts){
         const coin   = String((req.params && req.params.coin) || '').toUpperCase();
-        const parsed = this._parseBatchAddresses(req.body);
+        const parsed = this.parseBatchAddresses(req.body);
         if(parsed.refusal)
-            return this._sendBatchJson(res, 400, parsed.refusal);
+            return this.sendBatchJson(res, 400, parsed.refusal);
 
         const addresses = parsed.addresses;
         const query     = (req.query && typeof req.query === 'object') ? req.query : {};
@@ -2135,9 +2135,9 @@ class XChainExplorer {
         // is the opposite of what a fail-closed gate is for. Its result is carried
         // into the fan-out below rather than re-read.
         const firstPath = parts[0].path(addresses[0]);
-        const firstRead = await this._readApi(coin, firstPath, query);
+        const firstRead = await this.readApi(coin, firstPath, query);
         if(firstRead.code === 503 && firstRead.json && String(firstRead.json.code || '').startsWith('COIN_'))
-            return this._sendBatchJson(res, firstRead.code, firstRead.json);
+            return this.sendBatchJson(res, firstRead.code, firstRead.json);
 
         const seeded  = new Map([[firstPath, firstRead]]);
         const entries = new Map();
@@ -2151,7 +2151,7 @@ class XChainExplorer {
                 let failure   = null;
                 for(const part of parts){
                     const readPath = part.path(address);
-                    const read     = seeded.has(readPath) ? seeded.get(readPath) : await this._readApi(coin, readPath, query);
+                    const read     = seeded.has(readPath) ? seeded.get(readPath) : await this.readApi(coin, readPath, query);
                     if(read.code === 200){
                         entry[part.key] = read.json;
                         continue;
@@ -2183,21 +2183,21 @@ class XChainExplorer {
         const out = {};
         for(const address of addresses)
             out[address] = entries.get(address);
-        return this._sendBatchJson(res, 200, out);
+        return this.sendBatchJson(res, 200, out);
     }
 
     async processBalancesBatchRequest(req, res){
         // encodeURIComponent is a no-op on anything isAddressLike admits
         // ([A-Za-z0-9] only); it is here so a future loosening of that predicate
         // cannot turn an entry into extra path segments.
-        return this._processBatchRequest(req, res, [
+        return this.processBatchRequest(req, res, [
             { key: 'balances', path: (address) => '/balances/' + encodeURIComponent(address) },
             { key: 'address',  path: (address) => '/address/'  + encodeURIComponent(address) }
         ]);
     }
 
     async processCoinpayObligationsBatchRequest(req, res){
-        return this._processBatchRequest(req, res, [
+        return this.processBatchRequest(req, res, [
             { key: 'coinpay_obligations', path: (address) => '/coinpay_obligations/' + encodeURIComponent(address) + '/address' }
         ]);
     }
@@ -2323,7 +2323,7 @@ class XChainExplorer {
     // empty mirror having to read as an outage rather than an empty ledger, while a
     // bootstrapped-but-lagging one serves with a mirror_lag_seconds annotation and
     // hard-fails past MIRROR_MAX_LAG_S only when MIRROR_LAG_FAIL_CLOSED=1 opts in.
-    _mirrorGate(coin){
+    mirrorGate(coin){
         let mgr = this.hubMirrorSync;
         if(!mgr || !mgr.managesCoin(coin)) return { blocked: null, annotate: null };
         let status = mgr.statusForCoin(coin) || {};
@@ -2348,7 +2348,7 @@ class XChainExplorer {
         return { blocked: null, annotate };
     }
 
-    _mirrorBlockedBody(blocked){
+    mirrorBlockedBody(blocked){
         let error;
         if(blocked === 'MIRROR_NOT_CONFIGURED')
             error = 'Hub-mirror self-sync is configured for this coin but no hub endpoint is set ' +
@@ -2380,9 +2380,9 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
-            let gate = this._mirrorGate(coin);
+            let gate = this.mirrorGate(coin);
             if(gate.blocked)
-                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+                return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             // Strict shape before parsing, mirroring processCheckpointVerifyRequest below:
             // parseInt let '20junk', '1e2' and '1.5' through by prefix, and a negative
             // clamped to 1 rather than reading as the malformed input it is.
@@ -2409,9 +2409,9 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
-            let gate = this._mirrorGate(coin);
+            let gate = this.mirrorGate(coin);
             if(gate.blocked)
-                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+                return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let blockIndex = req.params.blockIndex;
             if(!/^[0-9]+$/.test(String(blockIndex)))
                 return res.status(400).json({ error: 'Invalid block_index', code: 'INVALID_BLOCK_INDEX' });
@@ -2517,9 +2517,9 @@ class XChainExplorer {
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
             // Balance proofs bind to a quorum-signed checkpoint from the mirror,
             // so they inherit the same staleness gate as the checkpoint routes.
-            let gate = this._mirrorGate(coin);
+            let gate = this.mirrorGate(coin);
             if(gate.blocked)
-                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+                return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
@@ -2554,9 +2554,9 @@ class XChainExplorer {
             let coin = String(req.params.coin || '').toUpperCase();
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
-            let gate = this._mirrorGate(coin);
+            let gate = this.mirrorGate(coin);
             if(gate.blocked)
-                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+                return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let from = req.query.from, to = req.query.to;
             if(!/^[0-9]+$/.test(String(from)) || !/^[0-9]+$/.test(String(to)))
                 return res.status(400).json({ error: 'from and to (integers) are required', code: 'INVALID_RANGE' });
@@ -2588,9 +2588,9 @@ class XChainExplorer {
             // routes: on a never-bootstrapped or stale self-synced mirror they must 503
             // rather than answer an authoritative "not checkpointed" (409) off an
             // empty/frozen mirror.
-            let gate = this._mirrorGate(coin);
+            let gate = this.mirrorGate(coin);
             if(gate.blocked)
-                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+                return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
@@ -2628,9 +2628,9 @@ class XChainExplorer {
             // read from the mirror, so they inherit the same staleness gate as the
             // balance-proof/checkpoint routes (503 on an unbootstrapped/stale mirror
             // instead of an authoritative "not yet checkpointed" 409 off a frozen mirror).
-            let gate = this._mirrorGate(coin);
+            let gate = this.mirrorGate(coin);
             if(gate.blocked)
-                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+                return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
@@ -2685,9 +2685,9 @@ class XChainExplorer {
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
             // Same staleness gate as every other checkpoint-bound proof route.
-            let gate = this._mirrorGate(coin);
+            let gate = this.mirrorGate(coin);
             if(gate.blocked)
-                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+                return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
@@ -2754,9 +2754,9 @@ class XChainExplorer {
             if(!this.db.pools || !this.db.pools[coin])
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
             // Same staleness gate as every other checkpoint-bound proof route.
-            let gate = this._mirrorGate(coin);
+            let gate = this.mirrorGate(coin);
             if(gate.blocked)
-                return res.status(503).json(this._mirrorBlockedBody(gate.blocked));
+                return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
@@ -3067,22 +3067,22 @@ class XChainExplorer {
     // endpoint must refuse to connect to. Delegates to the canonical classifier
     // in http/ssrf_guard.js so the /relay and IconDownloader egress paths share one
     // range list instead of drifting apart.
-    _isPrivateAddress(ip){
+    isPrivateAddress(ip){
         return ssrfGuard.isPrivateAddress(ip);
     }
 
     // SSRF guard: a dns.lookup-compatible shim handed to axios so the address it
-    // is about to connect to is checked against _isPrivateAddress. Rejecting here
+    // is about to connect to is checked against isPrivateAddress. Rejecting here
     // (rather than re-resolving separately) means there is no gap between the
     // check and the connection, closing the DNS-name / DNS-rebinding bypass of
     // the literal hostname blocklist.
-    _ssrfSafeLookup(hostname, options, callback){
+    ssrfSafeLookup(hostname, options, callback){
         if(typeof options === 'function'){ callback = options; options = {}; }
         dns.lookup(hostname, options, (err, address, family) => {
             if(err) return callback(err);
             let entries = Array.isArray(address) ? address : [{ address, family }];
             for(let e of entries){
-                if(this._isPrivateAddress(e.address)){
+                if(this.isPrivateAddress(e.address)){
                     let denied = new Error('Destination resolves to a non-permitted address');
                     denied.code = 'RELAY_DENIED';
                     return callback(denied);
@@ -3108,7 +3108,7 @@ class XChainExplorer {
                 // here against the canonical range classifier, which covers IPv6 ULA
                 // (fc00::/7 incl. fd00:ec2::254), CGNAT (100.64/10), and the full
                 // link-local range that the drifted inline list below missed.
-                if(net.isIP(hostname) && this._isPrivateAddress(hostname))
+                if(net.isIP(hostname) && this.isPrivateAddress(hostname))
                     return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
                 const blocked = [
                     /^localhost$/i,
@@ -3139,10 +3139,10 @@ class XChainExplorer {
                 const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
                 // The literal-hostname blocklist only catches IPs in the URL; a domain whose
                 // DNS record points at a private address (or rebinds) would sail past it.
-                // _ssrfSafeLookup validates the address axios actually connects to, closing
+                // ssrfSafeLookup validates the address axios actually connects to, closing
                 // the TOCTOU window between a separate re-resolution check and the connection.
                 const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
-                               lookup: this._ssrfSafeLookup.bind(this) };
+                               lookup: this.ssrfSafeLookup.bind(this) };
 
                 const isArweave = /^arweave\.net$/i.test(parsed.hostname);
                 if(ext=='json' || isArweave){

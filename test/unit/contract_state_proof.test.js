@@ -296,7 +296,7 @@ describe('SPV Stage A: contract-state request validation @regression', function 
         };
         const self = {
             db: { pools: { [COIN]: {} } },
-            _mirrorGate: () => ({ blocked: null }),
+            mirrorGate: () => ({ blocked: null }),
             parseCoinCode: () => ({ coin: CHAIN, network: NET }),
             configInfo: { getConfig: async () => ({}) },
             proofServer: { contractStateProof: async (cfg, chain, net, idx, key) => {

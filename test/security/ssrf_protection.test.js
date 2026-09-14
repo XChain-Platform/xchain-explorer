@@ -260,10 +260,10 @@ describe('Security: SSRF: DNS resolution bypass', function () {
         const priv = ['127.0.0.1', '127.255.255.255', '10.1.2.3', '172.16.0.1',
                       '172.31.255.255', '192.168.0.5', '169.254.169.254', '0.0.0.0',
                       '::1', '::ffff:127.0.0.1', 'fc00::1', 'fd12::1', 'fe80::1'];
-        for (const ip of priv) expect(explorer._isPrivateAddress(ip), ip).to.be.true;
+        for (const ip of priv) expect(explorer.isPrivateAddress(ip), ip).to.be.true;
 
         const pub = ['8.8.8.8', '1.1.1.1', '93.184.216.34', '172.32.0.1', '2606:4700::1111'];
-        for (const ip of pub) expect(explorer._isPrivateAddress(ip), ip).to.be.false;
+        for (const ip of pub) expect(explorer.isPrivateAddress(ip), ip).to.be.false;
     });
 
     it('wires a lookup shim into the relay request options', async function () {
@@ -281,7 +281,7 @@ describe('Security: SSRF: DNS resolution bypass', function () {
             cb(null, '169.254.169.254', 4);                       // DNS A record → metadata
         }};
         const explorer = makeExplorer(undefined, dnsStub);
-        explorer._ssrfSafeLookup('metadata.attacker.example', {}, (err) => {
+        explorer.ssrfSafeLookup('metadata.attacker.example', {}, (err) => {
             expect(err).to.be.an('error');
             expect(err.code).to.equal('RELAY_DENIED');
             done();
@@ -294,7 +294,7 @@ describe('Security: SSRF: DNS resolution bypass', function () {
             cb(null, [{ address: '93.184.216.34', family: 4 }, { address: '10.0.0.5', family: 4 }]);
         }};
         const explorer = makeExplorer(undefined, dnsStub);
-        explorer._ssrfSafeLookup('rebind.attacker.example', { all: true }, (err) => {
+        explorer.ssrfSafeLookup('rebind.attacker.example', { all: true }, (err) => {
             expect(err).to.be.an('error');
             expect(err.code).to.equal('RELAY_DENIED');
             done();
@@ -307,7 +307,7 @@ describe('Security: SSRF: DNS resolution bypass', function () {
             cb(null, '93.184.216.34', 4);
         }};
         const explorer = makeExplorer(undefined, dnsStub);
-        explorer._ssrfSafeLookup('example.com', {}, (err, address, family) => {
+        explorer.ssrfSafeLookup('example.com', {}, (err, address, family) => {
             expect(err).to.not.exist;
             expect(address).to.equal('93.184.216.34');
             expect(family).to.equal(4);

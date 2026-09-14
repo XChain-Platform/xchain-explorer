@@ -64,7 +64,7 @@ describe('explorer hub-mirror staleness gate', function () {
 
     describe('_mirrorGate()', function () {
         it('open (no annotation) when no mirror manager runs for the coin', function () {
-            const gate = makeExplorer()._mirrorGate('BTC');
+            const gate = makeExplorer().mirrorGate('BTC');
             expect(gate).to.deep.equal({ blocked: null, annotate: null });
         });
 
@@ -72,24 +72,24 @@ describe('explorer hub-mirror staleness gate', function () {
             // Distinct from NOT_BOOTSTRAPPED: nothing is coming, because no writer
             // exists. Serving here is what shipped stale checkpoints indefinitely.
             const gate = makeExplorer({ ...OK_STATUS, configured: false, reason: 'HUB_URL_MISSING' })
-                ._mirrorGate('BTC');
+                .mirrorGate('BTC');
             expect(gate.blocked).to.equal('MIRROR_NOT_CONFIGURED');
             expect(gate.annotate).to.equal(null);
         });
 
         it('names the missing configuration in the blocked body', function () {
-            const body = makeExplorer()._mirrorBlockedBody('MIRROR_NOT_CONFIGURED');
+            const body = makeExplorer().mirrorBlockedBody('MIRROR_NOT_CONFIGURED');
             expect(body.code).to.equal('MIRROR_NOT_CONFIGURED');
             expect(body.error).to.match(/hub_url|HUB_API_URL/);
         });
 
         it('blocks while the mirror has never bootstrapped', function () {
-            const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false })._mirrorGate('BTC');
+            const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false }).mirrorGate('BTC');
             expect(gate.blocked).to.equal('MIRROR_NOT_BOOTSTRAPPED');
         });
 
         it('annotates lag once bootstrapped', function () {
-            const gate = makeExplorer(OK_STATUS)._mirrorGate('BTC');
+            const gate = makeExplorer(OK_STATUS).mirrorGate('BTC');
             expect(gate.blocked).to.equal(null);
             expect(gate.annotate).to.deep.equal({ mirror_bootstrapped: true, mirror_lag_seconds: 5 });
         });
@@ -97,7 +97,7 @@ describe('explorer hub-mirror staleness gate', function () {
         it('lag past MIRROR_MAX_LAG_S warns but serves by default', function () {
             process.env.MIRROR_MAX_LAG_S = '60';
             const warn = sinon.stub(console, 'warn');
-            const gate = makeExplorer({ ...OK_STATUS, mirrorLagSeconds: 120 })._mirrorGate('BTC');
+            const gate = makeExplorer({ ...OK_STATUS, mirrorLagSeconds: 120 }).mirrorGate('BTC');
             expect(gate.blocked).to.equal(null);
             expect(warn.calledWithMatch(sinon.match(/exceeds MIRROR_MAX_LAG_S/))).to.equal(true);
         });
@@ -106,7 +106,7 @@ describe('explorer hub-mirror staleness gate', function () {
             process.env.MIRROR_MAX_LAG_S = '60';
             process.env.MIRROR_LAG_FAIL_CLOSED = '1';
             sinon.stub(console, 'warn');
-            const gate = makeExplorer({ ...OK_STATUS, mirrorLagSeconds: 120 })._mirrorGate('BTC');
+            const gate = makeExplorer({ ...OK_STATUS, mirrorLagSeconds: 120 }).mirrorGate('BTC');
             expect(gate.blocked).to.equal('MIRROR_STALE');
         });
     });

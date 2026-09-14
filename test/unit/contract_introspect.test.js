@@ -78,6 +78,10 @@ describe('contract-introspect.extractMethods', () => {
         expect(r.methods).to.deep.equal(['default']);
     });
 
+});
+
+describe('contract-introspect.extractMethods', () => {
+
     it('uses the FIRST module.exports assignment, ignoring later decoys', () => {
         const r = extractMethods(`
             module.exports = { real: function(xchain){} };
@@ -113,6 +117,10 @@ describe('contract-introspect.extractMethods', () => {
         expect(extractMethods(undefined).methods).to.equal(null);
         expect(extractMethods(12345).methods).to.equal(null);
     });
+
+});
+
+describe('contract-introspect.extractMethods', () => {
 
     // The extractor reports what the VM will execute, not what the deploy-time
     // linter bans. banned-async/banned-generator gate NEW deploys; a contract
@@ -194,6 +202,10 @@ describe('contract-introspect ABI extraction', () => {
         };`);
         expect(Object.keys(r.abi.methods)).to.deep.equal(['good']);
     });
+
+});
+
+describe('contract-introspect ABI extraction', () => {
 
     it('returns abi=null when version is not a numeric literal', () => {
         const r = extractMethods(`module.exports = { abi: { version: '1', methods: {} }, run: function(x){} };`);

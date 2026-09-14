@@ -80,6 +80,25 @@ describe('checkpoint self_sync / hub-endpoint pairing', function () {
         });
     });
 
+});
+
+describe('checkpoint self_sync / hub-endpoint pairing', function () {
+
+    let savedEnv;
+
+    beforeEach(function () {
+        savedEnv = { url: process.env.HUB_API_URL, allow: process.env.ALLOW_NO_COLOCATED_HUB_DB };
+        delete process.env.HUB_API_URL;
+        delete process.env.ALLOW_NO_COLOCATED_HUB_DB;
+    });
+
+    afterEach(function () {
+        if (savedEnv.url === undefined) delete process.env.HUB_API_URL;
+        else process.env.HUB_API_URL = savedEnv.url;
+        if (savedEnv.allow === undefined) delete process.env.ALLOW_NO_COLOCATED_HUB_DB;
+        else process.env.ALLOW_NO_COLOCATED_HUB_DB = savedEnv.allow;
+    });
+
     describe('_assertCheckpointDbForServingCoins()', function () {
         it('refuses to start when a serving coin self-syncs with no hub endpoint', function () {
             const db = makeDb({ RBTC: SELF_SYNC() });
@@ -102,6 +121,29 @@ describe('checkpoint self_sync / hub-endpoint pairing', function () {
             const db = makeDb({ RBTC: SELF_SYNC({ selfSync: false }) });
             expect(() => db.assertCheckpointDbForServingCoins()).to.not.throw();
         });
+
+    });
+
+});
+
+describe('checkpoint self_sync / hub-endpoint pairing', function () {
+
+    let savedEnv;
+
+    beforeEach(function () {
+        savedEnv = { url: process.env.HUB_API_URL, allow: process.env.ALLOW_NO_COLOCATED_HUB_DB };
+        delete process.env.HUB_API_URL;
+        delete process.env.ALLOW_NO_COLOCATED_HUB_DB;
+    });
+
+    afterEach(function () {
+        if (savedEnv.url === undefined) delete process.env.HUB_API_URL;
+        else process.env.HUB_API_URL = savedEnv.url;
+        if (savedEnv.allow === undefined) delete process.env.ALLOW_NO_COLOCATED_HUB_DB;
+        else process.env.ALLOW_NO_COLOCATED_HUB_DB = savedEnv.allow;
+    });
+
+    describe('_assertCheckpointDbForServingCoins()', function () {
 
         it('downgrades to a warning under ALLOW_NO_COLOCATED_HUB_DB=1', function () {
             process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';

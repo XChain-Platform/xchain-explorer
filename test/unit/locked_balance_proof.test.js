@@ -179,7 +179,7 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     // Skipped rather than failed when the sibling repo is absent.
     let light = null, sdkSub = null;
     try {
-        light  = require('../../../xchain-sdk/src/light.js');
+        light  = require('../../../xchain-sdk/src/protocol/light_client.js');
         sdkSub = require('../../../xchain-sdk/src/state_subtree_activation.js');
     } catch (e) { light = null; sdkSub = null; }
 

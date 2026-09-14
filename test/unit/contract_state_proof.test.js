@@ -232,7 +232,7 @@ describe('SPV Stage A: contractStateProof verifies through the real SDK verifier
     // implementations of "what does this proof mean" have to agree. Skipped rather
     // than failed when the sibling repo is absent (standalone checkout).
     let light = null;
-    try { light = require('../../../xchain-sdk/src/light.js'); } catch (e) { light = null; }
+    try { light = require('../../../xchain-sdk/src/protocol/light_client.js'); } catch (e) { light = null; }
 
     it('a membership proof verifies and yields the raw stored value', async function () {
         if (!light) return this.skip();

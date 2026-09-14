@@ -34,8 +34,8 @@ const ProofServer = require('../../src/http/proof_server.js');
 const fs   = require('fs');
 const path = require('path');
 const SDK_LIGHT = process.env.XCHAIN_SDK_DIR
-    ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'light.js')
-    : path.join(__dirname, '..', '..', '..', 'xchain-sdk', 'src', 'light.js');
+    ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'protocol', 'light_client.js')
+    : path.join(__dirname, '..', '..', '..', 'xchain-sdk', 'src', 'protocol', 'light_client.js');
 const verifyBalanceProof = fs.existsSync(SDK_LIGHT)
     ? require(SDK_LIGHT).verifyBalanceProof
     : null;

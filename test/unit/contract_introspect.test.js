@@ -162,7 +162,7 @@ describe('contract-introspect.extractMethods', () => {
 
 // ABI extraction (spec: xchain-documentation/protocol/contract-abi.md).
 // NOTE: these fixture strings are duplicated verbatim in the SDK suite
-// (xchain-sdk/test/unit/contracts.parseAbi.test.js) so the two hand-synced
+// (xchain-sdk/test/unit/contracts_parse_abi.test.js) so the two hand-synced
 // parser copies are tested against identical inputs.
 describe('contract-introspect ABI extraction', () => {
 

@@ -40,7 +40,7 @@ describe('xchain_ws.js CLIENT_WS_SCHEMA_VERSION conformance', function () {
         // api-contracts finding: _schemaWarned was an undeclared expando that was
         // never reset on reconnect, so a page that reconnected to an
         // upgraded server stayed silent after the first warning. The SDK client
-        // (xchain-sdk/src/websocket.js) resets the flag in its 'open' handler;
+        // (xchain-sdk/src/clients/websocket.js) resets the flag in its 'open' handler;
         // this client must do the same.
         const clientPath = path.join(__dirname, '../../../src/content/js/xchain_ws.js');
         const source      = fs.readFileSync(clientPath, 'utf8');

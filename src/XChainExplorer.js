@@ -2314,7 +2314,7 @@ class XChainExplorer {
      * Gated FILE returns AES-256-GCM ciphertext (12-byte nonce || 16-byte
      * authentication tag || ciphertext) as octet-stream; holders decrypt
      * client-side with a key delivered over an ECIES MESSAGE. The tag sits
-     * BEFORE the ciphertext, matching xchain-sdk/src/gatedFile.js and
+     * BEFORE the ciphertext, matching xchain-sdk/src/actions/gated_file.js and
      * xchain-documentation/protocol/actions/file.md; a decryptor written to
      * the other order fails GCM authentication on every file.
      *

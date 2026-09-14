@@ -65,6 +65,7 @@ const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     './db.js':  MockDB
 });
 
+// Build an explorer instance, with config overrides for the tests that need them.
 function makeExplorer(configOverrides) {
     const configInfo = createConfigInfoStub(configOverrides);
     return new XChainExplorer(mockApp, configInfo);
@@ -267,7 +268,8 @@ describe('XChainExplorer.processRequest – routing', function () {
 
         it('returns 404 for a valid coin + valid route where db returns null data', async function () {
             // MockDB returns [[], null], so data is [] and total is null; when total
-            // is null, processRequest falls into the not-found branch (404).
+            // is null, processRequest falls into the not-found branch (404, so the
+            // HTTP status agrees with the NOT_FOUND body code).
             const res = mockRes();
             await explorer.processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
             expect(res._status).to.equal(404);
@@ -494,6 +496,8 @@ describe('XChainExplorer.processRequest – routing', function () {
 
     });
 
+    // Page routes: each path must be assigned its HTML file rather than fall
+    // through to a routing error.
     describe('HTML routes', function () {
 
         /** For HTML routes, getData is never called so capturedConfig stays null.

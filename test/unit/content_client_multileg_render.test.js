@@ -79,29 +79,40 @@ function renderListRow(action, data, columns){
     return $('td', row).map(function(){ return $(this).text(); }).get();
 }
 
+// Action 1180 on RDOGE: three legs, two ticks, a distinct memo on each.
+const LEGS_1180 = [
+    { destination: 'moV6MFmHTNQF1cwoXiPjeEMbkSAKwBz9Li', tick: 'CAMPB',  amount: '2', memo: 'memo alpha',   status: 'valid' },
+    { destination: 'mpTtWGjAy7TnxpsUw29weQr2gyfj3NkmTp', tick: 'XCHAIN', amount: '3', memo: 'memo bravo',   status: 'valid' },
+    { destination: 'mrECHXeUhAJewbxSfkpv4GX4fgid74PUTJ', tick: 'CAMPB',  amount: '1', memo: 'memo charlie', status: 'valid' },
+];
+
+function renderSend(legs){
+    const { win } = bootClient('https://xchain.test/RDOGE/action/1180',
+                               fs.readFileSync(ACTION, 'utf8'));
+    win.showSendDetails({ sends: legs });
+    // Plain JS, not a nested jQuery .map(): that flattens a returned
+    // array and would hand back one long list of characters.
+    return win.jQuery('#datatable-send tbody tr').get().map(function(tr){
+        return win.jQuery('td', tr).get().map(function(td){
+            return win.jQuery(td).text().trim();
+        });
+    });
+}
+
+function renderAirdrop(payload){
+    const { win } = bootClient('https://xchain.test/RDOGE/action/1176',
+                               fs.readFileSync(ACTION, 'utf8'));
+    win.showAirdropDetails(payload);
+    return win.jQuery('#datatable-airdrop tbody tr').get().map(function(tr){
+        return win.jQuery('td', tr).get().map(function(td){
+            return win.jQuery(td).text().trim();
+        });
+    });
+}
+
 describe('multi-leg actions: legs the page could not show', function(){
 
     describe('SEND per-leg memo', function(){
-
-        // Action 1180 on RDOGE: three legs, two ticks, a distinct memo on each.
-        const LEGS_1180 = [
-            { destination: 'moV6MFmHTNQF1cwoXiPjeEMbkSAKwBz9Li', tick: 'CAMPB',  amount: '2', memo: 'memo alpha',   status: 'valid' },
-            { destination: 'mpTtWGjAy7TnxpsUw29weQr2gyfj3NkmTp', tick: 'XCHAIN', amount: '3', memo: 'memo bravo',   status: 'valid' },
-            { destination: 'mrECHXeUhAJewbxSfkpv4GX4fgid74PUTJ', tick: 'CAMPB',  amount: '1', memo: 'memo charlie', status: 'valid' },
-        ];
-
-        function renderSend(legs){
-            const { win } = bootClient('https://xchain.test/RDOGE/action/1180',
-                                       fs.readFileSync(ACTION, 'utf8'));
-            win.showSendDetails({ sends: legs });
-            // Plain JS, not a nested jQuery .map(): that flattens a returned
-            // array and would hand back one long list of characters.
-            return win.jQuery('#datatable-send tbody tr').get().map(function(tr){
-                return win.jQuery('td', tr).get().map(function(td){
-                    return win.jQuery(td).text().trim();
-                });
-            });
-        }
 
         it('renders each leg its own memo, in wire order', function(){
             const rows = renderSend(LEGS_1180);
@@ -118,6 +129,13 @@ describe('multi-leg actions: legs the page could not show', function(){
             expect(rows[1][3]).to.equal('3');
             expect(rows[1][5]).to.equal('valid');
         });
+
+    });
+});
+
+describe('multi-leg actions: legs the page could not show', function(){
+
+    describe('SEND per-leg memo', function(){
 
         it('renders an EMPTY memo cell for a leg that carries none, never the word null', function(){
             const rows = renderSend([
@@ -141,6 +159,9 @@ describe('multi-leg actions: legs the page could not show', function(){
             expect(head).to.contain('>Memo<');
         });
     });
+});
+
+describe('multi-leg actions: legs the page could not show', function(){
 
     describe('MINT destination', function(){
 
@@ -176,6 +197,9 @@ describe('multi-leg actions: legs the page could not show', function(){
                 .to.contain('colspan="' + headers + '"');
         });
     });
+});
+
+describe('multi-leg actions: legs the page could not show', function(){
 
     describe('DESTROY leg order', function(){
 
@@ -201,24 +225,16 @@ describe('multi-leg actions: legs the page could not show', function(){
             expect(ticks).to.deep.equal(['CAMPB', 'XCHAIN']);
         });
     });
+});
 
-    // AIRDROP formats 1-3 pay several lists in one action, and the indexer writes one
-    // `airdrops` row per leg under the same action_index, each with its own token,
-    // amount, memo and VALIDATION STATUS. The detail handler read a single row with
-    // LIMIT 1, so the page showed one arbitrary payout: a rejected leg sitting behind
-    // a valid one was invisible, which is the omission that matters here.
+// AIRDROP formats 1-3 pay several lists in one action, and the indexer writes one
+// `airdrops` row per leg under the same action_index, each with its own token,
+// amount, memo and VALIDATION STATUS. The detail handler read a single row with
+// LIMIT 1, so the page showed one arbitrary payout: a rejected leg sitting behind
+// a valid one was invisible, which is the omission that matters here.
+describe('multi-leg actions: legs the page could not show', function(){
+
     describe('AIRDROP legs', function(){
-
-        function renderAirdrop(payload){
-            const { win } = bootClient('https://xchain.test/RDOGE/action/1176',
-                                       fs.readFileSync(ACTION, 'utf8'));
-            win.showAirdropDetails(payload);
-            return win.jQuery('#datatable-airdrop tbody tr').get().map(function(tr){
-                return win.jQuery('td', tr).get().map(function(td){
-                    return win.jQuery(td).text().trim();
-                });
-            });
-        }
 
         it('collects every leg rather than one row', function(){
             const { AIRDROP } = require('../../src/action-detail/tokens.js');
@@ -243,6 +259,13 @@ describe('multi-leg actions: legs the page could not show', function(){
             AIRDROP.afterQuery2({}, data, [{ tick: 'CAMPB' }]);
             expect(data.airdrops).to.deep.equal([{ tick: 'CAMPB' }]);
         });
+
+    });
+});
+
+describe('multi-leg actions: legs the page could not show', function(){
+
+    describe('AIRDROP legs', function(){
 
         it('renders one row per payout, in wire order', function(){
             const rows = renderAirdrop({ airdrops: [

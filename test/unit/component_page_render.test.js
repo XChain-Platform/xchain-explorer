@@ -81,7 +81,7 @@ function browserRealm(file, coin){
     return { win, captured };
 }
 
-describe('composed page, end to end (M2)', function () {
+function registerServerCompositionTests() {
 
     describe('what the server hands the browser', function () {
 
@@ -103,6 +103,10 @@ describe('composed page, end to end (M2)', function () {
             });
         }
     });
+
+}
+
+function registerBrowserCompositionTests() {
 
     describe('what the browser does with it', function () {
 
@@ -149,6 +153,10 @@ describe('composed page, end to end (M2)', function () {
         });
     });
 
+}
+
+function registerShippedBranchTest() {
+
     it('is still a faithful copy of the shipped html branch', function () {
         // This suite proves the assembly only if the assembly it runs is the
         // one the service runs.
@@ -169,4 +177,10 @@ describe('composed page, end to end (M2)', function () {
             at = m.index;
         }
     });
+}
+
+describe('composed page, end to end (M2)', function () {
+    registerServerCompositionTests();
+    registerBrowserCompositionTests();
+    registerShippedBranchTest();
 });

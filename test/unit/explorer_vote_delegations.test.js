@@ -112,6 +112,34 @@ describe('Database#getVoteDelegations (M3.2 data leg)', () => {
         expect(query).to.match(/INNER\s+JOIN\s+blocks\s+b1\s+ON\s*\(b1\.block_index=t1\.block_index\)/);
     });
 
+    it('the list query carries a LIMIT sourced from config.data.sql.limit', async () => {
+        const db = makeDb();
+        const [query] = await db.getVoteDelegations(voteDelegationsConfig({ sql: { limit: 42 } }));
+        expect(query.trim().endsWith('LIMIT 42')).to.equal(true);
+    });
+
+    it('orders by m.action_index using config.data.sql.order', async () => {
+        const db = makeDb();
+        const [query] = await db.getVoteDelegations(voteDelegationsConfig({ sql: { order: 'ASC' } }));
+        expect(query).to.match(/ORDER BY m\.action_index\s+ASC/);
+    });
+
+    it('is registered in cursorPagedMethods (the get->lowercase table mangle collides on the underscore, like getContractDelegations)', () => {
+        const db = makeDb();
+        expect(db.cursorPagedMethods).to.include('getVoteDelegations');
+    });
+});
+
+describe('Database#getVoteDelegations (M3.2 data leg)', () => {
+
+    it('getMaxMethodResults falls through to the platform default of 100 (no per-method override)', () => {
+        const db = makeDb();
+        expect(db.getMaxMethodResults('getVoteDelegations')).to.equal(100);
+    });
+});
+
+describe('Database#getVoteDelegations (M3.2 data leg)', () => {
+
     // The row's entire substance: the latest-active-per-key exclusion.
     describe('latest-active-per-(tick_id, delegator) semantics', () => {
 
@@ -162,28 +190,6 @@ describe('Database#getVoteDelegations (M3.2 data leg)', () => {
             expect(countPred).to.not.equal(null);
             expect(listPred.replace(/\s+/g, ' ')).to.equal(countPred.replace(/\s+/g, ' '));
         });
-    });
-
-    it('the list query carries a LIMIT sourced from config.data.sql.limit', async () => {
-        const db = makeDb();
-        const [query] = await db.getVoteDelegations(voteDelegationsConfig({ sql: { limit: 42 } }));
-        expect(query.trim().endsWith('LIMIT 42')).to.equal(true);
-    });
-
-    it('orders by m.action_index using config.data.sql.order', async () => {
-        const db = makeDb();
-        const [query] = await db.getVoteDelegations(voteDelegationsConfig({ sql: { order: 'ASC' } }));
-        expect(query).to.match(/ORDER BY m\.action_index\s+ASC/);
-    });
-
-    it('is registered in cursorPagedMethods (the get->lowercase table mangle collides on the underscore, like getContractDelegations)', () => {
-        const db = makeDb();
-        expect(db.cursorPagedMethods).to.include('getVoteDelegations');
-    });
-
-    it('getMaxMethodResults falls through to the platform default of 100 (no per-method override)', () => {
-        const db = makeDb();
-        expect(db.getMaxMethodResults('getVoteDelegations')).to.equal(100);
     });
 });
 

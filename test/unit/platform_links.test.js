@@ -67,6 +67,10 @@ describe('Platform switcher', function () {
         });
     });
 
+});
+
+describe('Platform switcher', function () {
+
     describe('the rendered markup', function () {
 
         const html = renderPlatformSwitcher();

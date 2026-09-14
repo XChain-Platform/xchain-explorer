@@ -29,4 +29,30 @@
 
 'use strict';
 
-require('./db_contract_meta.test/contract_meta.js');
+const { sinon, expect, makeConfig, makeDb, META, contractRow, contractCfg } = require('./helpers.js');
+
+
+function sanitizerTests() {
+
+    it('strips every character BOOLEAN MODE reads as an operator', function(){
+        const db = makeDb();
+        expect(db.fulltextTerm('+escrow -vault ~auction *star "quoted" (group) <a> @1'))
+            .to.equal('escrow vault auction star quoted group a 1');
+    });
+
+    it('holds the term to the same 3-character floor as the LIKE panels', function(){
+        const db = makeDb();
+        expect(db.fulltextTerm('ab')).to.equal('');
+        expect(db.fulltextTerm('  a  ')).to.equal('');
+        expect(db.fulltextTerm('esc')).to.equal('esc');
+    });
+
+    it('answers empty for an absent term instead of binding the word null', function(){
+        const db = makeDb();
+        expect(db.fulltextTerm(null)).to.equal('');
+        expect(db.fulltextTerm(undefined)).to.equal('');
+    });
+
+}
+
+module.exports = { sanitizerTests };

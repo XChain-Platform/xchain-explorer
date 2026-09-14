@@ -29,4 +29,21 @@
 
 'use strict';
 
-require('./db_contract_meta.test/contract_meta.js');
+const sinon = require('sinon');
+const { contractObjectOne, contractObjectTwo } = require('./contract_object.js');
+const { contractListTests } = require('./contract_list.js');
+const { sanitizerTests } = require('./sanitizer.js');
+const { payloadTests } = require('./payloads.js');
+const { searchTestsOne, searchTestsTwo } = require('./search.js');
+
+describe('contract identity manifest: the explorer side', function(){
+    afterEach(() => sinon.restore());
+
+    describe('the contract object (getContract)', contractObjectOne);
+    describe('the contract object (getContract)', contractObjectTwo);
+    describe('the contract list (getContracts)', contractListTests);
+    describe('the BOOLEAN MODE term sanitizer', sanitizerTests);
+    describe('the EXECUTE / DEPOSIT / WITHDRAW payloads', payloadTests);
+    describe('global search: contract is the fifth category', searchTestsOne);
+    describe('global search: contract is the fifth category', searchTestsTwo);
+});

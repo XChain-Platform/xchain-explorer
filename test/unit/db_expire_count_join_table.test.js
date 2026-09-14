@@ -87,7 +87,6 @@ function innerJoinedTables(sql){
 const LIFECYCLE = ['orders', 'swaps', 'dispensers', 'bet_feeds', 'coinpay_obligations'];
 
 describe('expire-feed COUNT queries count the same set as their list queries', () => {
-
     const CASES = [
         { method: 'getOrderExpires',     expected: 'orders'      },
         { method: 'getSwapExpires',      expected: 'swaps'       },
@@ -122,7 +121,9 @@ describe('expire-feed COUNT queries count the same set as their list queries', (
             }
         });
     }
+});
 
+describe('expire-feed COUNT queries count the same set as their list queries', () => {
     // A second, independent defect on the same family, found the same way: the
     // dispenser_closes feed served no reason, so a close after an auto-drain and a
     // close after a cancel were byte-identical on the wire. Every other column of

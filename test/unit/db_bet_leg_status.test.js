@@ -86,7 +86,6 @@ const typeRow = ['LEFT  JOIN index_actions a2 ON (a2.id=a1.action_id)\n         
 const config = { coin: 'BTC', data: {} };
 
 describe('BET cancel/resolve action status @regression', function () {
-
     it('joins the two leg tables and coalesces their parse status into the action status', async function () {
         const db = makeDb([typeRow, ['bet_cancels', [legRow()]]]);
         const data = await db.getActionData(config, ACTION_INDEX);
@@ -135,7 +134,9 @@ describe('BET cancel/resolve action status @regression', function () {
         assert.strictEqual(data.feed_ref, 5);
         assert.strictEqual(data.feed_status, 'cancelled');
     });
+});
 
+describe('BET cancel/resolve action status @regression', function () {
     it('keeps the leg feed refs out of the payload and does not misread a cancel as a placed bet', async function () {
         const db = makeDb([typeRow, ['bet_cancels', [legRow()]]]);
         const data = await db.getActionData(config, ACTION_INDEX);

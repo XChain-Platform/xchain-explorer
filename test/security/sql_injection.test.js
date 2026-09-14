@@ -106,10 +106,17 @@ describe('Security: SQL Injection: Offset Parameterization', function () {
     });
 });
 
+let db;
+
 describe('Security: SQL Injection: Order/Limit Validation', function () {
 
-    let db;
     before(() => { db = makeDb(); });
+
+    registerSortOrderTests();
+    registerLimitTests();
+});
+
+function registerSortOrderTests() {
 
     it('rejects invalid sortorder values (SQL injection in ORDER BY)', async () => {
         const config = makeConfig({
@@ -154,6 +161,10 @@ describe('Security: SQL Injection: Order/Limit Validation', function () {
         expect(config.data.sql.limit).to.be.at.least(1);
     });
 
+}
+
+function registerLimitTests() {
+
     it('clamps limit to max (blocks excessive values)', async () => {
         const config = makeConfig({
             data: {
@@ -181,7 +192,7 @@ describe('Security: SQL Injection: Order/Limit Validation', function () {
         expect(config.data.sql.limit).to.be.a('number');
         expect(Number.isFinite(config.data.sql.limit)).to.be.true;
     });
-});
+}
 
 describe('Security: SQL Injection: WHERE clause parameterization', function () {
 

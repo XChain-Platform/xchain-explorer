@@ -156,6 +156,10 @@ describe('theme parity probe (behavioural)', () => {
     });
   });
 
+});
+
+describe('theme parity probe (behavioural)', () => {
+
   describe('a degenerate capture is an explicit invalid result, not a hash', () => {
     it('refuses a page where no first-party stylesheet matched', () => {
       const win = page({ sheets: [sheet(VENDOR, [rule('body', { color: 'red' })])] });
@@ -197,6 +201,10 @@ describe('theme parity probe (behavioural)', () => {
       for (const k of xcKeys(win)) assert.equal(win.localStorage[k], good[k], `${k} was overwritten`);
     });
   });
+
+});
+
+describe('theme parity probe (behavioural)', () => {
 
   describe('the Chrome CSS-nesting regression stays fixed', () => {
     it('captures a plain rule whose .cssRules list is empty', () => {

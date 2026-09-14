@@ -80,7 +80,7 @@ describe('XChainIndexerConnector', function () {
         it('_call posts a JSON-RPC envelope and returns the result', async function () {
             let post = sinon.stub(axios, 'post').resolves({ data: { result: { ok: 1 } } });
             let c = new XChainIndexerConnector('http://x:1');
-            let r = await c._call('m', { a: 1 });
+            let r = await c.call('m', { a: 1 });
             expect(r).to.deep.equal({ ok: 1 });
             let [url, body, opts] = post.getCall(0).args;
             expect(url).to.equal('http://x:1');
@@ -92,26 +92,26 @@ describe('XChainIndexerConnector', function () {
         it('_call throws on a JSON-RPC error payload', async function () {
             sinon.stub(axios, 'post').resolves({ data: { error: { message: 'boom' } } });
             let c = new XChainIndexerConnector('http://x:1');
-            try { await c._call('m', {}); expect.fail('should throw'); }
+            try { await c.call('m', {}); expect.fail('should throw'); }
             catch (e) { expect(e.message).to.equal('boom'); }
         });
 
         it('_call throws a generic message when the error payload has none', async function () {
             sinon.stub(axios, 'post').resolves({ data: { error: {} } });
             let c = new XChainIndexerConnector('http://x:1');
-            try { await c._call('m', {}); expect.fail('should throw'); }
+            try { await c.call('m', {}); expect.fail('should throw'); }
             catch (e) { expect(e.message).to.equal('indexer error'); }
         });
 
         it('_call returns null when the response has no result', async function () {
             sinon.stub(axios, 'post').resolves({ data: {} });
             let c = new XChainIndexerConnector('http://x:1');
-            expect(await c._call('m', {})).to.equal(null);
+            expect(await c.call('m', {})).to.equal(null);
         });
 
         it('feequote delegates to _call with the feequote method + args', async function () {
             let c = new XChainIndexerConnector('http://x:1');
-            let call = sinon.stub(c, '_call').resolves({ quote: 1 });
+            let call = sinon.stub(c, 'call').resolves({ quote: 1 });
             let r = await c.feequote({ action: 'MINT', params: { x: 1 }, source: 'addr', feeOutputSats: 100 });
             expect(r).to.deep.equal({ quote: 1 });
             expect(call.calledWith('feequote', { action: 'MINT', params: { x: 1 }, source: 'addr', feeOutputSats: 100 })).to.be.true;
@@ -119,7 +119,7 @@ describe('XChainIndexerConnector', function () {
 
         it('feeschedule delegates to _call', async function () {
             let c = new XChainIndexerConnector('http://x:1');
-            let call = sinon.stub(c, '_call').resolves({ schedule: [] });
+            let call = sinon.stub(c, 'call').resolves({ schedule: [] });
             let r = await c.feeschedule();
             expect(r).to.deep.equal({ schedule: [] });
             expect(call.calledWith('feeschedule', {})).to.be.true;
@@ -127,7 +127,7 @@ describe('XChainIndexerConnector', function () {
 
         it('preflight delegates to _call with the preflight method + args', async function () {
             let c = new XChainIndexerConnector('http://x:1');
-            let call = sinon.stub(c, '_call').resolves({ supported: true, valid: true });
+            let call = sinon.stub(c, 'call').resolves({ supported: true, valid: true });
             let r = await c.preflight({ action: 'SEND', params: '0|JDOG|1|addr', source: 'me' });
             expect(r).to.deep.equal({ supported: true, valid: true });
             expect(call.calledWith('preflight', { action: 'SEND', params: '0|JDOG|1|addr', source: 'me', feeMode: undefined })).to.be.true;
@@ -136,7 +136,7 @@ describe('XChainIndexerConnector', function () {
         // The fee settlement mode changes the verdict, so it rides along.
         it('preflight forwards feeMode when the caller sets one', async function () {
             let c = new XChainIndexerConnector('http://x:1');
-            let call = sinon.stub(c, '_call').resolves({ supported: true, valid: false });
+            let call = sinon.stub(c, 'call').resolves({ supported: true, valid: false });
             await c.preflight({ action: 'ISSUE', params: '0|NEWTICK', source: 'me', feeMode: 'xchain' });
             expect(call.calledWith('preflight', { action: 'ISSUE', params: '0|NEWTICK', source: 'me', feeMode: 'xchain' })).to.be.true;
         });

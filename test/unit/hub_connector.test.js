@@ -405,7 +405,7 @@ describe('XChainHubConnector', function () {
             const Connector = loadConnector(makeAxiosStub());
             let c = new Connector(['http://localhost:3000']);
             let tree = { BTC: { mainnet: { mod: { p: '1' } } } };
-            let out = c._applyConfigResult(tree);
+            let out = c.applyConfigResult(tree);
             expect(out).to.deep.equal(tree);
             expect(c.lastSeq).to.equal(0);
             expect(c.lastWatermark).to.equal(0);
@@ -415,7 +415,7 @@ describe('XChainHubConnector', function () {
             const Connector = loadConnector(makeAxiosStub());
             let c = new Connector(['http://localhost:3000']);
             c.lastWatermark = 50;
-            let out = c._applyConfigResult({ configs: { BTC: {} }, seq: 7 });
+            let out = c.applyConfigResult({ configs: { BTC: {} }, seq: 7 });
             expect(c.lastSeq).to.equal(7);
             expect(c.lastWatermark).to.equal(0);
             expect(out).to.deep.equal({ BTC: {} });
@@ -424,7 +424,7 @@ describe('XChainHubConnector', function () {
         it('returns the full payload on the first watermarked fetch', function () {
             const Connector = loadConnector(makeAxiosStub());
             let c = new Connector(['http://localhost:3000']);
-            let out = c._applyConfigResult({ configs: { BTC: { mainnet: {} } }, seq: 1, watermark: 1000 });
+            let out = c.applyConfigResult({ configs: { BTC: { mainnet: {} } }, seq: 1, watermark: 1000 });
             expect(c.lastWatermark).to.equal(1000);
             expect(out).to.deep.equal({ BTC: { mainnet: {} } });
         });
@@ -434,7 +434,7 @@ describe('XChainHubConnector', function () {
             let c = new Connector(['http://localhost:3000']);
             c.configs = { BTC: { mainnet: { fees: { a: '1' } } } };
             c.lastWatermark = 1000; // we sent a cursor last time
-            let out = c._applyConfigResult({
+            let out = c.applyConfigResult({
                 configs: { BTC: { mainnet: { fees: { b: '2' }, oracle: { x: '9' } }, regtest: { m: { p: '3' } } } },
                 seq: 2, watermark: 2000
             });
@@ -549,7 +549,7 @@ describe('XChainHubConnector', function () {
             axiosStub.post.resolves(RPC_ERROR);
             const Connector = loadConnector(axiosStub);
             const c = new Connector(['http://a:1']);
-            const result = await c._call({ jsonrpc: '2.0', method: 'getslashproposals', id: 1 },
+            const result = await c.call({ jsonrpc: '2.0', method: 'getslashproposals', id: 1 },
                 { attempts: 3, delayMs: 0 });
             expect(result).to.equal(null);
             expect(c.lastRpcError).to.deep.equal({ code: -32601, message: 'Method not found' });
@@ -563,9 +563,9 @@ describe('XChainHubConnector', function () {
             axiosStub.post.onSecondCall().resolves({ data: { result: [] } });
             const Connector = loadConnector(axiosStub);
             const c = new Connector(['http://a:1']);
-            await c._call({ jsonrpc: '2.0', method: 'getslashproposals', id: 1 }, { attempts: 1 });
+            await c.call({ jsonrpc: '2.0', method: 'getslashproposals', id: 1 }, { attempts: 1 });
             expect(c.lastRpcError).to.not.equal(null);
-            await c._call({ jsonrpc: '2.0', method: 'getvotes', id: 1 }, { attempts: 1 });
+            await c.call({ jsonrpc: '2.0', method: 'getvotes', id: 1 }, { attempts: 1 });
             expect(c.lastRpcError).to.equal(null);
         });
 
@@ -574,7 +574,7 @@ describe('XChainHubConnector', function () {
             axiosStub.post.rejects(Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }));
             const Connector = loadConnector(axiosStub);
             const c = new Connector(['http://a:1']);
-            const result = await c._call({ jsonrpc: '2.0', method: 'getvotes', id: 1 }, { attempts: 2, delayMs: 0 });
+            const result = await c.call({ jsonrpc: '2.0', method: 'getvotes', id: 1 }, { attempts: 2, delayMs: 0 });
             expect(result).to.equal(null);
             expect(c.lastRpcError).to.equal(null);
             expect(axiosStub.post.callCount, 'unreachable endpoints still get their retry passes').to.equal(2);
@@ -586,7 +586,7 @@ describe('XChainHubConnector', function () {
             axiosStub.post.withArgs('http://b:2').resolves({ data: { result: [{ id: 1 }] } });
             const Connector = loadConnector(axiosStub);
             const c = new Connector(['http://a:1', 'http://b:2']);
-            const result = await c._call({ jsonrpc: '2.0', method: 'getslashproposals', id: 1 }, { attempts: 1 });
+            const result = await c.call({ jsonrpc: '2.0', method: 'getslashproposals', id: 1 }, { attempts: 1 });
             expect(result).to.deep.equal([{ id: 1 }]);
         });
     });

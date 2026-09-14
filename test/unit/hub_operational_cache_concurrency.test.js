@@ -12,7 +12,7 @@
 
 // Cross-call regression for HubOperationalCache.getRows. The explorer holds ONE
 // XChainHubConnector for the whole process, so two operational reads in flight
-// interleave across the await inside _call. getRows must not diagnose its failure
+// interleave across the await inside call. getRows must not diagnose its failure
 // from the connector-global lastRpcError, which meant a concurrent -32601 for
 // some OTHER method made this call throw "the hub is reachable; upgrade it" and
 // skip the within-ceiling stale-cache bridge.
@@ -94,8 +94,8 @@ describe('HubOperationalCache: a concurrent -32601 does not hijack another call'
 
     it('_call keeps each invocation\'s answer on its own sink while the instance field churns', async function () {
         // The connector half of the same property, at the level the cache depends
-        // on: two overlapping _call invocations each get their OWN rpcError, and
-        // the last-call-wins instance field (which _call also clears on entry) can
+        // on: two overlapping call invocations each get their OWN rpcError, and
+        // the last-call-wins instance field (which call also clears on entry) can
         // no longer speak for either of them.
         let release = null;
         const gate = new Promise(r => { release = r; });
@@ -107,8 +107,8 @@ describe('HubOperationalCache: a concurrent -32601 does not hijack another call'
         const c = new XChainHubConnector(['http://hub.test:10000']);
 
         const outX = {}, outZ = {};
-        const xPromise = c._call({ jsonrpc: '2.0', method: 'methodX', id: 1 }, { attempts: 1, out: outX });
-        await c._call({ jsonrpc: '2.0', method: 'methodZ', id: 1 }, { attempts: 1, out: outZ });
+        const xPromise = c.call({ jsonrpc: '2.0', method: 'methodX', id: 1 }, { attempts: 1, out: outX });
+        await c.call({ jsonrpc: '2.0', method: 'methodZ', id: 1 }, { attempts: 1, out: outZ });
         release();
         await xPromise;
 

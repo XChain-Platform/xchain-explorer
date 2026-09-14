@@ -51,7 +51,7 @@ class XChainIndexerConnector {
         this.apiKey  = process.env.EXPLORER_INDEXER_API_KEY || '';
     }
 
-    async _call(method, params){
+    async call(method, params){
         const config = { timeout: this.timeout };
         if(this.apiKey) config.headers = { 'x-api-key': this.apiKey };
         let response;
@@ -77,25 +77,25 @@ class XChainIndexerConnector {
 
     // Native-coin fee pre-flight for a single action. See xchain-indexer Actions.computeFeeQuote.
     async feequote({ action, params, source, feeOutputSats }){
-        return this._call('feequote', { action, params, source, feeOutputSats });
+        return this.call('feequote', { action, params, source, feeOutputSats });
     }
 
     // Oracle usage fee quote for a Mode B dispenser. See xchain-indexer
     // utility.quoteOracleFee, which the consensus check shares.
     async oraclefeequote({ oracleAddress, giveCoin, giveTick, fiatCode, getCoin, giveEscrow, blockTime }){
-        return this._call('oraclefeequote', { oracleAddress, giveCoin, giveTick, fiatCode, getCoin, giveEscrow, blockTime });
+        return this.call('oraclefeequote', { oracleAddress, giveCoin, giveTick, fiatCode, getCoin, giveEscrow, blockTime });
     }
 
     // Validity-first pre-flight for a single action: would the indexer accept it?
     // Decoupled from native-fee support. See xchain-indexer Actions.computePreflight.
     // `feeMode` ('xchain' | 'native') selects how the fee settles in the dry-run.
     async preflight({ action, params, source, feeMode }){
-        return this._call('preflight', { action, params, source, feeMode });
+        return this.call('preflight', { action, params, source, feeMode });
     }
 
     // Fee schedule + current oracle prices. See xchain-indexer Actions.getFeeSchedule.
     async feeschedule(){
-        return this._call('feeschedule', {});
+        return this.call('feeschedule', {});
     }
 
     // Source-deduped stake weights for a capability at a block (each effective signing
@@ -103,7 +103,7 @@ class XChainIndexerConnector {
     // needs the (source, weight) PREIMAGES (the stakes_root leaf is a hash) to build
     // membership proofs; the SMT proof binds them, so a wrong preimage cannot verify.
     async stakeWeights(capability, blockIndex){
-        return this._call('getstakeweightsbycapability', { capability, block_index: Number(blockIndex) });
+        return this.call('getstakeweightsbycapability', { capability, block_index: Number(blockIndex) });
     }
 }
 

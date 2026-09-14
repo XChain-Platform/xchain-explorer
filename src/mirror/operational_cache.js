@@ -94,7 +94,7 @@ class HubOperationalCache {
         // skipped the stale-cache bridge, and the reverse (a concurrent healthy
         // call clearing the field on entry) erased a real -32601.
         let call = {};
-        let result = await this.connector._call(
+        let result = await this.connector.call(
             { jsonrpc: '2.0', method, params: cleaned, id: 1 },
             { attempts: 2, out: call }
         );

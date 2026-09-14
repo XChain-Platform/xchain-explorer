@@ -15,7 +15,7 @@
 // files on getallconfigs; the explorer derives consensus values only from its
 // vendored bundle (coin-config/to_explorer_config.js), so the field is compared and logged,
 // NEVER applied. Before this the field was destructured away in
-// _applyConfigResult and a hub running a divergent bundle was invisible here.
+// applyConfigResult and a hub running a divergent bundle was invisible here.
 
 const assert = require('assert');
 const sinon  = require('sinon');
@@ -57,7 +57,7 @@ describe('XChainHubConnector hub-vs-bundle consensus-hash cross-check', function
     afterEach(() => sinon.restore());
 
     it('logs when the hub serves a consensus hash this build does not bundle', function(){
-        connector._applyConfigResult(envelope(driftedHashes('BTC', 'testnet')));
+        connector.applyConfigResult(envelope(driftedHashes('BTC', 'testnet')));
         assert.strictEqual(errors.length, 1, 'a drifted hub must report exactly once');
         assert.match(errors[0], /CONSENSUS HASH MISMATCH/);
         assert.match(errors[0], /BTC\/testnet/);
@@ -65,35 +65,35 @@ describe('XChainHubConnector hub-vs-bundle consensus-hash cross-check', function
     });
 
     it('says nothing when every served hash matches the bundle', function(){
-        connector._applyConfigResult(envelope(trueHashes()));
+        connector.applyConfigResult(envelope(trueHashes()));
         assert.deepStrictEqual(errors, []);
     });
 
     it('says nothing when the hub predates the field', function(){
         const e = envelope(undefined);
         delete e.coin_consensus_hashes;
-        connector._applyConfigResult(e);
+        connector.applyConfigResult(e);
         assert.deepStrictEqual(errors, []);
     });
 
     it('says nothing for an old hub that returns the bare config map', function(){
-        connector._applyConfigResult({ bitcoin: { testnet: { 'xchain-indexer': { DB_NAME: 'x' } } } });
+        connector.applyConfigResult({ bitcoin: { testnet: { 'xchain-indexer': { DB_NAME: 'x' } } } });
         assert.deepStrictEqual(errors, []);
     });
 
     it('does not re-log an unchanged mismatch on the next poll', function(){
         const drifted = driftedHashes('LTC', 'regtest');
-        connector._applyConfigResult(envelope(drifted));
-        connector._applyConfigResult(envelope(drifted));
-        connector._applyConfigResult(envelope(drifted));
+        connector.applyConfigResult(envelope(drifted));
+        connector.applyConfigResult(envelope(drifted));
+        connector.applyConfigResult(envelope(drifted));
         assert.strictEqual(errors.length, 1, 'a poll loop must not flood the log');
     });
 
     it('reports again when the mismatch set widens', function(){
-        connector._applyConfigResult(envelope(driftedHashes('BTC', 'testnet')));
+        connector.applyConfigResult(envelope(driftedHashes('BTC', 'testnet')));
         const wider = driftedHashes('BTC', 'testnet');
         wider.regtest = Object.assign({}, wider.regtest, { DOGE: 'e'.repeat(64) });
-        connector._applyConfigResult(envelope(wider));
+        connector.applyConfigResult(envelope(wider));
         assert.strictEqual(errors.length, 2);
         assert.match(errors[1], /DOGE\/regtest/);
     });
@@ -101,13 +101,13 @@ describe('XChainHubConnector hub-vs-bundle consensus-hash cross-check', function
     it('ignores a coin the hub serves that this build does not bundle', function(){
         const extra = trueHashes();
         extra.testnet = Object.assign({}, extra.testnet, { XYZ: 'a'.repeat(64) });
-        connector._applyConfigResult(envelope(extra));
+        connector.applyConfigResult(envelope(extra));
         assert.deepStrictEqual(errors, []);
     });
 
     it('leaves the returned config tree and the cursor untouched', function(){
         const e    = envelope(driftedHashes('BTC', 'testnet'));
-        const tree = connector._applyConfigResult(e);
+        const tree = connector.applyConfigResult(e);
         assert.deepStrictEqual(tree, e.configs);
         assert.strictEqual(connector.lastSeq, 7);
         assert.strictEqual(connector.lastWatermark, 1234);

@@ -64,7 +64,7 @@ class XChainDecoderConnector {
         this.timeout = Number(process.env.DECODER_API_TIMEOUT_MS) || 2500;
     }
 
-    async _call(method, params){
+    async call(method, params){
         let response = await axios.post(this.url, { jsonrpc: '2.0', method, params, id: 1 }, { timeout: this.timeout });
         if(response.data && response.data.error)
             throw new Error(response.data.error.message || 'decoder error');
@@ -74,7 +74,7 @@ class XChainDecoderConnector {
     // Decoder self-reported health: status (healthy/unhealthy), chainTipBlock
     // (the coin node's tip as the decoder sees it), blockLag (chain→decoder gap).
     async health(){
-        return this._call('health', {});
+        return this.call('health', {});
     }
 
     // Live mempool snapshot from the decoder: node_tx_count (the coin node's
@@ -84,7 +84,7 @@ class XChainDecoderConnector {
     // for an explorer serving from synced replicas: mempool_transactions is
     // deliberately excluded from xchain-sync replication.
     async getmempool(limit){
-        return this._call('getmempool', { limit: limit });
+        return this.call('getmempool', { limit: limit });
     }
 }
 

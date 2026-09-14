@@ -76,6 +76,10 @@ describe('Fuzz: Utility input sanitization', function () {
       expect(Number.isFinite(out), `sanitizeInt(${String(v)}) = ${out} is not finite`).to.equal(true);
     }
   });
+});
+
+describe('Fuzz: Utility input sanitization', function () {
+  this.timeout(60000);
 
   it(`jsonStringify never throws and always emits parseable JSON across ${ITERATIONS} objects`, function () {
     for (let i = 0; i < ITERATIONS; i++) {

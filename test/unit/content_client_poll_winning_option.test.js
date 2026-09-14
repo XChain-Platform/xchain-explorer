@@ -231,7 +231,6 @@ const DETAIL_POLL = {
 /* -------------------------------- tests -------------------------------- */
 
 describe('poll winning option @regression', function () {
-
     describe('feed: the /explorer/polls row carries the outcome', function () {
 
         it('carries winning option 0 as a real value, not as an absent field', function () {
@@ -273,7 +272,9 @@ describe('poll winning option @regression', function () {
             expect(row[10]).to.equal(null);
         });
     });
+});
 
+describe('poll winning option @regression', function () {
     describe('polls list page', function () {
 
         it('declares a Winner column whose colspan matches the header', function () {
@@ -319,7 +320,9 @@ describe('poll winning option @regression', function () {
             expect(html[9], 'the label must be escaped in the cell markup').to.not.contain('<img');
         });
     });
+});
 
+describe('poll winning option @regression', function () {
     describe('action page: the VOTE poll panel', function () {
 
         it('names option 0 instead of dashing it', function () {

@@ -59,15 +59,19 @@ function makeDb(type, rows) {
     return db;
 }
 
+const ISSUE_V6_ROW = {
+    action: 'ISSUE', action_format: 6, action_index: 1163, tick: 'CAMPA',
+    source: 'addr-owner', block_index: 2885, timestamp: 1787850145,
+    tx_hash: 'hash-1163', tx_index: 1083, status: 'valid'
+};
+
+const EXEC_ROW = {
+    contract_index: 1138, method_name: 'constructor',
+    gas_used: '118072', gas_limit: '500000'
+};
+
 describe('Action detail supplements (sibling-table wire fields) @regression', function () {
-
     describe('ISSUE v6 controller bind/unbind', function () {
-
-        const ISSUE_V6_ROW = {
-            action: 'ISSUE', action_format: 6, action_index: 1163, tick: 'CAMPA',
-            source: 'addr-owner', block_index: 2885, timestamp: 1787850145,
-            tx_hash: 'hash-1163', tx_index: 1083, status: 'valid'
-        };
         const CONTROLLER_ROW = {
             controller: 1138, action_class: 'mint', cooldown_blocks: 5, unbind: 0
         };
@@ -117,7 +121,11 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
             assert.ok(!db.calls.some(c => c.sql.includes('token_controllers')),
                 'a non-v6 ISSUE must not query token_controllers');
         });
+    });
+});
 
+describe('Action detail supplements (sibling-table wire fields) @regression', function () {
+    describe('ISSUE v6 controller bind/unbind', function () {
         it('a v6 with no surviving event row (invalid / rolled back) answers null, not reparsed tx_data', async function () {
             const db = makeDb('ISSUE', [
                 ['issues i1', [Object.assign({}, ISSUE_V6_ROW, { status: 'invalid: not token owner' })]],
@@ -159,18 +167,15 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
             assert.strictEqual(data.code_part_length, null);
         });
     });
+});
 
+describe('Action detail supplements (sibling-table wire fields) @regression', function () {
     describe('DEPLOY constructor gas (v0-v3, and a carrier that completed a group)', function () {
-
         const DEPLOY_ROW = {
             action: 'DEPLOY', action_format: 0, action_index: 1138, source: 'addr-dev',
             code_hash: '8e85', api_version: 1, cooldown_blocks: null, slash_destination: null,
             block_index: 2850, timestamp: 1787848971, tx_hash: 'hash-1138',
             tx_index: 1058, status: 'valid'
-        };
-        const EXEC_ROW = {
-            contract_index: 1138, method_name: 'constructor',
-            gas_used: '118072', gas_limit: '500000'
         };
 
         it('surfaces gas_used / gas_limit and the execution linkage from contract_executions', async function () {
@@ -215,7 +220,11 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
             assert.strictEqual('gas_used' in data, false, 'a chunk with no contract row invented a gas field');
             assert.strictEqual('method_name' in data, false);
         });
+    });
+});
 
+describe('Action detail supplements (sibling-table wire fields) @regression', function () {
+    describe('DEPLOY constructor gas (v0-v3, and a carrier that completed a group)', function () {
         it('a v4 carrier that COMPLETED the group gets the constructor gas', async function () {
             const db = makeDb('DEPLOY', [
                 ['SELECT action_format FROM actions', [{ action_format: 4 }]],
@@ -258,7 +267,9 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
                 'raw code_part leaked onto the paged list');
         });
     });
+});
 
+describe('Action detail supplements (sibling-table wire fields) @regression', function () {
     describe('emission provenance', function () {
 
         it('asks contract_emissions ONCE for a whole page, not once per action', async function () {

@@ -29,7 +29,7 @@ const { expect }  = require('chai');
 const express     = require('express');
 const http        = require('http');
 const rateLimit   = require('express-rate-limit');
-const { createConcurrencyGate, resolveLimit } = require('../../src/concurrencyGate.js');
+const { createConcurrencyGate, resolveLimit } = require('../../src/http/concurrency_gate.js');
 
 // Servers opened by a test, torn down in afterEach.
 let openServers = [];

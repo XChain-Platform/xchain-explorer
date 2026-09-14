@@ -24,7 +24,7 @@
  * pool-pinning stampede counts it as a single caller. Cap the CARDINALITY
  * before dispatch.
  *
- * Its own module, like src/concurrencyGate.js, so it is unit-testable without
+ * Its own module, like src/http/concurrency_gate.js, so it is unit-testable without
  * booting the API. The error shape matches the same guard already shipping in
  * xchain-encoder, xchain-decoder and xchain-utxo-tracker.
  *

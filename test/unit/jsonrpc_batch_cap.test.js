@@ -104,6 +104,11 @@ describe('JSON-RPC batch cap', function () {
         assert.strictEqual(counter.calls, 1);
     });
 
+});
+
+describe('JSON-RPC batch cap', function () {
+    this.timeout(10000);
+
     it('leaves a bodiless GET to the req.body shim (no 500, no 400)', async () => {
         const app = buildApp(true, { calls: 0 });
         const server = http.createServer(app);

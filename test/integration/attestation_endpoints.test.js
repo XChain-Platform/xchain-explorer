@@ -128,6 +128,10 @@ describe('Attestation API (/api/attestations)', function () {
         expect(row.source).to.equal(ADDR2);
     });
 
+});
+
+describe('Attestation API (/api/attestations)', function () {
+
     it('filters by broadcasting address', async function () {
         const res = await request.get(`/RBTC/api/attestations/${ADDR1}/address`);
 

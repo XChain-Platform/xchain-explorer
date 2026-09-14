@@ -52,7 +52,6 @@ const BUSY = { supported: true, action: 'ISSUE', valid: false, busy: true, retry
 const QUOTE = { supported: true, action: 'ISSUE', valid: true, requiredFeeSats: 2000 };
 
 describe('processFeeQuoteRequest busy-retry', function () {
-    // Keep the budget tiny so the retry loop is a unit test, not a wait.
     let prevBudget;
     beforeEach(() => { prevBudget = process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS; process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS = '900'; });
     afterEach(() => {
@@ -89,6 +88,18 @@ describe('processFeeQuoteRequest busy-retry', function () {
         const res = await call(fakeThis(), { action: 'ISSUE', params: '0|NEWTICK', source: 'me' });
         expect(res._json).to.deep.equal(QUOTE);
         expect(stub.callCount).to.equal(1);
+    });
+
+});
+
+describe('processFeeQuoteRequest busy-retry', function () {
+    // Keep the budget tiny so the retry loop is a unit test, not a wait.
+    let prevBudget;
+    beforeEach(() => { prevBudget = process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS; process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS = '900'; });
+    afterEach(() => {
+        if (prevBudget === undefined) delete process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS;
+        else process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS = prevBudget;
+        sinon.restore();
     });
 
     it('gives up inside the budget and answers busy rather than holding the request open', async function () {

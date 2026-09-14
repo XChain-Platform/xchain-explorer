@@ -68,39 +68,44 @@ function toSqlite(ddl) {
 // utf8_bin is MariaDB's byte-exact collation; BINARY is SQLite's.
 const toSqliteQuery = (q) => q.replace(/COLLATE utf8_bin/g, 'COLLATE BINARY');
 
+let sqlite, db, ddl;
+const cfg = (search, type) => ({ coin: 'RDOGE', data: { search, type } });
+
+function loadAddressSchema() {
+    // Skip only in a standalone explorer checkout without the sibling
+    // indexer; the platform monorepo and bin/ci-all.sh have it.
+    if (!fs.existsSync(INDEXER_SQL)) this.skip();
+    let DatabaseSync;
+    try { ({ DatabaseSync } = require('node:sqlite')); }
+    catch (e) { this.skip(); }
+    ddl    = fs.readFileSync(INDEXER_SQL, 'utf8');
+    sqlite = new DatabaseSync(':memory:');
+    sqlite.exec(toSqlite(ddl));
+}
+
+function resetAddressFixture() {
+    sqlite.exec('DELETE FROM index_addresses;');
+    sqlite.prepare('INSERT INTO index_addresses (id, address, block_index) VALUES (?, ?, ?)')
+        .run(ADDRESS_ID, ADDRESS, 100);
+
+    db = Object.create(Database.prototype);
+    db.util = new Utility();
+    db._addressIdCache      = new Map();
+    db._exactAddressIdCache = new Map();
+    db._reorgGen            = {};
+    db.doQuery = sinon.stub().callsFake(async (config, query, args) =>
+        sqlite.prepare(toSqliteQuery(query)).all(...(args || [])));
+    db.getDecoderMempoolRows = sinon.stub().resolves([COMPACT_ROW]);
+}
+
 describe('mempool address-id resolution is byte-exact (REST surface)', function () {
+    before(loadAddressSchema);
+    beforeEach(resetAddressFixture);
+    registerAddressResolutionTests();
+    registerAddressCacheTests();
+});
 
-    let sqlite, db, ddl;
-
-    before(function () {
-        // Skip only in a standalone explorer checkout without the sibling
-        // indexer; the platform monorepo and bin/ci-all.sh have it.
-        if (!fs.existsSync(INDEXER_SQL)) this.skip();
-        let DatabaseSync;
-        try { ({ DatabaseSync } = require('node:sqlite')); }
-        catch (e) { this.skip(); }
-        ddl    = fs.readFileSync(INDEXER_SQL, 'utf8');
-        sqlite = new DatabaseSync(':memory:');
-        sqlite.exec(toSqlite(ddl));
-    });
-
-    beforeEach(function () {
-        sqlite.exec('DELETE FROM index_addresses;');
-        sqlite.prepare('INSERT INTO index_addresses (id, address, block_index) VALUES (?, ?, ?)')
-            .run(ADDRESS_ID, ADDRESS, 100);
-
-        db = Object.create(Database.prototype);
-        db.util = new Utility();
-        db._addressIdCache      = new Map();
-        db._exactAddressIdCache = new Map();
-        db._reorgGen            = {};
-        db.doQuery = sinon.stub().callsFake(async (config, query, args) =>
-            sqlite.prepare(toSqliteQuery(query)).all(...(args || [])));
-        db.getDecoderMempoolRows = sinon.stub().resolves([COMPACT_ROW]);
-    });
-
-    const cfg = (search, type) => ({ coin: 'RDOGE', data: { search, type } });
-
+function registerAddressResolutionTests() {
     // Pins the premise. If the indexer ever declares this table byte-exact, the
     // matcher's own COLLATE gate becomes belt-and-braces rather than the fix.
     it('the indexer really declares index_addresses case-INSENSITIVELY', function () {
@@ -130,6 +135,10 @@ describe('mempool address-id resolution is byte-exact (REST surface)', function 
         expect(total).to.equal(0);
         expect(data).to.deep.equal([]);
     });
+
+}
+
+function registerAddressCacheTests() {
 
     it('matches NOTHING for an all-lowercase spelling of that address', async function () {
         const [data, , total] = await db.getMempool(cfg(LOWERED, 'address'));
@@ -165,7 +174,7 @@ describe('mempool address-id resolution is byte-exact (REST surface)', function 
         expect(await db.getExactAddressId(cfg(), ADDRESS)).to.equal(ADDRESS_ID);
         expect(await db.getAddressId(cfg(), ADDRESS)).to.equal(ADDRESS_ID);
     });
-});
+}
 
 // Guards the CALL SITE independently of any SQL: getMempool must ask the
 // byte-exact resolver, not the ci one the search paths share.

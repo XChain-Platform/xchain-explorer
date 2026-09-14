@@ -54,7 +54,7 @@ function load({ env = {} } = {}) {
 
     const HubMirrorSyncManager = proxyquire('../../src/mirror/sync_manager.js', {
         '../hub/hub_db_sync.js':    FakeSync,
-        '../hub-mirror-pool.js': FakePool,
+        './pool.js': FakePool,
         './migrate.js': { ensureMirrorColumns }
     });
 

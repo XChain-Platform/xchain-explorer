@@ -23,7 +23,7 @@
  ********************************************************************/
 
 const mariadb = require('mariadb');
-const poolSizing = require('./poolSizing');
+const poolSizing = require('../poolSizing');
 
 class HubMirrorPool {
 

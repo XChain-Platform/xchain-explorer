@@ -26,7 +26,7 @@ function load() {
         createPool:       sinon.stub().returns(pool),
         createConnection: sinon.stub().resolves(schemaConn)
     };
-    const HubMirrorPool = proxyquire('../../src/hub-mirror-pool.js', { mariadb });
+    const HubMirrorPool = proxyquire('../../src/mirror/pool.js', { mariadb });
     return { HubMirrorPool, mariadb, pool, conn, schemaConn };
 }
 

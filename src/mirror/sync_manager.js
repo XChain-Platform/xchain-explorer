@@ -50,7 +50,7 @@
  ********************************************************************/
 
 const HubDbSync     = require('../hub/hub_db_sync.js');
-const HubMirrorPool = require('../hub-mirror-pool.js');
+const HubMirrorPool = require('./pool.js');
 const { ensureMirrorColumns } = require('./migrate.js');
 const { resolveHubUrl }       = require('../hub-mirror-url.js');
 const path          = require('path');

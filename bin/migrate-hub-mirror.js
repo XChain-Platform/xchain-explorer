@@ -45,7 +45,7 @@
 
 'use strict';
 
-const HubMirrorPool = require('../src/hub-mirror-pool.js');
+const HubMirrorPool = require('../src/mirror/pool.js');
 const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../src/mirror/migrate.js');
 
 function parseArgs(argv) {

@@ -30,6 +30,13 @@
 
 const crypto = require('crypto');
 
+// Every environment read goes through config.js's live read-through view of
+// process.env, so config.js stays the one place the gate lets env be read. The
+// view is looked up per read so that requiring this module never loads config.js,
+// whose SSL probe and log line would otherwise run in every tool and suite that
+// never reads a variable.
+const configEnv = () => require('../config.js').env;
+
 // Display-only copy of the indexer's gas schedule (xchain-indexer/src/coins/
 // BTC.js). The explorer's config pipeline has no GAS_SCHEDULE source, and the
 // simulated gasUsed is informational, never fee-charged, so a static copy is
@@ -177,7 +184,7 @@ let inFlight    = 0;
 const inFlightByIp = new Map();
 
 function isEnabled(){
-    return process.env.EXPLORER_VM_QUERY_ENABLED === 'true';
+    return configEnv().EXPLORER_VM_QUERY_ENABLED === 'true';
 }
 
 // The gate's verdict for callers outside this module: null when the vendored VM
@@ -188,13 +195,13 @@ function consensusFault(){
 }
 
 function maxConcurrent(){
-    return parseInt(process.env.EXPLORER_VM_MAX_CONCURRENT, 10) || 4;
+    return parseInt(configEnv().EXPLORER_VM_MAX_CONCURRENT, 10) || 4;
 }
 
 // Per-IP share of the global slot pool (default: half the pool, minimum 1) so
 // no small set of clients can monopolize every simulation slot.
 function maxConcurrentPerIp(){
-    const v = parseInt(process.env.EXPLORER_VM_MAX_CONCURRENT_PER_IP, 10);
+    const v = parseInt(configEnv().EXPLORER_VM_MAX_CONCURRENT_PER_IP, 10);
     if(v > 0) return v;
     return Math.max(1, Math.floor(maxConcurrent() / 2));
 }
@@ -204,7 +211,7 @@ function maxConcurrentPerIp(){
 // point simulations at a contract whose accumulated state is huge and burn
 // SQL + JSON.parse + IPC on every call.
 function maxStateBytes(){
-    return parseInt(process.env.EXPLORER_VM_MAX_STATE_BYTES, 10) || 4 * 1024 * 1024;
+    return parseInt(configEnv().EXPLORER_VM_MAX_STATE_BYTES, 10) || 4 * 1024 * 1024;
 }
 
 // Typed failure the route maps to an HTTP status. keeps VM-internal errors

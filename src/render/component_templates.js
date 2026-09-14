@@ -78,7 +78,7 @@ function render(name, slots){
  * Fill the page shell's chrome slots.
  *
  * nav nests search-box and theme-toggle, so those render first; {PLATFORM_SWITCHER}
- * is left alone here because the shell fills it from platform_links.js.
+ * is left alone here because the shell fills it from render/platform_links.js.
  */
 function chrome(html){
     const nav = render('nav', {

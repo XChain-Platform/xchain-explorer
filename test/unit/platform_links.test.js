@@ -27,7 +27,7 @@ const { expect } = require('chai');
 const fs         = require('fs');
 const path       = require('path');
 
-const { LINKS, CURRENT, renderPlatformSwitcher } = require('../../src/platform_links.js');
+const { LINKS, CURRENT, renderPlatformSwitcher } = require('../../src/render/platform_links.js');
 
 describe('Platform switcher', function () {
 

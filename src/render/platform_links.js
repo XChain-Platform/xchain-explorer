@@ -31,7 +31,7 @@
  * ended up with four stylesheets that silently disagreed.
  **********************************************************************/
 
-const LINKS = require('./content/json/platform-links.json');
+const LINKS = require('../content/json/platform-links.json');
 
 // This host's key, so its own entry renders as a marked, non-clickable row.
 const CURRENT = 'explorer';

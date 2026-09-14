@@ -31,7 +31,7 @@
  **********************************************************************/
 
 const { expect } = require('chai');
-const { LINKS }  = require('../../../src/platform_links.js');
+const { LINKS }  = require('../../../src/render/platform_links.js');
 
 const PUBLISHED = 'https://xchain.io/assets/platform-links.json';
 const TIMEOUT_MS = 8000;

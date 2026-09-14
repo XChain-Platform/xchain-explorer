@@ -39,7 +39,7 @@ const ProofServer      = require('./http/proof_server.js');
 const rateLimit        = require('express-rate-limit');
 const { limitedHandler } = require('./http/rate_limit_log.js');   // limiter counter line, shared with api.js's app-wide limiter
 const vmQuery          = require('./vm-query.js');
-const { renderPlatformSwitcher } = require('./platform_links.js');
+const { renderPlatformSwitcher } = require('./render/platform_links.js');
 const listPage         = require('./render/list_page.js');
 const componentTpl     = require('./render/component_templates.js');
 const staticMounts     = require('./http/static_mounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
@@ -1414,7 +1414,7 @@ class XChainExplorer {
             // them (e.g. a "$" in inline JS or a token description) would be mangled or truncated.
             pageContent     = pageContent.replace('{CONTENT}', () => htmlContent);
             // Cross-site navigation for the *.xchain.io family, rendered from the
-            // vendored platform-links.json (see src/platform_links.js). Same
+            // vendored platform-links.json (see src/render/platform_links.js). Same
             // replacement-function reason as {CONTENT}: $-sequences in the markup
             // must not be treated as capture-group references.
             pageContent     = pageContent.replace('{PLATFORM_SWITCHER}', () => renderPlatformSwitcher());

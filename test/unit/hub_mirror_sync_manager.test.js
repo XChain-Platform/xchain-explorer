@@ -170,6 +170,11 @@ describe('HubMirrorSyncManager', function () {
             await mgr.start();
             expect(order).to.deep.equal(['ensureDatabase', 'ensureTables', 'ensureMirrorColumns', 'syncStart']);
             expect(FakeSync.ensureTables.firstCall.args[1]).to.match(/sql[\\/]hub-mirror$/);
+            // The DDL directory is joined from the manager's own location; the suffix
+            // match above would also accept a join that resolves one level too deep,
+            // where no mirror SQL exists and the tables are never created.
+            expect(FakeSync.ensureTables.firstCall.args[1])
+                .to.equal(require('path').resolve(__dirname, '../../src/sql/hub-mirror'));
             expect(mgr.instances.size).to.equal(1);
         } finally { restoreEnv(); }
     });

@@ -50,10 +50,24 @@ function configWithDedicatedDecoderCreds(){
     return cfg;
 }
 
+let Database, poolConfigs, saved;
+
+function freshDb() {
+    return new Database({
+        configInfo: createConfigInfoStub(configWithDedicatedDecoderCreds()),
+        util:       new Utility()
+    });
+}
+
+// Pools are created indexer-first, then the dedicated decoder pool for that
+// key, so bucket them by database name rather than by call order.
+function limitsByKind() {
+    const decoder = poolConfigs.filter(c => /Decoder/i.test(String(c.database)));
+    const indexer = poolConfigs.filter(c => !/Decoder/i.test(String(c.database)));
+    return { indexer, decoder };
+}
+
 describe('explorer pool sizing is per dbType', function () {
-
-    let Database, poolConfigs, saved;
-
     beforeEach(function () {
         poolConfigs = [];
         const mockMariadb = {
@@ -88,21 +102,6 @@ describe('explorer pool sizing is per dbType', function () {
         sinon.restore();
     });
 
-    function freshDb() {
-        return new Database({
-            configInfo: createConfigInfoStub(configWithDedicatedDecoderCreds()),
-            util:       new Utility()
-        });
-    }
-
-    // Pools are created indexer-first, then the dedicated decoder pool for that
-    // key, so bucket them by database name rather than by call order.
-    function limitsByKind() {
-        const decoder = poolConfigs.filter(c => /Decoder/i.test(String(c.database)));
-        const indexer = poolConfigs.filter(c => !/Decoder/i.test(String(c.database)));
-        return { indexer, decoder };
-    }
-
     it('sizes the indexer and decoder pools independently by default', async function () {
         const db = freshDb();
         await db.setupConnectionPools();
@@ -116,6 +115,38 @@ describe('explorer pool sizing is per dbType', function () {
             expect(cfg.connectionLimit).to.equal(poolSizing.DEFAULT_POOL_SIZE.decoder);
         expect(poolSizing.DEFAULT_POOL_SIZE.indexer)
             .to.be.greaterThan(poolSizing.DEFAULT_POOL_SIZE.decoder);
+    });
+});
+
+describe('explorer pool sizing is per dbType', function () {
+    beforeEach(function () {
+        poolConfigs = [];
+        const mockMariadb = {
+            createPool: sinon.stub().callsFake((cfg) => {
+                poolConfigs.push(cfg);
+                return {
+                    end:           sinon.stub().resolves(),
+                    getConnection: sinon.stub().resolves({
+                        query:   sinon.stub().resolves([]),
+                        release: sinon.stub().resolves()
+                    })
+                };
+            })
+        };
+        Database = proxyquire('../../src/db/index.js', {
+            './connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
+        });
+
+        saved = {};
+        for (const k of POOL_ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+    });
+
+    afterEach(function () {
+        for (const k of POOL_ENV_KEYS) {
+            if (saved[k] === undefined) delete process.env[k];
+            else process.env[k] = saved[k];
+        }
+        sinon.restore();
     });
 
     it('lets an operator raise the decoder pool without touching the indexer pool', async function () {
@@ -134,6 +165,38 @@ describe('explorer pool sizing is per dbType', function () {
         const db = freshDb();
         await db.setupConnectionPools();
         for (const cfg of poolConfigs) expect(cfg.connectionLimit).to.equal(7);
+    });
+});
+
+describe('explorer pool sizing is per dbType', function () {
+    beforeEach(function () {
+        poolConfigs = [];
+        const mockMariadb = {
+            createPool: sinon.stub().callsFake((cfg) => {
+                poolConfigs.push(cfg);
+                return {
+                    end:           sinon.stub().resolves(),
+                    getConnection: sinon.stub().resolves({
+                        query:   sinon.stub().resolves([]),
+                        release: sinon.stub().resolves()
+                    })
+                };
+            })
+        };
+        Database = proxyquire('../../src/db/index.js', {
+            './connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
+        });
+
+        saved = {};
+        for (const k of POOL_ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+    });
+
+    afterEach(function () {
+        for (const k of POOL_ENV_KEYS) {
+            if (saved[k] === undefined) delete process.env[k];
+            else process.env[k] = saved[k];
+        }
+        sinon.restore();
     });
 
     it('resolves the query timeout per dbType too', async function () {

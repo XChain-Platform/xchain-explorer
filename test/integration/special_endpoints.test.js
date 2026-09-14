@@ -98,6 +98,10 @@ describe('Special Endpoints', function () {
         expect(res.status).to.equal(503);
     });
 
+});
+
+describe('Special Endpoints', function () {
+
     it('relay blocks localhost', async function () {
         const res = await request.get('/relay?url=http://localhost/test');
 
@@ -132,6 +136,10 @@ describe('Special Endpoints', function () {
         expect(res.body).to.have.property('result');
         expect(res.body.result).to.have.property('status', 'success');
     });
+
+});
+
+describe('Special Endpoints', function () {
 
     it('HTML pages are served', async function () {
         const res = await request.get('/');

@@ -27,7 +27,7 @@
  * deployment can still point operational reads at a hub without enabling
  * hub config discovery; otherwise the regular discovery endpoints from
  * XChainHubConnector.parseEndpoints(). When neither is configured the cache
- * is disabled (enabled() false) and db.js reads the co-located hub schema
+ * is disabled (enabled() false) and db/index.js reads the co-located hub schema
  * instead. That schema read is the NO-HUB deployment shape only; it is never
  * a fallback for a configured-but-unreachable hub.
  *
@@ -35,7 +35,7 @@
  * on hub unreachability a stale entry is served up to a bounded ceiling
  * (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s) so a hub restart doesn't
  * blank the pages. Past that ceiling getRows returns null and the caller
- * FAILS LOUD (db.js hubOperationalOutage): the co-located schema carries
+ * FAILS LOUD (db/index.js hubOperationalOutage): the co-located schema carries
  * no freshness bound, so falling through to it would make the ceiling
  * unenforceable and serve indefinitely stale operational state that reads
  * as live. Rows are fetched with server-side filters (the datasets are
@@ -83,7 +83,7 @@ class HubOperationalCache {
 
     // Fetch rows for one hub RPC read method, TTL-cached per (method, params).
     // Null means the hub is unreachable past the stale ceiling. The three
-    // list callers in db.js must FAIL LOUD on null; getFederationRegistry
+    // list callers in db/index.js must FAIL LOUD on null; getFederationRegistry
     // alone falls through, since it only decorates the on-chain /validators set.
     async getRows(method, params = {}){
         if(!this.connector) return null;
@@ -116,7 +116,7 @@ class HubOperationalCache {
         // STARTED, which lets an entry be served past
         // EXPLORER_HUB_CACHE_STALE_MAX_MS by the whole retry window and understates
         // the age in the operator warning by the same amount. The ceiling is the
-        // only freshness bound on this path (db.js fails loud rather than falling
+        // only freshness bound on this path (db/index.js fails loud rather than falling
         // through to the co-located schema, which has no bound at all), so it has
         // to be measured against the clock now, not the clock then.
         //
@@ -129,7 +129,7 @@ class HubOperationalCache {
         let after = Date.now();
         if(Array.isArray(result)){
             // Cap the map so a flood of distinct filter values cannot grow it
-            // without bound (same pattern as db.js's holders cache).
+            // without bound (same pattern as db/index.js's holders cache).
             const MAX = 500;
             if(this._cache.size >= MAX && !this._cache.has(key))
                 this._cache.delete(this._cache.keys().next().value);
@@ -138,7 +138,7 @@ class HubOperationalCache {
         }
         // A -32601 (Method not found) is a definitive answer from a live hub:
         // this hub build does not serve the method. That is a capability gap,
-        // not an outage, so neither the stale-cache bridge below nor db.js's
+        // not an outage, so neither the stale-cache bridge below nor db/index.js's
         // unreachable-past-ceiling diagnosis applies; both would misname a
         // version mismatch as downtime.
         let rpcErr = call.rpcError;

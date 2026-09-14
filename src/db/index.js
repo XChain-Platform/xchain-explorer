@@ -226,5 +226,5 @@ mixinReaders(Database.prototype, connectionMethods, queryBuilder,
     contractReaders, pollBetReaders, xcallReaders);
 
 // One export, the class, carrying the shared names as static properties so every
-// caller's `require('./db.js').DbQueryError` still resolves.
+// caller's `require('./db/index.js').DbQueryError` still resolves.
 module.exports = Object.assign(Database, { DbQueryError, DbInputError, ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS });

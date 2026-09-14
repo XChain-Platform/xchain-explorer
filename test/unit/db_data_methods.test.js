@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for data-transformation and query-execution methods in src/db.js
+ * Unit tests for data-transformation and query-execution methods in src/db/index.js
  *
  * Covers:
  *   - getData(config)

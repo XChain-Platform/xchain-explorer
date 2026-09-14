@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for Database connection management functions in src/db.js
+ * Unit tests for Database connection management functions in src/db/index.js
  * Covers: constructor, setupConnectionPools, getConnection, releaseConnection
  */
 
@@ -24,9 +24,9 @@ const Utility    = require('../../src/lib/utility.js');
 const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
 
 // The pool code lives in src/db/connection.js since proposal B stage 1, and
-// db.js no longer requires mariadb at all. proxyquire only substitutes a
+// db/index.js no longer requires mariadb at all. proxyquire only substitutes a
 // module's OWN direct requires, so the driver stub has to be injected into the
-// connection module and that module handed to db.js; stubbing mariadb on db.js
+// connection module and that module handed to db/index.js; stubbing mariadb on db/index.js
 // would silently do nothing and every pool assertion would run against a real
 // connection attempt.
 function databaseWithDriver(mockMariadb) {
@@ -48,7 +48,7 @@ function createMockPool(mockConn) {
     };
 }
 
-// Build a minimal explorer-like object that db.js expects in its constructor
+// Build a minimal explorer-like object that db/index.js expects in its constructor
 function buildExplorer(configOverrides) {
     return {
         configInfo: createConfigInfoStub(configOverrides),

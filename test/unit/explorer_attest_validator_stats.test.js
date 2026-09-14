@@ -12,14 +12,14 @@
  *
  **********************************************************************
  * Unit tests for M3.3 (frontier row 20): Database#getAttestValidatorStats
- * (src/db.js), covering the SQL shape and column mapping over
+ * (src/db/index.js), covering the SQL shape and column mapping over
  * attest_validator_stats (xchain-indexer/src/sql/attest_validator_stats.sql).
  *
- * These exercise the real db.js SQL-generating method directly (mariadb
+ * These exercise the real db/index.js SQL-generating method directly (mariadb
  * stubbed out, no live connection), the same "M2.1 data leg" pattern used by
  * test/unit/explorer.checkpoints.test.js's Database#getCheckpoints suite.
  *
- * `getAttestValidatorStats` itself is proposed, not yet in src/db.js (db.js
+ * `getAttestValidatorStats` itself is proposed, not yet in src/db/index.js (db/index.js
  * is a shared seam file owned by the main loop per the M3 seam contract), so
  * every test below is written to be RUN once the main loop splices the
  * proposal in - not to pass vacuously today. The venue fact (2026-08-19):

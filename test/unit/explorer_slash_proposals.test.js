@@ -12,14 +12,14 @@
  *
  **********************************************************************
  * Unit tests for M3.6 (frontier row 23): Database#getSlashProposals
- * (src/db.js), proxying the hub's NEW unauthenticated `getslashproposals`
+ * (src/db/index.js), proxying the hub's NEW unauthenticated `getslashproposals`
  * RPC over the established dual path (see getValidatorCapabilities and
  * getReorgs): RPC-first via HubOperationalCache when a hub is configured, the
  * co-located hub schema as the no-hub-at-all fallback, and a THROW (never an
  * empty table) once a configured hub is unreachable past
  * EXPLORER_HUB_CACHE_STALE_MAX_MS.
  *
- * `getSlashProposals` itself is proposed, not yet in src/db.js (db.js is a
+ * `getSlashProposals` itself is proposed, not yet in src/db/index.js (db/index.js is a
  * shared seam file owned by the main loop per the M3 seam contract; likewise
  * src/mirror/operational_cache.js's new getSlashProposals() method, the
  * getQueryWhereSql branch, the cursorPagedMethods / getQueryOffsetSql cursor

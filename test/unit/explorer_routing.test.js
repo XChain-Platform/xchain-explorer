@@ -15,7 +15,7 @@
  **********************************************************************
  * Unit tests for URL matching and cfg construction in XChainExplorer.processRequest()
  *
- * Strategy: proxyquire replaces express and db.js so the class can be instantiated
+ * Strategy: proxyquire replaces express and db/index.js so the class can be instantiated
  * without a real database or HTTP server.  A MockDB captures the cfg object passed
  * to getData(), letting each test inspect what processRequest() built from the URL.
  */
@@ -297,9 +297,9 @@ describe('XChainExplorer.processRequest – routing', function () {
         });
 
         // The sibling block route is declined too, but a layer down: the
-        // refusal is a DbInputError raised by db.js getBlock, not a route-table
+        // refusal is a DbInputError raised by db/index.js getBlock, not a route-table
         // guard, so it covers every caller of the reader rather than one URL. This
-        // MockDB stands in for db.js and therefore never raises it, which is exactly
+        // MockDB stands in for db/index.js and therefore never raises it, which is exactly
         // what makes this a useful assertion about the ROUTE table: no route-layer
         // guard intercepts /api/block, so the request still reaches the reader.
         // The 400 itself is pinned in block-query-guard.test.js, which drives the

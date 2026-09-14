@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * db.js is being decomposed into src/db/ one reader family at a time. The whole
+ * db/index.js is being decomposed into src/db/ one reader family at a time. The whole
  * claim of that decomposition is that NOTHING moves for a caller: every method
  * is still reached as db.getWhatever(...).
  *
@@ -24,9 +24,9 @@
  *   1. Every method declared in every module under src/db/ is present on
  *      Database.prototype.
  *   2. Every module file under src/db/ is actually composed in. Adding a file
- *      and forgetting the require line in db.js goes red here rather than on
+ *      and forgetting the require line in db/index.js goes red here rather than on
  *      the page.
- *   3. No name is declared twice across db.js and the modules, so no family
+ *   3. No name is declared twice across db/index.js and the modules, so no family
  *      can shadow another's query by require order.
  *
  * Read from source text rather than by requiring each module, because the
@@ -62,7 +62,7 @@ function jsFilesUnder(absDir){
  * Method names declared in a file's class bodies. A class body opens on
  * `^class <Name>` and closes on the first `^}` after it, which is the only
  * place a top-level brace lands in these files; reading to EOF instead would
- * sweep in the composition call that follows the class in db.js.
+ * sweep in the composition call that follows the class in db/index.js.
  */
 function classBodyMethods(relPath, classFilter){
     const lines = fs.readFileSync(path.join(SRC, relPath), 'utf8').split('\n');

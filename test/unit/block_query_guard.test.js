@@ -15,7 +15,7 @@
  **********************************************************************
  * Unit tests for the /{COIN}/api/block/{QUERY} malformed-id refusal (D-E062).
  *
- * db.js's getBlock bound config.data.search straight into `WHERE
+ * db/index.js's getBlock bound config.data.search straight into `WHERE
  * b1.block_index=?`, and MariaDB coerces a non-numeric string to 0 in a numeric
  * comparison, so /api/block/zzz-no-such-entity-9999 answered 200 with BLOCK 0's
  * real, well-formed record. That is worse than the 500 its checkpoint sibling
@@ -49,7 +49,7 @@ let capturedConfig = null;
 /** Set true whenever the stubbed SQL round-trip actually ran */
 let queried = false;
 
-// Delegates to the real db.js reader so the refusal being asserted is the
+// Delegates to the real db/index.js reader so the refusal being asserted is the
 // shipping one; only doQuery (the SQL round-trip) is stubbed. Block 0's row is
 // the wrong answer an unguarded coercion hands back, so returning exactly that
 // makes a regression visible as a 200 carrying block_index 0 rather than as a

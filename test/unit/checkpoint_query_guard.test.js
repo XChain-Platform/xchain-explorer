@@ -16,7 +16,7 @@
  * Unit tests for the /{COIN}/api/checkpoint/{QUERY} malformed-id guard in
  * XChainExplorer.processRequest() (D-E060).
  *
- * db.js's getCheckpoint binds config.data.search as Number(config.data.search):
+ * db/index.js's getCheckpoint binds config.data.search as Number(config.data.search):
  * a non-numeric segment becomes NaN, which the mariadb driver cannot bind and
  * throws, so a request like /api/checkpoint/zzz-no-such reached the generic
  * catch in processRequest and answered 500 DB_ERROR instead of a clean 4xx -

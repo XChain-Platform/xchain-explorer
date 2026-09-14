@@ -21,7 +21,7 @@
  * cross_chain_matches, cross_chain_calls, oracle_prices, price_snapshots,
  * bridge_transfers, policy_snapshots)
  * instead of requiring a hub-owned schema to be provisioned next to it
- * (#4138 decoupling). The read path is unchanged: db.js keeps reading the
+ * (#4138 decoupling). The read path is unchanged: db/index.js keeps reading the
  * schema named by database.checkpoint on the indexer pool; this manager is
  * only the writer that populates it.
  *
@@ -34,7 +34,7 @@
  *
  * A self_sync target with NO hub URL is a misconfiguration, not a mode: the
  * mirror schema has no writer, so every hub-mirrored read serves whatever rows
- * it last held, indefinitely. db.js refuses to start on that pairing; when the
+ * it last held, indefinitely. db/index.js refuses to start on that pairing; when the
  * operator downgrades that to a warning (ALLOW_NO_COLOCATED_HUB_DB=1) the
  * target is still REGISTERED here, as an unconfigured instance, so managesCoin()
  * reports true and the staleness gate fails those routes loud per request
@@ -111,7 +111,7 @@ class HubMirrorSyncManager {
                 // managesCoin() true for this coin, which is what makes the gate in
                 // XChainExplorer.mirrorGate() refuse the consensus routes instead of
                 // serving a mirror nothing writes. Reached only when the operator
-                // downgraded the db.js startup refusal with ALLOW_NO_COLOCATED_HUB_DB=1.
+                // downgraded the db/index.js startup refusal with ALLOW_NO_COLOCATED_HUB_DB=1.
                 inst = { target: t, coins: [coinKey], pool: null, sync: null,
                          hubUrl: '', unconfigured: true, warnedAt: 0 };
                 this.instances.set(key, inst);

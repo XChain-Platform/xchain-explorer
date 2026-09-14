@@ -11,12 +11,12 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for the four M4 composed detail methods in src/db.js
+ * Unit tests for the four M4 composed detail methods in src/db/index.js
  * (spec explorer-coverage-completion rows 26/28/30/31): getValidator,
  * getAttestation, getAnchor and getAddressStaking.
  *
  * HOW THESE DIFFER FROM THE M3 BUILDER TESTS, and why it matters. Most
- * getXxx methods in db.js are SQL BUILDERS: they return [query, args,
+ * getXxx methods in db/index.js are SQL BUILDERS: they return [query, args,
  * count] and getData is the executor, so `doQuery.called` can never be
  * true inside them and an assertion on it is vacuous. These four are NOT
  * builders. They follow getXcall/getPoll: they run their own reads and

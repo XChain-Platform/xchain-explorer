@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for all get* ACTION query methods in src/db.js
+ * Unit tests for all get* ACTION query methods in src/db/index.js
  *
  * Each method is called directly (no DB connection needed) and the returned
  * [query, args, count] triple is verified for:

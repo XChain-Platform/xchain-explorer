@@ -516,7 +516,7 @@ class ChangeDetector extends EventEmitter {
         prev.xcallBlock = next;
     }
 
-    // "That table does not exist here", seen through the db layer's wrapper. db.js
+    // "That table does not exist here", seen through the db layer's wrapper. db/index.js
     // rethrows as DbQueryError with its OWN code ('DB_ERROR') and the driver's
     // SqlError on .cause, so testing the top-level error alone never matches a real
     // one: the first cut of this check looked right, passed a unit test built from a

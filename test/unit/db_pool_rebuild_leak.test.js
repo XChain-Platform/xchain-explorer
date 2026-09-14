@@ -75,7 +75,7 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
         };
         // setupConnectionPools moved to src/db/connection.js (proposal B stage 1),
         // so the mariadb stub and the falsification override both name THAT file:
-        // proxyquire substitutes only a module's own direct requires, and db.js
+        // proxyquire substitutes only a module's own direct requires, and db/index.js
         // no longer requires the driver.
         Database = proxyquire('../../src/db/index.js', {
             './connection.js': proxyquire(

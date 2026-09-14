@@ -14,7 +14,7 @@
  * Pool sizes are per dbType and operator-tunable.
  *
  * The indexer pool (page renders) and the decoder pool (status tip, mempool,
- * raw FILE bytes) were both literals in db.js, the decoder one at 3. An
+ * raw FILE bytes) were both literals in db/index.js, the decoder one at 3. An
  * operator whose decoder-backed views were queueing had no knob at all, and
  * raising the indexer pool would have dragged the decoder pool with it.
  *
@@ -69,9 +69,9 @@ describe('explorer pool sizing is per dbType', function () {
             })
         };
         // The pool code moved to src/db/connection.js (proposal B stage 1), and
-        // proxyquire only substitutes a module's own direct requires: db.js no
+        // proxyquire only substitutes a module's own direct requires: db/index.js no
         // longer requires mariadb, so the driver stub goes into the connection
-        // module and that module is handed to db.js.
+        // module and that module is handed to db/index.js.
         Database = proxyquire('../../src/db/index.js', {
             './connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
         });

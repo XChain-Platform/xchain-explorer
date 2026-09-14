@@ -15,7 +15,7 @@
  * XChain Explorer - market readers
  *
  * markets, one market, market history, market orders and the orderbook.
- * One of the reader families extracted out of db.js.
+ * One of the reader families extracted out of db/index.js.
  *
  * WHY EVERY TICKER JOIN HERE IS A LEFT JOIN
  *
@@ -30,7 +30,7 @@
  * HOW THIS ATTACHES
  *
  * The readers are authored as a class body and exported as that class's
- * prototype, so db.js can copy them onto Database.prototype verbatim. Nothing
+ * prototype, so db/index.js can copy them onto Database.prototype verbatim. Nothing
  * here is ever instantiated: `this` is the Database instance at call time,
  * exactly as it was when these methods sat inline, so every helper
  * (this.doQuery, this.util, this.explorer, ...) resolves the same way and no

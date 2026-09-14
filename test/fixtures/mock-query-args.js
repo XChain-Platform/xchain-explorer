@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Factory functions for constructing config objects used by db.js and XChainExplorer.js methods
+ * Factory functions for constructing config objects used by db/index.js and XChainExplorer.js methods
  */
 
 // Build a standard config object like processRequest creates

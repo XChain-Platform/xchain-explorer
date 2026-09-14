@@ -15,7 +15,7 @@
  * pipeline, hub oracle round -> price_snapshots -> Explorer USD. The hub
  * finalizes an oracle round into a price_snapshots row and serves it via the
  * `getprice` JSON-RPC; getCoinPriceUsd() fetches that and is what feeds
- * `coin.price.usd` in GET /{COIN}/api/network (db.getNetwork, db.js:~3705).
+ * `coin.price.usd` in GET /{COIN}/api/network (db.getNetwork, db/index.js:~3705).
  *
  * The hub-side leg (real round -> finalized snapshot -> getprice) is covered by
  * xchain-hub/test/e2e/oracle.test.js. This closes the previously-untested

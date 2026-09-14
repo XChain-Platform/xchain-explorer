@@ -53,22 +53,22 @@
 async function selectIconBatch(conn, batchSize){
     return conn.query(
         `SELECT i.id           AS icon_id,
-                i.token_id     AS token_id,
-                i.attempts     AS attempts,
-                t.description  AS description,
-                idx.tick       AS tick
-         FROM icons i
-         JOIN tokens          t   ON t.id        = i.token_id
-         JOIN index_tickers   idx ON idx.id      = t.tick_id
-         WHERE ( i.status IN ('pending','stale')
-                 AND (i.next_retry_at IS NULL OR i.next_retry_at <= NOW()) )
-            OR ( i.status = 'failed'
-                 AND i.next_retry_at IS NOT NULL
-                 AND i.next_retry_at <= NOW() )
-         ORDER BY i.last_checked_at IS NULL DESC,
-                  CASE WHEN i.last_checked_at IS NULL THEN i.token_id END DESC,
-                  i.last_checked_at ASC
-         LIMIT ?`,
+                        i.token_id     AS token_id,
+                        i.attempts     AS attempts,
+                        t.description  AS description,
+                        idx.tick       AS tick
+                 FROM icons i
+                 JOIN tokens          t   ON t.id        = i.token_id
+                 JOIN index_tickers   idx ON idx.id      = t.tick_id
+                 WHERE ( i.status IN ('pending','stale')
+                         AND (i.next_retry_at IS NULL OR i.next_retry_at <= NOW()) )
+                    OR ( i.status = 'failed'
+                         AND i.next_retry_at IS NOT NULL
+                         AND i.next_retry_at <= NOW() )
+                 ORDER BY i.last_checked_at IS NULL DESC,
+                          CASE WHEN i.last_checked_at IS NULL THEN i.token_id END DESC,
+                          i.last_checked_at ASC
+                 LIMIT ?`,
         [batchSize]
     );
 }
@@ -80,12 +80,12 @@ async function selectIconBatch(conn, batchSize){
 async function selectIconTicksInChunk(conn, chunk){
     return conn.query(
         `SELECT idx.tick AS tick
-         FROM icons i
-         JOIN tokens          t   ON t.id   = i.token_id
-         JOIN index_tickers   idx ON idx.id = t.tick_id
-         WHERE i.status = 'ok'
-           AND i.icon_hash IS NULL
-           AND idx.tick IN (${chunk.map(() => '?').join(',')})`,
+                 FROM icons i
+                 JOIN tokens          t   ON t.id   = i.token_id
+                 JOIN index_tickers   idx ON idx.id = t.tick_id
+                 WHERE i.status = 'ok'
+                   AND i.icon_hash IS NULL
+                   AND idx.tick IN (${chunk.map(() => '?').join(',')})`,
         chunk
     );
 }
@@ -100,8 +100,8 @@ async function selectIconTicksInChunk(conn, chunk){
 async function insertMissingIconRows(conn){
     return conn.query(
         `INSERT IGNORE INTO icons (token_id, description_hash, status)
-         SELECT t.id, MD5(t.description), 'pending'
-         FROM tokens t`
+             SELECT t.id, MD5(t.description), 'pending'
+             FROM tokens t`
     );
 }
 
@@ -109,11 +109,11 @@ async function insertMissingIconRows(conn){
 async function markDescriptionChangedIcons(conn){
     return conn.query(
         `UPDATE icons i
-         JOIN tokens t ON t.id = i.token_id
-         SET i.status = 'stale',
-             i.description_hash = MD5(t.description),
-             i.next_retry_at = NULL
-         WHERE NOT (MD5(t.description) <=> i.description_hash)`
+             JOIN tokens t ON t.id = i.token_id
+             SET i.status = 'stale',
+                 i.description_hash = MD5(t.description),
+                 i.next_retry_at = NULL
+             WHERE NOT (MD5(t.description) <=> i.description_hash)`
     );
 }
 
@@ -168,18 +168,18 @@ async function markDescriptionChangedIcons(conn){
 // statement updates nothing at all.
 // SHARED-WRITE EXCEPTION (#3752): UPDATE on the indexer-owned `icons` table.
 //
-// actionRefPattern is the resolver's own ACTION_REF_PATTERN source text, passed
+// ACTION_REF_PATTERN is the resolver's own pattern source text of that name, passed
 // in by the caller so this file needs no dependency on the resolver module.
-async function restaleActionReferencedIcons(conn, actionRefPattern){
+async function restaleActionReferencedIcons(conn, ACTION_REF_PATTERN){
     return conn.query(
         `UPDATE icons i
-         JOIN tokens t ON t.id = i.token_id
-         SET i.status = 'stale',
-             i.attempts = 0,
-             i.next_retry_at = NULL
-         WHERE i.status = 'ok'
-           AND i.icon_hash IS NULL
-           AND CONVERT(TRIM(t.description) USING binary) REGEXP '${actionRefPattern}'`
+             JOIN tokens t ON t.id = i.token_id
+             SET i.status = 'stale',
+                 i.attempts = 0,
+                 i.next_retry_at = NULL
+             WHERE i.status = 'ok'
+               AND i.icon_hash IS NULL
+               AND CONVERT(TRIM(t.description) USING binary) REGEXP '${ACTION_REF_PATTERN}'`
     );
 }
 
@@ -189,9 +189,9 @@ async function restaleActionReferencedIcons(conn, actionRefPattern){
 async function updateIconOk(conn, sourceUrl, sourceHash, iconHash, descHash, iconId){
     return conn.query(
         `UPDATE icons SET
-             status='ok', attempts=0, last_error=NULL, next_retry_at=NULL,
-             source_url=?, source_hash=?, icon_hash=?, description_hash=?, last_checked_at=NOW()
-         WHERE id=?`,
+                 status='ok', attempts=0, last_error=NULL, next_retry_at=NULL,
+                 source_url=?, source_hash=?, icon_hash=?, description_hash=?, last_checked_at=NOW()
+             WHERE id=?`,
         [sourceUrl, sourceHash, iconHash, descHash, iconId]
     );
 }
@@ -202,8 +202,8 @@ async function updateIconOk(conn, sourceUrl, sourceHash, iconHash, descHash, ico
 async function updateIconFailedTerminal(conn, attempts, errMsg, iconId){
     return conn.query(
         `UPDATE icons SET status='failed', attempts=?, last_error=?,
-                          next_retry_at=NULL, last_checked_at=NOW()
-         WHERE id=?`,
+                                  next_retry_at=NULL, last_checked_at=NOW()
+                 WHERE id=?`,
         [attempts, errMsg, iconId]
     );
 }
@@ -214,9 +214,9 @@ async function updateIconFailedTerminal(conn, attempts, errMsg, iconId){
 async function updateIconFailedRetry(conn, attempts, errMsg, sec, iconId){
     return conn.query(
         `UPDATE icons SET status='failed', attempts=?, last_error=?,
-                          next_retry_at=DATE_ADD(NOW(), INTERVAL ? SECOND),
-                          last_checked_at=NOW()
-         WHERE id=?`,
+                                  next_retry_at=DATE_ADD(NOW(), INTERVAL ? SECOND),
+                                  last_checked_at=NOW()
+                 WHERE id=?`,
         [attempts, errMsg, sec, iconId]
     );
 }

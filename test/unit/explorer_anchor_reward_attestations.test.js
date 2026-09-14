@@ -14,7 +14,7 @@
  *
  **********************************************************************
  * Unit tests for M3.7 (row 24): Database#getAnchorRewardAttestations
- * (src/db.js), the routed, paged list view over the hub-mirrored
+ * (src/db/index.js), the routed, paged list view over the hub-mirrored
  * anchor_reward_attestations table. Modeled on
  * test/unit/explorer.checkpoints.test.js's "M2.1 data leg" describe block
  * and test/unit/explorer.capability-snapshots.test.js (row 21, the sibling
@@ -38,7 +38,7 @@
  * exactly as getCheckpoints already does. See the proposal file's header for
  * the full citation.
  *
- * These tests exercise the real db.js method once the main loop splices in
+ * These tests exercise the real db/index.js method once the main loop splices in
  * the proposal at
  * /private/tmp/claude-501/-Users-jdog-Sites-XChain-Platform/2638fcd2-4d57-4275-acf1-aba41d9c05fc/scratchpad/m3-proposal-row24.md
  * (getAnchorRewardAttestations itself, its getQueryWhereSql branch, its
@@ -66,7 +66,7 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
 
 // ─────────────────────────────────────────────────────────────────────────
-// Database#getAnchorRewardAttestations (real db.js SQL-generating method,
+// Database#getAnchorRewardAttestations (real db/index.js SQL-generating method,
 // mariadb stubbed out, no live connection) -- same rig as
 // explorer.checkpoints.test.js's DatabaseReal / makeRealDb.
 // ─────────────────────────────────────────────────────────────────────────

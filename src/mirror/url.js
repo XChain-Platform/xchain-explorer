@@ -15,7 +15,7 @@
  * XChain Explorer - hub-mirror endpoint resolution
  *
  * Single answer to "where does the self-synced mirror writer read the hub?",
- * shared by the startup invariant in db.js and the writer itself in
+ * shared by the startup invariant in db/index.js and the writer itself in
  * mirror/sync_manager.js so the two can never disagree about whether a
  * self_sync target is actually syncable.
  *
@@ -39,7 +39,7 @@
 // never reads a variable.
 const configEnv = () => require('../config.js').env;
 
-// Resolve the hub REST base URL for one checkpoint target (a db.js
+// Resolve the hub REST base URL for one checkpoint target (a db/index.js
 // checkpointDb entry, or any object carrying hubUrl). Returns '' when neither
 // source names one; callers treat that as "this mirror has no writer".
 function resolveHubUrl(target){

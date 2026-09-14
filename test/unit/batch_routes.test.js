@@ -25,7 +25,7 @@
  * future change to a per-address response can never leave the batch behind.
  *
  * Strategy follows explorer.routing.test.js: proxyquire replaces express and
- * db.js, the express double records the app.post() registrations so a test can
+ * db/index.js, the express double records the app.post() registrations so a test can
  * grab the real route handler, and MockDB answers getData() from per-test
  * fixtures keyed by method and search value.
  *
@@ -39,7 +39,7 @@ const { mockReq, mockRes }     = require('../fixtures/mock-query-args.js');
 
 // Per-test DB behaviour, keyed by the reader method processRequest resolves the
 // path to. A handler receives the cfg processRequest built and returns the
-// [data, total] pair db.getData() would have, or throws the way db.js does.
+// [data, total] pair db.getData() would have, or throws the way db/index.js does.
 let dbHandlers = {};
 
 // Every getData() call in call order, so forwarding and concurrency can be

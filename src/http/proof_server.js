@@ -342,7 +342,7 @@ class ProofServer {
             if (!res || res.error) continue;                                 // capability not configured here -> skip
             // Fail CLOSED on a truncated stake snapshot, read off the RESULT ENVELOPE.
             // The indexer marks truncation in two places: a `truncated` property on the
-            // validators array (db.js getStakeWeightsByCapability) and a `truncated` field
+            // validators array (db/index.js getStakeWeightsByCapability) and a `truncated` field
             // on the envelope (api.js getstakeweightsbycapability). Only the envelope
             // survives the JSON-RPC hop, because JSON.stringify drops non-index properties
             // of an array, so swq's array-property guard is unreachable for a snapshot that

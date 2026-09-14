@@ -1512,7 +1512,7 @@ CREATE UNIQUE INDEX action_index       ON unstakes (action_index);
 CREATE        INDEX source_id          ON unstakes (source_id);
 CREATE        INDEX signing_pubkey_id  ON unstakes (signing_pubkey_id);
 
--- Contract-targeted UNSTAKE v1 (`contract_unstakes`; see db.js getContractUnstakes
+-- Contract-targeted UNSTAKE v1 (`contract_unstakes`; see db/index.js getContractUnstakes
 -- and staking.js UNSTAKE, which LEFT JOINs it for every UNSTAKE lookup regardless
 -- of variant). ROLLCALL evictions never write this table (they are capability-only,
 -- see `unstakes` above); present here only so that join resolves instead of failing

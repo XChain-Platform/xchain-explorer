@@ -98,7 +98,7 @@ async function createApp(dbPort) {
     if (cachedResult) return cachedResult;
 
     // The integration fixture config declares only indexer + decoder DBs (no
-    // checkpoint schema), so db.js's mandatory co-located hub-mirror invariant
+    // checkpoint schema), so db/index.js's mandatory co-located hub-mirror invariant
     // would fatal at explorer.init(). Take the sanctioned bypass: start
     // anyway; hub-mirrored endpoints fail loud per request instead of at boot.
     process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';

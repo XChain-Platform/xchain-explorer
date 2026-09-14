@@ -329,7 +329,7 @@ describe('config', function () {
         });
 
         it('announces a config change only after the cache holds the NEW config', async function () {
-            // Subscribers re-read config through the cache (db.js setupConnectionPools
+            // Subscribers re-read config through the cache (db/index.js setupConnectionPools
             // calls getConfig() with cache defaulting to true). Announcing before
             // configCache is replaced hands them the PREVIOUS config, so an explorer
             // that cold-started with no coins rebuilt zero DB pools and served 503

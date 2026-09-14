@@ -13,7 +13,7 @@
  **********************************************************************
  * Derivation and render for the ADDRESS STAKING panel on address.html
  * (/{COIN}/address/{QUERY}), fed by /{COIN}/api/staking/{QUERY}
- * (getAddressStaking, src/db.js).
+ * (getAddressStaking, src/db/index.js).
  *
  * Split out of the page's inline script so a test can drive the real
  * derivation with stubbed responses, the same way validator.html is driven

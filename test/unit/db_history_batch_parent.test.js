@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for db.js#getHistoryData's M1.6 addition (spec
+ * Unit tests for db/index.js#getHistoryData's M1.6 addition (spec
  * explorer-coverage-completion): a correlated scalar subquery in
  * the LIST query's select list that derives BATCH parenthood (the indexer
  * stores no parent column; parent and children share (tx_index, tx_vout) on

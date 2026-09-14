@@ -13,9 +13,9 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for M3.4 (row 21): Database#getCapabilitySnapshots (src/db.js),
+ * Unit tests for M3.4 (row 21): Database#getCapabilitySnapshots (src/db/index.js),
  * the routed, paged sibling of the existing raw reader
- * Database#getCapabilitySnapshotRows (db.js:7673-7682, called ad hoc from
+ * Database#getCapabilitySnapshotRows (db/index.js:7673-7682, called ad hoc from
  * checkpoint-verify) and its src/content/html/capability_snapshots.html page
  * fragment. Modeled on test/unit/explorer.checkpoints.test.js's "M2.1 data
  * leg" describe block (Database#getCheckpoints), the sibling hub-mirrored
@@ -30,7 +30,7 @@
  * "never touches hub RPC" and "answers with hub down" describe blocks below
  * assert that property directly rather than assuming it.
  *
- * These tests exercise the real db.js method once the main loop splices in
+ * These tests exercise the real db/index.js method once the main loop splices in
  * the proposal at
  * /private/tmp/claude-501/-Users-jdog-Sites-XChain-Platform/2638fcd2-4d57-4275-acf1-aba41d9c05fc/scratchpad/m3-proposal-row21.md
  * (getCapabilitySnapshots itself, its getQueryWhereSql branch, its
@@ -52,7 +52,7 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
 
 // ─────────────────────────────────────────────────────────────────────────
-// Database#getCapabilitySnapshots (real db.js SQL-generating method, mariadb
+// Database#getCapabilitySnapshots (real db/index.js SQL-generating method, mariadb
 // stubbed out, no live connection) -- same rig as explorer.checkpoints.test.js's
 // DatabaseReal / makeRealDb.
 // ─────────────────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ function makeRealDb(explorerOverrides = {}) {
 }
 
 // The mirror is chain-agnostic (capability_snapshots carries no chain/network
-// columns -- see the existing getCapabilitySnapshotRows comment at db.js:7669-7672),
+// columns -- see the existing getCapabilitySnapshotRows comment at db/index.js:7669-7672),
 // so unlike getCheckpoints' HUB fixture, no chain/network filterParams are
 // expected to be bound against this table. See the proposal's header note:
 // this contradicts the seam contract's generic "filterParams come FIRST in
@@ -270,7 +270,7 @@ describe('Database#getCapabilitySnapshots (M3.4 data leg)', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Regression: the existing raw reader getCapabilitySnapshotRows (db.js:7673-7682,
+// Regression: the existing raw reader getCapabilitySnapshotRows (db/index.js:7673-7682,
 // called ad hoc from checkpoint-verify) must be left unbroken and undupli-
 // cated by the new routed sibling above -- the seam contract requires both
 // to keep working, whether or not they end up sharing a predicate.

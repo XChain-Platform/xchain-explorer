@@ -19,7 +19,7 @@
  * middle of the platform's largest method and reviewing it meant reading past
  * dozens of unrelated branches. The chain is now a registry: one handler per
  * action type, grouped by family, and getActionData is only the pipeline they
- * share. Adding an action adds a handler; it does not touch db.js.
+ * share. Adding an action adds a handler; it does not touch db/index.js.
  *
  * A handler is a plain object. Every hook is optional; a type with no entry at
  * all still renders through getActionData's de-blank fallback.

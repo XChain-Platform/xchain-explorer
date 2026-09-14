@@ -3811,7 +3811,7 @@ function showBetDetails(data){
         $('#info-bet .bet-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
         // FEE is the ORACLE's percent cut of the pot, NOT the protocol's market
         // duration fee. Label it so the two are never confused (§10 naming pin).
-        // Read it from the aliased column (bet_fee): db.js getActionData overwrites the
+        // Read it from the aliased column (bet_fee): db/index.js getActionData overwrites the
         // reserved `fee` slot with the protocol-fee RECORD, so this printed
         // '[object Object]% of the pot' (#3932, same collision as broadcast_fee).
         $('#info-bet .bet-fee').text(isNull(data.bet_fee) ? '-' : data.bet_fee + '% of the pot (oracle fee)');
@@ -3872,7 +3872,7 @@ function showBetDetails(data){
     if(kind=='resolve'){
         // The outcome index the resolve declared. A REJECTED resolve settles nothing
         // and stores the outcome the oracle merely CLAIMED (which is why
-        // db.js getBetFeedWinningOutcome reads valid rows alone), so anything but a
+        // db/index.js getBetFeedWinningOutcome reads valid rows alone), so anything but a
         // valid action is labelled a claim rather than presented as the winner.
         // The value is on-chain input, so it goes out escaped like the rest of the panel.
         let ro = data.resolve_outcome;

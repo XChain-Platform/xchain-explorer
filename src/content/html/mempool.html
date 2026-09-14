@@ -57,7 +57,7 @@ $(document).ready(function() {
     // (getPagingDataResults in XChainExplorer.js) that has no entry for getMempool,
     // and mempool rows carry no action_index, so the next/prev/first/last
     // action_index cursor dance every other list page relies on does not apply here
-    // (see db.js#getMempool's paging comment). This page instead talks to the plain
+    // (see db/index.js#getMempool's paging comment). This page instead talks to the plain
     // /api/mempool route directly and pages by numeric page number, matching the
     // bounded (500-row) window the server slices from.
     //

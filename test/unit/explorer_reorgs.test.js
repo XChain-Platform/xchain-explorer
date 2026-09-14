@@ -11,15 +11,15 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for M3.5 (frontier row 22): Database#getReorgs (src/db.js),
+ * Unit tests for M3.5 (frontier row 22): Database#getReorgs (src/db/index.js),
  * proxying the hub's EXISTING unauthenticated `getreorghistory` RPC over the
- * established dual path (see getValidatorCapabilities, db.js:9446-9473):
+ * established dual path (see getValidatorCapabilities, db/index.js:9446-9473):
  * RPC-first via HubOperationalCache when a hub is configured, the co-located
  * hub schema as the no-hub-at-all fallback, and a THROW (never an empty
  * table) once a configured hub is unreachable past
  * EXPLORER_HUB_CACHE_STALE_MAX_MS.
  *
- * `getReorgs` itself is proposed, not yet in src/db.js (db.js is a shared
+ * `getReorgs` itself is proposed, not yet in src/db/index.js (db/index.js is a shared
  * seam file owned by the main loop per the M3 seam contract; likewise
  * src/mirror/operational_cache.js's new getReorgHistory() method, the
  * getQueryWhereSql branch, the cursorPagedMethods/getQueryOffsetSql cursor
@@ -107,7 +107,7 @@ const util       = new Utility(configInfo);
 function makeDb(hubOperational = null) {
     const db = new DatabaseReal({ configInfo, util, hubOperational });
     // this coin's own chain code, populated unconditionally for every configured
-    // coin regardless of checkpoint-DB config (see db.js ~line 386); RBTC -> BTC.
+    // coin regardless of checkpoint-DB config (see db/index.js ~line 386); RBTC -> BTC.
     db.baseCoin = { RBTC: 'BTC', RDOGE: 'DOGE' };
     return db;
 }

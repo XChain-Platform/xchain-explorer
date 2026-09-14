@@ -38,7 +38,7 @@ const { expect } = require('chai');
 
 const SRC   = path.resolve(__dirname, '../../src');
 
-// Every file the queries live in, walked rather than listed: db.js is being
+// Every file the queries live in, walked rather than listed: db/index.js is being
 // decomposed into src/db/ a family at a time, and a hard
 // list would quietly stop covering each family the moment it moved out. A pin
 // that follows the code is the only kind worth having here.

@@ -28,7 +28,7 @@
  * HOW THIS ATTACHES
  *
  * The readers are authored as a class body and exported as that class's
- * prototype, so db.js can copy them onto Database.prototype verbatim. Nothing
+ * prototype, so db/index.js can copy them onto Database.prototype verbatim. Nothing
  * here is ever instantiated: `this` is the Database instance at call time,
  * exactly as it was when these methods sat inline, so every helper
  * (this.doQuery, this.util, this.explorer, ...) resolves the same way and no

@@ -160,7 +160,7 @@ describe('BET detail render: the oracle fee is a number, not the protocol-fee re
  * resolve's feed reference, so the panel showed which market was settled and never
  * what it was settled to. An INVALID resolve makes the omission total: it settles
  * nothing and the outcome it claimed appears on no page at all, since the feed page
- * serves only the outcome a VALID resolve produced (db.js getBetFeedWinningOutcome). */
+ * serves only the outcome a VALID resolve produced (db/index.js getBetFeedWinningOutcome). */
 const RESOLVE = {
     bet_kind: 'resolve', feed_ref: 4242, feed_status: 'resolved',
     resolve_outcome: 2, status: 'valid', fee: PROTOCOL_FEE, action_index: 4310

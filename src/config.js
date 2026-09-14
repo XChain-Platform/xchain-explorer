@@ -127,7 +127,7 @@ function loadConfigCacheFromDisk(){
 
 // A live read-through view onto process.env, so the gate's
 // process_env_outside_config rule has one home (config.js is itself exempt
-// from it) without db.js/readers losing any call-time or computed-key
+// from it) without db/index.js or the readers losing any call-time or computed-key
 // semantics. Several of the reads this replaces are dynamic keys
 // (envPrefix + '_MS', 'UTXO_TRACKER_URL_' + code, per-coin
 // EXPLORER_TIP_MAX_AGE_S_<COIN> / EXPLORER_TIP_MAX_FUTURE_SKEW_S_<COIN>), so
@@ -345,7 +345,7 @@ module.exports = {
                             persistConfigCache(jsonConfig);
 
                         // Deferred to after `configCache = config`: subscribers re-read the
-                        // config through the CACHE (db.js setupConnectionPools), so firing here
+                        // config through the CACHE (db/index.js setupConnectionPools), so firing here
                         // hands them the PREVIOUS config and the rebuild silently does nothing.
                         configChanged = true;
                     } else {
@@ -455,7 +455,7 @@ module.exports = {
                             // else the HUB_API_URL env). Needed because xchain-sync deliberately
                             // excludes the hub-mirror tables (state_checkpoints /
                             // capability_snapshots / cross_chain_matches) from
-                            // replication. See db.js checkpointDb.
+                            // replication. See db/index.js checkpointDb.
                             checkpoint: info.checkpoint
                         },
                         address: coinConfig.address

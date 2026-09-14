@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for db.js#getMempool's M1.2 rewrite (spec
+ * Unit tests for db/index.js#getMempool's M1.2 rewrite (spec
  * explorer-coverage-completion): the no-type list-all mode and the
  * request-side paging that honors config.data.sql.limit (the bug being
  * fixed is that the old implementation matched ONLY type address/token,

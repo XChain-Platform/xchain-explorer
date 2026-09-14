@@ -110,7 +110,7 @@ jobs:
         run: npm run test:integration
 
   # Real-schema conformance canary: loads the REAL indexer, hub and decoder DDL
-  # into a real MariaDB and executes every routed db.js read path plus the
+  # into a real MariaDB and executes every routed db/index.js read path plus the
   # ChangeDetector WS poll loop against it. This is the always-on systemic catch
   # for a schema-drift class (a SELECT of a non-existent column shipping green
   # because unit tests stub the DB and the integration tier runs on a fixture

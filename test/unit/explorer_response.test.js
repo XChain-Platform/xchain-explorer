@@ -344,7 +344,7 @@ describe('XChainExplorer.processRequest – error responses', function () {
     });
 
     // M-4: a genuine DB failure must surface as a 5xx, not a misleading empty
-    // 200 (or a NOT_FOUND 404). db.js's doQuery now throws a DbQueryError on a
+    // 200 (or a NOT_FOUND 404). db/index.js's doQuery now throws a DbQueryError on a
     // failed read; getData propagates it and processRequest maps it to 500.
     it('returns HTTP 500 DB_ERROR when getData throws (DB outage != empty result)', async function () {
         const explorer = makeExplorer();

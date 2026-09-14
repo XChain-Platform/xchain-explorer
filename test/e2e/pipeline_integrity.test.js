@@ -14,7 +14,7 @@
  * E2E tests: Pipeline Integrity
  *
  * Validates that specific seeded values round-trip correctly through
- * the full SQL pipeline: MariaDB → db.js query → API JSON response.
+ * the full SQL pipeline: MariaDB → db/index.js query → API JSON response.
  *
  * Covers: E2E-01, E2E-02, E2E-03, E2E-04, E2E-07
  */

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Additional unit tests for uncovered methods in src/db.js
+ * Additional unit tests for uncovered methods in src/db/index.js
  *
  * Covers (SQL-builder methods, return [query, args, count]):
  *   - getCoinpays, getCoinpayExpires, getCoinpayObligations

@@ -377,7 +377,7 @@ class Broadcaster {
         // `seen` set is what keeps a client subscribed to an address that is BOTH
         // source and destination (a sweep back to yourself, a multi-output SEND with
         // change) from receiving the same frame twice; it also absorbs a repeated
-        // destination should one ever survive the dedupe in db.js.
+        // destination should one ever survive the dedupe in db/index.js.
         const seen = new Set();
         for (const address of [action.source, ...event.data.destinations]) {
             if (!address || seen.has(address)) continue;
@@ -588,7 +588,7 @@ class Broadcaster {
         }
 
         // Statuses filter. This is currently a no-op for every event this
-        // server produces (action.status is always the literal SQL NULL from db.js
+        // server produces (action.status is always the literal SQL NULL from db/index.js
         // getActionsSince, so `status` below is always falsy and the `has()` check
         // never runs). Left evaluating rather than short-circuited: proving it dead
         // requires tracing every passesFilter caller (live actions/lifecycle/ATTEST

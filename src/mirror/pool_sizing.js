@@ -23,7 +23,7 @@
  *   decoder     - status tip, mempool page, raw FILE bytes.
  *   hub-mirror  - the mirror writer's own small pool (mirror/pool.js).
  *
- * The sizes used to be literals in db.js, so an operator whose decoder-backed
+ * The sizes used to be literals in db/index.js, so an operator whose decoder-backed
  * views (mempool, FILE serving) were queueing behind a 3-connection pool had no
  * knob at all. Each dbType now resolves independently:
  *

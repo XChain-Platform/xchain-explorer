@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for db.js#getFiles' M1.7 'name' query mode (spec
+ * Unit tests for db/index.js#getFiles' M1.7 'name' query mode (spec
  * explorer-coverage-completion): exact-match discovery-by-filename
  * lookup on the plain (non-interned) files.name column.
  *

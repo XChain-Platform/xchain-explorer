@@ -11,21 +11,21 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for Database#getCommitments (src/db.js), the M3.8 data leg
+ * Unit tests for Database#getCommitments (src/db/index.js), the M3.8 data leg
  * (spec explorer-coverage-completion, row 25): the block.html "Commitments"
  * section tying state_tree_roots (this coin's own indexer DB) to the covering
  * state_checkpoints row (the co-located hub-mirror schema, via
  * checkpointSource) and any local ANCHOR action (anchor_actions) that
  * carried it.
  *
- * These exercise the db.js SQL-generating method directly, the same way
+ * These exercise the db/index.js SQL-generating method directly, the same way
  * explorer.checkpoints.test.js's "Database#getCheckpoints (M2.1 data leg)"
  * block covers its sibling hub-mirrored, co-located-DB-only list view: a
  * proxyquired Database with mariadb stubbed out, no live connection.
  *
  * getCommitments/getQueryWhereSql's getCommitments branch/getQueryOffsetSql's
  * getCommitments cursor field/cursorPagedMethods' getCommitments entry are all
- * PROPOSED additions to src/db.js (a shared seam file this builder may not
+ * PROPOSED additions to src/db/index.js (a shared seam file this builder may not
  * edit directly - see m3-seam-contract.md). These tests are written to run
  * once the main loop splices that proposal in, not to pass vacuously against
  * the current tree.

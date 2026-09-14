@@ -24,12 +24,12 @@
  * The batch loaders are not an optimisation bolted on beside the single readers:
  * they issue different SQL for the same answer, so they live next to the single
  * reader whose shape they must keep matching. The summary field list is the
- * contract between them and lives in ../shared.js, where db.js can still export it.
+ * contract between them and lives in ../shared.js, where db/index.js can still export it.
  *
  * HOW THIS ATTACHES
  *
  * The readers are authored as a class body and exported as that class's
- * prototype, so db.js can copy them onto Database.prototype verbatim. Nothing
+ * prototype, so db/index.js can copy them onto Database.prototype verbatim. Nothing
  * here is ever instantiated: `this` is the Database instance at call time,
  * exactly as it was when these methods sat inline, so every helper
  * (this.doQuery, this.util, this.explorer, ...) resolves the same way and no

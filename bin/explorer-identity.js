@@ -41,14 +41,14 @@
  *                them without touching behaviour, so they are read here rather
  *                than rediscovered at the barrier.
  *   prototype    the sorted Database.prototype method list and the enumerable
- *                key count. The db.js carve rebuilds this surface by descriptor
+ *                key count. The db/index.js carve rebuilds this surface by descriptor
  *                copy; the list says nothing was dropped and the zero says the
  *                copy kept every method non-enumerable.
  *
  * WHY IT NEEDS NO DATABASE AND NO SERVER. Every value above comes from the
  * source tree. `mocha --dry-run` loads each spec file and walks the suite tree
  * without invoking one hook or test body, so titles are all present with
- * nothing connected. require('../src/db.js') loads the class and never
+ * nothing connected. require('../src/db/index.js') loads the class and never
  * constructs it. That is what makes this pin cheap enough to re-take at every
  * milestone instead of once.
  *

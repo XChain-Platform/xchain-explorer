@@ -36,7 +36,7 @@ const configEnv = () => require('../config.js').env;
 // Resolve the decoder JSON-RPC API URL for a coin + network. Priority:
 //   1. DECODER_API_URL_<COIN>_<NETWORK>  (e.g. DECODER_API_URL_BTC_REGTEST)
 //   2. configUrl, the per-chain endpoint the caller derived from the config the
-//      explorer already holds (db.js decoderApiUrl; see decoderApiUrlFromConfig)
+//      explorer already holds (db/index.js decoderApiUrl; see decoderApiUrlFromConfig)
 //   3. DECODER_API_URL                   (generic fallback)
 // The env keys mirror the INDEXER_API_URL convention used by
 // XChainIndexerConnector, but the per-chain configUrl deliberately outranks the

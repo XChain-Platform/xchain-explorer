@@ -41,8 +41,8 @@ const Database     = proxyquire('../../src/db/index.js', {
 });
 
 // The field set the production projection copies is the shipped list itself
-// (db.js exports it), so the reference oldPath below mirrors the pre-refactor loop
-// field-for-field without a hand-maintained copy that goes stale when db.js adds
+// (db/index.js exports it), so the reference oldPath below mirrors the pre-refactor loop
+// field-for-field without a hand-maintained copy that goes stale when db/index.js adds
 // a field (a verbatim copy here once turned this suite red as a PARITY break when
 // `broadcast_fee` landed on the batched side only). What stays pinned is the LOOP
 // shape: per-field copy, SEND read through sends[0], sends[0].status fallback.

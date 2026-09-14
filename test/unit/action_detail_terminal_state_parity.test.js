@@ -50,7 +50,7 @@ const markets    = require('../../src/action-detail/markets.js');
 const dispensers = require('../../src/action-detail/dispensers.js');
 const governance = require('../../src/action-detail/governance.js');
 
-// The registry's own contract, reproduced from db.js: afterQuery2/afterQuery3
+// The registry's own contract, reproduced from db/index.js: afterQuery2/afterQuery3
 // run ONLY when their query returned rows. A test that always calls afterQuery3
 // would hide the very case defect 1 lived in.
 async function runHandler(handler, data, { query2Rows = [], query3Rows = [] } = {}, ctx = {}) {

@@ -12,15 +12,15 @@
  *
  **********************************************************************
  *
- * XChain Explorer - bindings db.js shares with its extracted modules
+ * XChain Explorer - bindings db/index.js shares with its extracted modules
  *
  * Proposal B splits the Database class across src/db/, and every extracted
  * module exports a PROTOTYPE: anything else hung on that export would be copied
  * onto Database.prototype by mixinReaders and become a method. So a module-level
- * binding that more than one family needs, or that db.js must keep exporting,
+ * binding that more than one family needs, or that db/index.js must keep exporting,
  * lives here instead of travelling with one family.
  *
- * db.js re-exports these under their original names, because that is how every
+ * db/index.js re-exports these under their original names, because that is how every
  * caller already reaches them (XChainExplorer.js's error mapping, the route
  * layer, and the suites via `const { DbQueryError } = Database`).
  *

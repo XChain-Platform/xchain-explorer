@@ -16,7 +16,7 @@ const proxyquire = require('proxyquire').noCallThru();
 
 // Real Utility (no stubbing of fs yet; we stub per-suite where needed)
 const Utility = require('../../src/lib/utility');
-// The same lazy logger object utility.js holds, so a stub on it sees every event
+// The same lazy logger object lib/utility.js holds, so a stub on it sees every event
 // whether or not an earlier suite installed the real shipper.
 const log = require('../../src/observability').getLogger();
 

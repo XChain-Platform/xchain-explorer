@@ -23,14 +23,14 @@
  * HOW THIS ATTACHES
  *
  * The readers are authored as a class body and exported as that class's
- * prototype, so db.js can copy them onto Database.prototype verbatim. Nothing
+ * prototype, so db/index.js can copy them onto Database.prototype verbatim. Nothing
  * here is ever instantiated: `this` is the Database instance at call time,
  * exactly as it was when these methods sat inline, so every helper
  * (this.doQuery, this.util, this.explorer, ...) resolves the same way and no
  * caller changed. An object literal would have needed a comma between every
  * method, which turns a pure move into a diff nobody can read.
  *
- * The move is verbatim: no module-level binding from db.js is referenced from
+ * The move is verbatim: no module-level binding from db/index.js is referenced from
  * any method below, which is what made this family safe to lift whole.
  *
  ********************************************************************/

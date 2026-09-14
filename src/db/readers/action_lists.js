@@ -15,16 +15,16 @@
  * XChain Explorer - per-action-type list readers
  *
  * The /{COIN}/api/<action> and /{COIN}/explorer/<action> feed queries, one
- * method per action type. Extracted out of db.js because these are the
+ * method per action type. Extracted out of db/index.js because these are the
  * largest single
- * family in db.js and they share nothing with each other but the query
- * pipeline, so they move as a unit and db.js stops growing every time an
+ * family in db/index.js and they share nothing with each other but the query
+ * pipeline, so they move as a unit and db/index.js stops growing every time an
  * action type is added.
  *
  * HOW THIS ATTACHES
  *
  * The readers are authored as a class body and exported as that class's
- * prototype, so db.js can copy them onto Database.prototype verbatim. Nothing
+ * prototype, so db/index.js can copy them onto Database.prototype verbatim. Nothing
  * here is ever instantiated: `this` is the Database instance at call time,
  * exactly as it was when these methods sat inline, so every helper
  * (this.doQuery, this.util, this.explorer, ...) resolves the same way and no

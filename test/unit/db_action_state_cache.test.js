@@ -27,6 +27,8 @@
 
 'use strict';
 
+const fs         = require('fs');
+const path       = require('path');
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const Utility    = require('../../src/lib/utility.js');
@@ -213,15 +215,12 @@ describe('action LRU skips responses carrying a live state block', function () {
         // weight, and one a handler selects under another name never fires. Every
         // entry must be traceable to the SQL that produces it.
         it('every listed field is selected by an action-detail handler', function () {
-            const fs   = require('fs');
-            const path = require('path');
             // The handlers select through statement text kept under src/db/, so
             // a field counts as produced when either place names it.
-            const dirs = ['../../src/action-detail', '../../src/db/action_detail']
-                .map((d) => path.join(__dirname, d));
-            const src  = dirs.flatMap((dir) => fs.readdirSync(dir)
-                .filter((f) => f.endsWith('.js'))
-                .map((f) => fs.readFileSync(path.join(dir, f), 'utf8')))
+            const src  = ['../../src/action-detail', '../../src/db/action_detail']
+                .flatMap((d) => fs.readdirSync(path.join(__dirname, d))
+                    .filter((f) => f.endsWith('.js'))
+                    .map((f) => fs.readFileSync(path.join(__dirname, d, f), 'utf8')))
                 .join('\n');
             for (const field of Database.MUTABLE_ACTION_FIELDS)
                 expect(src, 'no action-detail handler produces ' + field).to.contain(field);

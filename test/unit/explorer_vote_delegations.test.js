@@ -21,10 +21,10 @@
  * `SELECT *` would show every revoked/re-pointed delegation as if it were live.
  *
  * These tests exercise the SQL shape (Database#getVoteDelegations, proposed for
- * src/db.js) and the type filter (Database#getQueryWhereSql's proposed branch)
+ * src/db/index.js) and the type filter (Database#getQueryWhereSql's proposed branch)
  * directly, the way test/unit/explorer.checkpoints.test.js's "M2.1 data leg"
  * suite covers Database#getCheckpoints: they cannot run until the main loop
- * splices this row's db.js proposal in, which is expected (per the seam
+ * splices this row's db/index.js proposal in, which is expected (per the seam
  * contract, write to be run, not to pass vacuously).
  */
 

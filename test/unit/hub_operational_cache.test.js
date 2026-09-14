@@ -11,7 +11,7 @@
 // contact legal@dankest.llc.
 
 // Hub operational-state cache (validator_capabilities / governance_proposals /
-// governance_votes over hub JSON-RPC) and the RPC-first read path in db.js:
+// governance_votes over hub JSON-RPC) and the RPC-first read path in db/index.js:
 // TTL/stale cache behavior, endpoint resolution, filter param mapping, and JS
 // paging parity with the SQL cursor semantics it replaces.
 

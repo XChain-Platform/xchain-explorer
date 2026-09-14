@@ -232,7 +232,7 @@ class XChainHubConnector {
 
     // Params for every getallconfigs call this connector makes.
     //
-    // include_secrets is NOT optional for the explorer: db.js builds its MariaDB
+    // include_secrets is NOT optional for the explorer: db/index.js builds its MariaDB
     // pools straight out of this tree (db_host/db_port/user/pass per coin), so a
     // redacted response leaves every pool authenticating with the literal
     // "[redacted]". The hub redacts secret-bearing params by default and serves

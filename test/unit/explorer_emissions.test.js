@@ -12,8 +12,8 @@
  *
  **********************************************************************
  * Unit tests for M3.1 (row 18): the per-CONTRACT emission rollup,
- * Database#getEmissions (src/db.js), proposed in
- * scratchpad/m3-proposal-row18.md (not yet spliced into db.js at the time
+ * Database#getEmissions (src/db/index.js), proposed in
+ * scratchpad/m3-proposal-row18.md (not yet spliced into db/index.js at the time
  * this file is written; these tests exercise the method's real SQL-generating
  * shape once the splice lands, the same way explorer.checkpoints.test.js's
  * "M2.1 data leg" section covers Database#getCheckpoints/#getCheckpoint).
@@ -36,7 +36,7 @@ const Utility = require('../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 
-// Real db.js SQL-generating methods, mariadb stubbed out (no live connection),
+// Real db/index.js SQL-generating methods, mariadb stubbed out (no live connection),
 // matching the "M2.1 data leg" pattern in explorer.checkpoints.test.js and
 // db.more-queries.test.js: these tests read the generated SQL text/args, they
 // never execute a query.

@@ -470,9 +470,9 @@ describe('explorer canonicalCheckpointString == SDK canonicalCheckpoint @regress
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// M2.1 data leg: Database#getCheckpoints / Database#getCheckpoint (src/db.js)
+// M2.1 data leg: Database#getCheckpoints / Database#getCheckpoint (src/db/index.js)
 //
-// These exercise the real db.js SQL-generating methods directly, the way
+// These exercise the real db/index.js SQL-generating methods directly, the way
 // db.more-queries.test.js's Database#getPriceSnapshots / #getOraclePrices
 // suites cover the OTHER hub-mirrored, co-located-DB-only list views: a
 // separate proxyquired Database (mariadb stubbed out, no live connection),

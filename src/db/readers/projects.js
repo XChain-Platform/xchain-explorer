@@ -27,7 +27,7 @@
  * HOW THIS ATTACHES
  *
  * The readers are authored as a class body and exported as that class's
- * prototype, so db.js can copy them onto Database.prototype verbatim. Nothing
+ * prototype, so db/index.js can copy them onto Database.prototype verbatim. Nothing
  * here is ever instantiated: `this` is the Database instance at call time,
  * exactly as it was when these methods sat inline, so every helper
  * (this.doQuery, this.util, this.explorer, ...) resolves the same way and no
@@ -187,7 +187,7 @@ class ProjectReaders {
      * read-time cooldown: a `bind` always gates; an `unbind` gates only while
      * the chain tip is below its cooldown_end_block. This mirrors the indexer's
      * readEffectiveControllerMap / controllerEventIfGating (xchain-indexer
-     * src/db.js) so the explorer surfaces exactly what consensus enforces.
+     * src/db/index.js) so the explorer surfaces exactly what consensus enforces.
      ******************************************************************/
 
     // Reduce an append-only controller event log (token_controllers /

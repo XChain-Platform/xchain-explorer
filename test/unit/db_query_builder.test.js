@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for SQL generation functions in src/db.js
+ * Unit tests for SQL generation functions in src/db/index.js
  *
  * Tests:
  *   - getMaxMethodResults(method)

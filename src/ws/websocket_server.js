@@ -418,7 +418,7 @@ class WebSocketServer {
 
         // Still accept a `statuses` filter (non-breaking: ChannelManager keeps
         // validating and storing it), but it is a no-op on every event this server
-        // currently produces (action.status is a literal SQL NULL from db.js
+        // currently produces (action.status is a literal SQL NULL from db/index.js
         // getActionsSince, so Broadcaster.passesFilter's status check never fires).
         // Surface that as `ignored_filters` so a client that sent it can observe the
         // no-op instead of silently getting nothing. Same params object for the whole

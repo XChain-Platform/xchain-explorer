@@ -156,7 +156,7 @@ class XChainExplorer {
         await this.db.init()
         // Hub operational-state reads (validator capabilities, governance) over
         // JSON-RPC with a short TTL cache. Disabled (null connector) when no hub
-        // endpoint is configured; db.js then falls back to the legacy co-located
+        // endpoint is configured; db/index.js then falls back to the legacy co-located
         // hub schema read.
         this.hubOperational = new HubOperationalCache(this);
         // Self-synced hub-DB mirror: populates the local
@@ -1071,7 +1071,7 @@ class XChainExplorer {
 
         let total = null;
         let data  = null;
-        // Set when a data read genuinely FAILED (db.js now throws a DbQueryError
+        // Set when a data read genuinely FAILED (db/index.js now throws a DbQueryError
         // on outage/rejected query instead of swallowing it into an empty set,
         // M-4). Suppresses the empty-result assembly and the NOT_FOUND fallback
         // so the response stays a 5xx rather than a misleading empty 200 / 404.
@@ -1138,10 +1138,10 @@ class XChainExplorer {
         let validDataRequest = (!this.util.isNull(config['COIN_SUPPORTED'][coin]) && !this.util.isNull(config['COIN_AVAILABLE'][coin])) ? true : false;
 
         // Freshness of this coin's indexed tip, read once per request from the
-        // 15s cache in db.js. A stale tip does NOT refuse the read: the rows are a
+        // 15s cache in db/index.js. A stale tip does NOT refuse the read: the rows are a
         // true record of the chain up to the tip this instance holds, and refusing
         // them turned every indexer stall into a whole-coin blackout that read as
-        // the network being down (see staleFailClosed in db.js). The snapshot is
+        // the network being down (see staleFailClosed in db/index.js). The snapshot is
         // stamped onto the response instead, and only the EXPLORER_STALE_FAIL_CLOSED
         // opt-in keeps the old 503.
         let freshness = null;
@@ -1293,7 +1293,7 @@ class XChainExplorer {
                 badParam      = true;
                 response.code = 400;
                 response.json = { error: 'Invalid action_index', code: 'INVALID_ACTION_INDEX' };
-            // /{COIN}/api/checkpoint/{QUERY} binds its path segment via db.js's
+            // /{COIN}/api/checkpoint/{QUERY} binds its path segment via db/index.js's
             // getCheckpoint as Number(config.data.search): a non-numeric segment
             // (e.g. 'zzz-no-such') becomes NaN, which the mariadb driver cannot bind
             // and throws, so the request reached the generic DB_ERROR 500 instead of
@@ -1319,7 +1319,7 @@ class XChainExplorer {
                 } catch(e){
                     if(e && e.name === 'DbInputError'){
                         // The CALLER's parameter was malformed, not the service: a
-                        // reader declined to bind it (db.js DbInputError)
+                        // reader declined to bind it (db/index.js DbInputError)
                         // rather than let MariaDB coerce it and answer with the
                         // wrong record. Matched on `name` rather than instanceof so
                         // a stubbed db module in tests behaves the same way.
@@ -1328,7 +1328,7 @@ class XChainExplorer {
                         response.json = { error: e.message, code: e.code || 'INVALID_PARAMETER' };
                     } else {
                         // A read that genuinely failed (DB outage / rejected query)
-                        // throws (db.js DbQueryError, M-4); answer 5xx instead of a
+                        // throws (db/index.js DbQueryError, M-4); answer 5xx instead of a
                         // misleading empty 200. A successful empty SELECT does not
                         // throw and still returns 200 with total:0.
                         log.error('PROCESS_REQUEST_QUERY_FAILED', { path: req.path, err: e && e.message ? e.message : e });
@@ -1607,7 +1607,7 @@ class XChainExplorer {
                 length = 100;
             // Even the offset-exempt methods carry an explicit finite ceiling so one
             // query parameter cannot drive an unbounded DB scan + response serialization;
-            // the app-layer invariant no longer rests solely on db.js's own clamp.
+            // the app-layer invariant no longer rests solely on db/index.js's own clamp.
             else if(length > 10000)
                 length = 10000;
             limit = this.util.bcadd(start, length);
@@ -1845,7 +1845,7 @@ class XChainExplorer {
                     if(method=='getStakes')
                         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.version, info.amount, status, info.action_index];
                     // The validators row carries the hub federation registry's addr /
-                    // chains / registration-status for the same signing pubkey (db.js
+                    // chains / registration-status for the same signing pubkey (db/index.js
                     // getData folds them on), so the on-chain active set and the hub
                     // registry render as ONE table.
 
@@ -2011,7 +2011,7 @@ class XChainExplorer {
                         info = [count_reverse, info.reorg_timestamp, info.reorg_height, info.reorg_id, info.affected_chains, info.validator_count, info.status, info.id];
                     // Federation slash proposals (hub-owned, id-keyed). id is the paging
                     // cursor (LAST); evidence_hash is served in place of the verbatim
-                    // evidence blob (hashed hub-side; see db.js getSlashProposals).
+                    // evidence blob (hashed hub-side; see db/index.js getSlashProposals).
 
                     // status is a lifecycle word, not 0/1, so this action sits in the
                     // client's no-color list. The exclusion is load-bearing, not

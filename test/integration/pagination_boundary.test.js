@@ -84,6 +84,10 @@ describe('Pagination Boundary Conditions', function () {
         expect(overlap).to.be.empty;
     });
 
+});
+
+describe('Pagination Boundary Conditions', function () {
+
     it('page beyond results returns empty data with correct total', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?page=999&limit=10`);
 

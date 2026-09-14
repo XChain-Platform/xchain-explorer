@@ -42,26 +42,25 @@ function measureEventLoopLag() {
 // Suite setup / teardown
 // ---------------------------------------------------------------------------
 
-describe('Chaos: Resource Saturation', function () {
-
-before(async function () {
+async function setUpResourceSaturation() {
     this.timeout(60000);
     await waitForToxiproxy();
     await createProxy();
     await seedDatabase();
     await bootServer();
-});
+}
 
-after(async function () {
+async function tearDownResourceSaturation() {
     this.timeout(15000);
     await resetProxy();
     await stopServer();
-});
+}
 
 // ---------------------------------------------------------------------------
 // CE-RES-01: Memory Pressure Under Sustained Load
 // ---------------------------------------------------------------------------
 
+function registerMemoryPressureTests() {
 describe('CE-RES-01: Memory Pressure Under Sustained Load', function () {
     this.timeout(60000);
 
@@ -103,11 +102,13 @@ describe('CE-RES-01: Memory Pressure Under Sustained Load', function () {
         ).to.be.oneOf([200, 429]);
     });
 });
+}
 
 // ---------------------------------------------------------------------------
 // CE-RES-02: Cache Behavior Under Load
 // ---------------------------------------------------------------------------
 
+function registerCacheBehaviorTests() {
 describe('CE-RES-02: Cache Behavior Under Load', function () {
     this.timeout(60000);
 
@@ -157,11 +158,13 @@ describe('CE-RES-02: Cache Behavior Under Load', function () {
         ).to.be.oneOf([200, 429]);
     });
 });
+}
 
 // ---------------------------------------------------------------------------
 // CE-RES-03: Event Loop Saturation
 // ---------------------------------------------------------------------------
 
+function registerEventLoopTests() {
 describe('CE-RES-03: Event Loop Saturation', function () {
     this.timeout(60000);
 
@@ -218,5 +221,12 @@ describe('CE-RES-03: Event Loop Saturation', function () {
         ).to.be.oneOf([200, 429]);
     });
 });
+}
 
-}); // describe('Chaos: Resource Saturation')
+describe('Chaos: Resource Saturation', function () {
+    before(setUpResourceSaturation);
+    after(tearDownResourceSaturation);
+    registerMemoryPressureTests();
+    registerCacheBehaviorTests();
+    registerEventLoopTests();
+});

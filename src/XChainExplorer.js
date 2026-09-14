@@ -2284,13 +2284,18 @@ class XChainExplorer {
         ]);
     }
 
+    // One obligations lookup per address in a single round trip, keyed by address
+    // rather than by block, which is the query shape a wallet asks for.
     async processCoinpayObligationsBatchRequest(req, res){
         return this.processBatchRequest(req, res, [
             { key: 'coinpay_obligations', path: (address) => '/coinpay_obligations/' + encodeURIComponent(address) + '/address' }
         ]);
     }
 
-    // ICON request handler.
+    // ICON request handler: serves token icons from a fixed directory and refuses
+    // any resolved path that escapes it, because the request path reaches here
+    // unvalidated; a miss redirects to the default so a page never renders a 404
+    // image.
     async processIconRequest(req, res){
         const dirPath  = path.resolve(path.join(__dirname, 'content/icons'));
         const filePath = path.resolve(path.join(dirPath, req.path.replace(/^\/icon/, '')));

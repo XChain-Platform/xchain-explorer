@@ -13,19 +13,17 @@
  * Contract-state proofs and the two-root reassembly (SPV sub-tree spec §3 Stage A
  * items 4-5, stage A2).
  *
- * The most valuable test in this file is not the new endpoint: it is
- * "balance and stakes proofs still serve at a height where contract_state_root is
- * populated". Before this change the explorer reassembled state_root from exactly
- * two stored roots and refused to serve on mismatch, so the moment the slot became
- * real EVERY balance and stakes proof at an armed height would have failed with
- * PROOF_STATE_ROOT_MISMATCH. Loud, but a total proof outage, and it would have
- * arrived with the arming flag day rather than with this code.
+ * Two constraints carry the file. First, balance and stakes proofs must still
+ * serve at a height where contract_state_root is populated: state_root is
+ * reassembled from every stored root, so a reassembly that counts only two of
+ * them refuses every proof at an armed height with PROOF_STATE_ROOT_MISMATCH.
  *
- * The second-most valuable is the REFUSAL: below an armed height the slot commits
- * EMPTY_SMT_ROOT, against which a non-membership proof for any key verifies
- * perfectly and means nothing. Serving that as "no such key" would let a client
- * conclude a key is absent from a commitment that never covered contract state.
- * The endpoint returns a typed CONTRACT_STATE_NOT_COMMITTED instead (spec §4).
+ * Second, the endpoint must REFUSE below an armed height rather than answer.
+ * The slot commits EMPTY_SMT_ROOT there, and a non-membership proof for any key
+ * verifies against it perfectly while meaning nothing, so serving one as "no such
+ * key" lets a client conclude a key is absent from a commitment that never
+ * covered contract state. A typed CONTRACT_STATE_NOT_COMMITTED says so instead
+ * (spec §4).
  *
  *********************************************************************/
 

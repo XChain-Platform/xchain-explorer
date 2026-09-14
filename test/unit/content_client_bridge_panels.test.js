@@ -130,6 +130,10 @@ describe('explorer bridge panels: per-chain copies from getbridgeinvariant @regr
         assert.equal(rows.join(','), 'BTC,DOGE');
     });
 
+});
+
+describe('explorer bridge panels: per-chain copies from getbridgeinvariant @regression', function () {
+
     it('reads the SIGNED delta: negative is the deficit alarm, positive only a surplus', function () {
         const w = makeWindow();
         assert.equal(w.bridgeDeltaState('-1.00000000'), 'deficit');
@@ -331,148 +335,6 @@ describe('explorer bridge panels: the XBRIDGE action card, v0 to v5 @regression'
     });
 });
 
-describe('explorer bridge panels: token.html wiring degrades honestly @regression', function () {
-
-    // Stub $.getJSON with a per-URL script: `ok` bodies answer the success
-    // handler, `fail` answers .fail(). Returns the jqXHR-shaped object the page
-    // chains .fail() onto.
-    function drive(w, script) {
-        const seen = [];
-        w.$.getJSON = function (url, cb) {
-            seen.push(url);
-            const hit = Object.keys(script).find(k => url.indexOf(k) !== -1);
-            const entry = hit ? script[hit] : { fail: true };
-            if (!entry.fail && typeof cb === 'function') cb(entry.ok);
-            return { fail: function (f) { if (entry.fail) f(); return this; } };
-        };
-        return seen;
-    }
-
-    it('shows the copies card with the UNAVAILABLE notice when the hub read fails', function () {
-        const w = makeWindow();
-        drive(w, {});   // every read fails
-        w.loadBridgePanels('BTC.FUFU');
-        assert.equal(w.$('#token-bridge-card').css('display') === 'none', false,
-            'the card must be shown, so the reader is told the hub is unreachable');
-        assert.match(w.$('#token-bridge-copies').html(), /xc-bridge-unavailable/);
-    });
-
-    it('treats an error BODY as unavailable too, not as an empty copy set', function () {
-        const w = makeWindow();
-        drive(w, { '/api/bridge-invariant/': { ok: { error: 'hub unreachable' } } });
-        w.loadBridgePanels('BTC.FUFU');
-        assert.match(w.$('#token-bridge-copies').html(), /xc-bridge-unavailable/);
-    });
-
-    it('renders the per-chain table when the hub answers', function () {
-        const w = makeWindow();
-        drive(w, { '/api/bridge-invariant/': { ok: INVARIANT } });
-        w.loadBridgePanels('BTC.FUFU');
-        const html = w.$('#token-bridge-copies').html();
-        assert.match(html, /xc-bridge-copies/);
-        assert.ok(html.includes('DOGE'));
-    });
-
-    it('asks for the inherited policy on a BRIDGED row only', function () {
-        const bridged = makeWindow();
-        const seenB   = drive(bridged, {});
-        bridged.loadBridgePanels('BTC.FUFU');
-        assert.ok(seenB.some(u => u.indexOf('/api/applied-policy/') !== -1),
-            'a bridged copy inherits its policy, so the panel must be requested');
-        assert.equal(bridged.$('#token-bridge-policy-card').css('display') === 'none', false);
-
-        const native = makeWindow();
-        const seenN  = drive(native, {});
-        native.loadBridgePanels('FUFU');
-        assert.ok(!seenN.some(u => u.indexOf('/api/applied-policy/') !== -1),
-            'a native row owns its own lists and must not claim an inherited policy');
-        assert.equal(native.$('#token-bridge-policy-card').css('display'), 'none');
-    });
-
-    it('URL-encodes the rooted tick rather than pasting a dot-path into the URL', function () {
-        const w    = makeWindow();
-        const seen = drive(w, {});
-        w.loadBridgePanels('BTC.FU/FU');
-        assert.ok(seen.every(u => u.indexOf('FU/FU') === -1), 'the tick was not encoded: ' + seen.join(' '));
-    });
-
-    it('does nothing at all without a tick', function () {
-        const w    = makeWindow();
-        const seen = drive(w, {});
-        w.loadBridgePanels(null);
-        assert.deepEqual(seen, []);
-    });
-});
-
-describe('explorer bridge panels: every badge colour is a theme token (D30) @regression', function () {
-
-    // The class names the shipped render module emits for a coloured badge.
-    const COLOURED = ['xc-bridge-state-ok', 'xc-bridge-state-surplus', 'xc-bridge-state-deficit',
-                      'xc-bridge-state-unknown', 'xc-bridge-origin', 'xc-bridge-this-chain'];
-
-    function definedTokens(css) {
-        return new Set([...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--xc-[\w-]+)\s*:/g)].map(m => m[1]));
-    }
-
-    it('declares an --xc-bridge-* token for every badge state, in BOTH theme files', function () {
-        const classic = definedTokens(CLASSIC);
-        const skin    = definedTokens(SKIN);
-        const missing = [];
-        for (const cls of COLOURED) {
-            // Each badge class needs the tokens the page style block actually
-            // reads for it. Checked by EXACT name, not by prefix: a prefix test
-            // passes on a half-declared family, because --xc-bridge-state-deficit-bg
-            // and --xc-bridge-state-deficit-color share the same prefix and losing
-            // one of them still leaves the other to satisfy the check.
-            const wanted = (cls === 'xc-bridge-this-chain') ? ['--' + cls + '-bg']
-                                                           : ['--' + cls + '-bg', '--' + cls + '-color'];
-            for (const name of wanted) {
-                if (!classic.has(name)) missing.push('classic/tokens.css does not declare ' + name);
-                if (!skin.has(name))    missing.push('skin-demo/tokens.css does not declare ' + name);
-            }
-        }
-        assert.deepEqual(missing, [], missing.join('\n'));
-    });
-
-    it('declares the SAME bridge token set in both files, so the skin is a drop-in', function () {
-        const only = (a, b) => [...a].filter(n => n.startsWith('--xc-bridge-') && !b.has(n));
-        const classic = definedTokens(CLASSIC);
-        const skin    = definedTokens(SKIN);
-        // An omitted token falls back to nothing and INVALIDATES the declaration
-        // that reads it, so a partial skin breaks a badge rather than restyling it.
-        assert.deepEqual(only(classic, skin), [], 'the skin is missing: ' + only(classic, skin).join(', '));
-        assert.deepEqual(only(skin, classic), [], 'the skin declares extras: ' + only(skin, classic).join(', '));
-    });
-
-    it('the page style block reads those colours through var(), never as a literal', function () {
-        const styles = [...PAGE_HTML.matchAll(/<style>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
-        const bridgeRules = styles.split('}').filter(b => b.includes('xc-bridge'));
-        assert.ok(bridgeRules.length >= 4, 'token.html carries no bridge style rules to check');
-        for (const block of bridgeRules) {
-            const body = block.slice(block.indexOf('{') + 1);
-            for (const decl of body.split(';')) {
-                const colon = decl.indexOf(':');
-                if (colon === -1) continue;
-                const value = decl.slice(colon + 1).trim();
-                if (!value) continue;
-                assert.match(value, /^var\(--xc-/,
-                    'a bridge rule carries a literal a skin cannot reach: ' + decl.trim());
-            }
-        }
-    });
-
-    it('gives the skin a DIFFERENT value for every bridge token, or loading it changes nothing', function () {
-        const valuesOf = (css) => {
-            const out = {};
-            for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--xc-bridge-[\w-]+)\s*:\s*([^;]+);/g))
-                out[m[1]] = m[2].trim();
-            return out;
-        };
-        const c = valuesOf(CLASSIC);
-        const s = valuesOf(SKIN);
-        const names = Object.keys(c);
-        assert.ok(names.length >= 8, 'classic declares only ' + names.length + ' bridge tokens');
-        const unmoved = names.filter(n => s[n] === c[n]);
-        assert.deepEqual(unmoved, [], 'the skin reuses classic values for: ' + unmoved.join(', '));
-    });
-});
+module.exports = { makeWindow, INVARIANT, CLASSIC, SKIN, PAGE_HTML };
+require('./content_client_bridge_panels.test/wiring.js');
+require('./content_client_bridge_panels.test/theme_tokens.js');

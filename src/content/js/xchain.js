@@ -5622,7 +5622,7 @@ function showTokenInfo(){
     } else if(json.test(desc) || ipfs.test(desc) || ord.test(desc) || ar.test(desc) || arweave.test(desc)){
         if(ipfs.test(desc)){
             // Same gateway the server resolves ipfs: through (IPFS_GATEWAY in
-            // src/IconResolver.js) and the same one this file already rewrites
+            // src/icons/resolver.js) and the same one this file already rewrites
             // ipfs:// image entries to below. Pointing the page somewhere else
             // makes it render icons the downloader could not fetch, and vice
             // versa. The optional // is stripped here too, so the ipfs://HASH

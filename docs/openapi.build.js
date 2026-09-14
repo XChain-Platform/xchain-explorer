@@ -810,7 +810,7 @@ const spec = {
                 },
                 required: ['data', 'totals'],
             },
-            // vm-query.js simulate()'s result, reshaped by processContractCallRequest.
+            // src/contract/vm_query.js simulate()'s result, reshaped by processContractCallRequest.
             // `simulation` is spread out from the raw VM result with an explicit
             // disclaimer key so no client can mistake a would-be effect for a
             // committed one: the route reads MUTABLE contract state but writes nothing.

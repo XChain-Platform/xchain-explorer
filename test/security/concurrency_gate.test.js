@@ -20,7 +20,7 @@
  * from the global cap - the per-IP limiter is mounted alongside at its
  * production default and never fires.
  *
- * Run: mocha test/security/concurrency-gate.test.js --timeout 5000
+ * Run: mocha test/security/concurrency_gate.test.js --timeout 5000
  */
 
 'use strict';

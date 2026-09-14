@@ -23,9 +23,9 @@
 
 // WS event-envelope schema version this bundled browser client understands.
 // This file is a plain, un-bundled browser script (served via express.static,
-// no require()), so it cannot import src/ws/schema-version.js's WS_SCHEMA_VERSION
+// no require()), so it cannot import src/ws/schema_version.js's WS_SCHEMA_VERSION
 // directly; keep this literal in sync with that constant by hand. A conformance
-// test (test/unit/ws/schema-version-client.test.js) fails the build if they drift.
+// test (test/unit/ws/schema_version_client.test.js) fails the build if they drift.
 var CLIENT_WS_SCHEMA_VERSION = 2;
 
 var XChainWS = {

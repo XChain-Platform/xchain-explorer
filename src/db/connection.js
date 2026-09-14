@@ -262,7 +262,7 @@ class DatabaseConnection {
     }
 
     // Release every pool this instance holds and leave the maps empty. Called from
-    // the process shutdown drain (src/shutdown.js), which is the only caller: a
+    // the process shutdown drain (src/http/shutdown.js), which is the only caller: a
     // serving explorer holds its pools for its whole lifetime. Public wrapper over
     // endPools so the drain does not reach into a private method, and so the map
     // list stays in ONE place - a future third pool map added to setupConnectionPools
@@ -368,7 +368,7 @@ class DatabaseConnection {
                                     // xchain-hub; the previous 25 pushed total demand
                                     // past MariaDB's default max_connections=151 once
                                     // 3+ coins were active. Sized per dbType via
-                                    // DB_POOL_SIZE_INDEXER (see poolSizing.js), since
+                                    // DB_POOL_SIZE_INDEXER (see src/mirror/pool_sizing.js), since
                                     // the indexer and decoder pools carry very
                                     // different loads.
                                     connectionLimit:  poolSizing.resolvePoolSize('indexer'),
@@ -458,7 +458,7 @@ class DatabaseConnection {
                                         // carried in the SAME config block as self_sync
                                         // so the two cannot arrive by different paths
                                         // (the HUB_API_URL env remains the fallback;
-                                        // see hub-mirror-url.js).
+                                        // see src/mirror/url.js).
                                         hubUrl: this.util.isNull(kcfg.hub_url) ? '' : String(kcfg.hub_url),
                                         host: kHost, port: kPort, user: kcfg.user, pass: kcfg.pass
                                     };

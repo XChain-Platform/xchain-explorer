@@ -21,7 +21,7 @@
  *
  * `getSlashProposals` itself is proposed, not yet in src/db.js (db.js is a
  * shared seam file owned by the main loop per the M3 seam contract; likewise
- * HubOperationalCache.js's new getSlashProposals() method, the
+ * src/mirror/operational_cache.js's new getSlashProposals() method, the
  * getQueryWhereSql branch, the cursorPagedMethods / getQueryOffsetSql cursor
  * entries, and the normalizeHubOperationalRows bigintKeys extension). Every
  * test below is written to be RUN once the main loop splices the proposal in

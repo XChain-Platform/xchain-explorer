@@ -333,7 +333,7 @@ class ContractReaders {
     // getContractState): latest non-null row per key, values JSON-parsed with
     // raw-string fallback. Null-prototype object so adversarial keys like
     // '__proto__' round-trip instead of hitting the setter. Used only by the
-    // read-only simulation endpoint (vm-query.js), not the datatable route.
+    // read-only simulation endpoint (src/contract/vm_query.js), not the datatable route.
     //
     // The endpoint is public and the VM's maxStateKeys only bounds NEW writes,
     // not the initial load, so the caller passes hard row/byte caps and a

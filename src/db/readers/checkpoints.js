@@ -230,7 +230,7 @@ class CheckpointReaders {
             checkpoint_seq: String(r.checkpoint_seq),
             snapshot_block: String(r.snapshot_block),
             // One wire type across the checkpoint REST family: a parsed array,
-            // matching proofServer._shapeCheckpoint. The DB column is a JSON
+            // matching ProofServer.shapeCheckpoint. The DB column is a JSON
             // string; leaving it raw here made /checkpoints and /verify emit a
             // STRING while /checkpoints/range emitted an ARRAY for the same
             // logical field (api-contracts drift). Malformed JSON degrades to

@@ -56,7 +56,6 @@ function stubEscrowQueries(db, { dispensers = [], edits = [], dispenses = [] } =
 }
 
 describe('Database#getDispenserEscrowBatch', function () {
-
     afterEach(() => sinon.restore());
 
     it('returns the create escrow when nothing has refilled or drained it', async () => {
@@ -114,6 +113,10 @@ describe('Database#getDispenserEscrowBatch', function () {
         const map = await db.getDispenserEscrowBatch(cfg(), [9]);
         expect(map['9'].escrow_remaining).to.equal('15');
     });
+});
+
+describe('Database#getDispenserEscrowBatch', function () {
+    afterEach(() => sinon.restore());
 
     it('reports no escrow for an ownership dispenser, which escrows no amount', async () => {
         const db = makeDb();
@@ -213,26 +216,25 @@ describe('getDispensers list lane serves escrow', function () {
     });
 });
 
+// The row's own `status` is the CREATE action's validity, frozen at
+// 'valid' forever, so the list could not tell an open dispenser from a
+// cancelled one - and a cancelled dispenser (escrow refunded by the
+// terminal action) went on listing its full balance.
+
+function stubListQueries(db, { rows, statuses = [], edits = [], dispenses = [] }){
+    return sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+        if(/count\(\*\)/i.test(q))               return [{ total: rows.length }];
+        if(/FROM\s+dispenser_statuses/i.test(q)) return statuses;
+        if(/FROM\s+dispenser_edits/i.test(q))    return edits;
+        if(/FROM\s+dispenses/i.test(q))          return dispenses;
+        if(/FROM\s+dispensers\s+d\b/i.test(q))
+            return rows.map((r) => ({ action_index: r.action_index, give_escrow: r.give_escrow }));
+        return rows;
+    });
+}
+
 describe('getDispensers list lane serves the lifecycle status', function () {
-
     afterEach(() => sinon.restore());
-
-    // The row's own `status` is the CREATE action's validity, frozen at
-    // 'valid' forever, so the list could not tell an open dispenser from a
-    // cancelled one - and a cancelled dispenser (escrow refunded by the
-    // terminal action) went on listing its full balance.
-
-    function stubListQueries(db, { rows, statuses = [], edits = [], dispenses = [] }){
-        return sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(/count\(\*\)/i.test(q))               return [{ total: rows.length }];
-            if(/FROM\s+dispenser_statuses/i.test(q)) return statuses;
-            if(/FROM\s+dispenser_edits/i.test(q))    return edits;
-            if(/FROM\s+dispenses/i.test(q))          return dispenses;
-            if(/FROM\s+dispensers\s+d\b/i.test(q))
-                return rows.map((r) => ({ action_index: r.action_index, give_escrow: r.give_escrow }));
-            return rows;
-        });
-    }
 
     it('every row carries current_status from the latest dispenser_statuses row', async () => {
         const db   = makeDb();
@@ -270,6 +272,10 @@ describe('getDispensers list lane serves the lifecycle status', function () {
         // dead dispenser was still funded.
         expect(data[0].escrow_remaining).to.equal('0');
     });
+});
+
+describe('getDispensers list lane serves the lifecycle status', function () {
+    afterEach(() => sinon.restore());
 
     it('serves current_status null for a dispenser with no status row at all', async () => {
         const db   = makeDb();

@@ -82,10 +82,18 @@ function generateRows(count) {
 // Tests
 // ===========================================================================
 
+let explorer;
+
 describe('Boundary: getPagingDataResults (API mode)', function () {
 
-    let explorer;
     before(function () { explorer = makeExplorer(); });
+
+    registerApiLimitTests();
+    registerApiPageTests();
+    registerApiCombinatorialTests();
+});
+
+function registerApiLimitTests() {
 
     // -----------------------------------------------------------------------
     // limit boundaries
@@ -121,6 +129,10 @@ describe('Boundary: getPagingDataResults (API mode)', function () {
         const result = explorer.getPagingDataResults(cfg, rows, 10);
         expect(result).to.have.length(10);
     });
+
+}
+
+function registerApiPageTests() {
 
     // -----------------------------------------------------------------------
     // page boundaries
@@ -164,6 +176,10 @@ describe('Boundary: getPagingDataResults (API mode)', function () {
         const result = explorer.getPagingDataResults(cfg, rows, 5);
         expect(result).to.be.an('array');
     });
+
+}
+
+function registerApiCombinatorialTests() {
 
     // -----------------------------------------------------------------------
     // Combinatorial
@@ -209,7 +225,7 @@ describe('Boundary: getPagingDataResults (API mode)', function () {
         const result = explorer.getPagingDataResults(cfg, rows, 600);
         expect(result).to.have.length(500);
     });
-});
+}
 
 // ===========================================================================
 // Explorer mode boundaries
@@ -217,8 +233,13 @@ describe('Boundary: getPagingDataResults (API mode)', function () {
 
 describe('Boundary: getPagingDataResults (Explorer mode)', function () {
 
-    let explorer;
     before(function () { explorer = makeExplorer(); });
+
+    registerExplorerLengthTests();
+    registerExplorerStartTests();
+});
+
+function registerExplorerLengthTests() {
 
     it('length=1 returns exactly 1 row', function () {
         const rows = generateRows(10);
@@ -266,6 +287,10 @@ describe('Boundary: getPagingDataResults (Explorer mode)', function () {
         expect(result.length).to.equal(1);
     });
 
+}
+
+function registerExplorerStartTests() {
+
     it('start beyond total rows returns empty', function () {
         const rows = generateRows(5);
         const cfg = makeExplorerConfig('getSends', null, null, { length: 10, start: 999 });
@@ -294,4 +319,4 @@ describe('Boundary: getPagingDataResults (Explorer mode)', function () {
         const result = explorer.getPagingDataResults(cfg, [], 0);
         expect(result).to.be.an('array').with.length(0);
     });
-});
+}

@@ -23,10 +23,10 @@ const { expect } = require('chai');
 const XChainIndexerConnector = require('../../src/connectors/indexer.js');
 const { resolveIndexerUrl }  = require('../../src/connectors/indexer.js');
 
-describe('XChainIndexerConnector', function () {
+const ENV_KEYS = ['INDEXER_API_URL_BTC_REGTEST', 'INDEXER_API_URL', 'INDEXER_API_TIMEOUT_MS'];
+let saved;
 
-    const ENV_KEYS = ['INDEXER_API_URL_BTC_REGTEST', 'INDEXER_API_URL', 'INDEXER_API_TIMEOUT_MS'];
-    let saved;
+describe('XChainIndexerConnector', function () {
 
     beforeEach(function () {
         saved = {};
@@ -76,6 +76,23 @@ describe('XChainIndexerConnector', function () {
         });
     });
 
+});
+
+describe('XChainIndexerConnector', function () {
+
+    beforeEach(function () {
+        saved = {};
+        for (let k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+    });
+
+    afterEach(function () {
+        for (let k of ENV_KEYS) {
+            if (saved[k] === undefined) delete process.env[k];
+            else process.env[k] = saved[k];
+        }
+        sinon.restore();
+    });
+
     // The shared JSON-RPC call helper and the fee-quote, fee-schedule and preflight
     // wrappers built on it: every one of them fails the same way, so the error cases
     // are proved once on the helper.
@@ -111,6 +128,27 @@ describe('XChainIndexerConnector', function () {
             let c = new XChainIndexerConnector('http://x:1');
             expect(await c.call('m', {})).to.equal(null);
         });
+
+    });
+
+});
+
+describe('XChainIndexerConnector', function () {
+
+    beforeEach(function () {
+        saved = {};
+        for (let k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+    });
+
+    afterEach(function () {
+        for (let k of ENV_KEYS) {
+            if (saved[k] === undefined) delete process.env[k];
+            else process.env[k] = saved[k];
+        }
+        sinon.restore();
+    });
+
+    describe('JSON-RPC calls', function () {
 
         it('feequote delegates to _call with the feequote method + args', async function () {
             let c = new XChainIndexerConnector('http://x:1');

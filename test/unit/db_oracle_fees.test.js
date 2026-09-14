@@ -65,7 +65,6 @@ const FEES_ROWS = [
 ];
 
 describe('Betting oracle fees earned @regression', function () {
-
     it('sums the oracle credits and reports them per wager token', async function () {
         const db = makeDb([
             ['GROUP BY fs.status', [{ feed_status: 'resolved', feeds: 3 }]],
@@ -121,7 +120,9 @@ describe('Betting oracle fees earned @regression', function () {
         assert.deepStrictEqual(rec.fees_earned, []);
         assert.strictEqual(rec.active_feeds, 1);
     });
+});
 
+describe('Betting oracle fees earned @regression', function () {
     describe('trimAmountTail', function () {
         const db = makeDb([]);
         it('drops the DECIMAL zero tail without touching a significant digit', function () {

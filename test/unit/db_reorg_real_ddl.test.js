@@ -65,59 +65,65 @@ function extractColumns(ddl, table) {
         .map(l => l.split(/\s+/)[0]);
 }
 
+let sqlite, db, cfg;
+
+function loadRealSchema() {
+    // Skip only when this checkout is the standalone explorer repo without
+    // the sibling indexer (the platform monorepo + bin/ci-all.sh have it).
+    for (const f of DDL_FILES) {
+        if (!fs.existsSync(path.join(INDEXER_SQL_DIR, f))) this.skip();
+    }
+    let DatabaseSync;
+    try { ({ DatabaseSync } = require('node:sqlite')); }
+    catch (e) { this.skip(); }   // node:sqlite ships with the required Node 22
+    sqlite = new DatabaseSync(':memory:');
+
+    for (const f of DDL_FILES) {
+        const raw   = fs.readFileSync(path.join(INDEXER_SQL_DIR, f), 'utf8');
+        const table = f.replace('.sql', '');
+        const lite  = toSqlite(raw);
+        // The translation must not add/drop/rename columns, or this suite
+        // would be testing a schema that drifted from the real one.
+        expect(extractColumns(lite, table)).to.deep.equal(extractColumns(raw, table));
+        sqlite.exec(lite);
+    }
+}
+
+function resetReorgFixture() {
+    const configInfo = createConfigInfoStub();
+    const util       = new Utility(configInfo);
+    db  = new Database({ configInfo, util });
+    cfg = makeConfig({ coin: 'BTC' });
+    sqlite.exec('DELETE FROM blocks; DELETE FROM index_transactions;');
+    // Route the queries under test through the real-DDL SQLite tables so
+    // any reference to a non-existent column throws like MariaDB's
+    // ER_BAD_FIELD_ERROR (the assertion that caught the missing-column bug).
+    sinon.stub(db, 'doQuery').callsFake(async (config, query, args) =>
+        sqlite.prepare(query).all(...(args || [])));
+}
+
+function addHash(hash) {
+    return Number(sqlite.prepare('INSERT INTO index_transactions (hash) VALUES (?)').run(hash).lastInsertRowid);
+}
+
+function addBlock(index, ledgerHash) {
+    const hashId = (ledgerHash === null) ? null : addHash(ledgerHash);
+    sqlite.prepare('INSERT INTO blocks (block_index, block_time, ledger_hash_id) VALUES (?, ?, ?)')
+        .run(index, 1700000000 + index, hashId);
+}
+
+function dropBlocksFrom(index) {
+    sqlite.prepare('DELETE FROM blocks WHERE block_index >= ?').run(index);
+}
+
 describe('checkReorgAndInvalidate against the REAL indexer DDL', function () {
-
-    let sqlite, db, cfg;
-
-    before(function () {
-        // Skip only when this checkout is the standalone explorer repo without
-        // the sibling indexer (the platform monorepo + bin/ci-all.sh have it).
-        for (const f of DDL_FILES) {
-            if (!fs.existsSync(path.join(INDEXER_SQL_DIR, f))) this.skip();
-        }
-        let DatabaseSync;
-        try { ({ DatabaseSync } = require('node:sqlite')); }
-        catch (e) { this.skip(); }   // node:sqlite ships with the required Node 22
-        sqlite = new DatabaseSync(':memory:');
-
-        for (const f of DDL_FILES) {
-            const raw   = fs.readFileSync(path.join(INDEXER_SQL_DIR, f), 'utf8');
-            const table = f.replace('.sql', '');
-            const lite  = toSqlite(raw);
-            // The translation must not add/drop/rename columns, or this suite
-            // would be testing a schema that drifted from the real one.
-            expect(extractColumns(lite, table)).to.deep.equal(extractColumns(raw, table));
-            sqlite.exec(lite);
-        }
-    });
-
-    beforeEach(function () {
-        const configInfo = createConfigInfoStub();
-        const util       = new Utility(configInfo);
-        db  = new Database({ configInfo, util });
-        cfg = makeConfig({ coin: 'BTC' });
-        sqlite.exec('DELETE FROM blocks; DELETE FROM index_transactions;');
-        // Route the queries under test through the real-DDL SQLite tables so
-        // any reference to a non-existent column throws like MariaDB's
-        // ER_BAD_FIELD_ERROR (the assertion that caught the missing-column bug).
-        sinon.stub(db, 'doQuery').callsFake(async (config, query, args) =>
-            sqlite.prepare(query).all(...(args || [])));
-    });
-
+    before(loadRealSchema);
+    beforeEach(resetReorgFixture);
     afterEach(() => sinon.restore());
+    registerReorgTests();
+});
 
-    function addHash(hash) {
-        return Number(sqlite.prepare('INSERT INTO index_transactions (hash) VALUES (?)').run(hash).lastInsertRowid);
-    }
-    function addBlock(index, ledgerHash) {
-        const hashId = (ledgerHash === null) ? null : addHash(ledgerHash);
-        sqlite.prepare('INSERT INTO blocks (block_index, block_time, ledger_hash_id) VALUES (?, ?, ?)')
-            .run(index, 1700000000 + index, hashId);
-    }
-    function dropBlocksFrom(index) {
-        sqlite.prepare('DELETE FROM blocks WHERE block_index >= ?').run(index);
-    }
-
+function registerReorgTests() {
     it('runs the tip poll against the real schema without a bad-column error', async function () {
         addBlock(100, 'ledger-100');
         const reorg = await db.checkReorgAndInvalidate(cfg);
@@ -159,4 +165,4 @@ describe('checkReorgAndInvalidate against the REAL indexer DDL', function () {
         expect(await db.checkReorgAndInvalidate(cfg)).to.equal(false);
         expect(db._reorgGen.BTC || 0).to.equal(0);
     });
-});
+}

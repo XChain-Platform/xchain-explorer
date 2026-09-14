@@ -78,7 +78,6 @@ const betStatuses = (amounts) => ['bet_statuses',
     amounts.map((amount, i) => ({ bet_action_index: 1200 + i, amount }))];
 
 describe('BET_EXPIRE action detail @regression', function () {
-
     it('resolves the expired feed through the bet_feed_statuses row it wrote', async function () {
         const db = makeDb([
             ['bet_feed_statuses', [FEED_STATUS_ROW]],
@@ -130,7 +129,9 @@ describe('BET_EXPIRE action detail @regression', function () {
         assert.strictEqual(data.refund_count, 0, 'afterQuery2 does not run on no rows, so the seed has to');
         assert.strictEqual(data.refund_amount, '0');
     });
+});
 
+describe('BET_EXPIRE action detail @regression', function () {
     it('returns a structured-cloneable payload, which the LRU cache requires', async function () {
         const db = makeDb([
             ['bet_feed_statuses', [FEED_STATUS_ROW]],

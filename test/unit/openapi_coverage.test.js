@@ -117,16 +117,34 @@ describe('openapi.json route coverage', () => {
         expect(ciphertext, 'ciphertext not described').to.be.greaterThan(-1);
         expect(nonce).to.be.lessThan(tag);
         expect(tag, 'the tag precedes the ciphertext on the wire').to.be.lessThan(ciphertext);
+    });
 
-        // Derived from the producer rather than asserted: xchain-sdk is the reference
-        // encoder. Skipped in a standalone explorer clone, where the sibling is absent.
-        const sdk = path.resolve(__dirname, '../../../xchain-sdk/src/gatedFile.js');
-        if (fs.existsSync(sdk)) {
-            const source = fs.readFileSync(sdk, 'utf8');
-            expect(source, 'the SDK stopped writing [iv][authTag][ciphertext]; this doc string ' +
-                'follows the producer, so re-derive it before editing the assertion above')
+    // The doc string asserted above is derived from the producer rather than
+    // independently true, so an unreachable producer must not pass unnoticed: CI
+    // declares xchain-sdk in .ci-siblings and runs with XCHAIN_REQUIRE_SIBLINGS=1,
+    // where a missing encoder fails by name, and a standalone explorer clone records
+    // a pending case instead of a silent green.
+    describe('the SDK producer still writes the documented byte order', function () {
+        const SDK_GATED_FILE = process.env.XCHAIN_SDK_DIR
+            ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'gatedFile.js')
+            : path.resolve(__dirname, '../../../xchain-sdk/src/gatedFile.js');
+
+        before(function () {
+            if (!fs.existsSync(SDK_GATED_FILE)) {
+                if (process.env.XCHAIN_REQUIRE_SIBLINGS === '1')
+                    throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but the xchain-sdk gated-file encoder ' +
+                        'was not found at ' + SDK_GATED_FILE);
+                this.skip();
+            }
+        });
+
+        it('concatenates [iv][authTag][ciphertext]', function () {
+            const source = fs.readFileSync(SDK_GATED_FILE, 'utf8');
+            expect(source, 'the SDK stopped writing [iv][authTag][ciphertext] at ' + SDK_GATED_FILE +
+                '; the 200-response doc string follows the producer, so re-derive it before ' +
+                'editing the layout assertion above')
                 .to.match(/Buffer\.concat\(\[\s*iv\s*,\s*authTag\s*,\s*encrypted\s*\]\)/);
-        }
+        });
     });
 
     it('declares the checkpoint routes with their real body and params', () => {

@@ -123,10 +123,35 @@ const CURRENT_COLUMNS = LEGACY_COLUMNS.concat(['source_chain', 'source_action_in
 const CURRENT_INDEXES = ['PRIMARY', 'idx_round_pair', 'idx_pair_block', 'idx_pair_timestamp',
     'idx_status', 'idx_source_chain', 'idx_status_block_round'];
 
+// Same widen shape for the attestation_responses key: (network, request_id) gained
+// effective_time. The live collation answers utf8mb4 so the charset widen for this
+// table stays a no-op and only the key rebuild is observed.
+function fakeAttestDb(uqCols) {
+    const executed = [];
+    const cols = ['id', 'network', 'request_id', 'request_action_index', 'request_block_index',
+        'provider_id', 'status', 'response_payload', 'response_hash', 'meta', 'effective_time',
+        'signer_pubkeys', 'signatures', 'widen', 'batch_action_index', 'finalized_at'];
+    return {
+        executed,
+        doQuery(sql, params) {
+            if (/^SHOW TABLES LIKE/i.test(sql))
+                return Promise.resolve(params[0] === 'attestation_responses' ? [{ t: params[0] }] : []);
+            if (/^SHOW FULL COLUMNS/i.test(sql))
+                return Promise.resolve(cols.map((c) => ({ Field: c, Collation: 'utf8mb4_general_ci' })));
+            if (/^SHOW COLUMNS/i.test(sql))
+                return Promise.resolve(cols.map((c) => ({ Field: c })));
+            if (/^SHOW INDEX/i.test(sql))
+                return Promise.resolve([{ Key_name: 'PRIMARY', Column_name: 'id' }].concat(
+                    uqCols.map((c) => ({ Key_name: 'uq_attest_response', Column_name: c }))));
+            executed.push(sql);
+            return Promise.resolve();
+        }
+    };
+}
+const UQ_ATTEST_ADD = 'ALTER TABLE `attestation_responses` ADD UNIQUE KEY uq_attest_response (network, request_id, effective_time)';
+
 const noLog = () => {};
-
 describe('hub-mirror-migrate', function () {
-
     it('adds all three retraction columns and the source_chain index to a legacy table', async function () {
         const db = fakeDb({ columns: LEGACY_COLUMNS, indexes: ['PRIMARY', 'idx_round_pair'] });
         const applied = await ensureMirrorColumns(db, noLog);
@@ -139,7 +164,6 @@ describe('hub-mirror-migrate', function () {
         expect(sql).to.include('ADD KEY idx_source_chain (source_chain)');
         expect(db.executed).to.deep.equal(applied);
     });
-
     it('falls back to console.log when no logger is passed, and adds the bridge fence columns', async function () {
         const db = fakeDb({ tables: ["bridge_transfers", "policy_snapshots"], columns: [], indexes: [] });
         const seen = [];
@@ -153,14 +177,14 @@ describe('hub-mirror-migrate', function () {
         expect(applied.some((ddl) => /bridge_transfers.*finalizing_view/.test(ddl))).to.equal(true);
         expect(applied.some((ddl) => /policy_snapshots.*push_generation/.test(ddl))).to.equal(true);
     });
-
     it('is a no-op on an up-to-date schema', async function () {
         const db = fakeDb({ columns: CURRENT_COLUMNS, indexes: CURRENT_INDEXES });
         const applied = await ensureMirrorColumns(db, noLog);
         expect(applied).to.have.lengthOf(0);
         expect(db.executed).to.have.lengthOf(0);
     });
-
+});
+describe('hub-mirror-migrate', function () {
     it('adds only the missing pieces of a partially-migrated table', async function () {
         // Operator hand-ALTERed source_chain + index but missed the other two.
         const db = fakeDb({
@@ -174,47 +198,19 @@ describe('hub-mirror-migrate', function () {
         expect(applied[0]).to.include('source_action_index');
         expect(applied[0]).to.include('push_generation');
     });
-
     it('matches column names case-insensitively', async function () {
         const db = fakeDb({ columns: CURRENT_COLUMNS.map((c) => c.toUpperCase()), indexes: CURRENT_INDEXES.map((i) => i.toUpperCase()) });
         const applied = await ensureMirrorColumns(db, noLog);
         expect(applied).to.have.lengthOf(0);
     });
-
     it('skips a table that does not exist (creation is ensureTables\'s job)', async function () {
         const db = fakeDb({ tables: [] });
         const applied = await ensureMirrorColumns(db, noLog);
         expect(applied).to.have.lengthOf(0);
         expect(db.executed).to.have.lengthOf(0);
     });
-
-    // Same widen shape for the attestation_responses key: (network, request_id) gained
-    // effective_time. The live collation answers utf8mb4 so the charset widen for this
-    // table stays a no-op and only the key rebuild is observed.
-    function fakeAttestDb(uqCols) {
-        const executed = [];
-        const cols = ['id', 'network', 'request_id', 'request_action_index', 'request_block_index',
-            'provider_id', 'status', 'response_payload', 'response_hash', 'meta', 'effective_time',
-            'signer_pubkeys', 'signatures', 'widen', 'batch_action_index', 'finalized_at'];
-        return {
-            executed,
-            doQuery(sql, params) {
-                if (/^SHOW TABLES LIKE/i.test(sql))
-                    return Promise.resolve(params[0] === 'attestation_responses' ? [{ t: params[0] }] : []);
-                if (/^SHOW FULL COLUMNS/i.test(sql))
-                    return Promise.resolve(cols.map((c) => ({ Field: c, Collation: 'utf8mb4_general_ci' })));
-                if (/^SHOW COLUMNS/i.test(sql))
-                    return Promise.resolve(cols.map((c) => ({ Field: c })));
-                if (/^SHOW INDEX/i.test(sql))
-                    return Promise.resolve([{ Key_name: 'PRIMARY', Column_name: 'id' }].concat(
-                        uqCols.map((c) => ({ Key_name: 'uq_attest_response', Column_name: c }))));
-                executed.push(sql);
-                return Promise.resolve();
-            }
-        };
-    }
-    const UQ_ATTEST_ADD = 'ALTER TABLE `attestation_responses` ADD UNIQUE KEY uq_attest_response (network, request_id, effective_time)';
-
+});
+describe('hub-mirror-migrate', function () {
     it('widens a legacy 2-column uq_attest_response to include effective_time', async function () {
         const db = fakeAttestDb(['network', 'request_id']);
         const applied = await ensureMirrorColumns(db, noLog);
@@ -224,21 +220,18 @@ describe('hub-mirror-migrate', function () {
         ]);
         expect(applied).to.include(UQ_ATTEST_ADD);
     });
-
     it('is a no-op when uq_attest_response already includes effective_time', async function () {
         const db = fakeAttestDb(['network', 'request_id', 'effective_time']);
         const applied = await ensureMirrorColumns(db, noLog);
         expect(applied).to.have.lengthOf(0);
         expect(db.executed).to.have.lengthOf(0);
     });
-
     it('attestation_responses widen matches the SQL twin uq_attest_response', function () {
         const twin = fs.readFileSync(
             path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', 'attestation_responses.sql'), 'utf8');
         expect(twin).to.match(/uq_attest_response ON attestation_responses \(network,\s*request_id,\s*effective_time\)/);
         expect(MIRROR_MIGRATIONS.attestation_responses.widenIndexes[0].requiredColumn).to.equal('effective_time');
     });
-
     it('widens a legacy 3-column uq_cap_snap to include source', async function () {
         const db = fakeCapDb(['snapshot_block', 'capability', 'signing_pubkey']);
         const applied = await ensureMirrorColumns(db, noLog);
@@ -249,14 +242,12 @@ describe('hub-mirror-migrate', function () {
         ]);
         expect(applied).to.include(UQ_CAP_ADD);
     });
-
     it('is a no-op when uq_cap_snap already includes source', async function () {
         const db = fakeCapDb(['snapshot_block', 'capability', 'signing_pubkey', 'source']);
         const applied = await ensureMirrorColumns(db, noLog);
         expect(applied).to.have.lengthOf(0);
         expect(db.executed).to.have.lengthOf(0);
     });
-
     it('capability_snapshots widen matches the SQL twin uq_cap_snap', function () {
         const twin = fs.readFileSync(
             path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', 'capability_snapshots.sql'), 'utf8');
@@ -264,7 +255,8 @@ describe('hub-mirror-migrate', function () {
         expect(twin).to.match(/uq_cap_snap\s*\(snapshot_block,\s*capability,\s*signing_pubkey,\s*source\)/);
         expect(MIRROR_MIGRATIONS.capability_snapshots.widenIndexes[0].requiredColumn).to.equal('source');
     });
-
+});
+describe('hub-mirror-migrate', function () {
     it('adds the item-5308 fence columns to a legacy oracle_prices', async function () {
         const db = fakeShapeDb({ oracle_prices: LEGACY_SHAPES.oracle_prices });
         const applied = await ensureMirrorColumns(db, noLog);
@@ -273,7 +265,6 @@ describe('hub-mirror-migrate', function () {
         ]);
         expect(db.executed).to.deep.equal(applied);
     });
-
     it('adds both legs plus finalizing_view to a legacy cross_chain_matches', async function () {
         // Both legs matter: _applyRetraction ORs a_push_generation and
         // b_push_generation into one DELETE, so either one missing throws.
@@ -285,7 +276,6 @@ describe('hub-mirror-migrate', function () {
             + 'ADD COLUMN b_push_generation BIGINT NOT NULL DEFAULT 0'
         ]);
     });
-
     it('adds the fence columns to a legacy cross_chain_calls', async function () {
         const db = fakeShapeDb({ cross_chain_calls: LEGACY_SHAPES.cross_chain_calls });
         const applied = await ensureMirrorColumns(db, noLog);
@@ -294,6 +284,8 @@ describe('hub-mirror-migrate', function () {
             + 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0'
         ]);
     });
+});
+describe('hub-mirror-migrate', function () {
 
     // The two bridge mirror twins landed with the same fence pair as
     // cross_chain_calls. Drive the legacy shape off the twin file itself rather
@@ -330,7 +322,8 @@ describe('hub-mirror-migrate', function () {
             expect(db.executed).to.have.lengthOf(0);
         });
     }
-
+});
+describe('hub-mirror-migrate', function () {
     it('migrates every legacy 5308 twin in one pass, one ALTER each', async function () {
         const db = fakeShapeDb(LEGACY_SHAPES);
         const applied = await ensureMirrorColumns(db, noLog);
@@ -338,7 +331,6 @@ describe('hub-mirror-migrate', function () {
         expect(applied.map((s) => s.match(/^ALTER TABLE `([^`]+)`/)[1]).sort())
             .to.deep.equal(['cross_chain_calls', 'cross_chain_matches', 'oracle_prices']);
     });
-
     it('is a no-op once the 5308 twins already carry their fence columns', async function () {
         const shapes = {};
         for (const t of Object.keys(LEGACY_SHAPES)) {
@@ -353,7 +345,6 @@ describe('hub-mirror-migrate', function () {
         expect(applied).to.have.lengthOf(0);
         expect(db.executed).to.have.lengthOf(0);
     });
-
     it('migration definitions stay in lockstep with the SQL twin files', function () {
         // Require every migrated column/index verbatim-by-name in its own twin, so
         // a fresh build and a migrated legacy one converge on the same shape.
@@ -376,7 +367,8 @@ describe('hub-mirror-migrate', function () {
         // the loop passes vacuously on it and an empty loop would look identical.
         expect(checked, 'lockstep loop covered nothing').to.be.at.least(10);
     });
-
+});
+describe('hub-mirror-migrate', function () {
     it('every fence column the twin DDL declares is covered by MIRROR_MIGRATIONS', function () {
         // The list has lagged the twin files before. Scan the twins for the
         // fence-column family and fail on any (table, column) pair with no entry.

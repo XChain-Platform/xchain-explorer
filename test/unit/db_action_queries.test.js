@@ -35,7 +35,9 @@ const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const configInfo = createConfigInfoStub();
 const util       = new Utility(configInfo);
 const mockExplorer = { configInfo, util };
-const Database = proxyquire('../../src/db.js', { mariadb: { createPool: () => ({}) } });
+const Database = proxyquire('../../src/db.js', {
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+});
 const db = new Database(mockExplorer);
 
 const WHERE_DATA  = 'm.action_index IS NOT NULL AND a2.address=?';

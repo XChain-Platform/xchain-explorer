@@ -36,7 +36,7 @@ const Utility    = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
 const Database = proxyquire('../../src/db.js', {
-    mariadb: { createPool: () => ({}) }
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const ORACLE = 'mr9be3iRkfcWj9onyGFzyDSpfRwga2WtxH';

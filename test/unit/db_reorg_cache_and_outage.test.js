@@ -32,7 +32,9 @@ const Utility    = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 
-const Database        = proxyquire('../../src/db.js', { mariadb: { createPool: () => ({}) } });
+const Database        = proxyquire('../../src/db.js', {
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+});
 const { DbQueryError } = Database;
 
 const configInfo   = createConfigInfoStub();

@@ -58,7 +58,7 @@ const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.
 // ─────────────────────────────────────────────────────────────────────────
 
 const DatabaseReal = proxyquire('../../src/db.js', {
-    mariadb: { createPool: () => ({}) }
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb(explorerOverrides = {}) {

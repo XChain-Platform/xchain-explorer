@@ -36,7 +36,7 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
 // No real MariaDB pool: getCoinPriceUsd touches no DB, only configInfo + the hub.
 const Database = proxyquire('../../src/db.js', {
-    mariadb: { createPool: () => ({}) }
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const ORACLE_BTC_USD = '100000.00000000';   // shape: 8-dp string, as the oracle publishes

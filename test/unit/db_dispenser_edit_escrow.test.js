@@ -30,7 +30,9 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const configInfo   = createConfigInfoStub();
 const util         = new Utility(configInfo);
 const mockExplorer = { configInfo, util };
-const Database     = proxyquire('../../src/db.js', { mariadb: { createPool: () => ({}) } });
+const Database     = proxyquire('../../src/db.js', {
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+});
 
 function makeDb(rows = []){
     const db = new Database(mockExplorer);

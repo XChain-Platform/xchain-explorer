@@ -66,7 +66,7 @@ const { makeConfig } = require('../fixtures/mock-query-args.js');
 // Real Database class with the mariadb driver stubbed out (no live connection),
 // matching explorer.checkpoints.test.js's DatabaseReal pattern.
 const DatabaseReal = proxyquire('../../src/db.js', {
-    mariadb: { createPool: () => ({}) }
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb() {

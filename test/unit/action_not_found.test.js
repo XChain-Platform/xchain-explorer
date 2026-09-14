@@ -30,7 +30,9 @@ const { expect } = require('chai');
 const Utility    = require('../../src/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
-const Database = proxyquire('../../src/db.js', { mariadb: { createPool: () => ({}) } });
+const Database = proxyquire('../../src/db.js', {
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+});
 
 const configInfo   = createConfigInfoStub();
 const util         = new Utility(configInfo);

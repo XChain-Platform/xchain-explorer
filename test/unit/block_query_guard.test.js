@@ -38,7 +38,7 @@ const mockResults              = require('../fixtures/mock-db-results.js');
 
 // The real Database, with the mariadb pool factory stubbed out.
 const Database = proxyquire('../../src/db.js', {
-    mariadb: { createPool: () => ({}) }
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo = createConfigInfoStub();

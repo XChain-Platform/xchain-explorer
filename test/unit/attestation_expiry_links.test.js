@@ -50,7 +50,7 @@ const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const consensus                = require('../../src/action-detail/consensus.js');
 
 const DatabaseReal = proxyquire('../../src/db.js', {
-    mariadb: { createPool: () => ({}) }
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo = createConfigInfoStub();

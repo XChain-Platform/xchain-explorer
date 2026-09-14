@@ -39,7 +39,9 @@ const Utility    = require('../../src/utility.js');
 const { createConfigInfoStub } = require('./mock-config.js');
 const { makeConfig }           = require('./mock-query-args.js');
 
-const Database = proxyquire('../../src/db.js', { mariadb: { createPool: () => ({}) } });
+const Database = proxyquire('../../src/db.js', {
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+});
 
 // One generic row answering every statement in `rows` mode. Deliberately has no
 // `action` column: getActionType reads that, so a nested getActionData (BATCH

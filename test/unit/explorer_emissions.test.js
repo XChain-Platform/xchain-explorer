@@ -41,7 +41,7 @@ const { makeConfig }           = require('../fixtures/mock-query-args.js');
 // db.more-queries.test.js: these tests read the generated SQL text/args, they
 // never execute a query.
 const DatabaseReal = proxyquire('../../src/db.js', {
-    mariadb: { createPool: () => ({}) }
+    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb() {

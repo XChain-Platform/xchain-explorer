@@ -113,15 +113,19 @@ async function waitFor(predicate, label){
     throw new Error('timed out waiting for: ' + label);
 }
 
+function closeOpenServers(){
+    for(const server of openServers){
+        // fetch keeps its sockets alive, so close() alone would hang.
+        if(typeof server.closeAllConnections === 'function') server.closeAllConnections();
+        server.close();
+    }
+    openServers = [];
+}
+
 describe('Security: global in-flight concurrency cap', function () {
 
     afterEach(function () {
-        for(const server of openServers){
-            // fetch keeps its sockets alive, so close() alone would hang.
-            if(typeof server.closeAllConnections === 'function') server.closeAllConnections();
-            server.close();
-        }
-        openServers = [];
+        closeOpenServers();
     });
 
     it('refuses the (cap+1)th concurrent request with 429, though every request has a distinct IP', async function () {
@@ -173,6 +177,14 @@ describe('Security: global in-flight concurrency cap', function () {
         expect(gate.getStats().shed).to.equal(1);
     });
 
+});
+
+describe('Security: global in-flight concurrency cap', function () {
+
+    afterEach(function () {
+        closeOpenServers();
+    });
+
     it('frees a slot when the client aborts mid-request', async function () {
         // Without the 'close' leg an abandoned request keeps its slot forever
         // and the gate ratchets shut on a service that is doing nothing.
@@ -219,6 +231,14 @@ describe('Security: global in-flight concurrency cap', function () {
 
         release();
         for(const response of await Promise.all(parked)) expect(response.status).to.equal(200);
+    });
+
+});
+
+describe('Security: global in-flight concurrency cap', function () {
+
+    afterEach(function () {
+        closeOpenServers();
     });
 
     describe('resolveLimit', function () {

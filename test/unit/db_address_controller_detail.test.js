@@ -83,7 +83,6 @@ function bindMainRow(overrides) {
 }
 
 describe('getActionData: ADDRESS v1 controller bind detail @regression', function() {
-
     describe('the preferences row is joined as OPTIONAL', function() {
         it('roots the detail query at actions and LEFT joins addresses', async function() {
             const seen = [];
@@ -140,7 +139,9 @@ describe('getActionData: ADDRESS v1 controller bind detail @regression', functio
             expect(data.controller).to.equal(1500);
         });
     });
+});
 
+describe('getActionData: ADDRESS v1 controller bind detail @regression', function() {
     describe('a refused bind is no longer silent', function() {
         it('reads back its invalid reason with no binding attached', async function() {
             const db = makeDb();

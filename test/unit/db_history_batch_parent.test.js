@@ -59,8 +59,9 @@ function makeHistoryConfig(type, search, extras = {}) {
     });
 }
 
+let db;
+
 describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
-    let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
@@ -101,6 +102,11 @@ describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
         expect(countQuery).to.not.include('parent_batch_action_index');
         expect(countQuery).to.not.include('batches');
     });
+});
+
+describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
 
     it('a BATCH child row carries the parent action_index; the parent BATCH row itself carries null', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {

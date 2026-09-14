@@ -95,6 +95,10 @@ describe('freshness banner (content/js/xchain.js)', function () {
         });
     });
 
+});
+
+describe('freshness banner (content/js/xchain.js)', function () {
+
     describe('freshnessBannerText', function () {
         it('is null for a current coin, so the banner stays hidden', function () {
             const { w } = harness();
@@ -139,6 +143,10 @@ describe('freshness banner (content/js/xchain.js)', function () {
             expect(w.freshnessBannerText(status('TBTC'), 'TLTC')).to.equal(null);
         });
     });
+
+});
+
+describe('freshness banner (content/js/xchain.js)', function () {
 
     describe('updateFreshnessBanner', function () {
         it('shows the banner with the sentence while the coin is stale', function () {

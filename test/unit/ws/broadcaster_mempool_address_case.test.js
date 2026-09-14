@@ -104,7 +104,6 @@ async function settle(venue) {
 const frames = (client) => client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
 
 describe('Broadcaster mempool fan-out resolves addresses byte-exactly', () => {
-
     it('delivers a compacted ^<id> destination to the address itself', async () => {
         const venue = mkVenue();
         const exact = subscribeAddress(venue, 1, ADDRESS);
@@ -152,7 +151,9 @@ describe('Broadcaster mempool fan-out resolves addresses byte-exactly', () => {
         expect(venue.db.getExactAddressId.callCount).to.equal(1);
         expect(venue.db.getAddressId.called).to.equal(false);
     });
+});
 
+describe('Broadcaster mempool fan-out resolves addresses byte-exactly', () => {
     // The memo has to cover the exact resolver's nulls too: a wrong-case (so
     // never-indexed) subscription resolves null on every call, and without the
     // memo that is one DB read per mempool row per subscriber.

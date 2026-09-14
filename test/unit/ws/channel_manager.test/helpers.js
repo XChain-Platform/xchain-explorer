@@ -16,5 +16,19 @@
 
 'use strict';
 
-require('./channel_manager.test/subscriptions.js');
-require('./channel_manager.test/management.js');
+const { expect } = require('chai');
+const ChannelManager = require('../../../../src/ws/channel_manager.js');
+
+// Helper: create a mock client object
+function createClient(id, coin) {
+    return {
+        id:            id || 1,
+        coin:          coin || 'BTC',
+        chain:         'BTC',
+        network:       'mainnet',
+        subscriptions: new Set()
+    };
+}
+
+module.exports = { expect, ChannelManager, createClient };
+

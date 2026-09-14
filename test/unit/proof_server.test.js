@@ -43,78 +43,9 @@ const SDK_LIGHT = [path.join(SDK_DIR, 'src', 'protocol', 'light_client.js'),
                    path.join(SDK_DIR, 'src', 'light.js')].find((p) => fs.existsSync(p)) || null;
 const verifyBalanceProof = SDK_LIGHT ? require(SDK_LIGHT).verifyBalanceProof : null;
 
-// Minimal in-memory persistent SMT (the update half of stateCommitment.PersistentSMT)
-// so the test can materialize the exact node store the proof walk reads.
-const EMPTY0_HEX    = M.toHex(M.EMPTY[0]);
-const EMPTY_ROOT    = M.toHex(M.EMPTY[M.SMT_DEPTH]);
-function buildStore(leaves) {
-    const nodes = new Map();                       // node_hash -> {left_hash, right_hash}
-    const get = (h) => nodes.get(h) || null;
-    function descend(rootHex, keyBuf) {
-        const siblings = new Array(M.SMT_DEPTH);
-        let cur = rootHex, empty = false;
-        for (let d = 0; d < M.SMT_DEPTH; d++) {
-            const sibEmpty = M.toHex(M.EMPTY[M.SMT_DEPTH - 1 - d]);
-            if (empty) { siblings[d] = sibEmpty; continue; }
-            const row = get(cur);
-            if (!row) { empty = true; siblings[d] = sibEmpty; continue; }
-            const bit = M.bitAt(keyBuf, d);
-            siblings[d] = (bit === 0) ? row.right_hash : row.left_hash;
-            cur         = (bit === 0) ? row.left_hash  : row.right_hash;
-        }
-        return siblings;
-    }
-    function update(rootHex, keyBuf, leafHex) {
-        const siblings = descend(rootHex, keyBuf);
-        let cur = (leafHex == null) ? EMPTY0_HEX : leafHex;
-        for (let d = M.SMT_DEPTH - 1; d >= 0; d--) {
-            const bit = M.bitAt(keyBuf, d), sib = siblings[d];
-            const left  = (bit === 0) ? cur : sib;
-            const right = (bit === 0) ? sib : cur;
-            const parent = M.toHex(M.nodeHash(left, right));
-            if (parent !== M.toHex(M.EMPTY[M.SMT_DEPTH - d])) nodes.set(parent, { left_hash: left, right_hash: right });
-            cur = parent;
-        }
-        return cur;
-    }
-    let root = EMPTY_ROOT;
-    for (const [keyHex, leafHex] of leaves) root = update(root, M.toBuf(keyHex), leafHex);
-    return { root, nodes };
-}
-
-const CHAIN = 'BTC', NET = 'regtest', COIN = 'RBTC';
-const ADDR_A = '1AddrAaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const ADDR_Z = '1AddrZzzzzzzzzzzzzzzzzzzzzzzzzzzzzz';
-const TICK   = 'XCHAIN';
-
-function makeServer(amountA) {
-    const keyA   = M.balanceKey(CHAIN, NET, ADDR_A, TICK);
-    const leafA  = M.toHex(M.amountLeaf(amountA));
-    const built  = buildStore([[M.toHex(keyA), leafA]]);
-    const balancesRoot = built.root;
-    const stakesRoot   = EMPTY_ROOT;                                  // no stakes on this chain
-    const stateRoot    = M.toHex(M.stateRoot({ balances_root: balancesRoot, stakes_root: stakesRoot }));
-    const db = {
-        async getCheckpointAtOrAbove() {
-            return { chain: CHAIN, network: NET, block_index: 100, block_hash: 'c0'.repeat(32),
-                ledger_hash: 'a1'.repeat(32), actions_hash: 'b2'.repeat(32), contract_hash: 'c3'.repeat(32),
-                checkpoint_seq: 0, snapshot_block: 100, state_root: stateRoot, state_root_version: 1,
-                block_merkle_root: 'e5'.repeat(32), block_merkle_version: 1, validator_signatures: '[]' };
-        },
-        async getStateTreeRow() {
-            return { balances_root: balancesRoot, stakes_root: stakesRoot, state_root: stateRoot, block_merkle_root: 'e5'.repeat(32) };
-        },
-        async getStateNode(config, nodeHash) { return built.nodes.get(nodeHash) || null; },
-        // balanceProof reads the checkpoint-height net; tip == checkpoint here so
-        // there is no post-checkpoint movement (the moved case has its own suite).
-        async getNetBalance18AtHeight(config, address) { return (address === ADDR_A) ? (amountA + '.000000000000000000') : '0'; },
-        async getMaxBlockIndex() { return 100; }    // chain tip == checkpoint height (lag 0)
-    };
-    return { server: new ProofServer(db), balancesRoot, stakesRoot, stateRoot };
-}
+const { EMPTY_ROOT, buildStore, makeServer, CHAIN, NET, COIN, ADDR_A, ADDR_Z, TICK, BLOCK, blockRows, BLOCK_MERKLE, makeActionServer, S, CAP, PKA, PKB, PKC, VALS, makeValidatorSetServer } = require('./proof_server.test/helpers.js');
 
 describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
-
     it('membership proof verifies against the committed state_root', async function () {
         const { server, balancesRoot, stateRoot } = makeServer('5');
         const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A, TICK, 100);
@@ -154,7 +85,9 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
         const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A, TICK, 100);
         assert.strictEqual(r.error, 'PROOF_STATE_ROOT_MISMATCH');
     });
+});
 
+describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
     it('reports CHECKPOINT_PRE_COMMITMENT for a pre-flag-day checkpoint (null state_root)', async function () {
         const { server } = makeServer('5');
         server.db.getCheckpointAtOrAbove = async () => ({ chain: CHAIN, network: NET, block_index: 100,
@@ -199,60 +132,59 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
 // queries diverge, and the committed SMT leaf is built from the checkpoint-height
 // net. The old code queried the unbounded balance instead, which no longer
 // preimages the leaf and trips the real xchain-sdk verifier's LEAF_AMOUNT_MISMATCH.
+const CP_HEIGHT = 100;
+// Per-block ledger for (ADDR_A, TICK): +5 at block 50 (<= checkpoint),
+// +7 at block 150 (> checkpoint). Net at height 100 == 5; net at tip == 12.
+const LEDGER = [
+    { kind: 'credit', block_index: 50,  amount: '5' },
+    { kind: 'credit', block_index: 150, amount: '7' }
+];
+function netAtHeight(h) {
+    let n = 0;
+    for (const e of LEDGER) if (e.block_index <= h) n += (e.kind === 'credit' ? 1 : -1) * Number(e.amount);
+    return String(n);
+}
+
+function makeMovedServer() {
+    const cpNet   = netAtHeight(CP_HEIGHT);                       // '5' (committed leaf source)
+    const tipNet  = netAtHeight(Number.MAX_SAFE_INTEGER);        // '12' (current tip)
+    assert.notStrictEqual(M.canonicalAmount(cpNet), M.canonicalAmount(tipNet),
+        'test precondition: the balance must actually move after the checkpoint');
+    const keyA   = M.balanceKey(CHAIN, NET, ADDR_A, TICK);
+    const leafA  = M.toHex(M.amountLeaf(cpNet));                  // leaf committed at CP height
+    const built  = buildStore([[M.toHex(keyA), leafA]]);
+    const balancesRoot = built.root;
+    const stakesRoot   = EMPTY_ROOT;
+    const stateRoot    = M.toHex(M.stateRoot({ balances_root: balancesRoot, stakes_root: stakesRoot }));
+    const db = {
+        async getCheckpointAtOrAbove() {
+            return { chain: CHAIN, network: NET, block_index: CP_HEIGHT, block_hash: 'c0'.repeat(32),
+                ledger_hash: 'a1'.repeat(32), actions_hash: 'b2'.repeat(32), contract_hash: 'c3'.repeat(32),
+                checkpoint_seq: 0, snapshot_block: CP_HEIGHT, state_root: stateRoot, state_root_version: 1,
+                block_merkle_root: 'e5'.repeat(32), block_merkle_version: 1, validator_signatures: '[]' };
+        },
+        async getStateTreeRow() {
+            return { balances_root: balancesRoot, stakes_root: stakesRoot, state_root: stateRoot, block_merkle_root: 'e5'.repeat(32) };
+        },
+        async getStateNode(config, nodeHash) { return built.nodes.get(nodeHash) || null; },
+        // Real height-bounded semantics (what the SQL variant computes): sum
+        // ledger rows with block_index <= blockIndex for the queried address.
+        async getNetBalance18AtHeight(config, address, tick, blockIndex) {
+            return (address === ADDR_A) ? (netAtHeight(Number(blockIndex)) + '.000000000000000000') : '0';
+        },
+        // The unbounded (tip) query the OLD code called: returns the moved
+        // balance, which no longer preimages the committed leaf. If the fix
+        // regresses to this call site, the SDK rejects and this test fails.
+        async getNetBalance18(config, address) {
+            return (address === ADDR_A) ? (tipNet + '.000000000000000000') : '0';
+        },
+        async getMaxBlockIndex() { return 150; }                 // tip past the checkpoint
+    };
+    return { server: new ProofServer(db), balancesRoot, stateRoot, cpNet, tipNet };
+}
+
 describe('SPV Phase 3: balanceProof serves the checkpoint-height amount (SDK-verified)', function () {
-
     before(function () { if (!verifyBalanceProof) this.skip(); });
-
-    const CP_HEIGHT = 100;
-    // Per-block ledger for (ADDR_A, TICK): +5 at block 50 (<= checkpoint),
-    // +7 at block 150 (> checkpoint). Net at height 100 == 5; net at tip == 12.
-    const LEDGER = [
-        { kind: 'credit', block_index: 50,  amount: '5' },
-        { kind: 'credit', block_index: 150, amount: '7' }
-    ];
-    function netAtHeight(h) {
-        let n = 0;
-        for (const e of LEDGER) if (e.block_index <= h) n += (e.kind === 'credit' ? 1 : -1) * Number(e.amount);
-        return String(n);
-    }
-
-    function makeMovedServer() {
-        const cpNet   = netAtHeight(CP_HEIGHT);                       // '5' (committed leaf source)
-        const tipNet  = netAtHeight(Number.MAX_SAFE_INTEGER);        // '12' (current tip)
-        assert.notStrictEqual(M.canonicalAmount(cpNet), M.canonicalAmount(tipNet),
-            'test precondition: the balance must actually move after the checkpoint');
-        const keyA   = M.balanceKey(CHAIN, NET, ADDR_A, TICK);
-        const leafA  = M.toHex(M.amountLeaf(cpNet));                  // leaf committed at CP height
-        const built  = buildStore([[M.toHex(keyA), leafA]]);
-        const balancesRoot = built.root;
-        const stakesRoot   = EMPTY_ROOT;
-        const stateRoot    = M.toHex(M.stateRoot({ balances_root: balancesRoot, stakes_root: stakesRoot }));
-        const db = {
-            async getCheckpointAtOrAbove() {
-                return { chain: CHAIN, network: NET, block_index: CP_HEIGHT, block_hash: 'c0'.repeat(32),
-                    ledger_hash: 'a1'.repeat(32), actions_hash: 'b2'.repeat(32), contract_hash: 'c3'.repeat(32),
-                    checkpoint_seq: 0, snapshot_block: CP_HEIGHT, state_root: stateRoot, state_root_version: 1,
-                    block_merkle_root: 'e5'.repeat(32), block_merkle_version: 1, validator_signatures: '[]' };
-            },
-            async getStateTreeRow() {
-                return { balances_root: balancesRoot, stakes_root: stakesRoot, state_root: stateRoot, block_merkle_root: 'e5'.repeat(32) };
-            },
-            async getStateNode(config, nodeHash) { return built.nodes.get(nodeHash) || null; },
-            // Real height-bounded semantics (what the SQL variant computes): sum
-            // ledger rows with block_index <= blockIndex for the queried address.
-            async getNetBalance18AtHeight(config, address, tick, blockIndex) {
-                return (address === ADDR_A) ? (netAtHeight(Number(blockIndex)) + '.000000000000000000') : '0';
-            },
-            // The unbounded (tip) query the OLD code called: returns the moved
-            // balance, which no longer preimages the committed leaf. If the fix
-            // regresses to this call site, the SDK rejects and this test fails.
-            async getNetBalance18(config, address) {
-                return (address === ADDR_A) ? (tipNet + '.000000000000000000') : '0';
-            },
-            async getMaxBlockIndex() { return 150; }                 // tip past the checkpoint
-        };
-        return { server: new ProofServer(db), balancesRoot, stateRoot, cpNet, tipNet };
-    }
 
     it('serves the checkpoint-height net (not the tip) and the xchain-sdk verifier ACCEPTS it', async function () {
         const { server, stateRoot, cpNet } = makeMovedServer();
@@ -283,49 +215,6 @@ describe('SPV Phase 3: balanceProof serves the checkpoint-height amount (SDK-ver
 });
 
 describe('SPV Phase 3: ProofServer.actionProof round-trip', function () {
-
-    const BLOCK = 200;
-    // A representative block: ledger leaves (2 credits + 1 debit) precede the actions
-    // leaves in the frozen §5.1 order, so the actions leaves land at indices 3,4,5.
-    // Includes a tx_index-NULL synthetic action (ORDER_MATCH), which the block_merkle
-    // tree covers exactly as the consensus hash does.
-    const blockRows = {
-        block_index: BLOCK,
-        ledger: {
-            credits: [{ action_index: 10, address: ADDR_A, tick: TICK, amount: '5' },
-                      { action_index: 11, address: ADDR_Z, tick: TICK, amount: '3' }],
-            debits:  [{ action_index: 11, address: ADDR_A, tick: TICK, amount: '3' }],
-            escrows: []
-        },
-        actions: [
-            { action_index: 10, tx_index: 100,  action: 'ISSUE' },
-            { action_index: 11, tx_index: 101,  action: 'SEND' },
-            { action_index: 12, tx_index: null, action: 'ORDER_MATCH' }
-        ],
-        contracts: { contracts: [], state: [], executions: [], emissions: [], deposits: [], withdrawals: [] }
-    };
-    const BLOCK_MERKLE = M.toHex(M.blockMerkleRoot(M.blockMerkleLeaves(blockRows)));
-
-    function makeActionServer() {
-        const db = {
-            async getActionBlockIndex(config, aix) {
-                return blockRows.actions.some(a => a.action_index === Number(aix)) ? BLOCK : null;
-            },
-            async getCheckpointAt() {
-                return { chain: CHAIN, network: NET, block_index: BLOCK, block_hash: 'c0'.repeat(32),
-                    ledger_hash: 'a1'.repeat(32), actions_hash: 'b2'.repeat(32), contract_hash: 'c3'.repeat(32),
-                    checkpoint_seq: 0, snapshot_block: 100, state_root: 'd4'.repeat(32), state_root_version: 1,
-                    block_merkle_root: BLOCK_MERKLE, block_merkle_version: 1, validator_signatures: '[]' };
-            },
-            async getStateTreeRow() {
-                return { balances_root: EMPTY_ROOT, stakes_root: EMPTY_ROOT, state_root: 'd4'.repeat(32), block_merkle_root: BLOCK_MERKLE };
-            },
-            async getBlockLeafRows() { return blockRows; },
-            async getMaxBlockIndex() { return BLOCK; }
-        };
-        return new ProofServer(db);
-    }
-
     it('an action inclusion proof verifies against the committed block_merkle_root', async function () {
         const server = makeActionServer();
         const r = await server.actionProof({ coin: COIN }, CHAIN, NET, 11);
@@ -380,38 +269,8 @@ describe('SPV Phase 3: ProofServer.actionProof round-trip', function () {
 });
 
 describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
-
-    const S = 100;                              // BTC snapshot height == BTC checkpoint block_index
-    const CAP = 'oracle_publish';
-    const PKA = 'aa'.repeat(32), PKB = 'bb'.repeat(32), PKC = 'cc'.repeat(32);
-    // Source S1 has two pubkeys (weight 10 each); S2 one (30). Source-deduped total 40.
-    const VALS = [{ pubkey: PKA, source: 'S1', weight: '10' },
-                  { pubkey: PKB, source: 'S1', weight: '10' },
-                  { pubkey: PKC, source: 'S2', weight: '30' }];
-
-    function makeServer() {
-        const entries = VALS.map(v => [ M.toHex(M.stakeKey(v.pubkey, CAP)), M.toHex(M.stakeMemberLeaf(v.source, v.weight)) ]);
-        entries.push([ M.toHex(M.stakeKey(M.STAKE_TOTAL_PUBKEY, CAP)), M.toHex(M.stakeTotalLeaf('40')) ]);
-        const built = buildStore(entries);
-        const stakesRoot = built.root, balancesRoot = EMPTY_ROOT;
-        const stateRoot  = M.toHex(M.stateRoot({ balances_root: balancesRoot, stakes_root: stakesRoot }));
-        const db = {
-            async getCheckpointAt() {
-                return { chain: CHAIN, network: NET, block_index: S, block_hash: 'c0'.repeat(32),
-                    ledger_hash: 'a1'.repeat(32), actions_hash: 'b2'.repeat(32), contract_hash: 'c3'.repeat(32),
-                    checkpoint_seq: 0, snapshot_block: S, state_root: stateRoot, state_root_version: 1,
-                    block_merkle_root: 'e5'.repeat(32), block_merkle_version: 1, validator_signatures: '[]' };
-            },
-            async getStateTreeRow() { return { balances_root: balancesRoot, stakes_root: stakesRoot, state_root: stateRoot, block_merkle_root: 'e5'.repeat(32) }; },
-            async getStateNode(config, h) { return built.nodes.get(h) || null; },
-            async getMaxBlockIndex() { return S; }
-        };
-        const indexerConn = { async stakeWeights(cap) { return (cap === CAP) ? { capability: cap, validators: VALS } : { error: 'capability not configured' }; } };
-        return { server: new ProofServer(db), stakesRoot, stateRoot, indexerConn };
-    }
-
     it('proves each signer (source+weight) and the source-deduped total against stakes_root', async function () {
-        const { server, stakesRoot, stateRoot, indexerConn } = makeServer();
+        const { server, stakesRoot, stateRoot, indexerConn } = makeValidatorSetServer();
         const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
         assert.ok(!r.error, 'no error: ' + r.error);
         const op = r.proof.capabilities[CAP];
@@ -433,18 +292,20 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
     });
 
     it('rejects a non-BTC chain (stakes_root is BTC-only)', async function () {
-        const { server, indexerConn } = makeServer();
+        const { server, indexerConn } = makeValidatorSetServer();
         const r = await server.validatorSetProof({ coin: 'RLTC' }, 'LTC', NET, S, indexerConn);
         assert.strictEqual(r.error, 'STAKES_BTC_ONLY');
     });
 
     it('reports SNAPSHOT_NOT_YET_CHECKPOINTED when no BTC checkpoint exists at S', async function () {
-        const { server, indexerConn } = makeServer();
+        const { server, indexerConn } = makeValidatorSetServer();
         server.db.getCheckpointAt = async () => null;
         const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
         assert.strictEqual(r.error, 'SNAPSHOT_NOT_YET_CHECKPOINTED');
     });
+});
 
+describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
     // The indexer marks a capped stake query truncated in TWO places: a `truncated`
     // property on the validators array and a `truncated` field on the JSON-RPC result
     // envelope. Only the envelope crosses the wire, because JSON.stringify drops
@@ -452,7 +313,7 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
     // API delivers them: a plain array plus the envelope flag. A proof authored over a
     // truncated set commits a __total__ leaf summed from surviving sources only.
     it('fails closed on an envelope-level truncated snapshot instead of summing a partial set', async function () {
-        const { server } = makeServer();
+        const { server } = makeValidatorSetServer();
         const indexerConn = {
             async stakeWeights(cap) {
                 return (cap === CAP)
@@ -466,7 +327,7 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
     });
 
     it('still authors the proof when the envelope reports truncated false', async function () {
-        const { server, stakesRoot } = makeServer();
+        const { server, stakesRoot } = makeValidatorSetServer();
         const indexerConn = {
             async stakeWeights(cap) {
                 return (cap === CAP)

@@ -53,6 +53,10 @@ const HubDbSync     = require('../hub/hub_db_sync.js');
 const HubMirrorPool = require('./pool.js');
 const { ensureMirrorColumns } = require('./migrate.js');
 const { resolveHubUrl }       = require('./url.js');
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that.
+const { getLogger } = require('../observability');
+const log = getLogger();
 const path          = require('path');
 
 // How often an unconfigured self_sync target re-reports itself. A single boot
@@ -143,13 +147,11 @@ class HubMirrorSyncManager {
                 // keeps reconnecting/re-bootstrapping on its own after that, and the
                 // staleness surface reports bootstrapDrained=false meanwhile.
                 inst.sync.start().catch((err) => {
-                    console.error('[hub-mirror] sync start failed for ' + key + ': ' +
-                        (err && err.message ? err.message : err));
+                    log.error('HUB_MIRROR_SYNC_START_FAILED', { target: key, err: err && err.message ? err.message : err });
                 });
-                console.log('[hub-mirror] self-sync started for ' + key + ' (coins: ' + inst.coins.join(',') + ')');
+                log.info('HUB_MIRROR_SYNC_STARTED', { target: key, coins: inst.coins.join(',') });
             } catch (err){
-                console.error('[hub-mirror] failed to initialize mirror for ' + key + ': ' +
-                    (err && err.stack ? err.stack : err));
+                log.error('HUB_MIRROR_INIT_FAILED', { target: key, err: err && err.message ? err.message : err, stack: err && err.stack });
             }
         }
     }
@@ -171,12 +173,14 @@ class HubMirrorSyncManager {
         let now = Date.now();
         if(inst.warnedAt && (now - inst.warnedAt) < UNCONFIGURED_WARN_INTERVAL_MS) return;
         inst.warnedAt = now;
-        console.error('[hub-mirror] database.checkpoint.self_sync is set for ' + inst.coins.join(',') +
-            ' but no hub endpoint is configured (neither database.checkpoint.hub_url nor HUB_API_URL); ' +
-            'the mirror schema ' + inst.target.name + ' has NO writer, so its hub-mirrored tables are ' +
-            'frozen at whatever they last held. Consensus routes for these coins fail closed until this ' +
-            'is fixed: set the hub URL, or drop self_sync and point database.checkpoint at an ' +
-            'externally-maintained hub schema.');
+        log.error('HUB_MIRROR_HUB_URL_MISSING', {
+            coins: inst.coins.join(','), schema: inst.target.name,
+            detail: 'database.checkpoint.self_sync is set but no hub endpoint is configured (neither ' +
+                'database.checkpoint.hub_url nor HUB_API_URL); the mirror schema has NO writer, so its ' +
+                'hub-mirrored tables are frozen at whatever they last held. Consensus routes for these coins ' +
+                'fail closed until this is fixed: set the hub URL, or drop self_sync and point ' +
+                'database.checkpoint at an externally-maintained hub schema.'
+        });
     }
 
     // Status snapshot for the observability endpoint and per-request lag gating.

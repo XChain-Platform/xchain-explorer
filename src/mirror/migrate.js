@@ -51,6 +51,12 @@
 
 'use strict';
 
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that. Named
+// logger here because ensureMirrorColumns takes its own log callback.
+const { getLogger } = require('../observability');
+const logger = getLogger();
+
 // Per-table list of additive column/index migrations. Definitions are kept
 // byte-equivalent to the twin CREATE TABLE files in src/sql/hub-mirror/ so a
 // migrated legacy table converges on the same shape a fresh ensureTables()
@@ -162,7 +168,7 @@ const MIRROR_MIGRATIONS = {
 // ordering (ensureTables first) guarantees they exist on the embedded path.
 // Returns the list of DDL statements applied, for logging/tests.
 async function ensureMirrorColumns(dbConn, log) {
-    log = log || ((msg) => console.log(msg));
+    log = log || ((msg) => logger.info('HUB_MIRROR_MIGRATION', { detail: msg }));
     const applied = [];
     for (const table of Object.keys(MIRROR_MIGRATIONS)) {
         const spec = MIRROR_MIGRATIONS[table];

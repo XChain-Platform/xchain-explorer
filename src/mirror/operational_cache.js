@@ -45,6 +45,10 @@
  ********************************************************************/
 
 const XChainHubConnector = require('../connectors/hub');
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that.
+const { getLogger } = require('../observability');
+const log = getLogger();
 
 class HubOperationalCache {
 
@@ -136,12 +140,11 @@ class HubOperationalCache {
                 'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +
                 'upgrade it to a build that serves ' + method + '.');
         if(result && result.error)
-            console.warn('Hub operational read ' + method + ' returned error: ' + result.error);
+            log.warn('HUB_OPERATIONAL_READ_ERROR', { method, err: result.error });
         // Hub unreachable or degraded: serve the last-known rows while they
         // are not unreasonably old, so a hub restart doesn't blank the pages.
         if(hit && (after - hit.at) < this.staleMaxMs){
-            console.warn('Hub unreachable for ' + method + '; serving cached rows ('
-                + Math.round((after - hit.at) / 1000) + 's old)');
+            log.warn('HUB_OPERATIONAL_SERVING_CACHED', { method, age_s: Math.round((after - hit.at) / 1000) });
             return hit.rows;
         }
         return null;

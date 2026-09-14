@@ -101,7 +101,6 @@ function v3RevokeMainRow(wire) {
 }
 
 describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression', function() {
-
     it('v2 capability-revoke: resolves signing_pubkey from wire + parent activation window', async function() {
         const db = makeDb();
         db.doQuery = makeDoQuery({
@@ -154,7 +153,9 @@ describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REIN
         expect(data.signing_pubkey).to.equal(PUBKEY); // not blank
         expect(data.activation_block).to.be.oneOf([null, undefined]);
     });
+});
 
+describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression', function() {
     it('stake-key revoke (revoked_pubkey set) is NOT overridden by the wire resolver', async function() {
         const db = makeDb();
         const REVOKED = 'b'.repeat(64);

@@ -141,7 +141,9 @@ describe('IconResolver.selectIconUrlFromCip25Json', function(){
         };
         expect(selectIconUrlFromCip25Json(json)).to.equal('https://raw.githubusercontent.com/sub/images/main/THUMB.png');
     });
+});
 
+describe('IconResolver.selectIconUrlFromCip25Json', function(){
     it('picks 48x48 icon from images[]', function(){
         const json = { images: [{ type: 'icon', size: '48x48', data: 'https://x.com/sm.png' }] };
         expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/sm.png');
@@ -173,7 +175,9 @@ describe('IconResolver.selectIconUrlFromCip25Json', function(){
         ]};
         expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/64.png');
     });
+});
 
+describe('IconResolver.selectIconUrlFromCip25Json', function(){
     it('prefers 48x48 icon over a "large" entry', function(){
         const json = { images: [
             { type: 'large', data: 'https://x.com/big.png' },

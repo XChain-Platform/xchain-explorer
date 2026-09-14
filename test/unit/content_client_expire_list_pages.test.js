@@ -218,6 +218,10 @@ describe('Tier-4 expire/close list pages', function () {
             + 'as an empty table rather than as an error):\n  ' + broken.join('\n  ')).to.deep.equal([]);
     });
 
+});
+
+describe('Tier-4 expire/close list pages', function () {
+
     // A registered feed with no row mapping serves raw objects: no error, blank cells.
     it('gives every one of the five feeds a getPagingDataResults row mapping', function () {
         const mapped  = mappedPagingMethods();
@@ -233,6 +237,10 @@ describe('Tier-4 expire/close list pages', function () {
         for(const { route } of PAGES)
             expect(nav, `nav is missing a link to ${route}`).to.include(`href="${route}"`);
     });
+
+});
+
+describe('Tier-4 expire/close list pages', function () {
 
     // -----------------------------------------------------------------------
     // Table shape
@@ -261,6 +269,10 @@ describe('Tier-4 expire/close list pages', function () {
             expect(colspan, `${file} column count`).to.equal(NULL_ROWS[action].columns);
         }
     });
+
+});
+
+describe('Tier-4 expire/close list pages', function () {
 
     // -----------------------------------------------------------------------
     // Render: no null/undefined/NaN cell anywhere
@@ -298,6 +310,10 @@ describe('Tier-4 expire/close list pages', function () {
                 expect(cells[slot], `${action} cell ${slot} should read '-' when its value is null`).to.equal('-');
         }
     });
+
+});
+
+describe('Tier-4 expire/close list pages', function () {
 
     // -----------------------------------------------------------------------
     // Render: real rows, measured against the live regtest feed payloads
@@ -338,6 +354,10 @@ describe('Tier-4 expire/close list pages', function () {
         expect(html[5], 'a native-coin leg carries no token link at all').to.not.include('/token/');
         expect(text[5], 'the native leg still names its amount and coin').to.equal('10 DOGE');
     });
+
+});
+
+describe('Tier-4 expire/close list pages', function () {
 
     // The two close reasons are identical in every other column, so the badge is
     // the ONLY thing telling a drained dispenser from a withdrawn one.

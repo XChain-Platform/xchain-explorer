@@ -118,6 +118,10 @@ describe('contract identity: render-side hardening and the label', function(){
         });
     });
 
+});
+
+describe('contract identity: render-side hardening and the label', function(){
+
     describe('formatContractName / formatContractIdentity', function(){
 
         it('renders name and version in the documented form', function(){
@@ -160,6 +164,10 @@ describe('contract identity: render-side hardening and the label', function(){
         });
     });
 
+});
+
+describe('contract identity: render-side hardening and the label', function(){
+
     describe('the contracts list row', function(){
 
         // getContracts shape: count, block, time, source, meta_name, code_hash,
@@ -187,6 +195,10 @@ describe('contract identity: render-side hardening and the label', function(){
             expect(out.html[4]).to.include(SUB);
         });
     });
+
+});
+
+describe('contract identity: render-side hardening and the label', function(){
 
     describe('the search Contract panel', function(){
 
@@ -234,6 +246,10 @@ describe('contract identity: render-side hardening and the label', function(){
         });
     });
 
+});
+
+describe('contract identity: render-side hardening and the label', function(){
+
     // The contract page's own render lives inline in its $.getJSON callback, which
     // no realm here can run without a server; what is pinned is the WIRING, so a
     // renamed cell or a raw field reaching the page fails here. The functions
@@ -256,6 +272,10 @@ describe('contract identity: render-side hardening and the label', function(){
             expect(PAGE).to.include('hardenText(o.meta_description, 512)');
         });
     });
+
+});
+
+describe('contract identity: render-side hardening and the label', function(){
 
     describe('the contracts list search box', function(){
 

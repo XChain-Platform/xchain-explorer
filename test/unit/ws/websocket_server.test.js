@@ -406,11 +406,11 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
     afterEach(() => sinon.restore());
 
     // Every BigInt-backed index on a v2 frame is a decimal string
-    // (ws/schema-version.js). WELCOME and the SNAPSHOT frames read theirs from
-    // db.getMax*Index, which return Number, so they used to be the only v2
-    // frames emitting these fields as JSON numbers: one connection saw
-    // latest_action_index as a number in WELCOME and as a string in
-    // CATCH_UP_COMPLETE and NEW_ACTION, and any value above 2^53 was truncated.
+    // (ws/schema_version.js). WELCOME and the SNAPSHOT frames read theirs from
+    // db.getMax*Index, which return Number, so these cases prove those frames
+    // convert too. Without it one connection would see latest_action_index as a
+    // number in WELCOME and as a string in CATCH_UP_COMPLETE and NEW_ACTION, and
+    // any value above 2^53 would be truncated.
     const DECIMAL = /^[0-9]+$/;
 
     function serverWithIndices(maxBlock, maxAction) {

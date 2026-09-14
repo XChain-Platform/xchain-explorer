@@ -13,7 +13,7 @@
  **********************************************************************
  * Conformance test: the bundled browser WS client (src/content/js/xchain_ws.js)
  * hardcodes CLIENT_WS_SCHEMA_VERSION because it is a plain, un-bundled script
- * that cannot require() src/ws/schema-version.js's WS_SCHEMA_VERSION. This test
+ * that cannot require() src/ws/schema_version.js's WS_SCHEMA_VERSION. This test
  * fails if the two values are ever allowed to drift, which would otherwise make
  * the first-party UI warn (or fail to warn) incorrectly against its own server.
  */
@@ -23,7 +23,7 @@
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
-const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema-version.js');
+const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema_version.js');
 
 describe('xchain-ws.js CLIENT_WS_SCHEMA_VERSION conformance', function () {
 

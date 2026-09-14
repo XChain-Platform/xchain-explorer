@@ -434,7 +434,7 @@ class ChannelManager {
         // Keep the dispenser action_index as the canonical decimal STRING carried in the
         // channel key. Number() here diverged SUBSCRIPTION_LIST/UNSUBSCRIBED (number) from
         // SUBSCRIBED (client value) and lost precision above 2^53; the v2 wire contract is
-        // BIGINT-as-string (ws/schema-version.js:26-29).
+        // BIGINT-as-string (ws/schema_version.js:26-29).
         if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: parts[2] };
         if (channel === 'bet_feed'  && parts.length > 2)  entityKey = { action_index: parts[2] };
         if (channel === 'xcall'     && parts.length > 2)  entityKey = { call_id: parts[2] };

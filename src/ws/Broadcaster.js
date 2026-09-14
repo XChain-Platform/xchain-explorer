@@ -32,7 +32,7 @@ const COIN_MAP = {};
 // BigInt-safe JSON serializer (shared with WebSocketServer via serialize.js so the
 // two socket-send paths cannot drift). See serialize.js for the BigInt rationale.
 const { safeStringify } = require('./serialize.js');
-const { WS_SCHEMA_VERSION } = require('./schema-version.js');
+const { WS_SCHEMA_VERSION } = require('./schema_version.js');
 
 class Broadcaster {
 
@@ -463,7 +463,7 @@ class Broadcaster {
             // snapshot, envelope type for the live update. A consumer unifying the two on
             // data.channel (which the ChangeDetector comment about aligned frame shapes
             // invites) silently dropped every live update. Additive optional field, so no
-            // schema bump (ws/schema-version.js). Copy rather than mutate: the same data
+            // schema bump (ws/schema_version.js). Copy rather than mutate: the same data
             // object goes to every other listener on this event.
             data:      { channel: updateEvent.channel, ...updateEvent.data }
         };
@@ -518,7 +518,7 @@ class Broadcaster {
             const msg = filter.fields ? this.applyFieldsProjection(event, filter.fields) : event;
 
             // Send (stamped with the envelope schema version AFTER projection,
-            // so the marker survives a fields filter; see ws/schema-version.js)
+            // so the marker survives a fields filter; see ws/schema_version.js)
             if (client.ws.readyState === 1) {
                 try {
                     if (msg && typeof msg === 'object' && msg.schema_version === undefined)
@@ -636,7 +636,7 @@ class Broadcaster {
     // Send a message to a specific client. Stamps schema_version like the other
     // two send sinks (WebSocketServer.send and broadcastToChannelKey's
     // per-subscriber send) so the "every outbound frame is stamped" invariant
-    // in ws/schema-version.js holds for this sink too (e.g. the UNSUBSCRIBED
+    // in ws/schema_version.js holds for this sink too (e.g. the UNSUBSCRIBED
     // frame emitted on a once:true subscription).
     send(client, msg) {
         if (client.ws.readyState === 1) {

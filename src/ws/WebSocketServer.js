@@ -26,7 +26,7 @@ const ChannelManager = require('./ChannelManager.js');
 // cannot use raw JSON.stringify, which throws on BigInt DB columns; under the
 // swallowing try/catch that would silently drop every message carrying a raw DB row.
 const { safeStringify } = require('./serialize.js');
-const { WS_SCHEMA_VERSION } = require('./schema-version.js');
+const { WS_SCHEMA_VERSION } = require('./schema_version.js');
 // One logger for the whole service. `log` here is the module-scope logger, not
 // this class's own log() method: a class method is not a lexical binding, so
 // every log.info/log.error below reaches the shipper, including the ones inside
@@ -263,7 +263,7 @@ class WebSocketServer {
         // limits, which is a worse outage than a marked one. The two indices below
         // are frozen on a stale replica, and unmarked they read as the live chain
         // tip. `stale` is an ADDITIVE optional field, so it needs no
-        // WS_SCHEMA_VERSION bump (ws/schema-version.js states the rule), and it
+        // WS_SCHEMA_VERSION bump (ws/schema_version.js states the rule), and it
         // carries the same name and meaning as the `stale` map /status publishes
         // over HTTP. Chain DATA is a different question and does fail closed: see
         // handleCatchUp and sendSnapshots.
@@ -278,7 +278,7 @@ class WebSocketServer {
                 version:              this.explorer.version || '1.0.0',
                 server_time:          Date.now(),
                 // Chain indices ride as decimal STRINGS, the v2 wire contract
-                // (ws/schema-version.js): every action_index/block_index on a v2
+                // (ws/schema_version.js): every action_index/block_index on a v2
                 // frame is a string, and these two arrive from the db getters as
                 // Number, which safeStringify leaves as a JSON number. Emitting a
                 // number here handed one connection two types for the same field
@@ -656,7 +656,7 @@ class WebSocketServer {
             }
 
             // Determine latest action index from replayed events. Emit as a decimal STRING
-            // to match the v2 wire contract (ws/schema-version.js:26-29): every other
+            // to match the v2 wire contract (ws/schema_version.js:26-29): every other
             // action_index on WS v2 serializes as a string, and Number() here would both
             // break that type contract and lose precision above 2^53.
             const latestIdx = actions.length > 0
@@ -877,7 +877,7 @@ class WebSocketServer {
     }
 
     // Send JSON message to a client. Every frame is stamped with the envelope
-    // schema version (see ws/schema-version.js) so subscribers can gate their
+    // schema version (see ws/schema_version.js) so subscribers can gate their
     // parsing on payload-shape changes.
     send(client, msg) {
         if (client.ws.readyState === 1) { // OPEN

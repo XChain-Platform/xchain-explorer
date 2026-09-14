@@ -90,7 +90,7 @@ describe('Broadcaster', function () {
         });
 
         it('stamps every outbound frame with the envelope schema_version', function () {
-            const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema-version.js');
+            const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema_version.js');
             const client = createClient(1, 'BTC');
             wsServer.addClient(client);
             wsServer.channelManager.subscribe(client, ['blocks']);
@@ -100,7 +100,7 @@ describe('Broadcaster', function () {
         });
 
         it('the schema_version stamp survives a fields projection', function () {
-            const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema-version.js');
+            const { WS_SCHEMA_VERSION } = require('../../../src/ws/schema_version.js');
             const client = createClient(1, 'BTC');
             wsServer.addClient(client);
             wsServer.channelManager.subscribe(client, ['blocks'], { fields: ['block_index'] });

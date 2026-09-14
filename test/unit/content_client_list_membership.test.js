@@ -121,6 +121,10 @@ describe('client: the LIST page shows current membership', function () {
         expect(out.tables['list-items']).to.deep.equal(CREATE_ROWS);
     });
 
+});
+
+describe('client: the LIST page shows current membership', function () {
+
     it('falls back to this action\'s own rows below the flag day', function () {
         // Inert state: consensus still gates on the create's rows, so the page
         // must keep showing them rather than a membership nothing enforces.

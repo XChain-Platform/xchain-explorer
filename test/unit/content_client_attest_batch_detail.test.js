@@ -140,7 +140,9 @@ describe('ATTEST batch (v5 head / v6 continuation) detail render', function () {
     it('renders the head as chunk 1 of N', function () {
         expect(render(HEAD).chunk).to.equal('1 of 3');
     });
+});
 
+describe('ATTEST batch (v5 head / v6 continuation) detail render', function () {
     it('renders a v6 continuation as its own later slot', function () {
         const r = render(CONTINUATION);
         expect(r.type).to.equal('Batch Continuation (v6)');

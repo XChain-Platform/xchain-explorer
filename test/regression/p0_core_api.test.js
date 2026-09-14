@@ -82,6 +82,10 @@ describe('@p0 @core Sends API regression', function () {
         }
     });
 
+});
+
+describe('@p0 @core Sends API regression', function () {
+
     it('GET /RBTC/api/sends/{address}/destination: filters by destination only', async function () {
         const res = await request.get(`/RBTC/api/sends/${ADDR2}/destination`);
         expect(res.status).to.equal(200);

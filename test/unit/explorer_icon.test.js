@@ -42,6 +42,7 @@ function makeExplorer(fsStub) {
     return new XChainExplorer(app, configInfo);
 }
 
+// The icon handler reads only the request path, so that is all the mock carries.
 function makeIconReq(iconPath) {
     return { path: iconPath };
 }
@@ -94,6 +95,8 @@ describe('XChainExplorer#processIconRequest', function () {
         expect(fsStub.existsSync.called).to.be.false;
     });
 
+    // A .. segment is only a traversal if it escapes: one that stays inside the
+    // icons directory is an edge case that must still be served.
     it('allows a .. segment that resolves back into the icons directory', async function () {
         // e.g. /icon/BTC/../BTC.png resolves to <icons>/BTC.png which is still inside icons dir
         const fsStub = { existsSync: sinon.stub().returns(true) };
@@ -108,6 +111,7 @@ describe('XChainExplorer#processIconRequest', function () {
         expect(res._sentFile).to.not.be.null;
     });
 
+    // A path that escapes is refused before any file lookup, so the disk is never probed.
     it('returns 403 when the resolved path points outside icons directory via deep traversal', async function () {
         const fsStub = { existsSync: sinon.stub() };
         const explorer = makeExplorer(fsStub);

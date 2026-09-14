@@ -37,6 +37,7 @@ function makeExplorer(axiosStub) {
     return new XChainExplorer(app, configInfo);
 }
 
+// Just enough of a request for the relay handler: the target url, host and scheme.
 function makeRelayReq(url) {
     return {
         path:    '/relay',
@@ -73,6 +74,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(axiosStub.get.calledOnce).to.be.true;
         expect(axiosStub.get.firstCall.args[0]).to.equal('https://example.com/token.json');
         expect(res._type).to.equal('json');
+        // The body is re-serialized JSON text that still carries the payload fields.
         expect(res._body).to.include('XCHAIN');
     });
 
@@ -89,7 +91,9 @@ describe('XChainExplorer#processRelayRequest', function () {
         await explorer.processRelayRequest(req, res);
 
         expect(axiosStub.get.calledOnce).to.be.true;
+        // An image must be fetched as raw bytes, or it would be mangled as text.
         expect(axiosStub.get.firstCall.args[1]).to.have.property('responseType', 'arraybuffer');
+        // Those bytes come back to the page as a non-empty base64 string.
         expect(res._body).to.be.a('string').and.have.length.above(0);
     });
 
@@ -104,6 +108,8 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._body).to.deep.equal({ error: 'Invalid protocol', code: 'RELAY_INVALID_PROTOCOL' });
     });
 
+    // Private and local addresses are refused with 403, which keeps the relay from
+    // reaching the server's own network.
     it('returns 403 for 127.0.0.1 (loopback)', async function () {
         const explorer = makeExplorer({});
         const req = makeRelayReq('http://127.0.0.1/token.json');
@@ -173,7 +179,8 @@ describe('XChainExplorer#processRelayRequest', function () {
     // Ranges an earlier hand-rolled blocklist missed (only /^fc00:/, no CGNAT,
     // partial link-local); the canonical isPrivateAddress + net.isIP literal check
     // must cover them so an IPv6/CGNAT literal cannot bypass the guard. A private
-    // literal never reaches axios, so a hit here proves the pre-connect check fired.
+    // literal never reaches axios (the connect-time lookup shim is skipped for IP
+    // literals), so a hit here proves the pre-connect canonical check fired.
     const ssrfLiteralGaps = [
         ['fd00:ec2::254 (AWS IMDS over IPv6, ULA)', 'http://[fd00:ec2::254]/latest/meta-data/x.json'],
         ['fdff:: (rest of fc00::/7 ULA)',           'http://[fdff::1]/token.json'],
@@ -219,6 +226,7 @@ describe('XChainExplorer#processRelayRequest', function () {
 
         await explorer.processRelayRequest(req, res);
 
+        // An unsupported file type is refused before anything is fetched.
         expect(axiosStub.get.called).to.be.false;
         expect(res._status).to.equal(503);
         expect(res._body).to.deep.equal({ error: 'service not available', code: 'SERVICE_UNAVAILABLE' });

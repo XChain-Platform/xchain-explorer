@@ -176,77 +176,88 @@ async function ensureMirrorColumns(dbConn, log) {
         const existing = await dbConn.doQuery('SHOW TABLES LIKE ?', [table]);
         if (!existing || existing.length === 0) continue;
 
-        // SHOW COLUMNS rows carry the column name in `Field`; SHOW INDEX rows
-        // carry the index name in `Key_name`. Lowercase both sides: column
-        // identifiers are case-insensitive in MariaDB.
-        const colRows = await dbConn.doQuery('SHOW COLUMNS FROM `' + table + '`');
-        const have = new Set((colRows || []).map((r) => String(r.Field).toLowerCase()));
-
-        const clauses = [];
-        for (const col of spec.columns) {
-            if (!have.has(col.name.toLowerCase())) clauses.push(col.ddl);
-        }
-        if (spec.indexes && spec.indexes.length) {
-            const idxRows = await dbConn.doQuery('SHOW INDEX FROM `' + table + '`');
-            const haveIdx = new Set((idxRows || []).map((r) => String(r.Key_name).toLowerCase()));
-            for (const idx of spec.indexes) {
-                if (!haveIdx.has(idx.name.toLowerCase())) clauses.push(idx.ddl);
-            }
-        }
-        if (clauses.length > 0) {
-            // One ALTER per table so MariaDB rebuilds it at most once.
-            const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
-            log('[hub-mirror] migrating ' + table + ': ' + clauses.join('; '));
-            await dbConn.doQuery(sql);
-            applied.push(sql);
-        }
-
-        // Widen an existing column's character set. SHOW FULL COLUMNS carries the live
-        // Collation, which SHOW COLUMNS above does not, and the collation name is prefixed
-        // by its charset ('utf8mb4_general_ci'), so one probe answers both. Only ever
-        // widens, so no stored value is rewritten (utf8mb3 is a strict subset of utf8mb4)
-        // and no accepted value stops being accepted. Idempotent: a no-op once the live
-        // collation already sits on the target charset.
-        if (spec.widenColumns && spec.widenColumns.length) {
-            const fullRows = await dbConn.doQuery('SHOW FULL COLUMNS FROM `' + table + '`');
-            const collation = new Map((fullRows || []).map(
-                (r) => [String(r.Field).toLowerCase(), String(r.Collation || '').toLowerCase()]));
-            const widenClauses = [];
-            for (const w of spec.widenColumns) {
-                const live = collation.get(String(w.name).toLowerCase());
-                if (live === undefined) continue;                        // column absent: ensureTables owns it
-                if (live.startsWith(String(w.charset).toLowerCase() + '_')) continue;  // already widened
-                widenClauses.push(w.ddl);
-            }
-            if (widenClauses.length > 0) {
-                const sql = 'ALTER TABLE `' + table + '` ' + widenClauses.join(', ');
-                log('[hub-mirror] widening ' + table + ': ' + widenClauses.join('; '));
-                await dbConn.doQuery(sql);
-                applied.push(sql);
-            }
-        }
-
-        // Widen an existing UNIQUE key whose column set changed. Probe the
-        // live index columns; if the required column is absent, drop and re-add the
-        // wider key. Separate DROP then ADD so the re-add never races the drop. Only
-        // ever widens (adds a column), so an already-unique table cannot collide and
-        // no row dedup is needed. Idempotent: a no-op once the key already covers it.
-        if (spec.widenIndexes && spec.widenIndexes.length) {
-            const idxRows = await dbConn.doQuery('SHOW INDEX FROM `' + table + '`');
-            for (const w of spec.widenIndexes) {
-                const cols = (idxRows || [])
-                    .filter((r) => String(r.Key_name).toLowerCase() === w.name.toLowerCase())
-                    .map((r) => String(r.Column_name).toLowerCase());
-                if (cols.length === 0) continue;                                     // index absent: indexes/ensureTables owns it
-                if (cols.includes(String(w.requiredColumn).toLowerCase())) continue; // already widened
-                log('[hub-mirror] widening ' + table + '.' + w.name + ' to include ' + w.requiredColumn);
-                await dbConn.doQuery('ALTER TABLE `' + table + '` DROP INDEX `' + w.name + '`');
-                await dbConn.doQuery('ALTER TABLE `' + table + '` ' + w.addDdl);
-                applied.push('ALTER TABLE `' + table + '` ' + w.addDdl);
-            }
-        }
+        await addMissingColumnsAndIndexes(dbConn, table, spec, log, applied);
+        await widenColumnCharsets(dbConn, table, spec, log, applied);
+        await widenUniqueIndexes(dbConn, table, spec, log, applied);
     }
     return applied;
+}
+
+// Add every column and index the table lacks by name, in one ALTER. Each step
+// below takes the same (dbConn, table, spec, log, applied) and appends what it
+// ran to `applied`.
+async function addMissingColumnsAndIndexes(dbConn, table, spec, log, applied) {
+    // SHOW COLUMNS rows carry the column name in `Field`; SHOW INDEX rows
+    // carry the index name in `Key_name`. Lowercase both sides: column
+    // identifiers are case-insensitive in MariaDB.
+    const colRows = await dbConn.doQuery('SHOW COLUMNS FROM `' + table + '`');
+    const have = new Set((colRows || []).map((r) => String(r.Field).toLowerCase()));
+
+    const clauses = [];
+    for (const col of spec.columns) {
+        if (!have.has(col.name.toLowerCase())) clauses.push(col.ddl);
+    }
+    if (spec.indexes && spec.indexes.length) {
+        const idxRows = await dbConn.doQuery('SHOW INDEX FROM `' + table + '`');
+        const haveIdx = new Set((idxRows || []).map((r) => String(r.Key_name).toLowerCase()));
+        for (const idx of spec.indexes) {
+            if (!haveIdx.has(idx.name.toLowerCase())) clauses.push(idx.ddl);
+        }
+    }
+    if (clauses.length > 0) {
+        // One ALTER per table so MariaDB rebuilds it at most once.
+        const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
+        log('[hub-mirror] migrating ' + table + ': ' + clauses.join('; '));
+        await dbConn.doQuery(sql);
+        applied.push(sql);
+    }
+}
+
+// Widen an existing column's character set. SHOW FULL COLUMNS carries the live
+// Collation, which SHOW COLUMNS above does not, and the collation name is prefixed
+// by its charset ('utf8mb4_general_ci'), so one probe answers both. Only ever
+// widens, so no stored value is rewritten (utf8mb3 is a strict subset of utf8mb4)
+// and no accepted value stops being accepted. Idempotent: a no-op once the live
+// collation already sits on the target charset.
+async function widenColumnCharsets(dbConn, table, spec, log, applied) {
+    if (!(spec.widenColumns && spec.widenColumns.length)) return;
+    const fullRows = await dbConn.doQuery('SHOW FULL COLUMNS FROM `' + table + '`');
+    const collation = new Map((fullRows || []).map(
+        (r) => [String(r.Field).toLowerCase(), String(r.Collation || '').toLowerCase()]));
+    const widenClauses = [];
+    for (const w of spec.widenColumns) {
+        const live = collation.get(String(w.name).toLowerCase());
+        if (live === undefined) continue;                        // column absent: ensureTables owns it
+        if (live.startsWith(String(w.charset).toLowerCase() + '_')) continue;  // already widened
+        widenClauses.push(w.ddl);
+    }
+    if (widenClauses.length > 0) {
+        const sql = 'ALTER TABLE `' + table + '` ' + widenClauses.join(', ');
+        log('[hub-mirror] widening ' + table + ': ' + widenClauses.join('; '));
+        await dbConn.doQuery(sql);
+        applied.push(sql);
+    }
+}
+
+// Widen an existing UNIQUE key whose column set changed. Probe the
+// live index columns; if the required column is absent, drop and re-add the
+// wider key. Separate DROP then ADD so the re-add never races the drop. Only
+// ever widens (adds a column), so an already-unique table cannot collide and
+// no row dedup is needed. Idempotent: a no-op once the key already covers it.
+async function widenUniqueIndexes(dbConn, table, spec, log, applied) {
+    if (!(spec.widenIndexes && spec.widenIndexes.length)) return;
+    const idxRows = await dbConn.doQuery('SHOW INDEX FROM `' + table + '`');
+    for (const w of spec.widenIndexes) {
+        const cols = (idxRows || [])
+            .filter((r) => String(r.Key_name).toLowerCase() === w.name.toLowerCase())
+            .map((r) => String(r.Column_name).toLowerCase());
+        if (cols.length === 0) continue;                                     // index absent: indexes/ensureTables owns it
+        if (cols.includes(String(w.requiredColumn).toLowerCase())) continue; // already widened
+        log('[hub-mirror] widening ' + table + '.' + w.name + ' to include ' + w.requiredColumn);
+        await dbConn.doQuery('ALTER TABLE `' + table + '` DROP INDEX `' + w.name + '`');
+        await dbConn.doQuery('ALTER TABLE `' + table + '` ' + w.addDdl);
+        applied.push('ALTER TABLE `' + table + '` ' + w.addDdl);
+    }
 }
 
 module.exports = { ensureMirrorColumns, MIRROR_MIGRATIONS };

@@ -261,6 +261,74 @@ function validateRequest(body){
     return { method, params, caller };
 }
 
+// Refuse before any work when the feature is off or the vendored VM drifted.
+function assertServing(){
+    if(!isEnabled())
+        throw new VmQueryError('VM_QUERY_DISABLED', 'contract simulation is disabled on this explorer', 503);
+    // Before the request is even parsed: a drifted VM is refusing to serve at
+    // all, so a malformed body must not be answered as a 400 by a service that
+    // could not have run the call anyway.
+    if(vmConsensusFault)
+        throw new VmQueryError('VM_QUERY_VM_DRIFT',
+            'contract simulation is disabled: ' + vmConsensusFault +
+            '. Refresh the deployed xchain-vm (bin/vendor-vm.sh) and restart, or leave ' +
+            'EXPLORER_VM_QUERY_ENABLED off; simulating in a non-canonical VM would answer ' +
+            'with results no indexer agrees with', 503);
+}
+
+// Take one global slot and, when the requester is known, one of its per-IP
+// slots, or throw VM_BUSY without taking either.
+function reserveSlot(ipKey){
+    if(inFlight >= maxConcurrent())
+        throw new VmQueryError('VM_BUSY', 'too many concurrent simulations, retry shortly', 429);
+    if(ipKey && (inFlightByIp.get(ipKey) || 0) >= maxConcurrentPerIp())
+        throw new VmQueryError('VM_BUSY', 'too many concurrent simulations from this client, retry shortly', 429);
+    // Reserve the slot at the gate: the DB loads below await, and a burst
+    // arriving during them must not all pass the check above. Bracketing the
+    // loads also puts the (potentially heavy) state queries under the cap.
+    inFlight++;
+    if(ipKey) inFlightByIp.set(ipKey, (inFlightByIp.get(ipKey) || 0) + 1);
+}
+
+// Give back what reserveSlot took, dropping an IP's entry at its last slot.
+function releaseSlot(ipKey){
+    inFlight--;
+    if(ipKey){
+        const held = inFlightByIp.get(ipKey) || 1;
+        if(held <= 1) inFlightByIp.delete(ipKey);
+        else inFlightByIp.set(ipKey, held - 1);
+    }
+}
+
+// The contract's code, its capped current state and the tip's block context,
+// read in that order from the indexer DB.
+async function loadSimulationInputs(db, config, contractIndex){
+    // Contract source (the simulation runs the exact on-chain code).
+    let rows = await db.doQuery(config, 'SELECT code FROM contracts WHERE action_index=? LIMIT 1', [contractIndex]);
+    if(!rows || !rows.length)
+        throw new VmQueryError('NOT_FOUND', 'contract not found', 404);
+
+    let state;
+    try {
+        state = await db.getContractFullState(config, contractIndex, {
+            maxRows:  VM_OPTIONS.limits.maxStateKeys,
+            maxBytes: maxStateBytes()
+        });
+    } catch(e){
+        if(e && e.code === 'STATE_TOO_LARGE')
+            throw new VmQueryError('STATE_TOO_LARGE', 'contract state exceeds simulation limits', 413);
+        throw e;
+    }
+    const blockIndex  = await db.getMaxBlockIndex(config);
+    const blockTime   = await db.getMaxBlockTime(config);
+    // Same synthetic hash derivation the indexer uses for real executions
+    // (sha256 of "index:time"); contracts reading getBlockHash see the same
+    // shape they would on-chain.
+    const blockHash   = crypto.createHash('sha256')
+        .update(String(blockIndex) + ':' + String(blockTime)).digest('hex');
+    return { code: rows[0].code, state, blockIndex, blockTime, blockHash };
+}
+
 /**
  * Run one read-only simulation. Loads the contract's code and current state
  * from the indexer DB, executes the method against the chain tip's block
@@ -278,61 +346,19 @@ function validateRequest(body){
  *                            when omitted only the global cap applies)
  */
 async function simulate(db, config, contractIndex, body, chain, network, clientIp){
-    if(!isEnabled())
-        throw new VmQueryError('VM_QUERY_DISABLED', 'contract simulation is disabled on this explorer', 503);
-    // Before the request is even parsed: a drifted VM is refusing to serve at
-    // all, so a malformed body must not be answered as a 400 by a service that
-    // could not have run the call anyway.
-    if(vmConsensusFault)
-        throw new VmQueryError('VM_QUERY_VM_DRIFT',
-            'contract simulation is disabled: ' + vmConsensusFault +
-            '. Refresh the deployed xchain-vm (bin/vendor-vm.sh) and restart, or leave ' +
-            'EXPLORER_VM_QUERY_ENABLED off; simulating in a non-canonical VM would answer ' +
-            'with results no indexer agrees with', 503);
-
+    assertServing();
     const { method, params, caller } = validateRequest(body);
     const vm = getVm();
-
-    if(inFlight >= maxConcurrent())
-        throw new VmQueryError('VM_BUSY', 'too many concurrent simulations, retry shortly', 429);
     const ipKey = clientIp ? String(clientIp) : null;
-    if(ipKey && (inFlightByIp.get(ipKey) || 0) >= maxConcurrentPerIp())
-        throw new VmQueryError('VM_BUSY', 'too many concurrent simulations from this client, retry shortly', 429);
-    // Reserve the slot at the gate: the DB loads below await, and a burst
-    // arriving during them must not all pass the check above. Bracketing the
-    // loads also puts the (potentially heavy) state queries under the cap.
-    inFlight++;
-    if(ipKey) inFlightByIp.set(ipKey, (inFlightByIp.get(ipKey) || 0) + 1);
+    reserveSlot(ipKey);
     try {
-        // Contract source (the simulation runs the exact on-chain code).
-        let rows = await db.doQuery(config, 'SELECT code FROM contracts WHERE action_index=? LIMIT 1', [contractIndex]);
-        if(!rows || !rows.length)
-            throw new VmQueryError('NOT_FOUND', 'contract not found', 404);
-
-        let state;
-        try {
-            state = await db.getContractFullState(config, contractIndex, {
-                maxRows:  VM_OPTIONS.limits.maxStateKeys,
-                maxBytes: maxStateBytes()
-            });
-        } catch(e){
-            if(e && e.code === 'STATE_TOO_LARGE')
-                throw new VmQueryError('STATE_TOO_LARGE', 'contract state exceeds simulation limits', 413);
-            throw e;
-        }
-        const blockIndex  = await db.getMaxBlockIndex(config);
-        const blockTime   = await db.getMaxBlockTime(config);
-        // Same synthetic hash derivation the indexer uses for real executions
-        // (sha256 of "index:time"); contracts reading getBlockHash see the same
-        // shape they would on-chain.
-        const blockHash   = crypto.createHash('sha256')
-            .update(String(blockIndex) + ':' + String(blockTime)).digest('hex');
+        const { code, state, blockIndex, blockTime, blockHash } = await loadSimulationInputs(db, config, contractIndex);
 
         // Default caller is a synthetic marker (eth_call-from-zero semantics):
         // contracts comparing it to real addresses get false, so permissioned
         // branches behave as "not the admin" unless the user supplies one.
         return await vm.execute({
-            code:              rows[0].code,
+            code:              code,
             state:             state,
             method:            method,
             params:            params,
@@ -355,12 +381,7 @@ async function simulate(db, config, contractIndex, body, chain, network, clientI
             contractStakeData: null
         });
     } finally {
-        inFlight--;
-        if(ipKey){
-            const held = inFlightByIp.get(ipKey) || 1;
-            if(held <= 1) inFlightByIp.delete(ipKey);
-            else inFlightByIp.set(ipKey, held - 1);
-        }
+        releaseSlot(ipKey);
     }
 }
 

@@ -65,6 +65,45 @@ const path          = require('path');
 // live log to say so.
 const UNCONFIGURED_WARN_INTERVAL_MS = 5 * 60 * 1000;
 
+// Bring up one registered mirror target: pool, schema, tables, column drift,
+// then the client. Every failure is logged, never thrown, so one bad target
+// cannot keep start() from reaching the rest.
+async function startMirrorInstance(inst, t, key){
+    try {
+        inst.pool = new HubMirrorPool(t);
+        // Schema, then tables, then the client: HubDbSync must never start
+        // against missing tables (empty SHOW COLUMNS poisons its per-table
+        // column cache; see the 2026-06-17 cold-start regression).
+        await inst.pool.ensureDatabase();
+        await HubDbSync.ensureTables(inst.pool, path.join(__dirname, '..', 'sql', 'hub-mirror'));
+        // ensureTables never ALTERs an existing table, so a schema adopted
+        // without the retraction and item-5308 fence columns (price_snapshots,
+        // oracle_prices, cross_chain_matches, cross_chain_calls) needs this
+        // additive drift reconciler. Runs before the client starts so its
+        // per-table column cache sees the migrated shape.
+        await ensureMirrorColumns(inst.pool);
+        // network is what lets the client scope its bootstrap cursor and purge
+        // rows a different hub served. Without it a mirror that once followed
+        // another network keeps those rows, and because the apply is id-parity
+        // INSERT IGNORE they sit on the ids the real rows need, so the mirror
+        // can never refill itself.
+        // hubUrl is passed explicitly rather than left to HubDbSync's own
+        // process.env.HUB_API_URL fallback: the endpoint this manager
+        // validated at start() must be the endpoint the client uses, or the
+        // gate above certifies one URL while the writer follows another.
+        inst.sync = new HubDbSync(inst.pool, { coin: t.chain, network: t.network, hubUrl: inst.hubUrl });
+        // start() rejects when the hub is unreachable at boot; the client
+        // keeps reconnecting/re-bootstrapping on its own after that, and the
+        // staleness surface reports bootstrapDrained=false meanwhile.
+        inst.sync.start().catch((err) => {
+            log.error('HUB_MIRROR_SYNC_START_FAILED', { target: key, err: err && err.message ? err.message : err });
+        });
+        log.info('HUB_MIRROR_SYNC_STARTED', { target: key, coins: inst.coins.join(',') });
+    } catch (err){
+        log.error('HUB_MIRROR_INIT_FAILED', { target: key, err: err && err.message ? err.message : err, stack: err && err.stack });
+    }
+}
+
 class HubMirrorSyncManager {
 
     constructor(explorer){
@@ -120,39 +159,7 @@ class HubMirrorSyncManager {
             }
             inst = { target: t, coins: [coinKey], pool: null, sync: null, hubUrl, unconfigured: false };
             this.instances.set(key, inst);
-            try {
-                inst.pool = new HubMirrorPool(t);
-                // Schema, then tables, then the client: HubDbSync must never start
-                // against missing tables (empty SHOW COLUMNS poisons its per-table
-                // column cache; see the 2026-06-17 cold-start regression).
-                await inst.pool.ensureDatabase();
-                await HubDbSync.ensureTables(inst.pool, path.join(__dirname, '..', 'sql', 'hub-mirror'));
-                // ensureTables never ALTERs an existing table, so a schema adopted
-                // without the retraction and item-5308 fence columns (price_snapshots,
-                // oracle_prices, cross_chain_matches, cross_chain_calls) needs this
-                // additive drift reconciler. Runs before the client starts so its
-                // per-table column cache sees the migrated shape.
-                await ensureMirrorColumns(inst.pool);
-                // network is what lets the client scope its bootstrap cursor and purge
-                // rows a different hub served. Without it a mirror that once followed
-                // another network keeps those rows, and because the apply is id-parity
-                // INSERT IGNORE they sit on the ids the real rows need, so the mirror
-                // can never refill itself.
-                // hubUrl is passed explicitly rather than left to HubDbSync's own
-                // process.env.HUB_API_URL fallback: the endpoint this manager
-                // validated at start() must be the endpoint the client uses, or the
-                // gate above certifies one URL while the writer follows another.
-                inst.sync = new HubDbSync(inst.pool, { coin: t.chain, network: t.network, hubUrl: inst.hubUrl });
-                // start() rejects when the hub is unreachable at boot; the client
-                // keeps reconnecting/re-bootstrapping on its own after that, and the
-                // staleness surface reports bootstrapDrained=false meanwhile.
-                inst.sync.start().catch((err) => {
-                    log.error('HUB_MIRROR_SYNC_START_FAILED', { target: key, err: err && err.message ? err.message : err });
-                });
-                log.info('HUB_MIRROR_SYNC_STARTED', { target: key, coins: inst.coins.join(',') });
-            } catch (err){
-                log.error('HUB_MIRROR_INIT_FAILED', { target: key, err: err && err.message ? err.message : err, stack: err && err.stack });
-            }
+            await startMirrorInstance(inst, t, key);
         }
     }
 

@@ -100,39 +100,32 @@ function isGatedAction(actionString) {
     return String(parts[GATE_TICKER_FIELD_INDEX]).length > 0;
 }
 
-/**
- * Inflate stored bytes, streamed and ratio-bounded. Never throws, never
- * returns partial output.
- *
- * @param {Buffer} stored
- * @param {object} [options]
- * @param {number} [options.maxRatio]
- * @returns {Promise<{bytes: Buffer, inflated: boolean, storedForm: boolean,
- *                    error: string|null, storedLength: number, originalLength: number}>}
- */
-function inflateStoredBytes(stored, options = {}) {
-    const maxRatio = (options.maxRatio === undefined) ? COMPRESSION_MAX_RATIO : options.maxRatio;
-
-    const asStored = (input, error) => ({
+// The stored-form answer: the input served exactly as stored, with the reason
+// it was not inflated.
+function asStored(input, error) {
+    return {
         bytes: input,
         inflated: false,
         storedForm: true,
         error,
         storedLength: input ? input.length : 0,
         originalLength: input ? input.length : 0
-    });
+    };
+}
 
-    if (!Buffer.isBuffer(stored)) {
-        // Some drivers hand back a Uint8Array or a string; normalize what we
-        // safely can and degrade on anything else.
-        if (stored instanceof Uint8Array) stored = Buffer.from(stored);
-        else if (typeof stored === 'string') stored = Buffer.from(stored, 'binary');
-        else return Promise.resolve(asStored(Buffer.alloc(0), 'INVALID_INPUT'));
-    }
-    if (stored.length === 0) return Promise.resolve(asStored(stored, 'EMPTY_STREAM'));
+// The stored bytes as a Buffer, or null when the input cannot be one.
+function normalizeStored(stored) {
+    if (Buffer.isBuffer(stored)) return stored;
+    // Some drivers hand back a Uint8Array or a string; normalize what we
+    // safely can and degrade on anything else.
+    if (stored instanceof Uint8Array) return Buffer.from(stored);
+    if (typeof stored === 'string') return Buffer.from(stored, 'binary');
+    return null;
+}
 
-    const ceiling = Math.max(1, Math.ceil(stored.length * maxRatio));
-
+// Stream the inflate and abort the moment the output passes `ceiling` bytes.
+// Resolves exactly once, with the full output or the stored-form answer.
+function inflateWithinCeiling(stored, ceiling) {
     return new Promise((resolve) => {
         const stream = zlib.createInflateRaw();
         let chunks = [];
@@ -175,6 +168,28 @@ function inflateStoredBytes(stored, options = {}) {
 
         stream.end(stored);
     });
+}
+
+/**
+ * Inflate stored bytes, streamed and ratio-bounded. Never throws, never
+ * returns partial output.
+ *
+ * @param {Buffer} stored
+ * @param {object} [options]
+ * @param {number} [options.maxRatio]
+ * @returns {Promise<{bytes: Buffer, inflated: boolean, storedForm: boolean,
+ *                    error: string|null, storedLength: number, originalLength: number}>}
+ */
+function inflateStoredBytes(stored, options = {}) {
+    const maxRatio = (options.maxRatio === undefined) ? COMPRESSION_MAX_RATIO : options.maxRatio;
+
+    stored = normalizeStored(stored);
+    if (stored === null) return Promise.resolve(asStored(Buffer.alloc(0), 'INVALID_INPUT'));
+    if (stored.length === 0) return Promise.resolve(asStored(stored, 'EMPTY_STREAM'));
+
+    const ceiling = Math.max(1, Math.ceil(stored.length * maxRatio));
+
+    return inflateWithinCeiling(stored, ceiling);
 }
 
 /**

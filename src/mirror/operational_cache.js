@@ -57,6 +57,49 @@ const log = getLogger();
 // never reads a variable.
 const configEnv = () => require('../config.js').env;
 
+// Cap the map so a flood of distinct filter values cannot grow it
+// without bound (same pattern as db/index.js's holders cache).
+const MAX_CACHE_ENTRIES = 500;
+
+// Drop undefined params so the cache key is stable and the hub sees
+// only the filters actually set.
+function cleanParams(params){
+    let cleaned = {};
+    for(const [k, v] of Object.entries(params))
+        if(v !== undefined && v !== null) cleaned[k] = v;
+    return cleaned;
+}
+
+// Store a fresh read under `key`, evicting the oldest entry when the map is full.
+function rememberRows(cache, key, at, rows){
+    if(cache.size >= MAX_CACHE_ENTRIES && !cache.has(key))
+        cache.delete(cache.keys().next().value);
+    cache.set(key, { at, rows });
+}
+
+// The answer for a read the hub did not satisfy with rows: throw on a capability
+// gap, else the cached rows while they are inside the stale ceiling, else null.
+function settleMissedRead(method, result, rpcErr, hit, after, staleMaxMs){
+    // A -32601 (Method not found) is a definitive answer from a live hub:
+    // this hub build does not serve the method. That is a capability gap,
+    // not an outage, so neither the stale-cache bridge below nor db/index.js's
+    // unreachable-past-ceiling diagnosis applies; both would misname a
+    // version mismatch as downtime.
+    if(rpcErr && Number(rpcErr.code) === -32601)
+        throw new Error("Hub JSON-RPC method '" + method + "' is not supported by the " +
+            'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +
+            'upgrade it to a build that serves ' + method + '.');
+    if(result && result.error)
+        log.warn('HUB_OPERATIONAL_READ_ERROR', { method, err: result.error });
+    // Hub unreachable or degraded: serve the last-known rows while they
+    // are not unreasonably old, so a hub restart doesn't blank the pages.
+    if(hit && (after - hit.at) < staleMaxMs){
+        log.warn('HUB_OPERATIONAL_SERVING_CACHED', { method, age_s: Math.round((after - hit.at) / 1000) });
+        return hit.rows;
+    }
+    return null;
+}
+
 class HubOperationalCache {
 
     constructor(explorer){
@@ -87,11 +130,7 @@ class HubOperationalCache {
     // alone falls through, since it only decorates the on-chain /validators set.
     async getRows(method, params = {}){
         if(!this.connector) return null;
-        // Drop undefined params so the cache key is stable and the hub sees
-        // only the filters actually set.
-        let cleaned = {};
-        for(const [k, v] of Object.entries(params))
-            if(v !== undefined && v !== null) cleaned[k] = v;
+        let cleaned = cleanParams(params);
         let key = method + '|' + JSON.stringify(cleaned, Object.keys(cleaned).sort());
         let now = Date.now();
         let hit = this._cache.get(key);
@@ -128,33 +167,10 @@ class HubOperationalCache {
         // that interval, and both the TTL and the ceiling should read it that way.
         let after = Date.now();
         if(Array.isArray(result)){
-            // Cap the map so a flood of distinct filter values cannot grow it
-            // without bound (same pattern as db/index.js's holders cache).
-            const MAX = 500;
-            if(this._cache.size >= MAX && !this._cache.has(key))
-                this._cache.delete(this._cache.keys().next().value);
-            this._cache.set(key, { at: now, rows: result });
+            rememberRows(this._cache, key, now, result);
             return result;
         }
-        // A -32601 (Method not found) is a definitive answer from a live hub:
-        // this hub build does not serve the method. That is a capability gap,
-        // not an outage, so neither the stale-cache bridge below nor db/index.js's
-        // unreachable-past-ceiling diagnosis applies; both would misname a
-        // version mismatch as downtime.
-        let rpcErr = call.rpcError;
-        if(rpcErr && Number(rpcErr.code) === -32601)
-            throw new Error("Hub JSON-RPC method '" + method + "' is not supported by the " +
-                'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +
-                'upgrade it to a build that serves ' + method + '.');
-        if(result && result.error)
-            log.warn('HUB_OPERATIONAL_READ_ERROR', { method, err: result.error });
-        // Hub unreachable or degraded: serve the last-known rows while they
-        // are not unreasonably old, so a hub restart doesn't blank the pages.
-        if(hit && (after - hit.at) < this.staleMaxMs){
-            log.warn('HUB_OPERATIONAL_SERVING_CACHED', { method, age_s: Math.round((after - hit.at) / 1000) });
-            return hit.rows;
-        }
-        return null;
+        return settleMissedRead(method, result, call.rpcError, hit, after, this.staleMaxMs);
     }
 
     getValidatorCapabilities({ capability, signing_pubkey } = {}){

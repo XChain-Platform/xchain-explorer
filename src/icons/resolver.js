@@ -94,123 +94,154 @@ function resolveDescriptionToSource(description){
     const desc = description.trim();
     if(desc === '') return null;
 
-    // 0. action:<index> / action:<COIN>:<index>: an on-chain TIS document, the
-    // format the platform's own Token_Information_Standard promotes. The token
-    // page resolves it live (actionRefToRawPath in content/js/xchain.js), and this
-    // file's whole contract is to pick the source that page would, so it has to
-    // match the page's regex exactly: same three sibling tickers, same digits-only
-    // index, and the sibling coin's network tier supplied by the caller (which
-    // knows the flavor) rather than guessed here. Placed FIRST because it is an
-    // exact-form match, so no later branch can shadow it. ACTION_REF_RE is the
-    // shared grammar the icon worker's re-stale predicate also compiles, so the
-    // two can never disagree about what "an action: description" is.
+    for(const branch of DESCRIPTION_BRANCHES){
+        const source = branch(desc);
+        if(source !== undefined) return source;
+    }
+    return null;
+}
+
+// Each branch below answers undefined when the description is not its form, and
+// otherwise its final answer (a source, or null for a recognised form that has
+// nothing fetchable), so a later branch never sees a description an earlier one
+// claimed.
+
+// 0. action:<index> / action:<COIN>:<index>: an on-chain TIS document, the
+// format the platform's own Token_Information_Standard promotes. The token
+// page resolves it live (actionRefToRawPath in content/js/xchain.js), and this
+// file's whole contract is to pick the source that page would, so it has to
+// match the page's regex exactly: same three sibling tickers, same digits-only
+// index, and the sibling coin's network tier supplied by the caller (which
+// knows the flavor) rather than guessed here. Placed FIRST because it is an
+// exact-form match, so no later branch can shadow it. ACTION_REF_RE is the
+// shared grammar the icon worker's re-stale predicate also compiles, so the
+// two can never disagree about what "an action: description" is.
+function actionSource(desc){
     const act = ACTION_REF_RE.exec(desc);
     if(act)
         return { scheme: 'action', coin: act[2] ? act[2].toUpperCase() : null, index: act[3] };
-
-    // 1. stamp:base64data: embedded image bytes
-    if(/^stamp:/i.test(desc)){
-        const b64 = desc.replace(/^stamp:/i, '').trim();
-        if(b64 === '') return null;
-        // Validate that the base64 actually decodes. Corrupt stamps are
-        // unrecoverable, so don't waste retry slots on them.
-        if(!/^[A-Za-z0-9+/=_-]+$/.test(b64)) return null;
-        try {
-            const buf = Buffer.from(b64, 'base64');
-            if(buf.length === 0) return null;
-        } catch (e){
-            return null;
-        }
-        return { scheme: 'stamp', data: b64 };
-    }
-
-    // 2. ord:HASH: Ordinals inscription, resolved via the inscription decoder
-    if(/^ord:/i.test(desc)){
-        let hash = desc.replace(/^ord:/i, '').trim();
-        if(hash === '') return null;
-        if(hash.length !== 64){
-            // Convert from base64 to hex
-            const buf = tryBase64Decode(hash);
-            if(buf === null || buf.length === 0) return null;
-            hash = buf.toString('hex');
-        }
-        return { scheme: 'ord', url: 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash };
-    }
-
-    // 3. ipfs:HASH or ipfs://HASH: IPFS gateway
-    if(/^ipfs:/i.test(desc)){
-        const hash = desc.replace(/^ipfs:(\/\/)?/i, '').trim();
-        if(hash === '') return null;
-        return { scheme: 'ipfs', url: IPFS_GATEWAY + hash };
-    }
-
-    // 4. ar:HASH: Arweave gateway
-    if(/^ar:/i.test(desc)){
-        const hash = desc.replace(/^ar:/i, '').trim();
-        if(hash === '') return null;
-        return { scheme: 'arweave', url: 'https://arweave.net/' + hash };
-    }
-
-    // 5. imgur formats. Accepts:
-    //   imgur/<image>[;<title>]
-    //   imgur.com/<image>
-    //   imgur.com/a/<image>           (album short)
-    //   imgur.com/gallery/<image>     (gallery short)
-    //   https?://imgur.com/<image>
-    //   https?://imgur.com/a/<image>
-    //   https?://imgur.com/gallery/<image>
-    // Direct image URLs at i.imgur.com (https://i.imgur.com/...) are NOT
-    // matched here; they fall through to the bare-image-URL branch.
-    if(/^(?:https?:\/\/)?imgur(\.com)?\//i.test(desc)){
-        const rest = desc.replace(/^(?:https?:\/\/)?imgur(\.com)?\//i, '');
-        let name = rest.split(';')[0].trim();
-        // Strip imgur path prefixes that point at album/gallery pages so we
-        // end up with the bare image code (the album/gallery code usually IS
-        // a valid direct image code on i.imgur.com).
-        name = name.replace(/^(?:a|gallery)\//i, '');
-        if(name === '') return null;
-        return { scheme: 'imgur', url: 'https://i.imgur.com/' + name };
-    }
-
-    // 6. Pointers to non-image media: can't generate an icon from these
-    if(/^(youtube|soundcloud)\//i.test(desc)) return null;
-
-    // 7. Bare arweave URL: strip the legacy /x.json suffix that no longer works
-    if(/^https?:\/\/arweave\.net\//i.test(desc)){
-        let url = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
-        url = url.split(';')[0];   // strip ;hash suffix if any
-        return { scheme: 'arweave_url', url };
-    }
-
-    // 8. URL ending in .json (with optional ";<sha256>" attestation suffix)
-    if(/\.json($|;|\?|#)/i.test(desc)){
-        let url = desc.split(';')[0];
-        // Force https, matching the json branch in content/js/xchain.js, which builds
-        // this lane as 'https://' + desc-without-scheme and has no http path at all
-        // (its /relay? retry reuses the same https URL). Keeping http made the page
-        // and the downloader fetch two different documents for one description, and
-        // drove https-only origins to a permanent `failed` icon row for a token whose
-        // page renders fine. http-only JSON origins now fail on both sides rather
-        // than disagreeing.
-        url = 'https://' + url.replace(/^https?:\/\//i, '');
-        return { scheme: 'json_url', url };
-    }
-
-    // 9. Bare image URL: recognized by extension on the path component
-    if(/^https?:\/\//i.test(desc)){
-        const url  = desc.split(';')[0];
-        const path = (() => {
-            try { return new URL(url).pathname; } catch (e) { return ''; }
-        })();
-        const dot = path.lastIndexOf('.');
-        const ext = dot >= 0 ? path.slice(dot + 1).toLowerCase() : '';
-        if(['png','jpg','jpeg','gif','webp','svg'].includes(ext)){
-            return { scheme: 'image_url', url };
-        }
-    }
-
-    return null;
+    return undefined;
 }
+
+// 1. stamp:base64data: embedded image bytes
+function stampSource(desc){
+    if(!/^stamp:/i.test(desc)) return undefined;
+    const b64 = desc.replace(/^stamp:/i, '').trim();
+    if(b64 === '') return null;
+    // Validate that the base64 actually decodes. Corrupt stamps are
+    // unrecoverable, so don't waste retry slots on them.
+    if(!/^[A-Za-z0-9+/=_-]+$/.test(b64)) return null;
+    try {
+        const buf = Buffer.from(b64, 'base64');
+        if(buf.length === 0) return null;
+    } catch (e){
+        return null;
+    }
+    return { scheme: 'stamp', data: b64 };
+}
+
+// 2. ord:HASH: Ordinals inscription, resolved via the inscription decoder
+function ordSource(desc){
+    if(!/^ord:/i.test(desc)) return undefined;
+    let hash = desc.replace(/^ord:/i, '').trim();
+    if(hash === '') return null;
+    if(hash.length !== 64){
+        // Convert from base64 to hex
+        const buf = tryBase64Decode(hash);
+        if(buf === null || buf.length === 0) return null;
+        hash = buf.toString('hex');
+    }
+    return { scheme: 'ord', url: 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash };
+}
+
+// 3. ipfs:HASH or ipfs://HASH: IPFS gateway
+function ipfsSource(desc){
+    if(!/^ipfs:/i.test(desc)) return undefined;
+    const hash = desc.replace(/^ipfs:(\/\/)?/i, '').trim();
+    if(hash === '') return null;
+    return { scheme: 'ipfs', url: IPFS_GATEWAY + hash };
+}
+
+// 4. ar:HASH: Arweave gateway
+function arweaveSource(desc){
+    if(!/^ar:/i.test(desc)) return undefined;
+    const hash = desc.replace(/^ar:/i, '').trim();
+    if(hash === '') return null;
+    return { scheme: 'arweave', url: 'https://arweave.net/' + hash };
+}
+
+// 5. imgur formats. Accepts:
+//   imgur/<image>[;<title>]
+//   imgur.com/<image>
+//   imgur.com/a/<image>           (album short)
+//   imgur.com/gallery/<image>     (gallery short)
+//   https?://imgur.com/<image>
+//   https?://imgur.com/a/<image>
+//   https?://imgur.com/gallery/<image>
+// Direct image URLs at i.imgur.com (https://i.imgur.com/...) are NOT
+// matched here; they fall through to the bare-image-URL branch.
+function imgurSource(desc){
+    if(!/^(?:https?:\/\/)?imgur(\.com)?\//i.test(desc)) return undefined;
+    const rest = desc.replace(/^(?:https?:\/\/)?imgur(\.com)?\//i, '');
+    let name = rest.split(';')[0].trim();
+    // Strip imgur path prefixes that point at album/gallery pages so we
+    // end up with the bare image code (the album/gallery code usually IS
+    // a valid direct image code on i.imgur.com).
+    name = name.replace(/^(?:a|gallery)\//i, '');
+    if(name === '') return null;
+    return { scheme: 'imgur', url: 'https://i.imgur.com/' + name };
+}
+
+// 6. Pointers to non-image media: can't generate an icon from these
+function nonImageMediaSource(desc){
+    if(/^(youtube|soundcloud)\//i.test(desc)) return null;
+    return undefined;
+}
+
+// 7. Bare arweave URL: strip the legacy /x.json suffix that no longer works
+function arweaveUrlSource(desc){
+    if(!/^https?:\/\/arweave\.net\//i.test(desc)) return undefined;
+    let url = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
+    url = url.split(';')[0];   // strip ;hash suffix if any
+    return { scheme: 'arweave_url', url };
+}
+
+// 8. URL ending in .json (with optional ";<sha256>" attestation suffix)
+function jsonUrlSource(desc){
+    if(!/\.json($|;|\?|#)/i.test(desc)) return undefined;
+    let url = desc.split(';')[0];
+    // Force https, matching the json branch in content/js/xchain.js, which builds
+    // this lane as 'https://' + desc-without-scheme and has no http path at all
+    // (its /relay? retry reuses the same https URL). Keeping http made the page
+    // and the downloader fetch two different documents for one description, and
+    // drove https-only origins to a permanent `failed` icon row for a token whose
+    // page renders fine. http-only JSON origins now fail on both sides rather
+    // than disagreeing.
+    url = 'https://' + url.replace(/^https?:\/\//i, '');
+    return { scheme: 'json_url', url };
+}
+
+// 9. Bare image URL: recognized by extension on the path component
+function imageUrlSource(desc){
+    if(!/^https?:\/\//i.test(desc)) return undefined;
+    const url  = desc.split(';')[0];
+    const path = (() => {
+        try { return new URL(url).pathname; } catch (e) { return ''; }
+    })();
+    const dot = path.lastIndexOf('.');
+    const ext = dot >= 0 ? path.slice(dot + 1).toLowerCase() : '';
+    if(['png','jpg','jpeg','gif','webp','svg'].includes(ext)){
+        return { scheme: 'image_url', url };
+    }
+    return undefined;
+}
+
+// The branches in priority order. This order IS the page's priority chain in
+// content/js/xchain.js; reordering it makes the two pick different sources.
+const DESCRIPTION_BRANCHES = [
+    actionSource, stampSource, ordSource, ipfsSource, arweaveSource, imgurSource,
+    nonImageMediaSource, arweaveUrlSource, jsonUrlSource, imageUrlSource,
+];
 
 /**
  * Given a parsed CIP25/TIS-style JSON object, return the best image URL
@@ -247,71 +278,72 @@ function selectIconUrlFromCip25Json(json){
     // is more specific than "image" when both exist, so it wins.
     const j = (json.icon) ? Object.assign({}, json, { image: json.icon }) : json;
 
-    // TIS `data_ref` takes precedence over `data` on the same entry ONLY when it is a
-    // real action reference, which is what the page does: resolveTisDataRefs
-    // (content/js/xchain.js) overwrites `data` only when actionRefToRawPath RESOLVES
-    // the ref, and that returns false for anything outside the action: grammar. The
-    // spec agrees (token-information-standard.md: data_ref is a reference to an
-    // on-chain FILE action by ACTION_INDEX), so a URL-shaped or garbage data_ref is not
-    // a ref at all and must leave `data` alone. TIS documents are attacker-supplied
-    // on-chain bytes: substituting any non-empty string let a minted token make this
-    // downloader cache a different image than the page renders, or drive the row to a
-    // permanent `failed` on an unfetchable ref while the page rendered fine.
-    // ACTION_REF_RE spells its case classes out rather than using /i (#5290), which is
-    // ASCII-exact and therefore equivalent to the page's /i regex over this alphabet.
-    // Applied to every JSON lane, not just the action: one, because the page applies it
-    // to every TIS document it fetches however it reached it.
-    const images = (Array.isArray(j.images) ? j.images : []).map(img => {
+    const picked = pickIconValue(j, imagesWithActionRefs(j));
+    return picked === undefined ? null : rewriteSchemeUrl(picked);
+}
+
+// TIS `data_ref` takes precedence over `data` on the same entry ONLY when it is a
+// real action reference, which is what the page does: resolveTisDataRefs
+// (content/js/xchain.js) overwrites `data` only when actionRefToRawPath RESOLVES
+// the ref, and that returns false for anything outside the action: grammar. The
+// spec agrees (token-information-standard.md: data_ref is a reference to an
+// on-chain FILE action by ACTION_INDEX), so a URL-shaped or garbage data_ref is not
+// a ref at all and must leave `data` alone. TIS documents are attacker-supplied
+// on-chain bytes: substituting any non-empty string let a minted token make this
+// downloader cache a different image than the page renders, or drive the row to a
+// permanent `failed` on an unfetchable ref while the page rendered fine.
+// ACTION_REF_RE spells its case classes out rather than using /i (#5290), which is
+// ASCII-exact and therefore equivalent to the page's /i regex over this alphabet.
+// Applied to every JSON lane, not just the action: one, because the page applies it
+// to every TIS document it fetches however it reached it.
+function imagesWithActionRefs(j){
+    return (Array.isArray(j.images) ? j.images : []).map(img => {
         if(!img || typeof img !== 'object') return img;
         if(typeof img.data_ref !== 'string') return img;
         const ref = img.data_ref.trim();
         if(ref === '' || !ACTION_REF_RE.test(ref)) return img;
         return Object.assign({}, img, { data: ref });
     });
+}
 
+// Walk the priority chain from the header, steps 1 to 10, and return the winning
+// value exactly as found (always truthy), or undefined when nothing is usable.
+function pickIconValue(j, images){
     // 1. 64x64 icon (what the page takes first, and the size we render at)
-    for(const img of images){
-        if(!img || typeof img !== 'object') continue;
-        if(img.type === 'icon' && img.size === '64x64' && img.data)
-            return rewriteSchemeUrl(img.data);
-    }
+    let data = firstEntryData(images, img => img.type === 'icon' && img.size === '64x64');
+    if(data) return data;
     // 2. 48x48 icon
-    for(const img of images){
-        if(!img || typeof img !== 'object') continue;
-        if(img.type === 'icon' && img.size === '48x48' && img.data)
-            return rewriteSchemeUrl(img.data);
-    }
+    data = firstEntryData(images, img => img.type === 'icon' && img.size === '48x48');
+    if(data) return data;
     // 3. Any icon
-    for(const img of images){
-        if(!img || typeof img !== 'object') continue;
-        if(img.type === 'icon' && img.data)
-            return rewriteSchemeUrl(img.data);
-    }
+    data = firstEntryData(images, img => img.type === 'icon');
+    if(data) return data;
     // 4. Top-level "image"
-    if(j.image) return rewriteSchemeUrl(j.image);
+    if(j.image) return j.image;
     // 5/6. standard / large in images[]
     for(const t of ['standard','large']){
-        for(const img of images){
-            if(!img || typeof img !== 'object') continue;
-            if(img.type === t && img.data) return rewriteSchemeUrl(img.data);
-        }
+        data = firstEntryData(images, img => img.type === t);
+        if(data) return data;
     }
     // 7. Top-level "image_large"
-    if(j.image_large)    return rewriteSchemeUrl(j.image_large);
+    if(j.image_large)    return j.image_large;
     // 8. hires in images[]
-    for(const img of images){
-        if(!img || typeof img !== 'object') continue;
-        if(img.type === 'hires' && img.data) return rewriteSchemeUrl(img.data);
-    }
+    data = firstEntryData(images, img => img.type === 'hires');
+    if(data) return data;
     // 9. Top-level "image_large_hd"
-    if(j.image_large_hd) return rewriteSchemeUrl(j.image_large_hd);
+    if(j.image_large_hd) return j.image_large_hd;
     // 10. First usable images[] entry
+    return firstEntryData(images, () => true);
+}
+
+// The data of the first object entry that matches and carries data, in array
+// order, or undefined.
+function firstEntryData(images, matches){
     for(const img of images){
         if(!img || typeof img !== 'object') continue;
-        if(img.data) return rewriteSchemeUrl(img.data);
+        if(matches(img) && img.data) return img.data;
     }
-
-    return null;
+    return undefined;
 }
 
 /**

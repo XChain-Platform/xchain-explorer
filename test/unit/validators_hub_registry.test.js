@@ -57,6 +57,12 @@ function validatorConfig(overrides = {}) {
     return makeConfig({ type: 'explorer', data: { method: 'getValidators', ...overrides } });
 }
 
+// getQuery returning an OBJECT short-circuits the SQL path in getData, so the
+// fold can be exercised without a database.
+function stubRows(db, rows) {
+    sinon.stub(db, 'getQuery').resolves([rows, null, rows.length]);
+}
+
 describe('db.getFederationRegistry()', function () {
 
     afterEach(function () { sinon.restore(); });
@@ -100,6 +106,11 @@ describe('db.getFederationRegistry()', function () {
         expect(doQuery.firstCall.args[1]).to.contain('`XChain_Hub`.validators');
         expect(registry[PK_B].status).to.equal('suspended');
     });
+});
+
+describe('db.getFederationRegistry()', function () {
+
+    afterEach(function () { sinon.restore(); });
 
     // On a live federation the manual registry is empty (membership is the on-chain
     // stake set), so the gossiped capability rows are the only thing the hub knows
@@ -153,6 +164,11 @@ describe('db.getFederationRegistry()', function () {
         expect(registry).to.not.equal(null);
         expect(registry[PK_B].status).to.equal('peered');
     });
+});
+
+describe('db.getFederationRegistry()', function () {
+
+    afterEach(function () { sinon.restore(); });
 
     it('returns null (unknown) with no hub endpoint and no co-located hub schema', async function () {
         const db = makeDb(null);
@@ -171,12 +187,6 @@ describe('db.getFederationRegistry()', function () {
 describe('db.getData() folds the hub registry onto /validators rows', function () {
 
     afterEach(function () { sinon.restore(); });
-
-    // getQuery returning an OBJECT short-circuits the SQL path in getData, so the
-    // fold can be exercised without a database.
-    function stubRows(db, rows) {
-        sinon.stub(db, 'getQuery').resolves([rows, null, rows.length]);
-    }
 
     it('adds hub_addr / hub_chains / hub_status to a registered validator', async function () {
         const db = makeDb(null);
@@ -222,6 +232,11 @@ describe('db.getData() folds the hub registry onto /validators rows', function (
         await db.getData(validatorConfig());
         expect(registry.callCount).to.equal(1);
     });
+});
+
+describe('db.getData() folds the hub registry onto /validators rows', function () {
+
+    afterEach(function () { sinon.restore(); });
 
     it('does not touch the registry for other list methods', async function () {
         const db = makeDb(null);
@@ -293,130 +308,4 @@ describe('/explorer/validators datatables row shape', function () {
     });
 });
 
-// Reads the browser script and page markup that actually ship, not copies, so drift in either breaks this test
-describe('client: the validators table renders the hub registry columns', function () {
-
-    // formatters.js is read alongside xchain.js because the cell-rendering helpers
-    // moved there in the component milestone.
-    const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
-        + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-    const HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/validators.html'), 'utf8');
-
-    // Slice the SHIPPED createdRow callback out of loadDatatablesData by walking
-    // braces, so this drives production code rather than a copy that can drift.
-    function extractCreatedRow() {
-        const sig = 'createdRow: function(row, data, idx)';
-        const start = SRC.indexOf(sig);
-        if (start < 0) throw new Error('createdRow not found in xchain.js');
-        const braceStart = SRC.indexOf('{', start + sig.length - 1);
-        let depth = 0, i = braceStart;
-        for (; i < SRC.length; i++) {
-            const c = SRC[i];
-            if (c === '{') depth++;
-            else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-        }
-        return 'var createdRow = function(row, data, idx)' + SRC.slice(braceStart, i) + ';';
-    }
-
-    function extractFn(name) {
-        const sig = 'function ' + name + '(';
-        const start = SRC.indexOf(sig);
-        if (start < 0) throw new Error('function not found in xchain.js: ' + name);
-        const braceStart = SRC.indexOf('{', start);
-        let depth = 0, i = braceStart;
-        for (; i < SRC.length; i++) {
-            const c = SRC[i];
-            if (c === '{') depth++;
-            else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-        }
-        return SRC.slice(start, i);
-    }
-
-    // Count the <th> cells the shipped page declares for the validators table.
-    function pageColumns() {
-        const thead = HTML.slice(HTML.indexOf('<thead>'), HTML.indexOf('</thead>'));
-        return (thead.match(/<th[\s>]/g) || []).length;
-    }
-
-    // Render one row through the shipped createdRow, into a table with the
-    // shipped column count.
-    function render(data) {
-        const cells = Array.from({ length: pageColumns() }, () => '<td></td>').join('');
-        const dom = new JSDOM(
-            '<!DOCTYPE html><body><table id="datatable-validator"><tbody><tr>' + cells +
-            '</tr></tbody></table></body>', { runScripts: 'outside-only' });
-        dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
-        dom.window.eval(`
-            var coin = 'BTC', action = 'validator', type = null;
-            function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
-            function formatLivestamp(t){ return String(t); }
-            function formatAmount(v){ return String(v); }
-            var numeral = function(v){ return { format: function(){ return String(v); } }; };
-        `);
-        dom.window.eval(extractFn('isNull'));
-        dom.window.eval(extractFn('escapeHtml'));
-        dom.window.eval(extractFn('formatHash'));
-        dom.window.XC = { coin: 'BTC' };
-        dom.window.eval(extractCreatedRow());
-        const row = dom.window.document.querySelector('tr');
-        dom.window.createdRow(row, data, 0);
-        return { dom, row };
-    }
-
-    function validatorData(hub_addr, hub_chains, hub_status) {
-        return [1, 900001, 1750000000, 'bc1qsource', PK_A, 1, '1000',
-                hub_addr, hub_chains, hub_status, 900011, null, 1, 4242];
-    }
-
-    it('the shipped page declares the three hub columns', function () {
-        expect(HTML).to.contain('Hub Address');
-        expect(HTML).to.contain('Chains');
-        expect(HTML).to.contain('Registration');
-        // The loading placeholder must span every declared column.
-        expect(HTML).to.contain('colspan="' + pageColumns() + '"');
-    });
-
-    it('renders addr, chains and an active registration badge', function () {
-        const { row } = render(validatorData('v1.example.com:10001', 'BTC,LTC', 'active'));
-        const tds = row.querySelectorAll('td');
-        expect(tds[7].textContent).to.equal('v1.example.com:10001');
-        expect(tds[8].textContent).to.equal('BTC,LTC');
-        expect(tds[9].textContent).to.equal('active');
-        expect(tds[9].querySelector('span').className).to.contain('text-bg-success');
-    });
-
-    it('renders an unreachable registry as unknown and a missing entry as unregistered', function () {
-        const unknown = render(validatorData(null, null, null)).row.querySelectorAll('td');
-        expect(unknown[7].textContent).to.equal('-');
-        expect(unknown[8].textContent).to.equal('-');
-        expect(unknown[9].textContent).to.equal('unknown');
-
-        const missing = render(validatorData(null, null, 'unregistered')).row.querySelectorAll('td');
-        expect(missing[9].textContent).to.equal('unregistered');
-        expect(missing[9].querySelector('span').className).to.contain('text-bg-secondary');
-    });
-
-    it('[XSS] hub-supplied registry strings render as inert text', function () {
-        const payload = '<img src=x onerror=alert(1)>';
-        const { row } = render(validatorData(payload, payload, payload));
-        const tds = row.querySelectorAll('td');
-        expect(tds[7].querySelector('img')).to.equal(null);
-        expect(tds[7].textContent).to.equal(payload);
-        expect(tds[8].querySelector('img')).to.equal(null);
-        expect(tds[9].querySelector('img')).to.equal(null);
-        expect(tds[9].textContent).to.equal(payload);
-    });
-
-    it('the view link still points at the action_index, not the deactivation tail', function () {
-        const { row } = render(validatorData('v1.example.com:10001', 'BTC', 'active'));
-        const tds = row.querySelectorAll('td');
-        expect(tds[tds.length - 1].querySelector('a').getAttribute('href'))
-            .to.equal('/BTC/action/4242');
-    });
-
-    it('there is no second federation-registry page', function () {
-        const pages = fs.readdirSync(path.resolve(__dirname, '../../src/content/html'));
-        const extra = pages.filter(p => /federation|validator_registry|registry/i.test(p));
-        expect(extra).to.deep.equal([], 'the hub registry folds into validators.html');
-    });
-});
+require('./validators_hub_registry.test/client_rendering.js');

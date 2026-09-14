@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for src/XChainDecoderConnector.js: the minimal JSON-RPC client
+ * Unit tests for src/connectors/decoder.js: the minimal JSON-RPC client
  * /api/status uses to aggregate each decoder's self-reported chain→decoder lag.
  */
 
@@ -20,8 +20,8 @@
 const sinon    = require('sinon');
 const axios    = require('axios');
 const { expect } = require('chai');
-const XChainDecoderConnector = require('../../src/XChainDecoderConnector.js');
-const { resolveDecoderUrl }  = require('../../src/XChainDecoderConnector.js');
+const XChainDecoderConnector = require('../../src/connectors/decoder.js');
+const { resolveDecoderUrl }  = require('../../src/connectors/decoder.js');
 
 describe('XChainDecoderConnector', function () {
 

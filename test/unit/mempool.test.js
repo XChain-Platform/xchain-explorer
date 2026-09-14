@@ -179,7 +179,7 @@ describe('decoder mempool surface', () => {
     // serving from synced replicas (mempool_transactions is excluded from
     // xchain-sync replication, so its replica copy is permanently empty).
     describe('decoder-API mempool path', () => {
-        const DecoderConnector = require('../../src/XChainDecoderConnector.js');
+        const DecoderConnector = require('../../src/connectors/decoder.js');
         const API_ROW = { tx_hash: 'aa11', source: 'srcAddr1', data: 'SEND|0|TOK|5|destAddr1|nonce123', first_seen: 1787000000 };
 
         function mkApiDb(rows) {

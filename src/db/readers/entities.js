@@ -40,7 +40,7 @@
 'use strict';
 
 const coinsRegistry = require('../../coins');
-const DecoderConnector = require('../../XChainDecoderConnector.js');
+const DecoderConnector = require('../../connectors/decoder.js');
 const { DbInputError, staleFailClosed } = require('../shared.js');
 
 // Structured logging. Cached at require time: getLogger() resolves lazily on

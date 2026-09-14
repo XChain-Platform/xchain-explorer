@@ -38,7 +38,7 @@
 
 'use strict';
 
-const DecoderConnector = require('../../XChainDecoderConnector.js');
+const DecoderConnector = require('../../connectors/decoder.js');
 const { DbQueryError, staleFailClosed } = require('../shared.js');
 
 // Structured logging. Cached at require time: getLogger() resolves lazily on

@@ -46,6 +46,17 @@ const explorerSource = fs.readFileSync(
     'utf8'
 );
 
+// Behavioural, not a source grep: applyTrustProxy() is the seam api.js calls,
+// so the hop policy is exercised here against a real request rather than
+// matched as text. What is being pinned is which X-Forwarded-For entry
+// becomes req.ip, because req.ip is the per-IP rate limiters' bucket key.
+function makeApp() {
+    const app = express();
+    applyTrustProxy(app);
+    app.get('/whoami', (req, res) => res.json({ ip: req.ip }));
+    return app;
+}
+
 describe('Security: Rate Limiting: static-asset exemption', function () {
 
     // The exemption is the skip predicate for BOTH the per-IP rate limiter and the
@@ -97,6 +108,10 @@ describe('Security: Rate Limiting: static-asset exemption', function () {
         for(const p of limited)
             expect(staticMounts.isStaticAssetPath(p), p).to.equal(false);
     });
+
+});
+
+describe('Security: Rate Limiting: static-asset exemption', function () {
 
     it('matches the mount name exactly, never as a prefix', function () {
         // The old predicate used startsWith('/images'), so /imagesXYZ/... was exempt.
@@ -183,17 +198,6 @@ describe('Security: Rate Limiting: Body size limit', function () {
 
 describe('Security: Rate Limiting: Trust proxy', function () {
 
-    // Behavioural, not a source grep: applyTrustProxy() is the seam api.js calls,
-    // so the hop policy is exercised here against a real request rather than
-    // matched as text. What is being pinned is which X-Forwarded-For entry
-    // becomes req.ip, because req.ip is the per-IP rate limiters' bucket key.
-    function makeApp() {
-        const app = express();
-        applyTrustProxy(app);
-        app.get('/whoami', (req, res) => res.json({ ip: req.ip }));
-        return app;
-    }
-
     it('takes the entry the proxy appended, not the client-supplied one', async function () {
         // Apache appends the connection's peer to the RIGHT of whatever the caller
         // sent, so the rightmost entry is the only one the explorer did not receive
@@ -219,6 +223,10 @@ describe('Security: Rate Limiting: Trust proxy', function () {
         expect(setting).to.equal(1);
         expect(setting).to.not.equal(true);
     });
+
+});
+
+describe('Security: Rate Limiting: Trust proxy', function () {
 
     it('the WebSocket upgrade path resolves the same entry as HTTP', function () {
         // Express's trust-proxy setting does not apply to the raw HTTP server the

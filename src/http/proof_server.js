@@ -32,6 +32,10 @@
 const M   = require('../merkle.js');
 const SUB = require('../state_subtree_activation.js');   // byte-identical fourth carrier; escrow-leaf liveness only
 const swq = require('../stake_weighted_quorum.js');
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that.
+const { getLogger } = require('../observability');
+const log = getLogger();
 
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
 
@@ -91,8 +95,9 @@ class ProofServer {
         if (Array.isArray(cp.validator_signatures)) {
             sigs = cp.validator_signatures;
         } else try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch (e) {
-            console.warn('[proofServer] malformed validator_signatures for checkpoint_seq ' +
-                          cp.checkpoint_seq + '; shaping response with empty signature set:', e.message);
+            log.warn('PROOF_CHECKPOINT_SIGNATURES_MALFORMED', {
+                checkpoint_seq: cp.checkpoint_seq, err: e.message, detail: 'shaping response with empty signature set'
+            });
             sigs = [];
         }
         // Indices are emitted as decimal STRINGS, matching every other index on the

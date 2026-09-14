@@ -74,10 +74,29 @@ function rowsInBlock(body){
     return rows;
 }
 
-describe('action detail cards (M2.5)', function () {
+const blocks = blocksInPage();
+const cards  = CONFIG.cards;
 
-    const blocks = blocksInPage();
-    const cards  = CONFIG.cards;
+function realm(){
+    const composed = listPage.dataBlocks(ACTION_HTML);
+    const body = composed.slice(0, composed.indexOf('<script'));
+    const dom = new JSDOM('<!doctype html><html><body>' + body
+        + '<script type="application/json" id="xc-action-detail-cards">'
+        + /id="xc-action-detail-cards">([\s\S]*?)<\/script>/.exec(composed)[1]
+        + '</script></body></html>', { runScripts: 'outside-only', url: 'https://xchain.test/RDOGE/action/1' });
+    const win = dom.window;
+    win.numeral = function(v){ return { format: function(){ return String(v); } }; };
+    win.eval(JQUERY);
+    win.jQuery.fn.ready = function(){ return this; };
+    win.eval(fs.readFileSync(path.join(ROOT, 'src', 'content', 'js', 'components.js'), 'utf8'));
+    win.eval(SOURCE.clientSource());
+    // Register the real detail-card into the realm's registry.
+    win.eval(fs.readFileSync(
+        path.join(ROOT, 'src', 'content', 'components', 'detail-card', 'init.js'), 'utf8'));
+    return win;
+}
+
+describe('action detail cards (M2.5)', function () {
 
     it('found the per-type blocks it is asserting about', function () {
         assert.ok(Object.keys(blocks).length >= 30,
@@ -131,6 +150,10 @@ describe('action detail cards (M2.5)', function () {
             assert.equal(cards[type].rows.length, rowsInBlock(blocks[type]).length);
     });
 
+});
+
+describe('action detail cards (M2.5)', function () {
+
     describe('the config reaches the page', function () {
 
         it('is spliced into action.html as a JSON block, not fetched', function () {
@@ -146,26 +169,11 @@ describe('action detail cards (M2.5)', function () {
         });
     });
 
-    describe('showActionDetails, driven', function () {
+});
 
-        function realm(){
-            const composed = listPage.dataBlocks(ACTION_HTML);
-            const body = composed.slice(0, composed.indexOf('<script'));
-            const dom = new JSDOM('<!doctype html><html><body>' + body
-                + '<script type="application/json" id="xc-action-detail-cards">'
-                + /id="xc-action-detail-cards">([\s\S]*?)<\/script>/.exec(composed)[1]
-                + '</script></body></html>', { runScripts: 'outside-only', url: 'https://xchain.test/RDOGE/action/1' });
-            const win = dom.window;
-            win.numeral = function(v){ return { format: function(){ return String(v); } }; };
-            win.eval(JQUERY);
-            win.jQuery.fn.ready = function(){ return this; };
-            win.eval(fs.readFileSync(path.join(ROOT, 'src', 'content', 'js', 'components.js'), 'utf8'));
-            win.eval(SOURCE.clientSource());
-            // Register the real detail-card into the realm's registry.
-            win.eval(fs.readFileSync(
-                path.join(ROOT, 'src', 'content', 'components', 'detail-card', 'init.js'), 'utf8'));
-            return win;
-        }
+describe('action detail cards (M2.5)', function () {
+
+    describe('showActionDetails, driven', function () {
 
         it('registers detail-card in the page realm', function () {
             const win = realm();
@@ -192,6 +200,14 @@ describe('action detail cards (M2.5)', function () {
             // comparison fails on identity rather than on content.
             assert.deepEqual(JSON.parse(JSON.stringify(rows)), cards.broadcast.rows);
         });
+
+    });
+
+});
+
+describe('action detail cards (M2.5)', function () {
+
+    describe('showActionDetails, driven', function () {
 
         it('reveals the block anyway when the component layer is missing', function () {
             // A theme layer that failed to load must never cost a reader the data.
@@ -225,6 +241,10 @@ describe('action detail cards (M2.5)', function () {
                 'showActionDetails still reveals the block directly, so no card ever mounts');
         });
     });
+
+});
+
+describe('action detail cards (M2.5)', function () {
 
     describe('the detail-card component itself', function () {
 

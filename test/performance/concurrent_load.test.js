@@ -34,20 +34,7 @@ const RAMP_LEVELS = [
 
 const TARGET_PATH = '/RBTC/explorer/tokens';
 
-describe('Concurrent load: ramping connections', function () {
-
-    before(async function () {
-        this.timeout(60000);
-        await db.setupDatabase('../performance/helpers/seed-performance.sql');
-        await bootServer();
-    });
-
-    after(async function () {
-        this.timeout(10000);
-        await stopServer();
-        await db.closePool();
-    });
-
+function registerRampTests() {
     for (const level of RAMP_LEVELS) {
         it(`${level.connections} concurrent connections: p99 < ${level.p99ThresholdMs}ms`, async function () {
             this.timeout((DURATION + 15) * 1000);
@@ -70,7 +57,9 @@ describe('Concurrent load: ramping connections', function () {
             console.log(`    ${level.connections} conns: avg=${avg}ms, p99=${p99}ms, ${rps.toFixed(1)} RPS, errors=${errors}`);
         });
     }
+}
 
+function registerErrorRateTest() {
     it('error rate stays below 5% at 50 concurrent connections', async function () {
         this.timeout(30000);
 
@@ -87,7 +76,9 @@ describe('Concurrent load: ramping connections', function () {
         expect(errorRate).to.be.below(0.05,
             `Error rate ${(errorRate * 100).toFixed(1)}% at 50 connections exceeds 5% threshold`);
     });
+}
 
+function registerLatencyDistributionTest() {
     it('latency distribution is consistent (not bimodal) at moderate load', async function () {
         this.timeout(30000);
 
@@ -104,5 +95,23 @@ describe('Concurrent load: ramping connections', function () {
         expect(p99).to.be.below(avg * 10 + 100,
             `Bimodal latency detected: avg=${avg}ms but p99=${p99}ms (${(p99/avg).toFixed(1)}x)`);
     });
+}
 
+describe('Concurrent load: ramping connections', function () {
+
+    before(async function () {
+        this.timeout(60000);
+        await db.setupDatabase('../performance/helpers/seed-performance.sql');
+        await bootServer();
+    });
+
+    after(async function () {
+        this.timeout(10000);
+        await stopServer();
+        await db.closePool();
+    });
+
+    registerRampTests();
+    registerErrorRateTest();
+    registerLatencyDistributionTest();
 });

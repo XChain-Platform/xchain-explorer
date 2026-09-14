@@ -30,14 +30,28 @@
 
 'use strict';
 
-require('./db_data_methods.test/query_execution.js');
-require('./db_data_methods.test/core_records.js');
-require('./db_data_methods.test/status.js');
-require('./db_data_methods.test/tip_freshness.js');
-require('./db_data_methods.test/tip_freshness_status.js');
-require('./db_data_methods.test/network.js');
-require('./db_data_methods.test/token.js');
-require('./db_data_methods.test/transaction_ids.js');
-require('./db_data_methods.test/decoder_health.js');
-require('./db_data_methods.test/contracts.js');
-require('./db_data_methods.test/controllers_state.js');
+const proxyquire = require('proxyquire');
+const sinon      = require('sinon');
+const { expect } = require('chai');
+const Utility    = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../fixtures/mock-query-args.js');
+const mockResults              = require('../../fixtures/mock-db-results.js');
+
+const Database = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+});
+
+const configInfo    = createConfigInfoStub();
+const util          = new Utility(configInfo);
+const mockExplorer  = { configInfo, util };
+
+function makeDb() {
+    return new Database(mockExplorer);
+}
+
+function cfg(overrides = {}) {
+    return makeConfig({ coin: 'BTC', ...overrides });
+}
+
+module.exports = { sinon, expect, configInfo, mockResults, makeDb, cfg };

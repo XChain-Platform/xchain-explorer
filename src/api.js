@@ -36,7 +36,7 @@ const concurrencyGate = require('./concurrencyGate.js');
 const { limitedHandler } = require('./http/rate_limit_log.js');  // limiter counter line, shared with XChainExplorer's per-route limiters
 const staticMounts    = require('./staticMounts.js');     // the one file-serving mount list, shared with XChainExplorer
 const { applyTrustProxy } = require('./trustProxy.js');   // proxy-hop policy, shared with the WS path's hop count
-const { resolveMaxBatch, makeRpcBatchGuard } = require('./rpcBatchGuard.js');   // JSON-RPC batch cardinality cap
+const { resolveMaxBatch, makeRpcBatchGuard } = require('./http/rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
 const { createShutdown, createExplorerDrain } = require('./shutdown.js');
 const { installObservability } = require('./observability');   // default-off /metrics + structured log shim
 const coins           = require('./coins');
@@ -358,7 +358,7 @@ async function startApi(){
     // hub refresh entirely rather than tick a disabled hub.
     if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
 
-    // Bound JSON-RPC batch cardinality (src/rpcBatchGuard.js). The router below runs
+    // Bound JSON-RPC batch cardinality (src/http/rpc_batch_guard.js). The router below runs
     // Promise.all over every element of a batch array, while both the per-IP rate
     // limiter and the concurrency gate above count the whole batch as ONE request, and
     // ping draws a pooled connection for its SELECT 1 probe. Mounted here, in front of

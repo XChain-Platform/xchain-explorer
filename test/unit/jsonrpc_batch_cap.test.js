@@ -34,7 +34,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const jsonRouter = require('express-json-rpc-router');
 
-const { resolveMaxBatch, makeRpcBatchGuard } = require('../../src/rpcBatchGuard.js');
+const { resolveMaxBatch, makeRpcBatchGuard } = require('../../src/http/rpc_batch_guard.js');
 
 const CAP = 20;
 

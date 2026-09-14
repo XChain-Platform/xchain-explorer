@@ -124,7 +124,6 @@ async function waitUntil(predicate, what, timeoutMs = 1000, stepMs = 5) {
 }
 
 describe('coin network info recovery after a COIN_DATA_STALE 503', function () {
-
     afterEach(function () {
         while (openWindows.length) openWindows.pop().close();
     });
@@ -152,9 +151,14 @@ describe('coin network info recovery after a COIN_DATA_STALE 503', function () {
             expect(failed).to.equal(1);
         });
     });
+});
+
+describe('coin network info recovery after a COIN_DATA_STALE 503', function () {
+    afterEach(function () {
+        while (openWindows.length) openWindows.pop().close();
+    });
 
     describe('getCoinNetworkInfo', function () {
-
         it('re-reads the status when the cached one still calls the coin unavailable, and renders once it is back', function () {
             // The status in localStorage is FRESH (well inside its 5 minute window)
             // and was captured while the coin was stale, so it does not list the
@@ -199,7 +203,15 @@ describe('coin network info recovery after a COIN_DATA_STALE 503', function () {
             expect(h.requests.filter((u) => u === '/TDOGE/api/network').length,
                 'and no network request is issued while it is still stale').to.equal(0);
         });
+    });
+});
 
+describe('coin network info recovery after a COIN_DATA_STALE 503', function () {
+    afterEach(function () {
+        while (openWindows.length) openWindows.pop().close();
+    });
+
+    describe('getCoinNetworkInfo', function () {
         it('does not leave the in-flight flag armed when the network request 503s', function () {
             const h = harness({
                 '/TDOGE/api/network': { status: 503, body: { code: 'COIN_DATA_STALE' } }

@@ -15,7 +15,7 @@
  * An ACTION's source is `actions.source_id`, never `transactions.source_id`.
  * The two agree for every user action and DISAGREE for a VM emission: the
  * indexer stores the emitting contract's derived address on the action row
- * (xchain-indexer db.js createActionIndex, execute.js processEmission) while
+ * (xchain-indexer db.js createActionIndex, execute/index.js processEmission) while
  * the transaction still belongs to the human who sent the EXECUTE.
  *
  * Every action-detail and list query used to join the TRANSACTION, so every

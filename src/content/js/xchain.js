@@ -4519,7 +4519,7 @@ function showAnchorDetails(data){
     $('#info-anchor .anchor-network').text(isNull(data.network) ? '-' : data.network);
     $('#info-anchor .anchor-checkpoint-seq').text(isNull(data.checkpoint_seq) ? '-' : numeral(data.checkpoint_seq).format('0,0'));
     // SNAPSHOT_BLOCK is a BITCOIN height carried on the wire (xchain-indexer
-    // actions/anchor.js: the oracle_publish capability snapshot it names is BTC-keyed),
+    // actions/anchor/index.js: the oracle_publish capability snapshot it names is BTC-keyed),
     // while ANCHOR is only valid on DOGE. Linking it into the page coin therefore
     // resolved a DOGE block of the same number, an unrelated block. Route it through
     // the shared BTC-height renderer, which links the tier-matched BTC chain when this

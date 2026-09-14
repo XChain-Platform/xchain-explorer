@@ -1576,7 +1576,7 @@ class ActionListReaders {
 
     // A contract-emitted SEND has no broadcast transaction behind it: the injected
     // EXECUTE that ran it carries no TX_INDEX (xchain-indexer actions/xexec.js), and
-    // execute.js propagates that absence into every action the run emits, so the
+    // execute/index.js propagates that absence into every action the run emits, so the
     // `actions` row lands with tx_index NULL while block_index is NOT NULL. Joining
     // blocks THROUGH an INNER-joined transaction therefore did not degrade such a
     // row, it deleted it from the feed AND from its total, silently, and the /sends

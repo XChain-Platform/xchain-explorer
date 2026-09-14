@@ -778,7 +778,7 @@ describe('Database#getSends', () => {
     });
 
     // A contract-emitted SEND moves balances with no broadcast transaction behind
-    // it: the injected EXECUTE carries no TX_INDEX and execute.js propagates that
+    // it: the injected EXECUTE carries no TX_INDEX and execute/index.js propagates that
     // into the emitted action, so `actions.tx_index` is NULL while block_index is
     // NOT NULL. Joining blocks through an INNER-joined transaction deletes such a
     // row from the feed AND from its total, with no error, and /sends is what the

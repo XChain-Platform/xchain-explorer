@@ -329,7 +329,7 @@ class ContractReaders {
     }
 
     // Load a contract's FULL current state in the shape the VM consumes,
-    // mirroring the indexer's own loader (xchain-indexer/src/db.js
+    // mirroring the indexer's own loader (xchain-indexer/src/db/contracts.js
     // getContractState): latest non-null row per key, values JSON-parsed with
     // raw-string fallback. Null-prototype object so adversarial keys like
     // '__proto__' round-trip instead of hitting the setter. Used only by the

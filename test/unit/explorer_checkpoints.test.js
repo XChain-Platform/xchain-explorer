@@ -398,7 +398,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
 
 // Canonical-string byte-parity vs the SDK builder (4th-copy drift guard).
 // The XCHECKPOINT canonical is independently reconstructed in FOUR places (hub
-// engine, SDK checkpoint.js, indexer anchor.js, and the explorer's
+// engine, SDK checkpoint.js, indexer anchor/index.js, and the explorer's
 // canonicalCheckpointString). The cross-service parity suite compares only
 // hub==SDK==indexer; this block covers the explorer's copy against the SDK so
 // a drift (root-suffix ordering, EQUIV wrap gating) cannot ship with every

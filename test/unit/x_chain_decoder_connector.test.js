@@ -23,11 +23,10 @@ const { expect } = require('chai');
 const XChainDecoderConnector = require('../../src/connectors/decoder.js');
 const { resolveDecoderUrl }  = require('../../src/connectors/decoder.js');
 
-describe('XChainDecoderConnector', function () {
+const ENV_KEYS = ['DECODER_API_URL_BTC_REGTEST', 'DECODER_API_URL', 'DECODER_API_TIMEOUT_MS'];
+let saved;
 
-    const ENV_KEYS = ['DECODER_API_URL_BTC_REGTEST', 'DECODER_API_URL', 'DECODER_API_TIMEOUT_MS'];
-    let saved;
-
+function useEnvironmentHooks() {
     beforeEach(function () {
         saved = {};
         for (let k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
@@ -40,6 +39,10 @@ describe('XChainDecoderConnector', function () {
         }
         sinon.restore();
     });
+}
+
+describe('XChainDecoderConnector', function () {
+    useEnvironmentHooks();
 
     describe('resolveDecoderUrl()', function () {
         it('prefers the coin+network-specific override', function () {
@@ -89,6 +92,10 @@ describe('XChainDecoderConnector', function () {
             expect(resolveDecoderUrl(null, null, 'http://from-config:3002')).to.equal('http://from-config:3002');
         });
     });
+});
+
+describe('XChainDecoderConnector', function () {
+    useEnvironmentHooks();
 
     describe('constructor', function () {
         it('defaults the timeout to 2500ms (status hot path)', function () {
@@ -102,6 +109,10 @@ describe('XChainDecoderConnector', function () {
             expect(c.timeout).to.equal(900);
         });
     });
+});
+
+describe('XChainDecoderConnector', function () {
+    useEnvironmentHooks();
 
     describe('health()', function () {
         it('POSTs a JSON-RPC health call and returns the result', async function () {

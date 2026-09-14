@@ -399,7 +399,7 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
         const axiosStub = { get: sinon.stub().resolves({ status: 200, data: Buffer.from([]), headers: {} }) };
         const IconDownloader = proxyquire('../../src/icons/downloader.js', {
             axios: axiosStub,
-            '../IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+            './resolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
         });
         const dl = new IconDownloader({ util: {} });
         await dl._httpFetch('https://example.com/icon.png');
@@ -413,7 +413,7 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
         const IconDownloader = proxyquire('../../src/icons/downloader.js', {
             axios: axiosStub,
             dns:   dnsStub,
-            '../IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+            './resolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
         });
         const dl = new IconDownloader({ util: {} });
         dl._httpFetch('https://metadata.attacker.example/x.png').then(() => {
@@ -434,7 +434,7 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
     describe('web-port restriction', function () {
         const load = (axiosStub) => proxyquire('../../src/icons/downloader.js', {
             axios: axiosStub,
-            '../IconResolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
+            './resolver': { resolveDescriptionToSource: () => null, selectIconUrlFromCip25Json: () => null },
         });
 
         it('refuses a non-web port before any socket opens', async function () {

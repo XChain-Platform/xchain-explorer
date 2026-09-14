@@ -67,7 +67,7 @@ const {
     // one-shot re-stale in _discover so that predicate can never select a row this
     // module cannot resolve.
     ACTION_REF_PATTERN,
-} = require('../IconResolver');
+} = require('./resolver');
 // The same decompression the live /{COIN}/api/file/{index}/raw route applies
 // (XChainExplorer.processFileRawRequest), so an `action:` FILE resolves to the
 // identical bytes the token page renders from. Contractually non-throwing: it

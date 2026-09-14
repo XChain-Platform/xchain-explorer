@@ -16,7 +16,7 @@ const {
     resolveDescriptionToSource,
     selectIconUrlFromCip25Json,
     rewriteSchemeUrl,
-} = require('../../src/IconResolver');
+} = require('../../src/icons/resolver');
 
 describe('IconResolver.resolveDescriptionToSource', function(){
 

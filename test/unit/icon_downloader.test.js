@@ -140,7 +140,7 @@ function makeStubs(opts) {
 // embeds in the re-stale SQL, and a stubbed copy here would let the SQL and the
 // real resolver drift apart without a test noticing - which is the whole failure
 // the shared constant exists to prevent.
-const { ACTION_REF_PATTERN } = require('../../src/IconResolver.js');
+const { ACTION_REF_PATTERN } = require('../../src/icons/resolver.js');
 
 /**
  * Load IconDownloader through proxyquire using the provided stubs.
@@ -151,7 +151,7 @@ function loadIconDownloader(stubs) {
         'fs':             stubs.fsStub,
         'fs/promises':    stubs.fspStub,
         'child_process':  { execFile: stubs.execStub },
-        '../IconResolver': {
+        './resolver': {
             resolveDescriptionToSource: stubs.resolveDescriptionToSource,
             selectIconUrlFromCip25Json: stubs.selectIconUrlFromCip25Json,
             ACTION_REF_PATTERN,
@@ -659,7 +659,7 @@ describe('IconDownloader', function () {
         ];
         const RESOLVABLE = ['action:12', 'action:BTC:5', 'ACTION:DOGE:9', '  action:7  '];
 
-        const realResolve = require('../../src/IconResolver.js').resolveDescriptionToSource;
+        const realResolve = require('../../src/icons/resolver.js').resolveDescriptionToSource;
 
         /**
          * Read the re-stale predicate out of the SQL the module actually emits and

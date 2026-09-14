@@ -56,7 +56,7 @@ const mariadb = require('mariadb');
 const { expect } = require('chai');
 
 const IconDownloader = require('../../src/icons/downloader.js');
-const { resolveDescriptionToSource, ACTION_REF_PATTERN } = require('../../src/IconResolver.js');
+const { resolveDescriptionToSource, ACTION_REF_PATTERN } = require('../../src/icons/resolver.js');
 
 const DB_HOST = process.env.CONFORMANCE_DB_HOST || '127.0.0.1';
 const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || 3307);

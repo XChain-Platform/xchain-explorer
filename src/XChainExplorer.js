@@ -3229,8 +3229,11 @@ function isPreflightPostRequest(req){
     return /^\/[^/]+\/api\/preflight\/?$/i.test(String(req.path || ''));
 }
 
-module.exports = XChainExplorer;
-module.exports.canonicalCheckpointString = canonicalCheckpointString;
-module.exports.isPreflightPostRequest = isPreflightPostRequest;
-module.exports.MAX_PREFLIGHT_PARAMS_LENGTH = MAX_PREFLIGHT_PARAMS_LENGTH;
-module.exports.PREFLIGHT_BODY_LIMIT = PREFLIGHT_BODY_LIMIT;
+// One export shape: the class is the export and its helpers hang on it, so
+// requirers read XChainExplorer.isPreflightPostRequest and the rest as before.
+module.exports = Object.assign(XChainExplorer, {
+    canonicalCheckpointString,
+    isPreflightPostRequest,
+    MAX_PREFLIGHT_PARAMS_LENGTH,
+    PREFLIGHT_BODY_LIMIT
+});

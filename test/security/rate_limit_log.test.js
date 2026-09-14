@@ -225,32 +225,32 @@ describe('Security: Rate limit counter line: driven through express-rate-limit 8
     });
 });
 
-describe('Security: Rate limit counter line: every explorer limiter carries it (row 18)', function () {
+const apiSource      = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
+const explorerSource = fs.readFileSync(path.join(__dirname, '../../src/XChainExplorer.js'), 'utf8');
 
-    const apiSource      = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
-    const explorerSource = fs.readFileSync(path.join(__dirname, '../../src/XChainExplorer.js'), 'utf8');
-
-    // Pull out the balanced argument text of every rateLimit(...) call, so the
-    // assertions below read a limiter's own options and not a neighbour's.
-    function rateLimitOptionBlocks(source) {
-        const blocks = [];
-        const marker = 'rateLimit(';
-        let from = 0;
-        for (;;) {
-            const at = source.indexOf(marker, from);
-            if (at === -1) return blocks;
-            let depth = 0;
-            let i = at + marker.length - 1;
-            for (; i < source.length; i++) {
-                if (source[i] === '(') depth++;
-                else if (source[i] === ')' && --depth === 0) break;
-            }
-            blocks.push(source.slice(at + marker.length, i));
-            from = i;
+// Pull out the balanced argument text of every rateLimit(...) call, so the
+// assertions below read a limiter's own options and not a neighbour's.
+function rateLimitOptionBlocks(source) {
+    const blocks = [];
+    const marker = 'rateLimit(';
+    let from = 0;
+    for (;;) {
+        const at = source.indexOf(marker, from);
+        if (at === -1) return blocks;
+        let depth = 0;
+        let i = at + marker.length - 1;
+        for (; i < source.length; i++) {
+            if (source[i] === '(') depth++;
+            else if (source[i] === ')' && --depth === 0) break;
         }
+        blocks.push(source.slice(at + marker.length, i));
+        from = i;
     }
+}
 
-    const blocks = [...rateLimitOptionBlocks(apiSource), ...rateLimitOptionBlocks(explorerSource)];
+const blocks = [...rateLimitOptionBlocks(apiSource), ...rateLimitOptionBlocks(explorerSource)];
+
+describe('Security: Rate limit counter line: every explorer limiter carries it (row 18)', function () {
 
     it('finds the nine limiter declarations (sanity: the parser matched something)', function () {
         expect(blocks).to.have.lengthOf(9);
@@ -267,6 +267,10 @@ describe('Security: Rate limit counter line: every explorer limiter carries it (
         const stillMessaging = blocks.filter((b) => /(^|[^.\w])message\s*:/.test(b));
         expect(stillMessaging, 'a limiter still sends its body through `message`').to.deep.equal([]);
     });
+
+});
+
+describe('Security: Rate limit counter line: every explorer limiter carries it (row 18)', function () {
 
     it('names each of the nine limiters distinctly, so a line points at one knob', function () {
         const names = blocks

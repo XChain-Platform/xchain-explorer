@@ -66,10 +66,9 @@ function makeIconReq(iconPath) {
 // RELAY ENDPOINT: SSRF Bypass Vectors
 // ===========================================================================
 
-describe('Boundary: Relay SSRF Protection', function () {
+let explorer;
 
-    let explorer;
-    before(function () { explorer = makeExplorer(); });
+function registerRelayCases1() {
 
     // -----------------------------------------------------------------------
     // Basic blocked hosts
@@ -125,6 +124,9 @@ describe('Boundary: Relay SSRF Protection', function () {
         await explorer.processRelayRequest(makeRelayReq('http://192.168.1.1/secret.json'), res);
         expect(res._status).to.equal(403);
     });
+}
+
+function registerRelayCases2() {
 
     it('blocks 169.254.169.254 (AWS metadata)', async function () {
         const res = mockRes();
@@ -178,6 +180,9 @@ describe('Boundary: Relay SSRF Protection', function () {
         // After bracket stripping: "::ffff:127.0.0.1" blocked by /^::ffff:/i pattern
         expect(res._status).to.equal(403);
     });
+}
+
+function registerRelayCases3() {
 
     it('tests LOCALHOST in uppercase', async function () {
         const res = mockRes();
@@ -233,6 +238,9 @@ describe('Boundary: Relay SSRF Protection', function () {
         // Should not crash; hostname is "example.com", not blocked
         expect(res._status).to.not.equal(403);
     });
+}
+
+function registerRelayCases4() {
 
     it('returns 503 for missing url parameter', async function () {
         const res = mockRes();
@@ -270,6 +278,16 @@ describe('Boundary: Relay SSRF Protection', function () {
         await expl.processRelayRequest(makeRelayReq('https://example.com/api/data'), res);
         expect(res._status).to.equal(503);
     });
+}
+
+describe('Boundary: Relay SSRF Protection', function () {
+
+    before(function () { explorer = makeExplorer(); });
+
+    registerRelayCases1();
+    registerRelayCases2();
+    registerRelayCases3();
+    registerRelayCases4();
 });
 
 // ===========================================================================
@@ -325,6 +343,9 @@ describe('Boundary: Icon Path Traversal', function () {
         expect(res._sentFile).to.be.a('string');
         expect(res._sentFile).to.include('BTC.png');
     });
+});
+
+describe('Boundary: Icon Path Traversal', function () {
 
     it('handles icon request with just /icon/ (trailing slash, no filename)', async function () {
         const explorer = makeExplorer();

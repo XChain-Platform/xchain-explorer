@@ -494,7 +494,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
             getActionsSince:   sinon.stub().resolves([])
         };
         const { EventEmitter } = require('events');
-        const Broadcaster = require('../../../src/ws/Broadcaster.js');
+        const Broadcaster = require('../../../src/ws/broadcaster.js');
         const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }) });
         const client = spyClient();
 
@@ -518,7 +518,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
             getActionsSince:   sinon.stub().resolves([])
         };
         const { EventEmitter } = require('events');
-        const Broadcaster = require('../../../src/ws/Broadcaster.js');
+        const Broadcaster = require('../../../src/ws/broadcaster.js');
         const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }) });
         const client = spyClient();
 
@@ -542,7 +542,7 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
             getActionsSince:   sinon.stub().resolves([])
         };
         const { EventEmitter } = require('events');
-        const Broadcaster = require('../../../src/ws/Broadcaster.js');
+        const Broadcaster = require('../../../src/ws/broadcaster.js');
         const s = makeServer({ explorer: { db }, broadcaster: new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() }), catchUpMaxDepth: 3 });
         const client = spyClient();
 
@@ -561,10 +561,10 @@ describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', f
     afterEach(() => sinon.restore());
 
     function makeBroadcaster() {
-        // Real filter/projection logic borrowed from Broadcaster.js so the test
+        // Real filter/projection logic borrowed from ws/broadcaster.js so the test
         // exercises the actual shared pipeline, not a stand-in.
         const { EventEmitter } = require('events');
-        const Broadcaster = require('../../../src/ws/Broadcaster.js');
+        const Broadcaster = require('../../../src/ws/broadcaster.js');
         return new Broadcaster({ wsServer: null, changeDetector: new EventEmitter() });
     }
 

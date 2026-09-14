@@ -34,7 +34,7 @@ const sinon          = require('sinon');
 const { expect }     = require('chai');
 const ChannelManager = require('../../../src/ws/ChannelManager.js');
 const ChangeDetector = require('../../../src/ws/ChangeDetector.js');
-const Broadcaster    = require('../../../src/ws/Broadcaster.js');
+const Broadcaster    = require('../../../src/ws/broadcaster.js');
 const Database       = require('../../../src/db.js');
 const Utility        = require('../../../src/utility.js');
 

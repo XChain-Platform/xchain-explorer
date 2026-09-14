@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for Broadcaster (src/ws/Broadcaster.js)
+ * Unit tests for Broadcaster (src/ws/broadcaster.js)
  */
 
 'use strict';
@@ -20,7 +20,7 @@ const sinon      = require('sinon');
 const { expect } = require('chai');
 const EventEmitter = require('events');
 const ChannelManager = require('../../../src/ws/ChannelManager.js');
-const Broadcaster    = require('../../../src/ws/Broadcaster.js');
+const Broadcaster    = require('../../../src/ws/broadcaster.js');
 
 function createMockWs() {
     return {

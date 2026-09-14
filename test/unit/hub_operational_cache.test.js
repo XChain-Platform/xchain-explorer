@@ -58,8 +58,8 @@ function loadCache({ callResult, rpcError, env = {} } = {}) {
         if (env[k] !== undefined) process.env[k] = env[k];
         else delete process.env[k];
     }
-    const HubOperationalCache = proxyquire('../../src/HubOperationalCache.js', {
-        './connectors/hub': FakeConnector
+    const HubOperationalCache = proxyquire('../../src/mirror/operational_cache.js', {
+        '../connectors/hub': FakeConnector
     });
     const cache = new HubOperationalCache({ util });
     for (const k of Object.keys(saved)) {

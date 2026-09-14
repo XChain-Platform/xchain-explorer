@@ -38,8 +38,8 @@ function loadCacheOnRealConnector(post, env = {}) {
         if (env[k] !== undefined) process.env[k] = env[k];
         else delete process.env[k];
     }
-    const HubOperationalCache = proxyquire('../../src/HubOperationalCache.js', {
-        './connectors/hub': XChainHubConnector
+    const HubOperationalCache = proxyquire('../../src/mirror/operational_cache.js', {
+        '../connectors/hub': XChainHubConnector
     });
     const cache = new HubOperationalCache({ util: new Utility(createConfigInfoStub()) });
     for (const k of Object.keys(saved)) {

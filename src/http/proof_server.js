@@ -36,6 +36,12 @@ const swq = require('../stake_weighted_quorum.js');
 // installs observability, and falls through to bare console before that.
 const { getLogger } = require('../observability');
 const log = getLogger();
+// Every environment read goes through config.js's live read-through view of
+// process.env, so config.js stays the one place the gate lets env be read. The
+// view is looked up per read so that requiring this module never loads config.js,
+// whose SSL probe and log line would otherwise run in every tool and suite that
+// never reads a variable.
+const configEnv = () => require('../config.js').env;
 
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
 
@@ -51,7 +57,7 @@ class ProofServer {
         this.db = db;
         // Advisory staleness bound (blocks) used to flag a proof's checkpoint as `stale`.
         // The raw chain_tip + lag are always returned; this only sets the convenience flag.
-        this.staleLagBlocks = Number(process.env.SPV_CHECKPOINT_MAX_LAG_BLOCKS) || 100;
+        this.staleLagBlocks = Number(configEnv().SPV_CHECKPOINT_MAX_LAG_BLOCKS) || 100;
     }
 
     // Descend a key's path through the persistent node store as-of `rootHex`,

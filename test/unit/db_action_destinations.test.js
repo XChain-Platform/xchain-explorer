@@ -74,7 +74,6 @@ function wrapped(code, errno) {
 const destRow = (action_index, destination) => ({ action_index, destination });
 
 describe('db.getActionsSince destinations (M1.4)', () => {
-
     it('attaches a single SEND destination to its action', async () => {
         const db = mkDb(
             [{ action_index: 501n, action: 'SEND', source: 'srcAddr' }],
@@ -127,7 +126,9 @@ describe('db.getActionsSince destinations (M1.4)', () => {
         expect(rows[0].destinations).to.deep.equal(['treasuryA']);
         expect(rows[1].destinations).to.deep.equal(['treasuryB']);
     });
+});
 
+describe('db.getActionsSince destinations (M1.4)', () => {
     it('consults all EIGHT destination-bearing families', async () => {
         const db = mkDb([{ action_index: 501n, action: 'SEND', source: 'srcAddr' }], () => []);
         await db.getActionsSince(cfg, 500n, 100);
@@ -183,7 +184,9 @@ describe('db.getActionsSince destinations (M1.4)', () => {
         expect(destQueries(db)).to.have.lengthOf(0);
         expect(db.doQuery.callCount).to.equal(1);
     });
+});
 
+describe('db.getActionsSince destinations (M1.4)', () => {
     it('issues no destination query for a batch whose rows carry NO action_index', () => {
         // Second guard on the same property: an `IN ()` with no bound values is a
         // syntax error, so the lookup must be skipped on the index list too, not
@@ -225,7 +228,9 @@ describe('db.getActionsSince destinations (M1.4)', () => {
 
         expect(rows[0].destinations).to.deep.equal(['destAddr']);
     });
+});
 
+describe('db.getActionsSince destinations (M1.4)', () => {
     it('QUARANTINES only the missing family, so the next poll is back to one query', async () => {
         const db = mkDb(
             [{ action_index: 501n, action: 'SEND', source: 'srcAddr' }],
@@ -275,7 +280,9 @@ describe('db.getActionsSince destinations (M1.4)', () => {
 
         expect(rows[0].destinations).to.deep.equal(['destAddr']);
     });
+});
 
+describe('db.getActionsSince destinations (M1.4)', () => {
     it('drops destination rows for actions outside the batch instead of inventing entries', async () => {
         const db = mkDb(
             [{ action_index: 501n, action: 'SEND', source: 'srcAddr' }],

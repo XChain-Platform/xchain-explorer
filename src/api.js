@@ -54,7 +54,7 @@ patchConsole({
 });
 
 //xchain-hub endpoints (multi-instance with fallback)
-const xchainHubConnector = require('./XChainHubConnector');
+const xchainHubConnector = require('./connectors/hub');
 const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;

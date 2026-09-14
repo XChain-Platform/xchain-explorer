@@ -68,7 +68,7 @@ function loadConfig(overrides) {
         'fs':                   fsStub,
         'path':                 path,
         './utility.js':         MockUtility,
-        './XChainHubConnector': MockHubConnector,
+        './connectors/hub': MockHubConnector,
         './config.json':        validFileConfig
     }, overrides || {}));
 }
@@ -142,7 +142,7 @@ describe('SM-02: Config rejects no valid configuration', function () {
             'fs':                   fsStub,
             'path':                 path,
             './utility.js':         MockUtility,
-            './XChainHubConnector': MockHubConnector,
+            './connectors/hub': MockHubConnector,
             './config.json':        false
         });
 
@@ -185,7 +185,7 @@ describe('SM-03: Config skips a coin with a missing config file', function () {
             'fs':                   invalidFsStub,
             'path':                 path,
             './utility.js':         MockUtility,
-            './XChainHubConnector': MockHubConnector,
+            './connectors/hub': MockHubConnector,
             './config.json':        invalidConfig
         });
 
@@ -218,7 +218,7 @@ describe('SM-04: SSL certificates are accessible', function () {
                 'fs':                   missingFsStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': MockHubConnector,
+                './connectors/hub': MockHubConnector,
                 './config.json':        validFileConfig
             });
             expect.fail('Expected an error to be thrown');

@@ -59,7 +59,7 @@ function loadCache({ callResult, rpcError, env = {} } = {}) {
         else delete process.env[k];
     }
     const HubOperationalCache = proxyquire('../../src/HubOperationalCache.js', {
-        './XChainHubConnector': FakeConnector
+        './connectors/hub': FakeConnector
     });
     const cache = new HubOperationalCache({ util });
     for (const k of Object.keys(saved)) {

@@ -20,7 +20,7 @@
 const assert = require('assert');
 const sinon  = require('sinon');
 
-const XChainHubConnector = require('../../src/XChainHubConnector');
+const XChainHubConnector = require('../../src/connectors/hub');
 const coins              = require('../../src/coins');
 
 function envelope(hashes){

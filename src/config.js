@@ -23,7 +23,7 @@
 const fs                    = require('fs');
 const path                  = require('path');
 const util                  = require('./utility.js');
-const xchainHubConnector    = require('./XChainHubConnector')
+const xchainHubConnector    = require('./connectors/hub')
 
 const API_HOST       = process.env.API_HOST || '127.0.0.1';
 const API_USER       = false;

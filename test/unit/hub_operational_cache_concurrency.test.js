@@ -31,7 +31,7 @@ const RPC_ERROR = { data: { jsonrpc: '2.0', id: 1, error: { code: -32601, messag
 
 // Load the real connector with a stubbed axios, then load the cache on top of it.
 function loadCacheOnRealConnector(post, env = {}) {
-    const XChainHubConnector = proxyquire('../../src/XChainHubConnector', { axios: { post } });
+    const XChainHubConnector = proxyquire('../../src/connectors/hub', { axios: { post } });
     const saved = {};
     for (const k of ['HUB_API_URL', 'NO_HUB', 'EXPLORER_HUB_CACHE_MS', 'EXPLORER_HUB_CACHE_STALE_MAX_MS', 'HUB_RETRY_DELAY_MS']) {
         saved[k] = process.env[k];
@@ -39,7 +39,7 @@ function loadCacheOnRealConnector(post, env = {}) {
         else delete process.env[k];
     }
     const HubOperationalCache = proxyquire('../../src/HubOperationalCache.js', {
-        './XChainHubConnector': XChainHubConnector
+        './connectors/hub': XChainHubConnector
     });
     const cache = new HubOperationalCache({ util: new Utility(createConfigInfoStub()) });
     for (const k of Object.keys(saved)) {
@@ -103,7 +103,7 @@ describe('HubOperationalCache: a concurrent -32601 does not hijack another call'
             if (data.method === 'methodX') return gate.then(() => RPC_ERROR);
             return Promise.resolve({ data: { result: [{ id: 'ok' }] } });
         };
-        const XChainHubConnector = proxyquire('../../src/XChainHubConnector', { axios: { post } });
+        const XChainHubConnector = proxyquire('../../src/connectors/hub', { axios: { post } });
         const c = new XChainHubConnector(['http://hub.test:10000']);
 
         const outX = {}, outZ = {};

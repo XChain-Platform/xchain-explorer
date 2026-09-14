@@ -80,7 +80,7 @@ function loadConfig(overrides) {
         'fs':                   fsStub,
         'path':                 path,
         './utility.js':         MockUtility,
-        './XChainHubConnector': MockHubConnector,
+        './connectors/hub': MockHubConnector,
         './config.json':        mockFileConfig
     }, overrides || {}));
 }
@@ -190,7 +190,7 @@ describe('config', function () {
                 'fs':                   fsStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': MockHubConnector,
+                './connectors/hub': MockHubConnector,
                 './config.json':        false
             });
 
@@ -250,7 +250,7 @@ describe('config', function () {
                 'fs':                   fsStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': PollutedHubConnector,
+                './connectors/hub': PollutedHubConnector,
                 './config.json':        mockFileConfig
             });
             const result = await config.getConfig('hub-host', 3000, false);
@@ -272,7 +272,7 @@ describe('config', function () {
                 'fs':                   fsStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': NullHubConnector,
+                './connectors/hub': NullHubConnector,
                 './config.json':        mockFileConfig
             });
             const result = await config.getConfig('hub-host', false);
@@ -291,7 +291,7 @@ describe('config', function () {
                 'fs':                   fsStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': EmptyHubConnector,
+                './connectors/hub': EmptyHubConnector,
                 './config.json':        mockFileConfig
             });
             const warn = sinon.stub(console, 'warn');
@@ -345,7 +345,7 @@ describe('config', function () {
                 'fs':                   fsStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': StagedHubConnector,
+                './connectors/hub': StagedHubConnector,
                 './config.json':        mockFileConfig
             });
             let seenBySubscriber = null;
@@ -429,7 +429,7 @@ describe('config', function () {
                 'fs':                   fsCacheStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': NullHubConnector,
+                './connectors/hub': NullHubConnector,
                 './config.json':        mockFileConfig
             });
             const result = await config.getConfig(['http://hub:10000'], false);
@@ -449,7 +449,7 @@ describe('config', function () {
                 'fs':                   fsNoCacheStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': NullHubConnector,
+                './connectors/hub': NullHubConnector,
                 './config.json':        mockFileConfig
             });
             // Must NOT throw (the old worry was throwError -> process.exit).
@@ -478,7 +478,7 @@ describe('config', function () {
                 'fs':                   fsCacheStub,
                 'path':                 path,
                 './utility.js':         MockUtility,
-                './XChainHubConnector': FlakyHubConnector,
+                './connectors/hub': FlakyHubConnector,
                 './config.json':        mockFileConfig
             });
             const first  = await config.getConfig(['http://hub:10000'], false); // hub up -> BTC

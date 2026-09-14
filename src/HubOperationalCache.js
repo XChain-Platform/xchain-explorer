@@ -44,7 +44,7 @@
  *
  ********************************************************************/
 
-const XChainHubConnector = require('./XChainHubConnector');
+const XChainHubConnector = require('./connectors/hub');
 
 class HubOperationalCache {
 

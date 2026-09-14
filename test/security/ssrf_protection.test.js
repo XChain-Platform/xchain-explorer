@@ -27,6 +27,9 @@ const { expect } = require('chai');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes }              = require('../fixtures/mock-query-args.js');
 
+// Build a real explorer with its outbound HTTP client and DNS resolver replaced, so
+// the relay guard can be driven end to end without reaching the network and without
+// a live database behind it.
 function makeExplorer(axiosStub, dnsStub) {
     const stubs = {
         axios:    axiosStub || { get: sinon.stub().resolves({ data: {} }) },
@@ -60,6 +63,9 @@ describe('Security: SSRF: Redirect bypass prevention', function () {
 
         await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
 
+        // A redirect is how an allowed host hands the fetch on to a blocked one: the
+        // guard only ever vets the URL it was given, so the client itself has to
+        // refuse to follow.
         expect(axiosStub.get.calledOnce).to.be.true;
         const opts = axiosStub.get.firstCall.args[1];
         expect(opts).to.have.property('maxRedirects', 0);
@@ -253,6 +259,9 @@ describe('Security: SSRF: Error response safety', function () {
     });
 });
 
+// The bypass covered here is a public hostname that RESOLVES to a private or
+// cloud-metadata address, so refusing literal private IPs in the URL is not enough:
+// the guard has to check what the name resolves to.
 describe('Security: SSRF: DNS resolution bypass', function () {
 
     it('_isPrivateAddress flags private / loopback / link-local / metadata IPs', function () {

@@ -38,6 +38,9 @@ const apiSource = fs.readFileSync(
     'utf8'
 );
 
+// Read separately from api.js because the two hold different halves of the policy:
+// api.js carries the app-wide body and rate settings, while the per-route limiters
+// on the compute-bound endpoints are attached where those routes are declared.
 const explorerSource = fs.readFileSync(
     path.join(__dirname, '../../src/XChainExplorer.js'),
     'utf8'
@@ -164,6 +167,9 @@ describe('Security: Rate Limiting: compute-bound route limiters', function () {
 describe('Security: Rate Limiting: Body size limit', function () {
 
     it('express.json() has explicit body size limit', function () {
+        // The cap has to be spelled out at the call site. Left off, express.json()
+        // falls back to a framework default nobody here chose and nobody would
+        // notice changing under an upgrade.
         expect(apiSource).to.include("express.json({ limit:");
     });
 

@@ -51,7 +51,7 @@ const dns     = require('dns');
 const netmod  = require('net');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
-const { makeSafeLookup, isPrivateAddress } = require('./ssrf-guard');
+const { makeSafeLookup, isPrivateAddress } = require('./http/ssrf_guard');
 // execFile, not exec: both subprocesses below are handed attacker-influenced
 // input (a tmp path this process chose, and image bytes from an on-chain
 // description). Without a shell there is no word-splitting to escape, and,

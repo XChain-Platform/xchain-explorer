@@ -320,7 +320,7 @@ describe('Security: SSRF: DNS resolution bypass', function () {
 // IconDownloader. Covers the ranges added when the two drifted copies were
 // unified (CGNAT 100.64/10, unspecified ::, complete ULA/link-local).
 describe('Security: SSRF: canonical range classifier (ssrf-guard.js)', function () {
-    const { isPrivateAddress, makeSafeLookup } = require('../../src/ssrf-guard.js');
+    const { isPrivateAddress, makeSafeLookup } = require('../../src/http/ssrf_guard.js');
 
     it('blocks carrier-grade NAT 100.64/10 (RFC 6598) but not adjacent public space', function () {
         for (const ip of ['100.64.0.1', '100.100.5.5', '100.127.255.255'])

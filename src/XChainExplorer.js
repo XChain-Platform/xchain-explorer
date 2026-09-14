@@ -25,7 +25,7 @@ const dns            = require('dns');
 const net            = require('net');
 const axios          = require('axios');
 const util           = require('./utility.js');
-const ssrfGuard      = require('./ssrf-guard.js');
+const ssrfGuard      = require('./http/ssrf_guard.js');
 const database       = require('./db.js');
 const IconDownloader = require('./IconDownloader.js');
 const HubOperationalCache = require('./HubOperationalCache.js');
@@ -3065,7 +3065,7 @@ class XChainExplorer {
     // SSRF guard helper: classify a resolved IP literal as a private, loopback,
     // link-local, CGNAT, unique-local or cloud-metadata address that the /relay
     // endpoint must refuse to connect to. Delegates to the canonical classifier
-    // in ssrf-guard.js so the /relay and IconDownloader egress paths share one
+    // in http/ssrf_guard.js so the /relay and IconDownloader egress paths share one
     // range list instead of drifting apart.
     _isPrivateAddress(ip){
         return ssrfGuard.isPrivateAddress(ip);

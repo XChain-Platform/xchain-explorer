@@ -50,7 +50,6 @@ function loadCacheOnRealConnector(post, env = {}) {
 }
 
 describe('HubOperationalCache: a concurrent -32601 does not hijack another call', function () {
-
     afterEach(function () { sinon.restore(); });
 
     it('the unreachable-method call still serves its within-ceiling stale rows', async function () {
@@ -91,6 +90,10 @@ describe('HubOperationalCache: a concurrent -32601 does not hijack another call'
         expect(y.status, y.status === 'rejected' ? String(y.reason && y.reason.message) : '').to.equal('fulfilled');
         expect(y.value).to.deep.equal([{ id: 'y1' }]);
     });
+});
+
+describe('HubOperationalCache: a concurrent -32601 does not hijack another call', function () {
+    afterEach(function () { sinon.restore(); });
 
     it('_call keeps each invocation\'s answer on its own sink while the instance field churns', async function () {
         // The connector half of the same property, at the level the cache depends

@@ -142,6 +142,12 @@ describe('XCALL phase cursor (M5.4)', function () {
         expect(spy.firstCall.args[1].data.result_status).to.equal(null);
     });
 
+});
+
+describe('XCALL phase cursor (M5.4)', function () {
+
+    afterEach(() => sinon.restore());
+
     it('seeds on the first poll and replays nothing', async function () {
         const db = withPhases(createMockDb({ blockIndex: 2600, actionIndex: 500 }), [call(4100, 2400)]);
         const cd = detector(db);
@@ -174,6 +180,12 @@ describe('XCALL phase cursor (M5.4)', function () {
         expect(cd.state['RDOGE'].xcallBlock).to.be.at.most(2500);
     });
 
+});
+
+describe('XCALL phase cursor (M5.4)', function () {
+
+    afterEach(() => sinon.restore());
+
     it('stops a capped fetch on the last COMPLETE block rather than mid-block', async function () {
         // Emitting a partial tail and advancing past its block silently drops the
         // rest of it. fetchLimit 2 with three calls, two of them in block 2599.
@@ -200,6 +212,12 @@ describe('XCALL phase cursor (M5.4)', function () {
         await cd.checkCoin('RDOGE');
         expect(cd.state['RDOGE'].xcallBlock).to.equal(2599);
     });
+
+});
+
+describe('XCALL phase cursor (M5.4)', function () {
+
+    afterEach(() => sinon.restore());
 
     it('parks a coin whose indexer has no xcalls table, and re-arms without replaying', async function () {
         const missing = new Error('DB error');

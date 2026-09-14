@@ -43,6 +43,8 @@ const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
 let explorer, configInfo, database, util;
+let baseline = new Map();
+let batched  = new Map();
 
 // Every action_index the baseline fixture seeds.
 const ACTION_INDEXES = Array.from({ length: 30 }, (_, i) => i + 1);
@@ -104,26 +106,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
-describe('getActionData page preload: golden parity', function () {
-    this.timeout(60000);
-
-    let baseline = new Map();
-    let batched  = new Map();
-
-    before(async function () {
-        // Baseline: the pre-change path, one cold getActionData per index with no
-        // preload argument at all.
-        database._actionDataCache.clear();
-        for (const idx of ACTION_INDEXES) {
-            database._actionDataCache.clear();
-            baseline.set(idx, await database.getActionData(cfg(), idx));
-        }
-        // Batched: the page path, cold cache, preload built for the whole set.
-        database._actionDataCache.clear();
-        batched = await database.getActionDataBatch(cfg(), ACTION_INDEXES.slice());
-        database._actionDataCache.clear();
-    });
-
+function registerPayloadParityTests() {
     it('resolves every seeded action through the batch path', function () {
         expect(batched.size).to.equal(ACTION_INDEXES.length);
         for (const idx of ACTION_INDEXES)
@@ -177,7 +160,9 @@ describe('getActionData page preload: golden parity', function () {
         }
         expect(withFee, 'fixture seeded no fee rows').to.be.greaterThan(0);
     });
+}
 
+function registerQueryCountTest() {
     it('stops scaling the shared-leg query count with the page size', async function () {
         // The finding is about total DB work, so measure it, and measure it against a
         // control that REPRODUCES the original failure: without a control, a green
@@ -226,4 +211,25 @@ describe('getActionData page preload: golden parity', function () {
             database._actionDataCache.clear();
         }
     });
+}
+
+describe('getActionData page preload: golden parity', function () {
+    this.timeout(60000);
+
+    before(async function () {
+        // Baseline: the pre-change path, one cold getActionData per index with no
+        // preload argument at all.
+        database._actionDataCache.clear();
+        for (const idx of ACTION_INDEXES) {
+            database._actionDataCache.clear();
+            baseline.set(idx, await database.getActionData(cfg(), idx));
+        }
+        // Batched: the page path, cold cache, preload built for the whole set.
+        database._actionDataCache.clear();
+        batched = await database.getActionDataBatch(cfg(), ACTION_INDEXES.slice());
+        database._actionDataCache.clear();
+    });
+
+    registerPayloadParityTests();
+    registerQueryCountTest();
 });

@@ -100,121 +100,137 @@ const UNRESOLVABLE = [
     'actıon:12', 'ACTION：12', 'ＡＣＴＩＯＮ:12',
 ];
 
-describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function () {
-    this.timeout(180000);
+let adminPool = null;      // no default database: creates/drops the schema
+let pool      = null;      // BOUND to RESTALE_DB, so every pooled connection
+                           // has the right default database. A per-query
+                           // `USE` would not: the pool hands back a different
+                           // connection each time, and the shipped statement
+                           // names `icons` and `tokens` unqualified.
+let restaleSql   = null;   // the SHIPPED statement (c), verbatim
+let predicateSql = null;   // its description conjunct, verbatim
 
-    let adminPool = null;      // no default database: creates/drops the schema
-    let pool      = null;      // BOUND to RESTALE_DB, so every pooled connection
-                               // has the right default database. A per-query
-                               // `USE` would not: the pool hands back a different
-                               // connection each time, and the shipped statement
-                               // names `icons` and `tokens` unqualified.
-    let restaleSql   = null;   // the SHIPPED statement (c), verbatim
-    let predicateSql = null;   // its description conjunct, verbatim
+async function adminQuery(sql, args) {
+    const conn = await adminPool.getConnection();
+    try { return await conn.query(sql, args); }
+    finally { conn.release(); }
+}
 
-    async function adminQuery(sql, args) {
-        const conn = await adminPool.getConnection();
-        try { return await conn.query(sql, args); }
-        finally { conn.release(); }
+async function q(sql, args) {
+    const conn = await pool.getConnection();
+    try { return await conn.query(sql, args); }
+    finally { conn.release(); }
+}
+
+/**
+ * Capture the three statements discover actually emits. Binding to the
+ * shipped text rather than to a copy of it is the point: a test that
+ * rebuilds the predicate from ACTION_REF_PATTERN itself would pass just as
+ * happily against the LOWER() version that shipped the bug.
+ */
+function shippedDiscoverStatements() {
+    const sqls = [];
+    const downloader = new IconDownloader({ util: {} });
+    const conn = { query: async (sql) => { sqls.push(sql); return []; }, release: async () => {} };
+    return downloader.discover(conn).then(() => sqls);
+}
+async function setUpRestalePredicate() {
+    // Only skip for a standalone explorer checkout with no sibling indexer
+    // DDL. CI supplies it, and so does the platform monorepo.
+    if (!fs.existsSync(INDEXER_SQL_DIR)) this.skip();
+
+    adminPool = mariadb.createPool({
+        host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
+        connectionLimit: 2, connectTimeout: 8000,
+    });
+    try {
+        await adminQuery('SELECT 1');
+    } catch (e) {
+        throw new Error('The re-stale predicate tier needs the test MariaDB on ' + DB_HOST + ':' +
+            DB_PORT + ' (start it with `npm run test:integration:up`): ' + e.message);
     }
 
-    async function q(sql, args) {
-        const conn = await pool.getConnection();
-        try { return await conn.query(sql, args); }
-        finally { conn.release(); }
-    }
+    await adminQuery('DROP DATABASE IF EXISTS `' + RESTALE_DB + '`');
+    await adminQuery('CREATE DATABASE `' + RESTALE_DB + '`');
 
-    /**
-     * Capture the three statements discover actually emits. Binding to the
-     * shipped text rather than to a copy of it is the point: a test that
-     * rebuilds the predicate from ACTION_REF_PATTERN itself would pass just as
-     * happily against the LOWER() version that shipped the bug.
-     */
-    function shippedDiscoverStatements() {
-        const sqls = [];
-        const downloader = new IconDownloader({ util: {} });
-        const conn = { query: async (sql) => { sqls.push(sql); return []; }, release: async () => {} };
-        return downloader.discover(conn).then(() => sqls);
-    }
-
-    before(async function () {
-        // Only skip for a standalone explorer checkout with no sibling indexer
-        // DDL. CI supplies it, and so does the platform monorepo.
-        if (!fs.existsSync(INDEXER_SQL_DIR)) this.skip();
-
-        adminPool = mariadb.createPool({
-            host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
-            connectionLimit: 2, connectTimeout: 8000,
-        });
-        try {
-            await adminQuery('SELECT 1');
-        } catch (e) {
-            throw new Error('The re-stale predicate tier needs the test MariaDB on ' + DB_HOST + ':' +
-                DB_PORT + ' (start it with `npm run test:integration:up`): ' + e.message);
-        }
-
-        await adminQuery('DROP DATABASE IF EXISTS `' + RESTALE_DB + '`');
-        await adminQuery('CREATE DATABASE `' + RESTALE_DB + '`');
-
-        pool = mariadb.createPool({
-            host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
-            database: RESTALE_DB, connectionLimit: 4, connectTimeout: 8000,
-        });
-
-        // The indexer's REAL tokens/icons DDL, verbatim. tokens.description is
-        // utf8mb4 there while the tables around it are utf8mb3, which is exactly
-        // why the shipped predicate converts to binary instead of naming a
-        // collation: a literal `COLLATE utf8_bin` is a charset error on the real
-        // column, and a literal `COLLATE utf8mb4_bin` is one on the fixture's.
-        for (const f of ['tokens.sql', 'icons.sql']) {
-            const src = fs.readFileSync(path.join(INDEXER_SQL_DIR, f), 'utf8');
-            for (const stmt of splitStatements(src)) await q(stmt);
-        }
-
-        const statements = await shippedDiscoverStatements();
-        expect(statements, 'expected discover to emit three statements').to.have.length(3);
-        restaleSql = statements[2];
-
-        // The description conjunct of the shipped statement, pulled out so the
-        // exhaustive sweep below runs the SAME expression the worker runs.
-        predicateSql = restaleSql.split('\n').map(s => s.trim())
-            .filter(s => s.includes('t.description')).pop();
-        expect(predicateSql, 'statement (c) must test t.description').to.be.a('string');
-        predicateSql = predicateSql.replace(/^AND\s+/i, '');
+    pool = mariadb.createPool({
+        host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
+        database: RESTALE_DB, connectionLimit: 4, connectTimeout: 8000,
     });
 
-    after(async function () {
-        if (pool) await pool.end();
-        if (!adminPool) return;
-        try { await adminQuery('DROP DATABASE IF EXISTS `' + RESTALE_DB + '`'); }
-        catch (e) { /* teardown */ }
-        await adminPool.end();
-    });
-
-    /**
-     * Seed one token + one icons row per description, with the icons row parked
-     * in the terminal state statement (c) selects on (status ok, icon_hash NULL)
-     * and its description_hash already current so statement (b) stays inert and
-     * only (c) can move anything.
-     */
-    async function seed(descriptions) {
-        await q('DELETE FROM icons');
-        await q('DELETE FROM tokens');
-        for (let i = 0; i < descriptions.length; i++) {
-            await q('INSERT INTO tokens (id, description) VALUES (?, ?)', [i + 1, descriptions[i]]);
-            await q(`INSERT INTO icons (token_id, description_hash, status, icon_hash)
-                     SELECT id, MD5(description), 'ok', NULL FROM tokens WHERE id = ?`, [i + 1]);
-        }
+    // The indexer's REAL tokens/icons DDL, verbatim. tokens.description is
+    // utf8mb4 there while the tables around it are utf8mb3, which is exactly
+    // why the shipped predicate converts to binary instead of naming a
+    // collation: a literal `COLLATE utf8_bin` is a charset error on the real
+    // column, and a literal `COLLATE utf8mb4_bin` is one on the fixture's.
+    for (const f of ['tokens.sql', 'icons.sql']) {
+        const src = fs.readFileSync(path.join(INDEXER_SQL_DIR, f), 'utf8');
+        for (const stmt of splitStatements(src)) await q(stmt);
     }
 
-    /** Run the SHIPPED statement (c) and return the descriptions it re-staled. */
-    async function runShippedRestale() {
-        await q(restaleSql);
-        const rows = await q(`SELECT t.description AS d FROM icons i
-                              JOIN tokens t ON t.id = i.token_id WHERE i.status = 'stale'`);
-        return rows.map(r => r.d);
-    }
+    const statements = await shippedDiscoverStatements();
+    expect(statements, 'expected discover to emit three statements').to.have.length(3);
+    restaleSql = statements[2];
 
+    // The description conjunct of the shipped statement, pulled out so the
+    // exhaustive sweep below runs the SAME expression the worker runs.
+    predicateSql = restaleSql.split('\n').map(s => s.trim())
+        .filter(s => s.includes('t.description')).pop();
+    expect(predicateSql, 'statement (c) must test t.description').to.be.a('string');
+    predicateSql = predicateSql.replace(/^AND\s+/i, '');
+}
+async function tearDownRestalePredicate() {
+    if (pool) await pool.end();
+    if (!adminPool) return;
+    try { await adminQuery('DROP DATABASE IF EXISTS `' + RESTALE_DB + '`'); }
+    catch (e) { /* teardown */ }
+    await adminPool.end();
+}
+
+/**
+ * Seed one token + one icons row per description, with the icons row parked
+ * in the terminal state statement (c) selects on (status ok, icon_hash NULL)
+ * and its description_hash already current so statement (b) stays inert and
+ * only (c) can move anything.
+ */
+async function seed(descriptions) {
+    await q('DELETE FROM icons');
+    await q('DELETE FROM tokens');
+    for (let i = 0; i < descriptions.length; i++) {
+        await q('INSERT INTO tokens (id, description) VALUES (?, ?)', [i + 1, descriptions[i]]);
+        await q(`INSERT INTO icons (token_id, description_hash, status, icon_hash)
+                 SELECT id, MD5(description), 'ok', NULL FROM tokens WHERE id = ?`, [i + 1]);
+    }
+}
+
+/** Run the SHIPPED statement (c) and return the descriptions it re-staled. */
+async function runShippedRestale() {
+    await q(restaleSql);
+    const rows = await q(`SELECT t.description AS d FROM icons i
+                          JOIN tokens t ON t.id = i.token_id WHERE i.status = 'stale'`);
+    return rows.map(r => r.d);
+}
+
+async function setUpUnicodeSweep() {
+    await q('DROP TABLE IF EXISTS sweep_cps');
+    await q(`CREATE TABLE sweep_cps (
+                cp INT PRIMARY KEY,
+                ch VARCHAR(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
+             ) ENGINE=InnoDB`);
+
+    // The recursion cap is a SESSION variable, so it has to be set on the
+    // same connection that runs the recursive CTE.
+    const conn = await pool.getConnection();
+    try {
+        await conn.query('SET SESSION max_recursive_iterations = 2000000');
+        await conn.query(`INSERT INTO sweep_cps (cp, ch)
+            WITH RECURSIVE n(cp) AS (
+                SELECT 1 UNION ALL SELECT cp+1 FROM n WHERE cp < 1114111)
+            SELECT cp, CONVERT(CHAR(cp USING utf32) USING utf8mb4)
+            FROM n WHERE cp NOT BETWEEN 55296 AND 57343`);
+    } finally { conn.release(); }
+}
+
+function registerPremiseTests() {
     it('premise check: the real tokens.description really is utf8mb4', async function () {
         const rows = await adminQuery(
             `SELECT CHARACTER_SET_NAME cs, COLLATION_NAME co FROM information_schema.COLUMNS
@@ -248,7 +264,9 @@ describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function
         expect(/^action:/i.test('ACTİON:12'),
             'JavaScript /i does NOT, which is the whole divergence').to.equal(false);
     });
+}
 
+function registerInvariantTests() {
     it('SUBSET INVARIANT: every description the shipped predicate selects, the resolver resolves',
         async function () {
             await seed(RESOLVABLE.concat(UNRESOLVABLE));
@@ -291,29 +309,15 @@ describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function
             // state the statement selects on is unchanged going into cycle 2.
             expect(await runShippedRestale(), 'cycle 2').to.deep.equal([]);
         });
+}
 
+function registerExhaustiveTest() {
     // The exhaustive half. The cases above are the ones a human thought of; this
     // is the one that does not depend on having thought of anything, and it is
     // what turns "we fixed U+0130" into "no codepoint can do this".
     it('EXHAUSTIVE: no Unicode scalar value can enter the grammar, at any slot',
         async function () {
-            await q('DROP TABLE IF EXISTS sweep_cps');
-            await q(`CREATE TABLE sweep_cps (
-                        cp INT PRIMARY KEY,
-                        ch VARCHAR(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
-                     ) ENGINE=InnoDB`);
-
-            // The recursion cap is a SESSION variable, so it has to be set on the
-            // same connection that runs the recursive CTE.
-            const conn = await pool.getConnection();
-            try {
-                await conn.query('SET SESSION max_recursive_iterations = 2000000');
-                await conn.query(`INSERT INTO sweep_cps (cp, ch)
-                    WITH RECURSIVE n(cp) AS (
-                        SELECT 1 UNION ALL SELECT cp+1 FROM n WHERE cp < 1114111)
-                    SELECT cp, CONVERT(CHAR(cp USING utf32) USING utf8mb4)
-                    FROM n WHERE cp NOT BETWEEN 55296 AND 57343`);
-            } finally { conn.release(); }
+            await setUpUnicodeSweep();
 
             const [{ n }] = await q('SELECT COUNT(*) AS n FROM sweep_cps');
             expect(Number(n), 'every Unicode scalar value must be present')
@@ -358,7 +362,9 @@ describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function
 
             await q('DROP TABLE IF EXISTS sweep_cps');
         });
+}
 
+function registerSourceTest() {
     // Guards the two ways this could silently regress in source.
     it('the shipped statement does no case folding and matches under a binary collation',
         function () {
@@ -381,4 +387,14 @@ describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function
                     .to.equal(upper.toLowerCase());
             }
         });
+}
+
+describe('IconDownloader re-stale predicate vs a real MariaDB (#5290)', function () {
+    this.timeout(180000);
+    before(setUpRestalePredicate);
+    after(tearDownRestalePredicate);
+    registerPremiseTests();
+    registerInvariantTests();
+    registerExhaustiveTest();
+    registerSourceTest();
 });

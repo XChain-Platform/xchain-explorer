@@ -30,6 +30,7 @@ const { createApp } = require('./helpers/app-setup');
 let request;
 let app, explorer, configInfo;
 
+// Addresses that appear in the seeded test data, so the queries below find rows
 const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
 

@@ -79,6 +79,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
+// The public REST list: request and response rows both come from one attestations table
 describe('Attestation API (/api/attestations)', function () {
 
     it('lists both lifecycle rows, newest first', async function () {
@@ -153,6 +154,7 @@ describe('Attestation API (/api/attestations)', function () {
 
 });
 
+// The explorer's DataTables route and the HTML page that loads it
 describe('Attestation explorer surfaces', function () {
 
     it('GET /RBTC/explorer/attestations/{block}/block returns DataTables format', async function () {

@@ -171,6 +171,7 @@ describe('VM API (/api/withdrawals)', function () {
 
 });
 
+// The explorer's DataTables routes and the HTML pages that load them
 describe('VM explorer surfaces', function () {
 
     it('GET /RBTC/explorer/executions/{contract}/contract returns DataTables format', async function () {

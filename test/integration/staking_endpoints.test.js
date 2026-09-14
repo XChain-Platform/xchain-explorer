@@ -180,6 +180,7 @@ describe('Staking API (/api/rewards)', function () {
 
 });
 
+// The explorer's DataTables routes and the HTML pages that load them
 describe('Staking explorer surfaces', function () {
 
     it('GET /RBTC/explorer/stakes/{address}/address returns DataTables format', async function () {

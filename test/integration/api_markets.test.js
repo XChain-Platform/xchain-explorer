@@ -61,6 +61,7 @@ describe('GET /RBTC/api/markets', function () {
 
 });
 
+// Markets filtered by one token (/markets/{TICK1}): every pair that includes it
 describe('GET /RBTC/api/markets/XCHAIN', function () {
 
     it('returns both pairs since XCHAIN appears in each', async function () {
@@ -72,6 +73,7 @@ describe('GET /RBTC/api/markets/XCHAIN', function () {
 
 });
 
+// One specific trading pair (/market/{TICK1}/{TICK2})
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE', function () {
 
     it('returns market data for the XCHAIN/TOKENONE pair', async function () {
@@ -87,6 +89,7 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE', function () {
 
 });
 
+// The open orders for one pair (/market/{TICK1}/{TICK2}/orders)
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orders', function () {
 
     it('returns open orders for the XCHAIN/TOKENONE pair', async function () {
@@ -101,6 +104,7 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orders', function () {
 
 });
 
+// The pair's orderbook, with its open orders gathered into bids and asks
 describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook', function () {
 
     it('returns bids and asks arrays', async function () {

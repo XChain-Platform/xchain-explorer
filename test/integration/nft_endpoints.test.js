@@ -129,6 +129,7 @@ describe('NFT token filter (type=nft) is not a supported type', function () {
 
 });
 
+// The browser decides whether a token is an NFT, so the token detail must expose its decimals
 describe('Token detail decimals exposure', function () {
 
     it('GET /RBTC/api/token/PEPEUNIQUE exposes info.decimals + supply.decimals', async function () {
@@ -142,6 +143,7 @@ describe('Token detail decimals exposure', function () {
 
 });
 
+// Raw file bytes: where a token's on-chain file reference resolves to
 describe('Raw FILE endpoint', function () {
 
     it('serves non-gated image bytes inline with the declared MIME type + nosniff', async function () {

@@ -117,6 +117,7 @@ describe('Project API (/api/project/{tick})', function () {
 
 });
 
+// The project membership and registry fields shown on a token's page
 describe('Token membership fields (/api/token/{tick})', function () {
 
     it('members of the current roster carry a projects[] entry', async function () {
@@ -149,6 +150,7 @@ describe('Token membership fields (/api/token/{tick})', function () {
 
 });
 
+// Feeds the Official Tokens tab on a project token's page
 describe('Roster datatable (/explorer/projects/{tick}/roster)', function () {
 
     it('returns the roster members shaped like token rows (decimals before trailing id)', async function () {

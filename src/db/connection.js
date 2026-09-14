@@ -41,7 +41,7 @@
 'use strict';
 
 const mariadb = require('mariadb');
-const poolSizing = require('../poolSizing');
+const poolSizing = require('../mirror/pool_sizing');
 const { resolveHubUrl } = require('../hub-mirror-url.js');
 const { DbQueryError, MUTABLE_ACTION_FIELDS } = require('./shared.js');
 

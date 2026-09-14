@@ -28,7 +28,7 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const Utility    = require('../../src/utility.js');
-const poolSizing = require('../../src/poolSizing.js');
+const poolSizing = require('../../src/mirror/pool_sizing.js');
 const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
 
 const POOL_ENV_KEYS = [

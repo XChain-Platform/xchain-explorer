@@ -41,6 +41,7 @@ const { createShutdown, createExplorerDrain } = require('./http/shutdown.js');
 const { installObservability, getLogger } = require('./observability');   // default-off /metrics + structured log shim
 const coins           = require('./coins');
 
+// Read the .env file before anything below reads an environment variable.
 dotenv.config();
 
 // Before anything else logs. installObservability does not run until
@@ -74,6 +75,8 @@ const runtime = {
     explorer:       null
 };
 
+// Brings the whole service up in order: consensus pin, config, guards, routes,
+// listeners, then the live feed.
 async function startApi(){
     // Verify the bundled coin files against CONSENSUS_CONFIG_PIN before the hub
     // config fetch, the DB pool, the proof server or any route exists. The
@@ -85,6 +88,7 @@ async function startApi(){
     // three. A null pin (mainnet, pre-arm) skips; a mismatch throws, uncaught.
     for(const net of coins.NETWORKS) coins.verifyConsensusPin(net);
 
+    // The explorer config, fetched from the hub when endpoints are configured.
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
 
     const app = express();
@@ -98,6 +102,8 @@ async function startApi(){
         ? ['1','true','yes','on'].includes(String(configInfo.env.EXPLORER_FORCE_HTTPS).toLowerCase())
         : (configInfo.env.NODE_ENV === 'production');
 
+    // Helmet sets the browser security headers; each directive below is tuned
+    // for what the explorer's own pages need.
     app.use(helmet({
         // HSTS only applies to HTTPS; omit it on plain-HTTP deployments. Default keeps Helmet's HSTS.
         ...(HTTPS_HARDENING ? {} : { strictTransportSecurity: false }),
@@ -246,8 +252,9 @@ async function startApi(){
     // registers or starts a timer unless METRICS_ENABLED (and, for log shipping,
     // LOG_SHIP_ENABLED + LOG_SHIP_URL) is set. Wired after the rate limiter and
     // concurrency gate so an enabled scrape endpoint sheds like any other route;
-    // gate it with METRICS_TOKEN or a proxy ACL on a public box. See
-    // src/observability/README.md.
+    // gate it with METRICS_TOKEN or a proxy ACL on a public box. The
+    // request-timing middleware hoists itself to the front of the stack, so it
+    // still measures the routes registered above. See src/observability/README.md.
     let explorerVersion = '';
     try { explorerVersion = require('../package.json').version; } catch { /* version label is cosmetic */ }
     installObservability(app, {
@@ -306,6 +313,7 @@ async function startApi(){
         }
     }
 
+    // The plain HTTP listener, the primary serving socket; HTTPS below is optional.
     const httpServer = http.createServer(app);
     // A listen() that fails (EADDRINUSE when a second instance grabs the port, EACCES
     // on a privileged port) surfaces as an async 'error' event, not a throw, so a
@@ -323,6 +331,7 @@ async function startApi(){
     // arriving mid-boot must still be able to close a listener already bound.
     runtime.httpServer = httpServer;
 
+    // The HTTPS listener, which serves requests securely.
     // Skipped when SSL files are absent (HTTP-only dev/regtest mode).
     let httpsServer = null;
     if (config.API.ssl) {
@@ -371,7 +380,7 @@ async function startApi(){
     // is never free. Default 20, matching encoder/decoder/utxo-tracker.
     app.use(makeRpcBatchGuard(resolveMaxBatch(configInfo.env.EXPLORER_MAX_RPC_BATCH, 20)));
 
-    // Registered last so explorer routes take priority.
+    // The JSON-RPC handler, registered last so explorer routes take priority.
     // Express 5 / body-parser 2.x leaves req.body undefined when a request carries
     // no JSON body (a GET, or a POST without application/json), whereas body-parser
     // 1.x set it to {}. express-json-rpc-router requires req.body to be an object or
@@ -391,6 +400,7 @@ async function startApi(){
         const WS_MAX_BACKPRESSURE = parseInt(configInfo.env.WS_MAX_BACKPRESSURE) || 65536;
 
         const WS_MAX_SUBS = parseInt(configInfo.env.WS_MAX_SUBSCRIPTIONS) || 25;
+        // Built first because the ChannelManager the pieces below need lives inside it.
         const wsServer = new WebSocketServer({
             explorer:         explorer,
             broadcaster:      null, // set below
@@ -405,12 +415,14 @@ async function startApi(){
             trustProxyHops:   parseInt(configInfo.env.WS_TRUST_PROXY_HOPS, 10) || 1
         });
 
+        // Polls the database for new data and hands what changed to that channel manager.
         const changeDetector = new ChangeDetector({
             db:             explorer.db,
             channelManager: wsServer.channelManager,
             pollInterval:   WS_POLL_INTERVAL
         });
 
+        // Joins the two: detector events out to the sockets subscribed to them.
         const broadcaster = new Broadcaster({
             wsServer:        wsServer,
             changeDetector:  changeDetector,
@@ -418,8 +430,10 @@ async function startApi(){
         });
         wsServer.broadcaster = broadcaster;
 
+        // Take the WebSocket upgrade on HTTP, and on HTTPS when that listener is up.
         wsServer.attach(httpsServer ? [httpServer, httpsServer] : [httpServer]);
 
+        // Poll only the coins that actually have a database pool behind them.
         const availableCoins = Object.keys(explorer.db.pools || {});
         if (availableCoins.length > 0) {
             changeDetector.start(availableCoins);

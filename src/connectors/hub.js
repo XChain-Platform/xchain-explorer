@@ -460,6 +460,7 @@ class XChainHubConnector {
     }
 }
 
+// Parse the hub endpoints out of the environment variables.
 // Returns an array of URL strings (e.g., ["http://host1:10000", "http://host2:10000"]),
 // or null when the hub is intentionally disabled (standalone mode).
 XChainHubConnector.parseEndpoints = function(){

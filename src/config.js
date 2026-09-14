@@ -30,6 +30,8 @@ const xchainHubConnector    = require('./connectors/hub')
 const { getLogger }         = require('./observability');
 const log                   = getLogger();
 
+// Where the explorer's own API listens. Every value carries a local default so
+// an unconfigured checkout still starts.
 const API_HOST       = process.env.API_HOST || '127.0.0.1';
 const API_USER       = false;
 const API_PASS       = false;
@@ -201,14 +203,19 @@ module.exports = {
         if (cache && configCache){
             return configCache
         } else {
+            // config is the explorer-wide object built below; coinConfig is the
+            // per-coin block loaded from coin-config/ inside the loop.
             let config     = {};
             let coinConfig = {};
+            // The coins XChain supports, keyed by their abbreviation.
             config['COIN_NETWORKS'] = {
                 BTC:  'Bitcoin',
                 LTC:  'Litecoin',
                 DOGE: 'Dogecoin'
             };
 
+            // Network prefix on a coin code: T is testnet, R is regtest, mainnet
+            // carries none (so BTC, TBTC, RBTC).
             config['COIN_PREFIXES'] = {
                 'mainnet': '',
                 'testnet': 'T',
@@ -223,6 +230,8 @@ module.exports = {
             // Announced only after configCache is replaced below; see the trigger call.
             let configChanged = false
 
+            // Endpoints present means the hub is the config source; the else
+            // branch below is the standalone path with no hub to ask.
             if (endpoints){
                 if (!hubConnector){
                     hubConnector = new xchainHubConnector(endpoints)
@@ -344,9 +353,11 @@ module.exports = {
                     }
                 }
             } else {
+                // Standalone: the config comes from the environment instead.
                 // TODO: Verify this works once Javier has the code written into xchain-node or xchain-hub
                 const nodeConfig = process.env.NODE_CONFIG;
 
+                // A local config.json is optional; its absence is normal and only logged.
                 let fileConfig = false;
                 try {
                     fileConfig = require('./config.json');
@@ -354,12 +365,16 @@ module.exports = {
                     log.info('CONFIG_FILE_NOT_LOADED', { err: String(error) });
                 }
 
+                // The file wins over the environment value when both are present.
                 jsonConfig = (fileConfig) ? fileConfig : nodeConfig;
             }
             
+            // Refuse to run without a usable config, whichever source supplied it.
             if(configUtil.isNull(jsonConfig))
                 configUtil.throwError('No valid configuration information detected');
 
+            // Every coin and network combination XChain knows of (BTC, TBTC, RBTC, ...),
+            // whether or not this instance serves it.
             config['COIN_SUPPORTED'] = {};
             for(let coin in config['COIN_NETWORKS']){
                 for(let network in config['COIN_PREFIXES']){
@@ -370,11 +385,17 @@ module.exports = {
                 }
             }
 
+            // The narrower set this instance actually serves, filled in by the
+            // per-coin loop below.
             config['COIN_AVAILABLE'] = {};
 
+            // Indexer settings the explorer needs its own copy of, because the
+            // hub config it is handed does not carry them.
             // TODO: See if we can clean this up by passing indexer config to explorer
             config['DISPENSER_LIST_DELAY'] = 3600;
 
+            // The explorer's own API details, carried forward to every consumer
+            // of the config.
             config['API'] = {
                 host: API_HOST,
                 user: API_USER,
@@ -386,11 +407,14 @@ module.exports = {
                 }
             }
 
+            // Optional icon-downloader settings, carried forward for icons/downloader.js.
             if(jsonConfig.iconDownload)
                 config['iconDownload'] = jsonConfig.iconDownload;
 
+            // Walk every coin and network the config names and load its specific data.
             for(let info of jsonConfig.configs ){
 
+                // Per-coin settings live in their own file under coin-config/.
                 let coinFile   = path.join(__dirname, 'coin-config', info.coin + '.js');
 
                 // Load COIN specific configuration file, or skip this entry.
@@ -406,6 +430,7 @@ module.exports = {
                     continue;
                 }
 
+                // First network seen for a coin creates the coin's own entry.
                 if(!config[info.coin]){
                     config[info.coin] = {
                         chain: coinConfig.chain

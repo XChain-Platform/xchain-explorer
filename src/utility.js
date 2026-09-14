@@ -33,27 +33,36 @@ class Utility {
         this.configInfo = configInfo;
     }
 
+    // Record the failure before raising it, so a caller that catches it still
+    // leaves a trail in the log.
     throwError(error){
         log.error('THROW_ERROR', { err: error });
         throw new Error(error);
     }
 
+    // Attach caller context to an error before raising it; the Error object
+    // itself carries only the message.
     logError(error, info){
         log.error('LOG_ERROR', { err: error, info: info });
+        // Every logged error is fatal by design here; nothing swallows it.
         this.throwError(error);
     }
 
+    // Debug timing only: hands back the start stamp that getTimer() takes back.
     startTimer(){
         let now = Date.now();
         return now;
     }
 
+    // Milliseconds elapsed since the stamp startTimer() handed out.
     getTimer(timer){
         let now = Date.now();
         let ms  = now - timer;
         return ms;
     }
 
+    // Human readable elapsed time, falling back to raw milliseconds for spans
+    // too short to reach a whole second.
     getTimerString(ms){
         let niceString = ms + 'ms';
         let timeString = this.millisecondsToTimeString(ms);
@@ -62,6 +71,7 @@ class Utility {
         return niceString;
     }
 
+    // Log an elapsed time under a label, printed as "label : (time)".
     logTimer(timer, timeName){
         var timeString = this.getTimer(timer);
         var niceString = (timeName!=null) ? timeName : 'Time';
@@ -70,15 +80,19 @@ class Utility {
         log.info('TIMER', { timer: niceString });
     }
 
+    // Split milliseconds into days, hours, minutes and seconds.
     millisecondsToTimeString(ms){
         var milliseconds = Math.floor((ms % 1000) / 100),
             seconds      = Math.floor((ms / 1000) % 60),
             minutes      = Math.floor((ms / (1000 * 60)) % 60),
             hours        = Math.floor((ms / (1000 * 60 * 60)) % 24),
             days         = Math.floor((ms / (1000 * 60 * 60 * 24)) % 365);
+        // Pad each part to two digits so times line up in the log.
         hours   = (hours < 10)   ? "0" + hours : hours;
         minutes = (minutes < 10) ? "0" + minutes : minutes;
         seconds = (seconds < 10) ? "0" + seconds : seconds;
+        // Only non-zero units are printed, so a short run reads "2.5s" rather
+        // than "0d 0h 0m 2.5s".
         var str = '';
         if(days    > 0) str += days + 'd ';
         if(hours   > 0) str += hours + 'h ';
@@ -96,6 +110,8 @@ class Utility {
         return this.bcdiv(Date.now(), 1000, 0);
     }
 
+    // Answers true or false for a path instead of throwing, so callers can
+    // probe an optional file.
     async fileExists(filePath){
         let exists = false;
         try {
@@ -111,6 +127,7 @@ class Utility {
         return exists;
     }
 
+    // Read a file, answering false rather than throwing when it cannot be read.
     async fileGetContents(filePath){
         let data = false;
         try {
@@ -126,11 +143,15 @@ class Utility {
         return mathjs.bignumber(num);
     }
 
+    // Render a big number with a fixed number of decimals, never scientific
+    // notation, because the wire format is compared as a decimal string.
     bcformat(num, decimals){
         let d = (!this.isNull(decimals)) ? parseInt(decimals) : 0;
         return mathjs.format(this.bcnum(num),{notation: 'fixed', precision: d});
     }
 
+    // The four arithmetic helpers below share one contract: a null or empty
+    // operand counts as 0, and the result is truncated to `decimals` places.
     bcsub(numA, numB, decimals){
         let a = (!this.isNull(numA)) ? numA : 0;
         let b = (!this.isNull(numB)) ? numB : 0;
@@ -170,14 +191,17 @@ class Utility {
         return mathjs.bignumber(numA).gt(mathjs.bignumber(numB));
     }
 
+    // Handle comparing two big numbers: returns true if numA < numB
     bclt(numA, numB){
         return mathjs.bignumber(numA).lt(mathjs.bignumber(numB));
     }
 
+    // Handle comparing two big numbers: returns true if numA >= numB
     bcgte(numA, numB){
         return mathjs.bignumber(numA).gte(mathjs.bignumber(numB));
     }
 
+    // Handle comparing two big numbers: returns true if numA <= numB
     bclte(numA, numB){
         return mathjs.bignumber(numA).lte(mathjs.bignumber(numB));
     }
@@ -186,18 +210,24 @@ class Utility {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
+    // Accepts bigints and numeric strings, because amounts arrive from the
+    // database as strings.
     isNumeric(value){
         return typeof value === 'bigint' || (!isNaN(parseFloat(value)) && isFinite(value));
     }
 
+    // True only for a real number carrying a fraction; a numeric string is false.
     isFloat(value){
         return value === +value && value !== (value|0);
     }
 
+    // Unlike isFloat, a numeric string counts, since the value is coerced first.
     isInteger(value){
         return Number.isInteger(+value);
     }
 
+    // Wider than the name suggests: an empty string counts as null too, so a
+    // blank query parameter is treated as absent.
     isNull(value){
         return (value === null || value === undefined || value==='');
     }
@@ -251,6 +281,8 @@ class Utility {
         return typeof value === 'string' && /^[A-Za-z0-9]{1,128}$/.test(value);
     }
 
+    // Copy an object with its keys in alphabetical order, so anything built
+    // from it comes out in a stable order.
     ksort(obj){
         const sortedKeys = Object.keys(obj).sort();
         const sortedObj = sortedKeys.reduce((acc, key) => {
@@ -260,11 +292,13 @@ class Utility {
         return sortedObj;
     }
 
+    // Price of an item, the numerator divided by the denominator.
     // Uses 64-decimal precision to preserve very small prices without loss
     getPrice(numerator, denominator, precision=64){
         return this.bcdiv(numerator, denominator, precision);
     }
 
+    // Sort rows by their 'price' property; order is 'ASC' or 'DESC'.
     priceSort(data, order='ASC'){
         data.sort((a, b) => {
             if(a.price > b.price)

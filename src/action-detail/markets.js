@@ -76,6 +76,8 @@ const ORDER = {
                     )) AND
                     o1.action_index=?
                 LIMIT 1`;
+        // Get a list of order edits: later changes to this order's expiration
+        // and allow/block lists
         query2 = `SELECT
                     m.expiration,
                     m.allow_list,
@@ -87,6 +89,8 @@ const ORDER = {
                     m.order_action_index=? AND
                     s.status='valid'
                 ORDER BY action_index ASC`;
+        // Get a list of order matches, so the page can show how much of the
+        // order is still unfilled
         query3 = `SELECT
                     m.give_action_index,
                     m.get_action_index,
@@ -357,6 +361,8 @@ const SWAP = {
                     )) AND
                     s1.action_index=?
                 LIMIT 1`;
+        // Get a list of swap edits: later changes to this swap's expiration
+        // and allow/block lists
         query2 = `SELECT
                     m.expiration,
                     m.allow_list,

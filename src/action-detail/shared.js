@@ -20,6 +20,8 @@
 
 'use strict';
 
+// Build the offer's live state: what is left to give and get, its expiration,
+// its allow/block lists and its newest status.
 async function applyOfferState({ db, config, action_index, type }, data) {
     data['state'] = {
         get_remaining:  data['get_amount'],

@@ -394,6 +394,7 @@ const LIST = {
                     LEFT JOIN index_tickers   t1 ON (t1.id=l1.item_id)
                 WHERE
                     l1.action_index=?`;
+        // List edits: each item this action changed on the list, with its own status
         query3 = `SELECT
                     a1.address,
                     t1.tick,
@@ -440,6 +441,8 @@ const LIST = {
 };
 
 const UNKNOWN = {
+    // An action name the protocol does not define has no detail table of its own, so
+    // the page comes straight from `actions` and is always shown as invalid.
     queries() {
         let query  = null;
         let query2 = null;

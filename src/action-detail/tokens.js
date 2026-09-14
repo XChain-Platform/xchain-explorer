@@ -308,6 +308,7 @@ const SEND = {
         let query  = null;
         let query2 = null;
         let query3 = null;
+        // Get basic information on the send: who sent it and where it confirmed
         query = `SELECT
                     a2.action,
                     a1.action_format,
@@ -328,6 +329,7 @@ const SEND = {
                 WHERE
                     s1.action_index=?
                 LIMIT 1`;
+        // Get a list of sends: one row per recipient, with its token and amount
         query2 = `SELECT
                     a1.address as destination,
                     t1.tick,
@@ -344,12 +346,17 @@ const SEND = {
                     s1.action_index=?`;
         return { query, query2, query3 };
     },
+    // Add any SENDS to the send data, so a send to several recipients lists
+    // every one of them
     afterQuery2(ctx, data, results) {
         data.sends = results;
     },
 };
 
 const SWEEP = {
+    // A sweep moves an address's holdings to one destination. Balances,
+    // ownerships, orders, swaps and dispensers are separate flags, so each
+    // kind can be swept on its own.
     queries({ action_index }) {
         let query  = null;
         let query2 = null;
@@ -399,6 +406,8 @@ const SWEEP = {
                     t1.tick ASC`;
         return { query, query2, query3 };
     },
+    // Add any ISSUES to the sweep data: token ownership a sweep hands over is
+    // recorded as issue rows under the sweep's own action
     afterQuery2(ctx, data, results) {
         data.issues = results;
     },

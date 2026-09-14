@@ -86,6 +86,8 @@ const COINPAY_EXPIRE = {
 };
 
 const DISPENSER = {
+    // The dispenser as created, joined to its newest status row so the page
+    // shows where it stands now rather than how it started.
     queries({ action_index }) {
         let query  = null;
         let query2 = null;

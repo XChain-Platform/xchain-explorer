@@ -178,6 +178,8 @@ describe('reorg cache invalidation', function () {
     });
 });
 
+// A failed read must surface as an error, not masquerade as an empty result that
+// looks like a genuine "nothing found".
 describe('DB outage propagates (getData)', function () {
     let db;
     beforeEach(() => { db = makeDb(); });

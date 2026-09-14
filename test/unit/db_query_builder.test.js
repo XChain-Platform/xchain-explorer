@@ -255,6 +255,7 @@ describe('Database#getQueryWhereSql', () => {
         expect(sql).to.equal('m.action_index IS NOT NULL AND t3.tick LIKE ?');
     });
 
+    // getMarket always adds its tick pair clause, whatever the search type.
     it('getMarket: appends tick OR-pair clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMarket', null));
         expect(sql).to.equal('m.id IS NOT NULL AND ((COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?) OR (COALESCE(t1.tick, c1.coin)=? AND COALESCE(t2.tick, c2.coin)=?))');
@@ -438,6 +439,8 @@ describe('Database#getQueryOffsetSql', () => {
         expect(args).to.deep.equal([500, 100]);
     });
 
+    // Defensive guards: an empty or missing start or action must produce no
+    // offset clause at all, never a half-built one.
     it('returns empty when offset exists but start is empty string', async () => {
         const [sql, args] = await db.getQueryOffsetSql(cfgOffset('getActions', 'next', '', null));
         expect(sql).to.equal('');
@@ -608,6 +611,8 @@ describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', 
     });
 });
 
+// A deep OFFSET makes the database walk and discard every skipped row, so an
+// uncapped page number is a cheap way to tie it up; getQuery caps the offset.
 describe('getQuery() API OFFSET cap', function () {
     // A synchronous stub query-builder so getQuery does not hit the DB. getQuery
     // sets config.data.sql.apiOffset BEFORE invoking this[data.method].

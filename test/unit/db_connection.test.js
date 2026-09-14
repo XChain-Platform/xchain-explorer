@@ -56,6 +56,8 @@ function buildExplorer(configOverrides) {
     };
 }
 
+// Shared driver stub and Database class, rebuilt before every test; the stub's
+// createPool hands back a mock pool by default.
 let mockMariadb;
 let Database;
 

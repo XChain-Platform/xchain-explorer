@@ -55,7 +55,6 @@ const OK_STATUS = {
 };
 
 describe('explorer hub-mirror staleness gate', function () {
-
     afterEach(function () {
         sinon.restore();
         delete process.env.MIRROR_MAX_LAG_S;
@@ -110,6 +109,14 @@ describe('explorer hub-mirror staleness gate', function () {
             expect(gate.blocked).to.equal('MIRROR_STALE');
         });
     });
+});
+
+describe('explorer hub-mirror staleness gate', function () {
+    afterEach(function () {
+        sinon.restore();
+        delete process.env.MIRROR_MAX_LAG_S;
+        delete process.env.MIRROR_LAG_FAIL_CLOSED;
+    });
 
     describe('GET /:coin/api/hub-mirror/status', function () {
         it('404 on unknown coin', async function () {
@@ -129,6 +136,14 @@ describe('explorer hub-mirror staleness gate', function () {
             await makeExplorer(OK_STATUS).processHubMirrorStatusRequest(req({ coin: 'BTC' }), res);
             expect(res._body).to.deep.equal(OK_STATUS);
         });
+    });
+});
+
+describe('explorer hub-mirror staleness gate', function () {
+    afterEach(function () {
+        sinon.restore();
+        delete process.env.MIRROR_MAX_LAG_S;
+        delete process.env.MIRROR_LAG_FAIL_CLOSED;
     });
 
     describe('checkpoint route gating', function () {
@@ -164,6 +179,14 @@ describe('explorer hub-mirror staleness gate', function () {
             expect(res._body).to.not.have.property('mirror_bootstrapped');
         });
     });
+});
+
+describe('explorer hub-mirror staleness gate', function () {
+    afterEach(function () {
+        sinon.restore();
+        delete process.env.MIRROR_MAX_LAG_S;
+        delete process.env.MIRROR_LAG_FAIL_CLOSED;
+    });
 
     // The SPV proof routes bind to the same mirror-maintained state_checkpoints as
     // the balance-proof/checkpoint routes, so they must inherit the staleness gate
@@ -194,7 +217,17 @@ describe('explorer hub-mirror staleness gate', function () {
             await explorer.processActionProofRequest(req({ coin: 'BTC', actionIndex: '1' }), res);
             expect(res._status).to.not.equal(503);
         });
+    });
+});
 
+describe('explorer hub-mirror staleness gate', function () {
+    afterEach(function () {
+        sinon.restore();
+        delete process.env.MIRROR_MAX_LAG_S;
+        delete process.env.MIRROR_LAG_FAIL_CLOSED;
+    });
+
+    describe('proof route gating', function () {
         // The stake-snapshot proof errors carry a ':<capability>[:<detail>]' suffix, so an
         // exact-match error map misses them: the client gets a generic 500 and the raw
         // suffix, exception text included, echoed back in `code`.

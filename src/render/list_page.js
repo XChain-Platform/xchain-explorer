@@ -42,6 +42,10 @@ const fs   = require('fs');
 const path = require('path');
 
 const COLUMNS = require('../content/components/data-table/columns.js');
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that.
+const { getLogger } = require('../observability');
+const log = getLogger();
 
 const LAYOUT_DIR   = path.join(__dirname, '..', 'content', 'layouts');
 const LAYOUT_FILE  = path.join(LAYOUT_DIR, 'list-page.html');
@@ -175,7 +179,7 @@ function dataBlocks(html){
     return html.replace(/\{DATA:([a-z0-9-]+)\}/g, (whole, name) => {
         const file = path.join(LAYOUT_DIR, name + '.json');
         if(!path.resolve(file).startsWith(path.resolve(LAYOUT_DIR) + path.sep)){
-            console.error('list-page: layout data name escapes the layouts directory: ' + name);
+            log.error('LIST_PAGE_LAYOUT_DATA_ESCAPES', { name, detail: 'layout data name escapes the layouts directory' });
             return '{}';
         }
         let raw;
@@ -185,7 +189,7 @@ function dataBlocks(html){
             // Loud, and the page gets an empty object rather than the literal
             // placeholder: a page that renders "{DATA:foo}" to a visitor is a
             // worse failure than one whose optional config came back empty.
-            console.error('list-page: no layout data file for ' + name + ' (' + e.message + ')');
+            log.error('LIST_PAGE_LAYOUT_DATA_MISSING', { name, err: e.message });
             return '{}';
         }
         return raw.replace(/</g, '\\u003c').replace(/>/g, '\\u003e').trim();

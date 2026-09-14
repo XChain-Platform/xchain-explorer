@@ -201,7 +201,8 @@ describe('list-page composition (M2.3)', function () {
             let out;
             try { out = listPage.dataBlocks('x{DATA:nope}y'); } finally { console.error = real; }
             assert.equal(out, 'x{}y', 'rendering the literal placeholder to a visitor is worse than an empty config');
-            assert.match(errors[0], /no layout data file for nope/);
+            assert.match(errors[0], /LIST_PAGE_LAYOUT_DATA_MISSING/);
+            assert.match(errors[0], /name: 'nope'/);
         });
 
         it('leaves a page with no data placeholder untouched', function () {

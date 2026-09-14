@@ -103,129 +103,128 @@ function migrationFiles(dir){
 // those errnos are forgiven, so genuine DDL drift still fails loudly.
 const ALREADY_APPLIED = new Set([1050 /* table exists */, 1061 /* duplicate key name */, 1060 /* duplicate column */]);
 
-describe('raw /api/actions feed over system-injected actions (real MariaDB)', function () {
+const hasIndexerDdl = fs.existsSync(INDEXER_SQL_DIR);
 
-    this.timeout(120000);
+let adminPool = null;
+let db        = null;
 
-    const hasIndexerDdl = fs.existsSync(INDEXER_SQL_DIR);
+async function adminQuery(sql, args){
+    const conn = await adminPool.getConnection();
+    try { return await conn.query(sql, args); }
+    finally { conn.release(); }
+}
 
-    let adminPool = null;
-    let db        = null;
-
-    async function adminQuery(sql, args){
-        const conn = await adminPool.getConnection();
-        try { return await conn.query(sql, args); }
-        finally { conn.release(); }
-    }
-
-    async function loadSchema(){
-        await adminQuery('DROP DATABASE IF EXISTS `' + INDEXER_DB + '`');
-        await adminQuery('CREATE DATABASE `' + INDEXER_DB + '`');
-        const conn = await adminPool.getConnection();
-        try {
-            await conn.query('USE `' + INDEXER_DB + '`');
-            const base = ddlFiles(INDEXER_SQL_DIR);
-            const migs = migrationFiles(INDEXER_SQL_DIR);
-            for(const file of base.concat(migs)){
-                const isMigration = migs.includes(file);
-                for(const stmt of splitStatements(fs.readFileSync(file, 'utf8'))){
-                    try { await conn.query(stmt); }
-                    catch(e){
-                        if(isMigration && ALREADY_APPLIED.has(e.errno)) continue;
-                        throw new Error('DDL load failed in ' + path.basename(file) + ': ' + e.message +
-                                        '\nstatement: ' + stmt.slice(0, 200));
-                    }
+async function loadSchema(){
+    await adminQuery('DROP DATABASE IF EXISTS `' + INDEXER_DB + '`');
+    await adminQuery('CREATE DATABASE `' + INDEXER_DB + '`');
+    const conn = await adminPool.getConnection();
+    try {
+        await conn.query('USE `' + INDEXER_DB + '`');
+        const base = ddlFiles(INDEXER_SQL_DIR);
+        const migs = migrationFiles(INDEXER_SQL_DIR);
+        for(const file of base.concat(migs)){
+            const isMigration = migs.includes(file);
+            for(const stmt of splitStatements(fs.readFileSync(file, 'utf8'))){
+                try { await conn.query(stmt); }
+                catch(e){
+                    if(isMigration && ALREADY_APPLIED.has(e.errno)) continue;
+                    throw new Error('DDL load failed in ' + path.basename(file) + ': ' + e.message +
+                                    '\nstatement: ' + stmt.slice(0, 200));
                 }
             }
-        } finally { conn.release(); }
-    }
-
-    async function seed(){
-        const conn = await adminPool.getConnection();
-        try {
-            await conn.query('USE `' + INDEXER_DB + '`');
-            const insertId = async (sql, args) => Number((await conn.query(sql, args)).insertId);
-
-            const ledgerId  = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['actions-feed-ledger']);
-            const addressId = await insertId('INSERT INTO index_addresses (address) VALUES (?)', ['mzYXt4a991CYNpPVgf7GFVAdEoq8gdr4Um']);
-
-            await conn.query('INSERT INTO blocks (block_index, block_time, ledger_hash_id) VALUES (?, ?, ?)',
-                [BLOCK, BLOCK_TIME, ledgerId]);
-
-            const actionId = async (name) =>
-                insertId('INSERT INTO index_actions (action) VALUES (?)', [name]);
-
-            // The broadcast control rows: transaction + action, the ordinary shape.
-            for(const a of USER_ACTIONS){
-                const txHashId = await insertId('INSERT INTO index_transactions (hash) VALUES (?)',
-                    [TX_HASH.slice(0, 62) + String(a.tx_index)]);
-                await conn.query(
-                    'INSERT INTO transactions (tx_index, block_index, tx_hash_id, source_id, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
-                    [a.tx_index, BLOCK, txHashId, addressId, 1000, a.action + '|0|']);
-                await conn.query(
-                    'INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format, source_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    [a.index, BLOCK, a.tx_index, 0, await actionId(a.action), 0, addressId]);
-            }
-
-            // THE FIXTURE: chain-generated actions. Real action_index and
-            // block_index, tx_index NULL, source_id NULL (a system action has no
-            // sender), and deliberately no transactions row anywhere.
-            for(const a of SYSTEM_ACTIONS){
-                await conn.query(
-                    'INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format, source_id) ' +
-                    'VALUES (?, ?, NULL, NULL, ?, NULL, NULL)',
-                    [a.index, BLOCK, await actionId(a.action)]);
-            }
-        } finally { conn.release(); }
-    }
-
-    // The fixture is only evidence while the system rows stay tx-less.
-    async function assertFixtureIsTxLess(){
-        for(const a of SYSTEM_ACTIONS){
-            const rows = await adminQuery(
-                'SELECT a.tx_index, (SELECT COUNT(*) FROM `' + INDEXER_DB + '`.transactions t WHERE t.tx_index=a.tx_index) AS txrows ' +
-                'FROM `' + INDEXER_DB + '`.actions a WHERE a.action_index=?', [a.index]);
-            expect(rows.length, 'action ' + a.index + ' is missing from the fixture').to.equal(1);
-            expect(rows[0].tx_index, 'action ' + a.index + ' carries a tx_index, so it proves nothing').to.equal(null);
-            expect(Number(rows[0].txrows), 'action ' + a.index + ' has a transactions row, so it proves nothing').to.equal(0);
         }
-    }
+    } finally { conn.release(); }
+}
 
-    function makeDb(){
-        const configInfo = {
-            getConfig: async () => ({
-                COIN_NETWORKS:  { BTC: 'Bitcoin' },
-                COIN_PREFIXES:  { mainnet: '', testnet: 'T', regtest: 'R' },
-                COIN_SUPPORTED: { RBTC: 'BTC (regtest)' },
-                COIN_AVAILABLE: { RBTC: 'BTC (regtest)' },
-                BTC: {
-                    chain: require('../../src/coin-config/BTC.js').getConfig('regtest').chain,
-                    regtest: {
-                        database: {
-                            indexer: { name: INDEXER_DB, db_host: DB_HOST, db_port: DB_PORT, user: DB_USER, pass: DB_PASS }
-                        },
-                        address: require('../../src/coin-config/BTC.js').getConfig('regtest').address
-                    }
+async function seed(){
+    const conn = await adminPool.getConnection();
+    try {
+        await conn.query('USE `' + INDEXER_DB + '`');
+        const insertId = async (sql, args) => Number((await conn.query(sql, args)).insertId);
+
+        const ledgerId  = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['actions-feed-ledger']);
+        const addressId = await insertId('INSERT INTO index_addresses (address) VALUES (?)', ['mzYXt4a991CYNpPVgf7GFVAdEoq8gdr4Um']);
+
+        await conn.query('INSERT INTO blocks (block_index, block_time, ledger_hash_id) VALUES (?, ?, ?)',
+            [BLOCK, BLOCK_TIME, ledgerId]);
+
+        const actionId = async (name) =>
+            insertId('INSERT INTO index_actions (action) VALUES (?)', [name]);
+
+        // The broadcast control rows: transaction + action, the ordinary shape.
+        for(const a of USER_ACTIONS){
+            const txHashId = await insertId('INSERT INTO index_transactions (hash) VALUES (?)',
+                [TX_HASH.slice(0, 62) + String(a.tx_index)]);
+            await conn.query(
+                'INSERT INTO transactions (tx_index, block_index, tx_hash_id, source_id, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
+                [a.tx_index, BLOCK, txHashId, addressId, 1000, a.action + '|0|']);
+            await conn.query(
+                'INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format, source_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [a.index, BLOCK, a.tx_index, 0, await actionId(a.action), 0, addressId]);
+        }
+
+        // THE FIXTURE: chain-generated actions. Real action_index and
+        // block_index, tx_index NULL, source_id NULL (a system action has no
+        // sender), and deliberately no transactions row anywhere.
+        for(const a of SYSTEM_ACTIONS){
+            await conn.query(
+                'INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format, source_id) ' +
+                'VALUES (?, ?, NULL, NULL, ?, NULL, NULL)',
+                [a.index, BLOCK, await actionId(a.action)]);
+        }
+    } finally { conn.release(); }
+}
+
+// The fixture is only evidence while the system rows stay tx-less.
+async function assertFixtureIsTxLess(){
+    for(const a of SYSTEM_ACTIONS){
+        const rows = await adminQuery(
+            'SELECT a.tx_index, (SELECT COUNT(*) FROM `' + INDEXER_DB + '`.transactions t WHERE t.tx_index=a.tx_index) AS txrows ' +
+            'FROM `' + INDEXER_DB + '`.actions a WHERE a.action_index=?', [a.index]);
+        expect(rows.length, 'action ' + a.index + ' is missing from the fixture').to.equal(1);
+        expect(rows[0].tx_index, 'action ' + a.index + ' carries a tx_index, so it proves nothing').to.equal(null);
+        expect(Number(rows[0].txrows), 'action ' + a.index + ' has a transactions row, so it proves nothing').to.equal(0);
+    }
+}
+
+function makeDb(){
+    const configInfo = {
+        getConfig: async () => ({
+            COIN_NETWORKS:  { BTC: 'Bitcoin' },
+            COIN_PREFIXES:  { mainnet: '', testnet: 'T', regtest: 'R' },
+            COIN_SUPPORTED: { RBTC: 'BTC (regtest)' },
+            COIN_AVAILABLE: { RBTC: 'BTC (regtest)' },
+            BTC: {
+                chain: require('../../src/coin-config/BTC.js').getConfig('regtest').chain,
+                regtest: {
+                    database: {
+                        indexer: { name: INDEXER_DB, db_host: DB_HOST, db_port: DB_PORT, user: DB_USER, pass: DB_PASS }
+                    },
+                    address: require('../../src/coin-config/BTC.js').getConfig('regtest').address
                 }
-            }),
-            onConfigChanged: () => {},
-            // The live process.env view src/config.js exports; the readers under
-            // src/db/ read every environment variable through it.
-            env: envView
-        };
-        const util = new Utility(configInfo);
-        return new Database({ configInfo, util });
-    }
+            }
+        }),
+        onConfigChanged: () => {},
+        // The live process.env view src/config.js exports; the readers under
+        // src/db/ read every environment variable through it.
+        env: envView
+    };
+    const util = new Utility(configInfo);
+    return new Database({ configInfo, util });
+}
 
-    // The feed as a caller sees it: rows plus the `total` the paging is built on.
-    async function feed(query){
-        return db.getData(makeConfig({
-            coin: 'RBTC', type: 'api',
-            data: { method: 'getActions', query: query || {} }
-        }));
-    }
+// The feed as a caller sees it: rows plus the `total` the paging is built on.
+async function feed(query){
+    return db.getData(makeConfig({
+        coin: 'RBTC', type: 'api',
+        data: { method: 'getActions', query: query || {} }
+    }));
+}
 
-    let hadHubDbOptOut;
+let hadHubDbOptOut;
+
+describe('raw /api/actions feed over system-injected actions (real MariaDB)', function () {
+    this.timeout(120000);
 
     before(async function () {
         if(!hasIndexerDdl) this.skip();
@@ -264,6 +263,11 @@ describe('raw /api/actions feed over system-injected actions (real MariaDB)', fu
         else process.env.ALLOW_NO_COLOCATED_HUB_DB = hadHubDbOptOut;
     });
 
+    registerFeedListingTests();
+    registerFeedFilteringTests();
+});
+
+function registerFeedListingTests() {
     it('built a fixture whose system actions really have no transactions row', async function () {
         await assertFixtureIsTxLess();
     });
@@ -309,6 +313,10 @@ describe('raw /api/actions feed over system-injected actions (real MariaDB)', fu
             expect(String(row[key])).to.not.equal('undefined', 'column ' + key + ' came back undefined');
     });
 
+}
+
+function registerFeedFilteringTests() {
+
     it('carries the tx-backed rows unchanged, so the LEFT join did not cost anything', async function () {
         const [rows] = await feed();
         const row = rows.find(r => Number(r.action_index) === USER_ACTIONS[0].index);
@@ -340,4 +348,4 @@ describe('raw /api/actions feed over system-injected actions (real MariaDB)', fu
             .to.deep.equal([USER_ACTIONS[0].index]);
         expect(Number(total), 'the count query disagrees with the txid-filtered row query').to.equal(1);
     });
-});
+}

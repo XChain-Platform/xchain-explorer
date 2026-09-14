@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for src/XChainIndexerConnector.js: the minimal JSON-RPC client
+ * Unit tests for src/connectors/indexer.js: the minimal JSON-RPC client
  * the explorer uses to proxy read-only fee endpoints to the colocated indexer.
  */
 
@@ -20,8 +20,8 @@
 const sinon    = require('sinon');
 const axios    = require('axios');
 const { expect } = require('chai');
-const XChainIndexerConnector = require('../../src/XChainIndexerConnector.js');
-const { resolveIndexerUrl }  = require('../../src/XChainIndexerConnector.js');
+const XChainIndexerConnector = require('../../src/connectors/indexer.js');
+const { resolveIndexerUrl }  = require('../../src/connectors/indexer.js');
 
 describe('XChainIndexerConnector', function () {
 

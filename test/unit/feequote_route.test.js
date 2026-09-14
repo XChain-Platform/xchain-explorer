@@ -22,7 +22,7 @@
 const sinon = require('sinon');
 const { expect } = require('chai');
 const XChainExplorer = require('../../src/XChainExplorer.js');
-const IndexerConnector = require('../../src/XChainIndexerConnector.js');
+const IndexerConnector = require('../../src/connectors/indexer.js');
 
 function fakeThis({ coin = { coin: 'btc', network: 'regtest' } } = {}) {
     return {

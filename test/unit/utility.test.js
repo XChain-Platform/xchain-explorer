@@ -16,6 +16,9 @@ const proxyquire = require('proxyquire').noCallThru();
 
 // Real Utility (no stubbing of fs yet; we stub per-suite where needed)
 const Utility = require('../../src/utility');
+// The same lazy logger object utility.js holds, so a stub on it sees every event
+// whether or not an earlier suite installed the real shipper.
+const log = require('../../src/observability').getLogger();
 
 function makeUtil(configInfo) {
     return new Utility(configInfo || null);
@@ -723,45 +726,46 @@ describe('Utility', function () {
         before(function () { u = makeUtil(); });
         afterEach(function () { if (stub) { stub.restore(); stub = null; } });
 
-        it('calls console.log once', function () {
-            stub = sinon.stub(console, 'log');
+        it('logs one TIMER event', function () {
+            stub = sinon.stub(log, 'info');
             const t = u.startTimer();
             u.logTimer(t, 'TestTimer');
             expect(stub.calledOnce).to.be.true;
+            expect(stub.firstCall.args[0]).to.equal('TIMER');
         });
 
         it('uses "Time" label when timeName is null', function () {
-            stub = sinon.stub(console, 'log');
+            stub = sinon.stub(log, 'info');
             const t = u.startTimer();
             u.logTimer(t, null);
-            const output = stub.firstCall.args[0];
+            const output = stub.firstCall.args[1].timer;
             expect(output).to.match(/^Time/);
         });
 
         it('uses provided timeName as label', function () {
-            stub = sinon.stub(console, 'log');
+            stub = sinon.stub(log, 'info');
             const t = u.startTimer();
             u.logTimer(t, 'MyLabel');
-            const output = stub.firstCall.args[0];
+            const output = stub.firstCall.args[1].timer;
             expect(output).to.match(/^MyLabel/);
             expect(output).to.not.include('Time');
         });
 
         it('appends elapsed time with tab, parens, and closing paren', function () {
-            stub = sinon.stub(console, 'log');
+            stub = sinon.stub(log, 'info');
             // Use a timer from the past to ensure non-zero elapsed time
             u.logTimer(Date.now() - 5000, 'Elapsed');
-            const output = stub.firstCall.args[0];
+            const output = stub.firstCall.args[1].timer;
             expect(output).to.include('\t: (');
             expect(output).to.match(/\)$/);
         });
 
         it('does not append tab section when getTimer returns 0 (empty timeString)', function () {
-            stub = sinon.stub(console, 'log');
+            stub = sinon.stub(log, 'info');
             // Pass Date.now() so getTimer returns ~0, millisecondsToTimeString(0) returns ''
             const t = Date.now();
             u.logTimer(t, 'Quick');
-            const output = stub.firstCall.args[0];
+            const output = stub.firstCall.args[1].timer;
             // At ~0ms timeString is '', so no tab section should be appended.
             // A slow run can tick past 0ms and print a timing, so a tab is tolerated, which
             // means this check alone cannot catch the condition being forced to always true.
@@ -793,23 +797,23 @@ describe('Utility', function () {
     describe('throwError()', function () {
 
         let u;
-        let consoleStub;
+        let errorStub;
         before(function ()  { u = makeUtil(); });
-        beforeEach(function () { consoleStub = sinon.stub(console, 'error'); });
-        afterEach(function ()  { consoleStub.restore(); });
+        beforeEach(function () { errorStub = sinon.stub(log, 'error'); });
+        afterEach(function ()  { errorStub.restore(); });
 
         it('throws an Error with the provided message', function () {
             expect(() => u.throwError('boom')).to.throw(Error, 'boom');
         });
 
-        it('logs to console.error before throwing', function () {
+        it('logs an error event before throwing', function () {
             try { u.throwError('oops'); } catch (e) { /* expected */ }
-            expect(consoleStub.calledOnce).to.be.true;
+            expect(errorStub.calledOnce).to.be.true;
         });
 
-        it('logs with "throwError: " prefix', function () {
+        it('logs THROW_ERROR with the message as its err field', function () {
             try { u.throwError('test'); } catch (e) { /* expected */ }
-            expect(consoleStub.firstCall.args[0]).to.equal('throwError: test');
+            expect(errorStub.firstCall.args).to.deep.equal(['THROW_ERROR', { err: 'test' }]);
         });
 
     });
@@ -817,20 +821,20 @@ describe('Utility', function () {
     describe('logError()', function () {
 
         let u;
-        let consoleStub;
+        let errorStub;
         before(function ()  { u = makeUtil(); });
-        beforeEach(function () { consoleStub = sinon.stub(console, 'error'); });
-        afterEach(function ()  { consoleStub.restore(); });
+        beforeEach(function () { errorStub = sinon.stub(log, 'error'); });
+        afterEach(function ()  { errorStub.restore(); });
 
         it('ultimately throws (delegates to throwError)', function () {
             expect(() => u.logError('fail', {})).to.throw(Error);
         });
 
-        it('logs with "logError: " prefix before delegating', function () {
+        it('logs LOG_ERROR with the message and info before delegating', function () {
             try { u.logError('oops', { ctx: 1 }); } catch (e) { /* expected */ }
-            // First call is logError's own console.error, second is throwError's
-            expect(consoleStub.firstCall.args[0]).to.equal('logError: oops');
-            expect(consoleStub.firstCall.args[1]).to.deep.equal({ ctx: 1 });
+            // First call is logError's own event, second is throwError's
+            expect(errorStub.firstCall.args).to.deep.equal(['LOG_ERROR', { err: 'oops', info: { ctx: 1 } }]);
+            expect(errorStub.secondCall.args[0]).to.equal('THROW_ERROR');
         });
 
     });

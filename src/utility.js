@@ -22,6 +22,11 @@ const mathjs = require('mathjs');
 const fs     = require('fs/promises');
 const crypto = require('crypto');
 
+// One logger for the whole service: getLogger() resolves to the shipper once api.js
+// installs observability, and falls through to bare console before that.
+const { getLogger } = require('./observability');
+const log = getLogger();
+
 class Utility {
 
     constructor(configInfo){
@@ -29,12 +34,12 @@ class Utility {
     }
 
     throwError(error){
-        console.error('throwError: ' + error);
+        log.error('THROW_ERROR', { err: error });
         throw new Error(error);
     }
 
     logError(error, info){
-        console.error('logError: ' + error, info);
+        log.error('LOG_ERROR', { err: error, info: info });
         this.throwError(error);
     }
 
@@ -62,7 +67,7 @@ class Utility {
         var niceString = (timeName!=null) ? timeName : 'Time';
         if(timeString!='')
             niceString += '\t: (' + timeString + ')';
-        console.log(niceString);
+        log.info('TIMER', { timer: niceString });
     }
 
     millisecondsToTimeString(ms){

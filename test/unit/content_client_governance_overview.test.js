@@ -181,7 +181,9 @@ describe('unified governance view (M5.3)', function () {
             expect($('.gov-poll-question img').length).to.equal(0);
         });
     });
+});
 
+describe('unified governance view (M5.3)', function () {
     describe('the two halves fail independently', function () {
 
         it('a hub outage leaves the on-chain poll half rendering', function () {

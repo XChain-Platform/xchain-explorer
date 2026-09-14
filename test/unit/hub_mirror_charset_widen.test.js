@@ -104,6 +104,10 @@ describe('hub-mirror charset widen (attestation_responses)', function () {
         expect(db.executed).to.have.lengthOf(0);
     });
 
+});
+
+describe('hub-mirror charset widen (attestation_responses)', function () {
+
     it('widens only the half that is still narrow on a partially-migrated mirror', async function () {
         const db = fakeCharsetDb(shapeWith({ response_payload: 'utf8mb4_general_ci',
                                              meta: 'utf8mb3_general_ci' }));

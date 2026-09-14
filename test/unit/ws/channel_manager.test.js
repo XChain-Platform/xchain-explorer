@@ -11,13 +11,13 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Unit tests for ChannelManager (src/ws/ChannelManager.js)
+ * Unit tests for ChannelManager (src/ws/channel_manager.js)
  */
 
 'use strict';
 
 const { expect } = require('chai');
-const ChannelManager = require('../../../src/ws/ChannelManager.js');
+const ChannelManager = require('../../../src/ws/channel_manager.js');
 
 // Helper: create a mock client object
 function createClient(id, coin) {

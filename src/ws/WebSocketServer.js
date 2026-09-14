@@ -21,7 +21,7 @@
  ********************************************************************/
 
 const { WebSocketServer: WSServer } = require('ws');
-const ChannelManager = require('./ChannelManager.js');
+const ChannelManager = require('./channel_manager.js');
 // BigInt-safe JSON serializer (shared with Broadcaster via serialize.js). send
 // cannot use raw JSON.stringify, which throws on BigInt DB columns; under the
 // swallowing try/catch that would silently drop every message carrying a raw DB row.

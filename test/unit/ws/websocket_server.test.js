@@ -345,7 +345,7 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
     afterEach(() => sinon.restore());
 
     it('advertises exactly the set of types ChannelManager.VALID_TYPES accepts', async function () {
-        const ChannelManager = require('../../../src/ws/ChannelManager.js');
+        const ChannelManager = require('../../../src/ws/channel_manager.js');
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
@@ -390,7 +390,7 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
         // api-contracts finding: the `channels` list was a hardcoded literal that
         // could silently drift from what ChannelManager actually validates
         // (unlike `types`, which is already derived). Set-equality regression guard.
-        const ChannelManager = require('../../../src/ws/ChannelManager.js');
+        const ChannelManager = require('../../../src/ws/channel_manager.js');
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
@@ -799,7 +799,7 @@ describe('WebSocketServer maxPayload (ws-5: the cap has to reach the receiver)',
 
 describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame', function () {
 
-    const ChannelManager  = require('../../../src/ws/ChannelManager.js');
+    const ChannelManager  = require('../../../src/ws/channel_manager.js');
     const WebSocketServer = require('../../../src/ws/WebSocketServer.js');
 
     afterEach(() => sinon.restore());

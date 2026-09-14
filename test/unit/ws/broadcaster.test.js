@@ -19,7 +19,7 @@
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const EventEmitter = require('events');
-const ChannelManager = require('../../../src/ws/ChannelManager.js');
+const ChannelManager = require('../../../src/ws/channel_manager.js');
 const Broadcaster    = require('../../../src/ws/broadcaster.js');
 
 function createMockWs() {

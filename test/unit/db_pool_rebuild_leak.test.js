@@ -54,10 +54,16 @@ function configWithDedicatedDecoderCreds() {
     return cfg;
 }
 
+let mockMariadb, Database, createdPools;
+
+function freshDb() {
+    return new Database({
+        configInfo: createConfigInfoStub(configWithDedicatedDecoderCreds()),
+        util:       new Utility()
+    });
+}
+
 describe('setupConnectionPools does not orphan pools on re-entry', function () {
-
-    let mockMariadb, Database, createdPools;
-
     beforeEach(function () {
         createdPools = [];
         mockMariadb = {
@@ -88,13 +94,6 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
         sinon.restore();
     });
 
-    function freshDb() {
-        return new Database({
-            configInfo: createConfigInfoStub(configWithDedicatedDecoderCreds()),
-            util:       new Utility()
-        });
-    }
-
     it('creates a dedicated decoder pool when decoder creds differ (guards the fixture)', async function () {
         const db = freshDb();
         await db.setupConnectionPools();
@@ -116,6 +115,34 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
                 'until the process exits');
         }
     });
+});
+
+describe('setupConnectionPools does not orphan pools on re-entry', function () {
+    beforeEach(function () {
+        createdPools = [];
+        mockMariadb = {
+            createPool: sinon.stub().callsFake(() => {
+                const pool = {
+                    end:           sinon.stub().resolves(),
+                    getConnection: sinon.stub().resolves({
+                        query:   sinon.stub().resolves([]),
+                        release: sinon.stub().resolves()
+                    })
+                };
+                createdPools.push(pool);
+                return pool;
+            })
+        };
+        Database = proxyquire('../../src/db/index.js', {
+            './connection.js': proxyquire(
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                { mariadb: mockMariadb })
+        });
+    });
+
+    afterEach(function () {
+        sinon.restore();
+    });
 
     it('ends every indexer pool it drops on rebuild', async function () {
         const db = freshDb();
@@ -128,6 +155,34 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
         for (const pool of firstRoundIndexerPools) {
             expect(pool.end.callCount).to.equal(1, 'an indexer pool was dropped without end()');
         }
+    });
+});
+
+describe('setupConnectionPools does not orphan pools on re-entry', function () {
+    beforeEach(function () {
+        createdPools = [];
+        mockMariadb = {
+            createPool: sinon.stub().callsFake(() => {
+                const pool = {
+                    end:           sinon.stub().resolves(),
+                    getConnection: sinon.stub().resolves({
+                        query:   sinon.stub().resolves([]),
+                        release: sinon.stub().resolves()
+                    })
+                };
+                createdPools.push(pool);
+                return pool;
+            })
+        };
+        Database = proxyquire('../../src/db/index.js', {
+            './connection.js': proxyquire(
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                { mariadb: mockMariadb })
+        });
+    });
+
+    afterEach(function () {
+        sinon.restore();
     });
 
     it('leaves no pool handle unclosed across repeated rebuilds', async function () {
@@ -149,6 +204,34 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
             leaked.length + ' of ' + createdPools.length + ' pool handles were ' +
             'orphaned without end() over ' + REBUILDS + ' rebuilds');
     });
+});
+
+describe('setupConnectionPools does not orphan pools on re-entry', function () {
+    beforeEach(function () {
+        createdPools = [];
+        mockMariadb = {
+            createPool: sinon.stub().callsFake(() => {
+                const pool = {
+                    end:           sinon.stub().resolves(),
+                    getConnection: sinon.stub().resolves({
+                        query:   sinon.stub().resolves([]),
+                        release: sinon.stub().resolves()
+                    })
+                };
+                createdPools.push(pool);
+                return pool;
+            })
+        };
+        Database = proxyquire('../../src/db/index.js', {
+            './connection.js': proxyquire(
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                { mariadb: mockMariadb })
+        });
+    });
+
+    afterEach(function () {
+        sinon.restore();
+    });
 
     it('closes each shared handle exactly once', async function () {
         // The setup loop deliberately assigns ONE pool object to several keys when
@@ -164,6 +247,34 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
             expect(pool.end.callCount).to.equal(1,
                 'a shared pool handle was closed ' + pool.end.callCount + ' times');
         }
+    });
+});
+
+describe('setupConnectionPools does not orphan pools on re-entry', function () {
+    beforeEach(function () {
+        createdPools = [];
+        mockMariadb = {
+            createPool: sinon.stub().callsFake(() => {
+                const pool = {
+                    end:           sinon.stub().resolves(),
+                    getConnection: sinon.stub().resolves({
+                        query:   sinon.stub().resolves([]),
+                        release: sinon.stub().resolves()
+                    })
+                };
+                createdPools.push(pool);
+                return pool;
+            })
+        };
+        Database = proxyquire('../../src/db/index.js', {
+            './connection.js': proxyquire(
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                { mariadb: mockMariadb })
+        });
+    });
+
+    afterEach(function () {
+        sinon.restore();
     });
 
     it('survives a pool whose end() rejects, and still closes the others', async function () {

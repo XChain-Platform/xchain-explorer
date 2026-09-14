@@ -105,7 +105,11 @@ describe('graceful shutdown', function(){
             assert.strictEqual(calls, 1);
             assert.deepStrictEqual(codes, [0]);
         });
+    });
+});
 
+describe('graceful shutdown', function(){
+    describe('createShutdown', function(){
         // The reason the handler is safe to install at all: registering one REMOVES
         // node's default terminate, so without this bound a hung drain turns every
         // stop into a container that lingers until the supervisor's grace expires.
@@ -142,7 +146,9 @@ describe('graceful shutdown', function(){
             assert.deepStrictEqual(codes, [1]);
         });
     });
+});
 
+describe('graceful shutdown', function(){
     describe('resolveTimeoutMs', function(){
         it('prefers an explicit budget, then the env var, then the default', function(){
             assert.strictEqual(resolveTimeoutMs(1234, {}), 1234);
@@ -154,7 +160,9 @@ describe('graceful shutdown', function(){
             assert.ok(DEFAULT_SHUTDOWN_TIMEOUT_MS < 10000);
         });
     });
+});
 
+describe('graceful shutdown', function(){
     describe('closeServer', function(){
         it('drops idle keep-alive sockets that would otherwise hold close() open', async function(){
             const server = makeServer([], 'http');
@@ -168,7 +176,9 @@ describe('graceful shutdown', function(){
             await closeServer({});
         });
     });
+});
 
+describe('graceful shutdown', function(){
     describe('createExplorerDrain', function(){
 
         it('stops the pollers, closes sockets and listeners, then the VM and the pools', async function(){
@@ -193,7 +203,11 @@ describe('graceful shutdown', function(){
             // Config sync stops before the pools it would otherwise rebuild.
             assert.ok(order.indexOf('configSync.stop') < order.indexOf('db.close'));
         });
+    });
+});
 
+describe('graceful shutdown', function(){
+    describe('createExplorerDrain', function(){
         // The old handler exited immediately on signal. server.close() is what lets a
         // request already being served finish, so a drain that skips it is the same
         // dropped-response behaviour under a different name.
@@ -233,7 +247,11 @@ describe('graceful shutdown', function(){
             await running;
             assert.strictEqual(runtime.explorer.db.closed, true);
         });
+    });
+});
 
+describe('graceful shutdown', function(){
+    describe('createExplorerDrain', function(){
         // The handler is registered at module load, before startApi() has built
         // anything, so the runtime object is read at drain time and not captured.
         it('picks up pieces published after the drain was built', async function(){
@@ -262,7 +280,9 @@ describe('graceful shutdown', function(){
                 'one wedged step must not strand the pool close behind it');
         });
     });
+});
 
+describe('graceful shutdown', function(){
     describe('config.stopSync', function(){
         it('is idempotent and stops the refresh ticker the drain relies on', function(){
             assert.strictEqual(typeof configInfo.stopSync, 'function');

@@ -52,10 +52,10 @@ function load({ env = {} } = {}) {
     if (env.HUB_API_URL !== undefined) process.env.HUB_API_URL = env.HUB_API_URL;
     else delete process.env.HUB_API_URL;
 
-    const HubMirrorSyncManager = proxyquire('../../src/HubMirrorSyncManager.js', {
-        './hub/hub_db_sync.js':    FakeSync,
-        './hub-mirror-pool.js': FakePool,
-        './hub-mirror-migrate.js': { ensureMirrorColumns }
+    const HubMirrorSyncManager = proxyquire('../../src/mirror/sync_manager.js', {
+        '../hub/hub_db_sync.js':    FakeSync,
+        '../hub-mirror-pool.js': FakePool,
+        '../hub-mirror-migrate.js': { ensureMirrorColumns }
     });
 
     const restoreEnv = () => {

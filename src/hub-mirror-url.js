@@ -16,7 +16,7 @@
  *
  * Single answer to "where does the self-synced mirror writer read the hub?",
  * shared by the startup invariant in db.js and the writer itself in
- * HubMirrorSyncManager.js so the two can never disagree about whether a
+ * mirror/sync_manager.js so the two can never disagree about whether a
  * self_sync target is actually syncable.
  *
  * Two sources, in priority order:

@@ -49,10 +49,10 @@
  *
  ********************************************************************/
 
-const HubDbSync     = require('./hub/hub_db_sync.js');
-const HubMirrorPool = require('./hub-mirror-pool.js');
-const { ensureMirrorColumns } = require('./hub-mirror-migrate.js');
-const { resolveHubUrl }       = require('./hub-mirror-url.js');
+const HubDbSync     = require('../hub/hub_db_sync.js');
+const HubMirrorPool = require('../hub-mirror-pool.js');
+const { ensureMirrorColumns } = require('../hub-mirror-migrate.js');
+const { resolveHubUrl }       = require('../hub-mirror-url.js');
 const path          = require('path');
 
 // How often an unconfigured self_sync target re-reports itself. A single boot
@@ -122,7 +122,7 @@ class HubMirrorSyncManager {
                 // against missing tables (empty SHOW COLUMNS poisons its per-table
                 // column cache; see the 2026-06-17 cold-start regression).
                 await inst.pool.ensureDatabase();
-                await HubDbSync.ensureTables(inst.pool, path.join(__dirname, 'sql', 'hub-mirror'));
+                await HubDbSync.ensureTables(inst.pool, path.join(__dirname, '..', 'sql', 'hub-mirror'));
                 // ensureTables never ALTERs an existing table, so a schema adopted
                 // without the retraction and item-5308 fence columns (price_snapshots,
                 // oracle_prices, cross_chain_matches, cross_chain_calls) needs this

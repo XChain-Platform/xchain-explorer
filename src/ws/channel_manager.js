@@ -18,86 +18,34 @@
  * (types, statuses, ticks, fields, once, snapshot, since_action_index).
  * Supports batch entity subscriptions and subscription limits.
  *
+ * This file is the entry and keeps the read side of the subscription map.
+ * The write side (subscribe, unsubscribe, the per-entry add and remove) lives
+ * in channel_manager/subscribe.js, the channel-key build, parse and entity
+ * resolution in channel_manager/keys.js, and the channel and type name sets in
+ * channel_manager/channels.js. Both method parts arrive on
+ * ChannelManager.prototype through mixinParts below, so every require of this
+ * path still gets one class with the same methods and static exports.
+ *
  ********************************************************************/
 
-// Valid global channels (no entity params needed)
-const GLOBAL_CHANNELS = new Set(['blocks', 'actions', 'mempool', 'network', 'attestation']);
+const { ENTITY_CHANNELS, ALL_CHANNELS, VALID_TYPES } = require('./channel_manager/channels.js');
+const subscribeMethods = require('./channel_manager/subscribe.js');
+const keyMethods       = require('./channel_manager/keys.js');
 
-// Valid entity channels (require params)
-// bet_feed is action_index-keyed exactly like dispenser: one market per feed id,
-// carrying place / latch / resolve / cancel / expire events so a market page and a
-// wallet see live pools (§11.1).
-// xcall is keyed by the deterministic 64-hex call_id, which is the only stable
-// name a cross-chain call has on BOTH chains: its action_index differs per chain
-// and the target chain has no request row at all (spec M5.4).
-const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser', 'bet_feed', 'xcall']);
-
-// Every channel name a subscribe request is allowed to use. A name outside this set
-// is refused at subscribe time rather than silently accepted and never delivered.
-const ALL_CHANNELS = new Set([...GLOBAL_CHANNELS, ...ENTITY_CHANNELS]);
-
-// Canonical decimal form of an action_index subscription key: no sign, no leading
-// zeros, no fraction, no trailing junk. Anything else is a distinct subscription
-// identity that the DB would silently coerce back to a real row.
-const CANONICAL_INDEX = /^(0|[1-9][0-9]*)$/;
-
-// Canonical form of a call_id subscription key. The id is a 64-hex digest derived
-// in the source-chain VM run, and it is compared as a STRING everywhere it is
-// routed, so case is part of the identity: normalizing to lower case at
-// subscribe time keeps SUBSCRIBED, SUBSCRIPTION_LIST and the Broadcaster's
-// routing key on one representation, rather than letting an upper-case
-// subscription sit alongside a lower-case event and receive nothing.
-const CANONICAL_CALL_ID = /^[0-9a-f]{64}$/;
-
-// Valid action types for the types filter
-const VALID_TYPES = new Set([
-    // Indexed action types
-    'ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE',
-    'COINPAY', 'COINPAY_EXPIRE',
-    'SWAP', 'SWAP_MATCH', 'SWAP_EXPIRE',
-    'DISPENSER', 'DISPENSE', 'DISPENSER_CLOSE', 'DISPENSER_EXPIRE',
-    'SEND', 'SWEEP', 'AIRDROP', 'DIVIDEND',
-    'ISSUE', 'MINT', 'DESTROY',
-    'BROADCAST', 'CALLBACK', 'FILE', 'MESSAGE', 'LIST', 'LINK', 'SLEEP',
-    'DEPLOY', 'EXECUTE', 'DEPOSIT', 'WITHDRAW',
-    'STAKE', 'UNSTAKE', 'DELEGATE', 'COLLECT', 'ATTEST',
-    // BET is one action name over four formats (create/cancel/place/resolve);
-    // BET_EXPIRE is the system refund pass's minted action. Both are emitted on the
-    // `bet_feed` channel, so both must be filterable: without them a subscriber
-    // passing types:['BET'] was rejected outright with INVALID_TYPE, which failed
-    // the whole subscribe rather than narrowing it.
-    'BET', 'BET_EXPIRE',
-    // Federation / cross-chain / oracle action types (real decoded actions
-    // dispatched in xchain-indexer actions/index.js; they broadcast on the global
-    // `actions` channel, so a client must be able to narrow to them too).
-    // NOTE: CONTROLLER is intentionally absent: it is a field on ISSUE/ADDRESS
-    // (data['CONTROLLER']), not an `action` type, so it never appears as an
-    // actionData.action value and whitelisting it would silently match nothing.
-    'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF', 'ROLLCALL',
-    // Lifecycle event types (emitted by ChangeDetector, not indexed directly).
-    // Only names the producer actually emits belong here (ws/change_detector.js's
-    // LIFECYCLE_MAP, NON_ACTION_LIFECYCLE_TYPES and INLINE_LIFECYCLE_TYPES): the
-    // WELCOME envelope advertises this set verbatim, so a phantom name would
-    // be accepted by subscribe() yet silently match zero events - same
-    // anti-pattern as the CONTROLLER note above.
-    'COINPAY_REQUIRED', 'COINPAY_FULFILLED', 'COINPAY_EXPIRED',
-    'ORDER_EXPIRED',
-    'SWAP_EXPIRED',
-    'DISPENSER_CLOSED', 'DISPENSER_EXPIRED',
-    // BET_EXPIRED rides LIFECYCLE_MAP; BET_CLOSED is emitted by the ChangeDetector's
-    // second cursor over bet_feeds.closed_block, because the deadline latch is a
-    // direct status write with no action row behind it.
-    'BET_EXPIRED', 'BET_CLOSED',
-    // The two XCALL terminal phases, emitted by the ChangeDetector's third cursor
-    // over xcalls.resolved_block. A completion is a direct status write with no
-    // action row behind it; an expiry does have an XCALL v2 action, but both ride
-    // this cursor so a subscriber narrowing to the phase names cannot see one
-    // outcome and silently miss the other.
-    'XCALL_COMPLETED', 'XCALL_EXPIRED',
-    // The two ATTEST phases, enriched inline from the `attests` table because the
-    // raw action row carries no version to tell request from response.
-    'ATTESTATION_REQUEST', 'ATTESTATION_RESPONSE'
-]);
+// Copies a part's methods onto the class prototype. Object.assign cannot do
+// this: a class method is non-enumerable, so assign would copy nothing.
+// A collision throws rather than resolving by require order, because the loser
+// would vanish silently and the caller would run another part's method.
+function mixinParts(target, ...sources) {
+    for (const source of sources) {
+        for (const name of Object.getOwnPropertyNames(source)) {
+            if (name === 'constructor') continue;
+            if (Object.prototype.hasOwnProperty.call(target, name))
+                throw new Error('ChannelManager part collision: ' + name + ' is defined twice');
+            Object.defineProperty(target, name, Object.getOwnPropertyDescriptor(source, name));
+        }
+    }
+}
 
 class ChannelManager {
 
@@ -108,135 +56,6 @@ class ChannelManager {
         // e.g. "BTC:mainnet:blocks" -> Map { 1 => { types: null, ... } }
         // e.g. "BTC:mainnet:address:1A1zP1..." -> Map { 1 => { types: Set, ... } }
         this.subscriptions = new Map();
-    }
-
-    // Subscribe a client to one or more channels
-    // Returns { success: true, subscribed: [...] } or { success: false, error: { code, message } }
-    subscribe(client, channels, params) {
-        params = params || {};
-
-        // Validate channels
-        if (!Array.isArray(channels) || channels.length === 0) {
-            return { success: false, error: { code: 'INVALID_CHANNEL', message: 'channels must be a non-empty array' } };
-        }
-        for (const ch of channels) {
-            if (!ALL_CHANNELS.has(ch)) {
-                return { success: false, error: { code: 'INVALID_CHANNEL', message: `Unknown channel: ${ch}` } };
-            }
-        }
-
-        // Validate types filter
-        let typesFilter = null;
-        if (params.types) {
-            if (!Array.isArray(params.types)) {
-                return { success: false, error: { code: 'INVALID_TYPE', message: 'types must be an array' } };
-            }
-            for (const t of params.types) {
-                if (!VALID_TYPES.has(t)) {
-                    return { success: false, error: { code: 'INVALID_TYPE', message: `Unknown action type: ${t}` } };
-                }
-            }
-            typesFilter = new Set(params.types);
-        }
-
-        // Validate statuses filter
-        let statusesFilter = null;
-        if (params.statuses) {
-            if (!Array.isArray(params.statuses)) {
-                return { success: false, error: { code: 'INVALID_ACTION', message: 'statuses must be an array' } };
-            }
-            statusesFilter = new Set(params.statuses);
-        }
-
-        // Validate ticks filter (for global actions channel)
-        let ticksFilter = null;
-        if (params.ticks && Array.isArray(params.ticks) && channels.includes('actions')) {
-            ticksFilter = new Set(params.ticks);
-        }
-
-        // Validate fields filter. Mirrors the types/statuses guard: without it a
-        // non-iterable `fields` (e.g. {"fields":1} or {"fields":{}}) reaches
-        // `new Set(params.fields)` below and throws a synchronous TypeError out of
-        // the ws message handler, which no uncaughtException handler catches -
-        // an unauthenticated single-frame process kill / crash loop.
-        let fieldsFilter = null;
-        if (params.fields) {
-            if (!Array.isArray(params.fields) || params.fields.some(f => typeof f !== 'string')) {
-                return { success: false, error: { code: 'INVALID_PARAMS', message: 'fields must be an array of strings' } };
-            }
-            fieldsFilter = new Set(params.fields);
-        }
-
-        // Build filter object
-        const filter = {
-            types:              typesFilter,
-            statuses:           statusesFilter,
-            ticks:              ticksFilter,
-            fields:             fieldsFilter,
-            once:               !!params.once,
-            snapshot:           !!params.snapshot,
-            since_action_index: params.since_action_index || null
-        };
-
-        // Resolve entity keys for batch and single subscriptions
-        const subscribed = [];
-
-        for (const channel of channels) {
-            if (GLOBAL_CHANNELS.has(channel)) {
-                // Global channel (no entity key)
-                const result = this.addSubscription(client, channel, null, filter);
-                if (result.error) return { success: false, error: result.error };
-                subscribed.push({ channel });
-            } else {
-                // Entity channel: resolve entity key(s) from params
-                const entityKeys = this.resolveEntityKeys(channel, params);
-                if (entityKeys.error) return { success: false, error: entityKeys.error };
-
-                for (const entityKey of entityKeys.keys) {
-                    const result = this.addSubscription(client, channel, entityKey, filter);
-                    if (result.error) return { success: false, error: result.error };
-                    subscribed.push({ channel, ...entityKey });
-                }
-            }
-        }
-
-        return { success: true, subscribed, filter };
-    }
-
-    // Unsubscribe a client from channels. Returns the list of entities actually
-    // targeted so the caller (WebSocketServer) can send back an UNSUBSCRIBED
-    // frame naming each one -- without this a client cannot tell an honoured
-    // unsubscribe from a message the server dropped.
-    unsubscribe(client, channels, params) {
-        params = params || {};
-        const unsubscribed = [];
-
-        for (const channel of channels) {
-            if (GLOBAL_CHANNELS.has(channel)) {
-                const was_subscribed = this.removeSubscription(client, channel, null);
-                unsubscribed.push({ channel, was_subscribed });
-            } else {
-                const entityKeys = this.resolveEntityKeys(channel, params);
-                if (entityKeys.error) continue;
-                for (const entityKey of entityKeys.keys) {
-                    const was_subscribed = this.removeSubscription(client, channel, entityKey);
-                    unsubscribed.push({ channel, ...entityKey, was_subscribed });
-                }
-            }
-        }
-
-        return { unsubscribed };
-    }
-
-    // Remove all subscriptions for a client (on disconnect)
-    removeClient(client) {
-        for (const [channelKey, clientMap] of this.subscriptions) {
-            clientMap.delete(client.id);
-            if (clientMap.size === 0) {
-                this.subscriptions.delete(channelKey);
-            }
-        }
-        client.subscriptions.clear();
     }
 
     // List all subscriptions for a client
@@ -357,192 +176,9 @@ class ChannelManager {
         }
         return dispensers;
     }
-
-    // ---- Internal methods ----
-
-    addSubscription(client, channel, entityKey, filter) {
-        // Check subscription limit
-        const channelKey = this.buildChannelKey(client.coin, channel, entityKey);
-
-        // If not already subscribed, check limit
-        if (!client.subscriptions.has(channelKey)) {
-            if (client.subscriptions.size >= this.maxSubscriptions) {
-                return { error: { code: 'SUBSCRIPTION_LIMIT', message: `Maximum ${this.maxSubscriptions} subscriptions exceeded` } };
-            }
-        }
-
-        // Get or create the channel's client map
-        if (!this.subscriptions.has(channelKey)) {
-            this.subscriptions.set(channelKey, new Map());
-        }
-
-        // Register the subscription
-        this.subscriptions.get(channelKey).set(client.id, filter);
-        client.subscriptions.add(channelKey);
-
-        return { success: true };
-    }
-
-    // Returns true when the client actually held this subscription (and it was
-    // removed), false when it was already absent (a no-op unsubscribe).
-    removeSubscription(client, channel, entityKey) {
-        const channelKey = this.buildChannelKey(client.coin, channel, entityKey);
-        const clientMap  = this.subscriptions.get(channelKey);
-        const was_subscribed = !!(clientMap && clientMap.has(client.id));
-        if (clientMap) {
-            clientMap.delete(client.id);
-            if (clientMap.size === 0) this.subscriptions.delete(channelKey);
-        }
-        client.subscriptions.delete(channelKey);
-        return was_subscribed;
-    }
-
-    // Build a unique key for a channel subscription
-    // Format: "COIN:channel" for global, "COIN:channel:entityId" for entity
-    buildChannelKey(coin, channel, entityKey) {
-        let key = coin + ':' + channel;
-        if (entityKey) {
-            if (entityKey.address)      key += ':' + entityKey.address;
-            else if (entityKey.tick)    key += ':' + entityKey.tick;
-            else if (entityKey.tick1)   key += ':' + entityKey.tick1 + ':' + entityKey.tick2;
-            else if (entityKey.action_index !== undefined) key += ':' + entityKey.action_index;
-            // call_id is tested LAST and on its own, not folded into the address
-            // branch: an xcall subscription carries no address/tick/action_index, and
-            // an event routed by call_id must land on the same key the subscribe built.
-            else if (entityKey.call_id !== undefined) key += ':' + entityKey.call_id;
-        }
-        return key;
-    }
-
-    // Public: the channel key for a `subscribed` entry (as returned by subscribe()).
-    // Used by the WS server to tell freshly-added subscriptions apart from ones the
-    // client already held, so a re-subscribe does not re-trigger the snapshot DB fan-out.
-    // A `sub` carries {channel, address?/tick?/tick1?/tick2?/action_index?}, which is
-    // exactly the entityKey shape buildChannelKey reads.
-    channelKeyForSub(coin, sub) {
-        return this.buildChannelKey(coin, sub.channel, sub);
-    }
-
-    // Parse a channel key back into components
-    parseChannelKey(channelKey) {
-        const parts   = channelKey.split(':');
-        const coin    = parts[0];
-        const channel = parts[1];
-        let entityKey = null;
-
-        if (channel === 'address' && parts.length > 2)   entityKey = { address: parts.slice(2).join(':') };
-        if (channel === 'token' && parts.length > 2)      entityKey = { tick: parts[2] };
-        if (channel === 'market' && parts.length > 3)     entityKey = { tick1: parts[2], tick2: parts[3] };
-        // Keep the dispenser action_index as the canonical decimal STRING carried in the
-        // channel key. Number() here diverged SUBSCRIPTION_LIST/UNSUBSCRIBED (number) from
-        // SUBSCRIBED (client value) and lost precision above 2^53; the v2 wire contract is
-        // BIGINT-as-string (ws/schema_version.js:26-29).
-        if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: parts[2] };
-        if (channel === 'bet_feed'  && parts.length > 2)  entityKey = { action_index: parts[2] };
-        if (channel === 'xcall'     && parts.length > 2)  entityKey = { call_id: parts[2] };
-
-        return { coin, channel, entityKey };
-    }
-
-    // Resolve entity keys from subscribe params (supports batch via plural keys)
-    resolveEntityKeys(channel, params) {
-        const keys = [];
-
-        switch (channel) {
-            case 'address':
-                if (params.addresses && Array.isArray(params.addresses)) {
-                    for (const addr of params.addresses) keys.push({ address: addr });
-                } else if (params.address) {
-                    keys.push({ address: params.address });
-                } else {
-                    return { error: { code: 'INVALID_CHANNEL', message: 'address channel requires address or addresses param' } };
-                }
-                break;
-
-            case 'token':
-                // "ticks" as a batch param vs "tick" as singular, but "ticks" is also used as a filter
-                // Use context: if subscribing to "token" channel, ticks means entity list
-                if (params.tick) {
-                    keys.push({ tick: params.tick });
-                } else if (params.ticks && Array.isArray(params.ticks)) {
-                    for (const t of params.ticks) keys.push({ tick: t });
-                } else {
-                    return { error: { code: 'INVALID_CHANNEL', message: 'token channel requires tick or ticks param' } };
-                }
-                break;
-
-            case 'market':
-                if (params.pairs && Array.isArray(params.pairs)) {
-                    for (const pair of params.pairs) {
-                        if (Array.isArray(pair) && pair.length === 2) {
-                            keys.push({ tick1: pair[0], tick2: pair[1] });
-                        }
-                    }
-                } else if (params.tick1 && params.tick2) {
-                    keys.push({ tick1: params.tick1, tick2: params.tick2 });
-                } else {
-                    return { error: { code: 'INVALID_CHANNEL', message: 'market channel requires tick1+tick2 or pairs param' } };
-                }
-                break;
-
-            case 'dispenser':
-            case 'bet_feed':
-                // Normalize action_index to a canonical decimal STRING at the point of
-                // subscription so SUBSCRIBED, SUBSCRIPTION_LIST and UNSUBSCRIBED all carry
-                // the same representation (a client may send it as a number or a string).
-                // bet_feed shares this shape: the feed id IS its creating action_index.
-                //
-                // String() alone normalized the TYPE but not the VALUE, so "7junk" and
-                // "007" became subscription identities of their own while the snapshot
-                // read (db.getDispenserInfo -> WHERE d.action_index=?) coerced them to
-                // dispenser 7. The subscriber then saw one snapshot and no live frames,
-                // since Broadcaster routes on the canonical index.
-                {
-                    const raw = (params.action_indexes && Array.isArray(params.action_indexes))
-                        ? params.action_indexes
-                        : (params.action_index !== undefined ? [params.action_index] : null);
-                    if (raw === null)
-                        return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel requires action_index or action_indexes param` } };
-                    for (const idx of raw) {
-                        const str = String(idx);
-                        if (!CANONICAL_INDEX.test(str))
-                            return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel action_index must be a canonical decimal integer (got: ${str})` } };
-                        keys.push({ action_index: str });
-                    }
-                }
-                break;
-
-            case 'xcall':
-                // Same normalize-at-subscribe rule as the action_index channels above,
-                // for the same reason: String() alone would normalize the TYPE but not
-                // the VALUE, so 'AB..' and 'ab..' would become two subscription
-                // identities while the events routing to only one of them.
-                {
-                    const raw = (params.call_ids && Array.isArray(params.call_ids))
-                        ? params.call_ids
-                        : (params.call_id !== undefined ? [params.call_id] : null);
-                    if (raw === null)
-                        return { error: { code: 'INVALID_CHANNEL', message: 'xcall channel requires call_id or call_ids param' } };
-                    for (const id of raw) {
-                        const str = String(id).toLowerCase();
-                        if (!CANONICAL_CALL_ID.test(str))
-                            return { error: { code: 'INVALID_CHANNEL', message: `xcall channel call_id must be a 64-character hex string (got: ${String(id)})` } };
-                        keys.push({ call_id: str });
-                    }
-                }
-                break;
-
-            default:
-                return { error: { code: 'INVALID_CHANNEL', message: `Unknown entity channel: ${channel}` } };
-        }
-
-        if (keys.length === 0) {
-            return { error: { code: 'INVALID_CHANNEL', message: `No entity keys resolved for channel: ${channel}` } };
-        }
-
-        return { keys };
-    }
 }
+
+mixinParts(ChannelManager.prototype, subscribeMethods, keyMethods);
 
 // Hung on the class rather than on module.exports so the file has ONE export
 // shape; the class IS the export, so a requirer reads these at the same

@@ -35,6 +35,76 @@ function heapMB() {
     return process.memoryUsage().heapUsed / 1024 / 1024;
 }
 
+async function checkSustainedLoadGrowth() {
+    this.timeout(45000);
+
+    // Warm up: let JIT settle and caches fill
+    await runAutocannon({
+        url:         getServerUrl() + '/RBTC/explorer/tokens',
+        connections: 5,
+        duration:    3,
+    });
+
+    forceGC();
+    const heapBefore = heapMB();
+
+    await runAutocannon({
+        url:         getServerUrl() + '/RBTC/explorer/tokens',
+        connections: 10,
+        duration:    15,
+    });
+
+    forceGC();
+    const heapAfter = heapMB();
+    const growth    = heapAfter - heapBefore;
+
+    expect(growth).to.be.below(50,
+        `Heap grew by ${growth.toFixed(1)}MB during sustained load (possible memory leak)`);
+
+    console.log(`    Heap: before=${heapBefore.toFixed(1)}MB, after=${heapAfter.toFixed(1)}MB, growth=${growth.toFixed(1)}MB`);
+}
+
+async function checkLoadCycleStability() {
+    this.timeout(60000);
+    const samples = [];
+
+    for (let cycle = 0; cycle < 3; cycle++) {
+        await runAutocannon({
+            url:         getServerUrl() + '/RBTC/api/sends/50/block',
+            connections: 10,
+            duration:    5,
+        });
+        forceGC();
+        samples.push(heapMB());
+    }
+
+    // Heap should not grow monotonically across 3 cycles (trend < 30MB)
+    const trend = samples[2] - samples[0];
+    expect(trend).to.be.below(30,
+        `Heap trend across 3 cycles: +${trend.toFixed(1)}MB (samples: ${samples.map(s => s.toFixed(1)).join(', ')}) - possible accumulation`);
+
+    console.log(`    Heap across cycles: ${samples.map(s => s.toFixed(1) + 'MB').join(' -> ')}`);
+}
+
+async function checkCacheBound() {
+    this.timeout(30000);
+
+    // Hit many different addresses/tokens to exercise cache
+    const base = getServerUrl();
+    await runAutocannon({
+        url:         base + '/RBTC/explorer/tokens',
+        connections: 10,
+        duration:    5,
+    });
+
+    forceGC();
+    const heapSnapshot = heapMB();
+
+    // Heap should be reasonable (< 200MB) even after filling caches
+    expect(heapSnapshot).to.be.below(200,
+        `Heap is ${heapSnapshot.toFixed(1)}MB (caches may be unbounded)`);
+}
+
 describe('Memory stability: heap usage under load', function () {
 
     before(async function () {
@@ -49,74 +119,10 @@ describe('Memory stability: heap usage under load', function () {
         await db.closePool();
     });
 
-    it('heap growth stays below 50MB during 15s sustained load', async function () {
-        this.timeout(45000);
+    it('heap growth stays below 50MB during 15s sustained load', checkSustainedLoadGrowth);
 
-        // Warm up: let JIT settle and caches fill
-        await runAutocannon({
-            url:         getServerUrl() + '/RBTC/explorer/tokens',
-            connections: 5,
-            duration:    3,
-        });
+    it('heap usage is stable across multiple load cycles', checkLoadCycleStability);
 
-        forceGC();
-        const heapBefore = heapMB();
-
-        await runAutocannon({
-            url:         getServerUrl() + '/RBTC/explorer/tokens',
-            connections: 10,
-            duration:    15,
-        });
-
-        forceGC();
-        const heapAfter = heapMB();
-        const growth    = heapAfter - heapBefore;
-
-        expect(growth).to.be.below(50,
-            `Heap grew by ${growth.toFixed(1)}MB during sustained load (possible memory leak)`);
-
-        console.log(`    Heap: before=${heapBefore.toFixed(1)}MB, after=${heapAfter.toFixed(1)}MB, growth=${growth.toFixed(1)}MB`);
-    });
-
-    it('heap usage is stable across multiple load cycles', async function () {
-        this.timeout(60000);
-        const samples = [];
-
-        for (let cycle = 0; cycle < 3; cycle++) {
-            await runAutocannon({
-                url:         getServerUrl() + '/RBTC/api/sends/50/block',
-                connections: 10,
-                duration:    5,
-            });
-            forceGC();
-            samples.push(heapMB());
-        }
-
-        // Heap should not grow monotonically across 3 cycles (trend < 30MB)
-        const trend = samples[2] - samples[0];
-        expect(trend).to.be.below(30,
-            `Heap trend across 3 cycles: +${trend.toFixed(1)}MB (samples: ${samples.map(s => s.toFixed(1)).join(', ')}) - possible accumulation`);
-
-        console.log(`    Heap across cycles: ${samples.map(s => s.toFixed(1) + 'MB').join(' -> ')}`);
-    });
-
-    it('LRU caches do not grow unboundedly', async function () {
-        this.timeout(30000);
-
-        // Hit many different addresses/tokens to exercise cache
-        const base = getServerUrl();
-        await runAutocannon({
-            url:         base + '/RBTC/explorer/tokens',
-            connections: 10,
-            duration:    5,
-        });
-
-        forceGC();
-        const heapSnapshot = heapMB();
-
-        // Heap should be reasonable (< 200MB) even after filling caches
-        expect(heapSnapshot).to.be.below(200,
-            `Heap is ${heapSnapshot.toFixed(1)}MB (caches may be unbounded)`);
-    });
+    it('LRU caches do not grow unboundedly', checkCacheBound);
 
 });

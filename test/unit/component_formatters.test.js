@@ -87,7 +87,9 @@ describe('formatters module (M2.1)', function () {
             assert.deepEqual(missing, [], 'not exported: ' + missing.join(', '));
         });
     });
+});
 
+describe('formatters module (M2.1)', function () {
     describe('the name table the column configs bind to', function () {
 
         it('resolves each registered name to the shipped function', function () {
@@ -123,7 +125,9 @@ describe('formatters module (M2.1)', function () {
             } finally { console.error = real; }
         });
     });
+});
 
+describe('formatters module (M2.1)', function () {
     describe('behaviour carried across the move', function () {
 
         it('formatAmount renders nothing for an absent amount, never the word null', function () {
@@ -156,7 +160,11 @@ describe('formatters module (M2.1)', function () {
             const evil = F.formatHash('<img src=x onerror=alert(1)>'.repeat(3), 10);
             assert.equal(evil.includes('<img'), false);
         });
+    });
+});
 
+describe('formatters module (M2.1)', function () {
+    describe('behaviour carried across the move', function () {
         it('escapeHtml neutralises every character that can break out of markup', function () {
             assert.equal(F.escapeHtml('<a href="x">&\'</a>'),
                 '&lt;a href=&quot;x&quot;&gt;&amp;&#39;&lt;/a&gt;');

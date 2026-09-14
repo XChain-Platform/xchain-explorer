@@ -91,6 +91,10 @@ describe('detail pages resolve XC.query', function () {
         });
     }
 
+});
+
+describe('detail pages resolve XC.query', function () {
+
     it('numeric-id detail types validate their id', function () {
         // Block heights and action indices belong in the numeric branch; without it a
         // non-numeric segment is passed straight through to the API.

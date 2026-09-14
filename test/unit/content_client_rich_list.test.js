@@ -187,6 +187,10 @@ describe('rich list and supply stats (M5.2)', function () {
         });
     });
 
+});
+
+describe('rich list and supply stats (M5.2)', function () {
+
     describe('holder ranking', function () {
 
         it('renders one row per ranked holder, carrying the server rank', function () {
@@ -233,6 +237,10 @@ describe('rich list and supply stats (M5.2)', function () {
             expect($('.rich-list-address img').length).to.equal(0);
         });
     });
+
+});
+
+describe('rich list and supply stats (M5.2)', function () {
 
     describe('the shipped page', function () {
 

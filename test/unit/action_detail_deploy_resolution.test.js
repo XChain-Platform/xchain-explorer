@@ -152,6 +152,18 @@ function makeDb(type, rows) {
 const config = { coin: 'BTC', data: {} };
 
 describe('chunked DEPLOY: which action deployed the contract', function () {
+    // A field that never leaves the SQL is not a contract the clients can build
+    // against, and the two aliases are what row 12 and row 13 poll by name.
+    it('the shipped format-2/3 query publishes both fields under their contract names', async function () {
+        const sql = await shippedQuery(2);
+        assert.match(sql, /as\s+deployed_contract_index/);
+        assert.match(sql, /as\s+assembly_status/);
+        assert.match(sql, /assembler_action_index=m\.action_index/,
+            'the reverse lookup is what finds the action that completed the group');
+    });
+});
+
+describe('chunked DEPLOY: which action deployed the contract', function () {
 
     describe('the format-2/3 assembler, resolved by running the shipped SQL', function () {
 
@@ -180,6 +192,18 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
             assert.equal(row.deployed_contract_index, null);
             assert.equal(row.assembly_status, PENDING_S,
                 'a client polling this must see it is still waiting, not a terminal answer');
+        });
+
+    });
+
+});
+
+describe('chunked DEPLOY: which action deployed the contract', function () {
+
+    describe('the format-2/3 assembler, resolved by running the shipped SQL', function () {
+
+        beforeEach(function () {
+            if (!sqlite) this.skip();
         });
 
         it('a pending assembler consumed by a VALID carrier answers that carrier index', async function () {
@@ -217,6 +241,10 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
             assert.equal(row.assembly_status, MISMATCH_S);
         });
     });
+
+});
+
+describe('chunked DEPLOY: which action deployed the contract', function () {
 
     describe('the format-4 carrier probe, driven through the shipped afterMain', function () {
 
@@ -263,6 +291,10 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
             assert.equal(data.deployed_contract_index, 305, 'the query answer was overwritten');
         });
     });
+
+});
+
+describe('chunked DEPLOY: which action deployed the contract', function () {
 
     // The contract identity manifest on the DEPLOY payload (spec
     // contract-meta-manifest 2.6): the wallet and the explorer both render
@@ -316,6 +348,10 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         });
     });
 
+});
+
+describe('chunked DEPLOY: which action deployed the contract', function () {
+
     describe('the fields reach the API response', function () {
 
         it('a format-2/3 DEPLOY response carries both fields', async function () {
@@ -345,67 +381,6 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         });
     });
 
-    // D49. The pending answer is the one that MUST NOT be frozen: the action LRU
-    // has no TTL and only a reorg invalidates it, so a null cached while the group
-    // was incomplete would be served for the life of the process - to the very
-    // clients polling this endpoint to learn where their contract landed. Nothing
-    // rewrites the assembler's response when the group completes; the values simply
-    // resolve differently on the next read, which the cache would prevent.
-    describe('the action cache refuses a pending response', function () {
-
-        function db() {
-            const configInfo = createConfigInfoStub();
-            return new Database({ configInfo, util: new Utility(configInfo) });
-        }
-
-        it('refuses a pending assembler, whose deployed_contract_index resolves later', function () {
-            assert.equal(db().isCacheableAction({
-                action: 'DEPLOY', action_index: 300, action_format: 2, status: PENDING_S,
-                deployed_contract_index: null, assembly_status: PENDING_S
-            }), false);
-        });
-
-        it('still caches the same DEPLOY once it has deployed', function () {
-            assert.equal(db().isCacheableAction({
-                action: 'DEPLOY', action_index: 300, action_format: 2, status: 'valid',
-                deployed_contract_index: 300, assembly_status: 'valid'
-            }), true, 'a settled deploy is immutable and the LRU exists for it');
-        });
-
-        it('caches a deferred assembler whose consuming carrier failed, a terminal answer', function () {
-            assert.equal(db().isCacheableAction({
-                action: 'DEPLOY', action_index: 400, action_format: 2, status: MISMATCH_S,
-                deployed_contract_index: null, assembly_status: MISMATCH_S
-            }), true);
-        });
-
-        it('matches the status, not the new fields: every other DEPLOY stays cacheable', function () {
-            // deployed_contract_index is on EVERY deploy response, so listing it in
-            // MUTABLE_ACTION_FIELDS (which matches by presence) would uncache the
-            // whole action type for a mutation only the pending case has.
-            assert.equal(Database.MUTABLE_ACTION_FIELDS.includes('deployed_contract_index'), false);
-            assert.equal(Database.MUTABLE_ACTION_FIELDS.includes('assembly_status'), false);
-        });
-
-        it('a pending response stays absent from the LRU, so the next read resolves it', function () {
-            const d   = db();
-            const key = d.cacheKey('BTC', 300);
-            const pending = { action: 'DEPLOY', action_index: 300, status: PENDING_S, deployed_contract_index: null };
-            if (d.isCacheableAction(pending)) d.cacheSet(d._actionDataCache, key, pending);
-            assert.equal(d.cacheGet(d._actionDataCache, key), undefined);
-            const done = { action: 'DEPLOY', action_index: 300, status: 'valid', deployed_contract_index: 305 };
-            if (d.isCacheableAction(done)) d.cacheSet(d._actionDataCache, key, done);
-            assert.deepEqual(d.cacheGet(d._actionDataCache, key), done);
-        });
-    });
-
-    // A field that never leaves the SQL is not a contract the clients can build
-    // against, and the two aliases are what row 12 and row 13 poll by name.
-    it('the shipped format-2/3 query publishes both fields under their contract names', async function () {
-        const sql = await shippedQuery(2);
-        assert.match(sql, /as\s+deployed_contract_index/);
-        assert.match(sql, /as\s+assembly_status/);
-        assert.match(sql, /assembler_action_index=m\.action_index/,
-            'the reverse lookup is what finds the action that completed the group');
-    });
 });
+
+require('./action_detail_deploy_resolution.test/cache.js');

@@ -58,6 +58,13 @@ function loadAll(){
     SOURCE.loadComponents(NAMES);
 }
 
+function realm(html){
+    const dom = new JSDOM('<!doctype html><html><body>' + html + '</body></html>',
+        { runScripts: 'outside-only' });
+    global.document = dom.window.document;
+    return dom;
+}
+
 describe('component library (M2.4)', function () {
 
     describe('the library exists as declared things', function () {
@@ -100,7 +107,11 @@ describe('component library (M2.4)', function () {
             // disagrees is documentation that lies to the theme author reading it.
             assert.deepEqual(wrong, [], wrong.join('\n'));
         });
+    });
+});
 
+describe('component library (M2.4)', function () {
+    describe('the library exists as declared things', function () {
         it('loads every component script and stylesheet from the shell', function () {
             const shell = fs.readFileSync(path.join(HTML_DIR, 'template.html'), 'utf8');
             const missing = [];
@@ -123,7 +134,9 @@ describe('component library (M2.4)', function () {
                 'the explorer no longer mounts the shared static list');
         });
     });
+});
 
+describe('component library (M2.4)', function () {
     describe('the shell chrome extraction', function () {
 
         it('composes byte-for-byte the shell that shipped before the extraction', function () {
@@ -174,16 +187,10 @@ describe('component library (M2.4)', function () {
             assert.throws(() => componentTpl.template('../../js/xchain'), /escapes the component directory|ENOENT/);
         });
     });
+});
 
+describe('component library (M2.4)', function () {
     describe('the mounts that could not be composed', function () {
-
-        function realm(html){
-            const dom = new JSDOM('<!doctype html><html><body>' + html + '</body></html>',
-                { runScripts: 'outside-only' });
-            global.document = dom.window.document;
-            return dom;
-        }
-
         afterEach(function(){ delete global.document; });
 
         beforeEach(function(){ loadAll(); });
@@ -229,6 +236,14 @@ describe('component library (M2.4)', function () {
                 assert.deepEqual(applied, ['light']);
             } finally { delete global.updateTheme; }
         });
+    });
+});
+
+describe('component library (M2.4)', function () {
+    describe('the mounts that could not be composed', function () {
+        afterEach(function(){ delete global.document; });
+
+        beforeEach(function(){ loadAll(); });
 
         it('tab-panel reorders the tab buttons to match the config', function () {
             realm('<div id="p"></div>'
@@ -268,6 +283,14 @@ describe('component library (M2.4)', function () {
             assert.equal(document.getElementById('c').classList.contains('d-none'), false);
             assert.deepEqual([...document.querySelectorAll('#c tbody tr')].map((r) => r.id), ['r1', 'r0']);
         });
+    });
+});
+
+describe('component library (M2.4)', function () {
+    describe('the mounts that could not be composed', function () {
+        afterEach(function(){ delete global.document; });
+
+        beforeEach(function(){ loadAll(); });
 
         it('qr-card refuses loudly when the QR plugin is not loaded, instead of an empty square', function () {
             realm('<div id="q"></div>');

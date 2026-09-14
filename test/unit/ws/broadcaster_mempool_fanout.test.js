@@ -153,6 +153,10 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
         expect(frames(src)[0].data.destinations).to.deep.equal([]);
     });
 
+});
+
+describe('Broadcaster mempool destination fan-out (M1.1)', () => {
+
     it('the GLOBAL mempool frame carries first_seen and NOT destinations (I-43)', async () => {
         const venue  = mkVenue({ destAddr: 42 });
         subscribeAddress(venue, 2, 'destAddr');
@@ -209,6 +213,10 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
         expect(got[0].data).to.not.have.property('destinations');
     });
 
+});
+
+describe('Broadcaster mempool destination fan-out (M1.1)', () => {
+
     // The removal path re-runs the matcher against CURRENT subscribers rather
     // than a set remembered at action time (I-44), so a client that subscribed
     // between the two frames still gets the removal.
@@ -226,6 +234,8 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
         expect(frames(dest).map((f) => f.type)).to.deep.equal(['MEMPOOL_REMOVED']);
     });
 
+});
+
     // Both handlers are async now, and ChangeDetector's emit awaits nothing, so
     // without the per-coin tail a burst could deliver the removal first (I-45).
     //
@@ -235,6 +245,8 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
     // started (and the removal then hits the memo); concurrent, both handlers
     // start together and the removal, whose lookup returns instantly, overtakes
     // the action it belongs to.
+describe('Broadcaster mempool destination fan-out (M1.1)', () => {
+
     it('keeps ACTION before REMOVED for a burst emitted synchronously', async () => {
         const venue = mkVenue({ destAddr: 42 });
         const dest  = subscribeAddress(venue, 2, 'destAddr');
@@ -266,6 +278,29 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
 
         expect(frames(dest).map((f) => f.type)).to.deep.equal(['MEMPOOL_ACTION', 'MEMPOOL_REMOVED']);
     });
+
+});
+
+describe('Broadcaster mempool destination fan-out (M1.1)', () => {
+
+    it('survives a db-layer id lookup failure by falling back to literal matching', async () => {
+        const venue = mkVenue({});
+        venue.db.getExactAddressId = sinon.stub().rejects(new Error('db down'));
+        const literal = subscribeAddress(venue, 1, 'literalDest');
+        const compact = subscribeAddress(venue, 2, 'destAddr');
+
+        venue.changeDetector.emit('mempool_action', 'RBTC', {
+            tx_hash: 'cc33', source: 'srcAddr', action: 'SEND',
+            data: 'SEND|0|TOK|5|literalDest|^42', first_seen: null
+        });
+        await settle(venue);
+
+        expect(frames(literal)).to.have.lengthOf(1);
+        expect(compact.ws.send.called).to.equal(false);
+    });
+});
+
+describe('Broadcaster mempool destination fan-out (M1.1)', () => {
 
     describe('address-id memoization', () => {
 
@@ -320,19 +355,4 @@ describe('Broadcaster mempool destination fan-out (M1.1)', () => {
         });
     });
 
-    it('survives a db-layer id lookup failure by falling back to literal matching', async () => {
-        const venue = mkVenue({});
-        venue.db.getExactAddressId = sinon.stub().rejects(new Error('db down'));
-        const literal = subscribeAddress(venue, 1, 'literalDest');
-        const compact = subscribeAddress(venue, 2, 'destAddr');
-
-        venue.changeDetector.emit('mempool_action', 'RBTC', {
-            tx_hash: 'cc33', source: 'srcAddr', action: 'SEND',
-            data: 'SEND|0|TOK|5|literalDest|^42', first_seen: null
-        });
-        await settle(venue);
-
-        expect(frames(literal)).to.have.lengthOf(1);
-        expect(compact.ws.send.called).to.equal(false);
-    });
 });

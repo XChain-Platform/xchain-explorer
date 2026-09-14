@@ -723,8 +723,12 @@ describe('Utility', function () {
 
         let u;
         let stub;
+        let timerStub;
         before(function () { u = makeUtil(); });
-        afterEach(function () { if (stub) { stub.restore(); stub = null; } });
+        afterEach(function () {
+            if (stub) { stub.restore(); stub = null; }
+            if (timerStub) { timerStub.restore(); timerStub = null; }
+        });
 
         it('logs one TIMER event', function () {
             stub = sinon.stub(log, 'info');
@@ -762,14 +766,15 @@ describe('Utility', function () {
 
         it('does not append tab section when getTimer returns 0 (empty timeString)', function () {
             stub = sinon.stub(log, 'info');
-            // Pass Date.now() so getTimer returns ~0, millisecondsToTimeString(0) returns ''
-            const t = Date.now();
-            u.logTimer(t, 'Quick');
+            // Stub getTimer itself rather than racing Date.now(): a real clock read
+            // can tick past 0ms on a slow run and make the empty-timeString branch
+            // untestable, so force it deterministically instead.
+            timerStub = sinon.stub(u, 'getTimer').returns(0);
+            u.logTimer(0, 'Quick');
             const output = stub.firstCall.args[1].timer;
-            // At ~0ms timeString is '', so no tab section should be appended.
-            // A slow run can tick past 0ms and print a timing, so a tab is tolerated, which
-            // means this check alone cannot catch the condition being forced to always true.
-            expect(output).to.satisfy(s => s === 'Quick' || s.includes('\t'));
+            // millisecondsToTimeString(0) is '', so logTimer must skip the tab/elapsed
+            // suffix entirely: the label alone, nothing appended.
+            expect(output).to.equal('Quick');
         });
 
     });

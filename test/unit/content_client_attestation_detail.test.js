@@ -44,236 +44,10 @@
 
 'use strict';
 
-const fs   = require('fs');
-const path = require('path');
-const { JSDOM } = require('jsdom');
-const { expect } = require('chai');
-
-// formatters.js is read alongside xchain.js because the cell-rendering helpers
-// (isNull, escapeHtml, formatAmount, formatHash, formatLivestamp) moved there
-// in the component milestone. Concatenated rather than switched, so this file
-// keeps naming ONE source for every helper it lifts and does not have to know
-// which of the two a given function ended up in.
-const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/attestation_detail_render.js'), 'utf8');
-const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/attestation.html'), 'utf8');
-const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
-
-// Slice a top-level function out of the source by walking braces, so the test
-// runs shipped code rather than a copy that can drift.
-function extractFn(src, name) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
-
-// Helpers the renders lean on, kept naive so anything the assertions observe is
-// the render's own doing. isNull is the REAL one out of xchain.js: every
-// present/absent decision on this page is expressed through it, so a stub would
-// be testing the stub.
-function installHelpers(dom) {
-    dom.window.eval(JQUERY_SRC);
-    dom.window.eval(`
-        var XC = { coin: 'RBTC', query: 'a'.repeat(64), name: 'Bitcoin', network: 'regtest', pageInfo: {}, datatables: {} };
-        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
-        function formatLivestamp(t){ return '<span class="livestamp">a while ago</span>'; }
-        function updatePageInfo(){}
-        function loadDatatablesData(){ window.__datatable = Array.prototype.slice.call(arguments); }
-        var numeral = function(n){ return { format: function(){ return String(n); } }; };
-        ${extractFn(XCHAIN_SRC, 'isNull')}
-        ${extractFn(XCHAIN_SRC, 'siblingCoin')}
-    `);
-    dom.window.eval(RENDER_SRC);
-}
-
-function renderDom() {
-    const dom = new JSDOM('<!DOCTYPE html><body><div id="out"></div></body>', { runScripts: 'outside-only' });
-    installHelpers(dom);
-    return dom;
-}
-
-// Drop a render's HTML into the DOM exactly as attestation.html hands it to .html().
-function paint(dom, html) {
-    dom.window.$('#out').html(html);
-    return dom.window.$;
-}
-
-/* ------------------------------------------------------------------ *
- * Whole-page harness: evaluates attestation.html's SHIPPED inline
- * script with $.getJSON answering from a stubbed route table.
- * ------------------------------------------------------------------ */
-function loadPage(routes, query) {
-    const bodyHtml = PAGE_HTML.slice(0, PAGE_HTML.indexOf('<script'));
-    const scriptStart = PAGE_HTML.indexOf('$(document).ready(function() {');
-    if (scriptStart < 0) throw new Error("attestation.html's inline ready block was not found");
-    const inline = PAGE_HTML.slice(scriptStart, PAGE_HTML.lastIndexOf('</script>'));
-
-    const dom = new JSDOM('<!DOCTYPE html><body>' + bodyHtml + '</body>', { runScripts: 'outside-only' });
-    installHelpers(dom);
-    // Compared against undefined rather than truthiness so a caller can plant the
-    // ABSENT ids (null, '') this suite has to drive; a truthiness check would have
-    // silently handed those cases the harness default instead.
-    if (query !== undefined) dom.window.eval('XC.query = ' + JSON.stringify(query) + ';');
-
-    // Run the ready callback synchronously so the assertions do not race
-    // jQuery's deferred ready queue. Harness-only; the page is untouched.
-    dom.window.eval('jQuery.fn.ready = function(fn){ fn(jQuery); return this; };');
-
-    const seen = [];
-    dom.window.$.getJSON = function (url, cb) {
-        seen.push(url);
-        const r = Object.prototype.hasOwnProperty.call(routes, url) ? routes[url] : undefined;
-        let xhr = null;
-        if (r === undefined) {
-            xhr = { status: 404, responseJSON: { error: 'The requested resource was not found.', code: 'NOT_FOUND' } };
-        } else if (r && r.__fail) {
-            xhr = r.__fail;
-        } else {
-            cb(r);
-        }
-        return { fail: function (f) { if (xhr) f(xhr); return this; } };
-    };
-
-    dom.window.eval(inline);
-    return { $: dom.window.$, seen, window: dom.window };
-}
-
-/* ------------------------------- fixtures -------------------------------
- * Column names below are exactly the ones getAttestation selects out of
- * `attests` (src/db.js getAttestation), plus the three it derives:
- * request.callback_params, request.responsible_set, response.quorum_signatures.
- * ------------------------------------------------------------------------ */
-
-const REQ_ID = 'b'.repeat(64);
-
-function requestLeg(over) {
-    return Object.assign({
-        action: 'attest', action_index: 5100, action_format: 0, version: 0,
-        request_id: REQ_ID, provider_id: 'http_get', contract_index: 12,
-        source: 'mSourceAddr', fee_payer: 'mFeePayerAddr',
-        payload: 'https://example.invalid/price', callback_method: 'onPrice',
-        callback_params_json: '{"pair":"XCP/BTC"}', callback_params: { pair: 'XCP/BTC' },
-        redundancy: 3, deadline_block: 900, gas_escrow: '100000',
-        fee_tick: 'XCHAIN', fee_amount: '50000',
-        request_status: 'fulfilled', resolved_block: 861,
-        responsible_set_json: '["' + 'c'.repeat(64) + '"]',
-        responsible_set: ['c'.repeat(64), 'd'.repeat(64)],
-        origin_chain: null, origin_action_index: null,
-        response_hash: null, response_payload: null, response_status: null,
-        meta: null, validator_signatures: null, callback_execute_action_index: null,
-        block_index: 850, timestamp: 1700000000, tx_hash: 'aa'.repeat(32), tx_index: 7,
-        status: 'valid'
-    }, over || {});
-}
-
-function responseLeg(over) {
-    return Object.assign({
-        action: 'attest', action_index: 5150, action_format: 1, version: 1,
-        request_id: REQ_ID, provider_id: 'http_get', contract_index: 12,
-        source: 'mValidatorAddr', fee_payer: null,
-        payload: null, callback_method: null, callback_params_json: null,
-        redundancy: null, deadline_block: null, gas_escrow: null,
-        fee_tick: null, fee_amount: null,
-        request_status: null, resolved_block: null, responsible_set_json: null,
-        origin_chain: null, origin_action_index: null,
-        response_hash: 'e'.repeat(64), response_payload: '{"price":"0.00012"}',
-        response_status: 'ok', meta: 'http 200',
-        validator_signatures: null,
-        quorum_signatures: [
-            { pubkey: 'c'.repeat(64), sig: '11'.repeat(32) },
-            { pubkey: 'd'.repeat(64), sig: '22'.repeat(32) }
-        ],
-        callback_execute_action_index: 5175,
-        block_index: 861, timestamp: 1700000600, tx_hash: 'bb'.repeat(32), tx_index: 9,
-        status: 'valid'
-    }, over || {});
-}
-
-// COMPLETED: v0 request fulfilled, v1 response with provider payload and quorum
-// signatures, callback executed.
-function completed() {
-    const req = requestLeg();
-    const res = responseLeg();
-    return {
-        query: REQ_ID, request_id: REQ_ID, provider_id: 'http_get',
-        legs: [req, res], request: req, response: res,
-        expiry: { request_status: 'fulfilled', deadline_block: 900, resolved_block: 861, expired: false },
-        relay: { is_relay: false, origin_chain: null, origin_action_index: null, response_relayed: false },
-        callback_execute_action_index: 5175
-    };
-}
-
-// EXPIRED: the expiry sweep flipped the stored status. No v1 row, no v2 row
-// (ATTEST v2 writes none), resolved_block stamped at the sweep.
-// EXPIRED, with the expire action and the injected callback UNRESOLVED. The server
-// leaves both null when the block's expire actions and expired requests do not line
-// up (db.correlateAttestationExpiries refuses to guess), so this is the shape the
-// page must still render without inventing a link.
-function expired() {
-    const req = requestLeg({ request_status: 'expired', resolved_block: 901, callback_execute_action_index: null });
-    return {
-        query: REQ_ID, request_id: REQ_ID, provider_id: 'http_get',
-        legs: [req], request: req, response: null,
-        expiry: { request_status: 'expired', deadline_block: 900, resolved_block: 901, expired: true,
-                  expire_action_index: null },
-        relay: { is_relay: false, origin_chain: null, origin_action_index: null, response_relayed: false },
-        callback_execute_action_index: null, callback_execute_derived: false
-    };
-}
-
-// The ordinary expiry: the v2 expire action was resolved, and the callback EXECUTE
-// the sweep injected was matched on the execution's own columns (there is no v1
-// response row after an expiry, so nothing stamped attests.callback_execute_action_index).
-function expiredLinked() {
-    const d = expired();
-    d.expiry.expire_action_index = 5101;
-    d.callback_execute_action_index = 5102;
-    d.callback_execute_derived = true;
-    return d;
-}
-
-// PENDING PAST ITS DEADLINE: deadline_block is BEHIND every block in the round
-// and the sweep has not run. The server keeps this as 'pending'/expired:false,
-// and so must the page.
-function pendingPastDeadline() {
-    const req = requestLeg({
-        request_status: 'pending', resolved_block: null,
-        deadline_block: 400, block_index: 350
-    });
-    return {
-        query: REQ_ID, request_id: REQ_ID, provider_id: 'http_get',
-        legs: [req], request: req, response: null,
-        expiry: { request_status: 'pending', deadline_block: 400, resolved_block: null, expired: false },
-        relay: { is_relay: false, origin_chain: null, origin_action_index: null, response_relayed: false },
-        callback_execute_action_index: null
-    };
-}
-
-// RELAY: a request materialized on this chain from an LTC origin (ATTEST v3),
-// answered here, and relayed back (ATTEST v4). Both legs carry the origin
-// columns; ordinary v0/v1 rows is all they are in the table.
-function relayed() {
-    const req = requestLeg({ origin_chain: 'LTC', origin_action_index: 44100 });
-    const res = responseLeg({ origin_chain: 'LTC', origin_action_index: 44100 });
-    return {
-        query: REQ_ID, request_id: REQ_ID, provider_id: 'http_get',
-        legs: [req, res], request: req, response: res,
-        expiry: { request_status: 'fulfilled', deadline_block: 900, resolved_block: 861, expired: false },
-        relay: { is_relay: true, origin_chain: 'LTC', origin_action_index: 44100, response_relayed: true },
-        callback_execute_action_index: 5175
-    };
-}
-
-const URL_FOR = q => '/RBTC/api/attestation/' + q;
+const {
+    expect, renderDom, paint, loadPage, REQ_ID, requestLeg, responseLeg,
+    completed, expired, expiredLinked, pendingPastDeadline, relayed, URL_FOR
+} = require('./content_client_attestation_detail.test/helpers.js');
 
 /* -------------------------------- tests -------------------------------- */
 
@@ -318,7 +92,11 @@ describe('attestation.html detail page @regression', function () {
             expect(byKey.expiry.note).to.equal('not recorded as expired');
             expect(byKey.callback.reached).to.equal(false);
         });
+    });
+});
 
+describe('attestation.html detail page @regression', function () {
+    describe('expiry: the stored terminal state, never a deadline comparison', function () {
         it('[expired] the stored expired state renders the expired verdict and the reached expiry stage', function () {
             const dom = renderDom();
             const d = expired();
@@ -354,7 +132,11 @@ describe('attestation.html detail page @regression', function () {
             const $l = paint(dom, dom.window.renderAttestationLifecycle(d));
             expect($l('[data-stage="expiry"]').text()).to.contain('action 5101');
         });
+    });
+});
 
+describe('attestation.html detail page @regression', function () {
+    describe('expiry: the stored terminal state, never a deadline comparison', function () {
         it('[expired] links the injected callback EXECUTE, which no response panel exists to carry', function () {
             const dom = renderDom();
             const d = expiredLinked();
@@ -407,7 +189,9 @@ describe('attestation.html detail page @regression', function () {
             expect($l('[data-stage="callback"]').attr('data-reached')).to.equal('true');
         });
     });
+});
 
+describe('attestation.html detail page @regression', function () {
     describe('request and response panels', function () {
 
         it('[completed] the v0 request shows provider, redundancy requirement, deadline and payload', function () {
@@ -452,7 +236,11 @@ describe('attestation.html detail page @regression', function () {
             expect($('.attestation-no-response').length).to.equal(1);
             expect($('.attestation-signature').length).to.equal(0);
         });
+    });
+});
 
+describe('attestation.html detail page @regression', function () {
+    describe('request and response panels', function () {
         // attests.batch_action_index. Three distinct states, and the two NULL ones
         // mean opposite things: a mirror-applied response (no transaction of its
         // own) is WAITING for the ATTEST v5/v6 batch that carries its body, while a
@@ -490,7 +278,11 @@ describe('attestation.html detail page @regression', function () {
                     'page coin ' + pageCoin + ' should link ' + expected).to.equal(1);
             }
         });
+    });
+});
 
+describe('attestation.html detail page @regression', function () {
+    describe('request and response panels', function () {
         it('[batch] says the body is not on chain YET for a mirror-applied response', function () {
             const dom = renderDom();
             const d = completed();
@@ -519,207 +311,6 @@ describe('attestation.html detail page @regression', function () {
             expect($('.attestation-response-rounds-note').text()).to.contain('2 response rounds');
         });
     });
-
-    describe('relay legs', function () {
-
-        it('[relay] the origin chain and origin action are named, and the relayed response is marked', function () {
-            const dom = renderDom();
-            const $ = paint(dom, dom.window.renderAttestationRelay(relayed()));
-            expect($('.attestation-relay-origin').attr('data-relay')).to.equal('true');
-            expect($('.attestation-relay-native').length).to.equal(0);
-            expect($('.attestation-relay-chain').text()).to.equal('LTC');
-            expect($('.attestation-relay-origin-action').text()).to.equal('44100');
-            expect($('.attestation-relay-response').length).to.equal(1);
-        });
-
-        it('[relay] both relay legs are marked in the leg table, with the origin action shown', function () {
-            const dom = renderDom();
-            const $ = paint(dom, dom.window.renderAttestationLegs(relayed()));
-            const rows = $('tr.attestation-leg');
-            expect(rows.length).to.equal(2);
-            expect($('tr.attestation-leg-relay').length).to.equal(2);
-            expect(rows.eq(0).attr('data-relay-leg')).to.equal('true');
-            expect($('.attestation-leg-relay-badge').eq(0).text()).to.contain('relay from LTC');
-            expect($('.attestation-leg-origin-action').eq(0).text()).to.equal('44100');
-            expect($('.attestation-leg-native').length).to.equal(0);
-        });
-
-        it('[native] a non-relay attestation states the fact and raises no warning', function () {
-            const dom = renderDom();
-            const $ = paint(dom, dom.window.renderAttestationRelay(completed()));
-            expect($('.attestation-relay-native').attr('data-relay')).to.equal('false');
-            expect($('.attestation-relay-origin').length).to.equal(0);
-            // A missing relay is the ordinary case, so nothing on this panel may
-            // read as a defect.
-            expect($('.alert-warning, .alert-danger, .text-bg-warning, .text-bg-danger').length).to.equal(0);
-            expect($('#out').text()).to.contain('no cross-chain relay leg');
-        });
-
-        it('[native] leg rows carrying no origin columns are marked native, not relay', function () {
-            const dom = renderDom();
-            const $ = paint(dom, dom.window.renderAttestationLegs(completed()));
-            expect($('tr.attestation-leg').length).to.equal(2);
-            expect($('tr.attestation-leg-relay').length).to.equal(0);
-            expect($('.attestation-leg-native').length).to.equal(2);
-            expect($('tr.attestation-leg').eq(0).attr('data-relay-leg')).to.equal('false');
-        });
-
-        it('[mixed] only the rows carrying origin columns are marked, in a round where one leg is native', function () {
-            const dom = renderDom();
-            const d = relayed();
-            // The response leg was NOT relayed back: it carries no origin columns.
-            d.legs = [d.legs[0], responseLeg({ origin_chain: null, origin_action_index: null })];
-            const $ = paint(dom, dom.window.renderAttestationLegs(d));
-            expect($('tr.attestation-leg-relay').length).to.equal(1);
-            expect($('.attestation-leg-native').length).to.equal(1);
-            expect($('tr.attestation-leg').eq(0).attr('data-relay-leg')).to.equal('true');
-            expect($('tr.attestation-leg').eq(1).attr('data-relay-leg')).to.equal('false');
-        });
-    });
-
-    describe('leg table', function () {
-
-        it('[completed] each leg is named by its version and carries its recorded state', function () {
-            const dom = renderDom();
-            const $ = paint(dom, dom.window.renderAttestationLegs(completed()));
-            const rows = $('tr.attestation-leg');
-            expect(rows.eq(0).attr('data-version')).to.equal('0');
-            expect(rows.eq(0).text()).to.contain('Request (v0)');
-            expect(rows.eq(0).text()).to.contain('fulfilled');
-            expect(rows.eq(1).attr('data-version')).to.equal('1');
-            expect(rows.eq(1).text()).to.contain('Response (v1)');
-            expect(rows.eq(1).text()).to.contain('ok');
-        });
-
-        it('[empty] an attestation with no legs says so instead of rendering an empty table', function () {
-            const dom = renderDom();
-            const $ = paint(dom, dom.window.renderAttestationLegs({ legs: [] }));
-            expect($('.attestation-no-legs').length).to.equal(1);
-            expect($('table.attestation-legs-table').length).to.equal(0);
-        });
-    });
-
-    describe('whole page: the shipped inline script', function () {
-
-        it('[completed] fetches the composed route once and fills every panel', function () {
-            const page = loadPage({ [URL_FOR(REQ_ID)]: completed() }, REQ_ID);
-            expect(page.seen).to.deep.equal([URL_FOR(REQ_ID)]);
-            expect(page.$('#attestation-request-id-value').text()).to.equal(REQ_ID);
-            expect(page.$('#attestation-provider-value').text()).to.equal('http_get');
-            expect(page.$('#attestation-leg-count').text()).to.equal('2');
-            expect(page.$('#attestation-status-badge .attestation-status').attr('data-status')).to.equal('fulfilled');
-            expect(page.$('#attestation-lifecycle [data-stage]').length).to.equal(4);
-            expect(page.$('#attestation-response .attestation-signature').length).to.equal(2);
-            expect(page.$('#attestation-relay .attestation-relay-native').length).to.equal(1);
-            expect(page.$('#attestation-legs tr.attestation-leg').length).to.equal(2);
-            expect(page.$('#attestation-expiry .attestation-expired').length).to.equal(0);
-        });
-
-        it('[completed] accepts the {total,data} envelope as well as the bare object', function () {
-            const page = loadPage({ [URL_FOR(REQ_ID)]: { total: 1, data: [completed()] } }, REQ_ID);
-            expect(page.$('#attestation-not-found').length).to.equal(0);
-            expect(page.$('#attestation-request-id-value').text()).to.equal(REQ_ID);
-        });
-
-        it('[expired] the whole page reports expiry and no response', function () {
-            const page = loadPage({ [URL_FOR(REQ_ID)]: expired() }, REQ_ID);
-            expect(page.$('#attestation-expiry .attestation-expired').attr('data-expired')).to.equal('true');
-            expect(page.$('#attestation-lifecycle [data-stage="expiry"]').attr('data-reached')).to.equal('true');
-            expect(page.$('#attestation-response .attestation-no-response').length).to.equal(1);
-        });
-
-        it('[pending-past-deadline] the whole page never reports the live request as expired', function () {
-            const page = loadPage({ [URL_FOR(REQ_ID)]: pendingPastDeadline() }, REQ_ID);
-            expect(page.$('#attestation-expiry .attestation-expired').length).to.equal(0);
-            expect(page.$('#attestation-expiry .attestation-not-expired').attr('data-expired')).to.equal('false');
-            expect(page.$('#attestation-lifecycle [data-stage="expiry"]').attr('data-reached')).to.equal('false');
-            expect(page.$('#attestation-status-badge .attestation-status').attr('data-status')).to.equal('pending');
-        });
-
-        it('[relay] the whole page marks the relay legs', function () {
-            const page = loadPage({ [URL_FOR(REQ_ID)]: relayed() }, REQ_ID);
-            expect(page.$('#attestation-relay .attestation-relay-origin').attr('data-relay')).to.equal('true');
-            expect(page.$('#attestation-legs tr.attestation-leg-relay').length).to.equal(2);
-        });
-
-        it('[not-found] a 404 renders an explicit not-found branch, not blank placeholders', function () {
-            const page = loadPage({}, 'nosuchid');
-            expect(page.seen).to.deep.equal([URL_FOR('nosuchid')]);
-            expect(page.$('#attestation-load-error').length).to.equal(1);
-            expect(page.$('#attestation-load-error').text()).to.equal('The requested resource was not found.');
-            expect(page.$('#attestation-lifecycle [data-stage]').length).to.equal(0);
-            expect(page.$('#attestation-headline').text()).to.not.contain('Loading');
-        });
-
-        it('[empty-body] a 200 with nothing usable renders the not-found branch', function () {
-            const page = loadPage({ [URL_FOR(REQ_ID)]: null }, REQ_ID);
-            expect(page.$('#attestation-not-found').length).to.equal(1);
-            expect(page.$('#attestation-legs').text()).to.equal('-');
-        });
-
-        it('[error] a non-404 failure surfaces the server error string in a danger row', function () {
-            const page = loadPage({
-                [URL_FOR(REQ_ID)]: { __fail: { status: 500, responseJSON: { error: 'A database error occurred while serving this request.', code: 'DB_ERROR' } } }
-            }, REQ_ID);
-            expect(page.$('#attestation-load-error').hasClass('text-danger')).to.equal(true);
-            expect(page.$('#attestation-load-error').text()).to.equal('A database error occurred while serving this request.');
-        });
-    });
-
-    /* XC.query is null on every attestation URL whose last path segment did not
-     * match a shape setXChainParams accepts (src/content/js/xchain.js). The page
-     * must not concatenate that null and ask the server about the attestation
-     * literally named "null": a 404 that painted the not-found branch, so a reader
-     * was told "no such attestation" when the truth was "this page never had an
-     * id", and the console filled with 404s that hide a real one. */
-    describe('an absent request id never becomes a path segment', function () {
-
-        [['null', null], ['empty string', '']].forEach(function (pair) {
-            it('[no-id] XC.query ' + pair[0] + ' issues NO request at all', function () {
-                const page = loadPage({}, pair[1]);
-                expect(page.seen, 'no request may be issued without an id').to.deep.equal([]);
-            });
-
-            it('[no-id] XC.query ' + pair[0] + ' says the id is missing, not that the attestation is', function () {
-                const page = loadPage({}, pair[1]);
-                expect(page.$('#attestation-missing-id').length).to.equal(1);
-                // The two dead ends mean different things and must not be confused:
-                // one is "bad address bar", the other "the server had nothing".
-                expect(page.$('#attestation-not-found').length).to.equal(0);
-                expect(page.$('#attestation-load-error').length).to.equal(0);
-                // and the page is not left sitting on its loading placeholders
-                expect(page.$('#attestation-headline').text()).to.not.contain('Loading');
-                expect(page.$('#attestation-legs').text()).to.equal('-');
-                expect(page.$('#attestation-lifecycle [data-stage]').length).to.equal(0);
-            });
-        });
-
-        it('[has-id] a real request id still reaches the composed route unchanged', function () {
-            const page = loadPage({ [URL_FOR(REQ_ID)]: completed() }, REQ_ID);
-            expect(page.seen).to.deep.equal([URL_FOR(REQ_ID)]);
-            expect(page.$('#attestation-missing-id').length).to.equal(0);
-        });
-
-        it('[hostile-id] a path-bearing id is escaped into ONE segment rather than steering the route', function () {
-            const page = loadPage({}, '../../admin');
-            expect(page.seen.length).to.equal(1);
-            expect(page.seen[0]).to.equal('/RBTC/api/attestation/..%2F..%2Fadmin');
-        });
-    });
-
-    describe('escaping', function () {
-
-        it('a script-bearing payload, meta and provider id reach the DOM as text', function () {
-            const dom = renderDom();
-            const d = completed();
-            d.request.payload = '<img src=x onerror=alert(1)>';
-            d.response.meta   = '<script>alert(2)</script>';
-            const $r = paint(dom, dom.window.renderAttestationRequest(d));
-            expect($r('.attestation-request-payload').text()).to.equal('<img src=x onerror=alert(1)>');
-            expect($r('#out img').length).to.equal(0);
-            const $s = paint(dom, dom.window.renderAttestationResponse(d));
-            expect($s('#out script').length).to.equal(0);
-            expect($s('#out').text()).to.contain('<script>alert(2)</script>');
-        });
-    });
 });
+
+require('./content_client_attestation_detail.test/page_and_relay.js');

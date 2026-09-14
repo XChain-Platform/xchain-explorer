@@ -48,7 +48,6 @@ function makeRelayReq(url) {
 }
 
 describe('XChainExplorer#processRelayRequest', function () {
-
     it('returns 503 when no url query parameter is provided', async function () {
         const explorer = makeExplorer({});
         const req = makeRelayReq(undefined);
@@ -96,7 +95,9 @@ describe('XChainExplorer#processRelayRequest', function () {
         // Those bytes come back to the page as a non-empty base64 string.
         expect(res._body).to.be.a('string').and.have.length.above(0);
     });
+});
 
+describe('XChainExplorer#processRelayRequest', function () {
     it('returns 400 for an ftp: protocol URL', async function () {
         const explorer = makeExplorer({});
         const req = makeRelayReq('ftp://example.com/file.json');
@@ -153,7 +154,9 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._status).to.equal(403);
         expect(res._body).to.deep.equal({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
     });
+});
 
+describe('XChainExplorer#processRelayRequest', function () {
     it('returns 403 for IPv6 loopback ::1', async function () {
         const explorer = makeExplorer({});
         const req = makeRelayReq('http://[::1]/token.json');
@@ -203,7 +206,9 @@ describe('XChainExplorer#processRelayRequest', function () {
             expect(axiosStub.get.called, 'axios must not be called for a private literal').to.be.false;
         });
     }
+});
 
+describe('XChainExplorer#processRelayRequest', function () {
     it('returns 400 when axios throws a network error', async function () {
         const axiosStub = {
             get: sinon.stub().rejects(new Error('ECONNREFUSED'))

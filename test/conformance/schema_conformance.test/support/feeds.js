@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { expect, ChangeDetector, INDEXER_DB, DECODER_DB, MEMPOOL_ACTION_STRING } = require('../schema_conformance.test.js');
+const { expect, ChangeDetector, INDEXER_DB, DECODER_DB, MEMPOOL_ACTION_STRING } = require('../../schema_conformance.test.js');
 
 /******************************************************************
  * 2. ChangeDetector WS-feed smoke: a fresh block must emit events

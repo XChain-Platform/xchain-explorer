@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { expect, renderDom, paint, loadPage, OPEN_POLL, CLOSED_POLL, CLOSED_RESULTS, OPEN_VOTES, DELEGATIONS, POLL_URL, RESULT_URL, VOTES_URL, DLG_URL } = require('../content_client_poll_detail.test.js');
+const { expect, renderDom, paint, loadPage, OPEN_POLL, CLOSED_POLL, CLOSED_RESULTS, OPEN_VOTES, DELEGATIONS, POLL_URL, RESULT_URL, VOTES_URL, DLG_URL } = require('../../content_client_poll_detail.test.js');
 
 describe('poll.html detail page @regression', function () {
     describe('open vs closed', function () {

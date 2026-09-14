@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { fs, path, express, mariadb, XChainExplorer, ChangeDetector, envView, DB_HOST, DB_PORT, DB_USER, DB_PASS, INDEXER_DB, DECODER_DB, FIXTURE_DB, HUB_DB, INDEXER_SQL_DIR, DECODER_SQL_DIR, HUB_SQL_DIR, MIRROR_SQL_DIR, FIXTURE_SCHEMA, HUB_LOCAL_TABLES, splitStatements, ddlFiles, migrationFiles } = require('../schema_conformance.test.js');
+const { fs, path, express, mariadb, XChainExplorer, ChangeDetector, envView, DB_HOST, DB_PORT, DB_USER, DB_PASS, INDEXER_DB, DECODER_DB, FIXTURE_DB, HUB_DB, INDEXER_SQL_DIR, DECODER_SQL_DIR, HUB_SQL_DIR, MIRROR_SQL_DIR, FIXTURE_SCHEMA, HUB_LOCAL_TABLES, splitStatements, ddlFiles, migrationFiles } = require('../../schema_conformance.test.js');
 
 const hasIndexerDdl = fs.existsSync(INDEXER_SQL_DIR);
 const hasDecoderDdl = fs.existsSync(DECODER_SQL_DIR);
@@ -56,7 +56,7 @@ async function loadSchema(dbName, files) {
 // (key RBTC) at the conformance schemas. Same shape the integration
 // harness uses; distinct DB names so the tiers never clobber each other.
 function createConfigInfo() {
-    const coinConfig = require('../../../src/coin-config/BTC.js').getConfig('regtest');
+    const coinConfig = require('../../../../src/coin-config/BTC.js').getConfig('regtest');
     const listeners  = [];
     const dbCreds    = { db_host: DB_HOST, db_port: DB_PORT, user: DB_USER, pass: DB_PASS };
     const config = {

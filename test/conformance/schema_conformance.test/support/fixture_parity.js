@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { fs, expect, FIXTURE_SCHEMA, FIXTURE_DB, INDEXER_DB } = require('../schema_conformance.test.js');
+const { fs, expect, FIXTURE_SCHEMA, FIXTURE_DB, INDEXER_DB } = require('../../schema_conformance.test.js');
 
 /******************************************************************
  * 3. Integration fixture snapshot must not drift from the real DDL

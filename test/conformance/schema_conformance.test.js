@@ -195,4 +195,4 @@ function migrationFiles(dir) {
 
 module.exports = { fs, path, express, mariadb, expect, XChainExplorer, ChangeDetector, makeConfig, envView, DB_HOST, DB_PORT, DB_USER, DB_PASS, INDEXER_DB, DECODER_DB, FIXTURE_DB, HUB_DB, INDEXER_SQL_DIR, DECODER_SQL_DIR, HUB_SQL_DIR, MIRROR_SQL_DIR, FIXTURE_SCHEMA, HUB_LOCAL_TABLES, PROBE_ARGS, MEMPOOL_ACTION_STRING, isSchemaError, splitStatements, ddlFiles, migrationFiles };
 
-require('./schema_conformance.test/suite.js');
+require('./schema_conformance.test/support/suite.js');

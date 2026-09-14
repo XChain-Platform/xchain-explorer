@@ -326,4 +326,4 @@ describe('client: the XCALL execute link is namespaced by the target chain', fun
 
 module.exports = { expect, panelHtml, voteDetail };
 
-require('./content_client_renderer_action_parity.test/vote_panels.js');
+require('./content_client_renderer_action_parity.test/support/vote_panels.js');

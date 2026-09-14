@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { expect, renderPage, domWithPage, loadPage, V5, V1, BUNDLE, BUNDLE_SECTIONS, PUBLISHER, TXID_V5, TXID_V1, COVERING_CHECKPOINT, LEGACY_TESTNET_BUNDLE } = require('../content_client_anchor_detail.test.js');
+const { expect, renderPage, domWithPage, loadPage, V5, V1, BUNDLE, BUNDLE_SECTIONS, PUBLISHER, TXID_V5, TXID_V1, COVERING_CHECKPOINT, LEGACY_TESTNET_BUNDLE } = require('../../content_client_anchor_detail.test.js');
 
 describe('anchor.html detail render @regression', function () {
     /* ------------------- activation gate: legacy rows ------------------ */
@@ -29,7 +29,7 @@ describe('anchor.html detail render @regression', function () {
     describe('ANCHOR_ACTIVATION twin parity (client literal vs. the module)', function () {
 
         it('the browser copy equals src/protocol/constants.js exactly', function () {
-            const canonical = require('../../../src/protocol/constants.js').ANCHOR_ACTIVATION;
+            const canonical = require('../../../../src/protocol/constants.js').ANCHOR_ACTIVATION;
             const shipped   = domWithPage().window.ANCHOR_ACTIVATION;
             expect(shipped, 'the render script must declare ANCHOR_ACTIVATION').to.be.an('object');
             expect(shipped).to.deep.equal(canonical);

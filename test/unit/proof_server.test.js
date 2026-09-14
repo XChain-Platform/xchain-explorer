@@ -43,7 +43,7 @@ const SDK_LIGHT = [path.join(SDK_DIR, 'src', 'protocol', 'light_client.js'),
                    path.join(SDK_DIR, 'src', 'light.js')].find((p) => fs.existsSync(p)) || null;
 const verifyBalanceProof = SDK_LIGHT ? require(SDK_LIGHT).verifyBalanceProof : null;
 
-const { EMPTY_ROOT, buildStore, makeServer, CHAIN, NET, COIN, ADDR_A, ADDR_Z, TICK, BLOCK, blockRows, BLOCK_MERKLE, makeActionServer, S, CAP, PKA, PKB, PKC, VALS, makeValidatorSetServer } = require('./proof_server.test/helpers.js');
+const { EMPTY_ROOT, buildStore, makeServer, CHAIN, NET, COIN, ADDR_A, ADDR_Z, TICK, BLOCK, blockRows, BLOCK_MERKLE, makeActionServer, S, CAP, PKA, PKB, PKC, VALS, makeValidatorSetServer } = require('./proof_server.test/support/helpers.js');
 
 describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
     it('membership proof verifies against the committed state_root', async function () {

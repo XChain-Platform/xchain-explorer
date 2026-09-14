@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { expect, panelHtml, voteDetail } = require('../content_client_renderer_action_parity.test.js');
+const { expect, panelHtml, voteDetail } = require('../../content_client_renderer_action_parity.test.js');
 
 describe('client: the VOTE poll panel shows the callback timelock and the EXECUTE it fired', function () {
 

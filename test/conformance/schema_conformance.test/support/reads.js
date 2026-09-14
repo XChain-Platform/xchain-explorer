@@ -15,7 +15,7 @@
 
 'use strict';
 
-const { expect, makeConfig, PROBE_ARGS, isSchemaError } = require('../schema_conformance.test.js');
+const { expect, makeConfig, PROBE_ARGS, isSchemaError } = require('../../schema_conformance.test.js');
 
 function registerRoutedReadPaths(runtime) {
     it('runs every routed db.getData read path without a schema error', async function () {

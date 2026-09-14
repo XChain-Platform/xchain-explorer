@@ -287,16 +287,16 @@ const LEGACY_TESTNET_BUNDLE = Object.assign({}, BUNDLE, {
 
 module.exports = { expect, renderPage, domWithPage, loadPage, V5, V1, BUNDLE, BUNDLE_SECTIONS, PUBLISHER, TXID_V5, TXID_V1, COVERING_CHECKPOINT, LEGACY_TESTNET_BUNDLE };
 
-require('./content_client_anchor_detail.test/heights.js');
-require('./content_client_anchor_detail.test/version_traits_known.js');
-require('./content_client_anchor_detail.test/version_traits_fallback.js');
-require('./content_client_anchor_detail.test/activation_parity.js');
-require('./content_client_anchor_detail.test/activation_legacy_labels.js');
-require('./content_client_anchor_detail.test/activation_legacy_boundary.js');
-require('./content_client_anchor_detail.test/bundle_sections.js');
-require('./content_client_anchor_detail.test/bundle_payload.js');
-require('./content_client_anchor_detail.test/bundle_mirror.js');
-require('./content_client_anchor_detail.test/publisher_election.js');
-require('./content_client_anchor_detail.test/reward_trail.js');
-require('./content_client_anchor_detail.test/covering_checkpoint.js');
-require('./content_client_anchor_detail.test/page_wiring.js');
+require('./content_client_anchor_detail.test/support/heights.js');
+require('./content_client_anchor_detail.test/support/version_traits_known.js');
+require('./content_client_anchor_detail.test/support/version_traits_fallback.js');
+require('./content_client_anchor_detail.test/support/activation_parity.js');
+require('./content_client_anchor_detail.test/support/activation_legacy_labels.js');
+require('./content_client_anchor_detail.test/support/activation_legacy_boundary.js');
+require('./content_client_anchor_detail.test/support/bundle_sections.js');
+require('./content_client_anchor_detail.test/support/bundle_payload.js');
+require('./content_client_anchor_detail.test/support/bundle_mirror.js');
+require('./content_client_anchor_detail.test/support/publisher_election.js');
+require('./content_client_anchor_detail.test/support/reward_trail.js');
+require('./content_client_anchor_detail.test/support/covering_checkpoint.js');
+require('./content_client_anchor_detail.test/support/page_wiring.js');

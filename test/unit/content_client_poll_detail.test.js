@@ -189,10 +189,10 @@ const DLG_URL    = '/RBTC/api/vote_delegations/GOVMT0XGKFM1/tick';
 
 module.exports = { expect, renderDom, paint, loadPage, OPEN_POLL, CLOSED_POLL, CLOSED_RESULTS, OPEN_VOTES, DELEGATIONS, POLL_URL, RESULT_URL, VOTES_URL, DLG_URL };
 
-require('./content_client_poll_detail.test/delegations.js');
-require('./content_client_poll_detail.test/lifecycle.js');
-require('./content_client_poll_detail.test/tally.js');
-require('./content_client_poll_detail.test/quorum.js');
-require('./content_client_poll_detail.test/page_wiring_render.js');
-require('./content_client_poll_detail.test/page_wiring_errors.js');
-require('./content_client_poll_detail.test/escaping.js');
+require('./content_client_poll_detail.test/support/delegations.js');
+require('./content_client_poll_detail.test/support/lifecycle.js');
+require('./content_client_poll_detail.test/support/tally.js');
+require('./content_client_poll_detail.test/support/quorum.js');
+require('./content_client_poll_detail.test/support/page_wiring_render.js');
+require('./content_client_poll_detail.test/support/page_wiring_errors.js');
+require('./content_client_poll_detail.test/support/escaping.js');

@@ -35,7 +35,7 @@
  * on hub unreachability a stale entry is served up to a bounded ceiling
  * (EXPLORER_HUB_CACHE_STALE_MAX_MS, default 600s) so a hub restart doesn't
  * blank the pages. Past that ceiling getRows returns null and the caller
- * FAILS LOUD (db.js _hubOperationalOutage): the co-located schema carries
+ * FAILS LOUD (db.js hubOperationalOutage): the co-located schema carries
  * no freshness bound, so falling through to it would make the ceiling
  * unenforceable and serve indefinitely stale operational state that reads
  * as live. Rows are fetched with server-side filters (the datasets are

@@ -428,7 +428,7 @@ class XChainHubConnector {
     // Transport-integrity check: compare the consensus-config hashes the hub serves
     // on getallconfigs against our OWN bundled ones. Hub-served consensus values are
     // never applied (the explorer derives them from the vendored src/coins bundle via
-    // configs/_adapter.js), so this only logs; what it buys is that a hub built from a
+    // coin-config/to_explorer_config.js), so this only logs; what it buys is that a hub built from a
     // divergent bundle surfaces at the first poll rather than as wrong served or
     // refused proof reads. Mirrors XChainIndexer.checkHubConsensusHash, widened to
     // every coin and network because the explorer bundles and serves all three.

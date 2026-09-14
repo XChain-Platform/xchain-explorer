@@ -1902,7 +1902,7 @@ class XChainExplorer {
                     if(method=='getCommitments')
                         info = [count_reverse, info.block_index, info.balances_root, info.stakes_root, info.state_root, info.block_merkle_root, info.contract_state_root, info.checkpoint_seq, info.checkpoint_signer_count, info.anchor_action_index, info.anchor_version, info.block_index];
                     // Quorum-attested ANCHOR publisher rewards (hub-mirrored, id-keyed,
-                    // never routed through HubOperationalCache; see _checkpointSource).
+                    // never routed through HubOperationalCache; see checkpointSource).
                     // id is the paging cursor (LAST).
 
                     // doge_anchor_txid lands second-to-last, so anchor_reward_attestation

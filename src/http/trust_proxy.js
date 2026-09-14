@@ -33,7 +33,7 @@
  *
  * The WebSocket upgrade is handled on the raw HTTP server, where Express's
  * trust-proxy setting does not apply at all, so src/ws/websocket_server.js
- * resolves the same address by hand in _clientIp using WS_TRUST_PROXY_HOPS
+ * resolves the same address by hand in clientIp using WS_TRUST_PROXY_HOPS
  * (default 1). The two must move together: a change here without the matching
  * change there splits HTTP and WebSocket onto different client identities.
  *

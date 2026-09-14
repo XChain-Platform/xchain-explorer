@@ -316,7 +316,7 @@ describe('Security: SSRF: DNS resolution bypass', function () {
     });
 });
 
-// Canonical ssrf-guard module: the range list shared by /relay AND the
+// Canonical http/ssrf_guard.js module: the range list shared by /relay AND the
 // IconDownloader. Covers the ranges added when the two drifted copies were
 // unified (CGNAT 100.64/10, unspecified ::, complete ULA/link-local).
 describe('Security: SSRF: canonical range classifier (ssrf-guard.js)', function () {

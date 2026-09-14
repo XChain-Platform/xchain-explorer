@@ -96,7 +96,7 @@ class ProofServer {
     // validator_signatures JSON so a client can re-verify quorum locally.
     shapeCheckpoint(cp, chainTip) {
         let sigs = [];
-        // Rows may arrive pre-parsed (db._normalizeCheckpointRows now emits an
+        // Rows may arrive pre-parsed (db.normalizeCheckpointRows now emits an
         // array) or raw from a direct query; accept both.
         if (Array.isArray(cp.validator_signatures)) {
             sigs = cp.validator_signatures;

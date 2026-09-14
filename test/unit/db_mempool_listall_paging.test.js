@@ -90,7 +90,6 @@ describe('db.getMempool: list-all mode (M1.2)', () => {
 });
 
 describe('db.getMempool: paging honors sql.limit (M1.2)', () => {
-
     it('/api requests slice by sql.apiOffset and cap at sql.limit; total is the pre-slice count', async () => {
         const db = mkDb(mkRows(10));
         const config = {
@@ -143,7 +142,9 @@ describe('db.getMempool: paging honors sql.limit (M1.2)', () => {
         expect(total).to.equal(3);
         expect(data).to.deep.equal([]);
     });
+});
 
+describe('db.getMempool: paging honors sql.limit (M1.2)', () => {
     it('without a request-shaped sql/limit (minimal internal config), returns the full matched set unsliced', async () => {
         const db = mkDb(mkRows(4));
         const [data, , total] = await db.getMempool({ coin: 'RBTC', data: { search: null, type: null } });

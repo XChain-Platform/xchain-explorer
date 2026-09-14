@@ -21,6 +21,7 @@ const { testCorsOptions } = require('../../helpers/cors.js');
 const path           = require('path');
 const XChainExplorer = require('../../../src/XChainExplorer.js');
 const pre            = require('./fixture-preflight.js');
+const { envView }    = require('../../fixtures/mock-config.js');
 
 // Build a configInfo stub that behaves like src/config.js but uses our test config
 function createTestConfigInfo(dbPort) {
@@ -81,6 +82,9 @@ function createTestConfigInfo(dbPort) {
         },
         onConfigChanged: function (cb) { listeners.push(cb); },
         triggerConfigChanged: function () { listeners.forEach(cb => cb()); },
+        // The live process.env view src/config.js exports; the readers under
+        // src/db/ read every environment variable through it.
+        env: envView,
         // Allow tests to clear cache if config changes
         _clearCache: function () { configCache = null; }
     };

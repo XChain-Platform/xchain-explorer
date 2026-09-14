@@ -50,6 +50,7 @@ const { expect } = require('chai');
 const Database       = require('../../src/db.js');
 const Utility        = require('../../src/utility.js');
 const { makeConfig } = require('../fixtures/mock-query-args.js');
+const { envView }    = require('../fixtures/mock-config.js');
 
 const DB_HOST = process.env.CONFORMANCE_DB_HOST || '127.0.0.1';
 const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || 3307);
@@ -207,7 +208,10 @@ describe('raw /api/actions feed over system-injected actions (real MariaDB)', fu
                     }
                 }
             }),
-            onConfigChanged: () => {}
+            onConfigChanged: () => {},
+            // The live process.env view src/config.js exports; the readers under
+            // src/db/ read every environment variable through it.
+            env: envView
         };
         const util = new Utility(configInfo);
         return new Database({ configInfo, util });

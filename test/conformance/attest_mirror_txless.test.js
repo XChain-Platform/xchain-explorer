@@ -48,6 +48,7 @@ const Database       = require('../../src/db.js');
 const Utility        = require('../../src/utility.js');
 const ChangeDetector = require('../../src/ws/ChangeDetector.js');
 const { makeConfig } = require('../fixtures/mock-query-args.js');
+const { envView }    = require('../fixtures/mock-config.js');
 
 const DB_HOST = process.env.CONFORMANCE_DB_HOST || '127.0.0.1';
 const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || 3307);
@@ -207,7 +208,10 @@ describe('mirror-applied ATTEST response with no transaction row (real MariaDB)'
                     }
                 }
             }),
-            onConfigChanged: () => {}
+            onConfigChanged: () => {},
+            // The live process.env view src/config.js exports; the readers under
+            // src/db/ read every environment variable through it.
+            env: envView
         };
         const util = new Utility(configInfo);
         const database = new Database({ configInfo, util });

@@ -62,6 +62,7 @@ const { expect } = require('chai');
 const XChainExplorer = require('../../src/XChainExplorer.js');
 const ChangeDetector = require('../../src/ws/ChangeDetector.js');
 const { makeConfig } = require('../fixtures/mock-query-args.js');
+const { envView }    = require('../fixtures/mock-config.js');
 const pre = require('../integration/helpers/fixture-preflight.js');
 
 const DB_HOST = process.env.CONFORMANCE_DB_HOST || pre.FIXTURE_DB.host;
@@ -270,7 +271,10 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
         return {
             getConfig: async () => config,
             onConfigChanged: (cb) => listeners.push(cb),
-            triggerConfigChanged: () => listeners.forEach(cb => cb())
+            triggerConfigChanged: () => listeners.forEach(cb => cb()),
+            // The live process.env view src/config.js exports; the readers under
+            // src/db/ read every environment variable through it.
+            env: envView
         };
     }
 

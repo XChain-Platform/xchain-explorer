@@ -89,125 +89,123 @@ const SEED = [
       why: 'stale but still timer-held' },
 ];
 
-describe('IconDownloader batch selection vs a real MariaDB', function () {
-    this.timeout(180000);
+let adminPool = null;   // no default database: creates/drops the schema
+let pool      = null;   // bound to RETRY_DB
+let selectSql = null;   // the SHIPPED batch SELECT, verbatim
+let whereSql  = null;   // its WHERE clause, verbatim
 
-    let adminPool = null;   // no default database: creates/drops the schema
-    let pool      = null;   // bound to RETRY_DB
-    let selectSql = null;   // the SHIPPED batch SELECT, verbatim
-    let whereSql  = null;   // its WHERE clause, verbatim
+async function adminQuery(sql, args) {
+    const conn = await adminPool.getConnection();
+    try { return await conn.query(sql, args); }
+    finally { conn.release(); }
+}
 
-    async function adminQuery(sql, args) {
-        const conn = await adminPool.getConnection();
-        try { return await conn.query(sql, args); }
-        finally { conn.release(); }
+async function q(sql, args) {
+    const conn = await pool.getConnection();
+    try { return await conn.query(sql, args); }
+    finally { conn.release(); }
+}
+
+/**
+ * Capture the statement processFlavor actually emits. Binding to the shipped
+ * text rather than to a copy of it is the point: a test that rebuilt the
+ * predicate here would pass just as happily against the version that shipped
+ * the bug.
+ */
+async function shippedSelect() {
+    const sqls = [];
+    const conn = {
+        query:   async (sql) => { sqls.push(sql); return []; },
+        release: async () => {},
+    };
+    const downloader = new IconDownloader({ util: {} });
+    downloader.log = () => {};
+    // Point the icon root at an empty directory so the orphan sweep short-circuits
+    // and cannot touch this checkout's real src/content/icons tree while we are
+    // only here to read a statement back out.
+    downloader.iconRoot = await require('fs/promises')
+        .mkdtemp(path.join(require('os').tmpdir(), 'iconcapture_'));
+    await downloader.processFlavor({
+        coin: 'BTC', network: 'mainnet', poolKey: 'BTC',
+        pool: { getConnection: async () => conn },
+    });
+    // `AS icon_id` is what distinguishes the batch drain from the sweep's query,
+    // which also selects FROM icons.
+    return sqls.find(s => /^\s*SELECT/.test(s) && s.includes('AS icon_id'));
+}
+
+async function setupIconSuite() {
+    if (!fs.existsSync(INDEXER_SQL_DIR)) this.skip();
+
+    adminPool = mariadb.createPool({
+        host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
+        connectionLimit: 2, connectTimeout: 8000,
+    });
+    try {
+        await adminQuery('SELECT 1');
+    } catch (e) {
+        throw new Error('The icon batch-selection tier needs the test MariaDB on ' + DB_HOST +
+            ':' + DB_PORT + ' (start it with `npm run test:integration:up`): ' + e.message);
     }
 
-    async function q(sql, args) {
-        const conn = await pool.getConnection();
-        try { return await conn.query(sql, args); }
-        finally { conn.release(); }
+    await adminQuery('DROP DATABASE IF EXISTS `' + RETRY_DB + '`');
+    await adminQuery('CREATE DATABASE `' + RETRY_DB + '`');
+
+    pool = mariadb.createPool({
+        host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
+        database: RETRY_DB, connectionLimit: 4, connectTimeout: 8000,
+    });
+
+    // The indexer's REAL DDL for every table the batch SELECT joins.
+    for (const f of ['tokens.sql', 'icons.sql', 'index_tickers.sql']) {
+        const src = fs.readFileSync(path.join(INDEXER_SQL_DIR, f), 'utf8');
+        for (const stmt of splitStatements(src)) await q(stmt);
     }
 
-    /**
-     * Capture the statement processFlavor actually emits. Binding to the shipped
-     * text rather than to a copy of it is the point: a test that rebuilt the
-     * predicate here would pass just as happily against the version that shipped
-     * the bug.
-     */
-    async function shippedSelect() {
-        const sqls = [];
-        const conn = {
-            query:   async (sql) => { sqls.push(sql); return []; },
-            release: async () => {},
-        };
-        const downloader = new IconDownloader({ util: {} });
-        downloader.log = () => {};
-        // Point the icon root at an empty directory so the orphan sweep short-circuits
-        // and cannot touch this checkout's real src/content/icons tree while we are
-        // only here to read a statement back out.
-        downloader.iconRoot = await require('fs/promises')
-            .mkdtemp(path.join(require('os').tmpdir(), 'iconcapture_'));
-        await downloader.processFlavor({
-            coin: 'BTC', network: 'mainnet', poolKey: 'BTC',
-            pool: { getConnection: async () => conn },
-        });
-        // `AS icon_id` is what distinguishes the batch drain from the sweep's query,
-        // which also selects FROM icons.
-        return sqls.find(s => /^\s*SELECT/.test(s) && s.includes('AS icon_id'));
-    }
+    selectSql = await shippedSelect();
+    expect(selectSql, 'expected processFlavor to emit a batch SELECT').to.be.a('string');
+    whereSql = selectSql.slice(selectSql.indexOf('WHERE ') + 'WHERE '.length,
+                               selectSql.indexOf('ORDER BY')).trim();
+    expect(whereSql, 'expected a WHERE clause between FROM and ORDER BY').to.have.length.above(10);
 
-    before(async function () {
-        if (!fs.existsSync(INDEXER_SQL_DIR)) this.skip();
-
-        adminPool = mariadb.createPool({
-            host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
-            connectionLimit: 2, connectTimeout: 8000,
-        });
-        try {
-            await adminQuery('SELECT 1');
-        } catch (e) {
-            throw new Error('The icon batch-selection tier needs the test MariaDB on ' + DB_HOST +
-                ':' + DB_PORT + ' (start it with `npm run test:integration:up`): ' + e.message);
-        }
-
-        await adminQuery('DROP DATABASE IF EXISTS `' + RETRY_DB + '`');
-        await adminQuery('CREATE DATABASE `' + RETRY_DB + '`');
-
-        pool = mariadb.createPool({
-            host: DB_HOST, port: DB_PORT, user: DB_USER, password: DB_PASS,
-            database: RETRY_DB, connectionLimit: 4, connectTimeout: 8000,
-        });
-
-        // The indexer's REAL DDL for every table the batch SELECT joins.
-        for (const f of ['tokens.sql', 'icons.sql', 'index_tickers.sql']) {
-            const src = fs.readFileSync(path.join(INDEXER_SQL_DIR, f), 'utf8');
-            for (const stmt of splitStatements(src)) await q(stmt);
-        }
-
-        selectSql = await shippedSelect();
-        expect(selectSql, 'expected processFlavor to emit a batch SELECT').to.be.a('string');
-        whereSql = selectSql.slice(selectSql.indexOf('WHERE ') + 'WHERE '.length,
-                                   selectSql.indexOf('ORDER BY')).trim();
-        expect(whereSql, 'expected a WHERE clause between FROM and ORDER BY').to.have.length.above(10);
-
-        // Seed once: nothing below mutates rows.
-        for (let i = 0; i < SEED.length; i++) {
-            const s = SEED[i];
-            await q('INSERT INTO index_tickers (id, tick) VALUES (?, ?)', [i + 1, s.tick]);
-            await q('INSERT INTO tokens (id, tick_id, description) VALUES (?, ?, ?)',
-                    [i + 1, i + 1, 'action:' + (i + 1)]);
-            await q(
-                `INSERT INTO icons (token_id, description_hash, status, attempts,
+    // Seed once: nothing below mutates rows.
+    for (let i = 0; i < SEED.length; i++) {
+        const s = SEED[i];
+        await q('INSERT INTO index_tickers (id, tick) VALUES (?, ?)', [i + 1, s.tick]);
+        await q('INSERT INTO tokens (id, tick_id, description) VALUES (?, ?, ?)',
+                [i + 1, i + 1, 'action:' + (i + 1)]);
+        await q(
+            `INSERT INTO icons (token_id, description_hash, status, attempts,
                                     next_retry_at, last_checked_at)
                  VALUES (?, MD5('x'), ?, ?, ` +
-                (s.retry === null ? 'NULL' : 'DATE_ADD(NOW(), INTERVAL ? MINUTE)') +
-                `, NOW())`,
-                s.retry === null
-                    ? [i + 1, s.status, s.attempts]
-                    : [i + 1, s.status, s.attempts, s.retry]);
-        }
-    });
+            (s.retry === null ? 'NULL' : 'DATE_ADD(NOW(), INTERVAL ? MINUTE)') +
+            `, NOW())`,
+            s.retry === null
+                ? [i + 1, s.status, s.attempts]
+                : [i + 1, s.status, s.attempts, s.retry]);
+    }
+}
 
-    after(async function () {
-        if (pool) await pool.end();
-        if (!adminPool) return;
-        try { await adminQuery('DROP DATABASE IF EXISTS `' + RETRY_DB + '`'); }
-        catch (e) { /* teardown */ }
-        await adminPool.end();
-    });
+async function teardownIconSuite() {
+    if (pool) await pool.end();
+    if (!adminPool) return;
+    try { await adminQuery('DROP DATABASE IF EXISTS `' + RETRY_DB + '`'); }
+    catch (e) { /* teardown */ }
+    await adminPool.end();
+}
 
-    /** Run a WHERE clause against the seeded rows and return the ticks it selects. */
-    async function selectedBy(where) {
-        const rows = await q(
-            `SELECT idx.tick AS tick
+/** Run a WHERE clause against the seeded rows and return the ticks it selects. */
+async function selectedBy(where) {
+    const rows = await q(
+        `SELECT idx.tick AS tick
              FROM icons i
              JOIN tokens        t   ON t.id   = i.token_id
              JOIN index_tickers idx ON idx.id = t.tick_id
              WHERE ` + where);
-        return rows.map(r => r.tick).sort();
-    }
+    return rows.map(r => r.tick).sort();
+}
 
+function registerSelectionTests() {
     // The negative control. Everything below is only meaningful if this rig can
     // reproduce the original defect, so prove it does: the pre-fix WHERE clause
     // must MISS the elapsed-backoff row against these very same rows.
@@ -245,17 +243,19 @@ describe('IconDownloader batch selection vs a real MariaDB', function () {
             expect(r).to.have.property('description');
         }
     });
+}
 
-    /**
-     * The orphan sweep's own query, run by the real engine over a real
-     * icons/tokens/index_tickers join and a real directory.
-     *
-     * A mock cannot answer the two things that can actually go wrong here: whether
-     * the three-way join resolves a tick at all, and whether IN (...) matches the
-     * filename bytes without case folding (index_tickers is utf8mb4_bin, and the
-     * LOWER()-vs-/i divergence in icon-restale-predicate.test.js is what that
-     * collation exists to prevent). So run the shipped method against both.
-     */
+/**
+ * The orphan sweep's own query, run by the real engine over a real
+ * icons/tokens/index_tickers join and a real directory.
+ *
+ * A mock cannot answer the two things that can actually go wrong here: whether
+ * the three-way join resolves a tick at all, and whether IN (...) matches the
+ * filename bytes without case folding (index_tickers is utf8mb4_bin, and the
+ * LOWER()-vs-/i divergence in icon-restale-predicate.test.js is what that
+ * collation exists to prevent). So run the shipped method against both.
+ */
+function registerSweepTests() {
     describe('_sweepOrphanIcons against the real join', function () {
         const os   = require('os');
         const fsp  = require('fs/promises');
@@ -313,4 +313,14 @@ describe('IconDownloader batch selection vs a real MariaDB', function () {
             expect(left).to.deep.equal(['ok.png']);
         });
     });
-});
+}
+
+function iconRetrySelectionSuite() {
+    this.timeout(180000);
+    before(setupIconSuite);
+    after(teardownIconSuite);
+    registerSelectionTests();
+    registerSweepTests();
+}
+
+describe('IconDownloader batch selection vs a real MariaDB', iconRetrySelectionSuite);

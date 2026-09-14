@@ -74,7 +74,6 @@ function makeDb() {
 }
 
 describe('action summary field contract: projection vs getActionDetails', function () {
-
     it('every field getActionDetails reads is in ACTION_SUMMARY_FIELDS', function () {
         const reads = rendererFieldReads();
         expect(reads.size).to.be.greaterThan(20); // the regex found the real body
@@ -123,7 +122,9 @@ describe('action summary field contract: projection vs getActionDetails', functi
         expect(out.details).to.equal(false);
         expect(out.status).to.equal('valid');
     });
+});
 
+describe('action summary field contract: projection vs getActionDetails', function () {
     it('[REGRESSION] BATCH members carry the projection under summary, never on details', async function () {
         const db = makeDb();
         const members = new Map([

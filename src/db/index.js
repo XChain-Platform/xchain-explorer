@@ -15,9 +15,11 @@
  * XChain Explorer - Database Class, the composition root
  *
  * Proposal B stage 5. This file used to hold every query the explorer issues;
- * it now holds the constructor, the mixin that assembles the class, and the
- * exports, and nothing else. The queries live in src/db/, one module per family,
- * and arrive on Database.prototype through mixinReaders below.
+ * it now holds the constructor, the composition call that assembles the class,
+ * and the exports, and nothing else. The queries live in src/db/, one module per
+ * family, and arrive on Database.prototype through mixinReaders, which lives in
+ * src/db/reader_parts.js beside composeReaderParts, the helper a family split
+ * across several part files uses to export one prototype-shaped object.
  *
  * Nothing about the class a caller sees changed: `new Database(explorer)` still
  * returns one object carrying every method, reached by the same name, with the
@@ -63,23 +65,16 @@ const contractReaders          = require('./readers/contracts.js');
 const pollBetReaders           = require('./readers/polls_bets.js');
 const xcallReaders             = require('./readers/xcall.js');
 
-// Copies an extracted reader family onto Database.prototype. Object.assign cannot
-// do this: a class method is non-enumerable, so assign would copy nothing. Copying
-// the descriptor also keeps getters and arity intact.
-//
-// A collision throws rather than resolving by require order, because the loser
-// would vanish silently and the page it serves would start answering with another
-// family's SQL.
-function mixinReaders(target, ...sources){
-    for(let source of sources){
-        for(let name of Object.getOwnPropertyNames(source)){
-            if(name=='constructor') continue;
-            if(Object.prototype.hasOwnProperty.call(target, name))
-                throw new Error('db.js reader mixin collision: ' + name + ' is defined twice');
-            Object.defineProperty(target, name, Object.getOwnPropertyDescriptor(source, name));
-        }
-    }
-}
+// connection.js is itself split: it composes ./connection/cache.js and
+// ./connection/pools.js onto its own methods through composeReaderParts and
+// exports the one object, so the require above brings all three. The parts are
+// named here so a reader of this composition root can find every file whose
+// methods land on Database.prototype.
+
+// The descriptor copy and collision check every family goes through, and the two
+// name lists each instance is handed a copy of.
+const { mixinReaders } = require('./reader_parts.js');
+const { ACTION_TABLES, CURSOR_PAGED_METHODS } = require('./method_tables.js');
 
 // An ACTION's source is `actions.source_id`, never `transactions.source_id`. The two agree
 // for every user action, and DISAGREE for a VM emission: the indexer stores the emitting
@@ -133,85 +128,10 @@ class Database {
         // source share one entry; the stored code_hash column is unverified).
         this._methodsCache    = new Map();
 
-        this.actionTables = [
-            'addresses',
-            'airdrops',
-            'anchor_actions',
-            'batches',
-            'broadcasts',
-            'callbacks',
-            'coinpays',
-            'coinpay_expires',
-            'coinpay_obligations',
-            'destroys',
-            'dispensers',
-            'dispenses',
-            'dividends',
-            'files',
-            'full_node_verifications',
-            'issues',
-            'links',
-            'lists',
-            'messages',
-            'mints',
-            'orders',
-            'order_cancels',
-            'order_edits',
-            'order_matches',
-            'prices',
-            'sends',
-            'sleeps',
-            'swaps',
-            'swap_cancels',
-            'swap_edits',
-            'swap_matches',
-            'sweeps'
-        ];
-
-        // List views whose backing table name is NOT derivable from the method via
-        // the get->lowercase mangle in getQueryOffsets (e.g. getAnchors -> anchor_actions,
-        // getSlashEvents -> slash_events, the hub-mirrored governance/match tables). The
-        // boundary-discovery query can't run for these, but it doesn't need to: each main
-        // list query already orders by and filters on the correct cursor column
-        // (getQueryOffsetSql picks m.id vs m.action_index per method). We only need to
-        // preserve the inbound client cursor so next/prev advance instead of resetting to
-        // the newest page every time.
-        // The mangle is `method.toLowerCase().replace('get','')`, which never
-        // reinserts an underscore, so EVERY method over a multi-word table name
-        // belongs here regardless of which cursor column it uses:
-        // getContractDelegations ('contractdelegations' vs contract_delegations)
-        // is the standing proof, and it pages on the default action_index cursor.
-        this.cursorPagedMethods = [
-            'getAnchors','getXcalls','getAttestations','getAttestValidatorStats',
-            'getContractStakes','getContractUnstakes','getContractDelegations','getEmissions',
-            'getCrossChainSettlements','getCrossChainMatches',
-            'getSlashEvents','getCapabilitySlashEvents','getFullNodeVerifications',
-            'getPriceSnapshots','getOraclePrices',
-            'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes','getReorgs','getSlashProposals',
-            'getPeers','getConsensusState','getConfigs','getTelemetryPings',
-            'getPolls','getVotes','getVoteDelegations',
-            // BET market/wager lists: getBetFeeds -> bet_feeds and getBets -> bets are
-            // not reachable through the get->lowercase table mangle, so they page on the
-            // preserved client cursor like the poll family. Both ORDER BY m.action_index,
-            // which is getQueryOffsetSql's default cursor field, so no id-keyed entry.
-            'getBetFeeds','getBets',
-            // The checkpoint-schema family: state_checkpoints, capability_snapshots and
-            // anchor_reward_attestations are hub-mirrored and state_tree_roots is
-            // indexer-local, and none of the four is reachable through the mangle. They
-            // page on the preserved client cursor; getQueryOffsetSql gives getCheckpoints
-            // and getCommitments their own m.block_index cursor field below (not m.id),
-            // since both lists ORDER BY the committed height.
-            'getCheckpoints','getCapabilitySnapshots','getAnchorRewardAttestations','getCommitments',
-            // getCollectibles -> 'collectibles' is not a table (the rows are `tokens`
-            // filtered by the M5.1 classification), so the get->lowercase mangle cannot
-            // find a boundary; it pages on the preserved client cursor over m.id.
-            // The gallery is /api-only today (it pages by ?page=, and the cursor path
-            // runs for /explorer requests alone), so this entry and its sibling in
-            // getQueryOffsetSql are armed rather than exercised: they exist so that
-            // registering an /explorer feed later cannot silently page this method on
-            // the wrong column, which is the failure the cursor list itself documents.
-            'getCollectibles'
-        ];
+        // Fresh copies of the two method tables (src/db/method_tables.js), so each
+        // instance owns its own arrays and a push onto one never reaches another.
+        this.actionTables       = ACTION_TABLES.slice();
+        this.cursorPagedMethods = CURSOR_PAGED_METHODS.slice();
 
     }
 

@@ -20,7 +20,8 @@
  ********************************************************************/
 
 const axios = require('axios');
-const coins = require('../coins');
+// The getallconfigs half of the connector, installed onto the class below.
+const HubConfigSync = require('./hub/config_sync.js');
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
 const { getLogger } = require('../observability');
@@ -31,37 +32,83 @@ const log = getLogger();
 // the view is looked up each time a read runs and never captured at load.
 const configEnv = () => require('../config.js').env;
 
-// Local { coin -> consensusHash } per network, computed on first use. The vendored
-// bundle cannot change under a running process, so re-hashing it on every config
-// poll would be pure waste.
-const LOCAL_CONSENSUS_HASHES = {};
-function localConsensusHashes(network){
-    if(!LOCAL_CONSENSUS_HASHES[network]) LOCAL_CONSENSUS_HASHES[network] = coins.consensusHashes(network);
-    return LOCAL_CONSENSUS_HASHES[network];
+// The x-api-key header set for one endpoint pass, read from the live environment.
+function hubRequestHeaders(){
+    // Attach the hub API key when configured: getallconfigs is in the
+    // hub's sensitive-read tier and 401s without it once HUB_API_KEY is
+    // set hub-side. Read methods that don't need it ignore it, so
+    // sending unconditionally is safe (same pattern as xchain-node's
+    // HubConnector).
+    //
+    // HUB_CONFIG_SECRETS_API_KEY wins when set: the hub can split the
+    // credential tier (getallconfigs with include_secrets, which is the
+    // only way the explorer gets its DB passwords) onto a key of its own,
+    // and one request carries one x-api-key header. Unset, the bulk key
+    // authorizes both tiers, which is the ordinary deployment.
+    let headers = {};
+    let hubKey = configEnv().HUB_CONFIG_SECRETS_API_KEY || configEnv().HUB_API_KEY;
+    if(hubKey) headers['x-api-key'] = hubKey;
+    return headers;
 }
 
-// Fold a getallconfigs delta (only the rows that changed since our cursor) into
-// the cached nested config map, mutating and returning `base`. The hub's configs
-// table is upsert-only (rows are never deleted), so merging is lossless (nothing
-// already applied is ever lost) - but NOT complete on its own: getAllConfig()
-// deliberately sends the cursor one second behind the stored watermark, so a
-// row committed in the watermark's epoch-second can be re-delivered here and
-// harmlessly re-merged instead of being skipped forever.
-function mergeConfigDelta(base, delta){
-    for(let coin in delta){
-        if(!base[coin]) base[coin] = {};
-        for(let network in delta[coin]){
-            if(!base[coin][network]) base[coin][network] = {};
-            for(let module in delta[coin][network]){
-                if(!base[coin][network][module]) base[coin][network][module] = {};
-                let params = delta[coin][network][module];
-                for(let param in params){
-                    base[coin][network][module][param] = params[param];
-                }
+// One pass over every endpoint, starting at the last one that answered. Answers
+// { answered: true, result } on the first healthy result, and otherwise
+// { answered: false, rpcAnswered } with this pass's failures recorded on the
+// connector and on `out`, and any degraded body remembered on `state`.
+async function endpointPass(connector, data, { timeout, attempt, attempts, out }, state){
+    // Endpoints this pass that answered with a JSON-RPC error body
+    // rather than a result: the hub was up and refused the request at
+    // the protocol layer, which is not the same signal as unreachable.
+    let rpcAnswered = 0;
+    let headers = hubRequestHeaders();
+    for(let i = 0; i < connector.urls.length; i++){
+        let idx = (connector._lastGoodIdx + i) % connector.urls.length;
+        let url = connector.urls[idx];
+        try {
+            let response = await axios.post(url, data, { timeout, headers });
+            if(response.data && response.data.result !== undefined){
+                connector._lastGoodIdx = idx;
+                return { answered: true, result: response.data.result };
             }
+            if(response.data && response.data.error !== undefined){
+                recordRpcError(connector, url, response.data.error, out);
+                rpcAnswered++;
+            }
+        } catch(err){
+            recordUnreachable(connector, url, err, { attempt, attempts, out }, state);
         }
     }
-    return base;
+    return { answered: false, rpcAnswered };
+}
+
+// Record an endpoint's JSON-RPC error answer on the connector and on `out`.
+function recordRpcError(connector, url, rpcError, out){
+    // Definitive JSON-RPC error answer over 2xx (the hub's
+    // router answers -32601 this way for a method its build
+    // does not serve). Record it and keep walking the pass:
+    // a mixed-version fleet may still hold an endpoint that
+    // serves the method.
+    // Held in a local so the detail line below describes THIS
+    // answer even when a concurrent call overwrites the field.
+    connector.lastRpcError = rpcError;
+    if(out) out.rpcError = rpcError;
+    let detail = url + ' -> rpc ' +
+        (rpcError.code !== undefined ? rpcError.code : '?') +
+        ' ' + (rpcError.message || '');
+    connector.lastFailures.push(detail);
+    if(out) out.failures.push(detail);
+}
+
+// A thrown request: remember a degraded JSON-RPC body carried on a non-2xx
+// response, otherwise record the endpoint as unreachable and warn.
+function recordUnreachable(connector, url, err, { attempt, attempts, out }, state){
+    if(err.response && err.response.data && err.response.data.result !== undefined){
+        state.degraded = err.response.data.result;
+    } else {
+        connector.lastFailures.push(url + ' -> ' + (err.code || err.message));
+        if(out) out.failures.push(url + ' -> ' + (err.code || err.message));
+        log.warn('HUB_ENDPOINT_FAILED', { url, attempt, attempts, code: err.code, err: err.message, stack: err.stack });
+    }
 }
 
 class XChainHubConnector {
@@ -134,7 +181,7 @@ class XChainHubConnector {
         // unreachable endpoint. Remember such a body as a fallback but keep
         // retrying (a degraded DB may recover within the backoff window), and
         // only surface it if no endpoint comes back healthy.
-        let degraded = null;
+        const state = { degraded: null };
         this.lastRpcError = null;
         if(out){ out.rpcError = null; out.failures = []; }
         for(let attempt = 1; attempt <= attempts; attempt++){
@@ -144,66 +191,13 @@ class XChainHubConnector {
             // A separate array, never an alias of the instance field: a concurrent
             // call rebinds this.lastFailures out from under us on its own pass.
             if(out) out.failures = [];
-            // Endpoints this pass that answered with a JSON-RPC error body
-            // rather than a result: the hub was up and refused the request at
-            // the protocol layer, which is not the same signal as unreachable.
-            let rpcAnswered = 0;
-            // Attach the hub API key when configured: getallconfigs is in the
-            // hub's sensitive-read tier and 401s without it once HUB_API_KEY is
-            // set hub-side. Read methods that don't need it ignore it, so
-            // sending unconditionally is safe (same pattern as xchain-node's
-            // HubConnector).
-            //
-            // HUB_CONFIG_SECRETS_API_KEY wins when set: the hub can split the
-            // credential tier (getallconfigs with include_secrets, which is the
-            // only way the explorer gets its DB passwords) onto a key of its own,
-            // and one request carries one x-api-key header. Unset, the bulk key
-            // authorizes both tiers, which is the ordinary deployment.
-            let headers = {};
-            let hubKey = configEnv().HUB_CONFIG_SECRETS_API_KEY || configEnv().HUB_API_KEY;
-            if(hubKey) headers['x-api-key'] = hubKey;
-            for(let i = 0; i < this.urls.length; i++){
-                let idx = (this._lastGoodIdx + i) % this.urls.length;
-                let url = this.urls[idx];
-                try {
-                    let response = await axios.post(url, data, { timeout, headers });
-                    if(response.data && response.data.result !== undefined){
-                        this._lastGoodIdx = idx;
-                        return response.data.result;
-                    }
-                    if(response.data && response.data.error !== undefined){
-                        // Definitive JSON-RPC error answer over 2xx (the hub's
-                        // router answers -32601 this way for a method its build
-                        // does not serve). Record it and keep walking the pass:
-                        // a mixed-version fleet may still hold an endpoint that
-                        // serves the method.
-                        // Held in a local so the detail line below describes THIS
-                        // answer even when a concurrent call overwrites the field.
-                        let rpcError = response.data.error;
-                        this.lastRpcError = rpcError;
-                        if(out) out.rpcError = rpcError;
-                        rpcAnswered++;
-                        let detail = url + ' -> rpc ' +
-                            (rpcError.code !== undefined ? rpcError.code : '?') +
-                            ' ' + (rpcError.message || '');
-                        this.lastFailures.push(detail);
-                        if(out) out.failures.push(detail);
-                    }
-                } catch(err){
-                    if(err.response && err.response.data && err.response.data.result !== undefined){
-                        degraded = err.response.data.result;
-                    } else {
-                        this.lastFailures.push(url + ' -> ' + (err.code || err.message));
-                        if(out) out.failures.push(url + ' -> ' + (err.code || err.message));
-                        log.warn('HUB_ENDPOINT_FAILED', { url, attempt, attempts, code: err.code, err: err.message, stack: err.stack });
-                    }
-                }
-            }
+            const pass = await endpointPass(this, data, { timeout, attempt, attempts, out }, state);
+            if(pass.answered) return pass.result;
             // Every endpoint answered at the protocol layer (no endpoint was
             // unreachable): the outcome is deterministic for this request, so
             // backoff cannot change it and the unreachable warning below would
             // misname a live hub as down. Give up without retrying.
-            if(rpcAnswered === this.urls.length) break;
+            if(pass.rpcAnswered === this.urls.length) break;
             // All endpoints failed this pass. Back off before the next unless
             // this was the final attempt.
             if(attempt < attempts){
@@ -215,7 +209,7 @@ class XChainHubConnector {
         // No endpoint returned a healthy result after all retries. Surface a
         // reachable-but-degraded response (if any) so the caller can distinguish
         // "up but DB down" from "unreachable"; otherwise null.
-        return degraded;
+        return state.degraded;
     }
 
     async ping(){
@@ -266,198 +260,6 @@ class XChainHubConnector {
         });
     }
 
-    async getAllConfig(){
-        let cursorEndpoint = this._watermarkEndpointIdx;
-        let sentCursor     = this.lastWatermark;
-        // The hub reads its watermark BEFORE it reads the config rows, so a row
-        // committed after that read but stamped in the SAME epoch-second as the
-        // returned watermark is only delivered because the hub's cursor is now
-        // inclusive (`since_updated_at >= cursor`, item #2265); an older hub compared
-        // `>` and stranded that row forever (the cursor had already advanced past it).
-        // Keep sending the cursor one second behind the stored watermark so the
-        // boundary second is re-fetched against either hub generation (do not
-        // "simplify" the - 1 away); mergeConfigDelta's upsert-only merge makes
-        // re-receiving it a harmless no-op. 0 still means "send me the full tree"
-        // (initial fetch, post-restart, or a hub too old to report a watermark).
-        let deltaCursor = this.lastWatermark > 0 ? this.lastWatermark - 1 : 0;
-        let result = await this.call({
-            jsonrpc: '2.0',
-            method:  'getallconfigs',
-            params:  this.configParams(deltaCursor),
-            id:      1
-        });
-        // call returns null when every endpoint failed after retries; preserve
-        // that signal so config.js can fall back to its last-known-good cache.
-        if(result === null) return null;
-
-        // If call failed over to a different endpoint than the one our cursor came
-        // from, the wall-clock cursor is stale against the new hub (each hub stamps
-        // updated_at = NOW() at its own apply time), so the delta may have skipped rows.
-        // Discard it and re-fetch the full tree from the new endpoint with a reset cursor.
-        // Skip when the first result is a degraded body (handled just below).
-        let degraded = (r) => r && typeof r === 'object' && r.status === 'degraded';
-        if(sentCursor > 0 && this._lastGoodIdx !== cursorEndpoint && !degraded(result)){
-            this.lastWatermark = 0;
-            this.configs       = null;
-            result = await this.call({
-                jsonrpc: '2.0',
-                method:  'getallconfigs',
-                params:  this.configParams(0),
-                id:      1
-            });
-            if(result === null) return null;
-        }
-
-        // A reachable-but-degraded hub can't serve config (its DB is down) and
-        // returns a {status:"degraded"} body. Treat it like an unreachable hub
-        // for config purposes: return null so config.js falls back to its
-        // last-known-good cache, but log the accurate cause so the operator
-        // sees "degraded" rather than a misleading "unreachable".
-        if(degraded(result)){
-            log.warn('HUB_CONFIG_DB_DEGRADED', { detail: 'hub reachable but DB degraded; cannot fetch config, falling back to cached config' });
-            return null;
-        }
-        // A config-DB read failure is signaled by the hub as an HTTP-200 { error: ... }
-        // *result* (not a JSON-RPC error), so call resolves rather than throwing. Without
-        // this guard the envelope falls through applyConfigResult's else branch and is
-        // returned as if it were the bare config map, so config.js wipes every coin to zero
-        // AND refreshes its staleness timestamp on a failed fetch. Treat it like an
-        // unreachable/degraded hub (mirrors the indexer's unwrapHubConfigResponse ok:false
-        // path): return null so config.js keeps last-known-good config with an honest
-        // staleness signal. Scoped to the exact envelope shape (a bare `error` string, no
-        // `configs`) so a legitimate config tree can never match.
-        let errorEnvelope = (r) => r && typeof r === 'object' && typeof r.error === 'string' && !r.configs;
-        if(errorEnvelope(result)){
-            log.warn('HUB_CONFIG_READ_ERROR', { detail: 'hub reachable but reported a config-DB read error; cannot fetch config, falling back to cached config' });
-            return null;
-        }
-        // Hub restart / restore from an older snapshot: the same endpoint now serves a
-        // seq or watermark BELOW the last one it gave us. The delta we asked for (cursor
-        // from the lost window) cannot carry rows the restored hub holds at an OLDER
-        // updated_at, and mergeConfigDelta only upserts, so merging it would serve
-        // lost-window values forever while config.js stamps hubConfigFetchedAt fresh.
-        // Mirror the indexer's HUB CONFIG REGRESSION handling: alarm (a hub that lost
-        // config state is an operator event), drop the cache, reset the cursor and
-        // re-fetch the full tree once, exactly as the failover block above does.
-        if(this.lastWatermark > 0 && this.configs && this.hubConfigRegressed(result)){
-            log.error('HUB_CONFIG_REGRESSION', {
-                seq: Number(result.seq) || 0, watermark: Number(result.watermark) || 0,
-                last_seq: this.lastSeq, last_watermark: this.lastWatermark,
-                detail: 'hub restart or restore from an older snapshot; discarding cached config and re-fetching the full tree'
-            });
-            this.lastWatermark = 0;
-            this.configs       = null;
-            result = await this.call({
-                jsonrpc: '2.0',
-                method:  'getallconfigs',
-                params:  this.configParams(0),
-                id:      1
-            });
-            if(result === null || degraded(result) || errorEnvelope(result)){
-                log.warn('HUB_CONFIG_REFETCH_FAILED', { detail: 'full re-fetch after config regression failed; falling back to cached config until the next poll' });
-                return null;
-            }
-        }
-        this.warnIfRedacted(result);
-        this.configs = this.applyConfigResult(result);
-        // Bind the (possibly advanced) cursor to the endpoint that answered.
-        this._watermarkEndpointIdx = this._lastGoodIdx;
-        return this.configs;
-    }
-
-    // True when a watermarked envelope from the cursor's own endpoint reports a
-    // seq or watermark BELOW the last one it served us (hub restart / restore
-    // from an older snapshot). A missing watermark is the full tree (handled by
-    // applyConfigResult) and a zero watermark means an empty configs table, so
-    // neither counts; the next poll re-fetches in full either way.
-    hubConfigRegressed(result){
-        let wrapped = result && typeof result === 'object' && result.configs && typeof result.configs === 'object' && ('seq' in result);
-        if(!wrapped || result.watermark === undefined || result.watermark === null) return false;
-        let watermark = Number(result.watermark) || 0;
-        let seq       = Number(result.seq) || 0;
-        return (watermark > 0 && watermark < this.lastWatermark) ||
-               ((this.lastSeq || 0) > 0 && seq < this.lastSeq);
-    }
-
-    // Fold a getallconfigs result into this.configs and return the full nested
-    // map. Newer hubs wrap the payload as { configs, seq, watermark }: when a
-    // watermark is present the payload is a delta (only rows changed since the
-    // cursor we sent), so we MERGE it into the cache and advance the cursor.
-    // Older hubs return the bare map (or a { configs, seq } wrapper without a
-    // watermark); those are always the full tree, so we REPLACE. Callers
-    // (config.js) see the same full-map shape regardless of hub version. seq is 0
-    // against an old hub, which the caller treats as "no committed change seen".
-    // The configs table is upsert-only (no row deletes), so merging is lossless,
-    // but only COMPLETE because getAllConfig() sends the cursor one second behind
-    // the stored watermark (see the deltaCursor comment there); this.lastWatermark
-    // itself is still set to the hub's true watermark below.
-    applyConfigResult(result){
-        // Every envelope, initial fetch and delta poll alike, funnels through here.
-        this.checkHubConsensusHash(result && typeof result === 'object' ? result.coin_consensus_hashes : null);
-
-        let payload, seq, watermark;
-        if(result && typeof result === 'object' && result.configs && typeof result.configs === 'object' && ('seq' in result)){
-            payload   = result.configs;
-            seq       = Number(result.seq) || 0;
-            watermark = ('watermark' in result) ? result.watermark : undefined;
-        } else {
-            payload   = result;
-            seq       = 0;
-            watermark = undefined;
-        }
-        this.lastSeq = seq;
-
-        if(watermark === undefined || watermark === null){
-            // Hub doesn't report a watermark, so payload is the full tree. Reset the
-            // cursor so the next poll also requests in full.
-            this.lastWatermark = 0;
-            return payload;
-        }
-
-        let sentCursor = this.lastWatermark > 0;
-        this.lastWatermark = Number(watermark) || 0;
-
-        if(sentCursor && this.configs){
-            // Delta against the cursor we sent: merge changed rows into the cache.
-            return mergeConfigDelta(this.configs, payload || {});
-        }
-        // First fetch (or post-restart): payload is the full tree.
-        return payload;
-    }
-
-    // Transport-integrity check: compare the consensus-config hashes the hub serves
-    // on getallconfigs against our OWN bundled ones. Hub-served consensus values are
-    // never applied (the explorer derives them from the vendored src/coins bundle via
-    // coin-config/to_explorer_config.js), so this only logs; what it buys is that a hub built from a
-    // divergent bundle surfaces at the first poll rather than as wrong served or
-    // refused proof reads. Mirrors XChainIndexer.checkHubConsensusHash, widened to
-    // every coin and network because the explorer bundles and serves all three.
-    checkHubConsensusHash(hubHashes){
-        if(!hubHashes || typeof hubHashes !== 'object') return;   // older hub: field absent
-        let mismatches = [];
-        for(const network of coins.NETWORKS){
-            let served = hubHashes[network];
-            if(!served || typeof served !== 'object') continue;
-            let local = localConsensusHashes(network);
-            for(const tick of Object.keys(local)){
-                // A coin the hub does not serve is version skew, not drift; only a
-                // hash the hub DOES serve and that differs counts as a mismatch.
-                if(served[tick] && served[tick] !== local[tick])
-                    mismatches.push(tick + '/' + network + ': hub ' + served[tick] + ' vs bundled ' + local[tick]);
-            }
-        }
-        // This runs on every poll, so log only when the mismatch SET changes: a
-        // standing divergence must not flood the log, and a drift that widens or
-        // clears must still report.
-        let key = mismatches.join('|');
-        if(key === (this._lastConsensusMismatchKey || '')) return;
-        this._lastConsensusMismatchKey = key;
-        if(mismatches.length)
-            log.error('CONSENSUS_HASH_MISMATCH', {
-                mismatches: mismatches.join('; '),
-                detail: 'the hub serves consensus config differing from this service\'s bundled coin files; hub consensus values are never applied (they are pinned locally); upgrade the lagging side'
-            });
-    }
 }
 
 // Parse the hub endpoints out of the environment variables.
@@ -481,5 +283,21 @@ XChainHubConnector.parseEndpoints = function(){
     let port = configEnv().HUB_PORT || '10000';
     return ['http://' + host + ':' + port];
 };
+
+// Copy each part's methods onto the class prototype by descriptor, so they stay
+// non-enumerable exactly as methods written in the class body are, and refuse a
+// name the class already defines: a split must never silently shadow a method.
+function installParts(target, parts){
+    for(const part of parts){
+        for(const name of Object.getOwnPropertyNames(part.prototype)){
+            if(name === 'constructor') continue;
+            if(Object.prototype.hasOwnProperty.call(target.prototype, name))
+                throw new Error(target.name + ': part method ' + name + ' collides with an existing method');
+            Object.defineProperty(target.prototype, name, Object.getOwnPropertyDescriptor(part.prototype, name));
+        }
+    }
+}
+
+installParts(XChainHubConnector, [HubConfigSync]);
 
 module.exports = XChainHubConnector

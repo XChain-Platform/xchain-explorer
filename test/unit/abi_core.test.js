@@ -63,6 +63,10 @@ describe('abi-core parseAbi', function () {
         assert.ok(!('badShape' in abi.methods), 'method with a non-object param is dropped');
     });
 
+});
+
+describe('abi-core parseAbi', function () {
+
     it('returns null when version or methods is missing / non-literal', function () {
         assert.strictEqual(parseAbi(withAbi(`{ methods: {} }`)), null, 'missing version');
         assert.strictEqual(parseAbi(withAbi(`{ version: 1 }`)), null, 'missing methods');

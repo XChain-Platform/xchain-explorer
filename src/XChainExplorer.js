@@ -40,7 +40,7 @@ const rateLimit        = require('express-rate-limit');
 const { limitedHandler } = require('./http/rate_limit_log.js');   // limiter counter line, shared with api.js's app-wide limiter
 const vmQuery          = require('./vm-query.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
-const listPage         = require('./list-page.js');
+const listPage         = require('./render/list_page.js');
 const componentTpl     = require('./component-templates.js');
 const staticMounts     = require('./http/static_mounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
 

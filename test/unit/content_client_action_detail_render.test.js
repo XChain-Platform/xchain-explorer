@@ -290,7 +290,7 @@ describe('action detail render: fields that reached the API with nowhere to go',
     // driven here through that mount rather than asserted against the JSON.
     describe('the deploy card sits under the chunk rows', function(){
 
-        const listPage = require(path.join(__dirname, '../../src/list-page.js'));
+        const listPage = require(path.join(__dirname, '../../src/render/list_page.js'));
         const CARDS = JSON.parse(fs.readFileSync(
             path.join(CONTENT, 'layouts', 'action-detail-cards.json'), 'utf8'));
 

@@ -38,7 +38,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
 const ROOT     = path.resolve(__dirname, '..', '..');
-const listPage = require(path.join(ROOT, 'src', 'list-page.js'));
+const listPage = require(path.join(ROOT, 'src', 'render', 'list_page.js'));
 const SOURCE   = require('../helpers/content-source.js');
 const XCComponents = require(path.join(ROOT, 'src', 'content', 'js', 'components.js'));
 

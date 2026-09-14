@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * list-page.js
+ * render/list_page.js
  *
  * The shared list-page composition (spec M2.3). 75 near-identical page
  * fragments used to differ only in an icon, a heading, a column set and three
@@ -41,12 +41,12 @@
 const fs   = require('fs');
 const path = require('path');
 
-const COLUMNS = require('./content/components/data-table/columns.js');
+const COLUMNS = require('../content/components/data-table/columns.js');
 
-const LAYOUT_DIR   = path.join(__dirname, 'content', 'layouts');
+const LAYOUT_DIR   = path.join(__dirname, '..', 'content', 'layouts');
 const LAYOUT_FILE  = path.join(LAYOUT_DIR, 'list-page.html');
 const PAGES_FILE   = path.join(LAYOUT_DIR, 'list-pages.json');
-const COMPONENT_TEMPLATE = path.join(__dirname, 'content', 'components', 'data-table', 'template.html');
+const COMPONENT_TEMPLATE = path.join(__dirname, '..', 'content', 'components', 'data-table', 'template.html');
 
 let cache = null;
 

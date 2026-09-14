@@ -35,7 +35,7 @@ const ROOT     = path.resolve(__dirname, '..', '..');
 const HTML_DIR = path.join(ROOT, 'src', 'content', 'html');
 const JS_DIR   = path.join(ROOT, 'src', 'content', 'js');
 
-const listPage     = require(path.join(ROOT, 'src', 'list-page.js'));
+const listPage     = require(path.join(ROOT, 'src', 'render', 'list_page.js'));
 const componentTpl = require(path.join(ROOT, 'src', 'component-templates.js'));
 
 /**

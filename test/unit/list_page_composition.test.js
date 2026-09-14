@@ -41,7 +41,7 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
 const ROOT     = path.resolve(__dirname, '..', '..');
-const listPage = require(path.join(ROOT, 'src', 'list-page.js'));
+const listPage = require(path.join(ROOT, 'src', 'render', 'list_page.js'));
 const SOURCE   = require('../helpers/content-source.js');
 
 const BASELINE = JSON.parse(fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'list-page-baseline.json'), 'utf8'));

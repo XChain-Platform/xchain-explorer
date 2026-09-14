@@ -279,6 +279,8 @@ class Broadcaster {
             }
         };
 
+        // A block frame has one destination, the global 'blocks' channel: nothing about
+        // a block belongs to a single address, so there is no per-address fan-out here.
         this.broadcastToChannel(coin, 'blocks', event, null);
 
         // Queue the NETWORK_STATS frame on the per-coin serial chain. The final
@@ -367,6 +369,8 @@ class Broadcaster {
             }
         };
 
+        // The firehose first: a subscriber on the global 'actions' channel sees every
+        // action, whoever it involves. The per-address fan-out below is the narrow view.
         this.broadcastToChannel(coin, 'actions', event, action);
 
         // Also broadcast to the address channel of every party to the action. The
@@ -395,6 +399,8 @@ class Broadcaster {
             data:      lifecycleEvent.data
         };
 
+        // Lifecycle events ride the global 'actions' channel too, so a client watching
+        // that one stream sees the derived transitions beside the raw actions.
         this.broadcastToChannel(coin, 'actions', event, lifecycleEvent);
 
         // If the lifecycle event names a dedicated channel (e.g. 'attestation'),
@@ -468,6 +474,8 @@ class Broadcaster {
             data:      { channel: updateEvent.channel, ...updateEvent.data }
         };
 
+        // Entity channels are keyed per entity, so the frame needs the id it belongs to
+        // before it can be routed. Market is the one composite key and is built below.
         let entityId = null;
         switch (updateEvent.channel) {
             case 'address':   entityId = updateEvent.data.address;      break;
@@ -485,6 +493,9 @@ class Broadcaster {
         }
     }
 
+    // Send an event to every client subscribed to one channel. An entityId narrows the
+    // key to a single entity (coin:channel:id); without one the frame goes to the
+    // coin-wide channel (coin:channel) that anyone can watch.
     broadcastToChannel(coin, channel, event, actionData, entityId) {
         let channelKey;
         if (entityId) {

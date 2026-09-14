@@ -32,6 +32,8 @@ const GLOBAL_CHANNELS = new Set(['blocks', 'actions', 'mempool', 'network', 'att
 // and the target chain has no request row at all (spec M5.4).
 const ENTITY_CHANNELS = new Set(['address', 'token', 'market', 'dispenser', 'bet_feed', 'xcall']);
 
+// Every channel name a subscribe request is allowed to use. A name outside this set
+// is refused at subscribe time rather than silently accepted and never delivered.
 const ALL_CHANNELS = new Set([...GLOBAL_CHANNELS, ...ENTITY_CHANNELS]);
 
 // Canonical decimal form of an action_index subscription key: no sign, no leading

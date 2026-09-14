@@ -18,61 +18,10 @@
 // integration suite, which skips itself when isolated-vm is unavailable.
 
 const { expect } = require('chai');
-// noCallThru: the whole point of the stub is hosts WITHOUT a loadable
-// xchain-vm; call-through would try (and fail) to require the real module.
-const proxyquire = require('proxyquire').noPreserveCache().noCallThru();
+const { loadVmQuery, dbStub, fakeVmModule, CFG } = require('./vm_query.test/helpers.js');
 
-// Fresh module instance per test: vm-query keeps sticky module-level state
-// (loaded module, singleton instance, in-flight counter) by design.
-function loadVmQuery(vmStub){
-    const stubs = {};
-    if(vmStub !== undefined) stubs['xchain-vm'] = vmStub;
-    return proxyquire('../../src/contract/vm_query.js', stubs);
-}
-
-// Minimal db stub satisfying simulate()'s reads.
-function dbStub(overrides = {}){
-    return Object.assign({
-        doQuery:              async () => [{ code: 'module.exports={}' }],
-        getContractFullState: async () => Object.create(null),
-        getMaxBlockIndex:     async () => 100,
-        getMaxBlockTime:      async () => 1700000000
-    }, overrides);
-}
-
-// The consensus surface a canonical contract-era xchain-vm exports. Every stub
-// carries it by default, so the fail-closed drift gate does not turn the rest
-// of the suite into drift refusals; the gate's own tests override it.
-const CANONICAL_VM_CONSENSUS = {
-    CONSENSUS_VERSION:                   '4',
-    BINARY_ALLOC_GATE_BLOCK_TIME:        1786060800,
-    ASYNC_SURFACE_GATE_BLOCK_TIME:       1786060800,
-    STATE_KEY_NUL_GATE_BLOCK_TIME:       1786060800,
-    METERING_EVAL_ORDER_GATE_BLOCK_TIME: 1786060800,
-    PKG3_SANDBOX_ACTIVATION:             { BTC: 961000 },
-    MAX_CODE_SIZE:                       65536
-};
-
-// A fake XChainVM constructor whose execute resolves with a canned result
-// (or a caller-supplied implementation). `consensus` overrides the exported
-// consensus surface; a key set to undefined removes that export.
-function fakeVmModule(executeImpl, consensus){
-    const FakeVM = function FakeVM(){
-        this.execute  = executeImpl || (async (opts) => ({
-            success: true, error: null, gasUsed: 42,
-            returnValue: '"ok"', stateChanges: [], stateDeletes: [],
-            emittedActions: [], logs: [], _opts: opts
-        }));
-        this.shutdown = async () => {};
-    };
-    Object.assign(FakeVM, CANONICAL_VM_CONSENSUS, consensus || {});
-    return FakeVM;
-}
-
-const CFG = { coin: 'RBTC', data: {} };
-
-describe('vm-query', () => {
-    let envBackup;
+let envBackup;
+    describe('vm-query', () => {
     beforeEach(() => {
         envBackup = {
             enabled:    process.env.EXPLORER_VM_QUERY_ENABLED,
@@ -90,6 +39,17 @@ describe('vm-query', () => {
         else process.env.EXPLORER_VM_MAX_STATE_BYTES = envBackup.stateBytes;
     });
 
+    registerAvailabilityTests();
+    registerValidationTests();
+    registerInvocationTests();
+    registerGlobalBusyTest();
+    registerDatabaseGateTest();
+    registerPerIpLimitTest();
+    registerDefaultPerIpTest();
+    registerStateLimitTests();
+    });
+
+    function registerAvailabilityTests() {
     it('rejects with VM_QUERY_DISABLED (503) when the flag is off', async () => {
         process.env.EXPLORER_VM_QUERY_ENABLED = 'false';
         const vmq = loadVmQuery(fakeVmModule());
@@ -115,6 +75,10 @@ describe('vm-query', () => {
             expect(e.httpStatus).to.equal(503);
         }
     });
+
+    }
+
+    function registerValidationTests() {
 
     describe('request validation (all 400)', () => {
         let vmq;
@@ -152,6 +116,10 @@ describe('vm-query', () => {
         }
     });
 
+    }
+
+    function registerInvocationTests() {
+
     it('passes nulled snapshots, tip block context, and the derived contract address to the VM', async () => {
         const vmq = loadVmQuery(fakeVmModule());
         const r = await vmq.simulate(dbStub(), CFG, 7, { method: 'run', params: ['a', 'b'] }, 'BTC', 'regtest');
@@ -173,6 +141,10 @@ describe('vm-query', () => {
         const r = await vmq.simulate(dbStub(), CFG, 7, { method: 'run', caller: 'someAddr' }, 'BTC', 'regtest');
         expect(r._opts.caller).to.equal('someAddr');
     });
+
+    }
+
+    function registerGlobalBusyTest() {
 
     it('rejects with VM_BUSY (429) above the concurrency cap and recovers after', async () => {
         process.env.EXPLORER_VM_MAX_CONCURRENT = '1';
@@ -200,6 +172,10 @@ describe('vm-query', () => {
         expect(ok.success).to.equal(true);
     });
 
+    }
+
+    function registerDatabaseGateTest() {
+
     it('a burst arriving during the DB loads cannot bypass the concurrency gate', async () => {
         process.env.EXPLORER_VM_MAX_CONCURRENT = '1';
         let release;
@@ -221,6 +197,10 @@ describe('vm-query', () => {
         const r = await first;
         expect(r.success).to.equal(true);
     });
+
+    }
+
+    function registerPerIpLimitTest() {
 
     it('caps concurrent slots PER IP so paced clients cannot hold the whole pool', async () => {
         process.env.EXPLORER_VM_MAX_CONCURRENT = '4';
@@ -256,6 +236,10 @@ describe('vm-query', () => {
         }
     });
 
+    }
+
+    function registerDefaultPerIpTest() {
+
     it('per-IP cap defaults to half the global pool (min 1) and skips when no IP is supplied', async () => {
         process.env.EXPLORER_VM_MAX_CONCURRENT = '4';   // default per-IP share = 2
         let release;
@@ -281,6 +265,10 @@ describe('vm-query', () => {
         const r = await noIp;
         expect(r.success).to.equal(true);
     });
+
+    }
+
+    function registerStateLimitTests() {
 
     it('maps a STATE_TOO_LARGE state load to 413 and threads the row/byte caps', async () => {
         let capturedLimits;
@@ -315,144 +303,6 @@ describe('vm-query', () => {
         await vmq.shutdown();
     });
 
-    // A deployed explorer's vendored VM can go stale unnoticed even while an
-    // external drift-check script exists, because that script is skippable.
-    // These cases are the part an operator cannot skip: the endpoint itself
-    // refuses to simulate when its VM has drifted from the required consensus
-    // shape.
-    describe('vendored-VM consensus gate', () => {
-        // Each case names a shape of the measured drift: the live copy carried
-        // none of these exports at all.
-        const DRIFTED = {
-            'no CONSENSUS_VERSION export (VM predates the contract era)': { CONSENSUS_VERSION: undefined },
-            'no BINARY_ALLOC_GATE_BLOCK_TIME':                            { BINARY_ALLOC_GATE_BLOCK_TIME: undefined },
-            'no PKG3_SANDBOX_ACTIVATION':                                 { PKG3_SANDBOX_ACTIVATION: undefined },
-            'an older consensus epoch':                                   { CONSENSUS_VERSION: '2' },
-            'a newer consensus epoch':                                    { CONSENSUS_VERSION: '5' },
-            'a divergent MAX_CODE_SIZE':                                  { MAX_CODE_SIZE: 32768 }
-        };
+    }
 
-        for(const [label, consensus] of Object.entries(DRIFTED)){
-            it('refuses to simulate with VM_QUERY_VM_DRIFT (503): ' + label, async () => {
-                let dbTouched = false;
-                const vmq = loadVmQuery(fakeVmModule(null, consensus));
-                const db  = dbStub({ doQuery: async () => { dbTouched = true; return [{ code: 'x' }]; } });
-                try {
-                    await vmq.simulate(db, CFG, 1, { method: 'x' }, 'BTC', 'regtest');
-                    throw new Error('should have thrown');
-                } catch(e){
-                    expect(e.code).to.equal('VM_QUERY_VM_DRIFT');
-                    expect(e.httpStatus).to.equal(503);
-                }
-                // Fail-closed means closed before any work: no query reached the
-                // indexer DB and no simulation ran.
-                expect(dbTouched).to.equal(false);
-                expect(vmq.consensusFault()).to.be.a('string');
-            });
-        }
-
-        it('refuses before request validation, so a bad body cannot mask the drift', async () => {
-            const vmq = loadVmQuery(fakeVmModule(null, { CONSENSUS_VERSION: '2' }));
-            try {
-                await vmq.simulate(dbStub(), CFG, 1, { method: '' }, 'BTC', 'regtest');
-                throw new Error('should have thrown');
-            } catch(e){
-                expect(e.code).to.equal('VM_QUERY_VM_DRIFT');
-            }
-        });
-
-        it('the flag being off still answers VM_QUERY_DISABLED, not drift', async () => {
-            // Drift on a VM nothing loads is a loaded gun, not a live fault, and
-            // the two verdicts must stay distinguishable for the same reason the
-            // drift script weights WARN against FAIL.
-            process.env.EXPLORER_VM_QUERY_ENABLED = 'false';
-            const vmq = loadVmQuery(fakeVmModule(null, { CONSENSUS_VERSION: '2' }));
-            try {
-                await vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest');
-                throw new Error('should have thrown');
-            } catch(e){
-                expect(e.code).to.equal('VM_QUERY_DISABLED');
-            }
-        });
-
-        it('an absent module stays VM_MODULE_UNAVAILABLE (a different repair)', async () => {
-            const vmq = loadVmQuery(null);
-            expect(vmq.consensusFault()).to.equal(null);
-            try {
-                await vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest');
-                throw new Error('should have thrown');
-            } catch(e){
-                expect(e.code).to.equal('VM_MODULE_UNAVAILABLE');
-            }
-        });
-
-        it('a canonical-shaped VM passes the gate and simulates', async () => {
-            const vmq = loadVmQuery(fakeVmModule());
-            expect(vmq.consensusFault()).to.equal(null);
-            const r = await vmq.simulate(dbStub(), CFG, 1, { method: 'x' }, 'BTC', 'regtest');
-            expect(r.success).to.equal(true);
-        });
-
-        it('names the reason, so the log says which repair is needed', async () => {
-            const vmq = loadVmQuery(fakeVmModule(null, { CONSENSUS_VERSION: '2' }));
-            expect(vmq.consensusFault()).to.contain('CONSENSUS_VERSION 2');
-            expect(vmq.consensusFault()).to.contain(vmq.REQUIRED_VM_CONSENSUS_VERSION);
-        });
-    });
-});
-
-// Protocol size-cap drift guard for the explorer's read-only query isolate.
-// The query VM must enforce the SAME contract code-size cap as the on-chain VM
-// and indexer DEPLOY, or it would reject code the chain accepted (breaking
-// contract-query previews) with no failing test to catch the drift. The
-// canonical source of record is xchain-documentation/protocol/constants.js
-// (MAX_CODE_SIZE); we also cross-check the vendored xchain-vm isolate export.
-// When the sibling xchain-documentation repo is not checked out (standalone
-// deploy), skip the canonical assertion rather than fail, matching the
-// ConsensusPrimitiveConformance cross-repo guard convention.
-describe('vm-query protocol size-cap parity @regression', () => {
-    const fs   = require('fs');
-    const path = require('path');
-    // Load the module WITHOUT stubbing xchain-vm so we read its real exports.
-    const vmq  = require('../../src/contract/vm_query.js');
-
-    const DOCS_DIR   = process.env.XCHAIN_DOCS_DIR ||
-        path.join(__dirname, '..', '..', '..', 'xchain-documentation');
-    const CONST_PATH = path.join(DOCS_DIR, 'protocol', 'constants.js');
-
-    it('explorer query-VM MAX_CODE_SIZE === canonical protocol constant', function(){
-        if(!fs.existsSync(CONST_PATH)) this.skip();
-        const protocol = require(CONST_PATH);
-        expect(vmq.MAX_CODE_SIZE).to.equal(protocol.MAX_CODE_SIZE);
-    });
-
-    it('explorer query-VM MAX_CODE_SIZE === vendored xchain-vm isolate cap', function(){
-        let vm;
-        try { vm = require('xchain-vm'); } catch(e){ this.skip(); return; }
-        if(vm == null || typeof vm.MAX_CODE_SIZE !== 'number') this.skip();
-        expect(vmq.MAX_CODE_SIZE).to.equal(vm.MAX_CODE_SIZE);
-    });
-
-    it('the caps the isolate actually receives are the named constants (no bare literal reintroduced)', () => {
-        expect(vmq.MAX_CODE_SIZE).to.equal(65536);
-        expect(vmq.MAX_STATE_VALUE_SIZE).to.equal(65536);
-    });
-
-    // The gate's pin is compiled in, so an epoch bump in the VM would otherwise
-    // be discovered by an explorer refusing to simulate in production. Read by
-    // regex rather than require(), so the assertion never needs to load isolated-vm.
-    it('the compiled consensus pin equals the canonical sibling xchain-vm epoch', function(){
-        const VM_DIR = process.env.XCHAIN_VM_SOURCE ||
-            path.join(__dirname, '..', '..', '..', 'xchain-vm');
-        // The VM's layout pass renamed src/consensus-runtime.js to
-        // src/consensus_runtime.js and left nothing at the old path, so a sibling
-        // checkout sits on one side of that move or the other. Pinning one
-        // spelling turns this pin check into a silent skip against the other.
-        const RUNTIME = [path.join(VM_DIR, 'src', 'consensus_runtime.js'),
-                         path.join(VM_DIR, 'src', 'consensus-runtime.js')].find((p) => fs.existsSync(p));
-        if(!RUNTIME) this.skip();
-        const m = /CONSENSUS_VERSION\s*=\s*'([^']+)'/.exec(fs.readFileSync(RUNTIME, 'utf8'));
-        expect(m, 'canonical CONSENSUS_VERSION not found in ' + RUNTIME).to.not.equal(null);
-        expect(vmq.REQUIRED_VM_CONSENSUS_VERSION).to.equal(m[1]);
-    });
-});
+require('./vm_query.test/consensus.js');

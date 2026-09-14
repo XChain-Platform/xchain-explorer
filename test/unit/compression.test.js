@@ -237,7 +237,9 @@ describe('explorer FILE decompression', function () {
         const fs = require('fs');
         const ENCODER = process.env.XCHAIN_ENCODER_DIR ||
             path.join(__dirname, '..', '..', '..', 'xchain-encoder');
-        const ENCODER_COMPRESSION = path.join(ENCODER, 'src', 'compression.js');
+        // The encoder files its build-side modules under src/build, so the twin this
+        // guard reads lives there rather than at the top of the sibling's src.
+        const ENCODER_COMPRESSION = path.join(ENCODER, 'src', 'build', 'compression.js');
 
         before(function () {
             if (!fs.existsSync(ENCODER_COMPRESSION)) {

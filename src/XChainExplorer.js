@@ -186,6 +186,7 @@ class XChainExplorer {
         let urls = {
 
             // Directories served straight off disk, the raw file and no processing.
+
             // Mount list lives in src/http/static_mounts.js, which is also what the rate
             // limiter and concurrency gate read to decide what to exempt: one list, so
             // a directory added here can never be silently limited (or, worse, a
@@ -1036,6 +1037,7 @@ class XChainExplorer {
 
         // Catch-all: every request the listeners above did not take lands here,
         // including a static request that found no file.
+
         // Express 5 / path-to-regexp v8 rejects a bare '*' at startup, and
         // the wildcard MUST be braced ('/{*path}') to match the bare root '/': the
         // unbraced form requires a trailing segment, dropping '/' through to the
@@ -1379,6 +1381,7 @@ class XChainExplorer {
             }
 
             // Per-method touch-ups to the JSON before it goes out.
+
             // cfg.data.search is the raw {QUERY} path segment: only echo it back as
             // json.address once it is confirmed address-shaped, so an arbitrary
             // (and possibly script-bearing) path segment never reaches the response.
@@ -3183,12 +3186,9 @@ class XChainExplorer {
         });
     }
 
-    // RELAY request handler: fetches remote token content on a page's behalf.
-    // Two reasons the pages cannot fetch it themselves:
-    // - relayed content is delivered over the explorer's own https, which keeps
-    //   the browser's SSL lock intact
-    // - most .json hosts send no Access-Control-Allow-Origin header, and a
-    //   browser refuses the request without one
+    // RELAY request handler: fetches remote token content a page cannot fetch
+    // itself, because relaying keeps it on the explorer's own https and most .json
+    // hosts send no Access-Control-Allow-Origin, without which a browser refuses.
     async processRelayRequest(req, res){
         // Nothing to relay without a url parameter.
         if(!this.util.isNull(req.query.url)){

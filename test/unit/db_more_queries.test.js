@@ -54,6 +54,7 @@ const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const mockResults              = require('../fixtures/mock-db-results.js');
 
+// The MariaDB driver is stubbed: these tests never open a real pool.
 const Database = proxyquire('../../src/db.js', {
     './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
@@ -594,6 +595,8 @@ describe('Database#getSearch', () => {
         expect(data.totals.tokens).to.equal(2);
     });
 
+    // Search terms under 3 characters are refused before any query runs, because a
+    // term that short forces a scan that matches a large share of every table.
     it('returns zero results immediately when search term is too short (< 3 chars)', async () => {
         const spy = sinon.spy(db, 'doQuery');
         const config = makeActionConfig('getSearch', 'address');
@@ -623,6 +626,8 @@ describe('Database#getSearch', () => {
         expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'contracts', 'tokens', 'transactions']);
     });
 
+    // Search results stop at 100 rows whatever limit the pager asks for, so a
+    // popular term cannot turn into a runaway scan.
     it('clamps LIMIT to 100 even when sql.limit is larger', async () => {
         let capturedQuery = null;
         let callN = 0;
@@ -1955,6 +1960,7 @@ describe('Database#getDecoderTip', () => {
     });
 });
 
+// Branches the query builder tests in db_query_builder.test.js do not reach.
 describe('Database#getQueryWhereSql: additional branches', () => {
     let db;
     before(() => { db = makeDb(); });
@@ -2034,6 +2040,7 @@ describe('Database#getQueryWhereSql: additional branches', () => {
     });
 });
 
+// Slash events are keyed by row id rather than action index, so they page on m.id.
 describe('Database#getQueryOffsetSql: getSlashEvents', () => {
     let db;
     before(() => { db = makeDb(); });
@@ -2060,6 +2067,7 @@ describe('Database constructor onConfigChanged', () => {
     it('setupConnectionPools is called when configInfo fires triggerConfigChanged', async () => {
         const db = makeDb();
         const stub = sinon.stub(db, 'setupConnectionPools').resolves();
+        // Fire the change listener the constructor registered.
         configInfo.triggerConfigChanged();
         // The listener may fire sync or async; flush the microtask queue before asserting.
         await new Promise(r => setImmediate(r));
@@ -2352,6 +2360,7 @@ describe('Database#getActionSummaryData: non-SEND actions', () => {
             tick: 'XCHAIN',
             source: 'addr1',
             amount: '100',
+            // No sends array, so the fields are copied across as they are.
         });
         const actions = [{ action_index: 50, action: 'ISSUE', block_index: 400, timestamp: 1699000000, tx_hash: 'iss123', tx_index: 3 }];
         const result = await db.getActionSummaryData(cfg(), actions);
@@ -2417,6 +2426,8 @@ describe('Database#getSearch: broadcast type', () => {
     });
 });
 
+// Later edits change an order's expiration, and each match deducts from what the
+// order still has left to give and to get.
 describe('Database#getOrderInfoBatch: edit + match loops', () => {
     let db;
     beforeEach(() => { db = makeDb(); });
@@ -2569,6 +2580,7 @@ describe('Database#getQueryOffsets', () => {
         });
         const config = qoCfg('getSends', 'address', 'next', 'addr1');
         await db.getQueryOffsets(config, false, 10);
+        // Reaching here without an error means the source-or-destination branch ran.
         expect(db.doQuery.callCount).to.be.greaterThan(0);
     });
 
@@ -3048,6 +3060,7 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         });
         const result = await db.getQueryOffsets(config, 500, 10);
         expect(result).to.be.an('array');
+        // A token's address is its owner, so the stop query filters on owner_id.
         const queries = db.doQuery.args.map(a => a[1] || '');
         const stopQuery = queries.find(q => q.includes('offset_index') && q.includes('tokens m'));
         expect(stopQuery).to.include('owner_id');
@@ -3064,6 +3077,7 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         config.data.query  = { limit: 10, length: 10, start: 500, offset: false, total: 50, action: 'next' };
         const result = await db.getQueryOffsets(config, 500, 10);
         expect(result).to.be.an('array');
+        // Orders take the default address filter, so the stop query uses t1.source_id.
         const queries = db.doQuery.args.map(a => a[1] || '');
         const stopQuery = queries.find(q => q.includes('offset_index') && q.includes('orders m'));
         expect(stopQuery).to.include('t1.source_id');
@@ -3076,6 +3090,7 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         config.data.offset = { action: 'first' };
         config.data.query  = { limit: 10, length: 10, start: 0, offset: false, total: 50, action: 'first' };
         const result = await db.getQueryOffsets(config, false, 10);
+        // With no search, the listing pages over every block (blocks b1 WHERE b1.block_index IS NOT NULL).
         expect(db.doQuery.firstCall.args[1]).to.include('blocks b1');
         expect(result).to.be.an('array');
     });
@@ -3122,6 +3137,7 @@ describe('Database#getActionData', () => {
             for(const [pattern, rows] of Object.entries(extra)){
                 if(q && q.includes(pattern)) return rows;
             }
+            // Any other query gets the main row
             if(mainRow) return [mainRow];
             return [];
         });
@@ -3139,6 +3155,7 @@ describe('Database#getActionData', () => {
         const result1 = await db.getActionData(config, 100);
         const callCount1 = db.doQuery.callCount;
         const result2 = await db.getActionData(config, 100);
+        // A cache hit means the second read made no new database query.
         expect(db.doQuery.callCount).to.equal(callCount1);
     });
 
@@ -3414,8 +3431,9 @@ describe('Database#getActionData', () => {
     it('DEPLOY v4 chunk carrier: returns chunk data from deploy_chunks (action_format===4 branch)', async () => {
         // v4 carriers share the DEPLOY action name but live in deploy_chunks (one base64
         // code slice each); getActionData picks the detail query by action_format. The
-        // base row carries action_format:4 but no chunk fields, so the assertions only
-        // pass if the action_format probe actually drove the v4 branch.
+        // chunk fields are routed ONLY through the deploy_chunks query (via `extra`) and
+        // the base row carries action_format:4 but no chunk fields, so the assertions
+        // only pass if the action_format probe actually drove the v4 branch.
         stubForType(db, 'DEPLOY', baseRow({ action: 'DEPLOY', action_format: 4 }), {
             'deploy_chunks': [ baseRow({ action: 'DEPLOY', action_format: 4, code_hash: 'c0dehash', chunk_index: 2, total_chunks: 5 }) ]
         });

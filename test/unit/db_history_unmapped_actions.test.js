@@ -97,8 +97,9 @@ function drivingTable(sql) {
     return all.length ? all[all.length - 1][1] : null;
 }
 
+let db;
+
 describe('db.getHistoryData: the all-activity feed is not gated on mappings_actions', () => {
-    let db;
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
@@ -146,6 +147,11 @@ describe('db.getHistoryData: the all-activity feed is not gated on mappings_acti
         expect(drivingTable(listQuery)).to.equal('mappings_actions');
         expect(listQuery).to.include('m.type_id=1');
     });
+});
+
+describe('db.getHistoryData: the all-activity feed is not gated on mappings_actions', () => {
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
 
     it('the WHERE anchor names the alias its own FROM clause defines', async () => {
         // The anchor and the FROM clause are built in two different methods
@@ -193,6 +199,11 @@ describe('db.getHistoryData: the all-activity feed is not gated on mappings_acti
         const { listArgs } = await capture(db, config);
         expect(listArgs).to.deep.equal(['500', '50']);
     });
+});
+
+describe('db.getHistoryData: the all-activity feed is not gated on mappings_actions', () => {
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
 
     // getQueryOffsets resolves the CURSOR getHistoryData then pages on, in its own
     // queries against its own FROM clause. It had the identical bug, and it is the
@@ -240,6 +251,11 @@ describe('db.getHistoryData: the all-activity feed is not gated on mappings_acti
         expect(boundaryQuery).to.include('mappings_actions');
         expect(boundaryQuery).to.include('m.type_id=2');
     });
+});
+
+describe('db.getHistoryData: the all-activity feed is not gated on mappings_actions', () => {
+    beforeEach(() => { db = makeDb(); });
+    afterEach(() => { sinon.restore(); });
 
     it('the stop-marker query cursors on the same alias its FROM clause defines', async () => {
         const seen = [];

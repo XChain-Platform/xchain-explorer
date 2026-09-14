@@ -15,7 +15,7 @@
  *
  * A silent limiter is an outage nobody can attribute: the wallet sees
  * timeouts and the service log says nothing about a ceiling, so the first
- * diagnosis is always the wrong subsystem. src/rateLimitLog.js turns each
+ * diagnosis is always the wrong subsystem. src/http/rate_limit_log.js turns each
  * limiter into one that names the knob and the volume it refused.
  *
  * Two failure modes are worth more than the feature itself, and both are
@@ -44,7 +44,7 @@ const express     = require('express');
 const rateLimit   = require('express-rate-limit');
 const request     = require('supertest');
 
-const { limitedHandler } = require('../../src/rateLimitLog.js');
+const { limitedHandler } = require('../../src/http/rate_limit_log.js');
 
 const WINDOW_MS = 60 * 1000;
 

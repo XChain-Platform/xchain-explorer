@@ -39,7 +39,7 @@ const express      = require('express');
 const rateLimit    = require('express-rate-limit');
 const request      = require('supertest');
 const proxyquire   = require('proxyquire').noCallThru();
-const { limitedHandler }       = require('../../src/rateLimitLog.js');
+const { limitedHandler }       = require('../../src/http/rate_limit_log.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
 const CONF_PATH      = path.join(__dirname, '../../deploy/rate-limits.conf');
@@ -98,7 +98,7 @@ function buildBatchLimiter(env) {
             'express':            expressMock,
             './db.js':            MockDB,
             'express-rate-limit': rateLimitStub,
-            './rateLimitLog.js':  rateLimitLogStub
+            './http/rate_limit_log.js':  rateLimitLogStub
         });
         new XChainExplorer(mockApp, createConfigInfoStub());
         built = created.find((c) => c.options.handler && c.options.handler._policy

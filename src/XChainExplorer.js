@@ -37,7 +37,7 @@ const swq              = require('./stake_weighted_quorum.js');
 const ckpt             = require('./checkpoint_commitment_activation.js');
 const ProofServer      = require('./proofServer.js');
 const rateLimit        = require('express-rate-limit');
-const { limitedHandler } = require('./rateLimitLog.js');   // limiter counter line, shared with api.js's app-wide limiter
+const { limitedHandler } = require('./http/rate_limit_log.js');   // limiter counter line, shared with api.js's app-wide limiter
 const vmQuery          = require('./vm-query.js');
 const { renderPlatformSwitcher } = require('./platform_links.js');
 const listPage         = require('./list-page.js');
@@ -794,7 +794,7 @@ class XChainExplorer {
         // Every limiter below resolves its ceiling, knob name and refusal body into
         // one policy const that is spread into both the limiter and its counter
         // line, so the number an operator reads in the log is the number that
-        // actually refused. See src/rateLimitLog.js for why the line is throttled.
+        // actually refused. See src/http/rate_limit_log.js for why the line is throttled.
         const feeQuotePolicy = {
             limit:    parseInt(process.env.EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM, 10) || 120,
             envVar:   'EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM',

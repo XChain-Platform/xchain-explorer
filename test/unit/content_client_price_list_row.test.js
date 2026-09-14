@@ -167,7 +167,6 @@ function priceColumns() {
 }
 
 describe('/{COIN}/prices list row', function () {
-
     // -----------------------------------------------------------------------
     // Page shape
     // -----------------------------------------------------------------------
@@ -210,7 +209,9 @@ describe('/{COIN}/prices list row', function () {
         expect(r[13]).to.equal(null);
         expect(JSON.parse(JSON.stringify(r))[13]).to.equal(null);
     });
+});
 
+describe('/{COIN}/prices list row', function () {
     // -----------------------------------------------------------------------
     // Render: the defect this item is about
     // -----------------------------------------------------------------------
@@ -252,7 +253,9 @@ describe('/{COIN}/prices list row', function () {
         expect(out.html[4]).to.not.include('Batch');
         expect(out.text[8]).to.equal('910200'); // falls back to the round the action is about
     });
+});
 
+describe('/{COIN}/prices list row', function () {
     // -----------------------------------------------------------------------
     // Render: the shapes that already worked must keep working
     // -----------------------------------------------------------------------

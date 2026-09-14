@@ -34,7 +34,7 @@ function makeExplorer(fsStub) {
         axios:    { get: sinon.stub().resolves({ data: {} }) },
         express:  { Router: () => ({ get: () => {}, use: () => {} }), static: () => {} },
         fs:       fsStub || { existsSync: () => false },
-        './db.js': function() { this.init = () => {}; }
+        './db/index.js': function() { this.init = () => {}; }
     });
 
     const configInfo = createConfigInfoStub();

@@ -24,7 +24,7 @@ function makeExplorer(axiosStub) {
         axios:    axiosStub,
         express:  { Router: () => ({ get: () => {}, use: () => {} }), static: () => {} },
         fs:       { existsSync: () => false },
-        './db.js': function() { this.init = () => {}; }
+        './db/index.js': function() { this.init = () => {}; }
     });
 
     const configInfo = createConfigInfoStub();

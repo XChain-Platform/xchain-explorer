@@ -46,7 +46,7 @@ mockExpress.json   = () => {};
 
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': mockExpress,
-    './db.js': MockDB,
+    './db/index.js': MockDB,
     'fs': {
         existsSync: () => true,
         readFileSync: () => 'mock'

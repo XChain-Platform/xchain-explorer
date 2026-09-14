@@ -28,9 +28,9 @@
 
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Database   = require('../../src/db.js');
+const Database   = require('../../src/db/index.js');
 const { envView } = require('../fixtures/mock-config.js');
-const Utility    = require('../../src/utility.js');
+const Utility    = require('../../src/lib/utility.js');
 
 // `ids` maps address -> index id; anything absent resolves null (never indexed).
 function mkDb(rows, ids) {

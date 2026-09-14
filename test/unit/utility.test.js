@@ -15,7 +15,7 @@ const sinon      = require('sinon');
 const proxyquire = require('proxyquire').noCallThru();
 
 // Real Utility (no stubbing of fs yet; we stub per-suite where needed)
-const Utility = require('../../src/utility');
+const Utility = require('../../src/lib/utility');
 // The same lazy logger object utility.js holds, so a stub on it sees every event
 // whether or not an earlier suite installed the real shipper.
 const log = require('../../src/observability').getLogger();
@@ -851,7 +851,7 @@ describe('Utility', function () {
 
         beforeEach(function () {
             fsStub = { access: sinon.stub(), readFile: sinon.stub() };
-            UtilityWithStub = proxyquire('../../src/utility', { 'fs/promises': fsStub });
+            UtilityWithStub = proxyquire('../../src/lib/utility', { 'fs/promises': fsStub });
         });
 
         it('returns true when fs.access resolves', async function () {
@@ -888,7 +888,7 @@ describe('Utility', function () {
 
         beforeEach(function () {
             fsStub = { access: sinon.stub(), readFile: sinon.stub() };
-            UtilityWithStub = proxyquire('../../src/utility', { 'fs/promises': fsStub });
+            UtilityWithStub = proxyquire('../../src/lib/utility', { 'fs/promises': fsStub });
         });
 
         it('returns file contents as a string on success', async function () {

@@ -22,7 +22,7 @@
 
 const fs                    = require('fs');
 const path                  = require('path');
-const util                  = require('./utility.js');
+const util                  = require('./lib/utility.js');
 const xchainHubConnector    = require('./connectors/hub')
 
 // One logger for the whole service: getLogger() resolves to the shipper once api.js

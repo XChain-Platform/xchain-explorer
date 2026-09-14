@@ -31,14 +31,14 @@
 const { expect }               = require('chai');
 const proxyquire               = require('proxyquire');
 const proxyquireNoCallThru     = require('proxyquire').noCallThru();
-const Utility                  = require('../../src/utility.js');
+const Utility                  = require('../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockReq, mockRes }     = require('../fixtures/mock-query-args.js');
 const mockResults              = require('../fixtures/mock-db-results.js');
 
 // The real Database, with the mariadb pool factory stubbed out.
-const Database = proxyquire('../../src/db.js', {
-    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../src/db/index.js', {
+    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo = createConfigInfoStub();
@@ -82,7 +82,7 @@ expressMock.json   = () => {};
 
 const XChainExplorer = proxyquireNoCallThru('../../src/XChainExplorer.js', {
     'express':  expressMock,
-    './db.js':  MockDB
+    './db/index.js':  MockDB
 });
 
 function makeExplorer(configOverrides) {

@@ -26,8 +26,8 @@ const { makeConfig }           = require('../fixtures/mock-query-args.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
 function makeDb() {
-    const Database = require('../../src/db.js');
-    const Utility  = require('../../src/utility.js');
+    const Database = require('../../src/db/index.js');
+    const Utility  = require('../../src/lib/utility.js');
     const configInfo = createConfigInfoStub();
     const util     = new Utility(configInfo);
     const explorer = { configInfo, util };

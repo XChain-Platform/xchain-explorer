@@ -51,18 +51,30 @@
 'use strict';
 
 const shared = require('./shared.js');
+const misc = require('./misc.js');
+const tokens = require('./tokens.js');
+const dispensers = require('./dispensers.js');
+const markets = require('./markets.js');
+const staking = require('./staking.js');
+const contracts = require('./contracts.js');
+const consensus = require('./consensus.js');
+const governance = require('./governance.js');
+const crosschain = require('./crosschain.js');
 
+// Object.assign keeps the LAST source's value on a key collision, so this
+// order is precedence, not just a list: it must match the family list above
+// exactly or a shared type key would resolve to a different handler.
 const REGISTRY = Object.assign(
     Object.create(null),
-    require('./misc.js'),
-    require('./tokens.js'),
-    require('./dispensers.js'),
-    require('./markets.js'),
-    require('./staking.js'),
-    require('./contracts.js'),
-    require('./consensus.js'),
-    require('./governance.js'),
-    require('./crosschain.js')
+    misc,
+    tokens,
+    dispensers,
+    markets,
+    staking,
+    contracts,
+    consensus,
+    governance,
+    crosschain
 );
 
 // An action type with no handler is not an error: getActionData's de-blank

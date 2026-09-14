@@ -35,7 +35,7 @@ function makeExplorer(axiosStub, dnsStub) {
         axios:    axiosStub || { get: sinon.stub().resolves({ data: {} }) },
         express:  { Router: () => ({ get: () => {}, use: () => {} }), static: () => {} },
         fs:       { existsSync: () => false },
-        './db.js': function() { this.init = () => {}; }
+        './db/index.js': function() { this.init = () => {}; }
     };
     if (dnsStub) stubs.dns = dnsStub;
     const XChainExplorer = proxyquire('../../src/XChainExplorer.js', stubs);

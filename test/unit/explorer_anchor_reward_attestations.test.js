@@ -60,7 +60,7 @@ const { expect }  = require('chai');
 const proxyquire  = require('proxyquire');
 const sinon       = require('sinon');
 
-const Utility = require('../../src/utility.js');
+const Utility = require('../../src/lib/utility.js');
 
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
@@ -71,8 +71,8 @@ const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.
 // explorer.checkpoints.test.js's DatabaseReal / makeRealDb.
 // ─────────────────────────────────────────────────────────────────────────
 
-const DatabaseReal = proxyquire('../../src/db.js', {
-    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const DatabaseReal = proxyquire('../../src/db/index.js', {
+    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb(explorerOverrides = {}) {
@@ -388,7 +388,7 @@ class MockDB {
 
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
-    './db.js': MockDB
+    './db/index.js': MockDB
 });
 
 function makeExplorer() {

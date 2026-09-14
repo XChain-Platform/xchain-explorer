@@ -67,7 +67,7 @@ function loadConfig(overrides) {
     return proxyquire('../../../src/config.js', Object.assign({
         'fs':                   fsStub,
         'path':                 path,
-        './utility.js':         MockUtility,
+        './lib/utility.js':         MockUtility,
         './connectors/hub': MockHubConnector,
         './config.json':        validFileConfig
     }, overrides || {}));
@@ -141,7 +141,7 @@ describe('SM-02: Config rejects no valid configuration', function () {
         const config = proxyquire('../../../src/config.js', {
             'fs':                   fsStub,
             'path':                 path,
-            './utility.js':         MockUtility,
+            './lib/utility.js':         MockUtility,
             './connectors/hub': MockHubConnector,
             './config.json':        false
         });
@@ -184,7 +184,7 @@ describe('SM-03: Config skips a coin with a missing config file', function () {
         const config = proxyquire('../../../src/config.js', {
             'fs':                   invalidFsStub,
             'path':                 path,
-            './utility.js':         MockUtility,
+            './lib/utility.js':         MockUtility,
             './connectors/hub': MockHubConnector,
             './config.json':        invalidConfig
         });
@@ -217,7 +217,7 @@ describe('SM-04: SSL certificates are accessible', function () {
             proxyquire('../../../src/config.js', {
                 'fs':                   missingFsStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': MockHubConnector,
                 './config.json':        validFileConfig
             });

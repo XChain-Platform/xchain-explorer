@@ -57,7 +57,7 @@ expressMock.json   = () => {};
 
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express':  expressMock,
-    './db.js':  MockDB
+    './db/index.js':  MockDB
 });
 
 function makeExplorer(configOverrides) {

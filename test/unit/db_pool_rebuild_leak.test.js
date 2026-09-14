@@ -35,7 +35,7 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../src/utility.js');
+const Utility    = require('../../src/lib/utility.js');
 const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
 
 // A config whose DECODER credentials differ from the indexer's, which is what
@@ -77,8 +77,8 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
         // so the mariadb stub and the falsification override both name THAT file:
         // proxyquire substitutes only a module's own direct requires, and db.js
         // no longer requires the driver.
-        Database = proxyquire('../../src/db.js', {
-            './db/connection.js': proxyquire(
+        Database = proxyquire('../../src/db/index.js', {
+            './connection.js': proxyquire(
                 process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
                 { mariadb: mockMariadb })
         });

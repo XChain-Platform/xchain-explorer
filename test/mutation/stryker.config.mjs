@@ -14,8 +14,8 @@
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 export default {
   mutate: [
-    'src/utility.js',
-    'src/db.js',
+    'src/lib/utility.js',
+    'src/db/index.js',
     'src/XChainExplorer.js',
     'src/config.js',
     '!src/content/**',

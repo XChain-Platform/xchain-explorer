@@ -28,7 +28,7 @@ const { expect } = require('chai');
 const sinon      = require('sinon');
 const proxyquire = require('proxyquire').noCallThru();
 
-const Utility = require('../../src/utility');
+const Utility = require('../../src/lib/utility');
 const { createConfigInfoStub } = require('../fixtures/mock-config');
 const { makeConfig }           = require('../fixtures/mock-query-args');
 
@@ -37,7 +37,7 @@ function makeUtil() {
 }
 
 function makeDb() {
-    const Database = require('../../src/db.js');
+    const Database = require('../../src/db/index.js');
     const configInfo = createConfigInfoStub();
     const util = new Utility(configInfo);
     const explorer = { configInfo, util };

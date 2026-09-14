@@ -40,7 +40,7 @@ const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 
-const Database = require('../../src/db.js');
+const Database = require('../../src/db/index.js');
 
 const SRC     = path.resolve(__dirname, '../../src');
 const DB_DIR  = path.join(SRC, 'db');
@@ -99,14 +99,17 @@ describe('db.js composes its extracted reader families', function(){
     });
 
     it('wires every module file into the composition', function(){
-        const src = fs.readFileSync(path.join(SRC, 'db.js'), 'utf8');
-        const unwired = MODULES.filter((rel) => !src.includes(`./${rel.split(path.sep).join('/')}`));
+        const src = fs.readFileSync(path.join(SRC, 'db/index.js'), 'utf8');
+        // Only reader families (a module declaring a class body) are composed onto
+        // Database; statement-text modules are required by the handlers that use them.
+        const readers = MODULES.filter((rel) => rel !== path.join('db', 'index.js') && classBodyMethods(rel).length > 0);
+        const unwired = readers.filter((rel) => !src.includes(`./${path.relative('db', rel).split(path.sep).join('/')}`));
         expect(unwired, 'module file(s) under src/db/ that db.js never requires')
             .to.deep.equal([]);
     });
 
     it('declares no method name twice across db.js and the modules', function(){
-        const names = classBodyMethods('db.js', 'Database')
+        const names = classBodyMethods('db/index.js', 'Database')
             .concat(...MODULES.map((rel) => classBodyMethods(rel, null)));
         const seen  = new Set();
         const dupes = [...new Set(names.filter((n) => (seen.has(n) ? true : (seen.add(n), false))))];

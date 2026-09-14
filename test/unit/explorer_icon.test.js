@@ -29,7 +29,7 @@ function makeExplorer(fsStub) {
         fs:       fsStub,
         express:  { Router: () => ({ get: () => {}, use: () => {} }), static: () => {} },
         axios:    {},
-        './db.js': function() { this.init = () => {}; }
+        './db/index.js': function() { this.init = () => {}; }
     });
 
     const configInfo = createConfigInfoStub();

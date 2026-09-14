@@ -29,11 +29,11 @@
 
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
-const Utility    = require('../../src/utility.js');
+const Utility    = require('../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
-const Database = proxyquire('../../src/db.js', {
-    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../src/db/index.js', {
+    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo   = createConfigInfoStub();
@@ -215,10 +215,13 @@ describe('action LRU skips responses carrying a live state block', function () {
         it('every listed field is selected by an action-detail handler', function () {
             const fs   = require('fs');
             const path = require('path');
-            const dir  = path.join(__dirname, '../../src/action-detail');
-            const src  = fs.readdirSync(dir)
+            // The handlers select through statement text kept under src/db/, so
+            // a field counts as produced when either place names it.
+            const dirs = ['../../src/action-detail', '../../src/db/action_detail']
+                .map((d) => path.join(__dirname, d));
+            const src  = dirs.flatMap((dir) => fs.readdirSync(dir)
                 .filter((f) => f.endsWith('.js'))
-                .map((f) => fs.readFileSync(path.join(dir, f), 'utf8'))
+                .map((f) => fs.readFileSync(path.join(dir, f), 'utf8')))
                 .join('\n');
             for (const field of Database.MUTABLE_ACTION_FIELDS)
                 expect(src, 'no action-detail handler produces ' + field).to.contain(field);

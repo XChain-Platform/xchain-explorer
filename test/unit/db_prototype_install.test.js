@@ -45,7 +45,7 @@ const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
 
-const Database = require('../../src/db.js');
+const Database = require('../../src/db/index.js');
 
 const SRC    = path.resolve(__dirname, '../../src');
 const DB_DIR = path.join(SRC, 'db');

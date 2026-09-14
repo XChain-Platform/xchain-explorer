@@ -56,7 +56,7 @@ class MockDB {
 
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
-    './db.js': MockDB
+    './db/index.js': MockDB
 });
 
 function makeExplorer() {

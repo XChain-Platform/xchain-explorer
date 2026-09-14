@@ -22,7 +22,7 @@
 // wrongly return false).
 
 const { expect } = require('chai');
-const Utility = require('../../src/utility');
+const Utility = require('../../src/lib/utility');
 const { ITERATIONS, randDecimalString, randTinyPositive } = require('./helpers');
 
 const u = new Utility(null);

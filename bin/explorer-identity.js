@@ -237,7 +237,7 @@ function coverageIdentity() {
  * changing for-in behaviour everywhere the class is spread or iterated.
  */
 function prototypeIdentity() {
-    const Database = require(path.join(REPO_ROOT, 'src', 'db.js'));
+    const Database = require(path.join(REPO_ROOT, 'src', 'db/index.js'));
     const names = Object.getOwnPropertyNames(Database.prototype)
         .filter((n) => n !== 'constructor')
         .sort();

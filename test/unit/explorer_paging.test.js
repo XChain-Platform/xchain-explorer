@@ -18,7 +18,7 @@
 
 const { expect }             = require('chai');
 const proxyquire             = require('proxyquire');
-const Utility                = require('../../src/utility.js');
+const Utility                = require('../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { makeConfig, makeApiConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
 
@@ -41,7 +41,7 @@ class MockDB {
 // Load XChainExplorer with express and the database swapped for the mocks above.
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
-    './db.js': MockDB
+    './db/index.js': MockDB
 });
 
 // Builds a minimal explorer instance without hitting network/fs.

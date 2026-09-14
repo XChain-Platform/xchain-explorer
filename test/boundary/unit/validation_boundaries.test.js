@@ -22,7 +22,7 @@
 'use strict';
 
 const { expect } = require('chai');
-const Utility    = require('../../../src/utility');
+const Utility    = require('../../../src/lib/utility');
 
 const util = new Utility(null);
 

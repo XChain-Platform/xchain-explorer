@@ -25,12 +25,12 @@
 
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Database   = require('../../src/db.js');
+const Database   = require('../../src/db/index.js');
 const { envView } = require('../fixtures/mock-config.js');
 
 function mkDb(rows) {
     const db = Object.create(Database.prototype);
-    const Utility = require('../../src/utility.js');
+    const Utility = require('../../src/lib/utility.js');
     db.util = new Utility();
     db.decoderDb = { RBTC: 'XChain_BTC_Decoder' };
     db.doQuery = sinon.stub().resolves(rows);

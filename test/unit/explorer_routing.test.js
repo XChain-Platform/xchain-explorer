@@ -62,7 +62,7 @@ expressMock.json   = () => {};
 /** Load the class under test with its two heavy deps replaced */
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express':  expressMock,
-    './db.js':  MockDB
+    './db/index.js':  MockDB
 });
 
 // Build an explorer instance, with config overrides for the tests that need them.

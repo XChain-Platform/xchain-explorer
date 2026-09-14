@@ -30,8 +30,8 @@
 
 const sinon          = require('sinon');
 const { expect }     = require('chai');
-const Database       = require('../../../src/db.js');
-const Utility        = require('../../../src/utility.js');
+const Database       = require('../../../src/db/index.js');
+const Utility        = require('../../../src/lib/utility.js');
 const ChangeDetector = require('../../../src/ws/change_detector.js');
 
 // A db with the real decodeMempoolRow over a scripted window sequence.

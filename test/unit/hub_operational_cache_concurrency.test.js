@@ -24,7 +24,7 @@
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const proxyquire = require('proxyquire').noCallThru();
-const Utility    = require('../../src/utility.js');
+const Utility    = require('../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
 const RPC_ERROR = { data: { jsonrpc: '2.0', id: 1, error: { code: -32601, message: 'Method not found' } } };

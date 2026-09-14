@@ -36,8 +36,8 @@ const fs         = require('fs');
 const path       = require('path');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Database   = require('../../src/db.js');
-const Utility    = require('../../src/utility.js');
+const Database   = require('../../src/db/index.js');
+const Utility    = require('../../src/lib/utility.js');
 
 const INDEXER_SQL = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql', 'index_addresses.sql');
 

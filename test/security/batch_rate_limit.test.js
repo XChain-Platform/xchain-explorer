@@ -96,7 +96,7 @@ function buildBatchLimiter(env) {
     try {
         const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
             'express':            expressMock,
-            './db.js':            MockDB,
+            './db/index.js':            MockDB,
             'express-rate-limit': rateLimitStub,
             './http/rate_limit_log.js':  rateLimitLogStub
         });

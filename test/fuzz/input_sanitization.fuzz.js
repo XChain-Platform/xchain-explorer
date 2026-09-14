@@ -20,7 +20,7 @@
 
 const { expect } = require('chai');
 const mathjs = require('mathjs');
-const Utility = require('../../src/utility');
+const Utility = require('../../src/lib/utility');
 const {
   ITERATIONS,
   randInt,

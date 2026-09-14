@@ -43,25 +43,25 @@
 // field lists and the two error classes are re-exported below under their
 // original names, which is how every caller already reaches them.
 const { ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS,
-    DbQueryError, DbInputError } = require('./db/shared.js');
+    DbQueryError, DbInputError } = require('./shared.js');
 
 // The families extracted out of this file so no single module holds every query.
 // Each module is authored as a class body and exports that class's prototype, so
 // the methods arrive with `this` still bound to the Database instance and no call
 // site moved.
-const connectionMethods        = require('./db/connection.js');
-const queryBuilder             = require('./db/query_sql.js');
-const actionListReaders        = require('./db/readers/action_lists.js');
-const marketReaders            = require('./db/readers/markets.js');
-const stakingGovernanceReaders = require('./db/readers/staking_governance.js');
-const checkpointReaders        = require('./db/readers/checkpoints.js');
-const entityReaders            = require('./db/readers/entities.js');
-const actionDetailIoReaders    = require('./db/readers/action_detail_io.js');
-const healthReaders            = require('./db/readers/health.js');
-const projectReaders           = require('./db/readers/projects.js');
-const contractReaders          = require('./db/readers/contracts.js');
-const pollBetReaders           = require('./db/readers/polls_bets.js');
-const xcallReaders             = require('./db/readers/xcall.js');
+const connectionMethods        = require('./connection.js');
+const queryBuilder             = require('./query_sql.js');
+const actionListReaders        = require('./readers/action_lists.js');
+const marketReaders            = require('./readers/markets.js');
+const stakingGovernanceReaders = require('./readers/staking_governance.js');
+const checkpointReaders        = require('./readers/checkpoints.js');
+const entityReaders            = require('./readers/entities.js');
+const actionDetailIoReaders    = require('./readers/action_detail_io.js');
+const healthReaders            = require('./readers/health.js');
+const projectReaders           = require('./readers/projects.js');
+const contractReaders          = require('./readers/contracts.js');
+const pollBetReaders           = require('./readers/polls_bets.js');
+const xcallReaders             = require('./readers/xcall.js');
 
 // Copies an extracted reader family onto Database.prototype. Object.assign cannot
 // do this: a class method is non-enumerable, so assign would copy nothing. Copying

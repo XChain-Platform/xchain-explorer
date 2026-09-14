@@ -30,7 +30,7 @@ const fs             = require('fs');
 const path           = require('path');
 const sinon          = require('sinon');
 const { expect }     = require('chai');
-const Database       = require('../../src/db.js');
+const Database       = require('../../src/db/index.js');
 const ChangeDetector = require('../../src/ws/change_detector.js');
 const Broadcaster    = require('../../src/ws/broadcaster.js');
 const { envView }    = require('../fixtures/mock-config.js');
@@ -40,7 +40,7 @@ const hex = (s) => Buffer.from(s, 'utf8').toString('hex');
 // A db instance with the decoder name map + stubbed query layer.
 function mkDb(rows) {
     const db = Object.create(Database.prototype);
-    const Utility = require('../../src/utility.js');
+    const Utility = require('../../src/lib/utility.js');
     db.util = new Utility();
     // The db/ readers read every environment variable through config.js's
     // env object, so a hand-built Database needs the same key the real

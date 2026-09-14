@@ -79,7 +79,7 @@ function loadConfig(overrides) {
     return proxyquire('../../src/config.js', Object.assign({
         'fs':                   fsStub,
         'path':                 path,
-        './utility.js':         MockUtility,
+        './lib/utility.js':         MockUtility,
         './connectors/hub': MockHubConnector,
         './config.json':        mockFileConfig
     }, overrides || {}));
@@ -189,7 +189,7 @@ describe('config', function () {
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': MockHubConnector,
                 './config.json':        false
             });
@@ -249,7 +249,7 @@ describe('config', function () {
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': PollutedHubConnector,
                 './config.json':        mockFileConfig
             });
@@ -271,7 +271,7 @@ describe('config', function () {
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': NullHubConnector,
                 './config.json':        mockFileConfig
             });
@@ -290,7 +290,7 @@ describe('config', function () {
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': EmptyHubConnector,
                 './config.json':        mockFileConfig
             });
@@ -344,7 +344,7 @@ describe('config', function () {
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': StagedHubConnector,
                 './config.json':        mockFileConfig
             });
@@ -428,7 +428,7 @@ describe('config', function () {
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsCacheStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': NullHubConnector,
                 './config.json':        mockFileConfig
             });
@@ -448,7 +448,7 @@ describe('config', function () {
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsNoCacheStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': NullHubConnector,
                 './config.json':        mockFileConfig
             });
@@ -477,7 +477,7 @@ describe('config', function () {
             const config = proxyquire('../../src/config.js', {
                 'fs':                   fsCacheStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
+                './lib/utility.js':         MockUtility,
                 './connectors/hub': FlakyHubConnector,
                 './config.json':        mockFileConfig
             });

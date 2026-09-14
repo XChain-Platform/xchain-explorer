@@ -28,7 +28,7 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 
-const Utility = require('../../src/utility.js');
+const Utility = require('../../src/lib/utility.js');
 
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 const { mockRes, makeConfig }  = require('../fixtures/mock-query-args.js');
@@ -49,7 +49,7 @@ class MockDB { constructor() {} async init() {} }
 
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
-    './db.js': MockDB,
+    './db/index.js': MockDB,
     'fs': { existsSync: () => true, readFileSync: () => 'mock' }
 });
 
@@ -479,8 +479,8 @@ describe('explorer canonicalCheckpointString == SDK canonicalCheckpoint @regress
 // not the MockDB used by the route-level suites above.
 // ─────────────────────────────────────────────────────────────────────────
 
-const DatabaseReal = proxyquire('../../src/db.js', {
-    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const DatabaseReal = proxyquire('../../src/db/index.js', {
+    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb() {

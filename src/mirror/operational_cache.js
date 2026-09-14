@@ -185,13 +185,15 @@ class HubOperationalCache {
         return this.getRows('getvotes', { proposal_id, voter_pubkey, limit: 500 });
     }
 
-    // getreorghistory has NO server-side filter beyond limit: the hub does
-    // `SELECT * FROM reorg_attestations ORDER BY created_at DESC LIMIT ?` with no
-    // WHERE clause at all, so chain scoping AND the optional status/reorg_height
-    // narrowing both happen here, client-side, after one cached fetch. This is
-    // deliberately the SAME cache entry for every coin/filter combination (the
-    // getRows cache key is built from {limit:500} only), so ten coins' pages share
-    // one hub round trip per TTL window rather than fragmenting the cache per chain.
+    // getreorghistory has NO server-side filter beyond limit: xchain-hub's
+    // findReorgAttestations (src/db/reorg_attestations.js) reads every column of
+    // the reorg_attestations table, newest-created row first, capped by a row-count
+    // bound, with no filtering clause of any kind, so chain scoping AND the
+    // optional status/reorg_height narrowing both happen here, client-side, after
+    // one cached fetch. This is deliberately the SAME cache entry for every
+    // coin/filter combination (the getRows cache key is built from {limit:500}
+    // only), so ten coins' pages share one hub round trip per TTL window rather
+    // than fragmenting the cache per chain.
     getReorgHistory({ chain, status, reorg_height } = {}){
         return this.getRows('getreorghistory', { limit: 500 })
             .then(rows => {

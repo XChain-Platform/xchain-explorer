@@ -72,7 +72,7 @@ class MockDB {
 
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
-    './db.js': MockDB
+    './db/index.js': MockDB
 });
 
 // One polls row exactly as db.getPolls returns it: `options` is the stored JSON

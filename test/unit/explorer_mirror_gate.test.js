@@ -30,7 +30,7 @@ class MockDB { constructor() {} async init() {} }
 
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
-    './db.js': MockDB,
+    './db/index.js': MockDB,
     'fs': { existsSync: () => true, readFileSync: () => 'mock' }
 });
 

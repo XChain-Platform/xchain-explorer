@@ -44,8 +44,8 @@ const path    = require('path');
 const mariadb = require('mariadb');
 const { expect } = require('chai');
 
-const Database       = require('../../src/db.js');
-const Utility        = require('../../src/utility.js');
+const Database       = require('../../src/db/index.js');
+const Utility        = require('../../src/lib/utility.js');
 const ChangeDetector = require('../../src/ws/change_detector.js');
 const { makeConfig } = require('../fixtures/mock-query-args.js');
 const { envView }    = require('../fixtures/mock-config.js');

@@ -93,7 +93,7 @@ expressMock.json   = () => {};
 
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': expressMock,
-    './db.js': MockDB
+    './db/index.js': MockDB
 });
 
 const explorer = new XChainExplorer(mockApp, createConfigInfoStub());

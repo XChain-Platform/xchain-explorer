@@ -27,11 +27,11 @@
 
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
-const Utility    = require('../../src/utility.js');
+const Utility    = require('../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
-const Database = proxyquire('../../src/db.js', {
-    './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../src/db/index.js', {
+    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo   = createConfigInfoStub();

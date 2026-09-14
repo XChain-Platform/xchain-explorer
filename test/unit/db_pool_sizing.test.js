@@ -27,7 +27,7 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../src/utility.js');
+const Utility    = require('../../src/lib/utility.js');
 const poolSizing = require('../../src/mirror/pool_sizing.js');
 const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
 
@@ -72,8 +72,8 @@ describe('explorer pool sizing is per dbType', function () {
         // proxyquire only substitutes a module's own direct requires: db.js no
         // longer requires mariadb, so the driver stub goes into the connection
         // module and that module is handed to db.js.
-        Database = proxyquire('../../src/db.js', {
-            './db/connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
+        Database = proxyquire('../../src/db/index.js', {
+            './connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
         });
 
         saved = {};

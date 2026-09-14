@@ -19,7 +19,7 @@
 
 const { expect } = require('chai');
 const { safeStringify } = require('../../../src/ws/serialize.js');
-const Utility = require('../../../src/utility');
+const Utility = require('../../../src/lib/utility');
 
 describe('serialize.safeStringify', function () {
 

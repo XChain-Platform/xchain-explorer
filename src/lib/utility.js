@@ -24,7 +24,7 @@ const crypto = require('crypto');
 
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
-const { getLogger } = require('./observability');
+const { getLogger } = require('../observability');
 const log = getLogger();
 
 class Utility {

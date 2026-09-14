@@ -52,7 +52,7 @@ function jsFilesUnder(rel){
     return out.sort();
 }
 
-const FILES = ['db.js', ...jsFilesUnder('action-detail'), ...jsFilesUnder('db')];
+const FILES = ['db/index.js', ...jsFilesUnder('action-detail'), ...jsFilesUnder('db')];
 
 // Walk each file's SQL template literals. Backtick-delimited chunks at odd indexes
 // are the template literals; the query text is what matters, not the surrounding JS.

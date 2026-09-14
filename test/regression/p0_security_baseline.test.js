@@ -26,8 +26,8 @@ const { expect } = require('chai');
 const { createConfigInfoStub } = require('../fixtures/mock-config');
 const { makeConfig }           = require('../fixtures/mock-query-args');
 
-const Utility  = require('../../src/utility');
-const Database = require('../../src/db.js');
+const Utility  = require('../../src/lib/utility');
+const Database = require('../../src/db/index.js');
 
 function makeDb() {
     const configInfo = createConfigInfoStub();

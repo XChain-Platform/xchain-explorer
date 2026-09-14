@@ -17,7 +17,7 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../src/utility.js');
+const Utility    = require('../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
 const configInfo = createConfigInfoStub();

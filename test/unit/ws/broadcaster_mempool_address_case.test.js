@@ -31,8 +31,8 @@ const { expect }     = require('chai');
 const EventEmitter   = require('events');
 const ChannelManager = require('../../../src/ws/channel_manager.js');
 const Broadcaster    = require('../../../src/ws/broadcaster.js');
-const Database       = require('../../../src/db.js');
-const Utility        = require('../../../src/utility.js');
+const Database       = require('../../../src/db/index.js');
+const Utility        = require('../../../src/lib/utility.js');
 
 // The regtest address the defect was measured against, plus the two spellings
 // that must resolve to nothing.

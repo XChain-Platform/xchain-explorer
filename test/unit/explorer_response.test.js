@@ -52,7 +52,7 @@ express.json   = () => {};
 // Load XChainExplorer with all heavy dependencies replaced
 const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
     'express': express,
-    './db.js': MockDB,
+    './db/index.js': MockDB,
     'fs': {
         existsSync: () => true,
         readFileSync: () => 'mock'

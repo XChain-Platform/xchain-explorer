@@ -139,25 +139,24 @@ function httpGetLocal(urlPath, opts = {}) {
 // Suite setup / teardown
 // ---------------------------------------------------------------------------
 
-describe('Chaos: API Overload', function () {
-
-before(async function () {
+async function setUpApiOverload() {
     this.timeout(60000);
     await waitForToxiproxy();
     await createProxy();
     await seedDatabase();
     await bootRateLimitedServer();
-});
+}
 
-after(async function () {
+async function tearDownApiOverload() {
     this.timeout(15000);
     await stopRateLimitedServer();
-});
+}
 
 // ---------------------------------------------------------------------------
 // CE-API-01: Single-IP Burst Traffic
 // ---------------------------------------------------------------------------
 
+function registerSingleIpBurstTests() {
 describe('CE-API-01: Single-IP Burst Traffic', function () {
     this.timeout(30000);
 
@@ -178,11 +177,13 @@ describe('CE-API-01: Single-IP Burst Traffic', function () {
             .to.be.above(0);
     });
 });
+}
 
 // ---------------------------------------------------------------------------
 // CE-API-02: Sustained High Concurrency
 // ---------------------------------------------------------------------------
 
+function registerConcurrencyTests() {
 describe('CE-API-02: Sustained High Concurrency', function () {
     this.timeout(60000);
 
@@ -210,43 +211,50 @@ describe('CE-API-02: Sustained High Concurrency', function () {
         expect(totalRequests, 'autocannon should have sent at least one request').to.be.above(0);
     });
 });
+}
 
 // ---------------------------------------------------------------------------
 // CE-API-03: Slowloris (Slow Client Connections)
 // ---------------------------------------------------------------------------
 
+async function openHeldSlowSockets() {
+    const serverUrl = new URL(rlServerUrl);
+    const port = parseInt(serverUrl.port, 10);
+    const host = serverUrl.hostname;
+
+    // Collect the connections the server accepts, so the head-start below can
+    // wait on the condition this test actually needs (the server is holding
+    // the partial headers) instead of a fixed 1 s pause. The client handles
+    // are no evidence: openSlowSocket resolves once the 33 header bytes are
+    // handed to the kernel, so every client socket reads as "sent" while the
+    // server has accepted only a couple of them.
+    const PARTIAL_HEADER_BYTES = 33; // 'GET / HTTP/1.1\r\nHost: localhost\r\n'
+    const accepted = [];
+    const collectAccepted = (sock) => accepted.push(sock);
+    rlServer.on('connection', collectAccepted);
+
+    // Open 50 slow sockets that send partial HTTP headers
+    const socketPromises = [];
+    for (let i = 0; i < 50; i++) {
+        socketPromises.push(openSlowSocket(port, host).catch(() => null));
+    }
+    const slowSockets = (await Promise.all(socketPromises)).filter(Boolean);
+
+    // Wait until the server holds a half-open request for every slow socket.
+    const heldHalfOpen = () =>
+        accepted.filter(s => s.bytesRead >= PARTIAL_HEADER_BYTES).length;
+    const allHeld = await waitUntil(() => heldHalfOpen() >= slowSockets.length,
+        { timeout: 1000, interval: 20 });
+    rlServer.removeListener('connection', collectAccepted);
+    return { slowSockets, allHeld };
+}
+
+function registerSlowlorisTests() {
 describe('CE-API-03: Slowloris (Slow Client Connections)', function () {
     this.timeout(60000);
 
     it('legitimate requests should succeed while slow sockets are held open', async function () {
-        const serverUrl = new URL(rlServerUrl);
-        const port = parseInt(serverUrl.port, 10);
-        const host = serverUrl.hostname;
-
-        // Collect the connections the server accepts, so the head-start below can
-        // wait on the condition this test actually needs (the server is holding
-        // the partial headers) instead of a fixed 1 s pause. The client handles
-        // are no evidence: openSlowSocket resolves once the 33 header bytes are
-        // handed to the kernel, so every client socket reads as "sent" while the
-        // server has accepted only a couple of them.
-        const PARTIAL_HEADER_BYTES = 33; // 'GET / HTTP/1.1\r\nHost: localhost\r\n'
-        const accepted = [];
-        const collectAccepted = (sock) => accepted.push(sock);
-        rlServer.on('connection', collectAccepted);
-
-        // Open 50 slow sockets that send partial HTTP headers
-        const socketPromises = [];
-        for (let i = 0; i < 50; i++) {
-            socketPromises.push(openSlowSocket(port, host).catch(() => null));
-        }
-        const slowSockets = (await Promise.all(socketPromises)).filter(Boolean);
-
-        // Wait until the server holds a half-open request for every slow socket.
-        const heldHalfOpen = () =>
-            accepted.filter(s => s.bytesRead >= PARTIAL_HEADER_BYTES).length;
-        const allHeld = await waitUntil(() => heldHalfOpen() >= slowSockets.length,
-            { timeout: 1000, interval: 20 });
-        rlServer.removeListener('connection', collectAccepted);
+        const { slowSockets, allHeld } = await openHeldSlowSockets();
         expect(allHeld, 'the server should hold a partial request for every slow socket')
             .to.equal(true);
 
@@ -283,11 +291,13 @@ describe('CE-API-03: Slowloris (Slow Client Connections)', function () {
         expect(serverAlive, 'server should be alive after slowloris cleanup').to.equal(true);
     });
 });
+}
 
 // ---------------------------------------------------------------------------
 // CE-API-04: Large Payload Rejection
 // ---------------------------------------------------------------------------
 
+function registerLargePayloadTests() {
 describe('CE-API-04: Large Payload Rejection', function () {
     this.timeout(30000);
 
@@ -316,5 +326,13 @@ describe('CE-API-04: Large Payload Rejection', function () {
         expect(serverAlive, 'server should still be responsive after 413 rejection').to.equal(true);
     });
 });
+}
 
-}); // describe('Chaos: API Overload')
+describe('Chaos: API Overload', function () {
+    before(setUpApiOverload);
+    after(tearDownApiOverload);
+    registerSingleIpBurstTests();
+    registerConcurrencyTests();
+    registerSlowlorisTests();
+    registerLargePayloadTests();
+});

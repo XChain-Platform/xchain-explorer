@@ -435,9 +435,9 @@ if(typeof $ !== 'undefined' && $.fn && $.fn.dataTable){
                   : (ajax && typeof ajax === 'object' && ajax.url) ? ajax.url
                   : (typeof ajax === 'function') ? '(ajax is a function)'
                   : '(no ajax source)';
-        // console.error, not console.log: this IS an error, and error-only console
+        // XCLogger.error, not XCLogger.log: this IS an error, and error-only console
         // filters are how these get noticed at all.
-        console.error('[XChain] DataTables feed failed  table=' + id +
+        XCLogger.error('[XChain] DataTables feed failed  table=' + id +
                       '  source=' + url + '  detail=' + message);
         if(table){
             var cols = $('thead th', table).length || 1;
@@ -739,7 +739,7 @@ function getCoinNetworkInfo(callback, force){
         // Set flag to indicate we have a pending request to prevent duplicate requests
         XC.pendingNetworkInfoRequest = true;
         if(XC.debug)
-            console.log('Updating network information...');
+            XCLogger.log('Updating network information...');
         // Request updated network information and store the response in localStorage
         loadApiData(XC.coin, 'network', null, null, function(json){
             XC.pendingNetworkInfoRequest = false;
@@ -804,7 +804,7 @@ function getExplorerStatusInfo(callback, force){
         // Set flag to indicate we have a pending request to prevent duplicate requests
         XC.pendingStatusInfoRequest = true;
         if(XC.debug)
-            console.log('Updating status information...');
+            XCLogger.log('Updating status information...');
         // Request updated status information and store the response in localStorage
         loadApiData(XC.coin, 'status', null, null, function(json){
             XC.pendingStatusInfoRequest = false;
@@ -861,7 +861,7 @@ function setupActionListeners(){
             if(!XC.datatables[action] && load){
                 XC.datatables[action] = {};
                 if(XC.debug)
-                    console.log('loading ' + action + ' data...');
+                    XCLogger.log('loading ' + action + ' data...');
                 // Set flag to indicate the tab has been loaded already
                 let query  = (isNull(XC.query)) ? null : XC.query,
                     type   = (isNull(XC.type)) ? null : XC.type;
@@ -3022,11 +3022,11 @@ function loadApiData(coin, action, query, type, callback, errback){
     if(type)
         url += '/' + type;
     if(XC.debug)
-        console.log('Requesting API data from endpoint ' + url);
+        XCLogger.log('Requesting API data from endpoint ' + url);
     // Make request to get the API data and return to the callback function
     let req = $.getJSON(url, function(o){
         if(o.error){
-            console.log('caught error=',o.error);
+            XCLogger.log('caught error=',o.error);
             if(typeof errback==='function')
                 errback(o, null);
         } else {
@@ -3045,7 +3045,7 @@ function loadApiData(coin, action, query, type, callback, errback){
         // calling were left with it set for the life of the page, which wedged every
         // later request behind a retry loop that never issued one.
         if(XC.debug)
-            console.log('API request failed: ' + url + ' (' + ((xhr && xhr.status) ? xhr.status : 'no response') + ')');
+            XCLogger.log('API request failed: ' + url + ' (' + ((xhr && xhr.status) ? xhr.status : 'no response') + ')');
         if(typeof errback==='function')
             errback((xhr && xhr.responseJSON) ? xhr.responseJSON : null, xhr);
     });
@@ -3097,7 +3097,7 @@ function loadProofWidget(url, target, render){
                 $el.html(render(o));
             } catch(e){
                 if(XC.debug)
-                    console.log('proof render failed for ' + url, e);
+                    XCLogger.log('proof render failed for ' + url, e);
                 $el.html(proofNotice('danger', 'Could not render this proof'));
             }
         })
@@ -3290,7 +3290,7 @@ function actionDetailCardConfig(){
             let parsed = JSON.parse(node.textContent || '{}');
             XC.actionDetailCards = parsed.cards || null;
         } catch(e){
-            console.error('action detail-card config is not valid JSON:', e && e.message);
+            XCLogger.error('action detail-card config is not valid JSON:', e && e.message);
         }
     }
     return XC.actionDetailCards;
@@ -5261,7 +5261,7 @@ function showTokenContent(json){
             if(service=='soundcloud')
                 audio = 'https://api.soundcloud.com/tracks/' + code;
             if(XC.debug)
-                console.log('service, code, title', service, code, title);
+                XCLogger.log('service, code, title', service, code, title);
         }
     }
 
@@ -5645,13 +5645,13 @@ function showTokenInfo(){
     // Handle trying to load any JSON content and show the token content
     if(jsonUrl){
         if(XC.debug)
-            console.log('Attempting to get JSON...');
+            XCLogger.log('Attempting to get JSON...');
         // Try to make a request for the JSON directly (might fail due to missing CORS headers)
         $.getJSON( jsonUrl, function(o){ 
             showTokenContent(o);
         }).fail(function(){
             if(XC.debug)
-                console.log('failed to get JSON... retrying using xchain-explorer relay')
+                XCLogger.log('failed to get JSON... retrying using xchain-explorer relay')
             // Try to request the JSON through the xchain relay
             $.getJSON( '/relay?url=' + jsonUrl, function(o){ 
                 showTokenContent(o);
@@ -5814,9 +5814,9 @@ function legacyJsonToXChainTIS(o){
         json.description = stripHtml(String(json.description)).trim();
     }
     if(XC.debug){
-        console.log('--- Begin JSON ---');
-        console.log(JSON.stringify(json));
-        console.log('--- End JSON ---');
+        XCLogger.log('--- Begin JSON ---');
+        XCLogger.log(JSON.stringify(json));
+        XCLogger.log('--- End JSON ---');
 
     }
     return json;
@@ -6314,12 +6314,12 @@ function updateMarketHistory(market, page=1, full=false, count=0){
 
 // Handle showing the various XChain parameters
 function showXChainParams(){
-    console.log('XC.chain=',XC.chain);
-    console.log('XC.name=',XC.name);
-    console.log('XC.network=',XC.network);
-    console.log('XC.type=',XC.type);
-    console.log('XC.query=',XC.query);
-    console.log('XC.coin_price', XC.coin_price);
+    XCLogger.log('XC.chain=',XC.chain);
+    XCLogger.log('XC.name=',XC.name);
+    XCLogger.log('XC.network=',XC.network);
+    XCLogger.log('XC.type=',XC.type);
+    XCLogger.log('XC.query=',XC.query);
+    XCLogger.log('XC.coin_price', XC.coin_price);
 }
 
 $(document).ready(function(){

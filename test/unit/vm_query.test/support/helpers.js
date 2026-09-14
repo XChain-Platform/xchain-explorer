@@ -29,7 +29,7 @@ function loadVmQuery(vmStub){
 // Minimal db stub satisfying simulate()'s reads.
 function dbStub(overrides = {}){
     return Object.assign({
-        doQuery:              async () => [{ code: 'module.exports={}' }],
+        getContractCodeRows:  async () => [{ code: 'module.exports={}' }],
         getContractFullState: async () => Object.create(null),
         getMaxBlockIndex:     async () => 100,
         getMaxBlockTime:      async () => 1700000000

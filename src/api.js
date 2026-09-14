@@ -125,7 +125,7 @@ function createJsonRpcController(getExplorer, requestGate){
                     return { status: 'degraded', db: false, ...base };
                 }
                 await Promise.race([
-                    db.doQuery({ coin, data: {} }, 'SELECT 1', []),
+                    db.pingPool({ coin, data: {} }),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), DB_PROBE_TIMEOUT_MS))
                 ]);
                 return { status: 'success', db: true, ...base };

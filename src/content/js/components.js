@@ -35,6 +35,11 @@
 
 'use strict';
 
+// Top level, so the page's browser_logger.js global is used when it is loaded first;
+// the unit suites require this file under Node and fall back to the module.
+var XCLogger = (typeof XCLogger !== 'undefined' && XCLogger) ? XCLogger
+    : ((typeof require === 'function') ? require('./browser_logger.js') : null);
+
     // name -> { props, mount, name }
     var xcComponentsRegistry = {};
 
@@ -71,8 +76,8 @@
         // A second registration under one name is how a theme overrides a
         // component, so it is allowed - but it is never silent, because the
         // other way it happens is two files fighting over one name.
-        if(xcComponentsRegistry[name] && typeof console !== 'undefined' && console.info)
-            console.info('XCComponents: ' + name + ' re-registered (theme override, or a name collision)');
+        if(xcComponentsRegistry[name])
+            XCLogger.info('XCComponents: ' + name + ' re-registered (theme override, or a name collision)');
         xcComponentsRegistry[name] = { name: name, props: def.props || {}, mount: def.mount };
         return xcComponentsRegistry[name];
     }
@@ -159,7 +164,7 @@
         }
         if(!el){
             var miss = name + ': mount point ' + JSON.stringify(String(target)) + ' is not on the page';
-            if(typeof console !== 'undefined' && console.error) console.error('XCComponents: ' + miss);
+            XCLogger.error('XCComponents: ' + miss);
             return { ok: false, errors: [miss], result: null };
         }
         var check = xcComponentsValidate(name, props);
@@ -182,8 +187,7 @@
     // A failed mount says so where the component would have been. Silence here
     // is indistinguishable from a surface that legitimately has no rows.
     function xcComponentsFail(el, message){
-        if(typeof console !== 'undefined' && console.error)
-            console.error('XCComponents: ' + message);
+        XCLogger.error('XCComponents: ' + message);
         if(el && typeof el.setAttribute === 'function'){
             el.setAttribute('data-xc-mount-error', message);
             if(el.ownerDocument){
@@ -247,8 +251,7 @@
         try {
             manifest = JSON.parse(node.textContent || '[]');
         } catch(e){
-            if(typeof console !== 'undefined' && console.error)
-                console.error('XCComponents: mount manifest is not valid JSON: ' + (e && e.message));
+            XCLogger.error('XCComponents: mount manifest is not valid JSON: ' + (e && e.message));
             return [];
         }
         return xcComponentsMountAll(manifest);
@@ -311,9 +314,8 @@
         for(var i = 0; i < tbody.children.length; i++)
             if(tbody.children[i].tagName === 'TR') rows.push(tbody.children[i]);
         if(rows.length !== config.length){
-            if(typeof console !== 'undefined' && console.warn)
-                console.warn('XCComponents: row config has ' + config.length
-                    + ' entries but the table has ' + rows.length + ' rows; leaving it alone');
+            XCLogger.warn('XCComponents: row config has ' + config.length
+                + ' entries but the table has ' + rows.length + ' rows; leaving it alone');
             return false;
         }
         var order = xcComponentsResolveOrder(config);

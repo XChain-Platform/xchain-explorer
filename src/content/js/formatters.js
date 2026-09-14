@@ -29,6 +29,10 @@
  * modules call them bare. This file therefore has to load BEFORE xchain.js.
  */
 
+// The page loads browser_logger.js first; the unit suites require this file under Node.
+var XCLogger = (typeof XCLogger !== 'undefined' && XCLogger) ? XCLogger
+    : ((typeof require === 'function') ? require('./browser_logger.js') : null);
+
 // Determine if value is null or undefined or empty
 function isNull(value){
     return (value === null || value === undefined || value==='');
@@ -313,8 +317,7 @@ var XCFormatters = {
 function xcFormatter(name){
     if(Object.prototype.hasOwnProperty.call(XCFormatters, name))
         return XCFormatters[name];
-    if(typeof console !== 'undefined' && console.error)
-        console.error('XCFormatters: no formatter named ' + JSON.stringify(name));
+    XCLogger.error('XCFormatters: no formatter named ' + JSON.stringify(name));
     return null;
 }
 

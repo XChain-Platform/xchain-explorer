@@ -88,6 +88,8 @@ function harness(routes, opts = {}) {
         setItem: (k, v) => { store[k] = String(v); }
     };
     w.store = store;
+    // The page loads browser_logger.js first; the functions under test log through it.
+    w.eval(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'content', 'js', 'browser_logger.js'), 'utf8'));
     w.$ = {
         getJSON: function (url, success) {
             requests.push(url);

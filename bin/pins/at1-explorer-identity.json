@@ -2182,8 +2182,8 @@
     },
     {
       "path": "test/fixtures/template-baseline.html",
-      "bytes": 32569,
-      "sha256": "559b7d2a31a7b1d78ceea4d4b2522eed49b43fed8e233623f16b8dc4aac927f5"
+      "bytes": 32741,
+      "sha256": "bad74b3d44f521b7057f8241d7f21a2befb7178649d48bc9d853d49416e4e17b"
     }
   ],
   "coverage": {
@@ -2202,7 +2202,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 285,
+    "count": 287,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2302,6 +2302,7 @@
       "getConsensusState",
       "getContract",
       "getContractBalance",
+      "getContractCodeRows",
       "getContractDelegations",
       "getContractFullState",
       "getContractManifest",
@@ -2472,6 +2473,7 @@
       "parseCoinCode",
       "parseDelegateRevokeWire",
       "parseSignaturesArray",
+      "pingPool",
       "projectActionSummary",
       "rebuildPoolsIfStale",
       "releaseConnection",

@@ -108,7 +108,7 @@ let envBackup;
     it('rejects with NOT_FOUND (404) when the contract row is missing', async () => {
         const vmq = loadVmQuery(fakeVmModule());
         try {
-            await vmq.simulate(dbStub({ doQuery: async () => [] }), CFG, 1, { method: 'x' }, 'BTC', 'regtest');
+            await vmq.simulate(dbStub({ getContractCodeRows: async () => [] }), CFG, 1, { method: 'x' }, 'BTC', 'regtest');
             throw new Error('should have thrown');
         } catch(e){
             expect(e.code).to.equal('NOT_FOUND');
@@ -182,7 +182,7 @@ let envBackup;
         const gate = new Promise(res => { release = res; });
         // Block in the DB phase, BEFORE the VM runs: the slot must already be
         // reserved here, or a concurrent burst all passes the gate check.
-        const db = dbStub({ doQuery: async () => { await gate; return [{ code: 'module.exports={}' }]; } });
+        const db = dbStub({ getContractCodeRows: async () => { await gate; return [{ code: 'module.exports={}' }]; } });
         const vmq = loadVmQuery(fakeVmModule());
         const first = vmq.simulate(db, CFG, 1, { method: 'x' }, 'BTC', 'regtest');
         await new Promise(res => setImmediate(res));

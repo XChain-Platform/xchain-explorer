@@ -62,7 +62,7 @@ describe('vm-query', () => {
             it('refuses to simulate with VM_QUERY_VM_DRIFT (503): ' + label, async () => {
                 let dbTouched = false;
                 const vmq = loadVmQuery(fakeVmModule(null, consensus));
-                const db  = dbStub({ doQuery: async () => { dbTouched = true; return [{ code: 'x' }]; } });
+                const db  = dbStub({ getContractCodeRows: async () => { dbTouched = true; return [{ code: 'x' }]; } });
                 try {
                     await vmq.simulate(db, CFG, 1, { method: 'x' }, 'BTC', 'regtest');
                     throw new Error('should have thrown');

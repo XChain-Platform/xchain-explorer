@@ -45,7 +45,7 @@ function xcWsTrackCursor(client, msg) {
 function xcWsCheckSchema(client, msg) {
     if (msg.schema_version !== undefined && msg.schema_version > CLIENT_WS_SCHEMA_VERSION && !client._schemaWarned) {
         client._schemaWarned = true;
-        console.warn('[XChainWS] Server WS schema_version ' + msg.schema_version +
+        XCLogger.warn('[XChainWS] Server WS schema_version ' + msg.schema_version +
             ' is newer than this client understands (' + CLIENT_WS_SCHEMA_VERSION + '); event payload shapes may have changed.');
     }
 }
@@ -58,7 +58,7 @@ function xcWsHandleSystemMessage(client, msg) {
         // separate arguments, not concatenated in: a WELCOME frame's fields
         // are server data, but console.log must never take a caller-shaped
         // string as its own first argument.
-        console.log('[XChainWS] Server v%s | block: %s | action: %s',
+        XCLogger.log('[XChainWS] Server v%s | block: %s | action: %s',
             msg.data.version, msg.data.latest_block_index, msg.data.latest_action_index);
     }
 
@@ -66,12 +66,12 @@ function xcWsHandleSystemMessage(client, msg) {
     if (msg.catch_up) {
         if (!client.catchingUp) {
             client.catchingUp = true;
-            console.log('[XChainWS] Catching up on missed events...');
+            XCLogger.log('[XChainWS] Catching up on missed events...');
         }
     }
     if (msg.type === 'CATCH_UP_COMPLETE') {
         client.catchingUp = false;
-        console.log('[XChainWS] Catch-up complete:', msg.data.events_replayed, 'events replayed');
+        XCLogger.log('[XChainWS] Catch-up complete:', msg.data.events_replayed, 'events replayed');
     }
 }
 
@@ -82,7 +82,7 @@ function xcWsDispatchMessage(client, msg) {
             try {
                 client.handlers[msg.type][i](msg);
             } catch (e) {
-                console.log('[XChainWS] Handler error for', msg.type, ':', e);
+                XCLogger.log('[XChainWS] Handler error for', msg.type, ':', e);
             }
         }
     }
@@ -139,7 +139,7 @@ var XChainWS = {
         try {
             this.ws = new WebSocket(this.url);
         } catch (e) {
-            console.log('[XChainWS] Connection error:', e);
+            XCLogger.log('[XChainWS] Connection error:', e);
             this._setStatus('disconnected');
             this._reconnect();
             return;
@@ -213,7 +213,7 @@ var XChainWS = {
 
     // Handle connection open
     _onOpen: function() {
-        console.log('[XChainWS] Connected to', this.url);
+        XCLogger.log('[XChainWS] Connected to', this.url);
         this.reconnectAttempts = 0;
         this._schemaWarned = false;
         this._setStatus('connected');
@@ -238,7 +238,7 @@ var XChainWS = {
 
     // Handle connection close
     _onClose: function(event) {
-        console.log('[XChainWS] Disconnected (code:', event.code + ')');
+        XCLogger.log('[XChainWS] Disconnected (code:', event.code + ')');
         this._stopPing();
         this.ws = null;
 
@@ -259,7 +259,7 @@ var XChainWS = {
     _reconnect: function() {
         if (this.intentionalClose) return;
         if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.log('[XChainWS] Max reconnect attempts reached');
+            XCLogger.log('[XChainWS] Max reconnect attempts reached');
             this._setStatus('disconnected');
             this._dispatch('connection_lost', {});
             return;
@@ -271,7 +271,7 @@ var XChainWS = {
             this.reconnectDelay * Math.pow(2, attempt)
         ) + Math.floor(Math.random() * 1000);
 
-        console.log('[XChainWS] Reconnecting in', Math.round(delay / 1000) + 's (attempt', (attempt + 1) + ')');
+        XCLogger.log('[XChainWS] Reconnecting in', Math.round(delay / 1000) + 's (attempt', (attempt + 1) + ')');
 
         var self = this;
         setTimeout(function() {

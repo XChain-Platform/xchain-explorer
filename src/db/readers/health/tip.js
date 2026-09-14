@@ -269,6 +269,14 @@ class HealthTipReaders {
             return BigInt(results[0].max_index);
         return 0n;
     }
+
+    // Round-trips the cheapest statement through one coin's pool, so the JSON-RPC
+    // ping can tell a reachable MariaDB from a process that is up but cut off.
+    // Rejects exactly as doQuery does; the caller owns the empty-pool guard and timeout.
+    async pingPool(config) {
+        let query = `SELECT 1`;
+        return await this.doQuery(config, query, []);
+    }
 }
 
 module.exports = HealthTipReaders.prototype;

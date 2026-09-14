@@ -31,11 +31,19 @@ const { expect } = require('chai');
 const fs   = require('fs');
 const path = require('path');
 
+const healthReaders = require('../../src/db/readers/health.js');
+
 describe('explorer ping empty-pool guard', function () {
 
     const src = srcText('src/api.js');
     const handler = src.slice(src.indexOf('async ping(params, {res})'),
                               src.indexOf('const httpServer = http.createServer(app)'));
+    // The SELECT 1 itself lives in the pingPool Database method, so its body is read
+    // from the health tip part here and the method is also called against a stub below.
+    const healthSrc = fs.readFileSync(path.join(__dirname, '../../src/db/readers/health/tip.js'), 'utf8');
+    const pingStart = healthSrc.indexOf('async pingPool(config)');
+    const pingBody  = healthSrc.slice(pingStart, healthSrc.indexOf('\n    }\n', pingStart));
+    const PING_CALL = 'db.pingPool({ coin, data: {} })';
 
     it('reads the first available pool key', function () {
         expect(handler).to.match(/const coin\s+= Object\.keys\(pools\)\[0\];/);
@@ -50,16 +58,34 @@ describe('explorer ping empty-pool guard', function () {
         // set fall through to the success return; the probe must always run the
         // query once it is past the guard above.
         expect(handler).to.not.match(/if\(coin\)\{/);
-        expect(handler).to.match(/await Promise\.race\(\[[\s\S]{0,200}'SELECT 1'/);
+        expect(handler).to.match(/await Promise\.race\(\[[\s\S]{0,200}db\.pingPool\(\{ coin, data: \{\} \}\)/);
+        // Nor may the method reintroduce that branch, or return before the query runs.
+        expect(pingStart).to.be.greaterThan(-1);
+        expect(pingBody).to.match(/`SELECT 1`/);
+        expect(pingBody).to.not.match(/\bif\s*\(|\breturn\b(?!\s+await this\.doQuery\(config, query, \[\]\);)/);
     });
 
-    it('reaches status:success only after the query resolves', function () {
+    it('reaches status:success only after the query resolves', async function () {
         const guardIdx   = handler.indexOf('if(!coin)');
-        const queryIdx   = handler.indexOf("'SELECT 1'");
+        const queryIdx   = handler.indexOf(PING_CALL);
         const successIdx = handler.indexOf("status: 'success', db: true");
         expect(guardIdx).to.be.greaterThan(-1);
         expect(queryIdx).to.be.greaterThan(guardIdx);
         expect(successIdx).to.be.greaterThan(queryIdx);
+
+        // Called for real: the ping must send SELECT 1 to the pool it was handed and
+        // resolve only with what the pool answered, never short-circuit to success.
+        const calls = [];
+        const up    = { doQuery: async (...args) => { calls.push(args); return [{ 1: 1 }]; } };
+        const cfg   = { coin: 'BTC', data: {} };
+        expect(await healthReaders.pingPool.call(up, cfg)).to.deep.equal([{ 1: 1 }]);
+        expect(calls).to.deep.equal([[cfg, 'SELECT 1', []]]);
+
+        // A pool failure must reach the handler's catch (the degraded 503), not be swallowed.
+        const down = { doQuery: async () => { throw new Error('pool unreachable'); } };
+        let failure = null;
+        await healthReaders.pingPool.call(down, cfg).catch((e) => { failure = e; });
+        expect(failure && failure.message).to.equal('pool unreachable');
     });
 
 });

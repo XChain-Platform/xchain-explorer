@@ -69,6 +69,8 @@ describe('xchain-ws.js catch-up cursor precision', function () {
         const clientPath = path.join(__dirname, '../../../src/content/js/xchain_ws.js');
         const sandbox = { console: { log() {}, warn() {}, error() {} } };
         vm.createContext(sandbox);
+        // The page loads browser_logger.js ahead of the client, which logs through it.
+        vm.runInContext(fs.readFileSync(path.join(__dirname, '../../../src/content/js/browser_logger.js'), 'utf8'), sandbox);
         vm.runInContext(fs.readFileSync(clientPath, 'utf8'), sandbox, { filename: 'xchain_ws.js' });
         return sandbox.XChainWS;
     }

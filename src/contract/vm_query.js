@@ -304,7 +304,7 @@ function releaseSlot(ipKey){
 // read in that order from the indexer DB.
 async function loadSimulationInputs(db, config, contractIndex){
     // Contract source (the simulation runs the exact on-chain code).
-    let rows = await db.doQuery(config, 'SELECT code FROM contracts WHERE action_index=? LIMIT 1', [contractIndex]);
+    let rows = await db.getContractCodeRows(config, contractIndex);
     if(!rows || !rows.length)
         throw new VmQueryError('NOT_FOUND', 'contract not found', 404);
 

@@ -152,6 +152,14 @@ class ContractStateReaders {
                     LIMIT ` + sql.limit;
         return [query, args, count];
     }
+
+    // Load the deployed source of one contract by its deploy action index, as the
+    // rows doQuery returns (an empty list when no contract has that index). The
+    // read-only simulation endpoint (src/contract/vm_query.js) runs exactly this code.
+    async getContractCodeRows(config, contractIndex){
+        let query = `SELECT code FROM contracts WHERE action_index=? LIMIT 1`;
+        return await this.doQuery(config, query, [contractIndex]);
+    }
 }
 
 module.exports = ContractStateReaders.prototype;

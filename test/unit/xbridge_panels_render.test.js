@@ -59,6 +59,10 @@ describe('xbridge-panels-render as a module', function(){
         assert.equal(built.rows[1].state, 'deficit');
     });
 
+});
+
+describe('xbridge-panels-render as a module', function(){
+
     it('renders the copies table with the state badge and marks this chain', function(){
         const html = R.renderBridgeCopies({ XCHAIN: { DOGE: { supply: '5', escrow: '5', in_flight: '0', delta: '0', finalized_policy_seq: 2 } } }, 'XCHAIN', 'DOGE');
         assert.match(html, /data-chain="DOGE" data-state="ok" class="xc-bridge-this-chain"/);
@@ -85,6 +89,10 @@ describe('xbridge-panels-render as a module', function(){
         assert.match(R.renderBridgeOrigin('BTC.PEPE', ['BTC']), /href="\/BTC\/token\/BTC\.PEPE">origin BTC</);
         assert.equal(R.renderBridgeOrigin('PEPE', ['BTC']), '');
     });
+
+});
+
+describe('xbridge-panels-render as a module', function(){
 
     it('renders the applied policy snapshot and says when none applies', function(){
         assert.match(R.renderBridgePolicy(null), /xc-bridge-policy-none/);

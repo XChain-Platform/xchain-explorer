@@ -170,10 +170,11 @@ class CheckpointReaders {
 
     // Resolve a co-located hub-DB federation/governance table for a coin
     // (validator_capabilities, governance_proposals, governance_votes). Mirrors
-    // matchSource: DB-qualified to the co-located hub DB, read directly, never a
-    // local replica. `table` is whitelisted to lowercase identifiers (no injection).
-    // Federation data is platform-global (no per-chain network column), so there is
-    // no network filter.
+    // matchSource: DB-qualified to the co-located hub DB, which shares host and
+    // credentials with the indexer DB, so the qualified name runs on the indexer
+    // pool; read directly, never a local replica. `table` is whitelisted to
+    // lowercase identifiers (no injection). Federation data is platform-global (no
+    // per-chain network column), so there is no network filter.
     //
     // NO-HUB DEPLOYMENT SHAPE ONLY: the primary transport for these hub-LOCAL
     // operational tables is the hub JSON-RPC read path (explorer.hubOperational,

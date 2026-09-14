@@ -891,6 +891,7 @@ function setupCollapsibleHeaders(){
     $('.collapse-header').each(function(){ toggleCollapseContent($(this).attr('id'), true); });
 }
 
+// Basic Calculator (BC) math functions: amount math done in full precision.
 // Coerce to a full-precision mathjs bignumber, NOT a JS double, matching the
 // SDK/indexer canonical bcnum: neither this nor the bc* helpers below may re-funnel a
 // result through parseFloat, which truncates past ~16 digits into scientific notation.
@@ -1249,6 +1250,13 @@ function getActionDetails(action, info){
 // per-page-length behaviour below is untouched by it on purpose - that logic is
 // the contract with the /explorer feeds' positional cursors, and the component
 // layer was built around it rather than through it.
+// coin is the chain ticker (BTC, LTC, DOGE, etc), action the feed name (address,
+// credit, debit), query the value to narrow by (null in most cases) and type what
+// that value is (address, block, token). For example:
+//   loadDatatablesData('BTC', 'address', null, null) loads every address action;
+//   loadDatatablesData('BTC', 'address', '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev', 'address')
+//     loads the address actions for one address;
+//   loadDatatablesData('BTC', 'address', '862623', 'block') loads those in one block.
 function loadDatatablesData(coin, action, query, type, opts){
     // Handle initializing datatable object for this action
     if(!XC.datatables[action])
@@ -2979,6 +2987,12 @@ function loadDatatablesData(coin, action, query, type, opts){
 // produce a usable body: a non-2xx status, a transport failure, or a 200 whose
 // body carries an `error`. A caller that arms an in-flight flag before calling
 // MUST pass one, or that flag never clears.
+// coin, action, query and type mean the same as for loadDatatablesData above, and
+// callback receives the parsed response. For example:
+//   loadApiData('BTC', 'block', '862623', null, cb) loads one block;
+//   loadApiData('BTC', 'address', '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev', 'address', cb)
+//     loads the address actions for one address;
+//   loadApiData('BTC', 'address', '862623', 'block', cb) loads those in one block.
 function loadApiData(coin, action, query, type, callback, errback){
     // Set the API endpoint name based on the action
     let endpoint = null;

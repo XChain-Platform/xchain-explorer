@@ -33,12 +33,15 @@ const ProofServer = require('../../src/http/proof_server.js');
 // runner checks out only xchain-explorer.
 const fs   = require('fs');
 const path = require('path');
-const SDK_LIGHT = process.env.XCHAIN_SDK_DIR
-    ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'protocol', 'light_client.js')
-    : path.join(__dirname, '..', '..', '..', 'xchain-sdk', 'src', 'protocol', 'light_client.js');
-const verifyBalanceProof = fs.existsSync(SDK_LIGHT)
-    ? require(SDK_LIGHT).verifyBalanceProof
-    : null;
+// The SDK's layout pass moved src/light.js to src/protocol/light_client.js, so a
+// sibling checkout sits on one side of that move or the other: try the post-move
+// spelling and fall back to the pre-move one, because pinning either alone turns
+// the regression below into a silent skip against the other side.
+const SDK_DIR = process.env.XCHAIN_SDK_DIR
+    || path.join(__dirname, '..', '..', '..', 'xchain-sdk');
+const SDK_LIGHT = [path.join(SDK_DIR, 'src', 'protocol', 'light_client.js'),
+                   path.join(SDK_DIR, 'src', 'light.js')].find((p) => fs.existsSync(p)) || null;
+const verifyBalanceProof = SDK_LIGHT ? require(SDK_LIGHT).verifyBalanceProof : null;
 
 // Minimal in-memory persistent SMT (the update half of stateCommitment.PersistentSMT)
 // so the test can materialize the exact node store the proof walk reads.

@@ -231,8 +231,21 @@ describe('SPV Stage A: contractStateProof verifies through the real SDK verifier
     // is fed to the SDK's client-side verifier, so the two independent
     // implementations of "what does this proof mean" have to agree. Skipped rather
     // than failed when the sibling repo is absent (standalone checkout).
+    // The SDK's layout pass moved src/light.js to src/protocol/light_client.js,
+    // so a sibling checkout sits on one side of that move or the other. Pinning
+    // one spelling leaves `light` null against the other side, which skips every
+    // assertion below while the suite still reports green.
     let light = null;
-    try { light = require('../../../xchain-sdk/src/protocol/light_client.js'); } catch (e) { light = null; }
+    for (const spec of ['../../../xchain-sdk/src/protocol/light_client.js',
+                        '../../../xchain-sdk/src/light.js']) {
+        try { light = require(spec); break; }
+        catch (e) {
+            // Only an unresolvable module falls through: to the next spelling, or
+            // to the skip below in a standalone checkout with no sibling SDK. A
+            // verifier that is present and throws while loading is a real error.
+            if (e.code !== 'MODULE_NOT_FOUND') throw e;
+        }
+    }
 
     it('a membership proof verifies and yields the raw stored value', async function () {
         if (!light) return this.skip();

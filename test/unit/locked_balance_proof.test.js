@@ -177,11 +177,27 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     // The server's actual response fed to the SDK's client-side verifier: two
     // independent implementations of "what does this proof mean" must agree.
     // Skipped rather than failed when the sibling repo is absent.
+    // The SDK's layout pass moved src/light.js to src/protocol/light_client.js,
+    // so a sibling checkout sits on one side of that move or the other. Pinning
+    // one spelling leaves `light` null against the other side, which skips every
+    // assertion below while the suite still reports green.
     let light = null, sdkSub = null;
-    try {
-        light  = require('../../../xchain-sdk/src/protocol/light_client.js');
-        sdkSub = require('../../../xchain-sdk/src/state_subtree_activation.js');
-    } catch (e) { light = null; sdkSub = null; }
+    for (const spec of ['../../../xchain-sdk/src/protocol/light_client.js',
+                        '../../../xchain-sdk/src/light.js']) {
+        try { light = require(spec); break; }
+        catch (e) {
+            // Only an unresolvable module falls through: to the next spelling, or
+            // to the skip below in a standalone checkout with no sibling SDK. A
+            // verifier that is present and throws while loading is a real error.
+            if (e.code !== 'MODULE_NOT_FOUND') throw e;
+        }
+    }
+    // The activation registry did not move, so it keeps its single spelling; it
+    // is still gated on `light` so the pair is armed or absent together.
+    if (light) {
+        try { sdkSub = require('../../../xchain-sdk/src/state_subtree_activation.js'); }
+        catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; light = null; }
+    }
 
     function armSdk() { sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = 0; }
     function disarmSdk() { delete sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY]; }

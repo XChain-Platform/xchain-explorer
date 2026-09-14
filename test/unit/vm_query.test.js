@@ -444,8 +444,13 @@ describe('vm-query protocol size-cap parity @regression', () => {
     it('the compiled consensus pin equals the canonical sibling xchain-vm epoch', function(){
         const VM_DIR = process.env.XCHAIN_VM_SOURCE ||
             path.join(__dirname, '..', '..', '..', 'xchain-vm');
-        const RUNTIME = path.join(VM_DIR, 'src', 'consensus_runtime.js');
-        if(!fs.existsSync(RUNTIME)) this.skip();
+        // The VM's layout pass renamed src/consensus-runtime.js to
+        // src/consensus_runtime.js and left nothing at the old path, so a sibling
+        // checkout sits on one side of that move or the other. Pinning one
+        // spelling turns this pin check into a silent skip against the other.
+        const RUNTIME = [path.join(VM_DIR, 'src', 'consensus_runtime.js'),
+                         path.join(VM_DIR, 'src', 'consensus-runtime.js')].find((p) => fs.existsSync(p));
+        if(!RUNTIME) this.skip();
         const m = /CONSENSUS_VERSION\s*=\s*'([^']+)'/.exec(fs.readFileSync(RUNTIME, 'utf8'));
         expect(m, 'canonical CONSENSUS_VERSION not found in ' + RUNTIME).to.not.equal(null);
         expect(vmq.REQUIRED_VM_CONSENSUS_VERSION).to.equal(m[1]);

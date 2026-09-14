@@ -44,9 +44,9 @@ function driftedHashes(tick, network){
     return out;
 }
 
-describe('XChainHubConnector hub-vs-bundle consensus-hash cross-check', function(){
+let connector, errors;
 
-    let connector, errors;
+describe('XChainHubConnector hub-vs-bundle consensus-hash cross-check', function(){
 
     beforeEach(function(){
         connector = new XChainHubConnector(['http://hub.invalid:10000']);
@@ -80,6 +80,18 @@ describe('XChainHubConnector hub-vs-bundle consensus-hash cross-check', function
         connector.applyConfigResult({ bitcoin: { testnet: { 'xchain-indexer': { DB_NAME: 'x' } } } });
         assert.deepStrictEqual(errors, []);
     });
+
+});
+
+describe('XChainHubConnector hub-vs-bundle consensus-hash cross-check', function(){
+
+    beforeEach(function(){
+        connector = new XChainHubConnector(['http://hub.invalid:10000']);
+        errors    = [];
+        sinon.stub(console, 'error').callsFake((...a) => errors.push(a.join(' ')));
+    });
+
+    afterEach(() => sinon.restore());
 
     it('does not re-log an unchanged mismatch on the next poll', function(){
         const drifted = driftedHashes('LTC', 'regtest');

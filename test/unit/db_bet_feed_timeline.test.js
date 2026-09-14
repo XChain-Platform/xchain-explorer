@@ -75,7 +75,6 @@ const CLOSED_TIME = ['block_time FROM blocks', [{ block_time: 1785262295 }]];
 const config = { coin: 'LTC', data: {} };
 
 describe('BET feed status timeline @regression', function () {
-
     it('reads the block off the ACTION, so a transactionless BET_EXPIRE keeps its block', async function () {
         const db = makeDb([STATUS_ROWS, CLOSED_TIME]);
         await db.getBetFeedTimeline(config, FEED, CLOSED_BLOCK);
@@ -128,7 +127,9 @@ describe('BET feed status timeline @regression', function () {
         assert.deepStrictEqual(out.map(r => r.status), ['open', 'expired', 'closed'],
             'a NULL block no longer reorders the latch, so this test has stopped describing the bug');
     });
+});
 
+describe('BET feed status timeline @regression', function () {
     // A market that never closed (cancelled while still open) has no latch to place.
     it('adds no latch when the feed never latched closed', async function () {
         const db  = makeDb([['bet_feed_statuses', [

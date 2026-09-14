@@ -228,7 +228,7 @@ describe('Security: batch endpoints: the knob is pinnable and pinned (row 51, D6
         // knob the source reads; a ceiling resolved any other way is unpinnable
         // and nothing else would notice.
         const reads = [...explorerSource.matchAll(
-            /parseInt\(process\.env\.(EXPLORER_BATCH_RATE_LIMIT_RPM),\s*10\)\s*\|\|\s*(\d+)/g)];
+            /parseInt\(configEnv\(\)\.(EXPLORER_BATCH_RATE_LIMIT_RPM),\s*10\)\s*\|\|\s*(\d+)/g)];
         expect(reads, 'EXPLORER_BATCH_RATE_LIMIT_RPM is not read in the pinnable shape').to.have.lengthOf(1);
         expect(parseInt(reads[0][2], 10)).to.equal(BATCH_DEFAULT);
     });

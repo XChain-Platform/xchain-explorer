@@ -52,11 +52,12 @@ function parsePinnedLimits(confText) {
     return pins;
 }
 
-// One default per `parseInt(process.env.NAME, 10) || N` read, the exact
-// shape every limiter in api.js and XChainExplorer.js uses today.
+// One default per `parseInt(<env>.NAME, 10) || N` read, the exact shape every
+// limiter in api.js (configInfo.env) and XChainExplorer.js (configEnv()) uses
+// today; a bare process.env read still counts, so the fixtures below stay valid.
 function parseSourceLimits(sourceText) {
     const defaults = new Map();
-    const re = /parseInt\(process\.env\.([A-Za-z0-9_]+_RATE_LIMIT_RPM),\s*10\)\s*\|\|\s*(\d+)/g;
+    const re = /parseInt\((?:process\.env|configEnv\(\)|configInfo\.env)\.([A-Za-z0-9_]+_RATE_LIMIT_RPM),\s*10\)\s*\|\|\s*(\d+)/g;
     let m;
     while ((m = re.exec(sourceText)) !== null)
         defaults.set(m[1], parseInt(m[2], 10));

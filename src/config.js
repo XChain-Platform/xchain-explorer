@@ -150,10 +150,12 @@ const env = new Proxy(Object.freeze({}), {
 module.exports = {
 
     // Live read-through view of process.env (see the env const above for
-    // the full contract). Consumed read-only as this.configInfo.env.<KEY>,
-    // this.configInfo already being this module's singleton via the
-    // existing api.js -> XChainExplorer -> Database DI chain, so no new
-    // require is needed at any call site.
+    // the full contract). Consumed read-only: the db readers and api.js reach
+    // it as configInfo.env.<KEY> through the configInfo they already hold,
+    // and modules with no configInfo look it up per read through
+    // require('./config.js').env, never at load: this file requires the hub
+    // connector before these exports exist, and a load-time require would run
+    // this file's SSL probe in every tool that only wanted a module.
     env: env,
 
     // Epoch ms of the last successful hub-config fetch (null until the first success).

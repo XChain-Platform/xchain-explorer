@@ -265,7 +265,7 @@ describe('Security: Rate Limiting: Rate limiter config', function () {
 
     it('has max requests configured', function () {
         // The app-wide ceiling is resolved from its knob, so the assertion reads
-        // the resolution itself (`parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10)
+        // the resolution itself (`parseInt(configInfo.env.EXPLORER_RATE_LIMIT_RPM, 10)
         // || <default>`) wherever api.js puts it, rather than a `limit:` line that
         // happens to carry `||` on the same line: the old shape passed only while
         // the ceiling stayed inline in the limiter's options, and any other way of
@@ -275,7 +275,7 @@ describe('Security: Rate Limiting: Rate limiter config', function () {
         // above it would be room nothing on the wallet's path asked for, and one
         // below it would refuse an honest wallet. rate-limit-pins.test.js holds the
         // same number against the deploy drop-in.
-        const resolved = apiSource.match(/parseInt\(process\.env\.EXPLORER_RATE_LIMIT_RPM,\s*10\)\s*\|\|\s*(\d+)/g) || [];
+        const resolved = apiSource.match(/parseInt\(configInfo\.env\.EXPLORER_RATE_LIMIT_RPM,\s*10\)\s*\|\|\s*(\d+)/g) || [];
         expect(resolved, 'exactly one resolution of the app-wide ceiling').to.have.lengthOf(1);
         const maxRequests = parseInt(resolved[0].match(/\|\|\s*(\d+)/)[1], 10);
         expect(maxRequests).to.equal(1080);

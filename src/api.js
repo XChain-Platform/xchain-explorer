@@ -50,7 +50,7 @@ const { patchConsole } = require('./observability');
 patchConsole({
     service: 'xchain-explorer',
     version: require('../package.json').version,
-    network: process.env.NETWORK || ''
+    network: configInfo.env.NETWORK || ''
 });
 // Resolves to the shipper once installObservability runs in startApi(), and to
 // bare console before that.
@@ -59,8 +59,8 @@ const log = getLogger();
 //xchain-hub endpoints (multi-instance with fallback)
 const xchainHubConnector = require('./connectors/hub');
 const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
-const EXPLORER_API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
-const EXPLORER_API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
+const EXPLORER_API_PORT_HTTP  = configInfo.env.EXPLORER_API_PORT_HTTP  || 8080;
+const EXPLORER_API_PORT_HTTPS = configInfo.env.EXPLORER_API_PORT_HTTPS || 8081;
 
 // Everything the shutdown drain has to take down, published from startApi() as it
 // is built. Module scope because the signal handler is registered at load, before
@@ -94,9 +94,9 @@ async function startApi(){
     // same-origin subresource (icons, assets) to https://<host>:<http-port>, which only speaks
     // HTTP -> SSL protocol error -> broken images. Enable only when TLS-fronted: prod runs
     // NODE_ENV=production behind Apache TLS. EXPLORER_FORCE_HTTPS=1/0 overrides explicitly.
-    const HTTPS_HARDENING = (process.env.EXPLORER_FORCE_HTTPS != null)
-        ? ['1','true','yes','on'].includes(String(process.env.EXPLORER_FORCE_HTTPS).toLowerCase())
-        : (process.env.NODE_ENV === 'production');
+    const HTTPS_HARDENING = (configInfo.env.EXPLORER_FORCE_HTTPS != null)
+        ? ['1','true','yes','on'].includes(String(configInfo.env.EXPLORER_FORCE_HTTPS).toLowerCase())
+        : (configInfo.env.NODE_ENV === 'production');
 
     app.use(helmet({
         // HSTS only applies to HTTPS; omit it on plain-HTTP deployments. Default keeps Helmet's HSTS.
@@ -164,7 +164,7 @@ async function startApi(){
     // third-party dashboards), so with nothing configured every origin is
     // admitted. Deployments that need to fence the API set EXPLORER_CORS_ORIGIN
     // to a comma-separated allowlist of exact origins.
-    const corsAllowlist = String(process.env.EXPLORER_CORS_ORIGIN || '')
+    const corsAllowlist = String(configInfo.env.EXPLORER_CORS_ORIGIN || '')
         .split(',').map(s => s.trim()).filter(s => s.length && s !== '*');
     app.use(cors({
         // Callback form rather than a static wildcard: an allowlisted deployment
@@ -214,7 +214,7 @@ async function startApi(){
     // and spread into both the limiter and its counter line, so the number an
     // operator reads in the log is always the number that actually refused.
     const appWidePolicy = {
-        limit:    parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080,
+        limit:    parseInt(configInfo.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080,
         envVar:   'EXPLORER_RATE_LIMIT_RPM',
         windowMs: 60 * 1000,
         message:  { error: 'Too many requests', code: 'RATE_LIMITED' }
@@ -235,7 +235,7 @@ async function startApi(){
     // with an immediate 429 rather than queueing it. Override with
     // EXPLORER_MAX_CONCURRENT_REQUESTS; 0 disables the cap.
     const requestGate = concurrencyGate.createConcurrencyGate({
-        limit:      concurrencyGate.resolveLimit(process.env.EXPLORER_MAX_CONCURRENT_REQUESTS, 200),
+        limit:      concurrencyGate.resolveLimit(configInfo.env.EXPLORER_MAX_CONCURRENT_REQUESTS, 200),
         retryAfter: 1,
         skip:       isStaticAsset,
         body:       { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' }
@@ -253,7 +253,7 @@ async function startApi(){
     installObservability(app, {
         service: 'xchain-explorer',
         version: explorerVersion,
-        network: process.env.NETWORK || ''
+        network: configInfo.env.NETWORK || ''
     });
 
     // Trust only the first proxy hop (prevents X-Forwarded-For spoofing).
@@ -369,7 +369,7 @@ async function startApi(){
     // never sees POST /{COIN}/api/preflight, which parses its own much larger body.
     // Both bounds above have already been charged by this point, so an oversize batch
     // is never free. Default 20, matching encoder/decoder/utxo-tracker.
-    app.use(makeRpcBatchGuard(resolveMaxBatch(process.env.EXPLORER_MAX_RPC_BATCH, 20)));
+    app.use(makeRpcBatchGuard(resolveMaxBatch(configInfo.env.EXPLORER_MAX_RPC_BATCH, 20)));
 
     // Registered last so explorer routes take priority.
     // Express 5 / body-parser 2.x leaves req.body undefined when a request carries
@@ -382,15 +382,15 @@ async function startApi(){
     app.use(jsonRouter({methods: jsonRpcController}))
 
     // WebSocket support (feature-flagged via WS_ENABLED env var)
-    const WS_ENABLED = process.env.WS_ENABLED !== 'false';
+    const WS_ENABLED = configInfo.env.WS_ENABLED !== 'false';
     if (WS_ENABLED) {
-        const WS_POLL_INTERVAL = parseInt(process.env.WS_POLL_INTERVAL) || 5000;
-        const WS_PING_INTERVAL = parseInt(process.env.WS_PING_INTERVAL) || 30000;
-        const WS_IDLE_TIMEOUT  = parseInt(process.env.WS_IDLE_TIMEOUT)  || 300000;
-        const WS_MAX_PER_IP    = parseInt(process.env.WS_MAX_CONNECTIONS_PER_IP) || 5;
-        const WS_MAX_BACKPRESSURE = parseInt(process.env.WS_MAX_BACKPRESSURE) || 65536;
+        const WS_POLL_INTERVAL = parseInt(configInfo.env.WS_POLL_INTERVAL) || 5000;
+        const WS_PING_INTERVAL = parseInt(configInfo.env.WS_PING_INTERVAL) || 30000;
+        const WS_IDLE_TIMEOUT  = parseInt(configInfo.env.WS_IDLE_TIMEOUT)  || 300000;
+        const WS_MAX_PER_IP    = parseInt(configInfo.env.WS_MAX_CONNECTIONS_PER_IP) || 5;
+        const WS_MAX_BACKPRESSURE = parseInt(configInfo.env.WS_MAX_BACKPRESSURE) || 65536;
 
-        const WS_MAX_SUBS = parseInt(process.env.WS_MAX_SUBSCRIPTIONS) || 25;
+        const WS_MAX_SUBS = parseInt(configInfo.env.WS_MAX_SUBSCRIPTIONS) || 25;
         const wsServer = new WebSocketServer({
             explorer:         explorer,
             broadcaster:      null, // set below
@@ -402,7 +402,7 @@ async function startApi(){
             // keys on the real client address, not a spoofable X-Forwarded-For token.
             // The upgrade is handled on the raw HTTP server, where Express trust-proxy
             // does not apply, so the hop count must be passed through explicitly.
-            trustProxyHops:   parseInt(process.env.WS_TRUST_PROXY_HOPS, 10) || 1
+            trustProxyHops:   parseInt(configInfo.env.WS_TRUST_PROXY_HOPS, 10) || 1
         });
 
         const changeDetector = new ChangeDetector({

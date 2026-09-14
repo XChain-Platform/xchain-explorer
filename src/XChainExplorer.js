@@ -49,6 +49,14 @@ const staticMounts     = require('./http/static_mounts.js');   // the one file-s
 const { getLogger } = require('./observability');
 const log = getLogger();
 
+// Every environment read goes through config.js's live read-through view of
+// process.env, so config.js stays the one place the gate lets env be read. The
+// view is looked up per read from the module rather than this.configInfo, so test
+// doubles built from a bare config stub keep working, and so that requiring this
+// file never loads config.js, whose SSL probe and log line would otherwise run in
+// every tool and suite that never reads a variable.
+const configEnv = () => require('./config.js').env;
+
 // Upper bound on a contract state key, in UTF-8 BYTES, mirroring the VM's
 // maxStateKeySize default (xchain-vm/src/state.js). A key longer than this cannot
 // exist in contract_state, so rejecting it here refuses work that could only ever
@@ -112,8 +120,8 @@ class XChainExplorer {
         // report the hardcoded '1.0.0' default (ws/websocket_server.js) to every
         // client instead of the real version. Env stays first so the test
         // launchers that pin it keep deciding.
-        this.version = process.env.npm_package_version || require('../package.json').version;
-        this.name    = process.env.npm_package_name    || require('../package.json').name;
+        this.version = configEnv().npm_package_version || require('../package.json').version;
+        this.name    = configEnv().npm_package_name    || require('../package.json').name;
 
         this.app = app;
 
@@ -801,7 +809,7 @@ class XChainExplorer {
         // line, so the number an operator reads in the log is the number that
         // actually refused. See src/http/rate_limit_log.js for why the line is throttled.
         const feeQuotePolicy = {
-            limit:    parseInt(process.env.EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM, 10) || 120,
+            limit:    parseInt(configEnv().EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM, 10) || 120,
             envVar:   'EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM',
             windowMs: 60 * 1000,
             message:  { error: 'Too many fee requests', code: 'RATE_LIMITED' }
@@ -826,7 +834,7 @@ class XChainExplorer {
         // because this is the only unauthenticated explorer surface taking a body
         // this large.
         const preflightPostPolicy = {
-            limit:    parseInt(process.env.EXPLORER_PREFLIGHT_POST_RATE_LIMIT_RPM, 10) || 60,
+            limit:    parseInt(configEnv().EXPLORER_PREFLIGHT_POST_RATE_LIMIT_RPM, 10) || 60,
             envVar:   'EXPLORER_PREFLIGHT_POST_RATE_LIMIT_RPM',
             windowMs: 60 * 1000,
             message:  { error: 'Too many pre-flight requests', code: 'RATE_LIMITED' }
@@ -862,7 +870,7 @@ class XChainExplorer {
         // coinpay badge are two callers of one wallet, and a single shared bucket is
         // the honest ceiling on what that wallet costs the origin per minute.
         const batchPolicy = {
-            limit:    parseInt(process.env.EXPLORER_BATCH_RATE_LIMIT_RPM, 10) || 72,
+            limit:    parseInt(configEnv().EXPLORER_BATCH_RATE_LIMIT_RPM, 10) || 72,
             envVar:   'EXPLORER_BATCH_RATE_LIMIT_RPM',
             windowMs: 60 * 1000,
             message:  { error: 'Too many batch requests', code: 'RATE_LIMITED' }
@@ -891,7 +899,7 @@ class XChainExplorer {
         // the qualifying validator set and reads that set's capability snapshot, so it
         // is proof-tier work and takes the tighter of the two caps.
         const checkpointListPolicy = {
-            limit:    parseInt(process.env.EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM, 10) || 120,
+            limit:    parseInt(configEnv().EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM, 10) || 120,
             envVar:   'EXPLORER_CHECKPOINT_LIST_RATE_LIMIT_RPM',
             windowMs: 60 * 1000,
             message:  { error: 'Too many checkpoint requests', code: 'RATE_LIMITED' }
@@ -910,7 +918,7 @@ class XChainExplorer {
         // three testers, is 90 in the worst minute. The measured wallet profile is
         // the source of that number, not a round guess.
         const checkpointVerifyPolicy = {
-            limit:    parseInt(process.env.EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 90,
+            limit:    parseInt(configEnv().EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 90,
             envVar:   'EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM',
             windowMs: 60 * 1000,
             message:  { error: 'Too many checkpoint verification requests', code: 'RATE_LIMITED' }
@@ -945,7 +953,7 @@ class XChainExplorer {
         // requirement, which only stayed invisible while the bucket keyed on the
         // Cloudflare edge address instead of the client.
         const actionProofPolicy = {
-            limit:    parseInt(process.env.EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 90,
+            limit:    parseInt(configEnv().EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM, 10) || 90,
             envVar:   'EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM',
             windowMs: 60 * 1000,
             message:  { error: 'Too many proof requests', code: 'RATE_LIMITED' }
@@ -962,7 +970,7 @@ class XChainExplorer {
         // 256-deep SMT descent reading the DB per non-empty level, plus an indexer RPC
         // per capability. Worst case ~2000 descents, so it caps below the action tier.
         const validatorSetProofPolicy = {
-            limit:    parseInt(process.env.EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM, 10) || 30,
+            limit:    parseInt(configEnv().EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM, 10) || 30,
             envVar:   'EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM',
             windowMs: 60 * 1000,
             message:  { error: 'Too many proof requests', code: 'RATE_LIMITED' }
@@ -995,7 +1003,7 @@ class XChainExplorer {
         // Default-off (EXPLORER_VM_QUERY_ENABLED) and capped far below the global
         // limit, since every call burns real CPU in the VM subprocess.
         const vmQueryPolicy = {
-            limit:    parseInt(process.env.EXPLORER_VM_QUERY_RATE_LIMIT_RPM, 10) || 20,
+            limit:    parseInt(configEnv().EXPLORER_VM_QUERY_RATE_LIMIT_RPM, 10) || 20,
             envVar:   'EXPLORER_VM_QUERY_RATE_LIMIT_RPM',
             windowMs: 60 * 1000,
             message:  { error: 'Too many simulation requests', code: 'RATE_LIMITED' }
@@ -1456,7 +1464,7 @@ class XChainExplorer {
                 };
         }
 
-        if(process.env.DEBUG && !this.util.isNull(response.time))
+        if(configEnv().DEBUG && !this.util.isNull(response.time))
             response.head['XChain-Runtime-Ms'] = response.time;
 
         if(!this.util.isNull(response.head))
@@ -1491,7 +1499,7 @@ class XChainExplorer {
             log.warn('SLOW_REQUEST', { path: req.path, time: response.time + 'ms' });
         }
 
-        if(process.env.DEBUG){
+        if(configEnv().DEBUG){
             console.log('--- REQUEST CONFIG ---');
             console.dir(cfg, {
                 colors: true,
@@ -2342,14 +2350,14 @@ class XChainExplorer {
         if(!status.bootstrapDrained)
             return { blocked: 'MIRROR_NOT_BOOTSTRAPPED', annotate: null };
         let annotate = { mirror_bootstrapped: true, mirror_lag_seconds: status.mirrorLagSeconds };
-        let maxLag = parseInt(process.env.MIRROR_MAX_LAG_S, 10) || 0;
+        let maxLag = parseInt(configEnv().MIRROR_MAX_LAG_S, 10) || 0;
         if(maxLag > 0 && status.mirrorLagSeconds !== null && status.mirrorLagSeconds > maxLag){
             log.warn('HUB_MIRROR_LAG_EXCEEDED', {
                 coin, lag_s: status.mirrorLagSeconds, max_lag_s: maxLag,
                 detail: 'mirror lag exceeds MIRROR_MAX_LAG_S' +
-                    (process.env.MIRROR_LAG_FAIL_CLOSED === '1' ? ' (failing closed)' : ' (serving with annotation)')
+                    (configEnv().MIRROR_LAG_FAIL_CLOSED === '1' ? ' (failing closed)' : ' (serving with annotation)')
             });
-            if(process.env.MIRROR_LAG_FAIL_CLOSED === '1')
+            if(configEnv().MIRROR_LAG_FAIL_CLOSED === '1')
                 return { blocked: 'MIRROR_STALE', annotate };
         }
         return { blocked: null, annotate };
@@ -2927,7 +2935,7 @@ class XChainExplorer {
     // a 502. The budget is a wall-clock deadline checked before each retry, so a
     // saturated indexer still answers rather than holding the request open.
     async feeQuoteWithBusyRetry(connector, args){
-        let budgetMs = parseInt(process.env.EXPLORER_FEEQUOTE_BUSY_RETRY_MS, 10);
+        let budgetMs = parseInt(configEnv().EXPLORER_FEEQUOTE_BUSY_RETRY_MS, 10);
         if(!(budgetMs > 0)) budgetMs = 6000;
         let deadline = Date.now() + budgetMs;
         let delayMs  = 250;

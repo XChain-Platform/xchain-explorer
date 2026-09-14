@@ -61,18 +61,58 @@ const HELPERS = `
     function getXChainParam(coin, type){ return String(coin).toUpperCase(); }
 `;
 
-describe('client: market page counter-tick resolution', function () {
+// setXChainParams derives XC.query from the path; a single-tick market URL
+// must not stringify a missing segment.
+function queryFor(url) {
+    const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only', url });
+    dom.window.eval(HELPERS);
+    dom.window.eval('var XC = { chains: {}, networks: {} };');
+    dom.window.eval(extractFn('setXChainParams'));
+    dom.window.setXChainParams('RDOGE');
+    return dom.window.XC.query;
+}
 
-    // setXChainParams derives XC.query from the path; a single-tick market URL
-    // must not stringify a missing segment.
-    function queryFor(url) {
-        const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only', url });
-        dom.window.eval(HELPERS);
-        dom.window.eval('var XC = { chains: {}, networks: {} };');
-        dom.window.eval(extractFn('setXChainParams'));
-        dom.window.setXChainParams('RDOGE');
-        return dom.window.XC.query;
-    }
+// resolveMarketPair supplies the counter-tick a single-tick URL omits.
+function resolver(marketsResponse) {
+    const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
+    dom.window.eval(HELPERS);
+    dom.window.eval('var XC = { coin: "RDOGE" };');
+    dom.window.calls = [];
+    dom.window.eval(`
+        function loadApiData(coin, action, query, type, cb){
+            calls.push('/' + coin + '/api/' + action + '/' + query);
+            cb(${JSON.stringify(marketsResponse)});
+        }
+    `);
+    dom.window.eval(extractFn('resolveMarketPair'));
+    return dom.window;
+}
+
+// updateMarketBasics answers for the pair the API actually resolved; a
+// missing row must surface, not leave the page half-composed.
+function basics(apiResponse) {
+    const dom = new JSDOM(
+        '<!DOCTYPE html><body>' +
+        '<span class="tick1-name"></span><span class="tick2-name"></span>' +
+        '<a id="market-swap-button" href="#"></a>' +
+        '</body>', { runScripts: 'outside-only' });
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(HELPERS);
+    dom.window.eval(`
+        var XC = { coin: 'RDOGE' };
+        var notFound = null;
+        function showMarketNotFound(tick){ notFound = tick; }
+        function loadApiData(coin, action, query, type, cb){ cb(${JSON.stringify(apiResponse)}); }
+        function getTokenIcon(){ return '/icon/default.png'; }
+        function formatAmount(v){ return String(v); }
+        function bcformat(v){ return String(v); }
+    `);
+    dom.window.eval(extractFn('updateMarketBasics'));
+    dom.window.updateMarketBasics('XCHAIN/NOPE');
+    return dom.window;
+}
+
+describe('client: market page counter-tick resolution', function () {
 
     it('a single-tick market URL yields the tick alone, never "undefined"', function () {
         const q = queryFor('https://explorer.test/RDOGE/market/XCHAIN');
@@ -83,23 +123,9 @@ describe('client: market page counter-tick resolution', function () {
     it('a two-tick market URL yields the full pair', function () {
         expect(queryFor('https://explorer.test/RDOGE/market/XCHAIN/RDOGE')).to.equal('XCHAIN/RDOGE');
     });
+});
 
-    // resolveMarketPair supplies the counter-tick a single-tick URL omits.
-    function resolver(marketsResponse) {
-        const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
-        dom.window.eval(HELPERS);
-        dom.window.eval('var XC = { coin: "RDOGE" };');
-        dom.window.calls = [];
-        dom.window.eval(`
-            function loadApiData(coin, action, query, type, cb){
-                calls.push('/' + coin + '/api/' + action + '/' + query);
-                cb(${JSON.stringify(marketsResponse)});
-            }
-        `);
-        dom.window.eval(extractFn('resolveMarketPair'));
-        return dom.window;
-    }
-
+describe('client: market page counter-tick resolution', function () {
     it('passes a URL-supplied counter-tick through without an API call', function () {
         const w = resolver(null);
         let got = null;
@@ -132,7 +158,9 @@ describe('client: market page counter-tick resolution', function () {
         expect(got).to.equal(null);
         expect(failed).to.equal(true);
     });
+});
 
+describe('client: market page counter-tick resolution', function () {
     // loadApiData must know the plural 'markets' list endpoint the resolver
     // uses; the naive '-s' suffix branch would have built '/api/marketss'.
     it('loadApiData maps the markets action to /api/markets', function () {
@@ -143,31 +171,9 @@ describe('client: market page counter-tick resolution', function () {
         dom.window.loadApiData('RDOGE', 'markets', 'XCHAIN', null, function () {});
         expect(dom.window.urls).to.deep.equal(['/RDOGE/api/markets/XCHAIN']);
     });
+});
 
-    // updateMarketBasics answers for the pair the API actually resolved; a
-    // missing row must surface, not leave the page half-composed.
-    function basics(apiResponse) {
-        const dom = new JSDOM(
-            '<!DOCTYPE html><body>' +
-            '<span class="tick1-name"></span><span class="tick2-name"></span>' +
-            '<a id="market-swap-button" href="#"></a>' +
-            '</body>', { runScripts: 'outside-only' });
-        dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
-        dom.window.eval(HELPERS);
-        dom.window.eval(`
-            var XC = { coin: 'RDOGE' };
-            var notFound = null;
-            function showMarketNotFound(tick){ notFound = tick; }
-            function loadApiData(coin, action, query, type, cb){ cb(${JSON.stringify(apiResponse)}); }
-            function getTokenIcon(){ return '/icon/default.png'; }
-            function formatAmount(v){ return String(v); }
-            function bcformat(v){ return String(v); }
-        `);
-        dom.window.eval(extractFn('updateMarketBasics'));
-        dom.window.updateMarketBasics('XCHAIN/NOPE');
-        return dom.window;
-    }
-
+describe('client: market page counter-tick resolution', function () {
     it('a market that does not resolve renders the visible not-found state', function () {
         // The API answers `false` for an unknown pair (no row matched), and
         // loadApiData passes that straight to the callback.

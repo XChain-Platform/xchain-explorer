@@ -212,6 +212,8 @@ async function startApi(){
     // hub refresh entirely rather than tick a disabled hub.
     if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
 
+    // Last, after every explorer route, so the dispatcher only ever sees what
+    // nothing else matched.
     mountJsonRpc(app, configInfo, jsonRpcController);
     startWebsockets({ configInfo: configInfo, explorer: explorer, httpServer: httpServer,
                       httpsServer: runtime.httpsServer, runtime: runtime });

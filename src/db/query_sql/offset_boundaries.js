@@ -188,8 +188,19 @@ async function firstLastOffset(db, config, ctx, offset1, offset){
 // The statement firstLastOffset runs, per shape of the thing being listed.
 function firstLastSql(ctx, order, limit){
     let { method, type, table, where, hCursor, hSource } = ctx;
-    if(ctx.pagesOverBlocks){
-        return `SELECT
+    if(ctx.pagesOverBlocks)
+        return firstLastBlocksSql(where, order, limit);
+    if(method=='getTokens')
+        return firstLastTokensSql(where, order, limit);
+    if(method=='getHistory')
+        return firstLastHistorySql(hCursor, hSource, where, order, limit);
+    if(method=='getFiles' && type=='token')
+        return firstLastFilesSql(where, order, limit);
+    return firstLastActionsSql(table, where, order, limit);
+}
+
+function firstLastBlocksSql(where, order, limit){
+    return `SELECT
                             b1.block_index as offset_index
                         FROM
                             blocks b1
@@ -198,8 +209,10 @@ function firstLastSql(ctx, order, limit){
                             ` + where + `
                         ORDER BY b1.block_index ` + order + `
                         LIMIT ` + limit;
-    } else if(method=='getTokens'){
-        return `SELECT
+}
+
+function firstLastTokensSql(where, order, limit){
+    return `SELECT
                             m.id as offset_index
                         FROM
                             tokens m
@@ -211,8 +224,10 @@ function firstLastSql(ctx, order, limit){
                             ` + where + `
                         ORDER BY m.id ` + order + `
                         LIMIT ` + limit;
-    } else if(method=='getHistory'){
-        return `SELECT
+}
+
+function firstLastHistorySql(hCursor, hSource, where, order, limit){
+    return `SELECT
                             ` + hCursor + ` as offset_index
                         FROM
                             ` + hSource + `
@@ -223,8 +238,10 @@ function firstLastSql(ctx, order, limit){
                             ` + where + `
                         ORDER BY ` + hCursor + ` ` + order + `
                         LIMIT ` + limit;
-    } else if(method=='getFiles' && type=='token'){
-        return `SELECT
+}
+
+function firstLastFilesSql(where, order, limit){
+    return `SELECT
                             m.action_index as offset_index
                         FROM
                             mappings_files m
@@ -236,7 +253,9 @@ function firstLastSql(ctx, order, limit){
                             ` + where + `
                         ORDER BY m.action_index ` + order + `
                         LIMIT ` + limit;
-    }
+}
+
+function firstLastActionsSql(table, where, order, limit){
     return `SELECT
                             m.action_index as offset_index
                         FROM

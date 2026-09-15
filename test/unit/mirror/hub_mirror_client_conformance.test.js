@@ -41,6 +41,50 @@ const SYNC_SCRIPT = path.join(CANON_SRC, '..', 'bin', 'sync-hub-mirror-client.sh
 const HUB_FILES = ['hub_db_sync.js', 'hub-schema-version.js'];
 const DEP_FILES = ['price_batching_floor_activation.js', 'mirror_admission_activation.js'];
 
+// The client entry installs a directory of parts (src/hub/hub_db_sync/, subdirectories
+// included), vendored as a SET by the sync script's HUB_DIRS= line. Both sides are walked
+// rather than listed, and the walk of each side is compared as a whole: a part the
+// canonical grew that the copy lacks, and a part the copy still carries after the
+// canonical retired it, both fail here, because a part the suite does not compare is a
+// silent-drift hole (every part is code the client runs). Read errors yield an empty
+// set on purpose, which the floor assertion turns into a failure.
+const HUB_DIRS = ['hub_db_sync'];
+function walkJs(dir, rel){
+    let out = [];
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return out; }
+    for (const e of entries.sort(function(a, b){ return a.name < b.name ? -1 : 1; })) {
+        const r = rel ? rel + '/' + e.name : e.name;
+        if (e.isDirectory()) out = out.concat(walkJs(path.join(dir, e.name), r));
+        else if (e.name.endsWith('.js')) out.push(r);
+    }
+    return out;
+}
+// The whole parts directory of one client entry: the part SET on both sides (a part on one
+// side only is code one client runs and the other cannot), the floor, and every part byte
+// for byte. Read errors yield an empty local set, which the floor turns into a failure.
+function assertPartsIdentical(dir){
+    const parts = walkJs(path.join(LOCAL_SRC, 'hub', dir), '');
+    assert.ok(parts.length >= HUB_PARTS_FLOOR,
+        'expected at least ' + HUB_PARTS_FLOOR + ' vendored parts under src/hub/' + dir + '/, found ' +
+        parts.length + '; an emptied or renamed parts directory compares nothing and must fail here.');
+    assert.deepStrictEqual(parts, walkJs(path.join(CANON_SRC, 'hub', dir), ''),
+        'this repo\'s src/hub/' + dir + '/ and the canonical parts directory disagree about which ' +
+        'parts exist; run xchain-indexer/bin/sync-hub-mirror-client.sh, which replaces the directory as a set.');
+    parts.forEach(function(p){
+        const local = fs.readFileSync(path.join(LOCAL_SRC, 'hub', dir, p), 'utf8');
+        const canon = fs.readFileSync(path.join(CANON_SRC, 'hub', dir, p), 'utf8');
+        assert.strictEqual(local, canon,
+            'this repo\'s src/hub/' + dir + '/' + p + ' has drifted from the canonical source; ' +
+            'edit xchain-indexer/src/hub/' + dir + '/' + p + ' and run xchain-indexer/bin/sync-hub-mirror-client.sh.');
+    });
+}
+
+// The floor is the part count when the split landed. It only ever rises, so a new part
+// needs no edit here, while a parts directory that was emptied, renamed or made
+// unreadable fails instead of silently guarding nothing.
+const HUB_PARTS_FLOOR = 26;
+
 // Enumerate the vendored twins instead of hand-copying their names: a literal list here
 // narrows silently against the sync script's shell variable (miss one name, say
 // anchor_reward_attestations.sql, and that twin carries no byte-identity assertion at
@@ -74,6 +118,7 @@ function scriptFileList(variable){
 function scriptSqlFiles(){ return scriptFileList('SQL_FILES'); }
 function scriptHubFiles(){ return scriptFileList('HUB_FILES'); }
 function scriptDepFiles(){ return scriptFileList('DEP_FILES'); }
+function scriptHubDirs(){ return scriptFileList('HUB_DIRS'); }
 // Byte-identical consensus twins that are NOT vendored by sync-hub-mirror-client.sh
 // (they are hand-maintained in xchain-hub/src, xchain-indexer/src and here). The
 // twin's own header claims "the hub-mirror conformance suites compare the consumers",
@@ -94,6 +139,14 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
                 assert.strictEqual(local, canon,
                     'this repo\'s src/' + rel + f + ' has drifted from the canonical source; ' +
                     'edit xchain-indexer/src/' + rel + f + ' and run xchain-indexer/bin/sync-hub-mirror-client.sh.');
+                // A client entry's parts directory is compared INSIDE the entry's own case rather
+                // than as one case per part: the explorer's live identity pin (bin/pins/
+                // at1-explorer-identity.json) freezes this suite's title set, and the split landed
+                // under a grant that does not move that pin. Every part is still compared byte for
+                // byte and the failure names the part; a part gets its own title when a later
+                // grant re-takes the pin.
+                const dir = f.slice(0, -'.js'.length);
+                if (sub === 'hub' && HUB_DIRS.indexOf(dir) !== -1) assertPartsIdentical(dir);
             });
         });
     });
@@ -107,6 +160,11 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
             'this guard and xchain-indexer/bin/sync-hub-mirror-client.sh disagree about which client ' +
             'files are vendored into src/hub/; a module the client requires but the script does not ' +
             'copy fails at require on boot, so keep the two lists one definition.');
+        // The parts directories ride under the same title, for the reason the entry case states.
+        assert.deepStrictEqual([...HUB_DIRS].sort(), scriptHubDirs(),
+            'this guard and xchain-indexer/bin/sync-hub-mirror-client.sh disagree about which parts ' +
+            'directories are vendored into src/hub/; a directory the entry requires but the script does ' +
+            'not copy fails at require on boot, so keep the two lists one definition.');
     });
 
     it('the DEP_FILES list matches the sync script DEP_FILES list', function(){

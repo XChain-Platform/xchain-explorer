@@ -266,7 +266,7 @@ describe('hub-mirror-migrate', function () {
         expect(db.executed).to.deep.equal(applied);
     });
     it('adds both legs plus finalizing_view to a legacy cross_chain_matches', async function () {
-        // Both legs matter: _applyRetraction ORs a_push_generation and
+        // Both legs matter: applyRetraction ORs a_push_generation and
         // b_push_generation into one DELETE, so either one missing throws.
         const db = fakeShapeDb({ cross_chain_matches: LEGACY_SHAPES.cross_chain_matches });
         const applied = await ensureMirrorColumns(db, noLog);

@@ -47,7 +47,7 @@ describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
 
     it('_refreshPriceSyncHeight adopts MAX(reference_block) from the local mirror', async function () {
         const { sync } = makeSync(123);
-        await sync._refreshPriceSyncHeight();
+        await sync.refreshPriceSyncHeight();
         assert.strictEqual(sync.priceSyncHeight, 123);
     });
 
@@ -55,7 +55,7 @@ describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
         const { sync, doQuery } = makeSync(0);
         sync.priceSyncHeight = 50;
         doQuery.rejects(new Error("Table 'price_snapshots' doesn't exist"));
-        await sync._refreshPriceSyncHeight();
+        await sync.refreshPriceSyncHeight();
         assert.strictEqual(sync.priceSyncHeight, 50, 'a failed query must not reset the barrier to 0');
     });
 
@@ -75,7 +75,7 @@ describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
         const pending = sync.waitForPriceSyncHeight(100, 2000);
         assert.strictEqual(sync._priceWaiters.length, 1, 'a not-yet-reached target parks a waiter');
         doQuery.callsFake(async () => [{ h: 120, ts: 0 }]);
-        await sync._refreshPriceSyncHeight();
+        await sync.refreshPriceSyncHeight();
         const got = await pending;
         assert.strictEqual(got, 120);
         assert.strictEqual(sync._priceWaiters.length, 0, 'waiter cleared on resolve');

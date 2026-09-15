@@ -33,21 +33,19 @@
  * logs, and it leaves a message in the mount point instead of nothing.
  */
 
-var XCComponents = (function(){
-
-    'use strict';
+'use strict';
 
     // name -> { props, mount, name }
-    var registry = {};
+    var xcComponentsRegistry = {};
 
     // Every mount that has run, in order, so a test (and a theme's custom.js)
     // can see what a page actually put on the screen.
-    var mounted = [];
+    var xcComponentsMounted = [];
 
     // The prop types a component.json may declare. Deliberately few: a prop is
     // either a scalar the template substitutes, a list the component iterates,
     // or a bag it passes through. Anything richer belongs in the component.
-    var TYPES = {
+    var xcComponentsTypes = {
         string:  function(v){ return typeof v === 'string'; },
         number:  function(v){ return typeof v === 'number' && isFinite(v); },
         boolean: function(v){ return typeof v === 'boolean'; },
@@ -55,7 +53,7 @@ var XCComponents = (function(){
         object:  function(v){ return v !== null && typeof v === 'object' && !Array.isArray(v); }
     };
 
-    function isBlank(v){
+    function xcComponentsIsBlank(v){
         return v === null || v === undefined || v === '';
     }
 
@@ -65,7 +63,7 @@ var XCComponents = (function(){
      * @param {string} name  the name a manifest entry and a layout use
      * @param {object} def   { props: {<prop>: {type, required, default}}, mount: fn(el, props, ctx) }
      */
-    function register(name, def){
+    function xcComponentsRegister(name, def){
         if(typeof name !== 'string' || name === '')
             throw new Error('XCComponents.register: a component needs a name');
         if(!def || typeof def.mount !== 'function')
@@ -73,24 +71,24 @@ var XCComponents = (function(){
         // A second registration under one name is how a theme overrides a
         // component, so it is allowed - but it is never silent, because the
         // other way it happens is two files fighting over one name.
-        if(registry[name] && typeof console !== 'undefined' && console.info)
+        if(xcComponentsRegistry[name] && typeof console !== 'undefined' && console.info)
             console.info('XCComponents: ' + name + ' re-registered (theme override, or a name collision)');
-        registry[name] = { name: name, props: def.props || {}, mount: def.mount };
-        return registry[name];
+        xcComponentsRegistry[name] = { name: name, props: def.props || {}, mount: def.mount };
+        return xcComponentsRegistry[name];
     }
 
-    function get(name){
-        return Object.prototype.hasOwnProperty.call(registry, name) ? registry[name] : null;
+    function xcComponentsGet(name){
+        return Object.prototype.hasOwnProperty.call(xcComponentsRegistry, name) ? xcComponentsRegistry[name] : null;
     }
 
-    function names(){
-        return Object.keys(registry).sort();
+    function xcComponentsNames(){
+        return Object.keys(xcComponentsRegistry).sort();
     }
 
     // Test/hot-reload seam. Not called by the runtime.
-    function reset(){
-        registry = {};
-        mounted  = [];
+    function xcComponentsReset(){
+        xcComponentsRegistry = {};
+        xcComponentsMounted  = [];
     }
 
     /**
@@ -104,8 +102,8 @@ var XCComponents = (function(){
      * data-table with `column` instead of `columns` would otherwise get the
      * component's default columns and no indication anything was ignored.
      */
-    function validate(name, props){
-        var def = get(name);
+    function xcComponentsValidate(name, props){
+        var def = xcComponentsGet(name);
         var errors = [];
         if(!def)
             return { ok: false, errors: ['no component registered as ' + JSON.stringify(name)], props: {} };
@@ -118,15 +116,15 @@ var XCComponents = (function(){
             var value = Object.prototype.hasOwnProperty.call(input, key) ? input[key] : undefined;
             if(value === undefined && spec.default !== undefined)
                 value = spec.default;
-            if(isBlank(value) && spec.required){
+            if(xcComponentsIsBlank(value) && spec.required){
                 errors.push(name + '.' + key + ' is required');
                 continue;
             }
             // A blank OPTIONAL prop is "not supplied", not a wrong type: a
             // layout writes query: null to mean an unfiltered list, and type
             // checking that null against 'string' would reject the common case.
-            if(value !== undefined && spec.type && !isBlank(value)){
-                var check = TYPES[spec.type];
+            if(value !== undefined && spec.type && !xcComponentsIsBlank(value)){
+                var check = xcComponentsTypes[spec.type];
                 if(!check)
                     errors.push(name + '.' + key + ' declares unknown type ' + JSON.stringify(spec.type));
                 else if(!check(value))
@@ -152,11 +150,11 @@ var XCComponents = (function(){
      * @param {object} ctx             ambient context handed to every mount (coin, network, theme)
      * @returns {object} { ok, errors, result }
      */
-    function mount(target, name, props, ctx){
-        var el = resolve(target);
-        var def = get(name);
+    function xcComponentsMount(target, name, props, ctx){
+        var el = xcComponentsResolve(target);
+        var def = xcComponentsGet(name);
         if(!def){
-            fail(el, 'Unknown component: ' + name);
+            xcComponentsFail(el, 'Unknown component: ' + name);
             return { ok: false, errors: ['no component registered as ' + JSON.stringify(name)], result: null };
         }
         if(!el){
@@ -164,26 +162,26 @@ var XCComponents = (function(){
             if(typeof console !== 'undefined' && console.error) console.error('XCComponents: ' + miss);
             return { ok: false, errors: [miss], result: null };
         }
-        var check = validate(name, props);
+        var check = xcComponentsValidate(name, props);
         if(!check.ok){
-            fail(el, name + ': ' + check.errors.join('; '));
+            xcComponentsFail(el, name + ': ' + check.errors.join('; '));
             return { ok: false, errors: check.errors, result: null };
         }
         var result;
         try {
-            result = def.mount(el, check.props, ctx || context());
+            result = def.mount(el, check.props, ctx || xcComponentsContext());
         } catch(e){
             var msg = name + ' failed to mount: ' + (e && e.message ? e.message : String(e));
-            fail(el, msg);
+            xcComponentsFail(el, msg);
             return { ok: false, errors: [msg], result: null };
         }
-        mounted.push({ component: name, el: el, props: check.props });
+        xcComponentsMounted.push({ component: name, el: el, props: check.props });
         return { ok: true, errors: [], result: result };
     }
 
     // A failed mount says so where the component would have been. Silence here
     // is indistinguishable from a surface that legitimately has no rows.
-    function fail(el, message){
+    function xcComponentsFail(el, message){
         if(typeof console !== 'undefined' && console.error)
             console.error('XCComponents: ' + message);
         if(el && typeof el.setAttribute === 'function'){
@@ -197,7 +195,7 @@ var XCComponents = (function(){
         }
     }
 
-    function resolve(target){
+    function xcComponentsResolve(target){
         if(!target) return null;
         if(typeof target !== 'string') return target;
         if(typeof document === 'undefined') return null;
@@ -209,7 +207,7 @@ var XCComponents = (function(){
     // The ambient facts every component gets. Read from XC when the page
     // controller has set it up, defaulted otherwise so a component is
     // mountable in a test without the whole page namespace.
-    function context(extra){
+    function xcComponentsContext(extra){
         var xc = (typeof XC !== 'undefined' && XC) ? XC : {};
         var ctx = {
             coin:    xc.coin    || null,
@@ -238,7 +236,7 @@ var XCComponents = (function(){
      * @param {Document|Element} root  defaults to document
      * @param {string} id              manifest script element id
      */
-    function mountManifest(root, id){
+    function xcComponentsMountManifest(root, id){
         var doc = root || (typeof document !== 'undefined' ? document : null);
         if(!doc) return [];
         var node = (typeof doc.querySelector === 'function')
@@ -253,16 +251,16 @@ var XCComponents = (function(){
                 console.error('XCComponents: mount manifest is not valid JSON: ' + (e && e.message));
             return [];
         }
-        return mountAll(manifest);
+        return xcComponentsMountAll(manifest);
     }
 
-    function mountAll(manifest){
+    function xcComponentsMountAll(manifest){
         var out = [];
         if(!Array.isArray(manifest)) return out;
-        var ctx = context();
+        var ctx = xcComponentsContext();
         for(var i = 0; i < manifest.length; i++){
             var entry = manifest[i] || {};
-            out.push(mount(entry.el, entry.component, entry.props, ctx));
+            out.push(xcComponentsMount(entry.el, entry.component, entry.props, ctx));
         }
         return out;
     }
@@ -279,7 +277,7 @@ var XCComponents = (function(){
      * it is also the feed's field order. This returns render-position ->
      * canonical-index, so nothing has to renumber anything.
      */
-    function resolveOrder(items){
+    function xcComponentsResolveOrder(items){
         var list = [];
         var i;
         if(!Array.isArray(items)) return list;
@@ -307,7 +305,7 @@ var XCComponents = (function(){
      * have drifted, and reordering rows under that assumption would relabel
      * data, which is worse than doing nothing.
      */
-    function permuteRows(tbody, config){
+    function xcComponentsPermuteRows(tbody, config){
         if(!tbody || !Array.isArray(config)) return false;
         var rows = [];
         for(var i = 0; i < tbody.children.length; i++)
@@ -318,7 +316,7 @@ var XCComponents = (function(){
                     + ' entries but the table has ' + rows.length + ' rows; leaving it alone');
             return false;
         }
-        var order = resolveOrder(config);
+        var order = xcComponentsResolveOrder(config);
         var same = order.length === rows.length;
         if(same){
             for(i = 0; i < order.length; i++) if(order[i] !== i){ same = false; break; }
@@ -331,22 +329,25 @@ var XCComponents = (function(){
         return true;
     }
 
+function xcComponentsCreate(){
     return {
-        register: register,
-        resolveOrder: resolveOrder,
-        permuteRows: permuteRows,
-        get: get,
-        names: names,
-        reset: reset,
-        validate: validate,
-        mount: mount,
-        mountAll: mountAll,
-        mountManifest: mountManifest,
-        context: context,
-        mounted: function(){ return mounted.slice(); }
+        register: xcComponentsRegister,
+        resolveOrder: xcComponentsResolveOrder,
+        permuteRows: xcComponentsPermuteRows,
+        get: xcComponentsGet,
+        names: xcComponentsNames,
+        reset: xcComponentsReset,
+        validate: xcComponentsValidate,
+        mount: xcComponentsMount,
+        mountAll: xcComponentsMountAll,
+        mountManifest: xcComponentsMountManifest,
+        context: xcComponentsContext,
+        mounted: function(){ return xcComponentsMounted.slice(); }
     };
+}
 
-})();
+var XCComponents = xcComponentsCreate();
+if(typeof window !== 'undefined') window.XCComponents = XCComponents;
 
 // Deliberately NOT auto-mounted on jQuery's ready event. This file loads before
 // xchain.js, so its ready handler would run before initPage() has called

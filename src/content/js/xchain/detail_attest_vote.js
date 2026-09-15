@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * detail_attest_vote.js
  *
  * Custom javascript for xchain explorer
  */
@@ -30,6 +30,14 @@ function showAttestDetails(data){
     // the request branch renders a signed window as a table of dashes.
     let isBatchHead = (Number(data.version) === 5);
     let isBatch     = isBatchHead || (Number(data.version) === 6);
+    detailAttestVote_renderAttestIdentity(data, isResponse, isExpire, isBatchHead, isBatch);
+    detailAttestVote_renderAttestBatch(data, isBatch);
+    detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatch);
+    detailAttestVote_renderAttestResponse(data, isResponse);
+}
+
+function detailAttestVote_renderAttestIdentity(data, isResponse, isExpire, isBatchHead, isBatch){
+    // Render the attestation badge and shared identity fields.
     $('#info-attest .attest-type').html(
         isResponse  ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' :
         isExpire    ? '<span class="badge text-bg-warning text-dark">Expire (v2)</span>' :
@@ -68,6 +76,10 @@ function showAttestDetails(data){
     $('#info-attest .attest-provider').text(isNull(data.provider_id) ? '-' : data.provider_id);
     if(!isNull(data.contract_index))
         $('#info-attest .attest-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
+}
+
+function detailAttestVote_renderAttestBatch(data, isBatch){
+    // Render fields carried by attestation batches.
     // Batch-side fields
     $('#info-attest .attest-batch-fields').toggleClass('d-none', !isBatch);
     if(isBatch){
@@ -88,6 +100,10 @@ function showAttestDetails(data){
             (isNull(data.batch_chunk_index) || isNull(data.batch_total_chunks)) ? '-' :
             ((Number(data.batch_chunk_index) + 1) + ' of ' + data.batch_total_chunks));
     }
+}
+
+function detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatch){
+    // Render fields carried by attestation requests.
     // Request-side fields
     $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse || isExpire || isBatch);
     if(!isResponse && !isExpire && !isBatch){
@@ -103,6 +119,10 @@ function showAttestDetails(data){
         $('#info-attest .attest-payload').text(isNull(data.payload) ? '-' : String(data.payload));
         $('#info-attest .attest-callback-params').text(isNull(attestParams) ? '-' : (typeof attestParams === 'string' ? attestParams : JSON.stringify(attestParams)));
     }
+}
+
+function detailAttestVote_renderAttestResponse(data, isResponse){
+    // Render fields carried by attestation responses.
     // Response-side fields
     $('#info-attest .attest-response-fields').toggleClass('d-none', !isResponse);
     if(isResponse){
@@ -135,6 +155,18 @@ function showVoteDetails(data){
     $('#info-vote .vote-ballot-fields').toggleClass('d-none', kind != 'ballot');
     $('#info-vote .vote-delegation-fields').toggleClass('d-none', kind != 'delegation');
     $('#info-vote .vote-finalize-fields').toggleClass('d-none', kind != 'finalize');
+    detailAttestVote_renderVoteFinalize(data, kind);
+    if(kind=='poll'){
+        let opts = detailAttestVote_renderPollSummary(data);
+        detailAttestVote_renderPollOutcome(data, opts);
+        detailAttestVote_renderPollCallback(data);
+        detailAttestVote_renderPollResults(data, opts);
+    }
+    detailAttestVote_renderVoteChoice(data, kind);
+}
+
+function detailAttestVote_renderVoteFinalize(data, kind){
+    // Render a finalized poll reference and outcome.
     if(kind=='finalize'){
         // v2 finalization: link the finalized poll (poll id IS its creating action_index),
         // show the frozen terminal status and winning option.
@@ -146,7 +178,10 @@ function showVoteDetails(data){
         let wo = data.winning_option;
         $('#info-vote .vote-finalize-winning').text(isNull(wo) ? '-' : (wo + (fopts[wo] != null ? ': ' + fopts[wo] : '')));
     }
-    if(kind=='poll'){
+}
+
+function detailAttestVote_renderPollSummary(data){
+    // Render the poll definition and gate parameters.
         let pcls = (data.poll_status=='finalized') ? 'success' : (data.poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
         $('#info-vote .vote-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
         $('#info-vote .vote-question').text(isNull(data.question) ? '-' : data.question);
@@ -165,6 +200,11 @@ function showVoteDetails(data){
         $('#info-vote .vote-min-vote-balance').text(isNull(data.min_vote_balance) ? '-' : formatAmount(data.min_vote_balance));
         $('#info-vote .vote-decide-threshold').text(isNull(data.decide_threshold) ? '-' : data.decide_threshold);
         $('#info-vote .vote-poll-status').html('<span class="badge text-bg-' + pcls + '">' + (data.poll_status || '-') + '</span>');
+        return opts;
+}
+
+function detailAttestVote_renderPollOutcome(data, opts){
+        // Render the frozen poll outcome and participation measurements.
         // winning_option is an INDEX into `options`, so option 0 is a real winner and
         // only a null reads as "no outcome recorded". Named the way the finalize branch
         // above names it, because a bare index names nothing to a reader.
@@ -197,6 +237,10 @@ function showVoteDetails(data){
         // enum, never as a boolean - a forfeited deposit is not a "yes".
         $('#info-vote .vote-deposit-address').html(isNull(data.deposit_address) ? '-' : formatLink('/' + XC.coin + '/address/' + data.deposit_address, data.deposit_address));
         $('#info-vote .vote-deposit-resolved').text(isNull(data.deposit_resolved) ? '-' : data.deposit_resolved);
+}
+
+function detailAttestVote_renderPollCallback(data){
+        // Render the binding poll callback contract and execution state.
         // Binding poll: v2 finalize fires callback_method on the callback contract.
         if(!isNull(data.callback_contract_index))
             $('#info-vote .vote-callback').html(formatLink('/' + XC.coin + '/contract/' + data.callback_contract_index, data.callback_contract_index) + (isNull(data.callback_method) ? '' : '.' + data.callback_method));
@@ -222,6 +266,10 @@ function showVoteDetails(data){
         $('#info-vote .vote-callback-params').text(isNull(data.callback_params) ? '-' :
             (typeof data.callback_params === 'string' ? data.callback_params : JSON.stringify(data.callback_params)));
         $('#info-vote .vote-gas-escrow').text(isNull(data.gas_escrow) ? '-' : formatAmount(data.gas_escrow));
+}
+
+function detailAttestVote_renderPollResults(data, opts){
+        // Fetch and render the frozen per-option tally.
         // Frozen per-option tally (poll_results). Empty until VOTE v2 finalizes.
         $.getJSON('/' + XC.coin + '/api/poll/' + data.action_index + '/results', function(res){
             let rows = (res && res.data) ? res.data : [];
@@ -238,7 +286,10 @@ function showVoteDetails(data){
                 $('#info-vote .vote-results').text(data.poll_status=='open' ? 'Voting open (not yet finalized)' : 'No results');
             }
         });
-    }
+}
+
+function detailAttestVote_renderVoteChoice(data, kind){
+    // Render ballot and standing delegation details.
     if(kind=='ballot'){
         $('#info-vote .vote-poll-ref').html(isNull(data.poll_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.poll_ref, data.poll_ref));
         let ballot = Array.isArray(data.ballot) ? data.ballot : [];

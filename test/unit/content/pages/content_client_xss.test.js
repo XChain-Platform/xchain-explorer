@@ -154,6 +154,8 @@ function renderBetDetails(data) {
         var numeral = function(){ return { format: function(){ return '0'; } }; };
     `);
     dom.window.eval(extractFn('isNull'));
+    dom.window.eval(extractFn('detailBetStake_renderFeed'));
+    dom.window.eval(extractFn('detailBetStake_renderAction'));
     dom.window.eval(extractFn('showBetDetails'));
     // The pools table is fetched over $.getJSON; stub it out so the render is
     // synchronous and no network is touched (a DETAILS URL must never be fetched).

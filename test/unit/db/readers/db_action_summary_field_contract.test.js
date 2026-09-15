@@ -60,7 +60,12 @@ function extractFn(name) {
 // Every `info.<field>` the shipped summary renderer reads, comments stripped so
 // a prose mention (the BROADCAST note about info.fee) is not counted as a read.
 function rendererFieldReads() {
-    const body = extractFn('getActionDetails').replace(/\/\/[^\n]*/g, '');
+    const body = (extractFn('getActionDetails')
+        + extractFn('actionDetail_renderBasicActions')
+        + extractFn('actionDetail_renderMarketActions')
+        + extractFn('actionDetail_renderMessageActions')
+        + extractFn('actionDetail_renderContractActions')
+        + extractFn('actionDetail_renderConsensusActions')).replace(/\/\/[^\n]*/g, '');
     const reads = new Set();
     for (const m of body.matchAll(/\binfo\.([a-zA-Z_][a-zA-Z0-9_]*)/g)) reads.add(m[1]);
     return reads;

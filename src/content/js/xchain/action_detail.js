@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * action_detail.js
  *
  * Custom javascript for xchain explorer
  */
@@ -20,6 +20,16 @@
 function getActionDetails(action, info){
     let html = '';
     let coin = XC.coin; // TODO: update when XChain adds cross-network support
+    html = actionDetail_renderBasicActions(html, action, info, coin);
+    html = actionDetail_renderMarketActions(html, action, info, coin);
+    html = actionDetail_renderMessageActions(html, action, info, coin);
+    html = actionDetail_renderContractActions(html, action, info, coin);
+    html = actionDetail_renderConsensusActions(html, action, info, coin);
+    return html;
+}
+
+function actionDetail_renderBasicActions(html, action, info, coin){
+    // Render summaries for the initial transaction action families.
     if(action=='ADDRESS'){
         // v1 is a controller bind, not a preferences edit: summarizing one with the preference
         // defaults described an action it never took.
@@ -76,6 +86,11 @@ function getActionDetails(action, info){
         html += formatLinkAmount('/' + coin + '/token/' + info.dividend_tick, info.dividend_tick, info.dividend_tick, info.amount) + ' per ';
         html += formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, 1)
     }
+    return html;
+}
+
+function actionDetail_renderMarketActions(html, action, info, coin){
+    // Render market, file, issue, link, and list summaries.
     if(['DISPENSER', 'DISPENSE', 'DISPENSER_CLOSE', 'DISPENSER_CANCEL', 'DISPENSER_EXPIRE', 'DISPENSER_EDIT',
         'SWAP', 'SWAP_MATCH', 'SWAP_CANCEL', 'SWAP_EXPIRE', 'SWAP_EDIT',
         'ORDER', 'ORDER_MATCH', 'ORDER_CANCEL', 'ORDER_EXPIRE', 'ORDER_EDIT'].includes(action)){
@@ -113,6 +128,11 @@ function getActionDetails(action, info){
         let type2   = XC.list_types[info.type] || 'Unknown';
         html = action3 + ' ' + type2 + ' List';
     }
+    return html;
+}
+
+function actionDetail_renderMessageActions(html, action, info, coin){
+    // Render message, transfer, sweep, and sleep summaries.
     if(action=='MESSAGE'){
         // Link the destination on ITS own chain: MESSAGE deliberately allows a destination on
         // another network (the indexer validates DESTINATION against COIN, not the broadcast
@@ -166,6 +186,11 @@ function getActionDetails(action, info){
             html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
         html += ' until block ' + formatAmount(info.resume_block);
     }
+    return html;
+}
+
+function actionDetail_renderContractActions(html, action, info, coin){
+    // Render staking and contract family summaries.
     // Compact summaries for the staking / contract families. Field names
     // mirror each type's show*Details() renderer.
     if(action=='DESTROY')
@@ -215,6 +240,11 @@ function getActionDetails(action, info){
     }
     if(action=='VOTE')
         html = 'Vote' + (isNull(info.vote_kind) ? '' : ': ' + escapeHtml(String(info.vote_kind)));
+    return html;
+}
+
+function actionDetail_renderConsensusActions(html, action, info, coin){
+    // Render consensus summaries and the generic action fallback.
     // Consensus actions. These reach the history feed on every network (and are the
     // ONLY actions on a chain that carries no user traffic yet), so the humanized
     // fallback below would leave a whole feed reading "Anchor / Anchor / Price".

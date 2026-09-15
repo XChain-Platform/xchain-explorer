@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * detail_bet_stake.js
  *
  * Custom javascript for xchain explorer
  */
@@ -43,6 +43,12 @@ function showBetDetails(data){
         return 'primary';
     };
 
+    detailBetStake_renderFeed(data, kind, esc, statusClass);
+    detailBetStake_renderAction(data, kind, esc, statusClass);
+}
+
+function detailBetStake_renderFeed(data, kind, esc, statusClass){
+    // Render market creation fields and current outcome pools.
     if(kind=='feed'){
         $('#info-bet .bet-label').text(isNull(data.label) ? '-' : data.label);
         let outs = Array.isArray(data.outcome_labels) ? data.outcome_labels : [];
@@ -91,7 +97,10 @@ function showBetDetails(data){
             $('#info-bet .bet-pools').html(html);
         });
     }
+}
 
+function detailBetStake_renderAction(data, kind, esc, statusClass){
+    // Render wager, cancellation, and resolution fields.
     if(kind=='bet'){
         $('#info-bet .bet-feed-ref').html(isNull(data.feed_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_ref, data.feed_ref));
         $('#info-bet .bet-outcome').text(isNull(data.outcome) ? '-' : data.outcome);

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * detail_core.js
  *
  * Custom javascript for xchain explorer
  */
@@ -73,6 +73,23 @@ function showActionDetails(){
     showTransactionDetails();
     // Display the specific actions for this tranaction
     // TODO: Cleanup this code once all actions are working (reduce to just call on show{ACTION}Details(o))
+    var found = detailCore_dispatchAction(o);
+    // Load the action table data for credits/debits/escrow/fees
+    showActionDatatable('credit',o.credits);
+    showActionDatatable('debit', o.debits);
+    showActionDatatable('escrow',o.escrows);
+    // Display any fees for the action
+    showActionFeeDetails(o.fee);
+    // Display the correct ACTION section and hide the 'No information available' message
+    if(found){
+        let name  = String(o.action).replaceAll('_','-').toLowerCase();
+        mountActionDetailCard(name);
+        $('#additionalInfoNotAvailable').hide();
+    }
+}
+
+function detailCore_dispatchAction(o){
+    // Dispatch the matching action detail renderer.
     var found = false;
     if(o.action=='ADDRESS'){          found = true;  showAddressDetails(o);         }
     if(o.action=='AIRDROP'){          found = true;  showAirdropDetails(o);         }
@@ -129,18 +146,7 @@ function showActionDetails(){
     if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
     if(o.action=='BET'){              found = true;  showBetDetails(o);             }
     if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
-    // Load the action table data for credits/debits/escrow/fees
-    showActionDatatable('credit',o.credits);
-    showActionDatatable('debit', o.debits);
-    showActionDatatable('escrow',o.escrows);
-    // Display any fees for the action
-    showActionFeeDetails(o.fee);
-    // Display the correct ACTION section and hide the 'No information available' message
-    if(found){
-        let name  = String(o.action).replaceAll('_','-').toLowerCase();
-        mountActionDetailCard(name);
-        $('#additionalInfoNotAvailable').hide();
-    }
+    return found;
 }
 
 // Mount one per-type ACTION block as a detail-card (spec M2.5).

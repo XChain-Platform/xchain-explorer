@@ -105,6 +105,11 @@ function summary(action, info) {
         function escapeHtml(v){ return String(v); }
         function getNetworkIcon(){ return 'fa-bitcoin'; }
     `);
+    dom.window.eval(extractFn('actionDetail_renderBasicActions'));
+    dom.window.eval(extractFn('actionDetail_renderMarketActions'));
+    dom.window.eval(extractFn('actionDetail_renderMessageActions'));
+    dom.window.eval(extractFn('actionDetail_renderContractActions'));
+    dom.window.eval(extractFn('actionDetail_renderConsensusActions'));
     dom.window.eval(extractFn('getActionDetails'));
     return dom.window.getActionDetails(action, info);
 }
@@ -122,6 +127,10 @@ function attestDetail(data) {
         function formatAmount(v){ return String(v); }
         ${extractFn('isNull')}
     `);
+    dom.window.eval(extractFn('detailAttestVote_renderAttestIdentity'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestBatch'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestRequest'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestResponse'));
     dom.window.eval(extractFn('showAttestDetails'));
     dom.window.showAttestDetails(data);
     return (cls) => dom.window.$('#info-attest .' + cls).text().trim();
@@ -143,6 +152,12 @@ function voteDetail(data) {
         function formatAmount(v){ return String(v); }
         ${extractFn('isNull')}
     `);
+    dom.window.eval(extractFn('detailAttestVote_renderVoteFinalize'));
+    dom.window.eval(extractFn('detailAttestVote_renderPollSummary'));
+    dom.window.eval(extractFn('detailAttestVote_renderPollOutcome'));
+    dom.window.eval(extractFn('detailAttestVote_renderPollCallback'));
+    dom.window.eval(extractFn('detailAttestVote_renderPollResults'));
+    dom.window.eval(extractFn('detailAttestVote_renderVoteChoice'));
     dom.window.eval(extractFn('showVoteDetails'));
     dom.window.showVoteDetails(data);
     return {

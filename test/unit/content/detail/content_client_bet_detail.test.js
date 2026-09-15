@@ -90,6 +90,8 @@ function renderBetDetails(data) {
         $.getJSON = function(){ return { done: function(){} }; };
         ${extractFn('isNull')}
     `);
+    dom.window.eval(extractFn('detailBetStake_renderFeed'));
+    dom.window.eval(extractFn('detailBetStake_renderAction'));
     dom.window.eval(extractFn('showBetDetails'));
     dom.window.showBetDetails(data);
     const $ = dom.window.$;
@@ -149,7 +151,7 @@ describe('BET detail render: the oracle fee is a number, not the protocol-fee re
          * fee, and the one that shipped for five days did not. This reads the
          * source instead, so the class of mistake fails here whatever the
          * fixture happens to hold. */
-        const fn = extractFn('showBetDetails');
+        const fn = extractFn('showBetDetails') + extractFn('detailBetStake_renderFeed') + extractFn('detailBetStake_renderAction');
         expect(fn).to.not.match(/\bdata\.fee\b/,
             'showBetDetails must read the aliased bet_fee: getActionData overwrites data.fee with the '
             + 'generic protocol-fee record, which renders as "[object Object]"');

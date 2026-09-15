@@ -76,6 +76,10 @@ function render(data) {
         function formatAmount(a){ return String(a); }
         ${extractFn('isNull')}
     `);
+    dom.window.eval(extractFn('detailAttestVote_renderAttestIdentity'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestBatch'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestRequest'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestResponse'));
     dom.window.eval(extractFn('showAttestDetails'));
     dom.window.showAttestDetails(data);
     const $ = dom.window.$;

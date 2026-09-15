@@ -67,6 +67,11 @@ function summary(action, info) {
         function isNull(v){ return (v === null || v === undefined || v === ''); }
         function getNetworkIcon(){ return 'fa-bitcoin'; }
     `);
+    dom.window.eval(extractFn('actionDetail_renderBasicActions'));
+    dom.window.eval(extractFn('actionDetail_renderMarketActions'));
+    dom.window.eval(extractFn('actionDetail_renderMessageActions'));
+    dom.window.eval(extractFn('actionDetail_renderContractActions'));
+    dom.window.eval(extractFn('actionDetail_renderConsensusActions'));
     dom.window.eval(extractFn('getActionDetails'));
     return dom.window.getActionDetails(action, info);
 }

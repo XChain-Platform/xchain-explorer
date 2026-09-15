@@ -28,6 +28,77 @@
 // test (test/unit/ws/schema_version_client.test.js) fails the build if they drift.
 var CLIENT_WS_SCHEMA_VERSION = 2;
 
+// Track latest action_index for catch-up on reconnect. WELCOME's and
+// CATCH_UP_COMPLETE's latest_action_index ride the same path, so the seed and
+// the running maximum cannot drift apart.
+function xcWsTrackCursor(client, msg) {
+    if (msg.data) {
+        client._advanceCursor(msg.data.action_index);
+        client._advanceCursor(msg.data.latest_action_index);
+    }
+}
+
+// Envelope schema gate: the server stamps every frame with
+// schema_version (distinct from the build version). If the server
+// speaks a NEWER envelope schema than this client knows, payload
+// shapes may have changed; warn once instead of silently mis-parsing.
+function xcWsCheckSchema(client, msg) {
+    if (msg.schema_version !== undefined && msg.schema_version > CLIENT_WS_SCHEMA_VERSION && !client._schemaWarned) {
+        client._schemaWarned = true;
+        console.warn('[XChainWS] Server WS schema_version ' + msg.schema_version +
+            ' is newer than this client understands (' + CLIENT_WS_SCHEMA_VERSION + '); event payload shapes may have changed.');
+    }
+}
+
+// Handle system messages
+function xcWsHandleSystemMessage(client, msg) {
+    if (msg.type === 'WELCOME') {
+        client.serverInfo = msg.data;
+        // Constant format string with the server-supplied values passed as
+        // separate arguments, not concatenated in: a WELCOME frame's fields
+        // are server data, but console.log must never take a caller-shaped
+        // string as its own first argument.
+        console.log('[XChainWS] Server v%s | block: %s | action: %s',
+            msg.data.version, msg.data.latest_block_index, msg.data.latest_action_index);
+    }
+
+    // Track catch-up state
+    if (msg.catch_up) {
+        if (!client.catchingUp) {
+            client.catchingUp = true;
+            console.log('[XChainWS] Catching up on missed events...');
+        }
+    }
+    if (msg.type === 'CATCH_UP_COMPLETE') {
+        client.catchingUp = false;
+        console.log('[XChainWS] Catch-up complete:', msg.data.events_replayed, 'events replayed');
+    }
+}
+
+// Dispatch to registered handlers
+function xcWsDispatchMessage(client, msg) {
+    if (msg.type && client.handlers[msg.type]) {
+        for (var i = 0; i < client.handlers[msg.type].length; i++) {
+            try {
+                client.handlers[msg.type][i](msg);
+            } catch (e) {
+                console.log('[XChainWS] Handler error for', msg.type, ':', e);
+            }
+        }
+    }
+
+    // Dispatch to wildcard handlers
+    if (client.handlers['*']) {
+        for (var j = 0; j < client.handlers['*'].length; j++) {
+            try {
+                client.handlers['*'][j](msg);
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+}
+
 var XChainWS = {
 
     // State
@@ -159,68 +230,10 @@ var XChainWS = {
             return;
         }
 
-        // Track latest action_index for catch-up on reconnect. WELCOME's and
-        // CATCH_UP_COMPLETE's latest_action_index ride the same path, so the seed and
-        // the running maximum cannot drift apart.
-        if (msg.data) {
-            this._advanceCursor(msg.data.action_index);
-            this._advanceCursor(msg.data.latest_action_index);
-        }
-
-        // Envelope schema gate: the server stamps every frame with
-        // schema_version (distinct from the build version). If the server
-        // speaks a NEWER envelope schema than this client knows, payload
-        // shapes may have changed; warn once instead of silently mis-parsing.
-        if (msg.schema_version !== undefined && msg.schema_version > CLIENT_WS_SCHEMA_VERSION && !this._schemaWarned) {
-            this._schemaWarned = true;
-            console.warn('[XChainWS] Server WS schema_version ' + msg.schema_version +
-                ' is newer than this client understands (' + CLIENT_WS_SCHEMA_VERSION + '); event payload shapes may have changed.');
-        }
-
-        // Handle system messages
-        if (msg.type === 'WELCOME') {
-            this.serverInfo = msg.data;
-            // Constant format string with the server-supplied values passed as
-            // separate arguments, not concatenated in: a WELCOME frame's fields
-            // are server data, but console.log must never take a caller-shaped
-            // string as its own first argument.
-            console.log('[XChainWS] Server v%s | block: %s | action: %s',
-                msg.data.version, msg.data.latest_block_index, msg.data.latest_action_index);
-        }
-
-        // Track catch-up state
-        if (msg.catch_up) {
-            if (!this.catchingUp) {
-                this.catchingUp = true;
-                console.log('[XChainWS] Catching up on missed events...');
-            }
-        }
-        if (msg.type === 'CATCH_UP_COMPLETE') {
-            this.catchingUp = false;
-            console.log('[XChainWS] Catch-up complete:', msg.data.events_replayed, 'events replayed');
-        }
-
-        // Dispatch to registered handlers
-        if (msg.type && this.handlers[msg.type]) {
-            for (var i = 0; i < this.handlers[msg.type].length; i++) {
-                try {
-                    this.handlers[msg.type][i](msg);
-                } catch (e) {
-                    console.log('[XChainWS] Handler error for', msg.type, ':', e);
-                }
-            }
-        }
-
-        // Dispatch to wildcard handlers
-        if (this.handlers['*']) {
-            for (var j = 0; j < this.handlers['*'].length; j++) {
-                try {
-                    this.handlers['*'][j](msg);
-                } catch (e) {
-                    // ignore
-                }
-            }
-        }
+        xcWsTrackCursor(this, msg);
+        xcWsCheckSchema(this, msg);
+        xcWsHandleSystemMessage(this, msg);
+        xcWsDispatchMessage(this, msg);
     },
 
     // Handle connection close

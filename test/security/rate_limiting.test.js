@@ -24,6 +24,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const { expect }  = require('chai');
 const fs          = require('fs');
 const path        = require('path');
@@ -33,18 +35,12 @@ const { HTTP_TRUST_PROXY_HOPS, applyTrustProxy } = require('../../src/http/trust
 const WebSocketServer = require('../../src/ws/websocket_server.js');
 const staticMounts    = require('../../src/http/static_mounts.js');
 
-const apiSource = fs.readFileSync(
-    path.join(__dirname, '../../src/api.js'),
-    'utf8'
-);
+const apiSource = srcText('src/api.js');
 
 // Read separately from api.js because the two hold different halves of the policy:
 // api.js carries the app-wide body and rate settings, while the per-route limiters
 // on the compute-bound endpoints are attached where those routes are declared.
-const explorerSource = fs.readFileSync(
-    path.join(__dirname, '../../src/XChainExplorer.js'),
-    'utf8'
-);
+const explorerSource = srcText('src/XChainExplorer.js');
 
 // Behavioural, not a source grep: applyTrustProxy() is the seam api.js calls,
 // so the hop policy is exercised here against a real request rather than

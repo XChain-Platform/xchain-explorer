@@ -18,6 +18,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const sinon = require('sinon');
 const { expect } = require('chai');
 const XChainExplorer = require('../../src/XChainExplorer.js');
@@ -336,8 +338,8 @@ describe('isPreflightPostRequest', function () {
 describe('preflight POST wiring', function () {
     const fs = require('fs');
     const path = require('path');
-    const SRC = fs.readFileSync(path.join(__dirname, '../../src/XChainExplorer.js'), 'utf8');
-    const API = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
+    const SRC = srcText('src/XChainExplorer.js');
+    const API = srcText('src/api.js');
 
     it('registers the POST route with its own body parser', function () {
         expect(SRC).to.match(/app\.post\('\/:coin\/api\/preflight'/);

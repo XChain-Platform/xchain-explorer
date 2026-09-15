@@ -37,6 +37,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const { expect }  = require('chai');
 const fs          = require('fs');
 const path        = require('path');
@@ -225,8 +227,8 @@ describe('Security: Rate limit counter line: driven through express-rate-limit 8
     });
 });
 
-const apiSource      = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
-const explorerSource = fs.readFileSync(path.join(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+const apiSource      = srcText('src/api.js');
+const explorerSource = srcText('src/XChainExplorer.js');
 
 // Pull out the balanced argument text of every rateLimit(...) call, so the
 // assertions below read a limiter's own options and not a neighbour's.

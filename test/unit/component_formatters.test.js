@@ -29,6 +29,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
@@ -37,9 +39,20 @@ const { JSDOM } = require('jsdom');
 const ROOT   = path.resolve(__dirname, '..', '..');
 const JS_DIR = path.join(ROOT, 'src', 'content', 'js');
 const FORMATTERS_SRC = fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8');
-const CLIENT_SRC     = fs.readFileSync(path.join(JS_DIR, 'xchain.js'), 'utf8');
+const CLIENT_SRC     = srcText('src/content/js/xchain.js');
 
 const F = require(path.join(JS_DIR, 'formatters.js'));
+
+function jsFilesUnder(dir, prefix){
+    if(!fs.existsSync(dir)) return [];
+    const files = [];
+    for(const entry of fs.readdirSync(dir, { withFileTypes: true })){
+        const rel = path.join(prefix, entry.name);
+        if(entry.isDirectory()) files.push(...jsFilesUnder(path.join(dir, entry.name), rel));
+        else if(entry.isFile() && entry.name.endsWith('.js')) files.push(rel);
+    }
+    return files;
+}
 
 // The names that moved. Kept as a list rather than derived, because the point
 // of the assertion is that this SET is what left xchain.js.
@@ -72,7 +85,8 @@ describe('formatters module (M2.1)', function () {
                 .filter((f) => f.endsWith('.js') && f !== 'formatters.js' && f !== 'xchain.js')
                 // The vendored libraries are not ours and are not searched: a
                 // minified bundle can contain any identifier by coincidence.
-                .filter((f) => !/^(jquery|bootstrap|chart|chartjs|moment|numeral|math|highlight|livestamp|swagger|throttle)/.test(f));
+                .filter((f) => !/^(jquery|bootstrap|chart|chartjs|moment|numeral|math|highlight|livestamp|swagger|throttle)/.test(f))
+                .concat(jsFilesUnder(path.join(JS_DIR, 'xchain'), 'xchain'));
             const dupes = [];
             for(const f of others){
                 const src = fs.readFileSync(path.join(JS_DIR, f), 'utf8');

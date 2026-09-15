@@ -39,11 +39,12 @@ const express      = require('express');
 const rateLimit    = require('express-rate-limit');
 const request      = require('supertest');
 const proxyquire   = require('proxyquire').noCallThru();
+const { srcText }  = require('../helpers/source_text');
 const { limitedHandler }       = require('../../src/http/rate_limit_log.js');
 const { createConfigInfoStub } = require('../fixtures/mock-config.js');
 
 const CONF_PATH      = path.join(__dirname, '../../deploy/rate-limits.conf');
-const explorerSource = fs.readFileSync(path.join(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+const explorerSource = srcText('src/XChainExplorer.js');
 const confText       = fs.readFileSync(CONF_PATH, 'utf8');
 
 const WINDOW_MS     = 60 * 1000;

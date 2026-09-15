@@ -32,6 +32,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
@@ -46,7 +48,7 @@ const HTML_DIR = path.join(CONTENT, 'html');
 // suite needs whichever of the two a given function landed in.
 const CLIENT_SRC   = require('../helpers/content-source.js').clientSource();
 const JQUERY   = path.join(CONTENT, 'js', 'jquery.min.js');
-const EXPLORER = fs.readFileSync(path.join(ROOT, 'src', 'XChainExplorer.js'), 'utf8');
+const EXPLORER = srcText('src/XChainExplorer.js');
 
 // The five pages this row adds: route -> template file, and the action name the
 // template is expected to hand loadDatatablesData.

@@ -37,6 +37,7 @@ const JS_DIR   = path.join(ROOT, 'src', 'content', 'js');
 
 const listPage     = require(path.join(ROOT, 'src', 'render', 'list_page.js'));
 const componentTpl = require(path.join(ROOT, 'src', 'render', 'component_templates.js'));
+const { srcText }  = require('./source_text');
 
 /**
  * The client source a suite slices shipped functions out of: formatters.js
@@ -45,7 +46,7 @@ const componentTpl = require(path.join(ROOT, 'src', 'render', 'component_templat
 function clientSource(){
     return fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8')
         + '\n'
-        + fs.readFileSync(path.join(JS_DIR, 'xchain.js'), 'utf8');
+        + srcText('src/content/js/xchain.js');
 }
 
 /** Just the formatter module, for a suite that wants only the helpers. */

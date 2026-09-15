@@ -26,6 +26,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
@@ -70,8 +72,8 @@ function browserRealm(file, coin){
     win.jQuery.fn.ready = function(){ return this; };
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
     win.eval(read(JS_DIR, 'formatters.js'));
-    win.eval(read(JS_DIR, 'components.js'));
-    win.eval(read(JS_DIR, 'xchain.js'));
+    win.eval(srcText('src/content/js/components.js'));
+    win.eval(srcText('src/content/js/xchain.js'));
     win.eval(read(path.join(COMP_DIR, 'data-table'), 'columns.js'));
     for(const name of fs.readdirSync(COMP_DIR))
         win.eval(read(path.join(COMP_DIR, name), 'init.js'));
@@ -160,7 +162,7 @@ function registerShippedBranchTest() {
     it('is still a faithful copy of the shipped html branch', function () {
         // This suite proves the assembly only if the assembly it runs is the
         // one the service runs.
-        const src = fs.readFileSync(path.join(ROOT, 'src', 'XChainExplorer.js'), 'utf8');
+        const src = srcText('src/XChainExplorer.js');
         const branch = src.slice(src.indexOf("if(cfg.type=='html'){"), src.indexOf('response.time = this.util.getTimer'));
         const steps = [
             /let htmlContent = listPage\.render\(cfg\.file\)/,

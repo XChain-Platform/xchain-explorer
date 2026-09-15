@@ -28,6 +28,7 @@
 const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
+const { srcText } = require('../helpers/source_text');
 
 const coins = require('../../src/coins');
 
@@ -37,7 +38,9 @@ const SOURCE = process.env.XCHAIN_ADDRESS_PARAMS_SOURCE
     || path.resolve(__dirname, '../../src/content/js/xchain.js');
 
 function extractAddressParams(){
-    const src  = fs.readFileSync(SOURCE, 'utf8');
+    const src  = process.env.XCHAIN_ADDRESS_PARAMS_SOURCE
+        ? fs.readFileSync(SOURCE, 'utf8')
+        : srcText('src/content/js/xchain.js');
     const m    = /(?:var|const|let)\s+ADDRESS_PARAMS\s*=/.exec(src);
     assert.notStrictEqual(m, null,
         SOURCE + ' no longer declares ADDRESS_PARAMS; update or retire this guard');

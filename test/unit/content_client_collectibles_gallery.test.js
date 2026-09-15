@@ -38,12 +38,14 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+const XCHAIN_SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/collectibles_gallery_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/collectibles.html'), 'utf8');

@@ -19,11 +19,13 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs         = require('fs');
 const path       = require('path');
 const { expect } = require('chai');
 
-const SRC  = fs.readFileSync(path.join(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+const SRC  = srcText('src/XChainExplorer.js');
 const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '../../docs/openapi.json'), 'utf8'));
 
 // '/{COIN}/api/...' object keys inside the urls.api table in the source.

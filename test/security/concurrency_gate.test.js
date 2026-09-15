@@ -25,6 +25,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const { expect }  = require('chai');
 const express     = require('express');
 const http        = require('http');
@@ -261,7 +263,7 @@ describe('Security: global in-flight concurrency cap', function () {
 
         const fs        = require('fs');
         const path      = require('path');
-        const apiSource = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
+        const apiSource = srcText('src/api.js');
 
         it('mounts the gate on the app with an env-overridable cap', function () {
             expect(apiSource).to.include('concurrencyGate.createConcurrencyGate');

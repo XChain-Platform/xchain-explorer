@@ -31,6 +31,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
@@ -129,7 +131,7 @@ describe('component library (M2.4)', function () {
             const staticMounts = require(path.join(ROOT, 'src', 'http', 'static_mounts.js'));
             assert.ok(staticMounts.STATIC_DIRECTORIES.includes('components'),
                 "content/components is not served, so every component script 404s and no page mounts");
-            const explorer = fs.readFileSync(path.join(ROOT, 'src', 'XChainExplorer.js'), 'utf8');
+            const explorer = srcText('src/XChainExplorer.js');
             assert.match(explorer, /'static'\s*:\s*staticMounts\.STATIC_DIRECTORIES/,
                 'the explorer no longer mounts the shared static list');
         });

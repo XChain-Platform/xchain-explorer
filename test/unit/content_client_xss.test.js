@@ -33,13 +33,14 @@ const vm   = require('vm');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
+const { srcText } = require('../helpers/source_text');
 
 const SRC_PATH = path.resolve(__dirname, '../../src/content/js/xchain.js');
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
 // (isNull, escapeHtml, formatAmount, formatLink and friends) moved there in the
 // component milestone. Concatenated rather than switched, so this file keeps
 // naming ONE source for every helper it lifts.
-const SRC = fs.readFileSync(SRC_PATH, 'utf8')
+const SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 
 // Slice a top-level `function NAME(...){ ... }` out of the source by walking

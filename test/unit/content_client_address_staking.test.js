@@ -50,6 +50,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
@@ -61,9 +63,9 @@ const SRC_DIR     = path.resolve(__dirname, '../../src/content');
 // in the component milestone. Concatenated rather than switched, so this file
 // keeps naming ONE source for every helper it lifts and does not have to know
 // which of the two a given function ended up in.
-const XCHAIN_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/xchain.js'), 'utf8')
+const XCHAIN_SRC  = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.join(SRC_DIR, 'js/formatters.js'), 'utf8');
-const RENDER_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/address_staking_render.js'), 'utf8');
+const RENDER_SRC  = srcText('src/content/js/address_staking_render.js');
 const PAGE_HTML   = fs.readFileSync(path.join(SRC_DIR, 'html/address.html'), 'utf8');
 const JQUERY_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/numeral.js'), 'utf8');

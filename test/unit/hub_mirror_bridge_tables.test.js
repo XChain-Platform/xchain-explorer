@@ -35,6 +35,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
@@ -97,7 +99,7 @@ describe('hub-mirror bridge tables: vendoring seam @regression', function () {
         // HubMirrorSyncManager has no table list to register in (ensureTables scans
         // the directory), so its header comment IS the documented set a reader
         // checks against. A table mirrored but unnamed there reads as unsupported.
-        const mgr = fs.readFileSync(path.join(ROOT, 'src', 'mirror', 'sync_manager.js'), 'utf8');
+        const mgr = srcText('src/mirror/sync_manager.js');
         const missing = BRIDGE_TABLES.filter(t => !mgr.includes(t));
         assert.deepEqual(missing, [], 'HubMirrorSyncManager does not name: ' + missing.join(', '));
     });

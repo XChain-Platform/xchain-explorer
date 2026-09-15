@@ -29,12 +29,14 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
+const SRC = srcText('src/content/js/xchain.js');
 
 // Slice the shipped function out of xchain.js by walking braces, the same
 // technique the sibling content-client tests use, so this runs shipped code

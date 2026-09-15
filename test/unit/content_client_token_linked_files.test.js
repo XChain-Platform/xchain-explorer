@@ -26,6 +26,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
@@ -104,7 +106,7 @@ describe('token page: files LINKed to the token', function(){
         // written: the first version of this card linked /{COIN}/file/{idx}/raw, which
         // has no route at all and served the 404 HTML shell. Check the shape against
         // XChainExplorer's own route table instead.
-        const server = fs.readFileSync(path.resolve(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+        const server = srcText('src/XChainExplorer.js');
         const route  = server.match(/get\('([^']*api\/file\/:actionIndex\/raw)'/);
         expect(route, 'the raw-file route moved or was renamed').to.not.equal(null);
         const expected = route[1].replace(':coin', 'RDOGE').replace(':actionIndex', '1184');

@@ -33,6 +33,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
@@ -131,7 +133,7 @@ describe('src/content charting assets: licence hygiene', () => {
         // string), which the service's CSP refuses for want of 'unsafe-eval'
         // so the chart silently never draws. The renderers ship in
         // xchain.js and the fragments stay markup only.
-        const src   = fs.readFileSync(path.join(JS_DIR, 'xchain.js'), 'utf8');
+        const src   = srcText('src/content/js/xchain.js');
         const views = {
             'line.html':         ['renderMarketChartLine',        'lineConfig'],
             'candlestick.html':  ['renderMarketChartCandlestick', 'candlestickConfig'],

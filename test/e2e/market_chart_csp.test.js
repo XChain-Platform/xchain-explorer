@@ -36,6 +36,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs     = require('fs');
 const path   = require('path');
 const vm     = require('vm');
@@ -45,7 +47,7 @@ const { JSDOM } = require('jsdom');
 const ROOT      = path.resolve(__dirname, '..', '..');
 const JS_DIR    = path.join(ROOT, 'src', 'content', 'js');
 const CHART_DIR = path.join(ROOT, 'src', 'content', 'charts');
-const SRC       = fs.readFileSync(path.join(JS_DIR, 'xchain.js'), 'utf8');
+const SRC       = srcText('src/content/js/xchain.js');
 
 const FRAGMENTS = ['line.html', 'candlestick.html', 'market-depth.html'];
 

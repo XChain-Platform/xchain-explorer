@@ -27,6 +27,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const assert = require('assert');
@@ -36,7 +38,7 @@ const { JSDOM } = require('jsdom');
 // (isNull, escapeHtml, formatAmount, formatLink and friends) moved there in the
 // component milestone. Concatenated rather than switched, so this file keeps
 // naming ONE source for every helper it lifts.
-const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+const SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 
 function extractFn(name) {

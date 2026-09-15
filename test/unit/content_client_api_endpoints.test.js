@@ -30,13 +30,15 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 
 const CONTENT  = path.resolve(__dirname, '../../src/content');
-const CLIENT   = fs.readFileSync(path.join(CONTENT, 'js', 'xchain.js'), 'utf8');
-const EXPLORER = fs.readFileSync(path.resolve(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+const CLIENT   = srcText('src/content/js/xchain.js');
+const EXPLORER = srcText('src/XChainExplorer.js');
 
 // The registered /{COIN}/api/* route names, read from the live urls table rather
 // than restated here, so the assertion cannot drift from the source.

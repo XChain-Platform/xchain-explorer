@@ -14,6 +14,8 @@
 
 'use strict';
 
+const { srcText } = require('../../../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
@@ -42,7 +44,7 @@ function cardPage(){
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
     win.eval(fs.readFileSync(JQUERY, 'utf8'));
     win.jQuery.fn.ready = function(){ return this; };
-    win.eval(fs.readFileSync(path.join(CONTENT, 'js', 'components.js'), 'utf8'));
+    win.eval(srcText('src/content/js/components.js'));
     win.eval(CLIENT_SRC);
     win.eval(fs.readFileSync(
         path.join(CONTENT, 'components', 'detail-card', 'init.js'), 'utf8'));

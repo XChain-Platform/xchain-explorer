@@ -26,14 +26,15 @@
  * off disk) rather than copies, so the tests fail if the fix is reverted or drifts.
  */
 
+const { srcText } = require('../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
 const ROOT     = path.resolve(__dirname, '../..');
-const SRC      = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain.js'), 'utf8');
-const EXPLORER = fs.readFileSync(path.join(ROOT, 'src/XChainExplorer.js'), 'utf8');
+const SRC      = srcText('src/content/js/xchain.js');
+const EXPLORER = srcText('src/XChainExplorer.js');
 const TX_HTML  = fs.readFileSync(path.join(ROOT, 'src/content/html/transaction.html'), 'utf8');
 
 // Slice a shipped function out of xchain.js by walking braces, the same technique

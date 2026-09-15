@@ -26,13 +26,14 @@ const assert       = require('assert');
 const fs           = require('fs');
 const path         = require('path');
 const { spawnSync } = require('child_process');
+const { srcText }  = require('../helpers/source_text');
 
 const coins    = require('../../src/coins');
 const REPO     = path.join(__dirname, '..', '..');
 const API_PATH = path.join(REPO, 'src', 'api.js');
 
 function startApiBody(){
-    const src = fs.readFileSync(API_PATH, 'utf8');
+    const src = srcText('src/api.js');
     const at  = src.indexOf('async function startApi()');
     assert.ok(at > -1, 'src/api.js no longer declares startApi()');
     return src.slice(at);

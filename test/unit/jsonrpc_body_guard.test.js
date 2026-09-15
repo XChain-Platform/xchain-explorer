@@ -35,6 +35,7 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const jsonRouter = require('express-json-rpc-router');
+const { srcText } = require('../helpers/source_text');
 
 const GUARD = (req, res, next) => { if (req.body === undefined) req.body = {}; next(); };
 const METHODS = { ping: () => 'pong' };
@@ -91,7 +92,7 @@ describe('JSON-RPC body guard (Express 5 / body-parser 2.x regression)', functio
     });
 
     it('src/api.js wires the guard before the jsonRouter mount', () => {
-        const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
+        const src = srcText('src/api.js');
         const guardIdx = src.indexOf('if (req.body === undefined) req.body = {}');
         const routerIdx = src.indexOf('jsonRouter(');
         assert.notStrictEqual(guardIdx, -1, 'req.body guard missing from src/api.js');

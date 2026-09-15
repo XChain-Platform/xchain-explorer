@@ -26,13 +26,15 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
 const FEES_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/fees.html'), 'utf8');
-const XCHAIN_JS = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+const XCHAIN_JS = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 
 // Slice a top-level function out of a source string by walking braces, so the

@@ -35,6 +35,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
@@ -46,7 +48,7 @@ const SOURCE   = require('../helpers/content-source.js');
 
 const BASELINE = JSON.parse(fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'list-page-baseline.json'), 'utf8'));
 const HTML_DIR = path.join(ROOT, 'src', 'content', 'html');
-const EXPLORER = fs.readFileSync(path.join(ROOT, 'src', 'XChainExplorer.js'), 'utf8');
+const EXPLORER = srcText('src/XChainExplorer.js');
 const pages = listPage.pages();
 
 // Everything before the first <script> is what a reader sees.

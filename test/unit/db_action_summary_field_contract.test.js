@@ -23,6 +23,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const proxyquire = require('proxyquire');
@@ -38,7 +40,7 @@ const Database     = proxyquire('../../src/db/index.js', {
 });
 const { BATCH }    = require('../../src/action-detail/misc.js');
 
-const SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
+const SRC = srcText('src/content/js/xchain.js');
 
 // Slice a top-level function out of the client source by walking braces.
 function extractFn(name) {

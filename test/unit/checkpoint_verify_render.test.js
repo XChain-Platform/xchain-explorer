@@ -26,6 +26,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
@@ -36,7 +38,7 @@ const { expect } = require('chai');
 // in the component milestone. Concatenated rather than switched, so this file
 // keeps naming ONE source for every helper it lifts and does not have to know
 // which of the two a given function ended up in.
-const XCHAIN_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8')
+const XCHAIN_SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
 const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/checkpoint_verify_render.js'), 'utf8');
 

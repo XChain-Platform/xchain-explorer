@@ -26,12 +26,14 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 
-const CLIENT   = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/xchain.js'), 'utf8');
-const EXPLORER = fs.readFileSync(path.resolve(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+const CLIENT   = srcText('src/content/js/xchain.js');
+const EXPLORER = srcText('src/XChainExplorer.js');
 
 // Detail routes are the urls.html entries shaped '/{COIN}/<type>/{QUERY}'. Read
 // from the live table rather than restated, so the assertion cannot drift.

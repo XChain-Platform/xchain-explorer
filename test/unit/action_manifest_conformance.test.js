@@ -15,6 +15,7 @@
 // explorerRender slice. (The explorer set is the superset: it also renders
 // lifecycle + legacy order/dispenser cancel+edit views.)
 
+const { srcText } = require('../helpers/source_text');
 const assert = require('assert');
 const fs   = require('fs');
 const path = require('path');
@@ -42,7 +43,7 @@ function localExplorerSet() {
 // useless if xchain.js has no dispatch branch or action.html no info-* panel:
 // the page falls through to '#additionalInfoNotAvailable' and renders blank.
 function renderDispatchSet() {
-    const src = decomment(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'content', 'js', 'xchain.js'), 'utf8'));
+    const src = decomment(srcText('src/content/js/xchain.js'));
     return [...new Set([...src.matchAll(/o\.action\s*==\s*["']([A-Z_]+)["']/g)].map(x => x[1]))].sort();
 }
 function panelIdSet() {

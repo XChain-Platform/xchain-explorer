@@ -14,6 +14,8 @@
 
 'use strict';
 
+const { srcText } = require('../../../helpers/source_text');
+
 const fs         = require('fs');
 const path       = require('path');
 const { JSDOM }  = require('jsdom');
@@ -24,7 +26,7 @@ const PK_A = 'aa'.repeat(32);
 // Reads the browser script and page markup that actually ship, not copies, so drift in either breaks this test
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
 // moved there in the component milestone.
-const SRC = fs.readFileSync(path.resolve(__dirname, '../../../../src/content/js/xchain.js'), 'utf8')
+const SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '../../../../src/content/js/formatters.js'), 'utf8');
 const HTML = fs.readFileSync(path.resolve(__dirname, '../../../../src/content/html/validators.html'), 'utf8');
 

@@ -32,6 +32,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
@@ -88,7 +90,7 @@ function realm(){
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
     win.eval(JQUERY);
     win.jQuery.fn.ready = function(){ return this; };
-    win.eval(fs.readFileSync(path.join(ROOT, 'src', 'content', 'js', 'components.js'), 'utf8'));
+    win.eval(srcText('src/content/js/components.js'));
     win.eval(SOURCE.clientSource());
     // Register the real detail-card into the realm's registry.
     win.eval(fs.readFileSync(
@@ -233,7 +235,7 @@ describe('action detail cards (M2.5)', function () {
         });
 
         it('is what showActionDetails calls, rather than a bare removeClass', function () {
-            const src = fs.readFileSync(path.join(ROOT, 'src', 'content', 'js', 'xchain.js'), 'utf8');
+            const src = srcText('src/content/js/xchain.js');
             const fn = src.slice(src.indexOf('function showActionDetails('),
                                  src.indexOf('function mountActionDetailCard('));
             assert.match(fn, /mountActionDetailCard\(name\)/);

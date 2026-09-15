@@ -28,11 +28,13 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 
-const EXPLORER = fs.readFileSync(path.resolve(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+const EXPLORER = srcText('src/XChainExplorer.js');
 
 // Every method the live urls.explorer table registers, read from the source
 // rather than restated here, so the assertion cannot drift from it.

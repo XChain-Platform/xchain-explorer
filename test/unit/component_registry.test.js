@@ -34,6 +34,8 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
@@ -363,8 +365,8 @@ describe('component registry and runtime (M2.1)', function () {
 
     describe('load-order contract with xchain.js', function () {
 
-        const SRC     = fs.readFileSync(COMPONENTS, 'utf8');
-        const CLIENT  = fs.readFileSync(path.join(ROOT, 'src', 'content', 'js', 'xchain.js'), 'utf8');
+        const SRC     = srcText('src/content/js/components.js');
+        const CLIENT  = srcText('src/content/js/xchain.js');
         const SHELL   = fs.readFileSync(path.join(ROOT, 'src', 'content', 'html', 'template.html'), 'utf8');
 
         it('components.js does NOT mount on jQuery ready', function () {

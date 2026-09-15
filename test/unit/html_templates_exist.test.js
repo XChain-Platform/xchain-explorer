@@ -24,8 +24,9 @@
 const fs         = require('fs');
 const path       = require('path');
 const { expect } = require('chai');
+const { srcText } = require('../helpers/source_text');
 
-const SRC       = fs.readFileSync(path.join(__dirname, '../../src/XChainExplorer.js'), 'utf8');
+const SRC       = srcText('src/XChainExplorer.js');
 const HTML_DIR  = path.join(__dirname, '../../src/content/html');
 
 // Pull the `'html' : { ... }` table's '<route>' : '<file>.html' entries out of

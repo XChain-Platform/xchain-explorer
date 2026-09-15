@@ -29,6 +29,7 @@
 const { expect } = require('chai');
 const fs         = require('fs');
 const path       = require('path');
+const { srcText } = require('../helpers/source_text');
 
 const CONTENT = path.join(__dirname, '..', '..', 'src', 'content');
 const FA_DIR  = path.dirname(require.resolve('@fortawesome/fontawesome-free/package.json'));
@@ -61,7 +62,9 @@ function usedNames(){
 
     const used = new Map();
     for(const file of files){
-        const text = fs.readFileSync(file, 'utf8');
+        const text = file === path.join(CONTENT, 'js', 'xchain.js')
+            ? srcText('src/content/js/xchain.js')
+            : fs.readFileSync(file, 'utf8');
         for(const m of text.matchAll(/fa-[a-z0-9-]+/g)){
             if(!used.has(m[0])) used.set(m[0], []);
             const where = used.get(m[0]);

@@ -25,13 +25,15 @@
 
 'use strict';
 
+const { srcText } = require('../helpers/source_text');
+
 const { expect } = require('chai');
 const fs   = require('fs');
 const path = require('path');
 
 describe('explorer ping empty-pool guard', function () {
 
-    const src = fs.readFileSync(path.join(__dirname, '../../src/api.js'), 'utf8');
+    const src = srcText('src/api.js');
     const handler = src.slice(src.indexOf('async ping(params, {res})'),
                               src.indexOf('const httpServer = http.createServer(app)'));
 

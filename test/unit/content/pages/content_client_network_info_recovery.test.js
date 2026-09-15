@@ -107,7 +107,9 @@ function harness(routes, opts = {}) {
     }, opts.XC || {});
     w.eval('function isNull(v){ return (v === null || v === undefined || v === ""); }');
     w.eval(extractFn('loadApiData'));
+    w.eval(extractFn('networkStatus_recheckUnavailable'));
     w.eval(extractFn('getCoinNetworkInfo'));
+    w.eval(extractFn('networkStatus_applyStatus'));
     w.eval(extractFn('getExplorerStatusInfo'));
     return { window: w, requests, store };
 }

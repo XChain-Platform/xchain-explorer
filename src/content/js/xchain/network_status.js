@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * network_status.js
  *
  * Custom javascript for xchain explorer
  */
@@ -92,31 +92,8 @@ function getCoinNetworkInfo(callback, force){
         last   = (json && json.timestamp) ? json.timestamp : 0,
         ms     = 300000, // 5 minutes
         update = ((parseInt(last) + ms) <= Date.now()||force) ? true : false;
-    // A coin drops out of XC.status.available only on an explorer running with
-    // EXPLORER_STALE_FAIL_CLOSED=1, where a stale tip also answers 503
-    // COIN_DATA_STALE on the data routes; by default a stale coin stays listed and
-    // is served with a freshness marker (see updateFreshnessBanner). XC.status is
-    // itself served from localStorage for 5 minutes, so simply returning here
-    // dropped the caller's render callback and left the summary counters and the
-    // Network Information panel at their markup defaults (0 / blank) for the rest
-    // of that window - with no /api/* request on the page load that showed the
-    // zeros - long after the coin was serving live data again. Re-read the status
-    // instead, and come back to this coin the moment it is listed again.
     if(XC.status && isNull(XC.status.available[XC.coin])){
-        // One recheck in flight at a time: the forced status refresh below calls back
-        // into this function itself, and a per-caller loop would multiply the polling.
-        if(!XC.pendingNetworkInfoRecheck){
-            XC.pendingNetworkInfoRecheck = true;
-            getExplorerStatusInfo(function(){
-                XC.pendingNetworkInfoRecheck = false;
-                if(XC.status && isNull(XC.status.available[XC.coin]))
-                    // Still stale. Keep the page self-healing on a slow poll rather than
-                    // waiting for the operator's user to reload it.
-                    setTimeout(function(){ getCoinNetworkInfo(callback, force); }, XC.networkRecheckMs || 15000);
-                else
-                    getCoinNetworkInfo(callback, force);
-            }, true);
-        }
+        networkStatus_recheckUnavailable(callback, force);
         return;
     }
     // Set the coin price from the last known price
@@ -167,6 +144,34 @@ function getCoinNetworkInfo(callback, force){
     }
 }
 
+// Recheck status while the selected coin remains unavailable.
+function networkStatus_recheckUnavailable(callback, force){
+    // A coin drops out of XC.status.available only on an explorer running with
+    // EXPLORER_STALE_FAIL_CLOSED=1, where a stale tip also answers 503
+    // COIN_DATA_STALE on the data routes; by default a stale coin stays listed and
+    // is served with a freshness marker (see updateFreshnessBanner). XC.status is
+    // itself served from localStorage for 5 minutes, so simply returning here
+    // dropped the caller's render callback and left the summary counters and the
+    // Network Information panel at their markup defaults (0 / blank) for the rest
+    // of that window - with no /api/* request on the page load that showed the
+    // zeros - long after the coin was serving live data again. Re-read the status
+    // instead, and come back to this coin the moment it is listed again.
+    // One recheck in flight at a time: the forced status refresh below calls back
+    // into this function itself, and a per-caller loop would multiply the polling.
+    if(!XC.pendingNetworkInfoRecheck){
+        XC.pendingNetworkInfoRecheck = true;
+        getExplorerStatusInfo(function(){
+            XC.pendingNetworkInfoRecheck = false;
+            if(XC.status && isNull(XC.status.available[XC.coin]))
+                // Still stale. Keep the page self-healing on a slow poll rather than
+                // waiting for the operator's user to reload it.
+                setTimeout(function(){ getCoinNetworkInfo(callback, force); }, XC.networkRecheckMs || 15000);
+            else
+                getCoinNetworkInfo(callback, force);
+        }, true);
+    }
+}
+
 // Handle updating xchain-explorer configuration information and passing it to callback function for processing
 // NOTE: This information is cached in localStorage and updated every 5 minutes
 function getExplorerStatusInfo(callback, force){
@@ -184,18 +189,7 @@ function getExplorerStatusInfo(callback, force){
     }
     // Define callback function to handle processing data once we have it
     let cb = function(json){
-        if(json){
-            // Update the xchain-explorer status
-            XC.status = json;
-            // Show, refresh or clear the delayed-data banner for this coin
-            if(typeof updateFreshnessBanner === 'function')
-                updateFreshnessBanner();
-            // Get basic information on the COIN network
-            getCoinNetworkInfo();
-            // Handle processing the callback if we have one
-            if(typeof callback=='function')
-                callback(json);
-        }
+        networkStatus_applyStatus(json, callback);
     }
     // Do not update if we already have a pending request
     if(XC.pendingStatusInfoRequest)
@@ -232,6 +226,22 @@ function getExplorerStatusInfo(callback, force){
         } else {
             cb(json);
         }
+    }
+}
+
+// Apply a status response and notify its waiting caller.
+function networkStatus_applyStatus(json, callback){
+    if(json){
+        // Update the xchain-explorer status
+        XC.status = json;
+        // Show, refresh or clear the delayed-data banner for this coin
+        if(typeof updateFreshnessBanner === 'function')
+            updateFreshnessBanner();
+        // Get basic information on the COIN network
+        getCoinNetworkInfo();
+        // Handle processing the callback if we have one
+        if(typeof callback=='function')
+            callback(json);
     }
 }
 

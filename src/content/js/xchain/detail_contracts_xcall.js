@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * detail_contracts_xcall.js
  *
  * Custom javascript for xchain explorer
  */
@@ -46,30 +46,7 @@ function showDeployDetails(data){
             (isNull(data.gas_limit) ? '' : ' / ' + numeral(data.gas_limit).format('0,0')));
     }
     if(isChunk){
-        let idx = isNull(data.chunk_index) ? '?' : (Number(data.chunk_index) + 1);
-        let total = isNull(data.total_chunks) ? '?' : data.total_chunks;
-        $('#info-deploy .deploy-chunk').text('Code chunk ' + idx + ' of ' + total);
-        // The base64 code slice is the payload this carrier exists to publish, and it
-        // was the one v4 wire field with nowhere to render. Shown truncated with its
-        // full length: a part runs to a MEDIUMTEXT of code, and this row is a summary
-        // of the chunk, not a code viewer (the assembled source lives on /contract/).
-        let part = isNull(data.code_part) ? '' : String(data.code_part);
-        $('#info-deploy .deploy-code-part').text(part.length > 96
-            ? part.slice(0, 96) + '… (' + numeral(part.length).format('0,0') + ' chars)'
-            : part);
-        // The completing carrier's own deploy card, so the contract is reachable from the
-        // action that created it rather than only from the assembler that asked for it.
-        let carrierStakeable = (deployed !== null) && !isNull(data.cooldown_blocks);
-        $('#info-deploy .deploy-staking-row').toggleClass('d-none', !carrierStakeable);
-        if(deployed !== null){
-            $('#info-deploy .deploy-contract').html(formatContractIdentity(XC.coin, XC.chain, deployed, data.contract_meta_name, data.contract_meta_version));
-            $('#info-deploy .deploy-api-version').text(isNull(data.api_version) ? '-' : data.api_version);
-            $('#info-deploy .deploy-stakeable').html(carrierStakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
-            if(carrierStakeable){
-                $('#info-deploy .deploy-cooldown').text(numeral(data.cooldown_blocks).format('0,0') + ' blocks');
-                $('#info-deploy .deploy-slash').html(isNull(data.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + data.slash_destination, data.slash_destination));
-            }
-        }
+        detailContractsXcall_renderDeployChunk(data, deployed);
         return;
     }
     // An assembler whose group is still incomplete has no contract to point at: link its own
@@ -95,6 +72,34 @@ function showDeployDetails(data){
     if(stakeable){
         $('#info-deploy .deploy-cooldown').text(numeral(data.cooldown_blocks).format('0,0') + ' blocks');
         $('#info-deploy .deploy-slash').html(isNull(data.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + data.slash_destination, data.slash_destination));
+    }
+}
+
+// Render the fields carried by a chunked deployment action.
+function detailContractsXcall_renderDeployChunk(data, deployed){
+    let idx = isNull(data.chunk_index) ? '?' : (Number(data.chunk_index) + 1);
+    let total = isNull(data.total_chunks) ? '?' : data.total_chunks;
+    $('#info-deploy .deploy-chunk').text('Code chunk ' + idx + ' of ' + total);
+    // The base64 code slice is the payload this carrier exists to publish, and it
+    // was the one v4 wire field with nowhere to render. Shown truncated with its
+    // full length: a part runs to a MEDIUMTEXT of code, and this row is a summary
+    // of the chunk, not a code viewer (the assembled source lives on /contract/).
+    let part = isNull(data.code_part) ? '' : String(data.code_part);
+    $('#info-deploy .deploy-code-part').text(part.length > 96
+        ? part.slice(0, 96) + '… (' + numeral(part.length).format('0,0') + ' chars)'
+        : part);
+    // The completing carrier's own deploy card, so the contract is reachable from the
+    // action that created it rather than only from the assembler that asked for it.
+    let carrierStakeable = (deployed !== null) && !isNull(data.cooldown_blocks);
+    $('#info-deploy .deploy-staking-row').toggleClass('d-none', !carrierStakeable);
+    if(deployed !== null){
+        $('#info-deploy .deploy-contract').html(formatContractIdentity(XC.coin, XC.chain, deployed, data.contract_meta_name, data.contract_meta_version));
+        $('#info-deploy .deploy-api-version').text(isNull(data.api_version) ? '-' : data.api_version);
+        $('#info-deploy .deploy-stakeable').html(carrierStakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
+        if(carrierStakeable){
+            $('#info-deploy .deploy-cooldown').text(numeral(data.cooldown_blocks).format('0,0') + ' blocks');
+            $('#info-deploy .deploy-slash').html(isNull(data.slash_destination) ? 'BURN' : formatLink('/' + XC.coin + '/address/' + data.slash_destination, data.slash_destination));
+        }
     }
 }
 
@@ -143,8 +148,7 @@ function showCustodyDetails(kind, data){
 // read-only). Surfaces the request plus, when present, the target-chain execution outcome
 // and the source-chain callback delivery.
 function showXcallDetails(data){
-    let statusBadge = function(s){
-        let cls = (s=='completed') ? 'success' : (s=='expired') ? 'danger' : (s=='pending') ? 'warning text-dark' : 'secondary';
+    let statusBadge = function(s){ let cls = (s=='completed') ? 'success' : (s=='expired') ? 'danger' : (s=='pending') ? 'warning text-dark' : 'secondary';
         return '<span class="badge text-bg-' + cls + '">' + (s || '-') + '</span>';
     };
     $('#info-xcall .xcall-call-id').html(formatHash(data.call_id, 32));

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * detail_anchor_price.js
  *
  * Custom javascript for xchain explorer
  */
@@ -281,61 +281,8 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 html += '    <td>' + info.status + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, 'view', null, true) + '</td>';
                 html += '</tr>';
-            } else if(type=='list-items'){
-                html += '<tr>'
-                html += '    <td>' + (idx+1) + '</td>';
-                if(dataType=='Address')
-                    html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info, info) + '</td>';
-                if(dataType=='Token')
-                    html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info, info) + '</td>';
-                html += '</tr>';
-            } else if(type=='list-edits'){
-                html += '<tr class="' + cls + '">'
-                html += '    <td>' + (idx+1) + '</td>';
-                if(dataType=='Address')
-                    html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
-                if(dataType=='Token')
-                    html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick) + '</td>';
-                html += '    <td>' + info.status + '</td>';
-                html += '</tr>';
-            } else if(type=='send'){
-                html += '<tr class="' + cls + '">'
-                html += '    <td>' + (idx+1) + '</td>';
-                html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.destination, info.destination) + '</td>';
-                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
-                html += '    <td>' + formatAmount(info.amount) + '</td>';
-                // SEND v3 carries a MEMO per leg, so it belongs beside the leg it
-                // describes rather than only inside the raw transaction data.
-                // Escaped and null-guarded exactly as the destroy legs are.
-                html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
-                html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
-                html += '</tr>';
-            } else if(type=='airdrop'){
-                html += '<tr class="' + cls + '">'
-                html += '    <td>' + (idx+1) + '</td>';
-                // The list is an ACTION index (airdrops.list_action_index names the LIST
-                // action that defined the recipients), not a token.
-                html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.list_action_index, formatAmount(info.list_action_index)) + '</td>';
-                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
-                html += '    <td>' + formatAmount(info.amount) + '</td>';
-                html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
-                html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
-                html += '</tr>';
-            } else if(type=='destroy'){
-                html += '<tr class="' + cls + '">'
-                html += '    <td>' + (idx+1) + '</td>';
-                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
-                html += '    <td>' + formatAmount(info.amount) + '</td>';
-                html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
-                html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
-                html += '</tr>';
             } else {
-                html += '<tr>'
-                html += '    <td>' + (idx+1) + '</td>';
-                html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
-                html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
-                html += '    <td>' + formatAmount(info.amount) + '</td>';
-                html += '</tr>';
+                html += detailAnchorPrice_actionRow(type, info, idx, dataType, cls);
             }
         });
         body.html(html);
@@ -351,6 +298,70 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
         body.empty();
     }
     initStaticDatatable(id, autoWidth);
+}
+
+// Select the markup shape for an action detail table entry.
+function detailAnchorPrice_actionRow(type, info, idx, dataType, cls){
+    var html = '';
+    if(type=='list-items'){
+        html += '<tr>'
+        html += '    <td>' + (idx+1) + '</td>';
+        if(dataType=='Address')
+            html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info, info) + '</td>';
+        if(dataType=='Token')
+            html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info, info) + '</td>';
+        html += '</tr>';
+    } else if(type=='list-edits'){
+        html += '<tr class="' + cls + '">'
+        html += '    <td>' + (idx+1) + '</td>';
+        if(dataType=='Address')
+            html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
+        if(dataType=='Token')
+            html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + info.status + '</td>';
+        html += '</tr>';
+    } else if(['send','airdrop','destroy'].includes(type)){
+        return detailAnchorPrice_transferRow(type, info, idx, cls);
+    } else {
+        html += '<tr>'
+        html += '    <td>' + (idx+1) + '</td>';
+        html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
+        html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + formatAmount(info.amount) + '</td>';
+        html += '</tr>';
+    }
+    return html;
+}
+
+// Build token movement markup for the action-specific columns.
+function detailAnchorPrice_transferRow(type, info, idx, cls){
+    let html = '<tr class="' + cls + '">'
+    html += '    <td>' + (idx+1) + '</td>';
+    if(type=='send'){
+        html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.destination, info.destination) + '</td>';
+        html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + formatAmount(info.amount) + '</td>';
+        // SEND v3 carries a MEMO per leg, so it belongs beside the leg it
+        // describes rather than only inside the raw transaction data.
+        // Escaped and null-guarded exactly as the destroy legs are.
+        html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
+        html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
+    } else if(type=='airdrop'){
+        // The list is an ACTION index (airdrops.list_action_index names the LIST
+        // action that defined the recipients), not a token.
+        html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.list_action_index, formatAmount(info.list_action_index)) + '</td>';
+        html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + formatAmount(info.amount) + '</td>';
+        html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
+        html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
+    } else {
+        html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + formatAmount(info.amount) + '</td>';
+        html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
+        html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
+    }
+    html += '</tr>';
+    return html;
 }
 
 // Display lock status text and icon

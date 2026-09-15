@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * market_updates.js
  *
  * Custom javascript for xchain explorer
  */
@@ -114,79 +114,95 @@ function updateMarketHistory(market, page=1, full=false, count=0){
         XC.RAW_CHART_DATA = [];
     // Load a page worth of market history data
     loadApiData(XC.coin, 'market', market, 'history?page=' + page, function(o){
-        if(o.data){
-            // Extract just the raw data to display in the chart
-            o.data.forEach(function(data){
-                XC.RAW_CHART_DATA.push([data.timestamp, data.price, data.amount]);
-            });
-            count = bcadd(count, o.data.length);
-        }
-        // If a full update was requested, keep updating
-        if(full && count < o.total){
-            updateMarketHistory(market, page+1, true, count);
-            return;
-        }
-        // Break raw data up into useful arrays 
-        var data    = XC.RAW_CHART_DATA,
-            trades  = [], // Time / Price
-            ohlc    = [], // Time / Open / High / Low / Close
-            volume  = [], // Timestamp / Volume (trades)
-            volume2 = [], // Timestamp / Volume (ohlc)
-            tstamp  = 0,
-            open    = 0,
-            high    = 0,
-            low     = 0,
-            close   = 0,
-            vol     = 0;
-        // Sort the data by date oldest to newest
-        data.sort(function(a,b){
-            if(a[0] < b[0]) return -1;
-            if(a[0] > b[0]) return 1;
-            return 0;            
-        });
-        // Split data into price and volume arrays
-        // Multiply timestamp by 1000 to convert to milliseconds
-        $.each(data,function(idx, item){
-            trades.push([item[0] * 1000,item[1]]);  // Time / Price
-            volume.push([item[0] * 1000,item[2]]);  // Time / Volume
-        });
-        // Split data into ohlc and volume arrays
-        $.each(data,function(idx, item){
-            if(item[0]==tstamp){
-                close  = item[1];
-                if(item[1]>high) high = item[1];
-                if(item[1]<low)  low  = item[1];
-                // Accumulate volume via bignumber to avoid IEEE-754 drift on
-                // high-precision token amounts and overflow past MAX_SAFE_INTEGER
-                // for large-supply 0-decimal tokens.
-                vol = bcadd(vol, item[2]);
-            } else {
-                // Add data to the arrays
-                if(tstamp){
-                    var ms = tstamp * 1000; // Multiply timestamp by 1000 to convert to milliseconds
-                    ohlc.push([ms, open, high, low, close]);
-                    volume2.push([ms, vol]);
-                }
-                // Update stats
-                tstamp = item[0];
-                open   = close;
-                high   = item[1];
-                low    = item[1];
-                close  = item[1];
-                vol    = item[2];
-            }
-        });
-        // Save the processed chart data for easy reference
-        XC.CHART_DATA.trades = {
-            trades: trades,
-            volume: volume
-        }
-        XC.CHART_DATA.ohlc = {
-            ohlc: ohlc,
-            volume: volume2
-        };
-        // Re-draw whichever market chart view is currently mounted with the new data
-        if(typeof XC.chartRenderer === 'function')
-            XC.chartRenderer();
+        marketUpdates_handleHistory(o, market, page, full, count);
     });
+}
+
+// Complete pagination before preparing the market chart data.
+function marketUpdates_handleHistory(o, market, page, full, count){
+    if(o.data){
+        // Extract just the raw data to display in the chart
+        o.data.forEach(function(data){
+            XC.RAW_CHART_DATA.push([data.timestamp, data.price, data.amount]);
+        });
+        count = bcadd(count, o.data.length);
+    }
+    // If a full update was requested, keep updating
+    if(full && count < o.total){
+        updateMarketHistory(market, page+1, true, count);
+        return;
+    }
+    marketUpdates_renderHistory();
+}
+
+// Prepare and publish the trade and candle series for the chart.
+function marketUpdates_renderHistory(){
+    // Break raw data up into useful arrays
+    var data    = XC.RAW_CHART_DATA,
+        trades  = [], // Time / Price
+        volume  = []; // Timestamp / Volume (trades)
+    // Sort the data by date oldest to newest
+    data.sort(function(a,b){
+        if(a[0] < b[0]) return -1;
+        if(a[0] > b[0]) return 1;
+        return 0;
+    });
+    // Split data into price and volume arrays
+    // Multiply timestamp by 1000 to convert to milliseconds
+    $.each(data,function(idx, item){
+        trades.push([item[0] * 1000,item[1]]);  // Time / Price
+        volume.push([item[0] * 1000,item[2]]);  // Time / Volume
+    });
+    let candles = marketUpdates_historyCandles(data);
+    // Save the processed chart data for easy reference
+    XC.CHART_DATA.trades = {
+        trades: trades,
+        volume: volume
+    }
+    XC.CHART_DATA.ohlc = {
+        ohlc: candles.ohlc,
+        volume: candles.volume
+    };
+    // Re-draw whichever market chart view is currently mounted with the new data
+    if(typeof XC.chartRenderer === 'function')
+        XC.chartRenderer();
+}
+
+// Aggregate raw trades into timestamped candle and volume arrays.
+function marketUpdates_historyCandles(data){
+    var ohlc    = [], // Time / Open / High / Low / Close
+        volume2 = [], // Timestamp / Volume (ohlc)
+        tstamp  = 0,
+        open    = 0,
+        high    = 0,
+        low     = 0,
+        close   = 0,
+        vol     = 0;
+    // Split data into ohlc and volume arrays
+    $.each(data,function(idx, item){
+        if(item[0]==tstamp){
+            close  = item[1];
+            if(item[1]>high) high = item[1];
+            if(item[1]<low)  low  = item[1];
+            // Accumulate volume via bignumber to avoid IEEE-754 drift on
+            // high-precision token amounts and overflow past MAX_SAFE_INTEGER
+            // for large-supply 0-decimal tokens.
+            vol = bcadd(vol, item[2]);
+        } else {
+            // Add data to the arrays
+            if(tstamp){
+                var ms = tstamp * 1000; // Multiply timestamp by 1000 to convert to milliseconds
+                ohlc.push([ms, open, high, low, close]);
+                volume2.push([ms, vol]);
+            }
+            // Update stats
+            tstamp = item[0];
+            open   = close;
+            high   = item[1];
+            low    = item[1];
+            close  = item[1];
+            vol    = item[2];
+        }
+    });
+    return { ohlc: ohlc, volume: volume2 };
 }

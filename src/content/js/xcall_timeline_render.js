@@ -69,21 +69,10 @@ function xcallRequestStatusIs(d, want){
         .trim().toLowerCase() === want;
 }
 
-// Builds the ordered phase list from one composed /api/xcall row. Pure: no DOM,
-// no jQuery, so the derivation can be asserted on directly.
-function buildXcallTimeline(data){
-    var d         = data || {};
-    var refused   = xcallRequestRefused(d);
-    var expired   = xcallRequestStatusIs(d, 'expired');
-    var completed = xcallRequestStatusIs(d, 'completed');
-    var exec      = d.execution || null;
-    var cb        = d.callback_delivery || null;
-    var cbStatus  = cb ? String(cb.callback_result_status === null || cb.callback_result_status === undefined ? '' : cb.callback_result_status).trim().toLowerCase() : '';
-    var phases    = {};
-
-    // 1. The request itself. The row existing is the proof it was submitted; the
-    //    action's own consensus status decides whether it started a lifecycle.
-    phases.request = {
+// 1. The request itself. The row existing is the proof it was submitted; the
+//    action's own consensus status decides whether it started a lifecycle.
+function buildXcallRequestPhase(d, refused){
+    return {
         key:   'request',
         label: 'Request',
         state: refused ? 'failed' : 'done',
@@ -92,18 +81,21 @@ function buildXcallTimeline(data){
             ? 'Consensus refused this request, so no later phase ran.'
             : 'A contract on this chain emitted a cross-chain call.'
     };
+}
 
-    // 2. Target-chain execution, mirrored back from the target chain. Absent is
-    //    three different things: refused/expired means it never runs, completed
-    //    means the result arrived without its mirrored execution row, and
-    //    otherwise it is simply still in flight.
+// 2. Target-chain execution, mirrored back from the target chain. Absent is
+//    three different things: refused/expired means it never runs, completed
+//    means the result arrived without its mirrored execution row, and
+//    otherwise it is simply still in flight.
+function buildXcallExecutionPhase(d, refused, expired, completed){
+    var exec = d.execution || null;
     var execState;
     if(refused)        execState = 'skipped';
     else if(exec)      execState = xcallStatusIsOk(exec.result_status) ? 'done' : 'failed';
     else if(expired)   execState = 'skipped';
     else if(completed) execState = 'missing';
     else               execState = 'pending';
-    phases.execution = {
+    return {
         key:   'execution',
         label: 'Target Execution',
         state: execState,
@@ -116,12 +108,16 @@ function buildXcallTimeline(data){
                     ? 'Waiting on ' + (d.target_chain ? String(d.target_chain) : 'the target chain') + ' to execute and report back.'
                     : ''
     };
+}
 
-    // 3. Callback delivery, back on this chain. A call with no callback_method
-    //    asked for none, which is a legitimate terminal shape rather than a gap.
-    //    The expiry path synthesizes a callback carrying status 'expired': that is
-    //    a delivered expiry notice, not a delivery failure, so it gets its own
-    //    state. A 'skipped:<status>' status is the exactly-once interlock's loser.
+// 3. Callback delivery, back on this chain. A call with no callback_method
+//    asked for none, which is a legitimate terminal shape rather than a gap.
+//    The expiry path synthesizes a callback carrying status 'expired': that is
+//    a delivered expiry notice, not a delivery failure, so it gets its own
+//    state. A 'skipped:<status>' status is the exactly-once interlock's loser.
+function buildXcallCallbackPhase(d, refused, expired, completed){
+    var cb = d.callback_delivery || null;
+    var cbStatus = cb ? String(cb.callback_result_status === null || cb.callback_result_status === undefined ? '' : cb.callback_result_status).trim().toLowerCase() : '';
     var noCallback = (d.callback_method === null || d.callback_method === undefined || d.callback_method === '');
     var cbState;
     if(refused)                          cbState = 'skipped';
@@ -131,7 +127,7 @@ function buildXcallTimeline(data){
     else if(noCallback)                  cbState = 'none';
     else if(expired || completed)        cbState = 'missing';
     else                                 cbState = 'pending';
-    phases.callback = {
+    return {
         key:   'callback',
         label: 'Callback Delivery',
         state: cbState,
@@ -146,17 +142,19 @@ function buildXcallTimeline(data){
                         ? 'Nothing delivered back to the source contract yet.'
                         : ''
     };
+}
 
-    // 4. Settlement: the outcome AS RECORDED ON THIS CHAIN (xcalls.result_status /
-    //    result_payload / resolved_block). This is what the VM's getCallResult
-    //    reads, so it is the value a contract here actually sees, and it can
-    //    disagree with the mirrored execution above.
+// 4. Settlement: the outcome AS RECORDED ON THIS CHAIN (xcalls.result_status /
+//    result_payload / resolved_block). This is what the VM's getCallResult
+//    reads, so it is the value a contract here actually sees, and it can
+//    disagree with the mirrored execution above.
+function buildXcallSettlementPhase(d, refused, expired, completed){
     var setState;
     if(refused)        setState = 'skipped';
     else if(expired)   setState = 'expired';
     else if(completed) setState = xcallStatusIsOk(d.result_status) ? 'done' : 'failed';
     else               setState = 'pending';
-    phases.settlement = {
+    return {
         key:   'settlement',
         label: 'Settlement',
         state: setState,
@@ -167,11 +165,13 @@ function buildXcallTimeline(data){
                 ? 'The request is still open; no result has been recorded on this chain.'
                 : ''
     };
+}
 
-    // 5. Deadline. The healthy completed call resolves at or before its deadline
-    //    block. Resolving AFTER it means the expiry sweep and the result delivery
-    //    raced and the delivery won, which is worth showing rather than flattening
-    //    into a plain success.
+// 5. Deadline. The healthy completed call resolves at or before its deadline
+//    block. Resolving AFTER it means the expiry sweep and the result delivery
+//    raced and the delivery won, which is worth showing rather than flattening
+//    into a plain success.
+function buildXcallDeadlinePhase(d, refused, expired, completed){
     var dlState, dlNote = '';
     if(refused){
         dlState = 'skipped';
@@ -192,12 +192,28 @@ function buildXcallTimeline(data){
         dlState = 'pending';
         dlNote  = 'The call expires if nothing is delivered by this block.';
     }
-    phases.deadline = {
+    return {
         key:   'deadline',
         label: 'Deadline',
         state: dlState,
         block: d.deadline_block,
         note:  dlNote
+    };
+}
+
+// Builds the ordered phase list from one composed /api/xcall row. Pure: no DOM,
+// no jQuery, so the derivation can be asserted on directly.
+function buildXcallTimeline(data){
+    var d         = data || {};
+    var refused   = xcallRequestRefused(d);
+    var expired   = xcallRequestStatusIs(d, 'expired');
+    var completed = xcallRequestStatusIs(d, 'completed');
+    var phases    = {
+        request:    buildXcallRequestPhase(d, refused),
+        execution:  buildXcallExecutionPhase(d, refused, expired, completed),
+        callback:   buildXcallCallbackPhase(d, refused, expired, completed),
+        settlement: buildXcallSettlementPhase(d, refused, expired, completed),
+        deadline:   buildXcallDeadlinePhase(d, refused, expired, completed)
     };
 
     // Emit in lifecycle order, never in whatever order the branches above ran.
@@ -222,7 +238,7 @@ function xcallLifecycleSummary(data){
 
 // Builds the timeline's inner HTML. Local esc/row helpers, matching the
 // per-function local-esc pattern used by xchain.js and checkpoint_verify_render.js.
-function renderXcallTimeline(data){
+function renderXcallTimelineHeader(data){
     var d    = data || {};
     var coin = (typeof XC !== 'undefined' && XC && XC.coin) ? XC.coin : '';
     var esc  = function(s){ return $('<div>').text(s === null || s === undefined ? '' : String(s)).html(); };
@@ -254,59 +270,84 @@ function renderXcallTimeline(data){
     // chain-local, so its link must be namespaced by target_chain and not by the
     // page's coin (the same trap showXcallDetails documents).
     var execCoin = d.target_chain ? String(d.target_chain) : coin;
-
-    var detail = {
-        request: function(){
-            var r = [];
-            r.push(row('Source', (d.source === null || d.source === undefined || d.source === '')
-                ? '-' : formatLink('/' + coin + '/address/' + encodeURIComponent(d.source), esc(d.source))));
-            r.push(row('Source Contract', (d.contract_index === null || d.contract_index === undefined || d.contract_index === '')
-                ? '-' : formatLink('/' + coin + '/contract/' + encodeURIComponent(d.contract_index), esc(d.contract_index))));
-            r.push(row('Target Chain',    (d.target_chain === null || d.target_chain === undefined || d.target_chain === '') ? '-' : esc(d.target_chain)));
-            r.push(row('Target Contract', (d.target_contract_index === null || d.target_contract_index === undefined || d.target_contract_index === '') ? '-' : esc(d.target_contract_index)));
-            r.push(row('Method',          (d.method === null || d.method === undefined || d.method === '') ? '-' : esc(d.method)));
-            r.push(row('Params',          Array.isArray(d.params) ? mono(JSON.stringify(d.params)) : mono(d.params)));
-            r.push(row('Gas Limit',       num(d.gas_limit)));
-            r.push(row('Cross Hops',      (d.cross_hops === null || d.cross_hops === undefined || d.cross_hops === '') ? '-' : esc(d.cross_hops)));
-            r.push(row('Action',          actionLink(d.action_index)));
-            r.push(row('Status',          (d.status === null || d.status === undefined || d.status === '') ? '-' : esc(d.status)));
-            return rows(r);
-        },
-        execution: function(){
-            if(!exec) return '';
-            var r = [];
-            r.push(row('Executed Action', actionLink(exec.execute_action_index, execCoin)));
-            r.push(row('Result Status',   (exec.result_status === null || exec.result_status === undefined || exec.result_status === '') ? '-' : esc(exec.result_status)));
-            r.push(row('Return Payload',  mono(exec.return_payload_b64)));
-            r.push(row('Gas Used',        num(exec.gas_used)));
-            return rows(r);
-        },
-        callback: function(){
-            var r = [];
-            r.push(row('Callback Method', (d.callback_method === null || d.callback_method === undefined || d.callback_method === '') ? '-' : esc(d.callback_method)));
-            r.push(row('Callback Params', Array.isArray(d.callback_params) ? mono(JSON.stringify(d.callback_params)) : mono(d.callback_params)));
-            if(cb)
-                r.push(row('Delivery Status', (cb.callback_result_status === null || cb.callback_result_status === undefined || cb.callback_result_status === '') ? '-' : esc(cb.callback_result_status)));
-            r.push(row('Callback Action', actionLink(d.callback_action_index)));
-            return rows(r);
-        },
-        settlement: function(){
-            var r = [];
-            r.push(row('Request Status',  (d.request_status === null || d.request_status === undefined || d.request_status === '') ? '-' : esc(d.request_status)));
-            r.push(row('Recorded Result', (d.result_status === null || d.result_status === undefined || d.result_status === '') ? '-' : esc(d.result_status)));
-            r.push(row('Result Payload',  mono(d.result_payload)));
-            return rows(r);
-        },
-        deadline: function(){
-            var r = [];
-            r.push(row('Deadline Block', blockLink(d.deadline_block)));
-            r.push(row('Resolved Block', blockLink(d.resolved_block)));
-            return rows(r);
-        }
+    return {
+        d: d, coin: coin, esc: esc, num: num, blockLink: blockLink,
+        actionLink: actionLink, mono: mono, row: row, rows: rows,
+        exec: exec, cb: cb, execCoin: execCoin
     };
+}
 
-    var phases = buildXcallTimeline(d);
-    var html   = '<ul class="xcall-timeline list-unstyled mb-0">';
+function renderXcallRequestRows(h){
+    var d = h.d, coin = h.coin, esc = h.esc, num = h.num;
+    var actionLink = h.actionLink, mono = h.mono, row = h.row, rows = h.rows;
+    var r = [];
+    r.push(row('Source', (d.source === null || d.source === undefined || d.source === '')
+        ? '-' : formatLink('/' + coin + '/address/' + encodeURIComponent(d.source), esc(d.source))));
+    r.push(row('Source Contract', (d.contract_index === null || d.contract_index === undefined || d.contract_index === '')
+        ? '-' : formatLink('/' + coin + '/contract/' + encodeURIComponent(d.contract_index), esc(d.contract_index))));
+    r.push(row('Target Chain',    (d.target_chain === null || d.target_chain === undefined || d.target_chain === '') ? '-' : esc(d.target_chain)));
+    r.push(row('Target Contract', (d.target_contract_index === null || d.target_contract_index === undefined || d.target_contract_index === '') ? '-' : esc(d.target_contract_index)));
+    r.push(row('Method',          (d.method === null || d.method === undefined || d.method === '') ? '-' : esc(d.method)));
+    r.push(row('Params',          Array.isArray(d.params) ? mono(JSON.stringify(d.params)) : mono(d.params)));
+    r.push(row('Gas Limit',       num(d.gas_limit)));
+    r.push(row('Cross Hops',      (d.cross_hops === null || d.cross_hops === undefined || d.cross_hops === '') ? '-' : esc(d.cross_hops)));
+    r.push(row('Action',          actionLink(d.action_index)));
+    r.push(row('Status',          (d.status === null || d.status === undefined || d.status === '') ? '-' : esc(d.status)));
+    return rows(r);
+}
+
+function renderXcallExecutionRows(h){
+    var exec = h.exec, actionLink = h.actionLink, execCoin = h.execCoin;
+    var esc = h.esc, mono = h.mono, num = h.num, row = h.row, rows = h.rows;
+    if(!exec) return '';
+    var r = [];
+    r.push(row('Executed Action', actionLink(exec.execute_action_index, execCoin)));
+    r.push(row('Result Status',   (exec.result_status === null || exec.result_status === undefined || exec.result_status === '') ? '-' : esc(exec.result_status)));
+    r.push(row('Return Payload',  mono(exec.return_payload_b64)));
+    r.push(row('Gas Used',        num(exec.gas_used)));
+    return rows(r);
+}
+
+function renderXcallCallbackRows(h){
+    var d = h.d, cb = h.cb, actionLink = h.actionLink;
+    var esc = h.esc, mono = h.mono, row = h.row, rows = h.rows;
+    var r = [];
+    r.push(row('Callback Method', (d.callback_method === null || d.callback_method === undefined || d.callback_method === '') ? '-' : esc(d.callback_method)));
+    r.push(row('Callback Params', Array.isArray(d.callback_params) ? mono(JSON.stringify(d.callback_params)) : mono(d.callback_params)));
+    if(cb)
+        r.push(row('Delivery Status', (cb.callback_result_status === null || cb.callback_result_status === undefined || cb.callback_result_status === '') ? '-' : esc(cb.callback_result_status)));
+    r.push(row('Callback Action', actionLink(d.callback_action_index)));
+    return rows(r);
+}
+
+function renderXcallSettlementRows(h){
+    var d = h.d, esc = h.esc, mono = h.mono, row = h.row, rows = h.rows;
+    var r = [];
+    r.push(row('Request Status',  (d.request_status === null || d.request_status === undefined || d.request_status === '') ? '-' : esc(d.request_status)));
+    r.push(row('Recorded Result', (d.result_status === null || d.result_status === undefined || d.result_status === '') ? '-' : esc(d.result_status)));
+    r.push(row('Result Payload',  mono(d.result_payload)));
+    return rows(r);
+}
+
+function renderXcallDeadlineRows(h){
+    var d = h.d, blockLink = h.blockLink, row = h.row, rows = h.rows;
+    var r = [];
+    r.push(row('Deadline Block', blockLink(d.deadline_block)));
+    r.push(row('Resolved Block', blockLink(d.resolved_block)));
+    return rows(r);
+}
+
+function renderXcallTimelinePhaseRows(h){
+    var esc = h.esc, blockLink = h.blockLink;
+    var detail = {
+        request: renderXcallRequestRows,
+        execution: renderXcallExecutionRows,
+        callback: renderXcallCallbackRows,
+        settlement: renderXcallSettlementRows,
+        deadline: renderXcallDeadlineRows
+    };
+    var phases = buildXcallTimeline(h.d);
+    var html   = '';
     for(var i = 0; i < phases.length; i++){
         var p  = phases[i];
         var st = XCALL_PHASE_STATES[p.state] || XCALL_PHASE_STATES.pending;
@@ -323,9 +364,15 @@ function renderXcallTimeline(data){
         html += '</div>';
         if(p.note)
             html += '<div class="small text-muted xcall-phase-note">' + esc(p.note) + '</div>';
-        html += detail[p.key]();
+        html += detail[p.key](h);
         html += '</div></li>';
     }
-    html += '</ul>';
     return html;
+}
+
+function renderXcallTimeline(data){
+    var header = renderXcallTimelineHeader(data);
+    return '<ul class="xcall-timeline list-unstyled mb-0">'
+         + renderXcallTimelinePhaseRows(header)
+         + '</ul>';
 }

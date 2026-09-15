@@ -18,7 +18,7 @@
 
 'use strict';
 
-const M   = require('../../merkle.js');
+const M   = require('../../consensus/merkle.js');
 const SUB = require('../../state_subtree_activation.js');   // byte-identical fourth carrier; escrow-leaf liveness only
 const swq = require('../../stake_weighted_quorum.js');
 

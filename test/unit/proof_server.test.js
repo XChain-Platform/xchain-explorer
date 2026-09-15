@@ -24,7 +24,7 @@
 'use strict';
 
 const assert = require('assert');
-const M      = require('../../src/merkle.js');
+const M      = require('../../src/consensus/merkle.js');
 const ProofServer = require('../../src/http/proof_server.js');
 // The REAL SDK light-client verifier (its own merkle twin), so the regression
 // below asserts cross-service acceptance exactly as a deployed light client would.

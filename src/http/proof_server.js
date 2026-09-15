@@ -29,7 +29,7 @@
 
 'use strict';
 
-const M   = require('../merkle.js');
+const M   = require('../consensus/merkle.js');
 // The six proof builders live in proof_server/proofs.js and are installed onto
 // the class below.
 const ProofBuilders = require('./proof_server/proofs.js');

@@ -13,7 +13,7 @@
 
 'use strict';
 
-const M = require('../../../../src/merkle.js');
+const M = require('../../../../src/consensus/merkle.js');
 const ProofServer = require('../../../../src/http/proof_server.js');
 
 // Minimal in-memory persistent SMT (the update half of stateCommitment.PersistentSMT)

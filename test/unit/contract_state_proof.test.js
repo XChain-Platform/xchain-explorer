@@ -35,7 +35,7 @@
 'use strict';
 
 const assert = require('assert');
-const M      = require('../../src/merkle.js');
+const M      = require('../../src/consensus/merkle.js');
 const ProofServer = require('../../src/http/proof_server.js');
 const XChainExplorer = require('../../src/XChainExplorer.js');
 

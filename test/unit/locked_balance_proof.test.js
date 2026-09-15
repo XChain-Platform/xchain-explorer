@@ -28,7 +28,7 @@
 'use strict';
 
 const assert = require('assert');
-const M      = require('../../src/merkle.js');
+const M      = require('../../src/consensus/merkle.js');
 const SUB    = require('../../src/state_subtree_activation.js');
 const ProofServer = require('../../src/http/proof_server.js');
 

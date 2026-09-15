@@ -154,15 +154,15 @@ describe('bin/explorer-identity.js (AT1)', function () {
 
     it('--compare exits 1 and names the twin when one twin sha256 is altered', function () {
         const pin = JSON.parse(fs.readFileSync(PIN, 'utf8'));
-        const target = pin.twins.find((t) => t.path === 'src/merkle.js');
-        assert.ok(target, 'src/merkle.js is not in the pinned twin set');
+        const target = pin.twins.find((t) => t.path === 'src/consensus/merkle.js');
+        assert.ok(target, 'src/consensus/merkle.js is not in the pinned twin set');
         target.sha256 = 'f'.repeat(64);
         const altered = path.join(tmpDir, 'altered-twin.json');
         fs.writeFileSync(altered, JSON.stringify(pin, null, 2));
 
         const res = runTool(['--compare', altered]);
         assert.strictEqual(res.status, 1, 'an altered twin sha256 did not fail the comparison');
-        assert.match(res.stdout, /twin_sha256 src\/merkle\.js/);
+        assert.match(res.stdout, /twin_sha256 src\/consensus\/merkle\.js/);
         assert.ok(res.stdout.includes('f'.repeat(64)), 'the failing output does not show the pinned value');
     });
 

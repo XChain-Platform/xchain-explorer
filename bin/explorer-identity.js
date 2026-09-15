@@ -21,7 +21,7 @@
  * and no rules digest to compare. Its identity is instead the set of things a
  * structural refactor can silently break while every test still reads green:
  *
- *   twins        the nine top-level files that are BYTE-IDENTICAL copies of an
+ *   twins        the nine files that are BYTE-IDENTICAL copies of an
  *                indexer canonical. Two of them (equivocation_header.js,
  *                stake_weighted_quorum.js) are named by no sync script at all
  *                and are held only by sibling tests that SKIP on a missing
@@ -114,15 +114,16 @@ const { spawnSync } = require('child_process');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const MOCHA_BIN = path.join(REPO_ROOT, 'node_modules', '.bin', 'mocha');
 
-// The structure pass's frozen twin set: the nine top-level
-// files this pass may not move, rename or change one byte of. Listed here by
-// hand rather than globbed, because the point of the pin is to notice a file
-// LEAVING the set as loudly as it notices one changing.
+// The structure pass's frozen twin set: the nine files this pass may not change
+// one byte of, and may move only through a coordinated twin window (merkle.js
+// sits under src/consensus/ by one). Listed here by hand rather than globbed,
+// because the point of the pin is to notice a file LEAVING the set as loudly as
+// it notices one changing.
 const TWIN_FILES = [
     'src/checkpoint_commitment_activation.js',
+    'src/consensus/merkle.js',
     'src/equivocation_header.js',
     'src/list_edit_resolution_activation.js',
-    'src/merkle.js',
     'src/mirror_admission_activation.js',
     'src/price_batching_floor_activation.js',
     'src/retraction_signing_activation.js',

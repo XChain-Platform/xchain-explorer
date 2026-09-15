@@ -201,6 +201,12 @@ function voteDetail(data) {
         function formatAmount(v){ return String(v); }
         ${extractFn(CLIENT_SRC, 'isNull')}
     `);
+    dom.window.eval(extractFn(CLIENT_SRC, 'detailAttestVote_renderVoteFinalize'));
+    dom.window.eval(extractFn(CLIENT_SRC, 'detailAttestVote_renderPollSummary'));
+    dom.window.eval(extractFn(CLIENT_SRC, 'detailAttestVote_renderPollOutcome'));
+    dom.window.eval(extractFn(CLIENT_SRC, 'detailAttestVote_renderPollCallback'));
+    dom.window.eval(extractFn(CLIENT_SRC, 'detailAttestVote_renderPollResults'));
+    dom.window.eval(extractFn(CLIENT_SRC, 'detailAttestVote_renderVoteChoice'));
     dom.window.eval(extractFn(CLIENT_SRC, 'showVoteDetails'));
     dom.window.showVoteDetails(data);
     return (cls) => dom.window.$('#info-vote .' + cls).text().trim();

@@ -26,8 +26,8 @@
  *                stake_weighted_quorum.js) are named by no sync script at all
  *                and are held only by sibling tests that SKIP on a missing
  *                path, which is exactly how a twin unpins without a red run.
- *   routes       the public route surface, parsed out of XChainExplorer.js by
- *                the one platform parser the two explorer sweeps already share.
+ *   routes       the public route surface, parsed out of the route-table modules
+ *                by the one platform parser the two explorer sweeps already share.
  *                A rename tier that touches a string literal moves a route, and
  *                a moved route is a 404 on a page that used to answer.
  *   fixtures     the golden and the two baselines, the byte pins on rendered
@@ -176,6 +176,27 @@ function resolveRoutesLib() {
 }
 
 /**
+ * The route tables as one text, in the order setupUrls() declares them.
+ *
+ * The tables live in src/explorer/routes/, one module per group, and the parser
+ * reads a single source: its page parse runs between the 'html' table's opening
+ * and the 'api' table's, so the files are joined in declaration order rather than
+ * read one at a time, and the digest stays the digest of the same route surface in
+ * the same order it had while the tables sat inside the method.
+ *
+ * Listed by hand for the reason TWIN_FILES is: a table module LEAVING the set has
+ * to be as loud as one changing, and a glob over the directory would absorb it.
+ */
+function routeTableSource() {
+    const files = [
+        'src/explorer/routes/static_and_html.js',
+        'src/explorer/routes/api_methods.js',
+        'src/explorer/routes/explorer_feeds.js',
+    ];
+    return files.map((rel) => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8')).join('\n');
+}
+
+/**
  * The public route surface and one hash over it.
  *
  * The digest is taken over the tables in SOURCE ORDER, not sorted: the order is
@@ -184,8 +205,8 @@ function resolveRoutesLib() {
  * beside the hash because two mismatched hashes say nothing about what to fix.
  */
 function routeIdentity() {
-    const { readRouteTables } = require(resolveRoutesLib());
-    const tables = readRouteTables(path.join(REPO_ROOT, 'src', 'XChainExplorer.js'));
+    const { parseRouteTables } = require(resolveRoutesLib());
+    const tables = parseRouteTables(routeTableSource());
     const ordered = { pages: tables.pages, feeds: tables.feeds, apis: tables.apis };
     return {
         digest_sha256: sha256(JSON.stringify(ordered)),

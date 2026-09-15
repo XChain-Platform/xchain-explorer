@@ -34,7 +34,6 @@ const { limitedHandler } = require('./http/rate_limit_log.js');   // limiter cou
 const { renderPlatformSwitcher } = require('./render/platform_links.js');
 const listPage         = require('./render/list_page.js');
 const componentTpl     = require('./render/component_templates.js');
-const staticMounts     = require('./http/static_mounts.js');   // the one file-serving mount list, shared with api.js's limiter skip
 
 // The request handler families, each a class body exporting its own prototype.
 // installExplorerFamilies copies them onto XChainExplorer.prototype below the
@@ -43,6 +42,10 @@ const staticMounts     = require('./http/static_mounts.js');   // the one file-s
 const { installExplorerFamilies } = require('./explorer/install.js');
 const { canonicalCheckpointString } = require('./explorer/proofs.js');
 const { isPreflightPostRequest, MAX_PREFLIGHT_PARAMS_LENGTH } = require('./explorer/fees_preflight.js');
+
+// The three route tables, joined in declaration order. They are data, so they sit
+// beside the handler families rather than inside the method that mounts them.
+const { routeTables } = require('./explorer/routes/index.js');
 
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
@@ -147,590 +150,37 @@ class XChainExplorer {
     // Build the route table and register the express listeners it implies.
     setupUrls(){
 
-        // Every URL the explorer answers, grouped by how each group is served.
-        let urls = {
+        // Every URL the explorer answers. The tables are data and live in
+        // src/explorer/routes/; what stays here is the mounting, because the ORDER
+        // these listeners register in is what decides which one answers a request,
+        // and that order is only visible when the calls sit in one list.
+        let urls = routeTables();
 
-            // Directories served straight off disk, the raw file and no processing.
+        this.mountAssetRoutes(urls);
+        this.mountTransactionRedirect();
+        this.mountFileRawRoute();
+        const feeQuoteLimiter = this.mountFeeQuoteRoutes();
+        this.mountPreflightPostRoute();
+        this.mountBatchRoutes(feeQuoteLimiter);
+        const checkpointListLimiter = this.mountCheckpointRoutes();
+        this.mountProofRoutes(checkpointListLimiter);
+        this.mountContractCallRoute();
+        this.mountCatchAllRoute();
 
-            // Mount list lives in src/http/static_mounts.js, which is also what the rate
-            // limiter and concurrency gate read to decide what to exempt: one list, so
-            // a directory added here can never be silently limited (or, worse, a
-            // limiter exemption granted to something that is not served from disk).
-            'static' : staticMounts.STATIC_DIRECTORIES,
+        return urls;
+    }
 
-            // Each page URL and the HTML content file served for it.
-            'html' : {
-                // Top level pages
-                '/'                           : 'home.html',
-                '/about'                      : 'about.html',
-                '/api'                        : 'api.html',
-                '/privacy'                    : 'privacy.html',
-                '/search'                     : 'search.html',
-                '/terms'                      : 'terms.html',
-                '/404'                        : '404.html',
-                '/coin-unavailable'           : 'coin_unavailable.html', 
-                // Actions
-                '/{COIN}/actions'             : 'actions.html',
-                '/{COIN}/addresses'           : 'addresses.html',
-                '/{COIN}/airdrops'            : 'airdrops.html',
-                '/{COIN}/batches'             : 'batches.html',
-                '/{COIN}/broadcasts'          : 'broadcasts.html',
-                '/{COIN}/callbacks'           : 'callbacks.html',
-                '/{COIN}/destroys'            : 'destroys.html',
-                '/{COIN}/dividends'           : 'dividends.html',
-                '/{COIN}/dispensers'          : 'dispensers.html',
-                '/{COIN}/dispenses'           : 'dispenses.html',
-                // Dispenser terminal states: a DISPENSER_EXPIRE is the protocol retiring a
-                // dispenser at its expiration height, a DISPENSER_CLOSE is the owner doing
-                // it deliberately. Both return the remaining escrow, so the list carries the
-                // closed dispenser's give/get terms rather than just the pointer.
-                '/{COIN}/dispenser_expires'   : 'dispenser_expires.html',
-                '/{COIN}/dispenser_closes'    : 'dispenser_closes.html',
-                // The two USER-written amendments to a live dispenser: a DISPENSER_CANCEL
-                // withdraws it, a DISPENSER_EDIT changes its escrow, expiration or lists.
-                // An edit only carries the fields it changed, so a null column means "this
-                // edit left that setting alone", not "the setting is empty".
-                '/{COIN}/dispenser_cancels'   : 'dispenser_cancels.html',
-                '/{COIN}/dispenser_edits'     : 'dispenser_edits.html',
-                '/{COIN}/fees'                : 'fees.html',
-                '/{COIN}/files'               : 'files.html',
-                '/{COIN}/history'             : 'history.html',
-                '/{COIN}/issues'              : 'issues.html',
-                '/{COIN}/links'               : 'links.html',
-                '/{COIN}/lists'               : 'lists.html',
-                '/{COIN}/markets'             : 'markets.html',
-                '/{COIN}/messages'            : 'messages.html',
-                '/{COIN}/mints'               : 'mints.html',
-                '/{COIN}/orders'              : 'orders.html',
-                '/{COIN}/order_matches'       : 'order_matches.html',
-                // An ORDER_EXPIRE / SWAP_EXPIRE is written by the protocol, not by a user
-                // transaction: it is how an unfilled order or swap leaves the book, and the
-                // row points back at the order/swap it retired.
-                '/{COIN}/order_expires'       : 'order_expires.html',
-                '/{COIN}/swap_expires'        : 'swap_expires.html',
-                // The user-written counterparts: an ORDER_CANCEL / SWAP_CANCEL pulls the
-                // record off the book, an ORDER_EDIT / SWAP_EDIT amends it in place. The
-                // edit lists lead with what the edit CHANGED (expiration, allow/block list),
-                // because the amended terms are the only reason the row exists.
-                '/{COIN}/order_cancels'       : 'order_cancels.html',
-                '/{COIN}/order_edits'         : 'order_edits.html',
-                '/{COIN}/swap_cancels'        : 'swap_cancels.html',
-                '/{COIN}/swap_edits'          : 'swap_edits.html',
-                '/{COIN}/contracts'            : 'contracts.html',
-                '/{COIN}/contract/{QUERY}'    : 'contract.html',
-                '/{COIN}/executions'          : 'executions.html',
-                '/{COIN}/deploy_chunks'       : 'deploy_chunks.html',
-                '/{COIN}/execution/{QUERY}'   : 'execution.html',
-                '/{COIN}/deposits'            : 'deposits.html',
-                '/{COIN}/withdrawals'         : 'withdrawals.html',
-                '/{COIN}/validators'          : 'validators.html',
-                // One validator's whole record, resolvable by signing pubkey OR by address.
-                '/{COIN}/validator/{QUERY}'   : 'validator.html',
-                '/{COIN}/stakes'              : 'stakes.html',
-                '/{COIN}/contract_stakes'     : 'contract_stakes.html',
-                '/{COIN}/prices'              : 'prices.html',
-                '/{COIN}/controllers'         : 'controllers.html',
-                '/{COIN}/contract_unstakes'   : 'contract_unstakes.html',
-                // M5 composed product views. Each of the three is a VIEW over data that
-                // already had an API, not a new data source: the gallery classifies
-                // `tokens` by its ISSUE fields, the rich list ranks `balances` for one
-                // tick, and the governance page puts two DELIBERATELY SEPARATE systems
-                // (indexer token polls, hub network-parameter proposals) side by side
-                // without merging them.
-                '/{COIN}/collectibles'        : 'collectibles.html',
-                '/{COIN}/rich_list/{QUERY}'   : 'rich_list.html',
-                '/{COIN}/governance'          : 'governance.html',
-                '/{COIN}/anchors'             : 'anchors.html',
-                // An anchor carries TWO heights and both are correct: block_index is the
-                // CHECKPOINTED height, which is what the commitments join keys off, while
-                // the ANCHOR transaction itself landed at a later height. The page labels
-                // both, because hunting one by the other reads as "not yet anchored".
-                '/{COIN}/anchor/{QUERY}'      : 'anchor.html',
-                // Quorum-signed state checkpoints: the list is the light-client
-                // surface, the detail view renders one checkpoint's roots + signers
-                // and puts the CPU-bound re-verification behind a click (the
-                // /api/checkpoint/{BLOCK}/verify route, not this page's own load).
-                '/{COIN}/checkpoints'         : 'checkpoints.html',
-                '/{COIN}/checkpoint/{QUERY}'  : 'checkpoint.html',
-                '/{COIN}/price_snapshots'     : 'price_snapshots.html',
-                // The historical electorate behind those checkpoints: which signing keys
-                // carried which stake weight for a capability at each snapshot block.
-                '/{COIN}/capability_snapshots' : 'capability_snapshots.html',
-                '/{COIN}/contract_delegations' : 'contract_delegations.html',
-                '/{COIN}/vote_delegations'    : 'vote_delegations.html',
-                '/{COIN}/attest_validator_stats' : 'attest_validator_stats.html',
-                '/{COIN}/reorgs'              : 'reorgs.html',
-                '/{COIN}/slash_proposals'     : 'slash_proposals.html',
-                // COINPAY: `coinpays` are the settlement records, `coinpay_obligations`
-                // the who-owes-what-native-coin view an ORDER_MATCH creates.
-                '/{COIN}/coinpays'            : 'coinpays.html',
-                '/{COIN}/coinpay_obligations' : 'coinpay_obligations.html',
-                // The obligation that was never paid: a COINPAY_EXPIRE closes it out at its
-                // expiration. It carries no source address of its own (the protocol writes
-                // it), so the list shows the obligation it retired in that column instead.
-                '/{COIN}/coinpay_expires'     : 'coinpay_expires.html',
-                '/{COIN}/cross_chain_matches' : 'cross_chain_matches.html',
-                '/{COIN}/cross_chain_settlements' : 'cross_chain_settlements.html',
-                '/{COIN}/rewards'             : 'rewards.html',
-                '/{COIN}/delegations'         : 'delegations.html',
-                '/{COIN}/full_node_verifications' : 'full_node_verifications.html',
-                '/{COIN}/unstakes'            : 'unstakes.html',
-                '/{COIN}/delegation_revocations' : 'delegation_revocations.html',
-                '/{COIN}/collects'            : 'collects.html',
-                '/{COIN}/slash_events'        : 'slash_events.html',
-                '/{COIN}/capability_slash_events' : 'capability_slash_events.html',
-                '/{COIN}/oracle_prices'       : 'oracle_prices.html',
-                '/{COIN}/validator_capabilities' : 'validator_capabilities.html',
-                '/{COIN}/governance_proposals' : 'governance_proposals.html',
-                '/{COIN}/governance_votes'    : 'governance_votes.html',
-                '/{COIN}/peers'              : 'peers.html',
-                '/{COIN}/consensus_state'    : 'consensus_state.html',
-                '/{COIN}/configs'            : 'configs.html',
-                '/{COIN}/telemetry_pings'    : 'telemetry_pings.html',
-                '/{COIN}/attestations'        : 'attestations.html',
-                // The attestation lifecycle across rows (v0 request, v1 response and its
-                // signatures, v2 expiry, relay legs), which the per-action view cannot show
-                // because each leg is its own action.
-                '/{COIN}/attestation/{QUERY}' : 'attestation.html',
-                '/{COIN}/bet_feeds'           : 'bet_feeds.html',
-                '/{COIN}/bets'                : 'bets.html',
-                '/{COIN}/bet_feed/{QUERY}'    : 'bet_feed.html',
-                '/{COIN}/oracle/{QUERY}'      : 'oracle.html',
-                '/{COIN}/polls'               : 'polls.html',
-                '/{COIN}/poll/{QUERY}'        : 'poll.html',
-                '/{COIN}/votes'               : 'votes.html',
-                '/{COIN}/xcalls'              : 'xcalls.html',
-                // Keyed by call_id, but declared {QUERY} like every other detail route so
-                // the detail-route/allowlist guard can see it.
-                '/{COIN}/xcall/{QUERY}'       : 'xcall.html',
-                '/{COIN}/sends'               : 'sends.html',
-                '/{COIN}/sleeps'              : 'sleeps.html',
-                '/{COIN}/swaps'               : 'swaps.html',
-                '/{COIN}/swap_matches'        : 'swap_matches.html',
-                '/{COIN}/sweeps'              : 'sweeps.html',
-                '/{COIN}'                     : 'coin_home.html',
-                '/{COIN}/blocks'              : 'blocks.html',
-                '/{COIN}/search'              : 'search.html',
-                '/{COIN}/tokens'              : 'tokens.html',
-                '/{COIN}/terms'               : 'terms.html',
-                '/{COIN}/mempool'             : 'mempool.html',
-                // Detail pages, each showing one specific record
-                '/{COIN}/address/{QUERY}'     : 'address.html',
-                '/{COIN}/action/{QUERY}'      : 'action.html',
-                '/{COIN}/block/{QUERY}'       : 'block.html',
-                '/{COIN}/dispenser/{QUERY}'   : 'dispenser.html',
-                '/{COIN}/market/{QUERY}'      : 'market.html',
-                '/{COIN}/token/{QUERY}'       : 'token.html',
-                '/{COIN}/transaction/{QUERY}' : 'transaction.html'
-
-            },
-
-            // The public JSON API: each endpoint, the database method it calls,
-            // and the search types that endpoint accepts.
-            'api' : {
-                '/{COIN}/api/addresses/{QUERY}/{TYPE}'         : ['getAddresses',        ['block', 'address']],
-                '/{COIN}/api/airdrops/{QUERY}/{TYPE}'          : ['getAirdrops',         ['block', 'address', 'token']],
-                '/{COIN}/api/batches/{QUERY}/{TYPE}'           : ['getBatches',          ['block', 'address']],
-                '/{COIN}/api/broadcasts/{QUERY}/{TYPE}'        : ['getBroadcasts',       ['block', 'address']],
-                '/{COIN}/api/callbacks/{QUERY}/{TYPE}'         : ['getCallbacks',        ['block', 'address', 'token']],
-                '/{COIN}/api/destroys/{QUERY}/{TYPE}'          : ['getDestroys',         ['block', 'address', 'token']],
-                '/{COIN}/api/dividends/{QUERY}/{TYPE}'         : ['getDividends',        ['block', 'address', 'token']],
-                '/{COIN}/api/dispensers/{QUERY}/{TYPE}'        : ['getDispensers',       ['block', 'address', 'source', 'destination', 'token', 'oracle']],
-                '/{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}' : ['getDispenserCancels', ['block', 'address']],
-                '/{COIN}/api/dispenser_closes/{QUERY}/{TYPE}'  : ['getDispenserCloses',  ['block', 'address']],
-                '/{COIN}/api/dispenser_expires/{QUERY}/{TYPE}' : ['getDispenserExpires', ['block', 'address']],
-                '/{COIN}/api/dispenser_edits/{QUERY}/{TYPE}'   : ['getDispenserEdits',   ['block', 'address']],
-                '/{COIN}/api/dispenses/{QUERY}/{TYPE}'         : ['getDispenses',        ['block', 'address', 'source', 'destination', 'token', 'dispenser']],
-                '/{COIN}/api/fees/{QUERY}/{TYPE}'              : ['getFees',             ['block', 'address', 'source', 'destination', 'token']],
-                '/{COIN}/api/files/{QUERY}/{TYPE}'             : ['getFiles',            ['block', 'address', 'token', 'name']],
-                '/{COIN}/api/issues/{QUERY}/{TYPE}'            : ['getIssues',           ['block', 'address', 'token']],
-                '/{COIN}/api/links/{QUERY}/{TYPE}'             : ['getLinks',            ['block', 'address']],
-                '/{COIN}/api/lists/{QUERY}/{TYPE}'             : ['getLists',            ['block', 'address']],
-                '/{COIN}/api/messages/{QUERY}/{TYPE}'          : ['getMessages',         ['block', 'address', 'source', 'destination']],
-                '/{COIN}/api/mints/{QUERY}/{TYPE}'             : ['getMints',            ['block', 'address', 'source', 'destination', 'token']],
-                '/{COIN}/api/orders/{QUERY}/{TYPE}'            : ['getOrders',           ['block', 'address', 'token']],
-                '/{COIN}/api/order_expires/{QUERY}/{TYPE}'     : ['getOrderExpires',     ['block', 'address']],
-                '/{COIN}/api/order_edits/{QUERY}/{TYPE}'       : ['getOrderEdits',       ['block', 'address']],
-                '/{COIN}/api/order_cancels/{QUERY}/{TYPE}'     : ['getOrderCancels',     ['block', 'address']],
-                '/{COIN}/api/order_matches/{QUERY}/{TYPE}'     : ['getOrderMatches',     ['block']],
-                '/{COIN}/api/order_matches'                    : ['getOrderMatches'],
-                '/{COIN}/api/coinpays/{QUERY}/{TYPE}'           : ['getCoinpays',          ['block', 'address']],
-                '/{COIN}/api/coinpay_expires/{QUERY}/{TYPE}'    : ['getCoinpayExpires',     ['block', 'address']],
-                '/{COIN}/api/coinpay_obligations/{QUERY}/{TYPE}': ['getCoinpayObligations', ['block', 'address']],
-                // Price Endpoints (PRICE v0 validator COIN/FIAT snapshots + v1 user TOKEN/FIAT oracle)
-                '/{COIN}/api/prices/{QUERY}/{TYPE}'           : ['getPrices',           ['block', 'address', 'source', 'token']],
-                '/{COIN}/api/prices'                          : ['getPrices'],
-                '/{COIN}/api/price_snapshots/{QUERY}/{TYPE}'  : ['getPriceSnapshots',    ['pair', 'round', 'status']],
-                '/{COIN}/api/price_snapshots'                 : ['getPriceSnapshots'],
-                // Controller-bound token / address policy guards (controller-bound-tokens.md): bind/unbind event stream
-                '/{COIN}/api/controllers'                     : ['getControllers'],
-                // VM / Contract Endpoints
-                // 'name' searches the contract identity manifest (meta_name, meta_description)
-                // through the contracts table's FULLTEXT index, not by LIKE (spec 2.6).
-                '/{COIN}/api/contracts/{QUERY}/{TYPE}'         : ['getContracts',        ['block', 'address', 'source', 'name']],
-                '/{COIN}/api/contracts'                        : ['getContracts'],
-                '/{COIN}/api/contract/{QUERY}'                 : ['getContract',          'contract'],
-                '/{COIN}/api/contract/{QUERY}/state'           : ['getContractState',     'contract'],
-                '/{COIN}/api/contract/{QUERY}/state/{TYPE}'    : ['getContractState',     'contract'],
-                '/{COIN}/api/contract/{QUERY}/balance'         : ['getContractBalance',   'contract'],
-                '/{COIN}/api/contract/{QUERY}/balance/{TYPE}'  : ['getContractBalance',   'contract'],
-                '/{COIN}/api/executions/{QUERY}/{TYPE}'        : ['getExecutions',        ['block', 'address', 'contract']],
-                '/{COIN}/api/executions'                       : ['getExecutions'],
-                '/{COIN}/api/execution/{QUERY}'                : ['getExecution',          'execution'],
-                // Contract action emissions, rolled up per CONTRACT across every EXECUTE
-                // call against it (contract_emissions joined through contract_executions).
-                '/{COIN}/api/emissions/{QUERY}/{TYPE}'         : ['getEmissions',         ['contract', 'execution', 'block']],
-                '/{COIN}/api/emissions'                        : ['getEmissions'],
-                '/{COIN}/api/deploy_chunks'                    : ['getDeployChunks'],
-                '/{COIN}/api/deposits/{QUERY}/{TYPE}'          : ['getDeposits',          ['block', 'address', 'source', 'contract']],
-                '/{COIN}/api/withdrawals/{QUERY}/{TYPE}'       : ['getWithdrawals',       ['block', 'address', 'source', 'contract']],
-                '/{COIN}/api/stakes/{QUERY}/{TYPE}'            : ['getStakes',            ['block', 'address', 'source']],
-                '/{COIN}/api/stakes'                           : ['getStakes'],
-                '/{COIN}/api/validators'                       : ['getValidators'],
-                // One validator's whole record in a single response, resolved by signing
-                // pubkey OR address. A composition, not a filter: the existing list methods
-                // have no pubkey type of their own (getValidators/getStakes/getSlashEvents
-                // each JOIN a pubkey column but expose only 'address'), so a page built
-                // from them alone could not answer by pubkey at all.
-                '/{COIN}/api/validator/{QUERY}'                : ['getValidator',         'validator'],
-                // The same composition scoped to ONE address, for the address page's
-                // staking panel: positions, cooldowns, the COLLECT trail and both slash
-                // families, instead of the six separate calls the page would otherwise make.
-                '/{COIN}/api/staking/{QUERY}'                  : ['getAddressStaking',    'address'],
-                '/{COIN}/api/delegations/{QUERY}/{TYPE}'       : ['getDelegations',       ['block', 'address', 'source']],
-                '/{COIN}/api/rewards/{QUERY}/{TYPE}'           : ['getValidatorRewards',  ['address', 'source']],
-                // Full-node possession-proof verdicts (NODEPROOF v0, read-only)
-                '/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}' : ['getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address']],
-                '/{COIN}/api/full_node_verifications'               : ['getFullNodeVerifications'],
-                // Contract-targeted Staking (STAKE v3 / UNSTAKE v1 + slash side-effects)
-                '/{COIN}/api/contract_stakes/{QUERY}/{TYPE}'   : ['getContractStakes',    ['block', 'address', 'contract']],
-                '/{COIN}/api/contract_stakes'                  : ['getContractStakes'],
-                '/{COIN}/api/contract_unstakes/{QUERY}/{TYPE}' : ['getContractUnstakes',  ['block', 'address', 'contract']],
-                '/{COIN}/api/contract_unstakes'                : ['getContractUnstakes'],
-                '/{COIN}/api/contract_delegations/{QUERY}/{TYPE}' : ['getContractDelegations', ['block', 'address', 'contract']],
-                '/{COIN}/api/contract_delegations'             : ['getContractDelegations'],
-                // VOTE v3 liquid-democracy delegations. Live-only: a delegation that was
-                // later re-pointed or cleared is excluded server-side, never listed as current.
-                '/{COIN}/api/vote_delegations/{QUERY}/{TYPE}'  : ['getVoteDelegations',   ['tick', 'delegator', 'delegate', 'block']],
-                '/{COIN}/api/vote_delegations'                 : ['getVoteDelegations'],
-                '/{COIN}/api/slash_events/{QUERY}/{TYPE}'      : ['getSlashEvents',       ['block', 'address', 'contract']],
-                '/{COIN}/api/slash_events'                     : ['getSlashEvents'],
-                // Capability staking lifecycle list views (UNSTAKE v0, DELEGATE v2/v3 revoke, COLLECT)
-                '/{COIN}/api/unstakes/{QUERY}/{TYPE}'          : ['getUnstakes',          ['block', 'address', 'source']],
-                '/{COIN}/api/unstakes'                         : ['getUnstakes'],
-                '/{COIN}/api/delegation_revocations/{QUERY}/{TYPE}' : ['getStakeKeyRevocations', ['block', 'address', 'source']],
-                '/{COIN}/api/delegation_revocations'           : ['getStakeKeyRevocations'],
-                '/{COIN}/api/collects/{QUERY}/{TYPE}'          : ['getCollects',          ['block', 'address', 'source']],
-                '/{COIN}/api/collects'                         : ['getCollects'],
-                // Capability equivocation slashes (SLASH wire action; capability_slash_events, id-keyed)
-                '/{COIN}/api/capability_slash_events/{QUERY}/{TYPE}' : ['getCapabilitySlashEvents', ['block', 'capability', 'pubkey', 'address']],
-                '/{COIN}/api/capability_slash_events'          : ['getCapabilitySlashEvents'],
-                // User token/fiat oracle publications (PRICE v1; hub-mirrored oracle_prices, id-keyed)
-                '/{COIN}/api/oracle_prices/{QUERY}/{TYPE}'     : ['getOraclePrices',      ['token', 'address']],
-                '/{COIN}/api/oracle_prices'                    : ['getOraclePrices'],
-                // Hub federation + governance state (read from the mandatory co-located hub DB, id-keyed).
-                // The validator registry itself is already surfaced on-chain via getValidators; these
-                // expose the hub-only capability + governance tables that have no on-chain action.
-                '/{COIN}/api/validator_capabilities/{QUERY}/{TYPE}' : ['getValidatorCapabilities', ['capability', 'pubkey']],
-                '/{COIN}/api/validator_capabilities'              : ['getValidatorCapabilities'],
-                '/{COIN}/api/governance_proposals/{QUERY}/{TYPE}'  : ['getGovernanceProposals',   ['status', 'parameter', 'proposal']],
-                '/{COIN}/api/governance_proposals'                : ['getGovernanceProposals'],
-                '/{COIN}/api/governance_votes/{QUERY}/{TYPE}'      : ['getGovernanceVotes',       ['proposal', 'voter']],
-                '/{COIN}/api/governance_votes'                    : ['getGovernanceVotes'],
-                // Cross-chain reorg attestations, scoped to THIS coin's chain on both
-                // transports (the hub RPC returns every chain's history unfiltered).
-                '/{COIN}/api/reorgs/{QUERY}/{TYPE}'               : ['getReorgs',               ['status', 'block']],
-                '/{COIN}/api/reorgs'                              : ['getReorgs'],
-                // Federation slash proposals (hub-owned, platform-global: no chain
-                // axis, so no per-coin scope). Pending rows are UNADJUDICATED
-                // accusations; evidence is served as a hash, never verbatim.
-                '/{COIN}/api/slash_proposals/{QUERY}/{TYPE}'      : ['getSlashProposals',       ['status', 'pubkey']],
-                '/{COIN}/api/slash_proposals'                     : ['getSlashProposals'],
-                // Hub operational state (p2p peers, consensus key/value, config oracle, node
-                // telemetry). Hub-local, no on-chain action and no hub RPC surface, so served
-                // only from the mandatory co-located hub DB (id-keyed).
-                '/{COIN}/api/peers/{QUERY}/{TYPE}'                 : ['getPeers',                ['validator']],
-                '/{COIN}/api/peers'                               : ['getPeers'],
-                '/{COIN}/api/consensus_state/{QUERY}/{TYPE}'       : ['getConsensusState',       ['key']],
-                '/{COIN}/api/consensus_state'                     : ['getConsensusState'],
-                '/{COIN}/api/configs/{QUERY}/{TYPE}'               : ['getConfigs',              ['coin', 'module']],
-                '/{COIN}/api/configs'                             : ['getConfigs'],
-                '/{COIN}/api/telemetry_pings/{QUERY}/{TYPE}'       : ['getTelemetryPings',       ['event', 'install', 'country']],
-                '/{COIN}/api/telemetry_pings'                     : ['getTelemetryPings'],
-                // Cross-chain coordination mirrors (hub-replicated match + local settlement legs)
-                '/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}'     : ['getCrossChainMatches',     ['match', 'block', 'status']],
-                '/{COIN}/api/cross_chain_matches'                    : ['getCrossChainMatches'],
-                '/{COIN}/api/cross_chain_settlements/{QUERY}/{TYPE}' : ['getCrossChainSettlements', ['match', 'block']],
-                '/{COIN}/api/cross_chain_settlements'                : ['getCrossChainSettlements'],
-                // Cross-chain calls (XCALL, VM-emitted, read-only). List by block/contract/status; single-call lifecycle by call_id.
-                '/{COIN}/api/xcalls/{QUERY}/{TYPE}'                  : ['getXcalls',               ['block', 'contract', 'status']],
-                '/{COIN}/api/xcalls'                                 : ['getXcalls'],
-                '/{COIN}/api/xcall/{QUERY}'                          : ['getXcall',                'call_id'],
-                // Attestation Endpoints (ATTEST v0 requests + v1 responses from the `attests` table)
-                '/{COIN}/api/attestations/{QUERY}/{TYPE}'      : ['getAttestations',      ['block', 'address', 'contract']],
-                '/{COIN}/api/attestations'                     : ['getAttestations'],
-                // The attestation LIFECYCLE composed across its legs. Deliberately not a
-                // route onto getAttestationByActionIndex, which is a positional-arg point
-                // read the WS ChangeDetector owns; this reuses it internally instead, so
-                // that caller's signature stays untouched.
-                '/{COIN}/api/attestation/{QUERY}'              : ['getAttestation',       'attestation'],
-                // Per-validator per-provider ATTEST accountability counters (fulfilled /
-                // missed / slashed + quality score). Indexer-owned, standalone, id-keyed.
-                '/{COIN}/api/attest_validator_stats/{QUERY}/{TYPE}' : ['getAttestValidatorStats', ['pubkey', 'provider']],
-                '/{COIN}/api/attest_validator_stats'           : ['getAttestValidatorStats'],
-                // VOTE governance endpoints (polls = VOTE v0, votes = v1 ballots, poll results
-                // = frozen VOTE v2 tally). Poll id IS the creating action_index.
-                '/{COIN}/api/polls/{QUERY}/{TYPE}'            : ['getPolls',            ['block', 'tick', 'status', 'source']],
-                '/{COIN}/api/polls'                          : ['getPolls'],
-                '/{COIN}/api/poll/{QUERY}'                   : ['getPoll',             'poll'],
-                '/{COIN}/api/poll/{QUERY}/results'           : ['getPollResults',      'poll'],
-                '/{COIN}/api/votes/{QUERY}/{TYPE}'           : ['getVotes',            ['address', 'poll', 'block']],
-                '/{COIN}/api/votes'                          : ['getVotes'],
-                // BET endpoints (bet_feeds = format 0 markets, bets = format 2 wagers,
-                // oracle = per-address track record). The feed id IS the creating
-                // action_index, exactly like a poll id.
-                '/{COIN}/api/bet_feeds/{QUERY}/{TYPE}'       : ['getBetFeeds',   ['block', 'address', 'source', 'token', 'status']],
-                '/{COIN}/api/bet_feeds'                      : ['getBetFeeds'],
-                '/{COIN}/api/bet_feed/{QUERY}'               : ['getBetFeed',     'bet_feed'],
-                '/{COIN}/api/bets/{QUERY}/{TYPE}'            : ['getBets',       ['block', 'address', 'feed', 'token', 'status']],
-                '/{COIN}/api/bets'                           : ['getBets'],
-                '/{COIN}/api/oracle/{QUERY}'                 : ['getOracleStats', 'oracle'],
-                // ANCHOR checkpoint list (anchor_actions, read-only)
-                '/{COIN}/api/anchors/{QUERY}/{TYPE}'           : ['getAnchors',           ['block', 'chain', 'network', 'status']],
-                '/{COIN}/api/anchors'                          : ['getAnchors'],
-                // One anchor composed with its chunks, covering checkpoint, publisher
-                // election and reward-attestation trail. A composition rather than a
-                // routing change: the trail spans the mirror schema, not anchor_actions.
-                '/{COIN}/api/anchor/{QUERY}'                   : ['getAnchor',            'anchor'],
-                // Single checkpoint by block height, WITHOUT re-verification: the
-                // detail page's cheap load path. The signature check lives on the
-                // dedicated /api/checkpoint/{BLOCK}/verify express route (registered
-                // ahead of the catch-all, so the two never collide) because it runs
-                // per-call Ed25519 over the whole qualifying validator set.
-                '/{COIN}/api/checkpoint/{QUERY}'               : ['getCheckpoint',       'block'],
-                // The rest of the checkpoint/ANCHOR family, all read from the co-located
-                // mirror schema: the per-block SPV commitments a checkpoint signs over, the
-                // quorum-attested publisher rewards an ANCHOR pays, and the historical
-                // electorate those signatures verify against.
-                '/{COIN}/api/commitments/{QUERY}/{TYPE}'       : ['getCommitments',      ['block']],
-                '/{COIN}/api/commitments'                      : ['getCommitments'],
-                '/{COIN}/api/anchor_reward_attestations/{QUERY}/{TYPE}' : ['getAnchorRewardAttestations', ['anchor', 'block', 'pubkey']],
-                '/{COIN}/api/anchor_reward_attestations'       : ['getAnchorRewardAttestations'],
-                '/{COIN}/api/capability_snapshots/{QUERY}/{TYPE}' : ['getCapabilitySnapshots', ['capability', 'block', 'pubkey']],
-                '/{COIN}/api/capability_snapshots'             : ['getCapabilitySnapshots'],
-                '/{COIN}/api/sends/{QUERY}/{TYPE}'             : ['getSends',            ['block', 'address', 'source', 'destination', 'token']],
-                '/{COIN}/api/sleeps/{QUERY}/{TYPE}'            : ['getSleeps',           ['block', 'address', 'token']],
-                '/{COIN}/api/swaps/{QUERY}/{TYPE}'             : ['getSwaps',            ['block', 'address', 'token']],
-                '/{COIN}/api/swap_edits/{QUERY}/{TYPE}'        : ['getSwapEdits',        ['block', 'address']],
-                '/{COIN}/api/swap_expires/{QUERY}/{TYPE}'      : ['getSwapExpires',      ['block', 'address']],
-                '/{COIN}/api/swap_cancels/{QUERY}/{TYPE}'      : ['getSwapCancels',      ['block', 'address']],
-                '/{COIN}/api/swap_matches/{QUERY}/{TYPE}'      : ['getSwapMatches',      ['block']],
-                '/{COIN}/api/swap_matches'                     : ['getSwapMatches'],
-                '/{COIN}/api/sweeps/{QUERY}/{TYPE}'            : ['getSweeps',           ['block', 'address', 'source', 'destination']],
-                '/{COIN}/api/status'                           : ['getStatus'],
-                '/{COIN}/api/actions'                          : ['getActions'],
-                '/{COIN}/api/action/{QUERY}'                   : ['getAction',           'action_index'],
-                '/{COIN}/api/address/{QUERY}'                  : ['getAddress',          'address'],
-                '/{COIN}/api/balances/{QUERY}'                 : ['getBalances',         'address'],
-                '/{COIN}/api/block/{QUERY}'                    : ['getBlock',            'block'],
-                // Public mirrors of internal /explorer feeds (spec explorer-coverage-completion M1.3-M1.5):
-                // list-all forms match as bare 3-segment api routes (infoType undefined), QUERY forms mirror
-                // the explorer namespace's shapes so third-party consumers get what the UI gets.
-                // List-all only. getBlocks appends no block predicate (the type=='block'
-                // filter lives in getHistory's branch), so a {QUERY} form would advertise
-                // a filter it silently ignores; single blocks have /{COIN}/api/block/{QUERY}.
-                '/{COIN}/api/blocks'                           : ['getBlocks'],
-                '/{COIN}/api/search/{QUERY}'                   : ['getSearch'],
-                // 'contract' is the fifth search category (spec contract-meta-manifest
-                // 2.6): a contract found by a word from its declared name or description.
-                '/{COIN}/api/search/{QUERY}/{TYPE}'            : ['getSearch',           ['address', 'broadcast', 'contract', 'token', 'transaction']],
-                '/{COIN}/api/projects/{QUERY}/{TYPE}'          : ['getProjectTokens',    ['roster']],
-                '/{COIN}/api/credits/{QUERY}/{TYPE}'           : ['getCredits',          ['block', 'address']],
-                '/{COIN}/api/debits/{QUERY}/{TYPE}'            : ['getDebits',           ['block', 'address']], 
-                '/{COIN}/api/escrows/{QUERY}/{TYPE}'           : ['getEscrows',          ['block', 'address']],
-                '/{COIN}/api/history/{QUERY}/{TYPE}'           : ['getHistory',          ['block', 'address', 'token', 'recent']],
-                '/{COIN}/api/holders/{QUERY}'                  : ['getHolders',          'token'],
-                // The client appends the query TYPE to every feed url it builds, so the
-                // token page asked for /holders/{TICK}/token and got a 404 while the
-                // holder tab sat empty. A holders query is only ever by token, so the
-                // segment is redundant, but registering it is how `search` (just above)
-                // already handles the same shape. Client-side special-casing would have
-                // to be repeated for every caller instead.
-                '/{COIN}/api/holders/{QUERY}/{TYPE}'           : ['getHolders',          'token'],
-                '/{COIN}/api/mempool'                          : ['getMempool'],
-                '/{COIN}/api/mempool/{QUERY}/{TYPE}'           : ['getMempool',          ['address', 'token']],
-                '/{COIN}/api/network'                          : ['getNetwork'],   
-                '/{COIN}/api/pubkey/{QUERY}'                   : ['getPublicKey',        'address'],
-                // Project registry: current roster of a project tick (protocol/project-registry.md)
-                '/{COIN}/api/project/{QUERY}'                  : ['getProject',          'token'],
-                // M5.1 collectibles: `tokens` filtered to the indivisible + frozen-ceiling
-                // classification. Registered on /api only: the gallery is a card grid,
-                // not a DataTables list, so it carries no /explorer feed and owes no
-                // getPagingDataResults shaping branch.
-                '/{COIN}/api/collectibles'                     : ['getCollectibles'],
-                '/{COIN}/api/collectibles/{QUERY}/{TYPE}'      : ['getCollectibles',     ['block', 'address']],
-                // M5.2 rich list: ONE token's holder ranking plus its supply stats.
-                // Per-token by design; there is no cross-token ranking route, because
-                // that query has no indexed driving column (see getRichList's header).
-                '/{COIN}/api/rich_list/{QUERY}'                : ['getRichList',         'token'],
-                '/{COIN}/api/token/{QUERY}'                    : ['getToken',            'token'],
-                '/{COIN}/api/tokens/{QUERY}/{TYPE}'            : ['getTokens',           ['block', 'address', 'token', 'subtoken']],
-                '/{COIN}/api/transaction/{QUERY}/{TYPE}'       : ['getTransaction',      ['tx_hash', 'tx_index']],
-                // Market Endpoints
-                '/{COIN}/api/markets'                                  : ['getMarkets'],
-                '/{COIN}/api/markets/{TICK1}'                          : ['getMarkets'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}'                   : ['getMarket'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}/history'           : ['getMarketHistory'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}/history/{ADDRESS}' : ['getMarketHistory'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}/orders'            : ['getMarketOrders'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}/orders/{ADDRESS}'  : ['getMarketOrders'],
-                '/{COIN}/api/market/{TICK1}/{TICK2}/orderbook'         : ['getOrderbook']
-            }, 
-
-            // The same data as the api group, shaped for the explorer's own
-            // tables: paged and returned in the order the columns are drawn.
-            'explorer' : {
-                '/{COIN}/explorer/actions/{QUERY}/{TYPE}'                   : ['getActions'],
-                '/{COIN}/explorer/addresses/{QUERY}/{TYPE}'                 : ['getAddresses',    ['block', 'address']],
-                '/{COIN}/explorer/airdrops/{QUERY}/{TYPE}'                  : ['getAirdrops',     ['block', 'address', 'token']],
-                '/{COIN}/explorer/balances/{QUERY}/{TYPE}'                  : ['getBalances',     'address'],
-                '/{COIN}/explorer/batches/{QUERY}/{TYPE}'                   : ['getBatches',      ['block', 'address']],
-                '/{COIN}/explorer/blocks/{QUERY}'                           : ['getBlocks',       'block'],
-                '/{COIN}/explorer/broadcasts/{QUERY}/{TYPE}'                : ['getBroadcasts',   ['block', 'address']],
-                '/{COIN}/explorer/callbacks/{QUERY}/{TYPE}'                 : ['getCallbacks',    ['block', 'address', 'token']],
-                '/{COIN}/explorer/credits/{QUERY}/{TYPE}'                   : ['getCredits',      ['block', 'address']],
-                '/{COIN}/explorer/debits/{QUERY}/{TYPE}'                    : ['getDebits',       ['block', 'address']], 
-                '/{COIN}/explorer/destroys/{QUERY}/{TYPE}'                  : ['getDestroys',     ['block', 'address', 'token']],
-                '/{COIN}/explorer/dispensers/{QUERY}/{TYPE}'                : ['getDispensers',   ['block', 'address', 'token']],
-                '/{COIN}/explorer/dispenses/{QUERY}/{TYPE}'                 : ['getDispenses',    ['block', 'address', 'token']],
-                '/{COIN}/explorer/dividends/{QUERY}/{TYPE}'                 : ['getDividends',    ['block', 'address', 'token']], 
-                '/{COIN}/explorer/escrows/{QUERY}/{TYPE}'                   : ['getEscrows',      ['block', 'address']],
-                '/{COIN}/explorer/fees/{QUERY}/{TYPE}'                      : ['getFees',         ['block', 'address', 'token']],
-                '/{COIN}/explorer/files/{QUERY}/{TYPE}'                     : ['getFiles',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/holders/{QUERY}'                          : ['getHolders',      'token'],
-                // See the /api/holders note above: this is the route the token page's
-                // Holders tab actually requests.
-                '/{COIN}/explorer/holders/{QUERY}/{TYPE}'                   : ['getHolders',      'token'],
-                '/{COIN}/explorer/history/{QUERY}/{TYPE}'                   : ['getHistory',      ['block', 'address', 'token', 'recent']],
-                '/{COIN}/explorer/issues/{QUERY}/{TYPE}'                    : ['getIssues',       ['block', 'address', 'token']],
-                '/{COIN}/explorer/links/{QUERY}/{TYPE}'                     : ['getLinks',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/lists/{QUERY}/{TYPE}'                     : ['getLists',        ['block', 'address']],
-                '/{COIN}/explorer/markets/{QUERY}'                          : ['getMarkets',      'tokens'],
-                '/{COIN}/explorer/market/{TICK1}/{TICK2}/history'           : ['getMarketHistory'],
-                '/{COIN}/explorer/market/{TICK1}/{TICK2}/history/{ADDRESS}' : ['getMarketHistory'],
-                '/{COIN}/explorer/messages/{QUERY}/{TYPE}'                  : ['getMessages',     ['block', 'address']],
-                '/{COIN}/explorer/mints/{QUERY}/{TYPE}'                     : ['getMints',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/order_matches/{QUERY}/{TYPE}'             : ['getOrderMatches', ['block']],
-                '/{COIN}/explorer/orders/{QUERY}/{TYPE}'                    : ['getOrders',       ['block', 'address', 'token']],
-                '/{COIN}/explorer/projects/{QUERY}/{TYPE}'                  : ['getProjectTokens', ['roster']],
-                '/{COIN}/explorer/coinpays/{QUERY}/{TYPE}'                  : ['getCoinpays',     ['block', 'address']],
-                '/{COIN}/explorer/coinpays'                                 : ['getCoinpays'],
-                '/{COIN}/explorer/coinpay_obligations/{QUERY}/{TYPE}'       : ['getCoinpayObligations', ['block', 'address']],
-                '/{COIN}/explorer/coinpay_obligations'                      : ['getCoinpayObligations'],
-                // Tier-4 expire/close feeds. These already had /api routes; the /explorer
-                // counterpart is what a DataTables page pages over, and each needs a
-                // getPagingDataResults row mapping below to go with it. Without the pair the
-                // page answers 404 and DataTables renders it as an empty table, not an error.
-                '/{COIN}/explorer/order_expires/{QUERY}/{TYPE}'             : ['getOrderExpires',     ['block', 'address']],
-                '/{COIN}/explorer/swap_expires/{QUERY}/{TYPE}'              : ['getSwapExpires',      ['block', 'address']],
-                '/{COIN}/explorer/dispenser_expires/{QUERY}/{TYPE}'         : ['getDispenserExpires', ['block', 'address']],
-                '/{COIN}/explorer/dispenser_closes/{QUERY}/{TYPE}'          : ['getDispenserCloses',  ['block', 'address']],
-                '/{COIN}/explorer/coinpay_expires/{QUERY}/{TYPE}'           : ['getCoinpayExpires',   ['block', 'address']],
-                // Cancel/edit feeds, the user-written half of the same lifecycles. Same
-                // pairing rule as the expires above: the /api route already existed, but a
-                // page pages over /explorer, and the feed is only half of it - each of these
-                // also needs a getPagingDataResults row mapping below, or the page renders
-                // blank cells with no error anywhere.
-                '/{COIN}/explorer/order_cancels/{QUERY}/{TYPE}'             : ['getOrderCancels',     ['block', 'address']],
-                '/{COIN}/explorer/order_edits/{QUERY}/{TYPE}'               : ['getOrderEdits',       ['block', 'address']],
-                '/{COIN}/explorer/swap_cancels/{QUERY}/{TYPE}'              : ['getSwapCancels',      ['block', 'address']],
-                '/{COIN}/explorer/swap_edits/{QUERY}/{TYPE}'                : ['getSwapEdits',        ['block', 'address']],
-                '/{COIN}/explorer/dispenser_cancels/{QUERY}/{TYPE}'         : ['getDispenserCancels', ['block', 'address']],
-                '/{COIN}/explorer/dispenser_edits/{QUERY}/{TYPE}'           : ['getDispenserEdits',   ['block', 'address']],
-                // Feeds for the M2 list pages. price_snapshots / contract_delegations
-                // already had their /api routes; the /explorer counterpart is what a
-                // DataTables page pages over, and it needs a getPagingDataResults row
-                // mapping to go with it (the coinpay feeds above shipped without one).
-                '/{COIN}/explorer/checkpoints'                              : ['getCheckpoints'],
-                '/{COIN}/explorer/price_snapshots/{QUERY}/{TYPE}'           : ['getPriceSnapshots',      ['pair', 'round', 'status']],
-                '/{COIN}/explorer/price_snapshots'                          : ['getPriceSnapshots'],
-                '/{COIN}/explorer/contract_delegations/{QUERY}/{TYPE}'      : ['getContractDelegations', ['block', 'address', 'contract']],
-                '/{COIN}/explorer/contract_delegations'                     : ['getContractDelegations'],
-                '/{COIN}/explorer/vote_delegations/{QUERY}/{TYPE}'          : ['getVoteDelegations',     ['tick', 'delegator', 'delegate', 'block']],
-                '/{COIN}/explorer/vote_delegations'                         : ['getVoteDelegations'],
-                '/{COIN}/explorer/capability_snapshots/{QUERY}/{TYPE}'      : ['getCapabilitySnapshots', ['capability', 'block', 'pubkey']],
-                '/{COIN}/explorer/capability_snapshots'                     : ['getCapabilitySnapshots'],
-                // Registered ahead of its page: M4.6 renders anchor_reward_attestations,
-                // and the datatable-endpoint guard requires the feed to already agree with
-                // whatever loadDatatablesData the fragment eventually calls.
-                '/{COIN}/explorer/anchor_reward_attestations/{QUERY}/{TYPE}' : ['getAnchorRewardAttestations', ['anchor', 'block', 'pubkey']],
-                '/{COIN}/explorer/anchor_reward_attestations'                : ['getAnchorRewardAttestations'],
-                // 'name' is what the contracts list page's own search box asks for.
-                '/{COIN}/explorer/contracts/{QUERY}/{TYPE}'                  : ['getContracts',    ['block', 'address', 'name']],
-                '/{COIN}/explorer/executions/{QUERY}/{TYPE}'                 : ['getExecutions',   ['block', 'address', 'contract']],
-                '/{COIN}/explorer/emissions/{QUERY}/{TYPE}'                  : ['getEmissions',    ['contract', 'execution', 'block']],
-                '/{COIN}/explorer/emissions'                                 : ['getEmissions'],
-                '/{COIN}/explorer/deploy_chunks'                             : ['getDeployChunks'],
-                '/{COIN}/explorer/deposits/{QUERY}/{TYPE}'                   : ['getDeposits',     ['block', 'address', 'contract']],
-                '/{COIN}/explorer/withdrawals/{QUERY}/{TYPE}'                : ['getWithdrawals',  ['block', 'address', 'contract']],
-                '/{COIN}/explorer/stakes/{QUERY}/{TYPE}'                     : ['getStakes',       ['block', 'address']],
-                '/{COIN}/explorer/delegations/{QUERY}/{TYPE}'                : ['getDelegations',  ['block', 'address']],
-                '/{COIN}/explorer/rewards/{QUERY}/{TYPE}'                    : ['getValidatorRewards', ['address']],
-                '/{COIN}/explorer/full_node_verifications/{QUERY}/{TYPE}'    : ['getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address']],
-                '/{COIN}/explorer/validators/{QUERY}/{TYPE}'                 : ['getValidators',   ['block', 'address']],
-                '/{COIN}/explorer/contract_stakes/{QUERY}/{TYPE}'           : ['getContractStakes',   ['block', 'address', 'contract']],
-                '/{COIN}/explorer/contract_unstakes/{QUERY}/{TYPE}'         : ['getContractUnstakes', ['block', 'address', 'contract']],
-                '/{COIN}/explorer/slash_events/{QUERY}/{TYPE}'              : ['getSlashEvents',  ['block', 'address', 'contract']],
-                '/{COIN}/explorer/unstakes/{QUERY}/{TYPE}'                  : ['getUnstakes',     ['block', 'address', 'source']],
-                '/{COIN}/explorer/delegation_revocations/{QUERY}/{TYPE}'    : ['getStakeKeyRevocations', ['block', 'address', 'source']],
-                '/{COIN}/explorer/collects/{QUERY}/{TYPE}'                  : ['getCollects',     ['block', 'address', 'source']],
-                '/{COIN}/explorer/capability_slash_events/{QUERY}/{TYPE}'   : ['getCapabilitySlashEvents', ['block', 'capability', 'pubkey', 'address']],
-                '/{COIN}/explorer/oracle_prices/{QUERY}/{TYPE}'             : ['getOraclePrices', ['token', 'address']],
-                '/{COIN}/explorer/validator_capabilities/{QUERY}/{TYPE}'    : ['getValidatorCapabilities', ['capability', 'pubkey']],
-                '/{COIN}/explorer/governance_proposals/{QUERY}/{TYPE}'      : ['getGovernanceProposals',   ['status', 'parameter', 'proposal']],
-                '/{COIN}/explorer/governance_votes/{QUERY}/{TYPE}'          : ['getGovernanceVotes',       ['proposal', 'voter']],
-                '/{COIN}/explorer/reorgs/{QUERY}/{TYPE}'                    : ['getReorgs',                ['status', 'block']],
-                '/{COIN}/explorer/reorgs'                                   : ['getReorgs'],
-                '/{COIN}/explorer/slash_proposals/{QUERY}/{TYPE}'           : ['getSlashProposals',        ['status', 'pubkey']],
-                '/{COIN}/explorer/slash_proposals'                          : ['getSlashProposals'],
-                '/{COIN}/explorer/peers/{QUERY}/{TYPE}'                     : ['getPeers',                 ['validator']],
-                '/{COIN}/explorer/consensus_state/{QUERY}/{TYPE}'           : ['getConsensusState',        ['key']],
-                '/{COIN}/explorer/configs/{QUERY}/{TYPE}'                   : ['getConfigs',               ['coin', 'module']],
-                '/{COIN}/explorer/telemetry_pings/{QUERY}/{TYPE}'           : ['getTelemetryPings',        ['event', 'install', 'country']],
-                '/{COIN}/explorer/attestations/{QUERY}/{TYPE}'              : ['getAttestations', ['block', 'address', 'contract']],
-                '/{COIN}/explorer/attest_validator_stats/{QUERY}/{TYPE}'    : ['getAttestValidatorStats', ['pubkey', 'provider']],
-                '/{COIN}/explorer/attest_validator_stats'                   : ['getAttestValidatorStats'],
-                '/{COIN}/explorer/bet_feeds/{QUERY}/{TYPE}'                 : ['getBetFeeds',     ['block', 'address', 'source', 'token', 'status']],
-                '/{COIN}/explorer/bets/{QUERY}/{TYPE}'                      : ['getBets',         ['block', 'address', 'feed', 'token', 'status']],
-                '/{COIN}/explorer/polls/{QUERY}/{TYPE}'                     : ['getPolls',        ['block', 'tick', 'status', 'source']],
-                '/{COIN}/explorer/votes/{QUERY}/{TYPE}'                     : ['getVotes',        ['address', 'poll', 'block']],
-                '/{COIN}/explorer/xcalls/{QUERY}/{TYPE}'                    : ['getXcalls',       ['block', 'contract', 'status']],
-                '/{COIN}/explorer/xcalls/{QUERY}'                           : ['getXcalls',       'block'],
-                '/{COIN}/explorer/anchors/{QUERY}/{TYPE}'                   : ['getAnchors',      ['block', 'chain', 'network', 'status']],
-                '/{COIN}/explorer/commitments/{QUERY}/{TYPE}'               : ['getCommitments',  ['block']],
-                '/{COIN}/explorer/commitments'                              : ['getCommitments'],
-                '/{COIN}/explorer/cross_chain_matches/{QUERY}/{TYPE}'       : ['getCrossChainMatches',     ['match', 'block', 'status']],
-                '/{COIN}/explorer/cross_chain_settlements/{QUERY}/{TYPE}'   : ['getCrossChainSettlements', ['match', 'block']],
-                '/{COIN}/explorer/prices/{QUERY}/{TYPE}'                    : ['getPrices',       ['block', 'address', 'source', 'token']],
-                '/{COIN}/explorer/prices'                                   : ['getPrices'],
-                '/{COIN}/explorer/controllers'                              : ['getControllers'],
-                '/{COIN}/explorer/sends/{QUERY}/{TYPE}'                     : ['getSends',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/search/{QUERY}/{TYPE}'                    : ['getSearch',       ['address', 'broadcast', 'contract', 'token', 'transaction']],
-                '/{COIN}/explorer/sleeps/{QUERY}/{TYPE}'                    : ['getSleeps',       ['block', 'address', 'token']],
-                '/{COIN}/explorer/swap_matches/{QUERY}/{TYPE}'              : ['getSwapMatches',  ['block']],
-                '/{COIN}/explorer/swaps/{QUERY}/{TYPE}'                     : ['getSwaps',        ['block', 'address', 'token']],
-                '/{COIN}/explorer/sweeps/{QUERY}/{TYPE}'                    : ['getSweeps',       ['block', 'address']],
-                '/{COIN}/explorer/tokens/{QUERY}/{TYPE}'                    : ['getTokens',       ['block', 'address', 'token', 'subtoken']]
-            }
-        };
-
+    // The listeners that hand back a file rather than query the database: icons and
+    // relayed token content, the OpenAPI document, the Font Awesome package, and one
+    // mount per directory in the static table.
+    mountAssetRoutes(urls){
         // Listener for icon requests: token icons resolved and cached locally.
         this.app.use('/icon', (req, res) => { this.processIconRequest(req, res); });
         // Listener for relay requests: fetches remote token content on a page's behalf.
         this.app.use('/relay', (req, res) => { this.processRelayRequest(req, res); });
 
         // Machine-readable API spec (OpenAPI 3.1). Regenerated by docs/openapi.build.js;
-        // test/unit/openapi-coverage.test.js keeps it in lockstep with the urls tables above.
+        // test/unit/openapi-coverage.test.js keeps it in lockstep with the urls tables.
         this.app.get('/openapi.json', (req, res) => {
             if(!this.openapiSpec)
                 this.openapiSpec = fs.readFileSync(path.join(__dirname, '../docs/openapi.json'));
@@ -747,10 +197,13 @@ class XChainExplorer {
         this.app.use('/fontawesome/css',      express.static(path.join(faDir, 'css')));
         this.app.use('/fontawesome/webfonts', express.static(path.join(faDir, 'webfonts')));
 
-        // Listeners for static file requests, one mount per directory in the list above.
+        // Listeners for static file requests, one mount per directory in the static table.
         for(let directory of urls['static'])
             this.app.use('/' + directory, express.static(path.join(__dirname, 'content', directory)))
+    }
 
+    // The one redirect the explorer serves.
+    mountTransactionRedirect(){
         // /{COIN}/tx/{QUERY} is the near-universal convention for a transaction URL and
         // several clients build it that way (the wallet's post-send "view transaction"
         // link among them), but this explorer's only transaction route is
@@ -770,13 +223,20 @@ class XChainExplorer {
                 target += req.originalUrl.substring(qs);
             res.redirect(301, target);
         });
+    }
 
+    mountFileRawRoute(){
         // Raw bytes for a FILE action, registered before the wildcard so the matcher
         // hits it first. Gated files return ciphertext as application/octet-stream for
         // client-side decryption (protocol/token-gated-content.md); non-gated files
         // serve stored bytes inline only for safe media MIME types (nft-standard.md).
         this.app.get('/:coin/api/file/:actionIndex/raw', (req, res) => { this.processFileRawRequest(req, res); });
+    }
 
+    // Returns the fee-quote limiter: /feeschedule shares this bucket but registers
+    // later, after the batch routes, and moving it forward would change which
+    // listener answers first.
+    mountFeeQuoteRoutes(){
         // Native-coin fee pre-flight + schedule: thin proxies to the colocated indexer's
         // read-only feequote/feeschedule JSON-RPC, so fee and oracle-price logic stays
         // single-sourced there. Registered before the wildcard so the matcher hits these
@@ -807,6 +267,11 @@ class XChainExplorer {
         this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { this.processFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
+
+        return feeQuoteLimiter;
+    }
+
+    mountPreflightPostRoute(){
         // POST sibling of the same pre-flight, not a second endpoint: identical inputs
         // and verdict, different transport. A GET cannot carry the largest legal input
         // at all, a 250-command BATCH running ~17,500 characters against Node's 16 KiB
@@ -835,7 +300,9 @@ class XChainExplorer {
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
             (req, res) => { this.processPreflightRequest(req, res); });
+    }
 
+    mountBatchRoutes(feeQuoteLimiter){
         // Batch reads: one POST answering up to BATCH_ADDRESS_MAX addresses, the shape
         // a multi-address wallet's cold open would otherwise ask for one request at a
         // time (five addresses x three chains was 30 balance reads plus 15 coinpay
@@ -871,7 +338,11 @@ class XChainExplorer {
             (req, res) => { this.processCoinpayObligationsBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
 
         this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { this.processFeeScheduleRequest(req, res); });
+    }
 
+    // Returns the checkpoint-list limiter: /checkpoints/range takes the same tier and
+    // registers with the proof routes below.
+    mountCheckpointRoutes(){
         // Quorum-signed state checkpoints, the light-client verification surface.
         // /checkpoints lists the coin chain's latest; /checkpoint/:blockIndex/verify
         // re-verifies the 2f+1 oracle_publish signatures server-side AND returns what a
@@ -919,6 +390,13 @@ class XChainExplorer {
         // watermark-lag state per coin, {enabled:false} in externally-maintained mode.
         this.app.get('/:coin/api/hub-mirror/status', (req, res) => { this.processHubMirrorStatusRequest(req, res); });
 
+        return checkpointListLimiter;
+    }
+
+    // Built apart from the registrations only so neither half runs past the length
+    // limit; the two limiters are constructed at the point they always were, which is
+    // what a suite counting limiter construction order sees.
+    buildProofLimiters(){
         // SPV light-client proof endpoints (Phase 3, spec §8.1). Read-only: a client
         // recomputes the proof locally and binds it to a quorum-signed checkpoint's
         // committed state_root, never trusting this server's word. Balance, action,
@@ -965,6 +443,12 @@ class XChainExplorer {
             legacyHeaders:   false,
             handler:         limitedHandler({ service: 'Explorer', name: 'validator-set-proof', ...validatorSetProofPolicy })
         });
+
+        return { actionProofLimiter, validatorSetProofLimiter };
+    }
+
+    mountProofRoutes(checkpointListLimiter){
+        const { actionProofLimiter, validatorSetProofLimiter } = this.buildProofLimiters();
         // The balance proof is the same single-descent SMT shape as the contract-state
         // and locked-balance proofs, so it carries the same cap. The checkpoint range
         // is a bounded mirror read and takes its /checkpoints sibling's looser tier.
@@ -980,7 +464,9 @@ class XChainExplorer {
         // Locked-balance (XCHAIN_ESC) proofs are the same single-descent shape as
         // the contract-state proof and get the same cap for the same reason.
         this.app.get('/:coin/api/proof/locked-balance/:address/:tick', actionProofLimiter, (req, res) => { this.processLockedBalanceProofRequest(req, res); });
+    }
 
+    mountContractCallRoute(){
         // Read-only contract simulation (the platform's eth_call): runs a method in a
         // sandboxed xchain-vm against current state and discards all effects.
         // Default-off (EXPLORER_VM_QUERY_ENABLED) and capped far below the global
@@ -999,7 +485,9 @@ class XChainExplorer {
             handler:         limitedHandler({ service: 'Explorer', name: 'vm-query', ...vmQueryPolicy })
         });
         this.app.post('/:coin/api/contract/:contractIndex/call', vmQueryLimiter, (req, res) => { this.processContractCallRequest(req, res); });
+    }
 
+    mountCatchAllRoute(){
         // Catch-all: every request the listeners above did not take lands here,
         // including a static request that found no file.
 
@@ -1008,8 +496,6 @@ class XChainExplorer {
         // unbraced form requires a trailing segment, dropping '/' through to the
         // JSON-RPC router as a -32600.
         this.app.get('/{*path}', (req, res) => { this.processRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
-
-        return urls;
     }
 
     // Last-resort handler for a rejected processRequest promise: the catch-all route

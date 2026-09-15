@@ -89,7 +89,7 @@ class DatabasePools {
     //   - Hub config (xchain-node's updateconfig push): the xchain-decoder entry
     //     carries db_host/db_port for the DATABASE and host/port for the decoder's
     //     API (SERVICE_REGISTRY maps them from DECODER_URL + DECODER_API_PORT), the
-    //     same pair xchain-hub's own _resolveIndexerUrl builds an indexer URL from.
+    //     same pair xchain-hub's own resolveIndexerUrl builds an indexer URL from.
     //   - src/config.json: host/port ARE the database and there is no API entry, so
     //     reading them as an endpoint would point the health poll at MariaDB.
     //

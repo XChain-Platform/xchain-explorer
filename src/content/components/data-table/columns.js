@@ -40,6 +40,100 @@
  * contract with the feed stays intact.
  */
 
+function xcDataTableColumnsCreateApi(){
+    'use strict';
+
+    // The indentation the hand-written pages used. Kept as constants rather
+    // than inlined so the byte-parity gate has one place to point at.
+    var thIndent = '                        ';
+    var tdIndent = '                        ';
+
+    // The ordering rule is the runtime's, not this file's: the detail-card's
+    // rows and the tab-panel's tabs resequence by exactly the same hidden/order
+    // contract, and two copies of it would eventually disagree about what
+    // `order: 0` means. Resolved once here rather than per call, because in the
+    // browser components.js is already loaded by the time this file runs and in
+    // Node the composer requires this file directly.
+    var core = (typeof XCComponents !== 'undefined')
+        ? XCComponents
+        : ((typeof require === 'function') ? require('../../js/components.js') : null);
+
+    return {
+        renderOrder: function(columns){ return xcDataTableColumnsRenderOrder(core, columns); },
+        visibleCount: function(columns){ return xcDataTableColumnsVisibleCount(core, columns); },
+        renderTh: function(col){ return xcDataTableColumnsRenderTh(thIndent, col); },
+        renderThead: function(columns){ return xcDataTableColumnsRenderThead(core, thIndent, columns); },
+        renderLoadingRow: function(columns, text){ return xcDataTableColumnsRenderLoadingRow(core, tdIndent, columns, text); },
+        renderTable: function(o){ return xcDataTableColumnsRenderTable(core, thIndent, tdIndent, o); },
+        needsPermutation: function(columns){ return xcDataTableColumnsNeedsPermutation(core, columns); }
+    };
+}
+
+// Columns actually rendered, in the order they are rendered.
+function xcDataTableColumnsRenderOrder(core, columns){
+    return core.resolveOrder(columns);
+}
+
+function xcDataTableColumnsVisibleCount(core, columns){
+    return xcDataTableColumnsRenderOrder(core, columns).length;
+}
+
+// One <th>. `cls` absent renders <th>, `cls` present renders <th class="...">
+// even when empty, because both forms are in the shipped pages.
+function xcDataTableColumnsRenderTh(thIndent, col){
+    var cls = (col && Object.prototype.hasOwnProperty.call(col, 'cls'))
+        ? ' class="' + col.cls + '"'
+        : '';
+    return thIndent + '<th' + cls + '>' + (col && col.label !== undefined ? col.label : '') + '</th>';
+}
+
+// The header rows, indented and newline-joined exactly as the pages had them.
+function xcDataTableColumnsRenderThead(core, thIndent, columns){
+    return xcDataTableColumnsRenderOrder(core, columns).map(function(i){
+        return xcDataTableColumnsRenderTh(thIndent, columns[i]);
+    }).join('\n');
+}
+
+// The placeholder row shown until the first ajax draw lands. Its colspan has
+// to be the RENDERED column count, not the array length, or a theme that
+// hides a column leaves the message short of the table's width.
+function xcDataTableColumnsRenderLoadingRow(core, tdIndent, columns, text){
+    return tdIndent + '<td colspan="' + xcDataTableColumnsVisibleCount(core, columns) + '" class="loading-data">' + (text || '') + '</td>';
+}
+
+/**
+     * The whole <table> block for a list page, at the indentation the composed
+     * page needs it.
+     *
+     * @param {object} o  { tableClass, action, columns, loading }
+     */
+function xcDataTableColumnsRenderTable(core, thIndent, tdIndent, o){
+    return '                <table class="' + o.tableClass + '" width="100%" id="datatable-' + o.action + '">\n' +
+           '                <thead>\n' +
+           '                    <tr class="info">\n' +
+           xcDataTableColumnsRenderThead(core, thIndent, o.columns) + '\n' +
+           '                    </tr>\n' +
+           '                </thead>\n' +
+           '                <tbody>\n' +
+           '                    <tr>\n' +
+           xcDataTableColumnsRenderLoadingRow(core, tdIndent, o.columns, o.loading) + '\n' +
+           '                    </tr>\n' +
+           '                </tbody>\n' +
+           '                </table>';
+}
+
+// True when the config asks for anything the canonical DOM does not already
+// give: a hidden column or a resequenced one. Cheap enough to run per draw,
+// and it keeps the permutation off the hot path for the classic theme, which
+// never reorders anything.
+function xcDataTableColumnsNeedsPermutation(core, columns){
+    var order = xcDataTableColumnsRenderOrder(core, columns);
+    if(order.length !== columns.length) return true;
+    for(var i = 0; i < order.length; i++)
+        if(order[i] !== i) return true;
+    return false;
+}
+
 (function(root, factory){
 
     var api = factory();
@@ -52,96 +146,4 @@
     if(typeof module !== 'undefined' && module.exports)
         module.exports = api;
 
-})(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function(){
-
-    'use strict';
-
-    // The indentation the hand-written pages used. Kept as constants rather
-    // than inlined so the byte-parity gate has one place to point at.
-    var TH_INDENT = '                        ';
-    var TD_INDENT = '                        ';
-
-    // The ordering rule is the runtime's, not this file's: the detail-card's
-    // rows and the tab-panel's tabs resequence by exactly the same hidden/order
-    // contract, and two copies of it would eventually disagree about what
-    // `order: 0` means. Resolved once here rather than per call, because in the
-    // browser components.js is already loaded by the time this file runs and in
-    // Node the composer requires this file directly.
-    var CORE = (typeof XCComponents !== 'undefined')
-        ? XCComponents
-        : ((typeof require === 'function') ? require('../../js/components.js') : null);
-
-    // Columns actually rendered, in the order they are rendered.
-    function renderOrder(columns){
-        return CORE.resolveOrder(columns);
-    }
-
-    function visibleCount(columns){
-        return renderOrder(columns).length;
-    }
-
-    // One <th>. `cls` absent renders <th>, `cls` present renders <th class="...">
-    // even when empty, because both forms are in the shipped pages.
-    function renderTh(col){
-        var cls = (col && Object.prototype.hasOwnProperty.call(col, 'cls'))
-            ? ' class="' + col.cls + '"'
-            : '';
-        return TH_INDENT + '<th' + cls + '>' + (col && col.label !== undefined ? col.label : '') + '</th>';
-    }
-
-    // The header rows, indented and newline-joined exactly as the pages had them.
-    function renderThead(columns){
-        return renderOrder(columns).map(function(i){ return renderTh(columns[i]); }).join('\n');
-    }
-
-    // The placeholder row shown until the first ajax draw lands. Its colspan has
-    // to be the RENDERED column count, not the array length, or a theme that
-    // hides a column leaves the message short of the table's width.
-    function renderLoadingRow(columns, text){
-        return TD_INDENT + '<td colspan="' + visibleCount(columns) + '" class="loading-data">' + (text || '') + '</td>';
-    }
-
-    /**
-     * The whole <table> block for a list page, at the indentation the composed
-     * page needs it.
-     *
-     * @param {object} o  { tableClass, action, columns, loading }
-     */
-    function renderTable(o){
-        return '                <table class="' + o.tableClass + '" width="100%" id="datatable-' + o.action + '">\n' +
-               '                <thead>\n' +
-               '                    <tr class="info">\n' +
-               renderThead(o.columns) + '\n' +
-               '                    </tr>\n' +
-               '                </thead>\n' +
-               '                <tbody>\n' +
-               '                    <tr>\n' +
-               renderLoadingRow(o.columns, o.loading) + '\n' +
-               '                    </tr>\n' +
-               '                </tbody>\n' +
-               '                </table>';
-    }
-
-    // True when the config asks for anything the canonical DOM does not already
-    // give: a hidden column or a resequenced one. Cheap enough to run per draw,
-    // and it keeps the permutation off the hot path for the classic theme, which
-    // never reorders anything.
-    function needsPermutation(columns){
-        var order = renderOrder(columns);
-        if(order.length !== columns.length) return true;
-        for(var i = 0; i < order.length; i++)
-            if(order[i] !== i) return true;
-        return false;
-    }
-
-    return {
-        renderOrder: renderOrder,
-        visibleCount: visibleCount,
-        renderTh: renderTh,
-        renderThead: renderThead,
-        renderLoadingRow: renderLoadingRow,
-        renderTable: renderTable,
-        needsPermutation: needsPermutation
-    };
-
-});
+})(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), xcDataTableColumnsCreateApi);

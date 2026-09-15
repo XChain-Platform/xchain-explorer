@@ -198,7 +198,7 @@ function setDecoderPool(db, mariadb, dcfg, cfg, key){
 // the checkpointDb note above); same same-server/same-creds
 // rule as decoderDb, read by reusing this indexer pool.
 // self_sync marks a mirror schema this explorer populates
-// itself via HubMirrorSyncManager (the #4138 decoupling)
+// itself via HubMirrorSyncManager (the self-sync decoupling)
 // rather than an externally-maintained hub schema; the
 // connection details ride along so the mirror writer can
 // open its own small pool on the same server.

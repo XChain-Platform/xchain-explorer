@@ -119,7 +119,7 @@ describe('Database#getQueryOffsets', () => {
     beforeEach(() => { db = makeDb(); });
     afterEach(() => { sinon.restore(); });
 
-    // CORRECTED: an untyped getHistory is the ALL-ACTIVITY feed, and it pages over
+    // An untyped getHistory is the ALL-ACTIVITY feed, and it pages over
     // `actions`, not over mappings_actions. The mapping table only carries actions
     // that moved an address/tick ledger, so a boundary computed from it opens the
     // feed below every consensus action newer than the last ledger-moving one. Only

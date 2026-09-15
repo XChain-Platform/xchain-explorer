@@ -23,7 +23,7 @@ const { expect } = require('chai');
 const Utility    = require('../../../../../../src/lib/utility.js');
 const { createConfigInfoStub, getFullConfig } = require('../../../../../fixtures/mock-config.js');
 
-// The pool code lives in src/db/connection.js since proposal B stage 1, and
+// The pool code lives in src/db/connection.js, and
 // db/index.js no longer requires mariadb at all. proxyquire only substitutes a
 // module's OWN direct requires, so the driver stub has to be injected into the
 // connection module and that module handed to db/index.js; stubbing mariadb on db/index.js

@@ -127,8 +127,8 @@ class DatabasePools {
     // replicates them. A missing entry is a fatal misconfiguration: throw a
     // clear, named error so a mis-provisioned thin replica fails to start
     // instead of silently serving empty state_checkpoints /
-    // capability_snapshots / cross_chain_matches (#4138), or empty
-    // price_snapshots / oracle_prices (items 4062 / 4063).
+    // capability_snapshots / cross_chain_matches, or empty
+    // price_snapshots / oracle_prices.
     // Opt-out: ALLOW_NO_COLOCATED_HUB_DB=1 downgrades the fatal error to a warning,
     // for deployments that intentionally do not expose the hub-mirrored endpoints.
     assertCheckpointDbForServingCoins(){

@@ -109,7 +109,7 @@ class DatabaseConnection {
             }
         }
 
-        // Mandatory co-located mirror invariant (#4138). The hub-mirrored tables
+        // Mandatory co-located mirror invariant. The hub-mirrored tables
         // (state_checkpoints, capability_snapshots, cross_chain_matches) are NEVER
         // replicated by xchain-sync, so a serving coin with no checkpoint schema
         // (self-synced via HubMirrorSyncManager, or externally maintained) has

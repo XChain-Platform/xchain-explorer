@@ -21,7 +21,7 @@
  * cross_chain_matches, cross_chain_calls, oracle_prices, price_snapshots,
  * bridge_transfers, policy_snapshots)
  * instead of requiring a hub-owned schema to be provisioned next to it
- * (#4138 decoupling). The read path is unchanged: db/index.js keeps reading the
+ * (the self-sync decoupling). The read path is unchanged: db/index.js keeps reading the
  * schema named by database.checkpoint on the indexer pool; this manager is
  * only the writer that populates it.
  *

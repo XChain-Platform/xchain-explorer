@@ -234,7 +234,7 @@ class SyncFeedReaders {
     // telemetry_pings). These are hub-LOCAL operational tables with no on-chain
     // action and, unlike validator_capabilities/governance_*, no hub JSON-RPC read
     // surface at all, so they are served ONLY from the co-located hub DB via
-    // hubSource (same host+creds as the indexer pool; #4138), which is therefore
+    // hubSource (same host+creds as the indexer pool), which is therefore
     // mandatory for these four on any install that serves them. That is the reverse
     // of the three RPC-first tables above, where the co-located schema serves only
     // the no-hub shape and a configured-but-down hub fails loud. Each is

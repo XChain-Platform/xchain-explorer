@@ -179,7 +179,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._body).to.deep.equal({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
     });
 
-    // Ranges an earlier hand-rolled blocklist missed (only /^fc00:/, no CGNAT,
+    // Ranges a prefix-only blocklist would miss (only /^fc00:/, no CGNAT,
     // partial link-local); the canonical isPrivateAddress + net.isIP literal check
     // must cover them so an IPv6/CGNAT literal cannot bypass the guard. A private
     // literal never reaches axios (the connect-time lookup shim is skipped for IP

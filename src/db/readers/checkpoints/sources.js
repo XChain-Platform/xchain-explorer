@@ -39,7 +39,7 @@ class CheckpointSourceReaders {
     // kept live by HubMirrorSyncManager over the hub's /hub-db feed. There is
     // deliberately NO fallback to the replicated indexer DB: a thin replica has
     // only a stale/empty bootstrap copy of these tables, and silently serving
-    // that would publish wrong consensus-relevant data with no alarm (#4138; a
+    // that would publish wrong consensus-relevant data with no alarm (a
     // never-bootstrapped self-sync mirror is likewise gated by the mirror-status
     // check in the routes). When the checkpoint schema is absent or its
     // configured name is not a safe identifier we FAIL LOUD by throwing,

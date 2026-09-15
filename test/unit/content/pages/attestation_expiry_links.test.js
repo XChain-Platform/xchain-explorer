@@ -44,13 +44,13 @@ const sinon      = require('sinon');
 const { JSDOM }  = require('jsdom');
 const { expect } = require('chai');
 
-const Utility = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig }           = require('../fixtures/mock-query-args.js');
-const consensus                = require('../../src/action-detail/consensus.js');
+const Utility = require('../../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
+const consensus                = require('../../../../src/action-detail/consensus.js');
 
-const DatabaseReal = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const DatabaseReal = proxyquire('../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo = createConfigInfoStub();
@@ -277,9 +277,9 @@ describe('ATTEST v2 action detail: the page names its request', () => {
  * exactly as content-client-contract-meta-render.test.js drives it.
  * ------------------------------------------------------------------ */
 
-const CLIENT_SRC = require('../helpers/content-source.js').clientSource();
-const JQUERY     = path.resolve(__dirname, '../../src/content/js/jquery.min.js');
-const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
+const CLIENT_SRC = require('../../../helpers/content-source.js').clientSource();
+const JQUERY     = path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js');
+const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
 
 function bootClient(bodyHtml){
     const dom = new JSDOM('<!doctype html><html><body>' + (bodyHtml || '') + '</body></html>', {

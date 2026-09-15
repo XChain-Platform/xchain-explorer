@@ -30,17 +30,17 @@ const fs             = require('fs');
 const path           = require('path');
 const sinon          = require('sinon');
 const { expect }     = require('chai');
-const Database       = require('../../../../src/db/index.js');
-const ChangeDetector = require('../../../../src/ws/change_detector.js');
-const Broadcaster    = require('../../../../src/ws/broadcaster.js');
-const { envView }    = require('../../../fixtures/mock-config.js');
+const Database       = require('../../../../../../src/db/index.js');
+const ChangeDetector = require('../../../../../../src/ws/change_detector.js');
+const Broadcaster    = require('../../../../../../src/ws/broadcaster.js');
+const { envView }    = require('../../../../../fixtures/mock-config.js');
 
 const hex = (s) => Buffer.from(s, 'utf8').toString('hex');
 
 // A db instance with the decoder name map + stubbed query layer.
 function mkDb(rows) {
     const db = Object.create(Database.prototype);
-    const Utility = require('../../../../src/lib/utility.js');
+    const Utility = require('../../../../../../src/lib/utility.js');
     db.util = new Utility();
     // The db/ readers read every environment variable through config.js's
     // env object, so a hand-built Database needs the same key the real
@@ -63,7 +63,7 @@ const TRASH_ROW = { tx_hash: 'cc33', source: 'srcAddr3', data: 'zz-not-an-action
 // It must NOT decode: the mempool feed drops it rather than showing mojibake.
 const LEGACY_HEX_ROW = { tx_hash: 'dd44', source: 'srcAddr4', data: hex('SEND|0|TOK|5|destAddr1|nonce123') };
 
-const unitDir = path.resolve(__dirname, '../..');
+const unitDir = path.resolve(__dirname, '..', '..', '../..');
 
 function getDecoderPaths() {
     const decoderRoot = process.env.XCHAIN_DECODER_ROOT ||

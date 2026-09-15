@@ -20,8 +20,8 @@
 const sinon    = require('sinon');
 const axios    = require('axios');
 const { expect } = require('chai');
-const XChainIndexerConnector = require('../../src/connectors/indexer.js');
-const { resolveIndexerUrl }  = require('../../src/connectors/indexer.js');
+const XChainIndexerConnector = require('../../../src/connectors/indexer.js');
+const { resolveIndexerUrl }  = require('../../../src/connectors/indexer.js');
 
 const ENV_KEYS = ['INDEXER_API_URL_BTC_REGTEST', 'INDEXER_API_URL', 'INDEXER_API_TIMEOUT_MS'];
 let saved;

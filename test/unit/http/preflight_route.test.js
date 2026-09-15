@@ -18,12 +18,12 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../helpers/source_text');
 
 const sinon = require('sinon');
 const { expect } = require('chai');
-const XChainExplorer = require('../../src/XChainExplorer.js');
-const IndexerConnector = require('../../src/connectors/indexer.js');
+const XChainExplorer = require('../../../src/XChainExplorer.js');
+const IndexerConnector = require('../../../src/connectors/indexer.js');
 const { batchParams } = require('./preflight_route.test/support/helpers.js');
 
 // A minimal `this` for the route method: configInfo, parseCoinCode,

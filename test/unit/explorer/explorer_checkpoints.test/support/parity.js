@@ -38,7 +38,7 @@ const fs   = require('fs');
 const path = require('path');
 const SDK_CHECKPOINT = process.env.XCHAIN_SDK_DIR
     ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'checkpoint.js')
-    : path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-sdk', 'src', 'checkpoint.js');
+    : path.join(__dirname, '..', '..', '..', '..', '..', '..', 'xchain-sdk', 'src', 'checkpoint.js');
 
 const ROWS = {
     'legacy mainnet row (pre flag-days, no roots)': {

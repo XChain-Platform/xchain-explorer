@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { declarationsIn, stripComments } = require('./helpers.js');
 
-const CSS_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'css');
-const THEME_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'themes');
+const CSS_DIR = path.join(__dirname, '..', '..', '..', '..', '..', '..', 'src', 'content', 'css');
+const THEME_DIR = path.join(__dirname, '..', '..', '..', '..', '..', '..', 'src', 'content', 'themes');
 const TOKENS_FILE = path.join(THEME_DIR, 'classic', 'tokens.css');
 const SKIN_FILE = path.join(THEME_DIR, 'skin-demo', 'tokens.css');
 const BOOTSTRAP_FILE = path.join(CSS_DIR, 'bootstrap.min.css');

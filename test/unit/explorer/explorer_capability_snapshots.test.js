@@ -46,8 +46,8 @@ const sinon       = require('sinon');
 const fs          = require('fs');
 const path        = require('path');
 
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { makeConfig, makeExplorerConfig } = require('../../fixtures/mock-query-args.js');
 
 const { makeRealDb, HUB } = require('./explorer_capability_snapshots.test/support/helpers.js');
 
@@ -104,7 +104,7 @@ class MockDB {
     getMaxMethodResults() { return 100; }
 }
 
-const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../src/XChainExplorer.js', {
     'express': express,
     './db/index.js': MockDB
 });
@@ -161,7 +161,7 @@ describe('XChainExplorer.getPagingDataResults: getCapabilitySnapshots row shape'
 describe('capability_snapshots.html page fragment', () => {
 
     const html = fs.readFileSync(
-        path.join(__dirname, '..', '..', 'src', 'content', 'html', 'capability_snapshots.html'),
+        path.join(__dirname, '..', '..', '..', 'src', 'content', 'html', 'capability_snapshots.html'),
         'utf8'
     );
 

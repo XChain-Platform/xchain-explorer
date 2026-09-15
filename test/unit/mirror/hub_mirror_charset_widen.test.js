@@ -23,9 +23,9 @@
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
-const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../../src/mirror/migrate.js');
+const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../../../src/mirror/migrate.js');
 
-const TWIN_DIR = path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror');
+const TWIN_DIR = path.join(__dirname, '..', '..', '..', 'src', 'sql', 'hub-mirror');
 const noLog = () => {};
 
 // A doQuery-bearing connection over a per-table shape map that also answers

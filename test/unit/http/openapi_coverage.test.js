@@ -19,14 +19,14 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../helpers/source_text');
 
 const fs         = require('fs');
 const path       = require('path');
 const { expect } = require('chai');
 
 const SRC  = srcText('src/XChainExplorer.js');
-const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '../../docs/openapi.json'), 'utf8'));
+const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '../../docs/openapi.json'), 'utf8'));
 
 // '/{COIN}/api/...' object keys inside the urls.api table in the source.
 function sourceApiRoutes() {
@@ -146,7 +146,7 @@ function registerGatedFileProducerTests() {
 function gatedFileProducerSuite() {
         const SDK_GATED_FILE = process.env.XCHAIN_SDK_DIR
             ? path.join(process.env.XCHAIN_SDK_DIR, 'src', 'gatedFile.js')
-            : path.resolve(__dirname, '../../../xchain-sdk/src/gatedFile.js');
+            : path.resolve(__dirname, '..', '../../../xchain-sdk/src/gatedFile.js');
 
         // The SDK keeps its old import paths alive as bare re-export shims, so the
         // pinned path can be four lines that carry no crypto at all. Reading it

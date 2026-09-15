@@ -28,12 +28,12 @@
 
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
-const Utility    = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const activation = require('../../src/list_edit_resolution_activation.js');
+const Utility    = require('../../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const activation = require('../../../../src/list_edit_resolution_activation.js');
 
-const Database = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo   = createConfigInfoStub();
@@ -225,8 +225,8 @@ describe('the explorer shows the membership the chain enforces', function () {
             // does not gate on, at exactly the boundary where anyone is watching.
             const fs   = require('fs');
             const path = require('path');
-            const mine = path.join(__dirname, '..', '..', 'src', 'list_edit_resolution_activation.js');
-            const theirs = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'list_edit_resolution_activation.js');
+            const mine = path.join(__dirname, '..', '..', '..', '..', 'src', 'list_edit_resolution_activation.js');
+            const theirs = path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-indexer', 'src', 'list_edit_resolution_activation.js');
             if (!fs.existsSync(theirs)) return this.skip();   // standalone deploy: sibling absent
             expect(fs.readFileSync(mine, 'utf8')).to.equal(fs.readFileSync(theirs, 'utf8'));
         });

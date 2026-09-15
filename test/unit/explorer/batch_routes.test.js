@@ -34,8 +34,8 @@
 
 const { expect }               = require('chai');
 const proxyquire               = require('proxyquire').noCallThru();
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { mockReq, mockRes }     = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { mockReq, mockRes }     = require('../../fixtures/mock-query-args.js');
 
 // Per-test DB behaviour, keyed by the reader method processRequest resolves the
 // path to. A handler receives the cfg processRequest built and returns the
@@ -91,7 +91,7 @@ const expressMock  = () => mockApp;
 expressMock.static = () => {};
 expressMock.json   = () => {};
 
-const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../src/XChainExplorer.js', {
     'express': expressMock,
     './db/index.js': MockDB
 });

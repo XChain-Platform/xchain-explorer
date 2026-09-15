@@ -36,7 +36,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -47,7 +47,7 @@ const { JSDOM } = require('jsdom');
 // became the composition root, so the pinned bodies are read from there.
 const SRC_DB   = srcText('src/db/readers/polls_bets.js');
 const SRC_JS   = srcText('src/content/js/xchain.js');
-const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
+const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
 
 // Slice a method body out of the source by walking braces, the technique the
 // sibling content-client tests use, so this reads shipped code not a copy.
@@ -139,7 +139,7 @@ describe('order detail: the lifecycle status is rendered', () => {
 describe('bet feed page: the winner is marked on its own outcome row', () => {
 
     const html = fs.readFileSync(
-        path.resolve(__dirname, '../../src/content/html/bet_feed.html'), 'utf8');
+        path.resolve(__dirname, '..', '..', '../../src/content/html/bet_feed.html'), 'utf8');
 
     it('compares the winning outcome strictly, so outcome 0 can win', () => {
         // A truthy test drops outcome 0, which is a perfectly ordinary winner and

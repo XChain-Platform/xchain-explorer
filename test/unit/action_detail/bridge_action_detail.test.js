@@ -27,7 +27,7 @@
 
 const assert = require('node:assert/strict');
 
-const { REGISTRY, ACTION_TYPES, getHandler } = require('../../src/action-detail');
+const { REGISTRY, ACTION_TYPES, getHandler } = require('../../../src/action-detail');
 
 // Minimal ctx: the handler reaches the pool through db.doQuery, so the double
 // only has to answer that one call.

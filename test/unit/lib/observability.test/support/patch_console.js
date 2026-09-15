@@ -12,10 +12,10 @@
 
 const { expect } = require('chai');
 
-const { createLogShipper } = require('../../../../src/observability/logShipper.js');
+const { createLogShipper } = require('../../../../../src/observability/logShipper.js');
 const {
     installObservability, patchConsole, unpatchConsole, getLogger, getRegistry, _resetObservability
-} = require('../../../../src/observability/index.js');
+} = require('../../../../../src/observability/index.js');
 const { fakeConsole } = require('./helpers.js');
 
 describe('observability/patchConsole', function () {

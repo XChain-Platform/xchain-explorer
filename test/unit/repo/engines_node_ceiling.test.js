@@ -29,7 +29,7 @@
 // this guard is what covers THIS package.json in THIS repo's own suite.
 
 const assert = require('assert');
-const pkg = require('../../package.json');
+const pkg = require('../../../package.json');
 
 /** The exclusive upper bound a single npm comparator implies, or null. */
 function comparatorCeiling(token) {

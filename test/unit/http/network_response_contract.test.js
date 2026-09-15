@@ -36,15 +36,15 @@ const path       = require('path');
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig }           = require('../fixtures/mock-query-args.js');
+const Utility    = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../fixtures/mock-query-args.js');
 
-const Database = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
-const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '../../docs/openapi.json'), 'utf8'));
+const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '../../docs/openapi.json'), 'utf8'));
 
 function deref(node) {
     if (node && node.$ref) {

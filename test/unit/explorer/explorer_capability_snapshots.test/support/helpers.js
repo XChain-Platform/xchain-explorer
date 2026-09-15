@@ -16,10 +16,10 @@
 
 const proxyquire  = require('proxyquire');
 
-const Utility = require('../../../../src/lib/utility.js');
+const Utility = require('../../../../../src/lib/utility.js');
 
-const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
-const { makeConfig } = require('../../../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../../../fixtures/mock-config.js');
+const { makeConfig } = require('../../../../fixtures/mock-query-args.js');
 
 // ─────────────────────────────────────────────────────────────────────────
 // Database#getCapabilitySnapshots (real db/index.js SQL-generating method, mariadb
@@ -27,8 +27,8 @@ const { makeConfig } = require('../../../fixtures/mock-query-args.js');
 // DatabaseReal / makeRealDb.
 // ─────────────────────────────────────────────────────────────────────────
 
-const DatabaseReal = proxyquire('../../../../src/db/index.js', {
-    './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const DatabaseReal = proxyquire('../../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb(explorerOverrides = {}) {

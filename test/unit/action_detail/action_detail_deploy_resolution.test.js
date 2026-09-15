@@ -44,12 +44,12 @@
 
 const assert     = require('node:assert/strict');
 const proxyquire = require('proxyquire');
-const Utility    = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { DEPLOY } = require('../../src/action-detail/contracts.js');
+const Utility    = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { DEPLOY } = require('../../../src/action-detail/contracts.js');
 
-const Database = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 // node:sqlite is the only engine available to a unit tier (mariadb is the

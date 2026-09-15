@@ -30,14 +30,14 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const SRC_DIR     = path.resolve(__dirname, '../../src/content');
+const SRC_DIR     = path.resolve(__dirname, '..', '..', '../../src/content');
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
 // (isNull, escapeHtml, formatAmount, formatHash, formatLivestamp) moved there
 // in the component milestone. Concatenated rather than switched, so this file

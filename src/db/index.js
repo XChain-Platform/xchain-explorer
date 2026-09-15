@@ -26,7 +26,7 @@
  * same `this`. What changed is where the source of each method is read.
  *
  * Two invariants this file owes the split, both guarded by
- * test/unit/db_prototype_install.test.js:
+ * test/unit/db/core/db_prototype_install.test.js:
  *
  *   - The surface is complete. Every method the class had is still on the
  *     prototype; a module that is written but never required here would

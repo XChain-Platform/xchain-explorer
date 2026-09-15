@@ -31,10 +31,10 @@
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
-const { captureActionType, stableStringify } = require('../fixtures/action-detail-capture.js');
-const { REGISTRY, ACTION_TYPES, getHandler }  = require('../../src/action-detail');
+const { captureActionType, stableStringify } = require('../../fixtures/action-detail-capture.js');
+const { REGISTRY, ACTION_TYPES, getHandler }  = require('../../../src/action-detail');
 
-const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'action-detail-golden.json'), 'utf8'));
+const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'fixtures', 'action-detail-golden.json'), 'utf8'));
 const sqlText = (indices) => indices.map((i) => GOLDEN.statements[i]);
 
 // Every hook getActionData actually calls. A handler key outside this set is a
@@ -121,7 +121,7 @@ describe('action-detail registry @regression', function () {
     this.timeout(20000);
     describe('getActionData stays a pipeline', function () {
         function getActionDataBody() {
-            const src    = fs.readFileSync(path.join(__dirname, ...ACTION_DETAIL_IO), 'utf8');
+            const src    = fs.readFileSync(path.join(__dirname, '..', ...ACTION_DETAIL_IO), 'utf8');
             const marker = 'async getActionData(';
             const start  = src.indexOf(marker);
             assert.ok(start >= 0, 'getActionData not found in src/db/readers/action_detail_io.js');

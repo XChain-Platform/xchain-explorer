@@ -26,17 +26,17 @@
 
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
-const Utility    = require('../../../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
-const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
+const Utility    = require('../../../../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../../../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../../../../fixtures/mock-query-args.js');
 
 // Stubbed MariaDB pool: these tests only build query strings, so no real
 // connection is needed.
 const configInfo = createConfigInfoStub();
 const util       = new Utility(configInfo);
 const mockExplorer = { configInfo, util };
-const Database = proxyquire('../../../../src/db/index.js', {
-    './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 const db = new Database(mockExplorer);
 

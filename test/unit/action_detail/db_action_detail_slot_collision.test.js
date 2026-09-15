@@ -26,7 +26,7 @@ const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
 
-const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'action-detail-golden.json'), 'utf8'));
+const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'fixtures', 'action-detail-golden.json'), 'utf8'));
 
 // Slots getActionData assigns AFTER the handler runs: credits/debits/escrows/fee are
 // seeded before the main row and fee is refilled from getActionFeeData, tx_data last.

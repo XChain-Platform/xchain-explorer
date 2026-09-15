@@ -29,9 +29,9 @@
 const { expect } = require('chai');
 const fs         = require('fs');
 const path       = require('path');
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../helpers/source_text');
 
-const CONTENT = path.join(__dirname, '..', '..', 'src', 'content');
+const CONTENT = path.join(__dirname, '..', '..', '..', 'src', 'content');
 const FA_DIR  = path.dirname(require.resolve('@fortawesome/fontawesome-free/package.json'));
 
 // Layout/behaviour utility classes: part of Font Awesome's API but not icon

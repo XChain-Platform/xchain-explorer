@@ -17,7 +17,7 @@
  * fixed is that the old implementation matched ONLY type address/token,
  * returned [] for a bare/list-all request, and ignored sql.limit entirely).
  *
- * Mirrors test/unit/mempool.test.js's mkDb helper: a Database instance with
+ * Mirrors test/unit/db/mempool/mempool.test.js's mkDb helper: a Database instance with
  * only the decoder-name map + a stubbed doQuery, no real database.
  */
 
@@ -25,12 +25,12 @@
 
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Database   = require('../../src/db/index.js');
-const { envView } = require('../fixtures/mock-config.js');
+const Database   = require('../../../../src/db/index.js');
+const { envView } = require('../../../fixtures/mock-config.js');
 
 function mkDb(rows) {
     const db = Object.create(Database.prototype);
-    const Utility = require('../../src/lib/utility.js');
+    const Utility = require('../../../../src/lib/utility.js');
     db.util = new Utility();
     db.decoderDb = { RBTC: 'XChain_BTC_Decoder' };
     db.doQuery = sinon.stub().resolves(rows);

@@ -22,8 +22,8 @@
 'use strict';
 
 const { expect } = require('chai');
-const shared      = require('../../src/action-detail/shared.js');
-const { SWAP }    = require('../../src/action-detail/markets.js');
+const shared      = require('../../../src/action-detail/shared.js');
+const { SWAP }    = require('../../../src/action-detail/markets.js');
 
 function swapRow(current_status) {
     return {

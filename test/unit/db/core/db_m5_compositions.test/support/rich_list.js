@@ -72,7 +72,7 @@ describe('M5.1 getCollectibles classification (spec rows 32)', function () {
         // The client's rule is read out of the shipped source rather than restated.
         const fs   = require('fs');
         const path = require('path');
-        const src  = fs.readFileSync(path.resolve(__dirname, '../../../../src/content/js/formatters.js'), 'utf8');
+        const src  = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../../../src/content/js/formatters.js'), 'utf8');
         const body = src.slice(src.indexOf('function isNftToken('));
         expect(body).to.include('Number(decimals)===0');
         expect(body).to.include('Number(lockMaxSupply)===1');

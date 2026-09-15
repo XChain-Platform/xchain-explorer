@@ -29,9 +29,9 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 
-const { createConfigInfoStub }   = require('../../../fixtures/mock-config.js');
-const { mockReq, mockRes }       = require('../../../fixtures/mock-query-args.js');
-const mockResults                = require('../../../fixtures/mock-db-results.js');
+const { createConfigInfoStub }   = require('../../../../fixtures/mock-config.js');
+const { mockReq, mockRes }       = require('../../../../fixtures/mock-query-args.js');
+const mockResults                = require('../../../../fixtures/mock-db-results.js');
 
 // Shared state: control what getData returns per test
 const state = { getDataResult: [[], null] };
@@ -50,7 +50,7 @@ express.static = () => {};
 express.json   = () => {};
 
 // Load XChainExplorer with all heavy dependencies replaced
-const XChainExplorer = proxyquire('../../../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../../../src/XChainExplorer.js', {
     'express': express,
     './db/index.js': MockDB,
     'fs': {

@@ -14,13 +14,13 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const path       = require('path');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { mockRes }              = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { mockRes }              = require('../../fixtures/mock-query-args.js');
 
 // proxyquire.noCallThru() is NOT used globally so internal helpers (utility,
 // path, etc.) stay real; only the listed modules are replaced.
 function makeExplorer(axiosStub) {
-    const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+    const XChainExplorer = proxyquire('../../../src/XChainExplorer.js', {
         axios:    axiosStub,
         express:  { Router: () => ({ get: () => {}, use: () => {} }), static: () => {} },
         fs:       { existsSync: () => false },

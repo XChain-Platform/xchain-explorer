@@ -27,7 +27,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -35,7 +35,7 @@ const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
 const SRC = srcText('src/content/js/xchain.js');
-const MARKET_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/market.html'), 'utf8');
+const MARKET_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/market.html'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces (the same
 // technique the sibling content-client tests use) so this runs shipped code
@@ -98,7 +98,7 @@ function basics(apiResponse) {
         '<span class="tick1-name"></span><span class="tick2-name"></span>' +
         '<a id="market-swap-button" href="#"></a>' +
         '</body>', { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(HELPERS);
     dom.window.eval(`
         var XC = { coin: 'RDOGE' };

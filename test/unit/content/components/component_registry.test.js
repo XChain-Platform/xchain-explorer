@@ -34,14 +34,14 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-const ROOT       = path.resolve(__dirname, '..', '..');
+const ROOT       = path.resolve(__dirname, '..', '..', '..', '..');
 const COMPONENTS = path.join(ROOT, 'src', 'content', 'js', 'components.js');
 const XCComponents = require(COMPONENTS);
 

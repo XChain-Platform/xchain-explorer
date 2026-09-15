@@ -36,7 +36,7 @@ const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 
-const SRC   = path.resolve(__dirname, '../../src');
+const SRC   = path.resolve(__dirname, '..', '..', '../../src');
 
 // Every file the queries live in, walked rather than listed: db/index.js is being
 // decomposed into src/db/ a family at a time, and a hard

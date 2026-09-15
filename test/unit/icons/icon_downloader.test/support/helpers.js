@@ -156,13 +156,13 @@ function makeStubs(opts) {
 // embeds in the re-stale SQL, and a stubbed copy here would let the SQL and the
 // real resolver drift apart without a test noticing - which is the whole failure
 // the shared constant exists to prevent.
-const { ACTION_REF_PATTERN } = require('../../../../src/icons/resolver.js');
+const { ACTION_REF_PATTERN } = require('../../../../../src/icons/resolver.js');
 
 /**
  * Load IconDownloader through proxyquire using the provided stubs.
  */
 function loadIconDownloader(stubs) {
-    return proxyquire('../../../../src/icons/downloader.js', {
+    return proxyquire('../../../../../src/icons/downloader.js', {
         'axios':          stubs.axiosStub,
         'fs':             stubs.fsStub,
         'fs/promises':    stubs.fspStub,

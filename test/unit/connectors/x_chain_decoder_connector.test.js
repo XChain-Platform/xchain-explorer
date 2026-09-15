@@ -20,8 +20,8 @@
 const sinon    = require('sinon');
 const axios    = require('axios');
 const { expect } = require('chai');
-const XChainDecoderConnector = require('../../src/connectors/decoder.js');
-const { resolveDecoderUrl }  = require('../../src/connectors/decoder.js');
+const XChainDecoderConnector = require('../../../src/connectors/decoder.js');
+const { resolveDecoderUrl }  = require('../../../src/connectors/decoder.js');
 
 const ENV_KEYS = ['DECODER_API_URL_BTC_REGTEST', 'DECODER_API_URL', 'DECODER_API_TIMEOUT_MS'];
 let saved;

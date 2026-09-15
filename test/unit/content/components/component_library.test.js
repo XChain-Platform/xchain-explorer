@@ -31,14 +31,14 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-const ROOT           = path.resolve(__dirname, '..', '..');
+const ROOT           = path.resolve(__dirname, '..', '..', '..', '..');
 const COMPONENT_DIR  = path.join(ROOT, 'src', 'content', 'components');
 const HTML_DIR       = path.join(ROOT, 'src', 'content', 'html');
 const componentTpl   = require(path.join(ROOT, 'src', 'render', 'component_templates.js'));
@@ -54,7 +54,7 @@ const EXPECTED = [
     'qr-card', 'search-box', 'stat-card', 'tab-panel', 'theme-toggle'
 ].sort();
 
-const SOURCE = require('../helpers/content-source.js');
+const SOURCE = require('../../../helpers/content-source.js');
 
 function loadAll(){
     SOURCE.loadComponents(NAMES);

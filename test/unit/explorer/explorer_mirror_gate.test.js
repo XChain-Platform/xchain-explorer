@@ -18,8 +18,8 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { mockRes }              = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { mockRes }              = require('../../fixtures/mock-query-args.js');
 
 const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
 const express = () => mockApp;
@@ -28,7 +28,7 @@ express.json   = () => {};
 
 class MockDB { constructor() {} async init() {} }
 
-const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../src/XChainExplorer.js', {
     'express': express,
     './db/index.js': MockDB,
     'fs': { existsSync: () => true, readFileSync: () => 'mock' }

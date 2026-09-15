@@ -19,7 +19,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const R = require('../../src/content/js/xbridge_panels_render.js');
+const R = require('../../../../src/content/js/xbridge_panels_render.js');
 
 describe('xbridge-panels-render as a module', function(){
 

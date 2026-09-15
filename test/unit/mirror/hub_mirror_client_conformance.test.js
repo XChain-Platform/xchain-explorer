@@ -23,8 +23,8 @@ const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
 
-const LOCAL_SRC  = path.join(__dirname, '../../src');
-const CANON_SRC  = path.join(__dirname, '../../../xchain-indexer/src');
+const LOCAL_SRC  = path.join(__dirname, '..', '../../src');
+const CANON_SRC  = path.join(__dirname, '..', '../../../xchain-indexer/src');
 const CANON_PRESENT = fs.existsSync(path.join(CANON_SRC, 'hub', 'hub_db_sync.js'));
 
 const SQL_DIR    = path.join(LOCAL_SRC, 'sql', 'hub-mirror');

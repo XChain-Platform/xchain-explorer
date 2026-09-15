@@ -43,14 +43,14 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
 const { JSDOM } = require('jsdom');
 
-const SRC_DIR    = path.resolve(__dirname, '../../src/content');
+const SRC_DIR    = path.resolve(__dirname, '..', '..', '../../src/content');
 const XCHAIN_SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.join(SRC_DIR, 'js/formatters.js'), 'utf8');
 const RENDER_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/xbridge_panels_render.js'), 'utf8');

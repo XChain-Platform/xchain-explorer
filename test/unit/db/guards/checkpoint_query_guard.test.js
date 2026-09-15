@@ -26,8 +26,8 @@
 
 const { expect }            = require('chai');
 const proxyquire            = require('proxyquire').noCallThru();
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { mockReq, mockRes }  = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const { mockReq, mockRes }  = require('../../../fixtures/mock-query-args.js');
 
 /** Captured cfg from the most-recent getData() call */
 let capturedConfig = null;
@@ -55,7 +55,7 @@ const expressMock = () => mockApp;
 expressMock.static = () => {};
 expressMock.json   = () => {};
 
-const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../../src/XChainExplorer.js', {
     'express':  expressMock,
     './db/index.js':  MockDB
 });

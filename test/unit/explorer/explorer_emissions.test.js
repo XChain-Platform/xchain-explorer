@@ -32,16 +32,16 @@
 const proxyquire = require('proxyquire');
 const { expect }  = require('chai');
 
-const Utility = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig }           = require('../fixtures/mock-query-args.js');
+const Utility = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../fixtures/mock-query-args.js');
 
 // Real db/index.js SQL-generating methods, mariadb stubbed out (no live connection),
 // matching the "M2.1 data leg" pattern in explorer.checkpoints.test.js and
 // db.more-queries.test.js: these tests read the generated SQL text/args, they
 // never execute a query.
-const DatabaseReal = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const DatabaseReal = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb() {

@@ -14,10 +14,10 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const path       = require('path');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { mockRes }              = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { mockRes }              = require('../../fixtures/mock-query-args.js');
 
-const ICONS_DIR = path.resolve(path.join(__dirname, '../../src/content/icons'));
+const ICONS_DIR = path.resolve(path.join(__dirname, '..', '../../src/content/icons'));
 
 /**
  * Build a minimal XChainExplorer instance with the given fs stub.
@@ -25,7 +25,7 @@ const ICONS_DIR = path.resolve(path.join(__dirname, '../../src/content/icons'));
  * express, axios) never execute; only fs is the seam we care about here.
  */
 function makeExplorer(fsStub) {
-    const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+    const XChainExplorer = proxyquire('../../../src/XChainExplorer.js', {
         fs:       fsStub,
         express:  { Router: () => ({ get: () => {}, use: () => {} }), static: () => {} },
         axios:    {},

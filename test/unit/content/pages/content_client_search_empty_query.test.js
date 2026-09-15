@@ -34,8 +34,8 @@ const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const CONTENT    = path.resolve(__dirname, '../../src/content');
-const CLIENT_SRC = require('../helpers/content-source.js').clientSource();
+const CONTENT    = path.resolve(__dirname, '..', '..', '../../src/content');
+const CLIENT_SRC = require('../../../helpers/content-source.js').clientSource();
 const JQUERY     = path.join(CONTENT, 'js', 'jquery.min.js');
 
 // The result tabs search.html registers in XC.panels, READ from the shipped page
@@ -43,7 +43,7 @@ const JQUERY     = path.join(CONTENT, 'js', 'jquery.min.js');
 // searchable name, and a hand-copied list is how a new tab ends up uncovered by
 // the guard below while looking covered.
 const SEARCH_PANELS = (function(){
-    const page = require('../helpers/content-source.js').pageSource('search.html');
+    const page = require('../../../helpers/content-source.js').pageSource('search.html');
     const block = /XC\.panels\s*=\s*\[([\s\S]*?)\]/.exec(page);
     if(!block) throw new Error('search.html no longer registers XC.panels');
     const panels = block[1].split(',').map((s) => s.trim().replace(/^'|'$/g, '')).filter(Boolean);

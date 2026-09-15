@@ -33,13 +33,13 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 
-const CONTENT_DIR = path.join(__dirname, '..', '..', 'src', 'content');
+const CONTENT_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content');
 const JS_DIR      = path.join(CONTENT_DIR, 'js');
 const CSS_DIR     = path.join(CONTENT_DIR, 'css');
 const CHARTS_DIR  = path.join(CONTENT_DIR, 'charts');

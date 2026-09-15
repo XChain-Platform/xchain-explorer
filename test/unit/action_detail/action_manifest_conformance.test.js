@@ -15,12 +15,12 @@
 // explorerRender slice. (The explorer set is the superset: it also renders
 // lifecycle + legacy order/dispenser cancel+edit views.)
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../helpers/source_text');
 const assert = require('assert');
 const fs   = require('fs');
 const path = require('path');
 
-const VENDORED = path.join(__dirname, '..', 'fixtures', 'action-manifest.json');
+const VENDORED = path.join(__dirname, '..', '..', 'fixtures', 'action-manifest.json');
 const MANIFEST = JSON.parse(fs.readFileSync(VENDORED, 'utf8'));
 
 function decomment(src) {
@@ -36,7 +36,7 @@ function manifestSlice(flag) {
 // `type=='X'` inside the getActionData body could miscount any unrelated
 // comparison that happened to sit in the same method.
 function localExplorerSet() {
-    const { ACTION_TYPES } = require('../../src/action-detail');
+    const { ACTION_TYPES } = require('../../../src/action-detail');
     return ACTION_TYPES.filter(n => n !== 'UNKNOWN').sort(); // UNKNOWN is the catch-all render, not an action
 }
 // The two CLIENT halves of the render seam. getActionData returning rich data is
@@ -47,7 +47,7 @@ function renderDispatchSet() {
     return [...new Set([...src.matchAll(/o\.action\s*==\s*["']([A-Z_]+)["']/g)].map(x => x[1]))].sort();
 }
 function panelIdSet() {
-    const html = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'content', 'html', 'action.html'), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'src', 'content', 'html', 'action.html'), 'utf8');
     return [...new Set([...html.matchAll(/id="info-([a-z0-9-]+)"/g)].map(x => x[1]))].sort();
 }
 const panelSlug = (action) => action.replace(/_/g, '-').toLowerCase();
@@ -95,7 +95,7 @@ describe('ACTION manifest conformance: explorer explorerRender set @regression',
     });
 
     describe('byte-identity to canonical manifest', function () {
-        const DOCS = process.env.XCHAIN_DOCS_DIR || path.join(__dirname, '..', '..', '..', 'xchain-documentation');
+        const DOCS = process.env.XCHAIN_DOCS_DIR || path.join(__dirname, '..', '..', '..', '..', 'xchain-documentation');
         const CANON = path.join(DOCS, 'protocol', 'action-manifest.json');
         before(function () { if (!fs.existsSync(CANON)) { if (process.env.XCHAIN_REQUIRE_SIBLINGS === '1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but canonical action-manifest.json not found at ' + CANON); this.skip(); } });
         it('vendored test/fixtures/action-manifest.json is byte-identical to canonical', function () {

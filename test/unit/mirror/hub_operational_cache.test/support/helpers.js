@@ -18,12 +18,12 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
-const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
+const Utility    = require('../../../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../../../fixtures/mock-query-args.js');
 
-const Database = proxyquire('../../../../src/db/index.js', {
-    './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo = createConfigInfoStub();
@@ -58,7 +58,7 @@ function loadCache({ callResult, rpcError, env = {} } = {}) {
         if (env[k] !== undefined) process.env[k] = env[k];
         else delete process.env[k];
     }
-    const HubOperationalCache = proxyquire('../../../../src/mirror/operational_cache.js', {
+    const HubOperationalCache = proxyquire('../../../../../src/mirror/operational_cache.js', {
         '../connectors/hub': FakeConnector
     });
     const cache = new HubOperationalCache({ util });

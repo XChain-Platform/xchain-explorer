@@ -25,13 +25,13 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const { expect } = require('chai');
 const fs   = require('fs');
 const path = require('path');
 
-const healthReaders = require('../../src/db/readers/health.js');
+const healthReaders = require('../../../../src/db/readers/health.js');
 
 describe('explorer ping empty-pool guard', function () {
 
@@ -40,7 +40,7 @@ describe('explorer ping empty-pool guard', function () {
                               src.indexOf('const httpServer = http.createServer(app)'));
     // The SELECT 1 itself lives in the pingPool Database method, so its body is read
     // from the health tip part here and the method is also called against a stub below.
-    const healthSrc = fs.readFileSync(path.join(__dirname, '../../src/db/readers/health/tip.js'), 'utf8');
+    const healthSrc = fs.readFileSync(path.join(__dirname, '../../../../src/db/readers/health/tip.js'), 'utf8');
     const pingStart = healthSrc.indexOf('async pingPool(config)');
     const pingBody  = healthSrc.slice(pingStart, healthSrc.indexOf('\n    }\n', pingStart));
     const PING_CALL = 'db.pingPool({ coin, data: {} })';

@@ -26,7 +26,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -39,8 +39,8 @@ const { expect } = require('chai');
 // keeps naming ONE source for every helper it lifts and does not have to know
 // which of the two a given function ended up in.
 const XCHAIN_SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/checkpoint_verify_render.js'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/checkpoint_verify_render.js'), 'utf8');
 
 function extractFn(src, name) {
     const sig = 'function ' + name + '(';
@@ -61,7 +61,7 @@ function extractFn(src, name) {
 // hands it to $('#checkpoint-verdict').html(...).
 function renderVerdict(v) {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(extractFn(XCHAIN_SRC, 'isNull'));
     dom.window.eval(extractFn(RENDER_SRC, 'renderCheckpointVerdict'));
     const html = dom.window.renderCheckpointVerdict(v);

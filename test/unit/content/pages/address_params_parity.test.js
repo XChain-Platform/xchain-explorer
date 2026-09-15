@@ -28,14 +28,14 @@
 const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
-const coins = require('../../src/coins');
+const coins = require('../../../../src/coins');
 
 // Overridable so the guard's own negative control can point it at a mutated copy;
 // nothing in the repo sets it.
 const SOURCE = process.env.XCHAIN_ADDRESS_PARAMS_SOURCE
-    || path.resolve(__dirname, '../../src/content/js/xchain.js');
+    || path.resolve(__dirname, '..', '..', '../../src/content/js/xchain.js');
 
 function extractAddressParams(){
     const src  = process.env.XCHAIN_ADDRESS_PARAMS_SOURCE

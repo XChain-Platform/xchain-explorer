@@ -29,14 +29,14 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-const ROOT   = path.resolve(__dirname, '..', '..');
+const ROOT   = path.resolve(__dirname, '..', '..', '..', '..');
 const JS_DIR = path.join(ROOT, 'src', 'content', 'js');
 const FORMATTERS_SRC = fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8');
 const CLIENT_SRC     = srcText('src/content/js/xchain.js');

@@ -19,7 +19,7 @@
 'use strict';
 
 const { expect } = require('chai');
-const XChainExplorer = require('../../../../src/XChainExplorer.js');
+const XChainExplorer = require('../../../../../src/XChainExplorer.js');
 const { batchParams } = require('./helpers.js');
 
 // The published contract, not the implementation. The generator gave every
@@ -28,7 +28,7 @@ const { batchParams } = require('./helpers.js');
 // in fact takes `action` and returns one verdict object. These assertions pin
 // the corrected entry against a silent regression on the next regeneration.
 describe('preflight OpenAPI contract', function () {
-    const spec = require('../../../../docs/openapi.json');
+    const spec = require('../../../../../docs/openapi.json');
     const op = spec.paths['/{COIN}/api/preflight'].get;
     const names = op.parameters.map((p) => p.name).filter(Boolean);
 
@@ -77,7 +77,7 @@ describe('preflight OpenAPI contract', function () {
 });
 
 describe('preflight OpenAPI contract', function () {
-    const spec = require('../../../../docs/openapi.json');
+    const spec = require('../../../../../docs/openapi.json');
     const op = spec.paths['/{COIN}/api/preflight'].get;
 
     it('declares the status codes the route emits, and only those', function () {

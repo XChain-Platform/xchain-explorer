@@ -13,7 +13,7 @@
 // invariants the surrounding code relies on.
 
 const assert = require('assert');
-const C = require('../../src/protocol/constants.js');
+const C = require('../../../src/protocol/constants.js');
 
 describe('protocol/constants', function () {
     it('pins the on-chain ACTION size caps', function () {

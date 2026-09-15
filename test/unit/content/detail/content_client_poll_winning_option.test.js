@@ -41,19 +41,19 @@ const { expect } = require('chai');
 const { JSDOM }  = require('jsdom');
 const proxyquire = require('proxyquire');
 
-const ROOT    = path.resolve(__dirname, '../..');
+const ROOT    = path.resolve(__dirname, '..', '..', '../..');
 const CONTENT = path.join(ROOT, 'src', 'content');
 const JQUERY  = fs.readFileSync(path.join(CONTENT, 'js', 'jquery.min.js'), 'utf8');
 const NUMERAL = fs.readFileSync(path.join(CONTENT, 'js', 'numeral.js'), 'utf8');
 const RENDER_SRC  = fs.readFileSync(path.join(CONTENT, 'js', 'poll_tally_render.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(CONTENT, 'html', 'action.html'), 'utf8');
 
-const SOURCE     = require('../helpers/content-source.js');
+const SOURCE     = require('../../../helpers/content-source.js');
 const CLIENT_SRC = SOURCE.clientSource();
 const POLLS_HTML = SOURCE.pageSource('polls.html');
 
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeExplorerConfig }   = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const { makeExplorerConfig }   = require('../../../fixtures/mock-query-args.js');
 
 /* ------------------------------------------------------------------ *
  * Server harness: the real XChainExplorer with express and the DB
@@ -70,7 +70,7 @@ class MockDB {
     getMaxMethodResults() { return 100; }
 }
 
-const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../../src/XChainExplorer.js', {
     'express': express,
     './db/index.js': MockDB
 });

@@ -29,7 +29,7 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const zlib = require('zlib');
-const compression = require('../../src/http/compression.js');
+const compression = require('../../../src/http/compression.js');
 
 const PUBLIC_RAW = 'FILE|0|doc.txt|text/plain|Doc|memo';
 const PUBLIC_COMPRESSED = 'FILE|0|doc.txt|text/plain|Doc|memo|||||1';
@@ -260,7 +260,7 @@ describe('explorer FILE decompression', function () {
         const path = require('path');
         const fs = require('fs');
         const ENCODER = process.env.XCHAIN_ENCODER_DIR ||
-            path.join(__dirname, '..', '..', '..', 'xchain-encoder');
+            path.join(__dirname, '..', '..', '..', '..', 'xchain-encoder');
         // The encoder files its build-side modules under src/build, so the twin this
         // guard reads lives there rather than at the top of the sibling's src.
         const ENCODER_COMPRESSION = path.join(ENCODER, 'src', 'build', 'compression.js');

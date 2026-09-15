@@ -23,7 +23,7 @@ function makeAxiosStub() {
 }
 
 function loadConnector(axiosStub) {
-    return proxyquire('../../../../src/connectors/hub', {
+    return proxyquire('../../../../../src/connectors/hub', {
         'axios': axiosStub
     });
 }

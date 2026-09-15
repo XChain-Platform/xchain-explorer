@@ -24,7 +24,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -32,7 +32,7 @@ const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
 const SRC = srcText('src/content/js/xchain.js');
-const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
+const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces (the same
 // technique content-client-xss.test.js uses) so the test runs shipped code
@@ -63,7 +63,7 @@ function panelHtml() {
 function renderListDetails(data) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + panelHtml() + '</body>',
         { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
 
     dom.window.XC = { coin: 'BTC', list_types: { 1: 'Token', 2: 'Address' }, list_edit_types: { 0: 'None', 1: 'Add', 2: 'Remove' } };
     // Helpers showListDetails leans on, kept naive so anything the assertions

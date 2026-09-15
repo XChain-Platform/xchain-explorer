@@ -35,12 +35,12 @@ const sinon      = require('sinon');
 const { JSDOM }  = require('jsdom');
 const { expect } = require('chai');
 
-const Utility                  = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig, mockReq, mockRes } = require('../fixtures/mock-query-args.js');
+const Utility                  = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { makeConfig, mockReq, mockRes } = require('../../fixtures/mock-query-args.js');
 
-const Database = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo = createConfigInfoStub();
@@ -263,7 +263,7 @@ describe('/explorer/validators datatables row shape', function () {
         async getData() { return getDataResult; }
     }
 
-    const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+    const XChainExplorer = proxyquire('../../../src/XChainExplorer.js', {
         'express': express,
         './db/index.js': MockDB,
         'fs': { existsSync: () => true, readFileSync: () => 'mock' }

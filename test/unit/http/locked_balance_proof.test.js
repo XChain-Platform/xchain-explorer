@@ -28,9 +28,9 @@
 'use strict';
 
 const assert = require('assert');
-const M      = require('../../src/consensus/merkle.js');
-const SUB    = require('../../src/state_subtree_activation.js');
-const ProofServer = require('../../src/http/proof_server.js');
+const M      = require('../../../src/consensus/merkle.js');
+const SUB    = require('../../../src/state_subtree_activation.js');
+const ProofServer = require('../../../src/http/proof_server.js');
 
 const EMPTY_ROOT = M.toHex(M.EMPTY_SMT_ROOT);
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
@@ -180,8 +180,8 @@ describe('SPV Stage B: lockedBalanceProof @regression', function () {
 // one spelling leaves `light` null against the other side, which skips every
 // assertion below while the suite still reports green.
 let light = null, sdkSub = null;
-for (const spec of ['../../../xchain-sdk/src/protocol/light_client.js',
-                    '../../../xchain-sdk/src/light.js']) {
+for (const spec of ['../../../../xchain-sdk/src/protocol/light_client.js',
+                    '../../../../xchain-sdk/src/light.js']) {
     try { light = require(spec); break; }
     catch (e) {
         // Only an unresolvable module falls through: to the next spelling, or
@@ -193,7 +193,7 @@ for (const spec of ['../../../xchain-sdk/src/protocol/light_client.js',
 // The activation registry did not move, so it keeps its single spelling; it
 // is still gated on `light` so the pair is armed or absent together.
 if (light) {
-    try { sdkSub = require('../../../xchain-sdk/src/state_subtree_activation.js'); }
+    try { sdkSub = require('../../../../xchain-sdk/src/state_subtree_activation.js'); }
     catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; light = null; }
 }
 

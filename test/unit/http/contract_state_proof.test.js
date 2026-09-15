@@ -35,9 +35,9 @@
 'use strict';
 
 const assert = require('assert');
-const M      = require('../../src/consensus/merkle.js');
-const ProofServer = require('../../src/http/proof_server.js');
-const XChainExplorer = require('../../src/XChainExplorer.js');
+const M      = require('../../../src/consensus/merkle.js');
+const ProofServer = require('../../../src/http/proof_server.js');
+const XChainExplorer = require('../../../src/XChainExplorer.js');
 
 const EMPTY_ROOT = M.toHex(M.EMPTY_SMT_ROOT);
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
@@ -232,8 +232,8 @@ describe('SPV Stage A: contractStateProof @regression', function () {
 // one spelling leaves `light` null against the other side, which skips every
 // assertion below while the suite still reports green.
 let light = null;
-for (const spec of ['../../../xchain-sdk/src/protocol/light_client.js',
-                    '../../../xchain-sdk/src/light.js']) {
+for (const spec of ['../../../../xchain-sdk/src/protocol/light_client.js',
+                    '../../../../xchain-sdk/src/light.js']) {
     try { light = require(spec); break; }
     catch (e) {
         // Only an unresolvable module falls through: to the next spelling, or

@@ -19,7 +19,7 @@
 // throwing into db.js.
 
 const { expect } = require('chai');
-const { extractMethods } = require('../../src/contract/introspect.js');
+const { extractMethods } = require('../../../src/contract/introspect.js');
 
 describe('contract-introspect.extractMethods', () => {
 

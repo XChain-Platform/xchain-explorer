@@ -14,19 +14,19 @@ const { stripComments } = require('./theme_token_literal_gate.test/support/helpe
 // selector the probe never sees. The two are complementary, not redundant: the
 // probe proves a token swap actually repaints pixels, this gate proves nothing
 // was left behind for it to miss.
-const CSS_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'css');
-const THEME_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'themes');
+const CSS_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'css');
+const THEME_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'themes');
 const TOKENS_FILE = path.join(THEME_DIR, 'classic', 'tokens.css');
 const CSS_FILES = ['xchain.css', 'xchain-charts.css'];
 // Component stylesheets are held to the same rule as the page-level sheets, and
 // for a sharper reason: a component is the unit a theme replaces, so a literal
 // baked into one is a value a theme cannot reach even in principle.
-const COMPONENT_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'components');
+const COMPONENT_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'components');
 // The probe itself, addressed as data. Nothing else in the repo parses this
 // file: the explorer's CSP forbids eval, so it is pasted into a devtools
 // console by hand, and a syntax error or a renamed global would surface only
 // mid-investigation on a live venue.
-const PROBE_FILE = path.join(__dirname, '..', '..', 'tools/theme-parity/parity-probe.js');
+const PROBE_FILE = path.join(__dirname, '..', '..', '..', '..', 'tools/theme-parity/parity-probe.js');
 
 function lineAt(text, offset) {
   let n = 1;
@@ -349,7 +349,7 @@ describe('theme parity probe (static contract)', () => {
     // first-party sheet fails here instead of skipping the rule layer in silence.
     const VENDOR = /bootstrap|dataTables|swagger-ui|highlight-|fontawesome/;
     const template = fs.readFileSync(
-      path.join(__dirname, '..', '..', 'src', 'content', 'html', 'template.html'), 'utf8');
+      path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'html', 'template.html'), 'utf8');
     const hrefs = [...template.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)]
       .map((m) => m[1]);
     assert.ok(hrefs.length >= 10, `only ${hrefs.length} stylesheet links parsed out of template.html`);

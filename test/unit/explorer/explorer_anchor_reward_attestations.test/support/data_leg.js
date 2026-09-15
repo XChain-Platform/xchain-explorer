@@ -17,7 +17,7 @@
 const { expect } = require('chai');
 const sinon      = require('sinon');
 
-const { makeConfig } = require('../../../fixtures/mock-query-args.js');
+const { makeConfig } = require('../../../../fixtures/mock-query-args.js');
 const { makeRealDb, HUB, rewardConfig } = require('./helpers.js');
 
 describe('Database#getAnchorRewardAttestations (M3.7 data leg)', () => {

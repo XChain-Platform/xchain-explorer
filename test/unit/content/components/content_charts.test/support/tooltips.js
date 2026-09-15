@@ -15,7 +15,7 @@
 'use strict';
 
 const { expect } = require('chai');
-const XCC = require('../../../../src/content/js/xchain_charts.js');
+const XCC = require('../../../../../../src/content/js/xchain_charts.js');
 
 // Chart.js draws its own tooltip on the canvas; these market tooltips are
 // HTML tables, so the markup is built here and injected. Pin the formatters

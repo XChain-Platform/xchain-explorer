@@ -31,7 +31,7 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const SRC_DIR     = path.resolve(__dirname, '../../src/content');
+const SRC_DIR     = path.resolve(__dirname, '..', '..', '../../src/content');
 const PAGE_HTML   = fs.readFileSync(path.join(SRC_DIR, 'html/oracle.html'), 'utf8');
 const JQUERY_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/numeral.js'), 'utf8');

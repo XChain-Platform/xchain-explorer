@@ -59,14 +59,14 @@
 const proxyquire = require('proxyquire');
 const { expect }  = require('chai');
 
-const Utility = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig } = require('../fixtures/mock-query-args.js');
+const Utility = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { makeConfig } = require('../../fixtures/mock-query-args.js');
 
 // Real Database class with the mariadb driver stubbed out (no live connection),
 // matching explorer.checkpoints.test.js's DatabaseReal pattern.
-const DatabaseReal = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const DatabaseReal = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb() {

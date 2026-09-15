@@ -37,11 +37,11 @@ const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const CONTENT = path.resolve(__dirname, '../../src/content');
+const CONTENT = path.resolve(__dirname, '..', '..', '../../src/content');
 // The client ships as formatters.js plus xchain.js, and showUnstakeDetails calls
 // isNull, which lives in the first. The helper joins them the way the browser
 // loads them, so this realm sees the same globals a page does.
-const SOURCE  = require('../helpers/content-source.js');
+const SOURCE  = require('../../../helpers/content-source.js');
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 const ACTION  = path.join(CONTENT, 'html', 'action.html');
 

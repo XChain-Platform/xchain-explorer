@@ -35,16 +35,16 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../helpers/source_text');
 
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 
-const ROOT     = path.resolve(__dirname, '..', '..');
+const ROOT     = path.resolve(__dirname, '..', '..', '..');
 const listPage = require(path.join(ROOT, 'src', 'render', 'list_page.js'));
-const SOURCE   = require('../helpers/content-source.js');
+const SOURCE   = require('../../helpers/content-source.js');
 
 const BASELINE = JSON.parse(fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'list-page-baseline.json'), 'utf8'));
 const HTML_DIR = path.join(ROOT, 'src', 'content', 'html');

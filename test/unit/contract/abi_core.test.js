@@ -13,7 +13,7 @@
 // method rather than blanking the ABI, and rejects anything dynamic.
 
 const assert = require('assert');
-const { parseAbi } = require('../../src/contract/abi_core.js');
+const { parseAbi } = require('../../../src/contract/abi_core.js');
 
 const withAbi = (abiSrc) => `
     function transfer(state, ctx) { return state; }

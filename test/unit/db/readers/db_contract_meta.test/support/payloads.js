@@ -29,7 +29,7 @@
 
 'use strict';
 
-const handlers = require('../../../../src/action-detail/contracts.js');
+const handlers = require('../../../../../../src/action-detail/contracts.js');
 const { expect, setupSqlite, seed, run } = require('./helpers.js');
 
 

@@ -27,7 +27,7 @@ const { expect } = require('chai');
 const fs         = require('fs');
 const path       = require('path');
 
-const { LINKS, CURRENT, renderPlatformSwitcher } = require('../../src/render/platform_links.js');
+const { LINKS, CURRENT, renderPlatformSwitcher } = require('../../../src/render/platform_links.js');
 
 describe('Platform switcher', function () {
 
@@ -62,7 +62,7 @@ describe('Platform switcher', function () {
 
         it('is byte-identical to the file the renderer reads', function () {
             const onDisk = fs.readFileSync(
-                path.join(__dirname, '..', '..', 'src', 'content', 'json', 'platform-links.json'), 'utf8');
+                path.join(__dirname, '..', '..', '..', 'src', 'content', 'json', 'platform-links.json'), 'utf8');
             expect(JSON.parse(onDisk)).to.deep.equal(LINKS);
         });
     });

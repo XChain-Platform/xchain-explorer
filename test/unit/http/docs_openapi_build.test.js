@@ -18,7 +18,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
-const REPO = path.join(__dirname, '..', '..');
+const REPO = path.join(__dirname, '..', '..', '..');
 const BUILD = path.join(REPO, 'docs', 'openapi.build.js');
 const OUT = path.join(REPO, 'docs', 'openapi.json');
 

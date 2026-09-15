@@ -18,7 +18,7 @@
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
-const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../../src/mirror/migrate.js');
+const { ensureMirrorColumns, MIRROR_MIGRATIONS } = require('../../../src/mirror/migrate.js');
 
 // Fake doQuery-bearing connection simulating a price_snapshots table with a
 // given set of columns/indexes; records every non-SHOW statement.
@@ -228,7 +228,7 @@ describe('hub-mirror-migrate', function () {
     });
     it('attestation_responses widen matches the SQL twin uq_attest_response', function () {
         const twin = fs.readFileSync(
-            path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', 'attestation_responses.sql'), 'utf8');
+            path.join(__dirname, '..', '..', '..', 'src', 'sql', 'hub-mirror', 'attestation_responses.sql'), 'utf8');
         expect(twin).to.match(/uq_attest_response ON attestation_responses \(network,\s*request_id,\s*effective_time\)/);
         expect(MIRROR_MIGRATIONS.attestation_responses.widenIndexes[0].requiredColumn).to.equal('effective_time');
     });
@@ -250,7 +250,7 @@ describe('hub-mirror-migrate', function () {
     });
     it('capability_snapshots widen matches the SQL twin uq_cap_snap', function () {
         const twin = fs.readFileSync(
-            path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', 'capability_snapshots.sql'), 'utf8');
+            path.join(__dirname, '..', '..', '..', 'src', 'sql', 'hub-mirror', 'capability_snapshots.sql'), 'utf8');
         // The widen target column set must be exactly the twin's uq_cap_snap key.
         expect(twin).to.match(/uq_cap_snap\s*\(snapshot_block,\s*capability,\s*signing_pubkey,\s*source\)/);
         expect(MIRROR_MIGRATIONS.capability_snapshots.widenIndexes[0].requiredColumn).to.equal('source');
@@ -294,7 +294,7 @@ describe('hub-mirror-migrate', function () {
     for (const table of ['bridge_transfers', 'policy_snapshots']) {
         it('adds the fence columns to a legacy ' + table, async function () {
             const twin = fs.readFileSync(
-                path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', table + '.sql'), 'utf8');
+                path.join(__dirname, '..', '..', '..', 'src', 'sql', 'hub-mirror', table + '.sql'), 'utf8');
             const columns = [];
             for (const line of twin.split('\n')) {
                 const m = line.match(/^\s{2,}`?([a-z_]+)`?\s+[A-Z]/);
@@ -353,7 +353,7 @@ describe('hub-mirror-migrate', function () {
         let checked = 0;
         for (const table of Object.keys(MIRROR_MIGRATIONS)) {
             const twin = fs.readFileSync(
-                path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror', table + '.sql'), 'utf8');
+                path.join(__dirname, '..', '..', '..', 'src', 'sql', 'hub-mirror', table + '.sql'), 'utf8');
             for (const col of MIRROR_MIGRATIONS[table].columns) {
                 expect(twin, table + '.' + col.name).to.match(new RegExp('^\\s*' + col.name + '\\s', 'm'));
                 checked++;
@@ -372,7 +372,7 @@ describe('hub-mirror-migrate', function () {
     it('every fence column the twin DDL declares is covered by MIRROR_MIGRATIONS', function () {
         // The list has lagged the twin files before. Scan the twins for the
         // fence-column family and fail on any (table, column) pair with no entry.
-        const dir = path.join(__dirname, '..', '..', 'src', 'sql', 'hub-mirror');
+        const dir = path.join(__dirname, '..', '..', '..', 'src', 'sql', 'hub-mirror');
         const uncovered = [];
         let pairs = 0;
         for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.sql'))) {

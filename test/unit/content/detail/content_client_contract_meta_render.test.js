@@ -34,8 +34,8 @@ const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const CONTENT    = path.resolve(__dirname, '../../src/content');
-const CLIENT_SRC = require('../helpers/content-source.js').clientSource();
+const CONTENT    = path.resolve(__dirname, '..', '..', '../../src/content');
+const CLIENT_SRC = require('../../../helpers/content-source.js').clientSource();
 const JQUERY     = path.join(CONTENT, 'js', 'jquery.min.js');
 
 const RLO  = '\u202E';   // RIGHT-TO-LEFT OVERRIDE
@@ -256,7 +256,7 @@ describe('contract identity: render-side hardening and the label', function(){
     // themselves are driven above.
     describe('the contract page header', function(){
 
-        const PAGE = require('../helpers/content-source.js').pageSource('contract.html');
+        const PAGE = require('../../../helpers/content-source.js').pageSource('contract.html');
 
         it('renders a Name row and a Description row', function(){
             expect(PAGE).to.include('class="contract-name"');

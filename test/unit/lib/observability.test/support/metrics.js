@@ -14,7 +14,7 @@ const { expect } = require('chai');
 
 const {
     Registry, Counter, Gauge, Histogram, collectDefaultMetrics
-} = require('../../../../src/observability/metrics.js');
+} = require('../../../../../src/observability/metrics.js');
 
 describe('observability/metrics: exposition format', function () {
 

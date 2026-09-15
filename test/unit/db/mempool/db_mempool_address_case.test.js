@@ -36,10 +36,10 @@ const fs         = require('fs');
 const path       = require('path');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Database   = require('../../src/db/index.js');
-const Utility    = require('../../src/lib/utility.js');
+const Database   = require('../../../../src/db/index.js');
+const Utility    = require('../../../../src/lib/utility.js');
 
-const INDEXER_SQL = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql', 'index_addresses.sql');
+const INDEXER_SQL = path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-indexer', 'src', 'sql', 'index_addresses.sql');
 
 // The regtest address the defect was measured against, its id, and the two
 // variants that must NOT resolve to it.

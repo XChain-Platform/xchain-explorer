@@ -36,8 +36,8 @@
 
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Database   = require('../../src/db/index.js');
-const Utility    = require('../../src/lib/utility.js');
+const Database   = require('../../../../src/db/index.js');
+const Utility    = require('../../../../src/lib/utility.js');
 
 const cfg = { coin: 'RBTC' };
 

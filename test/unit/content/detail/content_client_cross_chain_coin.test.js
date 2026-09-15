@@ -28,7 +28,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -36,7 +36,7 @@ const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
 const SRC = srcText('src/content/js/xchain.js');
-const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
+const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces (the same
 // technique the sibling content-client tests use) so this runs shipped code
@@ -86,7 +86,7 @@ function messagePanelHtml() {
 function messageDetail(data) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + messagePanelHtml() + '</body>',
         { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC', encryption_methods: { 1: 'ECIES', 2: 'ECDH' } };
     dom.window.eval(`
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }

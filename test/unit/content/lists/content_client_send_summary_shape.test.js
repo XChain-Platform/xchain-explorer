@@ -29,7 +29,7 @@ const { expect } = require('chai');
 // (isNull, escapeHtml, formatAmount, formatLink and friends) moved out of
 // xchain.js into formatters.js in the component milestone, and this suite
 // slices shipped functions out of whichever of the two they landed in.
-const SRC = require('../helpers/content-source.js').clientSource();
+const SRC = require('../../../helpers/content-source.js').clientSource();
 
 function extractFn(name) {
     const sig = 'function ' + name + '(';
@@ -65,7 +65,7 @@ function renderRows(type, rows) {
     const dom = new JSDOM(
         '<!DOCTYPE html><body><table id="datatable-' + type + '"><tbody></tbody></table></body>',
         { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(`
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatAmount(v){ return String(v); }

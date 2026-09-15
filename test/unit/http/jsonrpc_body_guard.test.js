@@ -35,7 +35,7 @@ const path = require('path');
 const express = require('express');
 const bodyParser = require('body-parser');
 const jsonRouter = require('express-json-rpc-router');
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../helpers/source_text');
 
 const GUARD = (req, res, next) => { if (req.body === undefined) req.body = {}; next(); };
 const METHODS = { ping: () => 'pong' };

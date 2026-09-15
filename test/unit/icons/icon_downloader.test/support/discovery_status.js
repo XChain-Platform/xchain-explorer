@@ -36,7 +36,7 @@ const {
     ];
     const RESOLVABLE = ['action:12', 'action:BTC:5', 'ACTION:DOGE:9', '  action:7  '];
 
-    const realResolve = require('../../../../src/icons/resolver.js').resolveDescriptionToSource;
+    const realResolve = require('../../../../../src/icons/resolver.js').resolveDescriptionToSource;
 
     /**
      * Read the re-stale predicate out of the SQL the module actually emits and

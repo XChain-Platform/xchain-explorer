@@ -44,7 +44,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -57,11 +57,11 @@ const { expect } = require('chai');
 // keeps naming ONE source for every helper it lifts and does not have to know
 // which of the two a given function ended up in.
 const XCHAIN_SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
 const RENDER_SRC = srcText('src/content/js/anchor_detail_render.js');
-const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/anchor.html'), 'utf8');
-const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
-const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/numeral.js'), 'utf8');
+const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/anchor.html'), 'utf8');
+const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
+const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces, so the test
 // runs shipped code rather than a copy that can drift.

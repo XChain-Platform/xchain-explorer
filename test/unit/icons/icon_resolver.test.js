@@ -16,7 +16,7 @@ const {
     resolveDescriptionToSource,
     selectIconUrlFromCip25Json,
     rewriteSchemeUrl,
-} = require('../../src/icons/resolver');
+} = require('../../../src/icons/resolver');
 
 // One case per DESCRIPTION scheme the resolver understands, so the table below is
 // the full list of what a token is allowed to point its icon at.

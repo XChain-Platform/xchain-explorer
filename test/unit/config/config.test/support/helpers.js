@@ -76,7 +76,7 @@ const mockFileConfig = {
 // Load a fresh copy of config.js with the given stubs; each call to proxyquire
 // produces a new module instance (fresh internal state).
 function loadConfig(overrides) {
-    return proxyquire('../../../../src/config.js', Object.assign({
+    return proxyquire('../../../../../src/config.js', Object.assign({
         'fs':                   fsStub,
         'path':                 path,
         './lib/utility.js':         MockUtility,

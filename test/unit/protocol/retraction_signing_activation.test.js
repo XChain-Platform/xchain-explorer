@@ -13,7 +13,7 @@
 // unsigned events stay accepted), and testnet/regtest activate at genesis.
 
 const assert = require('assert');
-const { RETRACTION_SIGNING_ACTIVATION, isRetractionSigningActive } = require('../../src/retraction_signing_activation.js');
+const { RETRACTION_SIGNING_ACTIVATION, isRetractionSigningActive } = require('../../../src/retraction_signing_activation.js');
 
 describe('retraction_signing_activation', function () {
     it('activates testnet and regtest from genesis (threshold 0)', function () {

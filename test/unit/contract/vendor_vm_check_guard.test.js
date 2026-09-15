@@ -30,7 +30,7 @@ const os      = require('os');
 const path    = require('path');
 const { spawnSync } = require('child_process');
 
-const SCRIPT = path.join(__dirname, '..', '..', 'bin', 'vendor-vm.sh');
+const SCRIPT = path.join(__dirname, '..', '..', '..', 'bin', 'vendor-vm.sh');
 
 const CANONICAL_RUNTIME =
     "const CONSENSUS_VERSION = '3';\n"

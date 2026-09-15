@@ -26,13 +26,13 @@
  * off disk) rather than copies, so the tests fail if the fix is reverted or drifts.
  */
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const ROOT     = path.resolve(__dirname, '../..');
+const ROOT     = path.resolve(__dirname, '..', '..', '../..');
 const SRC      = srcText('src/content/js/xchain.js');
 const EXPLORER = srcText('src/XChainExplorer.js');
 const TX_HTML  = fs.readFileSync(path.join(ROOT, 'src/content/html/transaction.html'), 'utf8');

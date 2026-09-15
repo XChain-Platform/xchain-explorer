@@ -28,7 +28,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');

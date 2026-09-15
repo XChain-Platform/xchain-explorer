@@ -17,9 +17,9 @@
 const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
-const { splitSqlStatements } = require('../integration/helpers/db-setup.js');
+const { splitSqlStatements } = require('../../integration/helpers/db-setup.js');
 
-const SEED = path.join(__dirname, '..', 'performance', 'helpers', 'seed-performance.sql');
+const SEED = path.join(__dirname, '..', '..', 'performance', 'helpers', 'seed-performance.sql');
 
 describe('fixture SQL splitter', function () {
     it('never emits a fragment of a comment as a statement', function () {

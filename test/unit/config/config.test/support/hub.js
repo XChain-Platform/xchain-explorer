@@ -49,7 +49,7 @@ describe("config", function () {
                     };
                 }
             }
-            const config = proxyquire('../../../../src/config.js', {
+            const config = proxyquire('../../../../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
                 './lib/utility.js':         MockUtility,
@@ -75,7 +75,7 @@ describe("config", function () {
             // (fsStub.readFileSync returns a non-JSON string), the source degrades to an
             // empty {configs:[]} payload and returns a valid config object with no
             // COIN_AVAILABLE entries instead of returning null.
-            const config = proxyquire('../../../../src/config.js', {
+            const config = proxyquire('../../../../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
                 './lib/utility.js':         MockUtility,
@@ -94,7 +94,7 @@ describe("config", function () {
             class EmptyHubConnector {
                 async getAllConfig() { return {}; }
             }
-            const config = proxyquire('../../../../src/config.js', {
+            const config = proxyquire('../../../../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
                 './lib/utility.js':         MockUtility,
@@ -150,7 +150,7 @@ describe("config", function () {
                     return hub.calls === 1 ? {} : { bitcoin: mockHubResponse.bitcoin };
                 }
             }
-            const config = proxyquire('../../../../src/config.js', {
+            const config = proxyquire('../../../../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
                 './lib/utility.js':         MockUtility,

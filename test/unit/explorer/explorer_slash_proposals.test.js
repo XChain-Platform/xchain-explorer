@@ -26,7 +26,7 @@
  * entries, and the normalizeHubOperationalRows bigintKeys extension). Every
  * test below is written to be RUN once the main loop splices the proposal in
  * (m3-proposal-row23.md), not to pass vacuously today, matching
- * test/unit/explorer_reorgs.test.js from the same wave. The hub half of this
+ * test/unit/explorer/explorer_reorgs.test.js from the same wave. The hub half of this
  * row is real, landed code in the sibling checkout
  * (xchain-hub/src/validators/slash_detector.js getSlashProposals + api.js
  * getslashproposals, covered by xchain-hub/test/unit/validators/governance/slash_proposals_rpc.test.js).
@@ -97,7 +97,7 @@ require('./explorer_slash_proposals.test/support/data_leg.js');
 describe('slash_proposals.html (the unadjudicated-accusation wording obligation)', () => {
 
     const html = fs.readFileSync(
-        path.join(__dirname, '../../src/content/html/slash_proposals.html'), 'utf8');
+        path.join(__dirname, '..', '../../src/content/html/slash_proposals.html'), 'utf8');
 
     it('states in plain language that these are accusations, not verdicts', () => {
         expect(html).to.contain('accusations, not verdicts');

@@ -116,7 +116,7 @@ describe("config", function () {
             // Passing false as the ./config.json stub makes fileConfig = false;
             // combined with no NODE_CONFIG env var, jsonConfig ends up null/false
             // and MockUtility.throwError fires.
-            const config = proxyquire('../../../../src/config.js', {
+            const config = proxyquire('../../../../../src/config.js', {
                 'fs':                   fsStub,
                 'path':                 path,
                 './lib/utility.js':         MockUtility,

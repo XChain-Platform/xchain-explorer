@@ -19,7 +19,7 @@
 'use strict';
 
 const sinon = require('sinon');
-const ChangeDetector = require('../../../../src/ws/change_detector.js');
+const ChangeDetector = require('../../../../../src/ws/change_detector.js');
 
 function mk(over) {
     over = over || {};

@@ -26,16 +26,16 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const FEES_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/fees.html'), 'utf8');
+const FEES_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/fees.html'), 'utf8');
 const XCHAIN_JS = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
 
 // Slice a top-level function out of a source string by walking braces, so the
 // test runs shipped code rather than a copy that can drift.
@@ -56,8 +56,8 @@ function extractFn(src, name, where) {
 function render(quote) {
     const dom = new JSDOM('<!DOCTYPE html><body><div id="fee-quote-result"></div></body>',
         { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/numeral.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC', network: 'testnet' };
     // isNull and escapeHtml come from the shipped helpers rather than stubs,
     // because the renderer's own escaping rides on them.

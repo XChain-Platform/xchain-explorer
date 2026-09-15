@@ -72,7 +72,7 @@ describe("config", function () {
                 mkdirSync:    sinon.stub(),
                 writeFileSync: sinon.stub()
             };
-            const config = proxyquire('../../../../src/config.js', {
+            const config = proxyquire('../../../../../src/config.js', {
                 'fs':                   fsCacheStub,
                 'path':                 path,
                 './lib/utility.js':         MockUtility,
@@ -92,7 +92,7 @@ describe("config", function () {
                 mkdirSync:    sinon.stub(),
                 writeFileSync: sinon.stub()
             };
-            const config = proxyquire('../../../../src/config.js', {
+            const config = proxyquire('../../../../../src/config.js', {
                 'fs':                   fsNoCacheStub,
                 'path':                 path,
                 './lib/utility.js':         MockUtility,
@@ -125,7 +125,7 @@ describe("config", function () {
                 mkdirSync:     sinon.stub(),
                 writeFileSync: sinon.stub()
             };
-            const config = proxyquire('../../../../src/config.js', {
+            const config = proxyquire('../../../../../src/config.js', {
                 'fs':                   fsCacheStub,
                 'path':                 path,
                 './lib/utility.js':         MockUtility,

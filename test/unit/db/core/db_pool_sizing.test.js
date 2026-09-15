@@ -27,9 +27,9 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../src/lib/utility.js');
-const poolSizing = require('../../src/mirror/pool_sizing.js');
-const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
+const Utility    = require('../../../../src/lib/utility.js');
+const poolSizing = require('../../../../src/mirror/pool_sizing.js');
+const { createConfigInfoStub, getFullConfig } = require('../../../fixtures/mock-config.js');
 
 const POOL_ENV_KEYS = [
     'DB_POOL_SIZE', 'DB_POOL_SIZE_INDEXER', 'DB_POOL_SIZE_DECODER', 'DB_POOL_SIZE_HUB_MIRROR',
@@ -86,8 +86,8 @@ describe('explorer pool sizing is per dbType', function () {
         // proxyquire only substitutes a module's own direct requires: db/index.js no
         // longer requires mariadb, so the driver stub goes into the connection
         // module and that module is handed to db/index.js.
-        Database = proxyquire('../../src/db/index.js', {
-            './connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
+        Database = proxyquire('../../../../src/db/index.js', {
+            './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: mockMariadb })
         });
 
         saved = {};
@@ -133,8 +133,8 @@ describe('explorer pool sizing is per dbType', function () {
                 };
             })
         };
-        Database = proxyquire('../../src/db/index.js', {
-            './connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
+        Database = proxyquire('../../../../src/db/index.js', {
+            './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: mockMariadb })
         });
 
         saved = {};
@@ -183,8 +183,8 @@ describe('explorer pool sizing is per dbType', function () {
                 };
             })
         };
-        Database = proxyquire('../../src/db/index.js', {
-            './connection.js': proxyquire('../../src/db/connection.js', { mariadb: mockMariadb })
+        Database = proxyquire('../../../../src/db/index.js', {
+            './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: mockMariadb })
         });
 
         saved = {};

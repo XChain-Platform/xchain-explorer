@@ -32,21 +32,21 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const ROOT     = path.resolve(__dirname, '../..');
+const ROOT     = path.resolve(__dirname, '..', '..', '../..');
 const CONTENT  = path.join(ROOT, 'src', 'content');
 const HTML_DIR = path.join(CONTENT, 'html');
 // The shipped client source, from the shared helper: the cell-rendering
 // helpers (isNull, escapeHtml, formatAmount, formatLink and friends) moved
 // out of xchain.js into formatters.js in the component milestone, and this
 // suite needs whichever of the two a given function landed in.
-const CLIENT_SRC   = require('../helpers/content-source.js').clientSource();
+const CLIENT_SRC   = require('../../../helpers/content-source.js').clientSource();
 const JQUERY   = path.join(CONTENT, 'js', 'jquery.min.js');
 const EXPLORER = srcText('src/XChainExplorer.js');
 
@@ -118,7 +118,7 @@ function derivationRule(){
 // content/layouts/list-pages.json (spec M2.3). The helper asks the composer
 // first and the filesystem second, so these assertions read what the route
 // actually SERVES rather than what happens to be on disk.
-const SOURCE = require('../helpers/content-source.js');
+const SOURCE = require('../../../helpers/content-source.js');
 
 function pageSource(file){
     return SOURCE.pageSource(file);

@@ -36,8 +36,8 @@ const { proxyquire, sinon, expect, Utility, createConfigInfoStub, makeConfig } =
 // not the MockDB used by the route-level suites above.
 // ─────────────────────────────────────────────────────────────────────────
 
-const DatabaseReal = proxyquire('../../../../src/db/index.js', {
-    './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const DatabaseReal = proxyquire('../../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeRealDb() {

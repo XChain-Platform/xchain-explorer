@@ -39,13 +39,13 @@
 // the full checkout proves it rather than asserting it. Default (unset) stays
 // permissive so a single-repo clone is green.
 //
-// Ported from xchain-sdk/test/unit/sibling_coverage.test.js.
+// Ported from xchain-sdk/test/unit/repo/sibling_coverage.test.js.
 
 const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
 
-const REPO_ROOT    = path.join(__dirname, '..', '..');
+const REPO_ROOT    = path.join(__dirname, '..', '..', '..');
 const SIBLING_ROOT = process.env.XCHAIN_SIBLING_ROOT || path.join(REPO_ROOT, '..');
 const STRICT       = process.env.XCHAIN_REQUIRE_SIBLINGS === '1';
 

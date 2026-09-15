@@ -32,16 +32,16 @@ const path       = require('path');
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig }           = require('../fixtures/mock-query-args.js');
+const Utility    = require('../../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
 
-const Database = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 // Real indexer DDL, from the sibling repo in the platform monorepo checkout.
-const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql');
+const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-indexer', 'src', 'sql');
 const DDL_FILES = ['blocks.sql', 'index_transactions.sql'];
 
 // Mechanical MariaDB -> SQLite translation. Touches ONLY type/engine syntax;

@@ -37,7 +37,7 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
-const JS_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'js');
+const JS_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'js');
 
 // Enough of CanvasRenderingContext2D for Chart.js to measure and paint into.
 function stubContext(canvas){

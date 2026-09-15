@@ -30,13 +30,13 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 
-const CONTENT  = path.resolve(__dirname, '../../src/content');
+const CONTENT  = path.resolve(__dirname, '..', '..', '../../src/content');
 const CLIENT   = srcText('src/content/js/xchain.js');
 const EXPLORER = srcText('src/XChainExplorer.js');
 

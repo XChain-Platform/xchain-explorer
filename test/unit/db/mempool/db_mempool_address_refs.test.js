@@ -20,7 +20,7 @@
  * senders and never-indexed recipients. Everything else about the endpoint,
  * including TYPE=token and the paging envelope, must not move.
  *
- * Mirrors test/unit/mempool.test.js's mkDb helper: a Database instance with
+ * Mirrors test/unit/db/mempool/mempool.test.js's mkDb helper: a Database instance with
  * only the decoder-name map + a stubbed doQuery, no real database.
  */
 
@@ -28,9 +28,9 @@
 
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Database   = require('../../src/db/index.js');
-const { envView } = require('../fixtures/mock-config.js');
-const Utility    = require('../../src/lib/utility.js');
+const Database   = require('../../../../src/db/index.js');
+const { envView } = require('../../../fixtures/mock-config.js');
+const Utility    = require('../../../../src/lib/utility.js');
 
 // `ids` maps address -> index id; anything absent resolves null (never indexed).
 function mkDb(rows, ids) {

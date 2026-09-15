@@ -26,7 +26,7 @@
 
 const vm   = require('vm');
 const { expect } = require('chai');
-const CLIENT = require('../helpers/content-source.js').clientSource();
+const CLIENT = require('../../../helpers/content-source.js').clientSource();
 
 // Slice a top-level function out of xchain.js by walking braces, the same
 // technique the sibling content-client tests use.

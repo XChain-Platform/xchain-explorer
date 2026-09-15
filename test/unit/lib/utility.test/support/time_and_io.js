@@ -271,7 +271,7 @@ describe("Utility", function () {
 
         beforeEach(function () {
             fsStub = { access: sinon.stub(), readFile: sinon.stub() };
-            UtilityWithStub = proxyquire('../../../../src/lib/utility', { 'fs/promises': fsStub });
+            UtilityWithStub = proxyquire('../../../../../src/lib/utility', { 'fs/promises': fsStub });
         });
 
         it('returns true when fs.access resolves', async function () {
@@ -310,7 +310,7 @@ describe("Utility", function () {
 
         beforeEach(function () {
             fsStub = { access: sinon.stub(), readFile: sinon.stub() };
-            UtilityWithStub = proxyquire('../../../../src/lib/utility', { 'fs/promises': fsStub });
+            UtilityWithStub = proxyquire('../../../../../src/lib/utility', { 'fs/promises': fsStub });
         });
 
         it('returns file contents as a string on success', async function () {

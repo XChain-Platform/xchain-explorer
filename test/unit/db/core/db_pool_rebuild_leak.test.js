@@ -35,8 +35,8 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../src/lib/utility.js');
-const { createConfigInfoStub, getFullConfig } = require('../fixtures/mock-config.js');
+const Utility    = require('../../../../src/lib/utility.js');
+const { createConfigInfoStub, getFullConfig } = require('../../../fixtures/mock-config.js');
 
 // A config whose DECODER credentials differ from the indexer's, which is what
 // makes setupConnectionPools take the dedicated-decoder-pool branch. The stock
@@ -83,9 +83,9 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
         // so the mariadb stub and the falsification override both name THAT file:
         // proxyquire substitutes only a module's own direct requires, and db/index.js
         // no longer requires the driver.
-        Database = proxyquire('../../src/db/index.js', {
+        Database = proxyquire('../../../../src/db/index.js', {
             './connection.js': proxyquire(
-                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../../../src/db/connection.js',
                 { mariadb: mockMariadb })
         });
     });
@@ -133,9 +133,9 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
                 return pool;
             })
         };
-        Database = proxyquire('../../src/db/index.js', {
+        Database = proxyquire('../../../../src/db/index.js', {
             './connection.js': proxyquire(
-                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../../../src/db/connection.js',
                 { mariadb: mockMariadb })
         });
     });
@@ -174,9 +174,9 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
                 return pool;
             })
         };
-        Database = proxyquire('../../src/db/index.js', {
+        Database = proxyquire('../../../../src/db/index.js', {
             './connection.js': proxyquire(
-                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../../../src/db/connection.js',
                 { mariadb: mockMariadb })
         });
     });
@@ -222,9 +222,9 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
                 return pool;
             })
         };
-        Database = proxyquire('../../src/db/index.js', {
+        Database = proxyquire('../../../../src/db/index.js', {
             './connection.js': proxyquire(
-                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../../../src/db/connection.js',
                 { mariadb: mockMariadb })
         });
     });
@@ -266,9 +266,9 @@ describe('setupConnectionPools does not orphan pools on re-entry', function () {
                 return pool;
             })
         };
-        Database = proxyquire('../../src/db/index.js', {
+        Database = proxyquire('../../../../src/db/index.js', {
             './connection.js': proxyquire(
-                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../src/db/connection.js',
+                process.env.POOL_REBUILD_TEST_CONNECTION_SRC || '../../../../src/db/connection.js',
                 { mariadb: mockMariadb })
         });
     });

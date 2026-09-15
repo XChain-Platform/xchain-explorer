@@ -38,8 +38,8 @@ const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const CONTENT = path.resolve(__dirname, '../../src/content');
-const SOURCE  = require('../helpers/content-source.js');
+const CONTENT = path.resolve(__dirname, '..', '..', '../../src/content');
+const SOURCE  = require('../../../helpers/content-source.js');
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 const ACTION  = path.join(CONTENT, 'html', 'action.html');
 

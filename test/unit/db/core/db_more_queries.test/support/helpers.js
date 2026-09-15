@@ -49,14 +49,14 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
-const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
-const mockResults              = require('../../../fixtures/mock-db-results.js');
+const Utility    = require('../../../../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../../../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../../../../fixtures/mock-query-args.js');
+const mockResults              = require('../../../../../fixtures/mock-db-results.js');
 
 // The MariaDB driver is stubbed: these tests never open a real pool.
-const Database = proxyquire('../../../../src/db/index.js', {
-    './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 const configInfo   = createConfigInfoStub();

@@ -38,7 +38,7 @@ const {
             // The write root is joined from the module's own directory, so a
             // relative segment that stops matching the file's location would
             // quietly save icons somewhere the static mount never serves.
-            expect(d.iconRoot).to.equal(path.resolve(__dirname, '../../src/content/icons'));
+            expect(d.iconRoot).to.equal(path.resolve(__dirname, '..', '../../src/content/icons'));
         });
     });
 }

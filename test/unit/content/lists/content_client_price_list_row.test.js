@@ -33,14 +33,14 @@ const { expect } = require('chai');
 const { JSDOM }  = require('jsdom');
 const proxyquire = require('proxyquire');
 
-const ROOT    = path.resolve(__dirname, '../..');
+const ROOT    = path.resolve(__dirname, '..', '..', '../..');
 const CONTENT = path.join(ROOT, 'src', 'content');
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
-const CLIENT_SRC = require('../helpers/content-source.js').clientSource();
-const SOURCE     = require('../helpers/content-source.js');
+const CLIENT_SRC = require('../../../helpers/content-source.js').clientSource();
+const SOURCE     = require('../../../helpers/content-source.js');
 
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeExplorerConfig }   = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const { makeExplorerConfig }   = require('../../../fixtures/mock-query-args.js');
 
 // Minimal Express mock: just enough for the XChainExplorer constructor.
 const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
@@ -54,7 +54,7 @@ class MockDB {
     getMaxMethodResults() { return 100; }
 }
 
-const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../../src/XChainExplorer.js', {
     'express': express,
     './db/index.js': MockDB
 });

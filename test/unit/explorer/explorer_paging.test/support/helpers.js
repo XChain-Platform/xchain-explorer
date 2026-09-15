@@ -18,9 +18,9 @@
 
 const { expect }             = require('chai');
 const proxyquire             = require('proxyquire');
-const Utility                = require('../../../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
-const { makeConfig, makeApiConfig, makeExplorerConfig } = require('../../../fixtures/mock-query-args.js');
+const Utility                = require('../../../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../../../fixtures/mock-config.js');
+const { makeConfig, makeApiConfig, makeExplorerConfig } = require('../../../../fixtures/mock-query-args.js');
 
 // Minimal Express mock: just enough for the XChainExplorer constructor.
 const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
@@ -39,7 +39,7 @@ class MockDB {
 }
 
 // Load XChainExplorer with express and the database swapped for the mocks above.
-const XChainExplorer = proxyquire('../../../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../../../src/XChainExplorer.js', {
     'express': express,
     './db/index.js': MockDB
 });

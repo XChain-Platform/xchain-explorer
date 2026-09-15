@@ -78,26 +78,26 @@ function registerEndpointModes() {
         });
 
         it('defaults to the local hub on localhost:10000 when nothing is set', function () {
-            const XChainHubConnector = require('../../../../src/connectors/hub');
+            const XChainHubConnector = require('../../../../../src/connectors/hub');
             expect(XChainHubConnector.parseEndpoints()).to.deep.equal(['http://localhost:10000']);
         });
 
         it('honours HUB_API_HOST / HUB_PORT overrides', function () {
             process.env.HUB_API_HOST = 'hub.example.com';
             process.env.HUB_PORT     = '9999';
-            const XChainHubConnector = require('../../../../src/connectors/hub');
+            const XChainHubConnector = require('../../../../../src/connectors/hub');
             expect(XChainHubConnector.parseEndpoints()).to.deep.equal(['http://hub.example.com:9999']);
         });
 
         it('splits HUB_VALIDATORS into a normalised endpoint list', function () {
             process.env.HUB_VALIDATORS = 'http://a:10000, b:10000 ,';
-            const XChainHubConnector = require('../../../../src/connectors/hub');
+            const XChainHubConnector = require('../../../../../src/connectors/hub');
             expect(XChainHubConnector.parseEndpoints()).to.deep.equal(['http://a:10000', 'http://b:10000']);
         });
 
         it('returns null in standalone mode (NO_HUB=1) so config.json drives config', function () {
             process.env.NO_HUB = '1';
-            const XChainHubConnector = require('../../../../src/connectors/hub');
+            const XChainHubConnector = require('../../../../../src/connectors/hub');
             expect(XChainHubConnector.parseEndpoints()).to.be.null;
         });
     });
@@ -120,7 +120,7 @@ function registerEndpointEnvironment() {
             process.env.HUB_VALIDATORS = 'http://a:10000';
             for (const v of ['1', 'true', 'TRUE', 'yes']) {
                 process.env.NO_HUB = v;
-                const XChainHubConnector = require('../../../../src/connectors/hub');
+                const XChainHubConnector = require('../../../../../src/connectors/hub');
                 expect(XChainHubConnector.parseEndpoints(), 'NO_HUB=' + v).to.be.null;
             }
         });
@@ -128,7 +128,7 @@ function registerEndpointEnvironment() {
         it('does not disable the hub for falsy NO_HUB values', function () {
             for (const v of ['0', 'false', 'no', '']) {
                 process.env.NO_HUB = v;
-                const XChainHubConnector = require('../../../../src/connectors/hub');
+                const XChainHubConnector = require('../../../../../src/connectors/hub');
                 expect(XChainHubConnector.parseEndpoints(), 'NO_HUB=' + JSON.stringify(v))
                     .to.deep.equal(['http://localhost:10000']);
             }
@@ -144,7 +144,7 @@ function registerEndpointEnvironment() {
             const script = "require('./src/config.js');" +
                 "process.stdout.write('\\nENDPOINTS=' + JSON.stringify(require('./src/connectors/hub.js').parseEndpoints()) + '\\n');";
             const run = spawnSync(process.execPath, ['-e', script], {
-                cwd: path.resolve(__dirname, '../../../..'), encoding: 'utf8',
+                cwd: path.resolve(__dirname, '..', '../../../..'), encoding: 'utf8',
                 env: { ...process.env, XCHAIN_LOG_PATCH: '0', NO_HUB: '', HUB_VALIDATORS: 'a:1' }
             });
             expect(run.status, run.stderr).to.equal(0);

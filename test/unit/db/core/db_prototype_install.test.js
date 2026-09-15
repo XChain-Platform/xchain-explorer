@@ -45,9 +45,9 @@ const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
 
-const Database = require('../../src/db/index.js');
+const Database = require('../../../../src/db/index.js');
 
-const SRC    = path.resolve(__dirname, '../../src');
+const SRC    = path.resolve(__dirname, '..', '..', '../../src');
 const DB_DIR = path.join(SRC, 'db');
 const METHOD = /^ {4}(?:async\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(/;
 

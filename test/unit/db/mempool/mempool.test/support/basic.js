@@ -28,7 +28,7 @@
 
 const { fs, path, sinon, expect, ChangeDetector, Broadcaster, envView, mkDb, SEND_ROW, MINT_ROW, TRASH_ROW, LEGACY_HEX_ROW, getDecoderPaths, loadCanonicalizer, makeEncodingFixture, readDecoderSite } = require('./helpers.js');
 
-const DecoderConnector = require('../../../../src/connectors/decoder.js');
+const DecoderConnector = require('../../../../../../src/connectors/decoder.js');
 
 function mkApiDb(rows) {
     const db = mkDb(rows);

@@ -27,7 +27,7 @@ const COINS = {
 describe('configs/*', function () {
     for (let coin of Object.keys(COINS)) {
         describe(coin + '.js', function () {
-            const cfgModule = require('../../src/coin-config/' + coin + '.js');
+            const cfgModule = require('../../../src/coin-config/' + coin + '.js');
 
             it('returns the chain identity', function () {
                 let c = cfgModule.getConfig('mainnet');

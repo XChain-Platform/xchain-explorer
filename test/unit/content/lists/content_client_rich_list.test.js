@@ -38,7 +38,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -46,10 +46,10 @@ const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
 const XCHAIN_SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/rich_list_render.js'), 'utf8');
-const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/rich_list.html'), 'utf8');
-const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
+const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/rich_list_render.js'), 'utf8');
+const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/rich_list.html'), 'utf8');
+const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
 
 function extractFn(src, name) {
     const sig = 'function ' + name + '(';

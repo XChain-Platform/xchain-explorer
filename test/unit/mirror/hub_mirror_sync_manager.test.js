@@ -17,8 +17,8 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
+const Utility    = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
 
 const configInfo = createConfigInfoStub();
 const util       = new Utility(configInfo);
@@ -52,7 +52,7 @@ function load({ env = {} } = {}) {
     if (env.HUB_API_URL !== undefined) process.env.HUB_API_URL = env.HUB_API_URL;
     else delete process.env.HUB_API_URL;
 
-    const HubMirrorSyncManager = proxyquire('../../src/mirror/sync_manager.js', {
+    const HubMirrorSyncManager = proxyquire('../../../src/mirror/sync_manager.js', {
         '../hub/hub_db_sync.js':    FakeSync,
         './pool.js': FakePool,
         './migrate.js': { ensureMirrorColumns }
@@ -177,7 +177,7 @@ describe('HubMirrorSyncManager', function () {
             // match above would also accept a join that resolves one level too deep,
             // where no mirror SQL exists and the tables are never created.
             expect(FakeSync.ensureTables.firstCall.args[1])
-                .to.equal(require('path').resolve(__dirname, '../../src/sql/hub-mirror'));
+                .to.equal(require('path').resolve(__dirname, '../../../src/sql/hub-mirror'));
             expect(mgr.instances.size).to.equal(1);
         } finally { restoreEnv(); }
     });

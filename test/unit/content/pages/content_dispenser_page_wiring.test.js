@@ -38,11 +38,11 @@ const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
 
-const HTML_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'html');
+const HTML_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'html');
 // Composer-aware: dispensers.html and dispenses.html are served by the shared
 // list-page composition now, so reading them off disk would fail on absence
 // rather than on drift, which is the thing this suite is actually watching.
-const SOURCE   = require('../helpers/content-source.js');
+const SOURCE   = require('../../../helpers/content-source.js');
 const read     = (name) => SOURCE.pageSource(name);
 
 // The <thead> cells of the FIRST table carrying the given id.

@@ -17,7 +17,7 @@
 const { expect } = require('chai');
 const sinon      = require('sinon');
 
-const { makeConfig } = require('../../../fixtures/mock-query-args.js');
+const { makeConfig } = require('../../../../fixtures/mock-query-args.js');
 const { makeRealDb, HUB, capSnapConfig } = require('./helpers.js');
 
 describe('Database#getCapabilitySnapshots (M3.4 data leg)', () => {

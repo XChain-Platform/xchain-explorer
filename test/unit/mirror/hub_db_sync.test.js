@@ -16,7 +16,7 @@
 const assert = require('assert');
 const sinon = require('sinon');
 
-const HubDbSync = require('../../src/hub/hub_db_sync.js');
+const HubDbSync = require('../../../src/hub/hub_db_sync.js');
 
 // A HubDbSync backed by a stubbed doQuery that reports MAX(reference_block).
 function makeSync(maxReferenceBlock, opts = {}) {

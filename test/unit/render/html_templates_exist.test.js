@@ -24,10 +24,10 @@
 const fs         = require('fs');
 const path       = require('path');
 const { expect } = require('chai');
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../helpers/source_text');
 
 const SRC       = srcText('src/XChainExplorer.js');
-const HTML_DIR  = path.join(__dirname, '../../src/content/html');
+const HTML_DIR  = path.join(__dirname, '..', '../../src/content/html');
 
 // Pull the `'html' : { ... }` table's '<route>' : '<file>.html' entries out of
 // the source. Scoped to that one table (not a global .html scan) so an entry
@@ -42,7 +42,7 @@ function sourceHtmlRoutes() {
     return out;
 }
 
-const SOURCE = require('../helpers/content-source.js');
+const SOURCE = require('../../helpers/content-source.js');
 
 describe('html template coverage', () => {
 

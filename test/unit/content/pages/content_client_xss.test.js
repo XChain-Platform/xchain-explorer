@@ -33,15 +33,15 @@ const vm   = require('vm');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
-const SRC_PATH = path.resolve(__dirname, '../../src/content/js/xchain.js');
+const SRC_PATH = path.resolve(__dirname, '..', '..', '../../src/content/js/xchain.js');
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
 // (isNull, escapeHtml, formatAmount, formatLink and friends) moved there in the
 // component milestone. Concatenated rather than switched, so this file keeps
 // naming ONE source for every helper it lifts.
 const SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
 
 // Slice a top-level `function NAME(...){ ... }` out of the source by walking
 // braces from its opening `{` to the matching `}`. The three target functions
@@ -127,7 +127,7 @@ const PAYLOADS = {
 // hostile payloads must come out as inert text, never live elements.
 function renderBetDetails(data) {
     const ACTION_HTML = fs.readFileSync(
-        path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
+        path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
     // Slice the real #info-bet panel out of action.html so the test drives the
     // shipped selectors; a renamed class here fails rather than silently no-ops.
     const start = ACTION_HTML.indexOf('<div class="d-none" id="info-bet">');
@@ -137,7 +137,7 @@ function renderBetDetails(data) {
 
     const dom = new JSDOM('<!DOCTYPE html><body>' + panel + '</body>',
         { runScripts: 'outside-only' });
-    const jq = fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8');
+    const jq = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
     dom.window.eval(jq);
 
     // Minimal stubs for the page helpers showBetDetails leans on. formatLink and

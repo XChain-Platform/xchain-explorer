@@ -27,11 +27,11 @@ const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
 
-const coins = require('../../src/coins');
-const { CONSENSUS_CONFIG_PIN } = require('../../src/coins/consensus_pin.js');
+const coins = require('../../../src/coins');
+const { CONSENSUS_CONFIG_PIN } = require('../../../src/coins/consensus_pin.js');
 
-const LOCAL_COINS_DIR = path.join(__dirname, '..', '..', 'src', 'coins');
-const HUB_DIR   = process.env.XCHAIN_HUB_DIR || path.join(__dirname, '..', '..', '..', 'xchain-hub');
+const LOCAL_COINS_DIR = path.join(__dirname, '..', '..', '..', 'src', 'coins');
+const HUB_DIR   = process.env.XCHAIN_HUB_DIR || path.join(__dirname, '..', '..', '..', '..', 'xchain-hub');
 const CANON_DIR = path.join(HUB_DIR, 'src', 'coins');
 const CANON_PRESENT = fs.existsSync(CANON_DIR);
 const REQUIRE_SIBLINGS = process.env.XCHAIN_REQUIRE_SIBLINGS === '1';

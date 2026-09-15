@@ -20,8 +20,8 @@
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-const Utility    = require('../../../../src/lib/utility.js');
-const { createConfigInfoStub, getFullConfig } = require('../../../fixtures/mock-config.js');
+const Utility    = require('../../../../../../src/lib/utility.js');
+const { createConfigInfoStub, getFullConfig } = require('../../../../../fixtures/mock-config.js');
 
 // The pool code lives in src/db/connection.js since proposal B stage 1, and
 // db/index.js no longer requires mariadb at all. proxyquire only substitutes a
@@ -30,8 +30,8 @@ const { createConfigInfoStub, getFullConfig } = require('../../../fixtures/mock-
 // would silently do nothing and every pool assertion would run against a real
 // connection attempt.
 function databaseWithDriver(mockMariadb) {
-    return proxyquire('../../../../src/db/index.js', {
-        './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: mockMariadb })
+    return proxyquire('../../../../../../src/db/index.js', {
+        './connection.js': proxyquire('../../../../../../src/db/connection.js', { mariadb: mockMariadb })
     });
 }
 

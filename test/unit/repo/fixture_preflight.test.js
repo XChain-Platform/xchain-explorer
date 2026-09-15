@@ -20,9 +20,9 @@ const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
 
-const pre = require('../integration/helpers/fixture-preflight.js');
+const pre = require('../../integration/helpers/fixture-preflight.js');
 
-const REPO = path.join(__dirname, '..', '..');
+const REPO = path.join(__dirname, '..', '..', '..');
 
 // The real docker failure captured 2026-09-02.
 const DOCKER_BIND_FAILURE =
@@ -245,7 +245,7 @@ describe('integration fixture preflight', function () {
             // server and no container is published, so this would fail there.
             assert.match(compose, new RegExp(`"${pre.CONTAINER_DB.port}:3306"`),
                 'the compose file must publish the port the preflight probes');
-            const dbSetup = require('../integration/helpers/db-setup.js');
+            const dbSetup = require('../../integration/helpers/db-setup.js');
             assert.strictEqual(dbSetup.DB_CONFIG.port, pre.FIXTURE_DB.port);
             assert.strictEqual(dbSetup.DB_CONFIG.host, pre.FIXTURE_DB.host);
             assert.strictEqual(dbSetup.DB_CONFIG.database, pre.FIXTURE_DB.database);

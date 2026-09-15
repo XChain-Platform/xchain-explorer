@@ -59,8 +59,8 @@
 const { expect }  = require('chai');
 const proxyquire  = require('proxyquire');
 
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig, makeExplorerConfig } = require('../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { makeConfig, makeExplorerConfig } = require('../../fixtures/mock-query-args.js');
 
 const { makeRealDb, HUB } = require('./explorer_anchor_reward_attestations.test/support/helpers.js');
 
@@ -119,7 +119,7 @@ class MockDB {
     getMaxMethodResults() { return 100; }
 }
 
-const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../src/XChainExplorer.js', {
     'express': express,
     './db/index.js': MockDB
 });

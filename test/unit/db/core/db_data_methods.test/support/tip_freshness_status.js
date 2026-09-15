@@ -50,7 +50,7 @@ function poolWithBlockTime(coin, blockTime) {
     configurePool(db, coin, blockTime);
 }
 
-const status = require('../../../../src/content/json/xchain-platform-api.json')
+const status = require('../../../../../../src/content/json/xchain-platform-api.json')
                 .components.schemas.ExplorerStatus;
 
 

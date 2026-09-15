@@ -13,10 +13,10 @@
 const { expect } = require('chai');
 const http = require('http');
 
-const { Registry } = require('../../../../src/observability/metrics.js');
+const { Registry } = require('../../../../../src/observability/metrics.js');
 const {
     createLogShipper, readLogEnv, redactFields, scrubMessage, REDACTED
-} = require('../../../../src/observability/logShipper.js');
+} = require('../../../../../src/observability/logShipper.js');
 const { fakeConsole } = require('./helpers.js');
 
 describe('observability/logShipper', function () {

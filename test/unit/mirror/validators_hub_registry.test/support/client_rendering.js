@@ -14,7 +14,7 @@
 
 'use strict';
 
-const { srcText } = require('../../../helpers/source_text');
+const { srcText } = require('../../../../helpers/source_text');
 
 const fs         = require('fs');
 const path       = require('path');
@@ -27,8 +27,8 @@ const PK_A = 'aa'.repeat(32);
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
 // moved there in the component milestone.
 const SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../../../src/content/js/formatters.js'), 'utf8');
-const HTML = fs.readFileSync(path.resolve(__dirname, '../../../../src/content/html/validators.html'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '../../../../src/content/js/formatters.js'), 'utf8');
+const HTML = fs.readFileSync(path.resolve(__dirname, '..', '../../../../src/content/html/validators.html'), 'utf8');
 
 // Slice the SHIPPED createdRow callback out of loadDatatablesData by walking
 // braces, so this drives production code rather than a copy that can drift.
@@ -73,7 +73,7 @@ function render(data) {
     const dom = new JSDOM(
         '<!DOCTYPE html><body><table id="datatable-validator"><tbody><tr>' + cells +
         '</tr></tbody></table></body>', { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '../../../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(`
         var coin = 'BTC', action = 'validator', type = null;
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -145,7 +145,7 @@ describe('client: the validators table renders the hub registry columns', functi
     });
 
     it('there is no second federation-registry page', function () {
-        const pages = fs.readdirSync(path.resolve(__dirname, '../../../../src/content/html'));
+        const pages = fs.readdirSync(path.resolve(__dirname, '..', '../../../../src/content/html'));
         const extra = pages.filter(p => /federation|validator_registry|registry/i.test(p));
         expect(extra).to.deep.equal([], 'the hub registry folds into validators.html');
     });

@@ -32,7 +32,7 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -44,8 +44,8 @@ const { expect } = require('chai');
 // component milestone. Concatenated rather than switched, so this file keeps
 // naming ONE source for every helper it lifts.
 const SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '../../src/content/js/formatters.js'), 'utf8');
-const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '../../src/content/html/action.html'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
+const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces, so the test
 // runs shipped code rather than a copy that can drift.
@@ -74,7 +74,7 @@ function panelHtml() {
 function renderBetDetails(data) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + panelHtml() + '</body>',
         { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
 
     dom.window.XC = { coin: 'BTC' };
     /* Helpers the renderer leans on, kept naive so anything the assertions

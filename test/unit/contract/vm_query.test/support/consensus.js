@@ -147,10 +147,10 @@ describe('vm-query protocol size-cap parity @regression', () => {
     const fs   = require('fs');
     const path = require('path');
     // Load the module WITHOUT stubbing xchain-vm so we read its real exports.
-    const vmq  = require('../../../../src/contract/vm_query.js');
+    const vmq  = require('../../../../../src/contract/vm_query.js');
 
     const DOCS_DIR   = process.env.XCHAIN_DOCS_DIR ||
-        path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-documentation');
+        path.join(__dirname, '..', '..', '..', '..', '..', '..', 'xchain-documentation');
     const CONST_PATH = path.join(DOCS_DIR, 'protocol', 'constants.js');
 
     it('explorer query-VM MAX_CODE_SIZE === canonical protocol constant', function(){
@@ -176,7 +176,7 @@ describe('vm-query protocol size-cap parity @regression', () => {
     // regex rather than require(), so the assertion never needs to load isolated-vm.
     it('the compiled consensus pin equals the canonical sibling xchain-vm epoch', function(){
         const VM_DIR = process.env.XCHAIN_VM_SOURCE ||
-            path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-vm');
+            path.join(__dirname, '..', '..', '..', '..', '..', '..', 'xchain-vm');
         // The VM's layout pass renamed src/consensus-runtime.js to
         // src/consensus_runtime.js and left nothing at the old path, so a sibling
         // checkout sits on one side of that move or the other. Pinning one

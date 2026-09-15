@@ -32,14 +32,14 @@
 
 const { expect }    = require('chai');
 const proxyquire    = require('proxyquire');
-const Utility       = require('../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../fixtures/mock-config.js');
-const { makeConfig }           = require('../fixtures/mock-query-args.js');
+const Utility       = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const { makeConfig }           = require('../../fixtures/mock-query-args.js');
 
 // Database instance with no real MariaDB connection, matching
 // explorer.checkpoints.test.js / db.query-builder.test.js's own proxyquired setup.
-const Database = proxyquire('../../src/db/index.js', {
-    './connection.js': proxyquire('../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+const Database = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
 function makeDb(){

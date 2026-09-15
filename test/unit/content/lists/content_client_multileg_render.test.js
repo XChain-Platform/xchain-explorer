@@ -34,17 +34,17 @@ const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const CONTENT = path.resolve(__dirname, '../../src/content');
+const CONTENT = path.resolve(__dirname, '..', '..', '../../src/content');
 // The shipped client source, from the shared helper: the cell-rendering
 // helpers (isNull, escapeHtml, formatAmount, formatLink and friends) moved
 // out of xchain.js into formatters.js in the component milestone, and this
 // suite needs whichever of the two a given function landed in.
-const CLIENT_SRC  = require('../helpers/content-source.js').clientSource();
+const CLIENT_SRC  = require('../../../helpers/content-source.js').clientSource();
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 const ACTION  = path.join(CONTENT, 'html', 'action.html');
 // mints.html is one of the 76 pages served by the shared list-page composition
 // now (spec M2.3), so its markup comes from the composer rather than from disk.
-const SOURCE  = require('../helpers/content-source.js');
+const SOURCE  = require('../../../helpers/content-source.js');
 
 function bootClient(url, markup){
     const dom = new JSDOM('<!doctype html><html><body>' + (markup || '') + '</body></html>', {
@@ -204,7 +204,7 @@ describe('multi-leg actions: legs the page could not show', function(){
     describe('DESTROY leg order', function(){
 
         it('the leg query imposes no sort, so the legs keep the order they were written in', function(){
-            const { DESTROY } = require('../../src/action-detail/tokens.js');
+            const { DESTROY } = require('../../../../src/action-detail/tokens.js');
             const { query2 } = DESTROY.queries({ action_index: 1183 });
             expect(query2).to.contain('FROM');
             expect(query2, 'a sort key here silently contradicts the transaction')
@@ -237,7 +237,7 @@ describe('multi-leg actions: legs the page could not show', function(){
     describe('AIRDROP legs', function(){
 
         it('collects every leg rather than one row', function(){
-            const { AIRDROP } = require('../../src/action-detail/tokens.js');
+            const { AIRDROP } = require('../../../../src/action-detail/tokens.js');
             const { query2 } = AIRDROP.queries({ action_index: 1176 });
             expect(query2, 'no follow-up query means the extra legs are never read')
                 .to.be.a('string');
@@ -247,14 +247,14 @@ describe('multi-leg actions: legs the page could not show', function(){
         });
 
         it('the leg query imposes no sort, so the legs keep the order they were written in', function(){
-            const { AIRDROP } = require('../../src/action-detail/tokens.js');
+            const { AIRDROP } = require('../../../../src/action-detail/tokens.js');
             const { query2 } = AIRDROP.queries({ action_index: 1176 });
             expect(query2, 'a sort key here silently contradicts the transaction')
                 .to.not.match(/ORDER\s+BY/i);
         });
 
         it('hands the legs to the payload under their own key', function(){
-            const { AIRDROP } = require('../../src/action-detail/tokens.js');
+            const { AIRDROP } = require('../../../../src/action-detail/tokens.js');
             const data = {};
             AIRDROP.afterQuery2({}, data, [{ tick: 'CAMPB' }]);
             expect(data.airdrops).to.deep.equal([{ tick: 'CAMPB' }]);

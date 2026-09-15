@@ -14,7 +14,7 @@ const { expect } = require('chai');
 
 const {
     createLogShipper, scrubMessage, REDACTED
-} = require('../../../../src/observability/logShipper.js');
+} = require('../../../../../src/observability/logShipper.js');
 const { fakeConsole } = require('./helpers.js');
 
 // The fleet runs text mode, so text mode is where the structured record has to

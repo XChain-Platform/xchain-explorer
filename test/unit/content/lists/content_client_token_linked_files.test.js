@@ -26,19 +26,19 @@
 
 'use strict';
 
-const { srcText } = require('../helpers/source_text');
+const { srcText } = require('../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const CONTENT = path.resolve(__dirname, '../../src/content');
+const CONTENT = path.resolve(__dirname, '..', '..', '../../src/content');
 // The shipped client source, from the shared helper: the cell-rendering
 // helpers (isNull, escapeHtml, formatAmount, formatLink and friends) moved
 // out of xchain.js into formatters.js in the component milestone, and this
 // suite needs whichever of the two a given function landed in.
-const CLIENT_SRC  = require('../helpers/content-source.js').clientSource();
+const CLIENT_SRC  = require('../../../helpers/content-source.js').clientSource();
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 const TOKEN   = path.join(CONTENT, 'html', 'token.html');
 

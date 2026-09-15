@@ -107,7 +107,7 @@ describe('Database#getNetwork', () => {
         sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 5));
 
         const [data] = await db.getNetwork(cfg());
-        const expected = require('../../../../src/coins').resolveConfirmations({}, 'mainnet');
+        const expected = require('../../../../../../src/coins').resolveConfirmations({}, 'mainnet');
         expect(data.finality).to.deep.equal(expected);
         // Sanity: registry carries the canonical per-coin defaults.
         expect(data.finality.BTC).to.equal(6);

@@ -34,7 +34,7 @@ const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
 
-const JSON_DIR = path.join(__dirname, '..', '..', 'src', 'content', 'json');
+const JSON_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'json');
 const OPENAPI_FILE = 'xchain-platform-api.json';
 
 // V8 reports a byte offset but not always a line, so derive one when it is

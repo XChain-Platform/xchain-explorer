@@ -15,7 +15,7 @@ const express = require('express');
 
 const {
     installObservability, readObservabilityEnv, routeLabel
-} = require('../../../../src/observability/index.js');
+} = require('../../../../../src/observability/index.js');
 const { fakeConsole, listen } = require('./helpers.js');
 
 describe('observability/installObservability', function () {
@@ -23,7 +23,7 @@ describe('observability/installObservability', function () {
     // The registry and shipper are process-wide by design (one process is one
     // service), so a suite that installs many times has to drop them between
     // cases or it reads the previous case's service label and HTTP series.
-    afterEach(function () { require('../../../../src/observability/index.js')._resetObservability(); });
+    afterEach(function () { require('../../../../../src/observability/index.js')._resetObservability(); });
 
     it('reads a default-off config from an empty env', function () {
         const cfg = readObservabilityEnv({});
@@ -62,7 +62,7 @@ describe('observability/installObservability', function () {
 });
 
 describe('observability/installObservability', function () {
-    afterEach(function () { require('../../../../src/observability/index.js')._resetObservability(); });
+    afterEach(function () { require('../../../../../src/observability/index.js')._resetObservability(); });
 
     it('serves the exposition text and instruments requests when enabled', async function () {
         const app = express();
@@ -100,7 +100,7 @@ describe('observability/installObservability', function () {
 });
 
 describe('observability/installObservability', function () {
-    afterEach(function () { require('../../../../src/observability/index.js')._resetObservability(); });
+    afterEach(function () { require('../../../../../src/observability/index.js')._resetObservability(); });
 
     it('buckets an unmatched path by first segment so URLs cannot explode cardinality', async function () {
         const app = express();
@@ -126,7 +126,7 @@ describe('observability/installObservability', function () {
 });
 
 describe('observability/installObservability', function () {
-    afterEach(function () { require('../../../../src/observability/index.js')._resetObservability(); });
+    afterEach(function () { require('../../../../../src/observability/index.js')._resetObservability(); });
 
     it('gates the endpoint behind METRICS_TOKEN when one is configured', async function () {
         const app = express();
@@ -169,7 +169,7 @@ describe('observability/installObservability', function () {
 });
 
 describe('observability/installObservability', function () {
-    afterEach(function () { require('../../../../src/observability/index.js')._resetObservability(); });
+    afterEach(function () { require('../../../../../src/observability/index.js')._resetObservability(); });
 
     it('instruments routes registered BEFORE the install call (layer is hoisted)', async function () {
         // The six services wire this at different points in their api.js; Express

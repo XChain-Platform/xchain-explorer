@@ -179,7 +179,7 @@ describe('client XSS: src/content/js/xchain.js (jsdom regression harness)', func
     describe('buildSandboxedContentDoc() + resize contract', function () {
         it('the sandboxed iframe carries a sandbox without allow-same-origin', function () {
             // The whole protection is the sandbox; assert it exists and is NOT neutered.
-            const tpl = fs.readFileSync(path.resolve(__dirname, '../../../../src/content/html/token.html'), 'utf8');
+            const tpl = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../../../src/content/html/token.html'), 'utf8');
             const m = tpl.match(/id="customContentViewer"[^>]*sandbox="([^"]*)"/);
             expect(m, 'customContentViewer must declare a sandbox').to.not.equal(null);
             expect(m[1]).to.contain('allow-scripts');

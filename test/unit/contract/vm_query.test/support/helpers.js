@@ -23,7 +23,7 @@ const proxyquire = require('proxyquire').noPreserveCache().noCallThru();
 function loadVmQuery(vmStub){
     const stubs = {};
     if(vmStub !== undefined) stubs['xchain-vm'] = vmStub;
-    return proxyquire('../../../../src/contract/vm_query.js', stubs);
+    return proxyquire('../../../../../src/contract/vm_query.js', stubs);
 }
 
 // Minimal db stub satisfying simulate()'s reads.

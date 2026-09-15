@@ -26,10 +26,10 @@ const assert       = require('assert');
 const fs           = require('fs');
 const path         = require('path');
 const { spawnSync } = require('child_process');
-const { srcText }  = require('../helpers/source_text');
+const { srcText }  = require('../../helpers/source_text');
 
-const coins    = require('../../src/coins');
-const REPO     = path.join(__dirname, '..', '..');
+const coins    = require('../../../src/coins');
+const REPO     = path.join(__dirname, '..', '..', '..');
 const API_PATH = path.join(REPO, 'src', 'api.js');
 
 function startApiBody(){

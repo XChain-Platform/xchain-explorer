@@ -28,16 +28,16 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 
-const Utility = require('../../../../src/lib/utility.js');
+const Utility = require('../../../../../src/lib/utility.js');
 
-const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
-const { mockRes, makeConfig }  = require('../../../fixtures/mock-query-args.js');
+const { createConfigInfoStub } = require('../../../../fixtures/mock-config.js');
+const { mockRes, makeConfig }  = require('../../../../fixtures/mock-query-args.js');
 
 // Same module instances XChainExplorer requires (Node module cache); stubbing
 // the activation predicates here pins the verify path deterministically.
-const eq   = require('../../../../src/equivocation_header.js');
-const swq  = require('../../../../src/stake_weighted_quorum.js');
-const ckpt = require('../../../../src/checkpoint_commitment_activation.js');
+const eq   = require('../../../../../src/equivocation_header.js');
+const swq  = require('../../../../../src/stake_weighted_quorum.js');
+const ckpt = require('../../../../../src/checkpoint_commitment_activation.js');
 
 // Load XChainExplorer with heavy deps replaced.
 const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
@@ -47,7 +47,7 @@ express.json   = () => {};
 
 class MockDB { constructor() {} async init() {} }
 
-const XChainExplorer = proxyquire('../../../../src/XChainExplorer.js', {
+const XChainExplorer = proxyquire('../../../../../src/XChainExplorer.js', {
     'express': express,
     './db/index.js': MockDB,
     'fs': { existsSync: () => true, readFileSync: () => 'mock' }

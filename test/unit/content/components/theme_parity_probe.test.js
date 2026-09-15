@@ -41,7 +41,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { JSDOM } = require('jsdom');
 
-const PROBE_FILE = path.join(__dirname, '..', '..', 'tools/theme-parity/parity-probe.js');
+const PROBE_FILE = path.join(__dirname, '..', '..', '..', '..', 'tools/theme-parity/parity-probe.js');
 const PROBE_SRC = fs.readFileSync(PROBE_FILE, 'utf8');
 
 // An href the probe's SHEET pattern admits, and one it must skip.

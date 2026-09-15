@@ -24,8 +24,8 @@
 'use strict';
 
 const assert = require('assert');
-const M      = require('../../src/consensus/merkle.js');
-const ProofServer = require('../../src/http/proof_server.js');
+const M      = require('../../../src/consensus/merkle.js');
+const ProofServer = require('../../../src/http/proof_server.js');
 // The REAL SDK light-client verifier (its own merkle twin), so the regression
 // below asserts cross-service acceptance exactly as a deployed light client would.
 // Resolved lazily and skip-if-absent (XCHAIN_SDK_DIR override, else the sibling
@@ -38,7 +38,7 @@ const path = require('path');
 // spelling and fall back to the pre-move one, because pinning either alone turns
 // the regression below into a silent skip against the other side.
 const SDK_DIR = process.env.XCHAIN_SDK_DIR
-    || path.join(__dirname, '..', '..', '..', 'xchain-sdk');
+    || path.join(__dirname, '..', '..', '..', '..', 'xchain-sdk');
 const SDK_LIGHT = [path.join(SDK_DIR, 'src', 'protocol', 'light_client.js'),
                    path.join(SDK_DIR, 'src', 'light.js')].find((p) => fs.existsSync(p)) || null;
 const verifyBalanceProof = SDK_LIGHT ? require(SDK_LIGHT).verifyBalanceProof : null;

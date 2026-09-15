@@ -25,6 +25,13 @@ const path                  = require('path');
 const util                  = require('./lib/utility.js');
 const xchainHubConnector    = require('./connectors/hub')
 
+// The parts this entry composes. They are pure: everything that touches the
+// filesystem, the hub connector or module state stays here, so the config
+// suite's proxyquire stubs on this file still govern the whole flow.
+const { baseCoinTables, applyExplorerSection, resolveCoins } = require('./config/resolve_coins.js');
+const { flattenHubConfig, hubFallbackOutcome }               = require('./config/apply_hub_values.js');
+const { describeHubResponse, requireUsableConfig }           = require('./config/validate.js');
+
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
 const { getLogger }         = require('./observability');
@@ -125,6 +132,133 @@ function loadConfigCacheFromDisk(){
     return null;
 }
 
+// Load a coin's own configuration file. Kept on this entry because it is the one
+// step of the resolution walk that reads the filesystem, and the config suite
+// stubs `fs` by proxyquire on THIS module; a part that required fs itself would
+// escape the stub. Returns null when the file is absent, which the walk treats
+// as "skip this entry".
+function loadCoinConfig(coin, network){
+    let coinFile = path.join(__dirname, 'coin-config', coin + '.js');
+    if(!fs.existsSync(coinFile)){
+        log.warn('CONFIG_COIN_FILE_MISSING', { file: coinFile });
+        return null;
+    }
+    let cfg = require(coinFile);
+    return cfg.getConfig(network);
+}
+
+// The explorer's own API details. Built per call, like the config that carries
+// it, so a consumer that mutates config.API cannot reach the next config.
+function apiSection(){
+    return {
+        host: API_HOST,
+        user: API_USER,
+        pass: API_PASS,
+        ssl:  API_SSL,
+        port: {
+            http:  API_PORT_HTTP,
+            https: API_PORT_HTTPS
+        }
+    };
+}
+
+// Ask the hub for the whole config tree, creating the connector on first use.
+function pollHubConfig(endpoints){
+    if (!hubConnector){
+        hubConnector = new xchainHubConnector(endpoints)
+    }
+
+    return hubConnector.getAllConfig()
+}
+
+// While the explorer serves no coins it is useless, and nothing in the
+// log says whether each poll got nothing, got an empty tree, or got
+// coins it then discarded. Records that, and only in that state.
+function recordEmptyPoll(jsonConfig){
+    if(!configCache || Object.keys(configCache['COIN_AVAILABLE'] || {}).length === 0){
+        const polled = (jsonConfig && typeof jsonConfig === 'object') ? Object.keys(jsonConfig) : null;
+        log.warn('CONFIG_POLL_NO_COINS', {
+            hub_returned: polled === null ? 'null' : polled.length + ' key(s) [' + polled.join(',') + ']',
+            next_cursor: hubConnector.lastWatermark
+        });
+    }
+}
+
+// The hub answered with nothing usable. The decision lives in the part; module
+// state is written here, where it lives.
+function hubUnusableFallback(cause){
+    const outcome = hubFallbackOutcome(cause, {
+        cachedConfig:  configCache,
+        loadDiskCache: loadConfigCacheFromDisk,
+        log:           log
+    });
+    if (outcome.clearLastObtained) lastObtainedConfigValue = JSON.stringify(null);
+    return outcome;
+}
+
+// The hub returned a usable config. Records the fetch time, decides whether the
+// content actually moved, and flattens it when it did.
+function hubUsableUpdate(jsonConfig, coinNetworks){
+    // Record the fetch time even when the content is unchanged below, so the age
+    // exposed in /status reflects the last genuine contact with the hub, not the
+    // last config change.
+    hubConfigFetchedAt = Date.now();
+
+    // Compare by JSON content, not reference. getAllConfig returns
+    // a fresh object every call, so the prior `!=` check fired on
+    // every refresh, triggering downstream pool rebuilds 60x/hour
+    // even when the hub returned identical config. Stringify lets
+    // unchanged content short-circuit out via the else branch.
+    const fetchedStr = JSON.stringify(jsonConfig)
+    if (fetchedStr === lastObtainedConfigValue)
+        return { serveCache: true };
+
+    lastObtainedConfigValue = fetchedStr
+
+    let newJsonConfig = flattenHubConfig(jsonConfig, coinNetworks, warnedUnknownCoins, log)
+    jsonConfig = {"configs":newJsonConfig}
+
+    // Persist last-known-good so an unreachable hub on a
+    // later (re)start doesn't bring us up with zero coins.
+    if (newJsonConfig.length > 0)
+        persistConfigCache(jsonConfig);
+
+    // Deferred to after `configCache = config`: subscribers re-read the
+    // config through the CACHE (db/index.js setupConnectionPools), so firing here
+    // hands them the PREVIOUS config and the rebuild silently does nothing.
+    return { jsonConfig: jsonConfig, changed: true };
+}
+
+// The hub path end to end: poll, classify, then either fall back or take the
+// new tree.
+async function fetchHubConfig(endpoints, coinNetworks, configUtil){
+    const jsonConfig = await pollHubConfig(endpoints)
+    recordEmptyPoll(jsonConfig);
+
+    const verdict = describeHubResponse(configUtil, jsonConfig);
+    if (verdict.returnedNothing)
+        return hubUnusableFallback(verdict.cause);
+
+    return hubUsableUpdate(jsonConfig, coinNetworks);
+}
+
+// Standalone: the config comes from the environment instead.
+// TODO: Verify this works once Javier has the code written into xchain-node or xchain-hub
+function loadStandaloneConfig(){
+    const nodeConfig = process.env.NODE_CONFIG;
+
+    // A local config.json is optional; its absence is normal and only logged.
+    let fileConfig = false;
+    try {
+        fileConfig = require('./config.json');
+    } catch (error){
+        log.info('CONFIG_FILE_NOT_LOADED', { err: String(error) });
+    }
+
+    // The file wins over the environment value when both are present.
+    return (fileConfig) ? fileConfig : nodeConfig;
+}
+
 // A live read-through view onto process.env, so the gate's
 // process_env_outside_config rule has one home (config.js is itself exempt
 // from it) without db/index.js or the readers losing any call-time or computed-key
@@ -203,28 +337,10 @@ module.exports = {
         if (cache && configCache){
             return configCache
         } else {
-            // config is the explorer-wide object built below; coinConfig is the
-            // per-coin block loaded from coin-config/ inside the loop.
-            let config     = {};
-            let coinConfig = {};
-            // The coins XChain supports, keyed by their abbreviation.
-            config['COIN_NETWORKS'] = {
-                BTC:  'Bitcoin',
-                LTC:  'Litecoin',
-                DOGE: 'Dogecoin'
-            };
+            // config is the explorer-wide object built out from the fixed coin
+            // and network tables; the per-coin blocks land on it further down.
+            let config = baseCoinTables();
 
-            // Network prefix on a coin code: T is testnet, R is regtest, mainnet
-            // carries none (so BTC, TBTC, RBTC).
-            config['COIN_PREFIXES'] = {
-                'mainnet': '',
-                'testnet': 'T',
-                'regtest': 'R'
-            };
-
-            let coinNetworksKeys = Object.keys(config['COIN_NETWORKS'])
-            
-            
             const configUtil = new util();
             let jsonConfig = null
             // Announced only after configCache is replaced below; see the trigger call.
@@ -233,242 +349,23 @@ module.exports = {
             // Endpoints present means the hub is the config source; the else
             // branch below is the standalone path with no hub to ask.
             if (endpoints){
-                if (!hubConnector){
-                    hubConnector = new xchainHubConnector(endpoints)
-                }
-                
-                jsonConfig = await hubConnector.getAllConfig()
+                const fetched = await fetchHubConfig(endpoints, config['COIN_NETWORKS'], configUtil);
+                // Nothing moved, or nothing usable arrived and we already hold a
+                // config: serve what the cache has rather than rebuild from it.
+                if (fetched.serveCache)
+                    return configCache
 
-                // While the explorer serves no coins it is useless, and nothing in the
-                // log says whether each poll got nothing, got an empty tree, or got
-                // coins it then discarded. Records that, and only in that state.
-                if(!configCache || Object.keys(configCache['COIN_AVAILABLE'] || {}).length === 0){
-                    const polled = (jsonConfig && typeof jsonConfig === 'object') ? Object.keys(jsonConfig) : null;
-                    log.warn('CONFIG_POLL_NO_COINS', {
-                        hub_returned: polled === null ? 'null' : polled.length + ' key(s) [' + polled.join(',') + ']',
-                        next_cursor: hubConnector.lastWatermark
-                    });
-                }
-
-                // Detect an unusable hub response (null after all retries, or an
-                // empty object) up front so a hub outage never tears down a
-                // working config or hard-fails startup.
-                const hubUnreachable = configUtil.isNull(jsonConfig);
-                const hubReturnedNothing = hubUnreachable ||
-                    (typeof jsonConfig === 'object' && Object.keys(jsonConfig).length === 0);
-
-                // A hub that answers with an empty tree is NOT down: it is up and has no
-                // coin config yet, which is the normal state while a stack is still being
-                // installed. Reporting both as "unreachable" sends operators after a
-                // network fault that does not exist.
-                const hubCause = hubUnreachable
-                    ? 'Hub unreachable (all endpoints failed after retries)'
-                    : 'Hub reachable but serving no coin config';
-
-                if (hubReturnedNothing){
-                    // A transient blip during a periodic sync tick must not wipe
-                    // a good config; keep serving what we already have. Surface
-                    // it at error level (the connector only logs per-endpoint
-                    // warns) so operators get one unambiguous signal that the
-                    // hub is down and the served config is now stale, instead of
-                    // discovering it only when downstream DB queries start failing.
-                    if (configCache){
-                        log.error('CONFIG_HUB_UNUSABLE_SERVING_CACHE', { cause: hubCause, detail: 'serving last-known-good cached config (may be stale until the hub recovers)' });
-                        return configCache;
-                    }
-
-                    // Cold start with the hub unreachable: fall back to the
-                    // last-known-good config persisted on disk so the explorer
-                    // comes up serving real coins instead of an empty config.
-                    // The disk copy is already in the flattened {configs:[...]}
-                    // shape, so skip the hub-shape transform below.
-                    const diskConfig = loadConfigCacheFromDisk();
-                    if (diskConfig){
-                        log.warn('CONFIG_HUB_UNUSABLE_LOADING_DISK_CACHE', { cause: hubCause, entries: diskConfig.configs.length });
-                        jsonConfig = diskConfig;
-                    } else {
-                        // No cache anywhere (first-ever boot during an outage).
-                        // Come up degraded with zero coins rather than crash;
-                        // the sync loop will populate once the hub returns.
-                        log.warn('CONFIG_HUB_UNUSABLE_DEGRADED_START', { cause: hubCause, detail: 'no config cache is available; starting in degraded mode (no coins configured); the sync loop retries every UPDATE_CONFIG_INTERVAL ms' });
-                        lastObtainedConfigValue = JSON.stringify(null);
-                        jsonConfig = {"configs":[]};
-                    }
-                } else {
-                    // The hub returned a usable config; record the fetch time even when the
-                    // content is unchanged below, so the age exposed in /status reflects the
-                    // last genuine contact with the hub, not the last config change.
-                    hubConfigFetchedAt = Date.now();
-
-                    // Compare by JSON content, not reference. getAllConfig returns
-                    // a fresh object every call, so the prior `!=` check fired on
-                    // every refresh, triggering downstream pool rebuilds 60x/hour
-                    // even when the hub returned identical config. Stringify lets
-                    // unchanged content short-circuit out via the else branch.
-                    const fetchedStr = JSON.stringify(jsonConfig)
-                    if (fetchedStr !== lastObtainedConfigValue){
-                        lastObtainedConfigValue = fetchedStr
-
-                        let newJsonConfig = []
-                        for (let nextCoin in jsonConfig){
-                            let nextCoinLabel = coinNetworksKeys.find(key => config['COIN_NETWORKS'][key].toLowerCase() == nextCoin)
-
-                            // The hub config tree can carry top-level keys that are
-                            // not coins (e.g. chain_tips pushed by indexers under the
-                            // coin abbreviation 'BTC' rather than the full name
-                            // 'bitcoin'). Those don't map to a known coin label, so
-                            // skip them instead of emitting an entry with coin:undefined
-                            // that the coin-config loader below would choke on.
-                            if(!nextCoinLabel){
-                                if(!warnedUnknownCoins.has(nextCoin)){
-                                    warnedUnknownCoins.add(nextCoin);
-                                    log.warn('CONFIG_UNKNOWN_COIN_KEY_SKIPPED', { key: nextCoin });
-                                }
-                                continue;
-                            }
-
-                            for (let nextNetwork in jsonConfig[nextCoin]){
-                                let coinNetworkJson = {"coin":nextCoinLabel, "network":nextNetwork}
-
-                                for (let nextService in jsonConfig[nextCoin][nextNetwork]){
-                                    coinNetworkJson[nextService] = jsonConfig[nextCoin][nextNetwork][nextService]
-                                }
-                                newJsonConfig.push(coinNetworkJson)
-                            }
-                        }
-
-                        jsonConfig = {"configs":newJsonConfig}
-
-                        // Persist last-known-good so an unreachable hub on a
-                        // later (re)start doesn't bring us up with zero coins.
-                        if (newJsonConfig.length > 0)
-                            persistConfigCache(jsonConfig);
-
-                        // Deferred to after `configCache = config`: subscribers re-read the
-                        // config through the CACHE (db/index.js setupConnectionPools), so firing here
-                        // hands them the PREVIOUS config and the rebuild silently does nothing.
-                        configChanged = true;
-                    } else {
-                        return configCache
-                    }
-                }
+                jsonConfig    = fetched.jsonConfig
+                configChanged = fetched.changed === true
             } else {
-                // Standalone: the config comes from the environment instead.
-                // TODO: Verify this works once Javier has the code written into xchain-node or xchain-hub
-                const nodeConfig = process.env.NODE_CONFIG;
-
-                // A local config.json is optional; its absence is normal and only logged.
-                let fileConfig = false;
-                try {
-                    fileConfig = require('./config.json');
-                } catch (error){
-                    log.info('CONFIG_FILE_NOT_LOADED', { err: String(error) });
-                }
-
-                // The file wins over the environment value when both are present.
-                jsonConfig = (fileConfig) ? fileConfig : nodeConfig;
-            }
-            
-            // Refuse to run without a usable config, whichever source supplied it.
-            if(configUtil.isNull(jsonConfig))
-                configUtil.throwError('No valid configuration information detected');
-
-            // Every coin and network combination XChain knows of (BTC, TBTC, RBTC, ...),
-            // whether or not this instance serves it.
-            config['COIN_SUPPORTED'] = {};
-            for(let coin in config['COIN_NETWORKS']){
-                for(let network in config['COIN_PREFIXES']){
-                    let prefix = config['COIN_PREFIXES'][network],
-                        code   = prefix + coin,
-                        name   = config['COIN_NETWORKS'][coin] + ' (' + network + ')';
-                    config['COIN_SUPPORTED'][code] = name;
-                }
+                jsonConfig = loadStandaloneConfig()
             }
 
-            // The narrower set this instance actually serves, filled in by the
-            // per-coin loop below.
-            config['COIN_AVAILABLE'] = {};
+            requireUsableConfig(configUtil, jsonConfig);
 
-            // Indexer settings the explorer needs its own copy of, because the
-            // hub config it is handed does not carry them.
-            // TODO: See if we can clean this up by passing indexer config to explorer
-            config['DISPENSER_LIST_DELAY'] = 3600;
+            applyExplorerSection(config, jsonConfig, apiSection());
+            resolveCoins(config, jsonConfig, loadCoinConfig);
 
-            // The explorer's own API details, carried forward to every consumer
-            // of the config.
-            config['API'] = {
-                host: API_HOST,
-                user: API_USER,
-                pass: API_PASS,
-                ssl:  API_SSL,
-                port: {
-                    http:  API_PORT_HTTP,
-                    https: API_PORT_HTTPS
-                }
-            }
-
-            // Optional icon-downloader settings, carried forward for icons/downloader.js.
-            if(jsonConfig.iconDownload)
-                config['iconDownload'] = jsonConfig.iconDownload;
-
-            // Walk every coin and network the config names and load its specific data.
-            for(let info of jsonConfig.configs ){
-
-                // Per-coin settings live in their own file under coin-config/.
-                let coinFile   = path.join(__dirname, 'coin-config', info.coin + '.js');
-
-                // Load COIN specific configuration file, or skip this entry.
-                // A missing file means the config carried a coin this explorer
-                // build has no config for (or an unmappable/junk key). Skip it
-                // with a warning rather than throwing, so one stray entry can't
-                // take the whole explorer down at startup.
-                if(fs.existsSync(coinFile)){
-                    let cfg    = require(coinFile);
-                    coinConfig = cfg.getConfig(info.network);
-                } else {
-                    log.warn('CONFIG_COIN_FILE_MISSING', { file: coinFile });
-                    continue;
-                }
-
-                // First network seen for a coin creates the coin's own entry.
-                if(!config[info.coin]){
-                    config[info.coin] = {
-                        chain: coinConfig.chain
-                    };
-                }
-
-                // Define NETWORK information object.
-                // Hub config flattens services keyed as 'xchain-indexer' /
-                // 'xchain-decoder'; legacy config.json uses 'indexer' /
-                // 'decoder' directly. Accept either so both paths work.
-                if(!config[info.coin][info.network]){
-                    config[info.coin][info.network] = {
-                        database: {
-                            indexer: info['xchain-indexer'] || info.indexer,
-                            decoder: info['xchain-decoder'] || info.decoder,
-                            // Checkpoint source schema (config.json only). Either an
-                            // externally-maintained hub schema (e.g. XChain_Hub on a
-                            // single-server deployment) or, with self_sync: true, a
-                            // local mirror this explorer populates itself from the
-                            // hub's /hub-db feed (HubMirrorSyncManager; needs a hub
-                            // endpoint, carried as hub_url in this same block or
-                            // else the HUB_API_URL env). Needed because xchain-sync deliberately
-                            // excludes the hub-mirror tables (state_checkpoints /
-                            // capability_snapshots / cross_chain_matches) from
-                            // replication. See db/index.js checkpointDb.
-                            checkpoint: info.checkpoint
-                        },
-                        address: coinConfig.address
-                    };
-                }
-
-                let prefix = config['COIN_PREFIXES'][info.network],
-                    code   = prefix + info.coin,
-                    name   = info.coin + ' (' + info.network + ')';
-                config['COIN_AVAILABLE'][code] = name;
-
-            }
-            
             configCache = config
             if(configChanged) this.triggerConfigChanged();
             return config;

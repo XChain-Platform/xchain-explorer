@@ -20,26 +20,26 @@
 
 const dotenv         = require('dotenv');
 const http           = require('http');
-const https          = require('https');
 const express        = require('express');
-const helmet         = require('helmet');
-const cors           = require('cors');
-const rateLimit      = require('express-rate-limit');
 const XChainExplorer = require('./XChainExplorer.js');
 const configInfo     = require('./config.js');
-const jsonRouter     = require('express-json-rpc-router')
-const WebSocketServer = require('./ws/websocket_server.js');
-const ChangeDetector  = require('./ws/change_detector.js');
-const Broadcaster     = require('./ws/broadcaster.js');
 const vmQuery         = require('./contract/vm_query.js');
-const concurrencyGate = require('./http/concurrency_gate.js');
-const { limitedHandler } = require('./http/rate_limit_log.js');  // limiter counter line, shared with XChainExplorer's per-route limiters
 const staticMounts    = require('./http/static_mounts.js');     // the one file-serving mount list, shared with XChainExplorer
-const { applyTrustProxy } = require('./http/trust_proxy.js');   // proxy-hop policy, shared with the WS path's hop count
-const { resolveMaxBatch, makeRpcBatchGuard } = require('./http/rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
 const { createShutdown, createExplorerDrain } = require('./http/shutdown.js');
-const { installObservability, getLogger } = require('./observability');   // default-off /metrics + structured log shim
+const { getLogger } = require('./observability');
 const coins           = require('./coins');
+
+// The boot steps startApi() runs, in mount order. Each one takes the app plus
+// whatever it needs from this entry, so no step requires a module the api
+// suites stub here, and the order the service comes up in stays readable in
+// startApi() itself.
+const { applySecurityHeaders, applyProxyTrust } = require('./http/api_boot/security_headers.js');
+const { applyCors }          = require('./http/api_boot/cors.js');
+const { applyRateLimits }    = require('./http/api_boot/rate_limits.js');
+const { applyObservability } = require('./http/api_boot/observability.js');
+const { startTlsListener }   = require('./http/api_boot/tls.js');
+const { mountJsonRpc }       = require('./http/api_boot/json_rpc.js');
+const { startWebsockets }    = require('./http/api_boot/websocket.js');
 
 // Read the .env file before anything below reads an environment variable.
 dotenv.config();
@@ -75,205 +75,27 @@ const runtime = {
     explorer:       null
 };
 
-// Brings the whole service up in order: consensus pin, config, guards, routes,
-// listeners, then the live feed.
-async function startApi(){
-    // Verify the bundled coin files against CONSENSUS_CONFIG_PIN before the hub
-    // config fetch, the DB pool, the proof server or any route exists. The
-    // explorer answers proof-liveness questions and serves burn/gas/protocol
-    // addresses straight out of this pinned consensus subset, so a bundle that
-    // drifted on THIS host must halt rather than answer from a registry nobody
-    // verified. CI hashes the checkout, never the running artifact. All networks
-    // (the XChainHub.start form) because the explorer bundles and serves all
-    // three. A null pin (mainnet, pre-arm) skips; a mismatch throws, uncaught.
-    for(const net of coins.NETWORKS) coins.verifyConsensusPin(net);
+// Static assets (icons, images) are served from disk, cost no DB work, and
+// every page pulls a burst of them at once, so they are exempt from both
+// the per-IP rate limit and the global concurrency gate in api_boot/rate_limits.js.
+// Counting them would shed real queries to make room for favicons.
+//
+// Exempt by FIRST PATH SEGMENT, from the one mount list in
+// src/http/static_mounts.js, never by file extension: a suffix is a claim about
+// what a URL looks like, not about what serves it. Match on it and
+// /BTC/api/search/needle.png reads as an image, skips both guards, and
+// still routes to the catch-all API handler, so any suffixed path buys
+// unlimited DB-backed search.
+const isStaticAsset = staticMounts.isStaticAsset;
 
-    // The explorer config, fetched from the hub when endpoints are configured.
-    let config = await configInfo.getConfig(HUB_ENDPOINTS);
-
-    const app = express();
-
-    // HTTPS-only hardening: upgrade-insecure-requests + HSTS. These MUST NOT be sent when the
-    // explorer is reached over plain HTTP (local dev / regtest), or the browser rewrites every
-    // same-origin subresource (icons, assets) to https://<host>:<http-port>, which only speaks
-    // HTTP -> SSL protocol error -> broken images. Enable only when TLS-fronted: prod runs
-    // NODE_ENV=production behind Apache TLS. EXPLORER_FORCE_HTTPS=1/0 overrides explicitly.
-    const HTTPS_HARDENING = (configInfo.env.EXPLORER_FORCE_HTTPS != null)
-        ? ['1','true','yes','on'].includes(String(configInfo.env.EXPLORER_FORCE_HTTPS).toLowerCase())
-        : (configInfo.env.NODE_ENV === 'production');
-
-    // Helmet sets the browser security headers; each directive below is tuned
-    // for what the explorer's own pages need.
-    app.use(helmet({
-        // HSTS only applies to HTTPS; omit it on plain-HTTP deployments. Default keeps Helmet's HSTS.
-        ...(HTTPS_HARDENING ? {} : { strictTransportSecurity: false }),
-        contentSecurityPolicy: {
-            directives: {
-                // Default: only allow resources from self
-                defaultSrc:  ["'self'"],
-                // Inline scripts are required for per-page $(document).ready() blocks in HTML
-                // templates. static.cloudflareinsights.com is Cloudflare's RUM beacon, which the
-                // edge auto-injects into proxied pages; blocking it logs a CSP violation on every
-                // page load. Deployments not behind Cloudflare never receive the script, so the
-                // allowance is inert for them.
-                scriptSrc:     ["'self'", "'unsafe-inline'", "https://static.cloudflareinsights.com"],
-                // Helmet sets script-src-attr: 'none' by default; override to allow inline event handlers required by jQuery
-                scriptSrcAttr: ["'unsafe-inline'"],
-                // Inline styles are required for Bootstrap components and HTML attribute styles
-                styleSrc:    ["'self'", "'unsafe-inline'"],
-                // data: URIs are required for QR code generation; https: allows external images in token descriptions
-                imgSrc:      ["'self'", "data:", "https:"],
-                // Token descriptions can carry <video>/<audio> sources on any https host,
-                // and the sandboxed custom-content srcdoc frame inherits THIS policy (a
-                // srcdoc document has no origin of its own to carry one), so without an
-                // explicit media-src the default-src 'self' fallback refuses every
-                // external clip. Same shape as img-src: any https origin, nothing else.
-                mediaSrc:    ["'self'", "https:"],
-                // cloudflareinsights.com receives the RUM beacon's measurement POSTs
-                // (older beacon builds post cross-origin instead of to /cdn-cgi/rum).
-                connectSrc:  ["'self'", "wss:", "ws:", "https://cloudflareinsights.com"],
-                // Font Awesome is self-hosted at /fontawesome (CSS + webfonts served
-                // from the bundled Free package), so 'self' covers its fonts too.
-                fontSrc:     ["'self'"],
-                // Token custom content (the TIS `html` field) embeds third-party pages
-                // by <iframe>, and the sandboxed srcdoc frame it renders in inherits THIS
-                // policy, so a host allowlist here decides what a token page may show.
-                // The old allowlist (self, YouTube, SoundCloud) refused every other host
-                // with Chrome's "This content is blocked" panel, blanking community tokens
-                //. Same shape as img-src and media-src: any https origin, nothing
-                // else. The frame runs in an opaque origin with no allow-same-origin, so an
-                // embedded page cannot reach the explorer's origin, storage or cookies.
-                frameSrc:    ["'self'", "https:"],
-                // Block all plugins (Flash, etc.)
-                objectSrc:   ["'none'"],
-                // Only force-upgrade subresources to HTTPS when TLS-fronted (see HTTPS_HARDENING).
-                // null removes Helmet's default directive so http pages keep their http subresource
-                // URLs (relative /icon/... and /images/... requests stay on the page's protocol).
-                upgradeInsecureRequests: HTTPS_HARDENING ? [] : null,
-            }
-        },
-    }));
-
-    // Tight global body ceiling: nothing on this read-only API legitimately posts more.
-    // The one exception is POST /{COIN}/api/preflight, which carries a whole composed
-    // action (a 250-command BATCH is ~17,500 characters) and mounts its own parser with
-    // its own ceiling at the route. Skipping it here rather than raising the global limit
-    // keeps the large-body allowance scoped to the single route that needs it; the
-    // predicate lives beside that route so the two cannot drift apart.
-    const globalJson = express.json({ limit: '10kb' });
-    app.use((req, res, next) => {
-        if (XChainExplorer.isPreflightPostRequest(req)) return next();
-        return globalJson(req, res, next);
-    });
-
-    // Public read API: cross-origin GETs are the norm (docs examples, wallets,
-    // third-party dashboards), so with nothing configured every origin is
-    // admitted. Deployments that need to fence the API set EXPLORER_CORS_ORIGIN
-    // to a comma-separated allowlist of exact origins.
-    const corsAllowlist = String(configInfo.env.EXPLORER_CORS_ORIGIN || '')
-        .split(',').map(s => s.trim()).filter(s => s.length && s !== '*');
-    app.use(cors({
-        // Callback form rather than a static wildcard: an allowlisted deployment
-        // reflects only listed origins, an open one reflects the caller's origin,
-        // and requests without an Origin header (curl, same-origin) always pass.
-        origin: (origin, cb) => {
-            if (!origin || corsAllowlist.length === 0 || corsAllowlist.includes(origin)) return cb(null, true);
-            return cb(null, false);
-        },
-        methods: ['GET', 'POST'],
-    }));
-
-    // Static assets (icons, images) are served from disk, cost no DB work, and
-    // every page pulls a burst of them at once, so they are exempt from both
-    // the per-IP rate limit and the global concurrency gate below. Counting
-    // them would shed real queries to make room for favicons.
-    //
-    // Exempt by FIRST PATH SEGMENT, from the one mount list in
-    // src/http/static_mounts.js, never by file extension: a suffix is a claim about
-    // what a URL looks like, not about what serves it. Match on it and
-    // /BTC/api/search/needle.png reads as an image, skips both guards, and
-    // still routes to the catch-all API handler, so any suffixed path buys
-    // unlimited DB-backed search.
-    const isStaticAsset = staticMounts.isStaticAsset;
-
-    // Rate limiting: requests per minute per IP (image requests are excluded;
-    // override the default with EXPLORER_RATE_LIMIT_RPM).
-    //
-    // Where 1080 comes from: a five-address wallet's worst minute is a cold
-    // open plus the two 20-second polls that fit in the same window, measured
-    // at 180 explorer reads; x2 because the wallet's SDK retries once, and x3
-    // for headroom because a NAT with three testers shares one bucket. The
-    // number is per REAL CLIENT ADDRESS, which is what the origin sees once
-    // the fronting proxy resolves real clients; it was a per-CDN-edge-address
-    // number before that, where the same wallet traffic scattered across
-    // buckets and hid the requirement. It replaces a 500 that predates any
-    // measurement of the client.
-    //
-    // Three of the explorer's eight origin limits moved on that profile: this
-    // one, the action/balance proof limiter and the checkpoint-verify limiter
-    // (both to 90, in XChainExplorer.js). The other five (fee quote 120,
-    // preflight POST 60, checkpoint list 120, validator-set proof 30, VM query
-    // 20) are not on an idle wallet's path, so the profile does not exercise
-    // them and they keep their shipped values on purpose.
-    //
-    // The ceiling, the knob's name and the refusal body are resolved once here
-    // and spread into both the limiter and its counter line, so the number an
-    // operator reads in the log is always the number that actually refused.
-    const appWidePolicy = {
-        limit:    parseInt(configInfo.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080,
-        envVar:   'EXPLORER_RATE_LIMIT_RPM',
-        windowMs: 60 * 1000,
-        message:  { error: 'Too many requests', code: 'RATE_LIMITED' }
-    };
-    app.use(rateLimit({
-        windowMs:        appWidePolicy.windowMs,
-        limit:           appWidePolicy.limit,
-        standardHeaders: true,
-        legacyHeaders:   false,
-        handler:         limitedHandler({ service: 'Explorer', name: 'app-wide', ...appWidePolicy }),
-        skip: isStaticAsset,
-    }));
-
-    // Global in-flight concurrency cap. The limiter above is per-IP,
-    // so a stampede spread across thousands of distinct IPs never trips it and
-    // can still pin every MariaDB pool connection. This caps how many requests
-    // are being served at any instant across ALL callers and sheds the excess
-    // with an immediate 429 rather than queueing it. Override with
-    // EXPLORER_MAX_CONCURRENT_REQUESTS; 0 disables the cap.
-    const requestGate = concurrencyGate.createConcurrencyGate({
-        limit:      concurrencyGate.resolveLimit(configInfo.env.EXPLORER_MAX_CONCURRENT_REQUESTS, 200),
-        retryAfter: 1,
-        skip:       isStaticAsset,
-        body:       { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' }
-    });
-    app.use(requestGate);
-
-    // Prometheus /metrics plus a structured log shim, both DEFAULT OFF: nothing
-    // registers or starts a timer unless METRICS_ENABLED (and, for log shipping,
-    // LOG_SHIP_ENABLED + LOG_SHIP_URL) is set. Wired after the rate limiter and
-    // concurrency gate so an enabled scrape endpoint sheds like any other route;
-    // gate it with METRICS_TOKEN or a proxy ACL on a public box. The
-    // request-timing middleware hoists itself to the front of the stack, so it
-    // still measures the routes registered above. See src/observability/README.md.
-    let explorerVersion = '';
-    try { explorerVersion = require('../package.json').version; } catch { /* version label is cosmetic */ }
-    installObservability(app, {
-        service: 'xchain-explorer',
-        version: explorerVersion,
-        network: configInfo.env.NETWORK || ''
-    });
-
-    // Trust only the first proxy hop (prevents X-Forwarded-For spoofing).
-    // The hop count and the topology it encodes live in src/http/trust_proxy.js,
-    // which the WS path's WS_TRUST_PROXY_HOPS default must stay in step with.
-    applyTrustProxy(app);
-
-    // Declared here so the ping closure can reference it after explorer is created.
-    let explorer = null;
-
+// The method map the JSON-RPC dispatcher serves. Built on this entry rather than
+// in the boot step that mounts it because ping probes the DB pool the entry
+// owns. The explorer arrives as a getter: it does not exist yet when startApi()
+// builds the controller, and the closure must see the instance assigned later.
+function createJsonRpcController(getExplorer, requestGate){
     const DB_PROBE_TIMEOUT_MS = 2000;
 
-    const jsonRpcController = {
+    return {
         // Checks that the explorer is up and can reach at least one DB pool.
         // Returns status:"degraded" + 503 when all pool probes time out or fail.
         async ping(params, {res}) {
@@ -288,6 +110,7 @@ async function startApi(){
             // Try a SELECT 1 against the first available DB pool. This catches the
             // case where the process is up but MariaDB is unreachable.
             try {
+                const explorer = getExplorer();
                 const db    = explorer && explorer.db;
                 const pools = db && db.pools ? db.pools : {};
                 const coin  = Object.keys(pools)[0];
@@ -312,8 +135,10 @@ async function startApi(){
             }
         }
     }
+}
 
-    // The plain HTTP listener, the primary serving socket; HTTPS below is optional.
+// The plain HTTP listener, the primary serving socket; HTTPS is optional.
+function startHttpListener(app){
     const httpServer = http.createServer(app);
     // A listen() that fails (EADDRINUSE when a second instance grabs the port, EACCES
     // on a privileged port) surfaces as an async 'error' event, not a throw, so a
@@ -330,28 +155,45 @@ async function startApi(){
     // Published as soon as it exists, not at the end of startApi(): a SIGTERM
     // arriving mid-boot must still be able to close a listener already bound.
     runtime.httpServer = httpServer;
+    return httpServer;
+}
 
-    // The HTTPS listener, which serves requests securely.
-    // Skipped when SSL files are absent (HTTP-only dev/regtest mode).
-    let httpsServer = null;
-    if (config.API.ssl) {
-        httpsServer = https.createServer(config.API.ssl, app);
-        // The HTTPS listener is secondary (prod fronts TLS at Apache and ships no SSL
-        // files, so this path is dev/regtest only). A bind failure here must not take the
-        // process down: log a warning and keep serving over HTTP. Same async-'error'
-        // caveat as above, so attach the handler before listen().
-        httpsServer.on('error', (err) => {
-            log.warn('HTTPS_LISTEN_FAILED', { port: EXPLORER_API_PORT_HTTPS, code: err.code, err: err.message, detail: 'continuing HTTP-only' });
-            httpsServer = null;
-            // Cleared here too: a listener that never bound must not be handed to
-            // the drain, which would wait on a close() callback that never fires.
-            runtime.httpsServer = null;
-        });
-        httpsServer.listen(EXPLORER_API_PORT_HTTPS, () => {
-            log.info('HTTPS_SERVER_LISTENING', { port: EXPLORER_API_PORT_HTTPS });
-        });
-        runtime.httpsServer = httpsServer;
-    }
+// Brings the whole service up in order: consensus pin, config, guards, routes,
+// listeners, then the live feed.
+async function startApi(){
+    // Verify the bundled coin files against CONSENSUS_CONFIG_PIN before the hub
+    // config fetch, the DB pool, the proof server or any route exists. The
+    // explorer answers proof-liveness questions and serves burn/gas/protocol
+    // addresses straight out of this pinned consensus subset, so a bundle that
+    // drifted on THIS host must halt rather than answer from a registry nobody
+    // verified. CI hashes the checkout, never the running artifact. All networks
+    // (the XChainHub.start form) because the explorer bundles and serves all
+    // three. A null pin (mainnet, pre-arm) skips; a mismatch throws, uncaught.
+    for(const net of coins.NETWORKS) coins.verifyConsensusPin(net);
+
+    // The explorer config, fetched from the hub when endpoints are configured.
+    let config = await configInfo.getConfig(HUB_ENDPOINTS);
+
+    const app = express();
+
+    // The request stack, in mount order: security headers and the body ceiling,
+    // CORS, the two shedding guards, metrics, then the proxy-hop trust the
+    // per-IP guards key on.
+    applySecurityHeaders(app, configInfo, XChainExplorer);
+    applyCors(app, configInfo);
+    const requestGate = applyRateLimits(app, configInfo, isStaticAsset);
+    applyObservability(app, configInfo);
+    applyProxyTrust(app);
+
+    // Declared here so the ping closure can reference it after explorer is created.
+    let explorer = null;
+    const jsonRpcController = createJsonRpcController(() => explorer, requestGate);
+
+    const httpServer = startHttpListener(app);
+    // Secondary and optional. Both the drain and the WS upgrade below read
+    // runtime.httpsServer, which a bind failure clears, so neither ever holds a
+    // listener that never bound.
+    startTlsListener(app, config, runtime, EXPLORER_API_PORT_HTTPS, log);
 
     explorer = new XChainExplorer(app, configInfo);
     // Published before init(): init() is what builds the pools, and a signal landing
@@ -370,80 +212,9 @@ async function startApi(){
     // hub refresh entirely rather than tick a disabled hub.
     if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
 
-    // Bound JSON-RPC batch cardinality (src/http/rpc_batch_guard.js). The router below runs
-    // Promise.all over every element of a batch array, while both the per-IP rate
-    // limiter and the concurrency gate above count the whole batch as ONE request, and
-    // ping draws a pooled connection for its SELECT 1 probe. Mounted here, in front of
-    // the router rather than globally, so it governs the dispatcher that amplifies and
-    // never sees POST /{COIN}/api/preflight, which parses its own much larger body.
-    // Both bounds above have already been charged by this point, so an oversize batch
-    // is never free. Default 20, matching encoder/decoder/utxo-tracker.
-    app.use(makeRpcBatchGuard(resolveMaxBatch(configInfo.env.EXPLORER_MAX_RPC_BATCH, 20)));
-
-    // The JSON-RPC handler, registered last so explorer routes take priority.
-    // Express 5 / body-parser 2.x leaves req.body undefined when a request carries
-    // no JSON body (a GET, or a POST without application/json), whereas body-parser
-    // 1.x set it to {}. express-json-rpc-router requires req.body to be an object or
-    // it throws ("req.body is required"). Restore the {} default so unmatched requests
-    // that fall through to this root-mounted router get a normal JSON-RPC error
-    // response instead of crashing the request.
-    app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
-    app.use(jsonRouter({methods: jsonRpcController}))
-
-    // WebSocket support (feature-flagged via WS_ENABLED env var)
-    const WS_ENABLED = configInfo.env.WS_ENABLED !== 'false';
-    if (WS_ENABLED) {
-        const WS_POLL_INTERVAL = parseInt(configInfo.env.WS_POLL_INTERVAL) || 5000;
-        const WS_PING_INTERVAL = parseInt(configInfo.env.WS_PING_INTERVAL) || 30000;
-        const WS_IDLE_TIMEOUT  = parseInt(configInfo.env.WS_IDLE_TIMEOUT)  || 300000;
-        const WS_MAX_PER_IP    = parseInt(configInfo.env.WS_MAX_CONNECTIONS_PER_IP) || 5;
-        const WS_MAX_BACKPRESSURE = parseInt(configInfo.env.WS_MAX_BACKPRESSURE) || 65536;
-
-        const WS_MAX_SUBS = parseInt(configInfo.env.WS_MAX_SUBSCRIPTIONS) || 25;
-        // Built first because the ChannelManager the pieces below need lives inside it.
-        const wsServer = new WebSocketServer({
-            explorer:         explorer,
-            broadcaster:      null, // set below
-            pingInterval:     WS_PING_INTERVAL,
-            idleTimeout:      WS_IDLE_TIMEOUT,
-            maxPerIp:         WS_MAX_PER_IP,
-            maxSubscriptions: WS_MAX_SUBS,
-            // Mirror the HTTP side's `trust proxy: 1` (line ~108) so the WS per-IP cap
-            // keys on the real client address, not a spoofable X-Forwarded-For token.
-            // The upgrade is handled on the raw HTTP server, where Express trust-proxy
-            // does not apply, so the hop count must be passed through explicitly.
-            trustProxyHops:   parseInt(configInfo.env.WS_TRUST_PROXY_HOPS, 10) || 1
-        });
-
-        // Polls the database for new data and hands what changed to that channel manager.
-        const changeDetector = new ChangeDetector({
-            db:             explorer.db,
-            channelManager: wsServer.channelManager,
-            pollInterval:   WS_POLL_INTERVAL
-        });
-
-        // Joins the two: detector events out to the sockets subscribed to them.
-        const broadcaster = new Broadcaster({
-            wsServer:        wsServer,
-            changeDetector:  changeDetector,
-            maxBackpressure: WS_MAX_BACKPRESSURE
-        });
-        wsServer.broadcaster = broadcaster;
-
-        // Take the WebSocket upgrade on HTTP, and on HTTPS when that listener is up.
-        wsServer.attach(httpsServer ? [httpServer, httpsServer] : [httpServer]);
-
-        // Poll only the coins that actually have a database pool behind them.
-        const availableCoins = Object.keys(explorer.db.pools || {});
-        if (availableCoins.length > 0) {
-            changeDetector.start(availableCoins);
-        }
-
-        // Handed to the drain so subscribers get a clean 1001 close and the live-feed
-        // poll timer stops, instead of both dying with the process.
-        runtime.wsServer       = wsServer;
-        runtime.changeDetector = changeDetector;
-    }
+    mountJsonRpc(app, configInfo, jsonRpcController);
+    startWebsockets({ configInfo: configInfo, explorer: explorer, httpServer: httpServer,
+                      httpsServer: runtime.httpsServer, runtime: runtime });
 }
 
 // Last-resort backstop against a single request killing the whole process.

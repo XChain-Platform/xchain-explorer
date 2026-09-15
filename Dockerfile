@@ -17,6 +17,12 @@ RUN npm ci --omit=dev
 
 COPY ./src /XChainExplorer/src
 COPY ./docs /XChainExplorer/docs
+# The vendored action manifest, hashed into getrollcallsigners' manifest_hash (the
+# version signal a validator's roll-call close defers on when it differs). Without it
+# the hash reads null and every close served by this explorer defers. It stays at the
+# test/fixtures path because sync-action-manifest.sh already keeps this exact copy
+# byte-identical to canonical; a second copy would be a drift surface it does not know.
+COPY ./test/fixtures/action-manifest.json /XChainExplorer/test/fixtures/action-manifest.json
 
 # Exec-form node, not `npm run api` (which is this exact command). npm builds an
 # npm -> sh -c -> node tree and no wrapper forwards signals, so `docker stop`

@@ -59,7 +59,7 @@ const STRICT       = process.env.XCHAIN_REQUIRE_SIBLINGS === '1';
 const SIBLINGS = [
     { repo: 'xchain-indexer', envs: [],
       marker: path.join('src', 'sql'),
-      guards: 'indexer schema conformance, list-edit resolution and reorg DDL, and the hub-connector contract' },
+      guards: 'indexer schema conformance, list-edit resolution and reorg DDL, the hub-connector contract, and federation read parity' },
     { repo: 'xchain-vm', envs: ['XCHAIN_VM_DIR'],
       marker: 'src',
       guards: 'contract endpoints, the node-engine ceiling, and vm-query parity' },

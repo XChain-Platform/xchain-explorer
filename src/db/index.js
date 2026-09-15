@@ -64,6 +64,7 @@ const projectReaders           = require('./readers/projects.js');
 const contractReaders          = require('./readers/contracts.js');
 const pollBetReaders           = require('./readers/polls_bets.js');
 const xcallReaders             = require('./readers/xcall.js');
+const federationReaders        = require('./readers/federation_reads.js');
 
 // connection.js is itself split: it composes ./connection/cache.js and
 // ./connection/pools.js onto its own methods through composeReaderParts and
@@ -143,7 +144,7 @@ class Database {
 mixinReaders(Database.prototype, connectionMethods, queryBuilder,
     actionListReaders, marketReaders, stakingGovernanceReaders, checkpointReaders,
     entityReaders, actionDetailIoReaders, healthReaders, projectReaders,
-    contractReaders, pollBetReaders, xcallReaders);
+    contractReaders, pollBetReaders, xcallReaders, federationReaders);
 
 // One export, the class, carrying the shared names as static properties so every
 // caller's `require('./db/index.js').DbQueryError` still resolves.

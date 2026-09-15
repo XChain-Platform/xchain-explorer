@@ -28,6 +28,7 @@ const staticMounts    = require('./http/static_mounts.js');     // the one file-
 const { createShutdown, createExplorerDrain } = require('./http/shutdown.js');
 const { getLogger } = require('./observability');
 const coins           = require('./coins');
+const { buildFederationRpc } = require('./federation');         // the five keyed federation reads validators without a DOGE indexer use
 
 // The boot steps startApi() runs, in mount order. Each one takes the app plus
 // whatever it needs from this entry, so no step requires a module the api
@@ -133,7 +134,12 @@ function createJsonRpcController(getExplorer, requestGate){
                 res.status(503);
                 return { status: 'degraded', db: false, ...base };
             }
-        }
+        },
+
+        // getrollcallsigners, getanchoraction, getanchorconfirmations, getarchiveanchor and
+        // getpricebatches, served off the routed coin's replica. The key gate that guards
+        // them is mounted in front of the router (src/http/api_boot/json_rpc.js).
+        ...buildFederationRpc(getExplorer, configInfo)
     }
 }
 

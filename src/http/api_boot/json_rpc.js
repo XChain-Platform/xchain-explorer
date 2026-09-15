@@ -26,9 +26,12 @@
 
 const jsonRouter = require('express-json-rpc-router')
 const { resolveMaxBatch, makeRpcBatchGuard } = require('../rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
+const { makeFederationKeyGate } = require('../../federation/key_gate.js');         // x-api-key gate for the federation reads
+const { FEDERATION_READ_METHODS } = require('../../federation');
+const { getLogger } = require('../../observability');
 
 /**
- * Mount the batch cap, the body default and the router, in that order.
+ * Mount the batch cap, the body default, the federation key gate and the router, in that order.
  *
  * @param {object} app the express app
  * @param {object} configInfo src/config.js, for its live env view
@@ -53,6 +56,13 @@ function mountJsonRpc(app, configInfo, jsonRpcController){
     // that fall through to this root-mounted router get a normal JSON-RPC error
     // response instead of crashing the request.
     app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
+
+    // The federation reads need EXPLORER_FEDERATION_READ_KEY in x-api-key, and refuse
+    // everyone while it is unset. After the body default, because the gate reads the
+    // method names out of the body; before the router, so no gated method ever runs.
+    if(!configInfo.federationReadKey())
+        getLogger().info('FEDERATION_READS_LOCKED', { detail: 'EXPLORER_FEDERATION_READ_KEY is unset; federation reads answer 401' });
+    app.use(makeFederationKeyGate(() => configInfo.federationReadKey(), FEDERATION_READ_METHODS));
     app.use(jsonRouter({methods: jsonRpcController}))
 }
 

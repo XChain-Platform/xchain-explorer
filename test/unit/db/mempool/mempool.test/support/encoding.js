@@ -26,7 +26,7 @@
 
 'use strict';
 
-const { fs, path, sinon, expect, ChangeDetector, Broadcaster, envView, mkDb, SEND_ROW, MINT_ROW, TRASH_ROW, LEGACY_HEX_ROW, getDecoderPaths, loadCanonicalizer, makeEncodingFixture, readDecoderSite } = require('./helpers.js');
+const { fs, path, sinon, expect, ChangeDetector, Broadcaster, envView, mkDb, SEND_ROW, MINT_ROW, TRASH_ROW, LEGACY_HEX_ROW, getDecoderPaths, loadCanonicalizer, makeEncodingFixture, readDecoderSite, readDecoderGate } = require('./helpers.js');
 
 /******************************************************************
  * Cross-repo encoding pin
@@ -78,8 +78,12 @@ describe("decoder mempool surface", () => {
 
         it('the decoder mempool INSERT still passes the decoded string, not hex', function () {
             if (!hasDecoder) this.skip();
-            const { src, at, site } = readDecoderSite(decoderSrc);
-            expect(at, 'decoder mempool INSERT call site not found').to.be.greaterThan(-1);
+            // readDecoderSite/readDecoderGate each check the part file the decoder's
+            // constructor/method split moved this text into before falling back to
+            // the entry, so this pin holds whether the sibling checkout is at the
+            // split or still at the pre-split layout it moved from; either miss
+            // throws naming both paths it looked at, rather than reading stale text.
+            const { site } = readDecoderSite(decoderSrc);
             // The decoder folded the mempool and confirmed-block writes into one
             // storage gate, so the UTF-8 decode moved out of this call site and into
             // buildStoredActionRecord. What this pin protects is unchanged: the column
@@ -89,9 +93,7 @@ describe("decoder mempool surface", () => {
                 .to.match(/data:\s*stored\.data/);
             expect(site, 'decoder mempool payload no longer comes from the shared storage gate')
                 .to.include('buildStoredActionRecord(');
-            const gateAt = src.indexOf('buildStoredActionRecord(parseResult, txHash, mempool)');
-            expect(gateAt, 'decoder storage gate buildStoredActionRecord not found').to.be.greaterThan(-1);
-            const gate = src.slice(gateAt, gateAt + 4000);
+            const { gate } = readDecoderGate(decoderSrc);
             expect(gate, 'decoder storage gate no longer produces the payload by a UTF-8 decode')
                 .to.match(/decode\(\s*canonical\.buffer\s*\)/);
             expect(site, 'decoder mempool write reintroduced hex encoding; the explorer read must move with it')

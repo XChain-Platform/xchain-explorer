@@ -91,16 +91,52 @@ function makeEncodingFixture() {
     };
 }
 
+// Reads the first file (in order) that contains `needle`, so a reader survives
+// the decoder moving text out of the entry into a part file beside it: the part
+// is checked first because a split lands the callable text there, then the
+// entry for a checkout still at the pre-split layout. Neither holding the text
+// is a loud failure naming both paths, never a silent empty match.
+function locateText(paths, needle) {
+    for (const candidate of paths) {
+        if (!fs.existsSync(candidate)) continue;
+        const src = fs.readFileSync(candidate, 'utf8');
+        const at = src.indexOf(needle);
+        if (at !== -1) return { path: candidate, src, at };
+    }
+    return null;
+}
+
+// The mempool INSERT call site: base text lives in the entry
+// (src/XChainDecoder.js); the decoder's constructor/method split moved it to
+// src/XChainDecoder/mempool_refresh.js.
 function readDecoderSite(decoderSrc) {
-    const src = fs.readFileSync(decoderSrc, 'utf8');
-    const at = src.indexOf('insertMempoolTransaction({');
+    const srcDir = path.dirname(decoderSrc);
+    const mempoolPart = path.join(srcDir, 'XChainDecoder', 'mempool_refresh.js');
+    const found = locateText([mempoolPart, decoderSrc], 'insertMempoolTransaction({');
+    if (!found) {
+        throw new Error('decoder mempool INSERT call site not found in ' + decoderSrc + ' or ' + mempoolPart);
+    }
     // The assignment of the value bound to `data:` lives just above the call.
-    const site = src.slice(Math.max(0, at - 2500), at + 600);
-    return { src, at, site };
+    const site = found.src.slice(Math.max(0, found.at - 2500), found.at + 600);
+    return { src: found.src, at: found.at, site, sitePath: found.path };
+}
+
+// The storage-gate definition (buildStoredActionRecord): base text lives in the
+// entry; the same split moved it to
+// src/XChainDecoder/dispenser_and_oracle_fees.js.
+function readDecoderGate(decoderSrc) {
+    const srcDir = path.dirname(decoderSrc);
+    const gatePart = path.join(srcDir, 'XChainDecoder', 'dispenser_and_oracle_fees.js');
+    const found = locateText([gatePart, decoderSrc], 'buildStoredActionRecord(parseResult, txHash, mempool)');
+    if (!found) {
+        throw new Error('decoder storage gate buildStoredActionRecord not found in ' + decoderSrc + ' or ' + gatePart);
+    }
+    const gate = found.src.slice(found.at, found.at + 4000);
+    return { gate, gateAt: found.at, gatePath: found.path };
 }
 
 module.exports = {
     fs, path, sinon, expect, ChangeDetector, Broadcaster, envView, mkDb, SEND_ROW,
     MINT_ROW, TRASH_ROW, LEGACY_HEX_ROW, getDecoderPaths, loadCanonicalizer,
-    makeEncodingFixture, readDecoderSite
+    makeEncodingFixture, readDecoderSite, readDecoderGate
 };

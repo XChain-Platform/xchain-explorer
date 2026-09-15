@@ -29,7 +29,7 @@
  * test/unit/explorer_reorgs.test.js from the same wave. The hub half of this
  * row is real, landed code in the sibling checkout
  * (xchain-hub/src/validators/slash_detector.js getSlashProposals + api.js
- * getslashproposals, covered by xchain-hub/test/unit/slash_proposals_rpc.test.js).
+ * getslashproposals, covered by xchain-hub/test/unit/validators/governance/slash_proposals_rpc.test.js).
  *
  * THE RULING THIS ROW IMPLEMENTS (operator, 2026-08-20, option b): publish all
  * statuses, label pending rows as unadjudicated, and return the evidence as a

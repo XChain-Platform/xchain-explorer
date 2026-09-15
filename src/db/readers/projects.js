@@ -38,6 +38,81 @@
 
 'use strict';
 
+// Latest owner-valid roster LINK per project, newest link first.
+const LATEST_ROSTER_LINKS = `FROM (
+                        SELECT
+                            i1.tick_id,
+                            MAX(l.action_index) AS link_action_index
+                        FROM
+                            links l
+                            INNER JOIN index_statuses s1 ON (s1.id=l.status_id AND s1.status='valid')
+                            INNER JOIN index_coins    c1 ON (c1.id=l.coin1_id AND c1.coin=?)
+                            INNER JOIN index_coins    c2 ON (c2.id=l.coin2_id AND c2.coin=?)
+                            INNER JOIN issues         i1 ON (i1.action_index=l.coin2_action_index)
+                            INNER JOIN index_statuses s2 ON (s2.id=i1.status_id AND s2.status='valid')
+                            INNER JOIN lists          ls ON (ls.action_index=l.coin1_action_index AND ls.type='1')
+                            INNER JOIN index_statuses s3 ON (s3.id=ls.status_id AND s3.status='valid')
+                        GROUP BY i1.tick_id
+                    ) latest
+                        INNER JOIN links          lk ON (lk.action_index=latest.link_action_index)`;
+
+// The three columns a project roster row is identified by, shared so the two
+// resolution paths below cannot drift into selecting different shapes.
+const ROSTER_SELECT = `SELECT
+                        t1.tick                AS project,
+                        latest.link_action_index,
+                        lk.coin1_action_index  AS roster_action_index
+                    `;
+
+// Pre-activation reading: the roster LINK points at the list action that IS the
+// membership, so one query can join straight through to the tick's list item.
+// A module function rather than a method, like the resolved path below: a cut made
+// for length adds no name to Database.prototype.
+async function rostersByDirectMembership(db, config, tick, chain){
+    let query = ROSTER_SELECT + LATEST_ROSTER_LINKS + `
+                        INNER JOIN list_items     li ON (li.action_index=lk.coin1_action_index)
+                        INNER JOIN index_tickers  t2 ON (t2.id=li.item_id AND t2.tick=?)
+                        INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
+                    ORDER BY latest.link_action_index DESC`;
+    let rows = await db.doQuery(config, query, [chain, chain, tick]);
+    if(!rows || !rows.length) return [];
+    return rows.map(r => ({
+        project:                 r.project,
+        link_action_index:       Number(r.link_action_index),
+        roster_action_index:     Number(r.roster_action_index),
+        membership_action_index: Number(r.roster_action_index)
+    }));
+}
+
+// Post-activation reading: a LIST EDIT moves membership to a later head action, so
+// the linked list action only names the chain to follow. Every candidate roster is
+// resolved to its head first, and the tick is looked for in the heads.
+async function rostersByResolvedListHead(db, config, tick, chain){
+    let candidates = await db.doQuery(config, ROSTER_SELECT + LATEST_ROSTER_LINKS + `
+                        INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
+                    ORDER BY latest.link_action_index DESC`, [chain, chain]);
+    if(!candidates || !candidates.length) return [];
+    let heads   = await db.getListHeadIndexes(config, candidates.map(r => Number(r.roster_action_index)));
+    let rosters = candidates.map(r => ({
+        project:                 r.project,
+        link_action_index:       Number(r.link_action_index),
+        roster_action_index:     Number(r.roster_action_index),
+        membership_action_index: Number(heads[String(Number(r.roster_action_index))])
+    }));
+    let indexes = [...new Set(rosters.map(r => r.membership_action_index))];
+    let members = await db.doQuery(config, `SELECT
+                        li.action_index
+                    FROM
+                        list_items    li
+                        INNER JOIN index_tickers t2 ON (t2.id=li.item_id AND t2.tick=?)
+                    WHERE
+                        li.action_index IN (` + indexes.map(() => '?').join(',') + `)
+                    GROUP BY li.action_index`, [tick, ...indexes]);
+    let listing = {};
+    for(let row of (members || [])) listing[String(Number(row['action_index']))] = true;
+    return rosters.filter(r => listing[String(r.membership_action_index)] === true);
+}
+
 class ProjectReaders {
     /******************************************************************
      * Project Registry queries (protocol/project-registry.md)
@@ -116,66 +191,9 @@ class ProjectReaders {
     async getTokenProjects(config, tick){
         let chain = this.baseCoin ? this.baseCoin[config.coin] : null;
         if(this.util.isNull(chain) || this.util.isNull(tick)) return [];
-        // Latest owner-valid roster LINK per project, newest link first.
-        let latestRosterLinks = `FROM (
-                        SELECT
-                            i1.tick_id,
-                            MAX(l.action_index) AS link_action_index
-                        FROM
-                            links l
-                            INNER JOIN index_statuses s1 ON (s1.id=l.status_id AND s1.status='valid')
-                            INNER JOIN index_coins    c1 ON (c1.id=l.coin1_id AND c1.coin=?)
-                            INNER JOIN index_coins    c2 ON (c2.id=l.coin2_id AND c2.coin=?)
-                            INNER JOIN issues         i1 ON (i1.action_index=l.coin2_action_index)
-                            INNER JOIN index_statuses s2 ON (s2.id=i1.status_id AND s2.status='valid')
-                            INNER JOIN lists          ls ON (ls.action_index=l.coin1_action_index AND ls.type='1')
-                            INNER JOIN index_statuses s3 ON (s3.id=ls.status_id AND s3.status='valid')
-                        GROUP BY i1.tick_id
-                    ) latest
-                        INNER JOIN links          lk ON (lk.action_index=latest.link_action_index)`;
-        let select = `SELECT
-                        t1.tick                AS project,
-                        latest.link_action_index,
-                        lk.coin1_action_index  AS roster_action_index
-                    `;
-        if(!(await this.isListEditResolutionActiveAtTip(config))){
-            let query = select + latestRosterLinks + `
-                        INNER JOIN list_items     li ON (li.action_index=lk.coin1_action_index)
-                        INNER JOIN index_tickers  t2 ON (t2.id=li.item_id AND t2.tick=?)
-                        INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
-                    ORDER BY latest.link_action_index DESC`;
-            let rows = await this.doQuery(config, query, [chain, chain, tick]);
-            if(!rows || !rows.length) return [];
-            return rows.map(r => ({
-                project:                 r.project,
-                link_action_index:       Number(r.link_action_index),
-                roster_action_index:     Number(r.roster_action_index),
-                membership_action_index: Number(r.roster_action_index)
-            }));
-        }
-        let candidates = await this.doQuery(config, select + latestRosterLinks + `
-                        INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
-                    ORDER BY latest.link_action_index DESC`, [chain, chain]);
-        if(!candidates || !candidates.length) return [];
-        let heads   = await this.getListHeadIndexes(config, candidates.map(r => Number(r.roster_action_index)));
-        let rosters = candidates.map(r => ({
-            project:                 r.project,
-            link_action_index:       Number(r.link_action_index),
-            roster_action_index:     Number(r.roster_action_index),
-            membership_action_index: Number(heads[String(Number(r.roster_action_index))])
-        }));
-        let indexes = [...new Set(rosters.map(r => r.membership_action_index))];
-        let members = await this.doQuery(config, `SELECT
-                        li.action_index
-                    FROM
-                        list_items    li
-                        INNER JOIN index_tickers t2 ON (t2.id=li.item_id AND t2.tick=?)
-                    WHERE
-                        li.action_index IN (` + indexes.map(() => '?').join(',') + `)
-                    GROUP BY li.action_index`, [tick, ...indexes]);
-        let listing = {};
-        for(let row of (members || [])) listing[String(Number(row['action_index']))] = true;
-        return rosters.filter(r => listing[String(r.membership_action_index)] === true);
+        if(!(await this.isListEditResolutionActiveAtTip(config)))
+            return await rostersByDirectMembership(this, config, tick, chain);
+        return await rostersByResolvedListHead(this, config, tick, chain);
     }
 
     /******************************************************************

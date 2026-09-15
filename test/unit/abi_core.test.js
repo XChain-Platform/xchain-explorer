@@ -6,14 +6,14 @@
 // This file is part of XChain Platform. Licensed under the GNU Affero
 // General Public License v3.0 or later; see LICENSE.md.
 
-// Unit coverage for src/abi-core.js: the CANONICAL contract-ABI extraction
+// Unit coverage for src/contract/abi_core.js: the CANONICAL contract-ABI extraction
 // core (vendored byte-identically into the SDK). It parses deployed contract
 // source with acorn and extracts the self-declared, static `abi` display
 // block. The contract here is fail-closed: never throws, drops one malformed
 // method rather than blanking the ABI, and rejects anything dynamic.
 
 const assert = require('assert');
-const { parseAbi } = require('../../src/abi-core.js');
+const { parseAbi } = require('../../src/contract/abi_core.js');
 
 const withAbi = (abiSrc) => `
     function transfer(state, ctx) { return state; }

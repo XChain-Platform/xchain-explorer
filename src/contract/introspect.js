@@ -34,13 +34,13 @@
  * admit site below tests node.async or node.generator, and the unit suite pins
  * that both stay listed.
  *
- * The ABI extraction lives in ./abi-core.js, the CANONICAL copy of the core
+ * The ABI extraction lives in ./abi_core.js, the CANONICAL copy of the core
  * the SDK vendors byte-identically (xchain-sdk/src/contract/abi-core.js);
  * drift fails CI via bin/sync-abi-core.sh --check and the SDK's drift test.
  */
 
 const acorn = require('acorn');
-const { extractAbi, findModuleExports, ABI_PARAM_TYPES, CONTRACT_ECMA_VERSION } = require('../abi-core.js');
+const { extractAbi, findModuleExports, ABI_PARAM_TYPES, CONTRACT_ECMA_VERSION } = require('./abi_core.js');
 
 // Collect top-level function bindings (declarations plus const/let/var
 // initialized with a function or arrow expression). Object-export properties

@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * params.js
  *
  * Custom javascript for xchain explorer
  */
@@ -29,16 +29,12 @@ function setXChainParams(coin){
     // Try to set XC.coin (default to BTC)
     XC.coin = getXChainParam(coin,'coin');
     if(isNull(XC.coin)){
-        XC.default = true;
-        XC.coin    = 'BTC';
+        XC.default = true; XC.coin = 'BTC';
     }
     // Set the remaining XChain Params (chain, name, network)
-    XC.chain   = getXChainParam(XC.coin,'chain');
-    XC.name    = getXChainParam(XC.coin,'name');
-    XC.network = getXChainParam(XC.coin,'network');
+    XC.chain = getXChainParam(XC.coin,'chain'); XC.name = getXChainParam(XC.coin,'name'); XC.network = getXChainParam(XC.coin,'network');
     // Set query and query type to a valid value based on path
-    let type  = String(path[2]).toLowerCase();
-    let query = path[path.length-1];
+    let type = String(path[2]).toLowerCase(), query = path[path.length-1];
     // A detail page whose type is absent here gets XC.query = null and then requests
     // its own API route with a literal 'null' segment, rendering as "not found" rather
     // than failing visibly, so every new detail route has to be added in BOTH lists.
@@ -56,11 +52,8 @@ function setXChainParams(coin){
            // A validator resolves by signing pubkey OR by staking address, and an xcall by
            // its 64-hex call_id, so neither can use the numeric check above.
            (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||
-           // rich_list is keyed by TICK, exactly like the token page it is reached
-           // from, so it takes the same string branch rather than the numeric one.
-           (['token','rich_list'].includes(type) && typeof(query)=='string')){
-            XC.type  = type;
-            XC.query = query;
+           (['token','rich_list'].includes(type) && params_hasTextDetailQuery(query))){
+            XC.type = type; XC.query = query;
         }
         // Set type to either tx_index or tx_hash for transactions
         if(type=='transaction'){
@@ -72,9 +65,7 @@ function setXChainParams(coin){
             // does not exist, silently attributing one transaction's data to another
             // identifier. A 64-hex string is a hash unconditionally; only shorter
             // numeric input can be an index.
-            XC.type  = (/^[0-9a-f]{64}$/i.test(String(query))) ? 'tx_hash'
-                     : (isNumeric(query))                      ? 'tx_index'
-                     :                                           'tx_hash';
+            XC.type = (/^[0-9a-f]{64}$/i.test(String(query))) ? 'tx_hash' : (isNumeric(query)) ? 'tx_index' : 'tx_hash';
         }
     } else if(type=='market'){
         XC.type  = type;
@@ -85,6 +76,13 @@ function setXChainParams(coin){
         // market page resolves the counter via resolveMarketPair before use.
         XC.query = isNull(path[4]) ? path[3] : path[3] + '/' + path[4];
     }
+}
+
+// Keep text route policy separate from the detail-page dispatch.
+function params_hasTextDetailQuery(query){
+    // rich_list is keyed by TICK, exactly like the token page it is reached
+    // from, so it takes the same string branch rather than the numeric one.
+    return typeof(query)=='string';
 }
 
 // Function to return XChain param data for a given coin

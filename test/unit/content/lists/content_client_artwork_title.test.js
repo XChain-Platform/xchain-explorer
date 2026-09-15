@@ -48,7 +48,9 @@ function extractFn(name){
 // from the same composed source so the slice runs as it does in the page.
 const ctx = vm.createContext({ console: { log: function(){} }, XC: { debug: false } });
 vm.runInContext(
-    ['isNull', 'stripHtml', 'resolveArtworkTitle', 'legacyJsonToXChainTIS'].map(extractFn).join('\n'),
+    ['isNull', 'stripHtml', 'resolveArtworkTitle',
+     'tokenLegacy_mapDetails', 'tokenLegacy_mapMedia', 'tokenLegacy_addDescriptionUrls', 'tokenLegacy_finalize',
+     'legacyJsonToXChainTIS'].map(extractFn).join('\n'),
     ctx
 );
 const resolveArtworkTitle   = ctx.resolveArtworkTitle;

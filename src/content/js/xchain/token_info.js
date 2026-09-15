@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * token_info.js
  *
  * Custom javascript for xchain explorer
  */
@@ -93,21 +93,8 @@ function renderOpenPolls(polls, bodyId, cardId){
     $('#' + cardId).show();
 }
 
-// Handle displaying token details
-function showTokenInfo(){
-    // Setup short alias to token info object
-    let o = XC.tokenInfo;
-
-    // Setup short alias for token description
-    var desc  = o.info.description;
-
-    // Define the various numeral formats to use
-    let fmtCoin  = '0,0.00000000',
-        fmtFiat  = '0,0.00';
-
-    // Basic Token Information
-    $('.xchain-tick').text(o.info.tick);
-
+// Compose project membership and ownership notices together.
+function tokenInfo_renderProjectBanners(o){
     // Project registry surfaces (protocol/project-registry.md). Both surfaces
     // render as green banners in #project-banners, the full-width row under
     // the Token Information / Market Information cards.
@@ -146,7 +133,10 @@ function showTokenInfo(){
             $('#tab-dropdown-project').click();
         });
     }
+}
 
+// Render the token summary cards from one consistent snapshot.
+function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     // Controller bindings (protocol/controller-bound-tokens.md): guard contracts
     // that gate this token's native actions. Hidden until at least one is gating.
     renderControllerBindings(o.controllers, 'token-controllers-body', 'token-controllers-card');
@@ -193,7 +183,34 @@ function showTokenInfo(){
     $('#lock-description').html(showLockStatus(o.locks.description));
     $('#lock-sleep').html(showLockStatus(o.locks.sleep));
     $('#lock-callback').html(showLockStatus(o.locks.callback));    
+}
 
+// Handle displaying token details
+function showTokenInfo(){
+    // Setup short alias to token info object
+    let o = XC.tokenInfo;
+
+    // Setup short alias for token description
+    var desc  = o.info.description;
+
+    // Define the various numeral formats to use
+    let fmtCoin  = '0,0.00000000',
+        fmtFiat  = '0,0.00';
+
+    // Basic Token Information
+    $('.xchain-tick').text(o.info.tick);
+
+    tokenInfo_renderProjectBanners(o);
+
+    tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat);
+
+    let description = tokenInfo_prepareDescription(desc);
+    let jsonUrl = tokenInfo_getJsonUrl(description);
+    tokenInfo_loadContent(jsonUrl);
+}
+
+// Prepare description links and the patterns needed for content loading.
+function tokenInfo_prepareDescription(desc){
     // RegExp for pattern matching in description
     let json    = /^(.*).json/i,
         http    = /^http:\/\//,
@@ -237,7 +254,13 @@ function showTokenInfo(){
             + escapeHtml(desc) + '</a>'
         );
     }
+    return { desc: desc, json: json, ord: ord, ipfs: ipfs, ar: ar, arweave: arweave, act: act, arr: arr };
+}
 
+// Resolve a supported description into its fetch target.
+function tokenInfo_getJsonUrl(info){
+    let desc = info.desc, json = info.json, ord = info.ord, ipfs = info.ipfs,
+        ar = info.ar, arweave = info.arweave, act = info.act, arr = info.arr;
     // Set the full url to get JSON content
     let jsonUrl = false;
     if(act.test(desc)){
@@ -267,7 +290,11 @@ function showTokenInfo(){
             jsonUrl = 'https://' + arr[0].replace('https://','').replace('http://','');
         }
     }
+    return jsonUrl;
+}
 
+// Load token content through the direct and relay fallbacks.
+function tokenInfo_loadContent(jsonUrl){
     // Handle trying to load any JSON content and show the token content
     if(jsonUrl){
         if(XC.debug)
@@ -287,4 +314,3 @@ function showTokenInfo(){
         showTokenContent();
     }
 }
-

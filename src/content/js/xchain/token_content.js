@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * token_content.js
  *
  * Custom javascript for xchain explorer
  */
@@ -41,6 +41,26 @@ function showTokenContent(json){
         audioItem = false,
         videoItem = false;
 
+    tokenContent_renderMetadata(o);
+
+    [imageItem, image, audioItem, audio] = tokenContent_renderImageAudio(o, imageItem, image, audioItem, audio);
+
+    [videoItem, video, title] = tokenContent_renderVideoFilesDns(o, videoItem, video, imageItem, audioItem, title);
+
+    tokenContent_displayIcon(o);
+
+    [audio, video, image, title] = tokenContent_parseDescription(audio, video, image, title);
+
+    tokenContent_displayArtwork(image, audio, video);
+
+    tokenContent_bindCustomContent(o);
+
+    // Hide the "No additional information is available" section
+    if(XC.someTokenInfoFound)
+        $('#additionalInfoNotAvailable').hide();
+}
+// Render descriptive metadata before selecting display media.
+function tokenContent_renderMetadata(o){
     // Basic Token Information
     var main  = getArrayItemByType(o.categories, 'main'),
         sub   = getArrayItemByType(o.categories, 'sub'),
@@ -98,7 +118,9 @@ function showTokenContent(json){
         });
         updateTokenSection('#socialInfo');
     }
-
+}
+// Render image and audio tables while returning display selections.
+function tokenContent_renderImageAudio(o, imageItem, image, audioItem, audio){
     // Images
     if(o.images.length){
         var table = $('#imagesInfo table tbody');
@@ -139,7 +161,10 @@ function showTokenContent(json){
         if(audioItem)
             audio = audioItem.data;
     }
-
+    return [imageItem, image, audioItem, audio];
+}
+// Render remaining collection tables while returning the video selection.
+function tokenContent_renderVideoFilesDns(o, videoItem, video, imageItem, audioItem, title){
     // Video
     if(o.video.length){
         var table = $('#videoInfo table tbody');
@@ -182,7 +207,10 @@ function showTokenContent(json){
         });
         updateTokenSection('#dnsInfo');
     }
-
+    return [videoItem, video, title];
+}
+// Select and display the preferred token icon.
+function tokenContent_displayIcon(o){
     // Token Icon
     var icon = false;
     if(o.images.length){
@@ -208,7 +236,10 @@ function showTokenContent(json){
     // Handle displaying token icon image
     if(icon)
         displayTokenIcon(icon);
+}
 
+// Resolve fallback media and normalize the artwork title.
+function tokenContent_parseDescription(audio, video, image, title){
     // Setup short alias to token description
     var desc = $('#token-description').text();
 
@@ -266,8 +297,11 @@ function showTokenContent(json){
     title = (title) ? String(title).replace('&#39;',"'") : null;
     updateTokenTableRow('#artwork-title', title);
     updateTokenSection('#artwork-information');
+    return [audio, video, image, title];
+}
 
-
+// Display resolved artwork through its media-specific elements.
+function tokenContent_displayArtwork(image, audio, video){
     // If we have any image/audio/video content, display it
     if(image||audio||video){
         if(image){
@@ -323,7 +357,10 @@ function showTokenContent(json){
         XC.someTokenInfoFound = true;
         updateTokenSection('#digitalArtInfo');
     }
+}
 
+// Bind custom content loading and bounded iframe resizing.
+function tokenContent_bindCustomContent(o){
     // Display any custom HTML content (with a warning before loading)
     if(o.html && !isNull(o.html)){
         XC.someTokenInfoFound = true;
@@ -359,8 +396,4 @@ function showTokenContent(json){
             });
         }
     }
-
-    // Hide the "No additional information is available" section
-    if(XC.someTokenInfoFound)
-        $('#additionalInfoNotAvailable').hide();
 }

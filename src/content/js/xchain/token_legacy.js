@@ -11,7 +11,7 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * xchain.js
+ * token_legacy.js
  *
  * Custom javascript for xchain explorer
  */
@@ -33,6 +33,15 @@ function legacyJsonToXChainTIS(o){
     // Replace any ar: urls with the arweave.net gateway
     if(ar.test(o.image))
         o.image = 'https://arweave.net/' + String(o.image).replace(ar,'');
+    tokenLegacy_mapDetails(o, json);
+    tokenLegacy_mapMedia(o, json, ipfs, ar);
+    tokenLegacy_addDescriptionUrls(o, json);
+    tokenLegacy_finalize(o, json);
+    return json;
+}
+
+// Map identity and contact metadata in one bounded pass.
+function tokenLegacy_mapDetails(o, json){
     // Pass basic token info fields forward. `title` is the piece's display title
     // (community JSONs carry it at the top level beside `name`); the token page
     // reads it ahead of any per-entry title or filename (resolveArtworkTitle).
@@ -77,6 +86,10 @@ function legacyJsonToXChainTIS(o){
         json.social.push({ type: 'reddit', data: o.website_social_reddit });
     if(o.website_social_linkedin)
         json.social.push({ type: 'linkedin', data: o.website_social_linkedin });
+}
+
+// Normalize legacy media collections and their gateway URLs.
+function tokenLegacy_mapMedia(o, json, ipfs, ar){
     // Images
     json.images = (typeof o.images === 'object') ? o.images : [];
     // Add 'image' to images array if it does not already exist
@@ -112,6 +125,10 @@ function legacyJsonToXChainTIS(o){
     json.files = (typeof o.files === 'object') ? o.files : [];
     // DNS
     json.dns = (typeof o.dns === 'object') ? o.dns : [];
+}
+
+// Classify description URLs into the matching media collections.
+function tokenLegacy_addDescriptionUrls(o, json){
     // Handle trying to extact image/video/audio data from the html description
     var urls   = String(o.description).match(/(((https?:\/\/)|(www\.))[^\s]+)/g),
         images = ['gif','jpg','jpeg','gif','png'],
@@ -156,6 +173,10 @@ function legacyJsonToXChainTIS(o){
             }
         });
     }
+}
+
+// Apply optional content and diagnostics after metadata normalization.
+function tokenLegacy_finalize(o, json){
     // Pass forward the HTML tag if it exists
     if(o.html)
         json.html = o.html;
@@ -172,5 +193,4 @@ function legacyJsonToXChainTIS(o){
         XCLogger.log('--- End JSON ---');
 
     }
-    return json;
 }

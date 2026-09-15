@@ -24,23 +24,17 @@
  * the range math, tooltip markup and chart configs are unit tested without a
  * DOM. See test/unit/content-charts.test.js.
  */
-(function(root, factory){
-    if(typeof module === 'object' && module.exports)
-        module.exports = factory();
-    else
-        root.XCC = factory();
-})(typeof self !== 'undefined' ? self : this, function(){
-    'use strict';
+'use strict';
 
-    var DAY = 86400000;
+    var xcChartsDay = 86400000;
 
     // Zoom presets. Order is load-bearing: the index is what gets persisted to
     // localStorage.marketChartZoom, and it matches the index the Highstock
     // rangeSelector used to write, so existing visitors keep their preference.
-    var RANGES = [
-        { key: '1d',  label: '1d',  ms: DAY },
-        { key: '2d',  label: '2d',  ms: 2 * DAY },
-        { key: '1w',  label: '1w',  ms: 7 * DAY },
+    var xcChartsRanges = [
+        { key: '1d',  label: '1d',  ms: xcChartsDay },
+        { key: '2d',  label: '2d',  ms: 2 * xcChartsDay },
+        { key: '1w',  label: '1w',  ms: 7 * xcChartsDay },
         { key: '1m',  label: '1m',  months: 1 },
         { key: '3m',  label: '3m',  months: 3 },
         { key: '6m',  label: '6m',  months: 6 },
@@ -50,12 +44,12 @@
     ];
 
     // Highstock's rangeSelector.selected default was 3 (1 month).
-    var DEFAULT_RANGE_INDEX = 3;
+    var xcChartsDefaultRangeIndex = 3;
 
     // Formatters are indirected so Node tests can drive the tooltip builders
     // without jQuery/moment/numeral/mathjs loaded. In the browser these fall
     // through to the helpers xchain.js already defines.
-    var formatters = {
+    var xcChartsFormatters = {
         amount: function(v){
             if(typeof formatAmount === 'function' && typeof bcformat === 'function')
                 return formatAmount(bcformat(v, 8));
@@ -76,7 +70,7 @@
     // Escape anything that reaches tooltip markup. Ticker names are
     // user-supplied on-chain strings and the tooltips are rendered with
     // innerHTML, so this is the boundary that keeps them inert.
-    function esc(v){
+    function xcChartsEscape(v){
         return String(v == null ? '' : v)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -85,31 +79,31 @@
             .replace(/'/g, '&#39;');
     }
 
-    function rangeIndex(key){
-        for(var i = 0; i < RANGES.length; i++)
-            if(RANGES[i].key === key) return i;
+    function xcChartsRangeIndex(key){
+        for(var i = 0; i < xcChartsRanges.length; i++)
+            if(xcChartsRanges[i].key === key) return i;
         return -1;
     }
 
     // Accepts whatever localStorage hands back: the legacy numeric index, a
     // range key, or junk. Always resolves to a valid key.
-    function normalizeRange(stored){
+    function xcChartsNormalizeRange(stored){
         if(stored === null || typeof stored === 'undefined' || stored === '')
-            return RANGES[DEFAULT_RANGE_INDEX].key;
+            return xcChartsRanges[xcChartsDefaultRangeIndex].key;
         var asString = String(stored);
-        if(rangeIndex(asString) !== -1)
+        if(xcChartsRangeIndex(asString) !== -1)
             return asString;
         var idx = parseInt(asString, 10);
-        if(!isNaN(idx) && idx >= 0 && idx < RANGES.length)
-            return RANGES[idx].key;
-        return RANGES[DEFAULT_RANGE_INDEX].key;
+        if(!isNaN(idx) && idx >= 0 && idx < xcChartsRanges.length)
+            return xcChartsRanges[idx].key;
+        return xcChartsRanges[xcChartsDefaultRangeIndex].key;
     }
 
     // Resolve a preset to an explicit x-axis window anchored on the newest data
     // point, mirroring how Highstock anchored its range buttons. Returns null
     // for 'all' (and for empty data), which means "let the scale auto-fit".
-    function rangeWindow(key, maxTs){
-        var range = RANGES[rangeIndex(normalizeRange(key))];
+    function xcChartsRangeWindow(key, maxTs){
+        var range = xcChartsRanges[xcChartsRangeIndex(xcChartsNormalizeRange(key))];
         if(range.all || !maxTs)
             return null;
         var max = Number(maxTs);
@@ -126,33 +120,33 @@
         return { min: d.getTime(), max: max };
     }
 
-    function tooltipRow(label, value, unit, cls){
+    function xcChartsTooltipRow(label, value, unit, cls){
         return '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
-               '<td>' + esc(label) + '</td>' +
+               '<td>' + xcChartsEscape(label) + '</td>' +
                '<td class="separator">:</td>' +
-               '<td class="text-right">' + esc(value) + '</td>' +
-               '<td>' + esc(unit) + '</td></tr>';
+               '<td class="text-right">' + xcChartsEscape(value) + '</td>' +
+               '<td>' + xcChartsEscape(unit) + '</td></tr>';
     }
 
-    function tooltipTable(rows){
+    function xcChartsTooltipTable(rows){
         return '<table class="xc-chart-tooltip-table">' + rows.join('') + '</table>';
     }
 
-    function candlestickTooltip(o){
+    function xcChartsCandlestickTooltip(o){
         var rows = [
-            tooltipRow('Open',  formatters.amount(o.open),  o.tick2, 'first'),
-            tooltipRow('High',  formatters.amount(o.high),  o.tick2),
-            tooltipRow('Low',   formatters.amount(o.low),   o.tick2),
-            tooltipRow('Close', formatters.amount(o.close), o.tick2),
-            tooltipRow('Volume', formatters.volume(o.volume || 0), o.tick1, 'border-top-1')
+            xcChartsTooltipRow('Open',  xcChartsFormatters.amount(o.open),  o.tick2, 'first'),
+            xcChartsTooltipRow('High',  xcChartsFormatters.amount(o.high),  o.tick2),
+            xcChartsTooltipRow('Low',   xcChartsFormatters.amount(o.low),   o.tick2),
+            xcChartsTooltipRow('Close', xcChartsFormatters.amount(o.close), o.tick2),
+            xcChartsTooltipRow('Volume', xcChartsFormatters.volume(o.volume || 0), o.tick1, 'border-top-1')
         ];
-        return '<b>' + esc(formatters.time(o.time)) + '</b><br>' + tooltipTable(rows);
+        return '<b>' + xcChartsEscape(xcChartsFormatters.time(o.time)) + '</b><br>' + xcChartsTooltipTable(rows);
     }
 
     // A single timestamp can carry several trades at different prices. Collapse
     // them by price and report both the base-token volume and its quote-token
     // value, newest price first, which is what the old line tooltip did.
-    function aggregateTrades(prices, volumes, time){
+    function xcChartsAggregateTrades(prices, volumes, time){
         var totals = {};
         for(var i = 0; i < prices.length; i++){
             var p = prices[i];
@@ -171,32 +165,32 @@
         return info;
     }
 
-    function lineTooltip(o){
+    function xcChartsLineTooltip(o){
         var rows = [];
         var entries = o.entries && o.entries.length ? o.entries : [[o.price, o.volume, Number(o.price) * Number(o.volume)]];
         for(var i = 0; i < entries.length; i++){
-            rows.push(tooltipRow('Price',  formatters.amount(entries[i][0]), o.tick2, i === 0 ? 'first' : ''));
-            rows.push(tooltipRow('Volume', formatters.amount(entries[i][1]), o.tick1));
+            rows.push(xcChartsTooltipRow('Price',  xcChartsFormatters.amount(entries[i][0]), o.tick2, i === 0 ? 'first' : ''));
+            rows.push(xcChartsTooltipRow('Volume', xcChartsFormatters.amount(entries[i][1]), o.tick1));
             rows.push('<tr><td colspan="2"></td><td class="text-right">' +
-                      esc(formatters.amount(entries[i][2])) + '</td><td>' + esc(o.tick2) + '</td></tr>');
+                      xcChartsEscape(xcChartsFormatters.amount(entries[i][2])) + '</td><td>' + xcChartsEscape(o.tick2) + '</td></tr>');
         }
-        return '<b>' + esc(formatters.time(o.time)) + '</b><br>' + tooltipTable(rows);
+        return '<b>' + xcChartsEscape(xcChartsFormatters.time(o.time)) + '</b><br>' + xcChartsTooltipTable(rows);
     }
 
-    function depthTooltip(o){
+    function xcChartsDepthTooltip(o){
         var rows = [
-            tooltipRow('Price', formatters.amount(o.price), o.tick2, 'first'),
-            tooltipRow('Sum',   formatters.amount(o.sum1),  o.tick1),
+            xcChartsTooltipRow('Price', xcChartsFormatters.amount(o.price), o.tick2, 'first'),
+            xcChartsTooltipRow('Sum',   xcChartsFormatters.amount(o.sum1),  o.tick1),
             '<tr><td colspan="2"></td><td class="text-right">' +
-                esc(formatters.amount(o.sum2)) + '</td><td>' + esc(o.tick2) + '</td></tr>'
+                xcChartsEscape(xcChartsFormatters.amount(o.sum2)) + '</td><td>' + xcChartsEscape(o.tick2) + '</td></tr>'
         ];
-        return '<b>' + esc(o.side === 'bids' ? 'Buy' : 'Sell') + ' Depth</b>' + tooltipTable(rows);
+        return '<b>' + xcChartsEscape(o.side === 'bids' ? 'Buy' : 'Sell') + ' Depth</b>' + xcChartsTooltipTable(rows);
     }
 
     // Shared skeleton for the two time-series charts. Chart.js has no vertical
     // pane concept, so the price/volume split is expressed as two stacked
     // cartesian scales weighted 2:1 (the 60%/35% Highstock layout).
-    function timeSeriesOptions(){
+    function xcChartsTimeSeriesOptions(){
         return {
             responsive: true,
             maintainAspectRatio: false,
@@ -237,14 +231,14 @@
         };
     }
 
-    function toXY(pairs){
+    function xcChartsToXY(pairs){
         var out = [];
         for(var i = 0; i < (pairs || []).length; i++)
             out.push({ x: Number(pairs[i][0]), y: Number(pairs[i][1]) });
         return out;
     }
 
-    function toOHLC(rows){
+    function xcChartsToOHLC(rows){
         var out = [];
         for(var i = 0; i < (rows || []).length; i++)
             out.push({
@@ -257,7 +251,7 @@
         return out;
     }
 
-    function lastTimestamp(rows){
+    function xcChartsLastTimestamp(rows){
         var max = 0;
         for(var i = 0; i < (rows || []).length; i++){
             var t = Number(rows[i][0]);
@@ -267,23 +261,23 @@
     }
 
     // data: { ohlc: [[ms,o,h,l,c],..], volume: [[ms,v],..] }
-    function candlestickConfig(data, opts){
+    function xcChartsCandlestickConfig(data, opts){
         opts = opts || {};
-        var options = timeSeriesOptions();
+        var options = xcChartsTimeSeriesOptions();
         return {
             type: 'candlestick',
             data: {
                 datasets: [{
                     label: 'OHLC',
                     yAxisID: 'price',
-                    data: toOHLC(data && data.ohlc),
+                    data: xcChartsToOHLC(data && data.ohlc),
                     color: { up: '#339349', down: '#a42015', unchanged: '#7d7d7d' },
                     borderColor: { up: '#339349', down: '#a42015', unchanged: '#7d7d7d' }
                 }, {
                     label: 'Volume',
                     type: 'bar',
                     yAxisID: 'volume',
-                    data: toXY(data && data.volume),
+                    data: xcChartsToXY(data && data.volume),
                     backgroundColor: 'rgba(51,147,73,0.45)',
                     borderColor: 'rgba(51,147,73,0.8)',
                     borderWidth: 1,
@@ -309,16 +303,16 @@
                         point.volume = raw.y;
                     }
                 }
-                return candlestickTooltip(point);
+                return xcChartsCandlestickTooltip(point);
             }
         };
     }
 
     // data: { trades: [[ms,price],..], volume: [[ms,vol],..] }
-    function lineConfig(data, opts){
+    function xcChartsLineConfig(data, opts){
         opts = opts || {};
-        var prices  = toXY(data && data.trades),
-            volumes = toXY(data && data.volume);
+        var prices  = xcChartsToXY(data && data.trades),
+            volumes = xcChartsToXY(data && data.volume);
         return {
             type: 'line',
             data: {
@@ -342,13 +336,13 @@
                     maxBarThickness: 20
                 }]
             },
-            options: timeSeriesOptions(),
+            options: xcChartsTimeSeriesOptions(),
             xcTooltip: function(items){
                 if(!items.length) return '';
                 var time = items[0].parsed.x;
-                return lineTooltip({
+                return xcChartsLineTooltip({
                     time: time,
-                    entries: aggregateTrades(prices, volumes, time),
+                    entries: xcChartsAggregateTrades(prices, volumes, time),
                     tick1: opts.tick1,
                     tick2: opts.tick2
                 });
@@ -358,7 +352,7 @@
 
     // orders: { asks: [[price, cumVol, cumValue],..], bids: [...] }
     // Both sides arrive pre-accumulated and pre-sorted from xchain.js.
-    function depthConfig(orders, opts){
+    function xcChartsDepthConfig(orders, opts){
         opts = opts || {};
         orders = orders || {};
         var sideOf = {};
@@ -405,7 +399,7 @@
                 if(!items.length) return '';
                 var price = items[0].parsed.x,
                     meta  = sideOf[price] || { side: 'asks', sum1: 0, sum2: 0 };
-                return depthTooltip({
+                return xcChartsDepthTooltip({
                     price: price,
                     sum1:  meta.sum1,
                     sum2:  meta.sum2,
@@ -418,8 +412,8 @@
     }
 
     // Pin the x scale to a preset window. Returns the config so callers can chain.
-    function applyRange(config, key, maxTs){
-        var win = rangeWindow(key, maxTs);
+    function xcChartsApplyRange(config, key, maxTs){
+        var win = xcChartsRangeWindow(key, maxTs);
         var x = config.options.scales.x;
         if(win){
             x.min = win.min;
@@ -431,42 +425,19 @@
         return config;
     }
 
-    function isEmptyConfig(config){
+    function xcChartsIsEmptyConfig(config){
         var sets = (config.data && config.data.datasets) || [];
         for(var i = 0; i < sets.length; i++)
             if(sets[i].data && sets[i].data.length) return false;
         return true;
     }
 
-    var api = {
-        RANGES: RANGES,
-        DEFAULT_RANGE_INDEX: DEFAULT_RANGE_INDEX,
-        formatters: formatters,
-        escapeHtml: esc,
-        rangeIndex: rangeIndex,
-        normalizeRange: normalizeRange,
-        rangeWindow: rangeWindow,
-        candlestickTooltip: candlestickTooltip,
-        aggregateTrades: aggregateTrades,
-        lineTooltip: lineTooltip,
-        depthTooltip: depthTooltip,
-        candlestickConfig: candlestickConfig,
-        lineConfig: lineConfig,
-        depthConfig: depthConfig,
-        applyRange: applyRange,
-        lastTimestamp: lastTimestamp,
-        isEmptyConfig: isEmptyConfig
-    };
-
     // ------------------------------------------------------------------
     // Browser layer. Skipped under Node so the module stays require()-able.
     // ------------------------------------------------------------------
-    if(typeof document === 'undefined')
-        return api;
+    var xcChartsInstances = {};
 
-    var instances = {};
-
-    function tooltipElement(){
+    function xcChartsTooltipElement(){
         var el = document.getElementById('xc-chart-tooltip');
         if(!el){
             el = document.createElement('div');
@@ -480,9 +451,9 @@
     // Chart.js only ships a canvas-drawn tooltip; the market tooltips are HTML
     // tables, so they are rendered into a floating div positioned off the
     // canvas rect (the useHTML:true equivalent).
-    function externalTooltip(build){
+    function xcChartsExternalTooltip(build){
         return function(context){
-            var el      = tooltipElement(),
+            var el      = xcChartsTooltipElement(),
                 tooltip = context.tooltip;
             if(!tooltip || tooltip.opacity === 0){
                 el.style.opacity = 0;
@@ -501,7 +472,7 @@
         };
     }
 
-    function button(label, title){
+    function xcChartsButton(label, title){
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'btn btn-sm btn-outline-secondary xc-chart-btn';
@@ -510,7 +481,7 @@
         return b;
     }
 
-    function downloadPng(chart, name){
+    function xcChartsDownloadPng(chart, name){
         var a = document.createElement('a');
         a.href = chart.toBase64Image('image/png', 1);
         a.download = (name || 'chart') + '.png';
@@ -519,7 +490,7 @@
         document.body.removeChild(a);
     }
 
-    function buildToolbar(container, chart, opts){
+    function xcChartsBuildToolbar(container, chart, opts){
         var bar = document.createElement('div');
         bar.className = 'xc-chart-toolbar';
 
@@ -528,15 +499,15 @@
             group.className = 'btn-group btn-group-sm xc-chart-ranges';
             group.setAttribute('role', 'group');
             group.setAttribute('aria-label', 'Chart zoom');
-            RANGES.forEach(function(range, idx){
-                var b = button(range.label, 'Zoom: ' + range.label);
+            xcChartsRanges.forEach(function(range, idx){
+                var b = xcChartsButton(range.label, 'Zoom: ' + range.label);
                 b.setAttribute('data-range', range.key);
                 if(range.key === opts.range) b.classList.add('active');
                 b.addEventListener('click', function(){
                     group.querySelectorAll('button').forEach(function(x){ x.classList.remove('active'); });
                     b.classList.add('active');
                     try { localStorage.setItem('marketChartZoom', idx); } catch(e){ /* private mode */ }
-                    var win = rangeWindow(range.key, opts.maxTs);
+                    var win = xcChartsRangeWindow(range.key, opts.maxTs);
                     if(win){
                         chart.options.scales.x.min = win.min;
                         chart.options.scales.x.max = win.max;
@@ -551,9 +522,9 @@
             bar.appendChild(group);
         }
 
-        var save = button('<i class="fa fa-download"></i>', 'Download PNG');
+        var save = xcChartsButton('<i class="fa fa-download"></i>', 'Download PNG');
         save.className += ' xc-chart-export';
-        save.addEventListener('click', function(){ downloadPng(chart, opts.name); });
+        save.addEventListener('click', function(){ xcChartsDownloadPng(chart, opts.name); });
         bar.appendChild(save);
 
         container.appendChild(bar);
@@ -563,19 +534,19 @@
      * Draw a config into a container element, replacing whatever was there.
      * opts: { name, height, rangeSelector, range, maxTs, noData }
      */
-    function render(containerId, config, opts){
+    function xcChartsRender(containerId, config, opts){
         opts = opts || {};
         var container = document.getElementById(containerId);
         if(!container) return null;
 
-        if(instances[containerId]){
-            instances[containerId].destroy();
-            delete instances[containerId];
+        if(xcChartsInstances[containerId]){
+            xcChartsInstances[containerId].destroy();
+            delete xcChartsInstances[containerId];
         }
         container.innerHTML = '';
         container.classList.add('xc-chart');
 
-        if(isEmptyConfig(config)){
+        if(xcChartsIsEmptyConfig(config)){
             var msg = document.createElement('div');
             msg.className = 'xc-chart-nodata';
             msg.textContent = opts.noData || 'No data found';
@@ -590,30 +561,58 @@
         wrap.appendChild(canvas);
 
         if(config.xcTooltip)
-            config.options.plugins.tooltip.external = externalTooltip(config.xcTooltip);
+            config.options.plugins.tooltip.external = xcChartsExternalTooltip(config.xcTooltip);
 
         // Toolbar is appended before the canvas so it sits above the plot, but
         // it needs the chart instance, so the canvas is constructed first.
         container.appendChild(wrap);
         var chart = new Chart(canvas.getContext('2d'), config);
-        buildToolbar(container, chart, opts);
+        xcChartsBuildToolbar(container, chart, opts);
         container.insertBefore(container.lastChild, wrap);
 
-        instances[containerId] = chart;
+        xcChartsInstances[containerId] = chart;
         return chart;
     }
 
-    function destroy(containerId){
-        if(instances[containerId]){
-            instances[containerId].destroy();
-            delete instances[containerId];
+    function xcChartsDestroy(containerId){
+        if(xcChartsInstances[containerId]){
+            xcChartsInstances[containerId].destroy();
+            delete xcChartsInstances[containerId];
         }
     }
 
-    api.render  = render;
-    api.destroy = destroy;
-    api.externalTooltip = externalTooltip;
-    api.instances = instances;
-
+function xcChartsCreateApi(){
+    var api = {
+        RANGES: xcChartsRanges,
+        DEFAULT_RANGE_INDEX: xcChartsDefaultRangeIndex,
+        formatters: xcChartsFormatters,
+        escapeHtml: xcChartsEscape,
+        rangeIndex: xcChartsRangeIndex,
+        normalizeRange: xcChartsNormalizeRange,
+        rangeWindow: xcChartsRangeWindow,
+        candlestickTooltip: xcChartsCandlestickTooltip,
+        aggregateTrades: xcChartsAggregateTrades,
+        lineTooltip: xcChartsLineTooltip,
+        depthTooltip: xcChartsDepthTooltip,
+        candlestickConfig: xcChartsCandlestickConfig,
+        lineConfig: xcChartsLineConfig,
+        depthConfig: xcChartsDepthConfig,
+        applyRange: xcChartsApplyRange,
+        lastTimestamp: xcChartsLastTimestamp,
+        isEmptyConfig: xcChartsIsEmptyConfig
+    };
+    if(typeof document !== 'undefined'){
+        api.render  = xcChartsRender;
+        api.destroy = xcChartsDestroy;
+        api.externalTooltip = xcChartsExternalTooltip;
+        api.instances = xcChartsInstances;
+    }
     return api;
-});
+}
+
+(function(root, factory){
+    if(typeof module === 'object' && module.exports)
+        module.exports = factory();
+    else
+        root.XCC = factory();
+})(typeof self !== 'undefined' ? self : this, xcChartsCreateApi);

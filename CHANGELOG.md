@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-09-16
+
+### Added
+- Bridge and policy panels render on the token and action pages.
+- The token read serves the four bridge columns.
+
+### Changed
+- The schema-mirror changelog states the hub-first roll order.
+- Audited transitive packages move to their patched releases (lockfile only).
+- Restructured under the platform code-structure standard (feature directories, snake_case files, split test suites, restored comments); consensus identity byte-identical and pinned.
+
 ## [0.18.0] - 2026-09-11
 
 ### Changed

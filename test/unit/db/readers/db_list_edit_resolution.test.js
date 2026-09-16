@@ -30,7 +30,10 @@ const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const Utility    = require('../../../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
-const activation = require('../../../../src/list_edit_resolution_activation.js');
+// The flag-day map is a registry row since W5 (the explorer reads it by its literal
+// key in lists.js); the cases below pin their tips against the same row.
+const LIST_EDIT_RESOLUTION_ACTIVATION = require('../../../../src/consensus/gate_registry')
+    .copy('list_edit_resolution_activation.LIST_EDIT_RESOLUTION_ACTIVATION');
 
 const Database = proxyquire('../../../../src/db/index.js', {
     './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
@@ -168,7 +171,7 @@ describe('the explorer shows the membership the chain enforces', function () {
             // rows, so resolving here would show a membership the chain is not
             // applying - the explorer would be the one lying, in the safe direction
             // for nobody.
-            const tip = activation.LIST_EDIT_RESOLUTION_ACTIVATION['BTC:mainnet'] - 1;
+            const tip = LIST_EDIT_RESOLUTION_ACTIVATION['BTC:mainnet'] - 1;
             const db  = makeDb(listRoutes([{ action_index: EDIT }], members(ADDRESSES)), tip);
             const state = await db.getListCurrentMembership({ coin: 'BTC' }, ROOT, 2);
             expect(state.edit_resolution_active).to.equal(false);
@@ -178,7 +181,7 @@ describe('the explorer shows the membership the chain enforces', function () {
         });
 
         it('activates at exactly the flag-day height, not one block later', async function () {
-            const tip = activation.LIST_EDIT_RESOLUTION_ACTIVATION['BTC:mainnet'];
+            const tip = LIST_EDIT_RESOLUTION_ACTIVATION['BTC:mainnet'];
             const db  = makeDb(listRoutes([{ action_index: EDIT }], members(ADDRESSES)), tip);
             const state = await db.getListCurrentMembership({ coin: 'BTC' }, ROOT, 2);
             expect(state.edit_resolution_active).to.equal(true);
@@ -217,20 +220,6 @@ describe('the explorer shows the membership the chain enforces', function () {
         });
     });
 
-    describe('the activation map is vendored, not re-typed', function () {
-
-        it('matches the indexer copy byte for byte', function () {
-            // The explorer mirrors a consensus read here. Two copies of a height
-            // map drift silently: the explorer would show membership the chain
-            // does not gate on, at exactly the boundary where anyone is watching.
-            const fs   = require('fs');
-            const path = require('path');
-            const mine = path.join(__dirname, '..', '..', '..', '..', 'src', 'list_edit_resolution_activation.js');
-            const theirs = path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-indexer', 'src', 'list_edit_resolution_activation.js');
-            if (!fs.existsSync(theirs)) return this.skip();   // standalone deploy: sibling absent
-            expect(fs.readFileSync(mine, 'utf8')).to.equal(fs.readFileSync(theirs, 'utf8'));
-        });
-    });
 });
 
 /*
@@ -287,7 +276,7 @@ describe('the project registry shows the roster the chain enforces', function ()
         });
 
         it('is INERT below the flag day, and resolves no chain at all', async function () {
-            const tip = activation.LIST_EDIT_RESOLUTION_ACTIVATION['BTC:mainnet'] - 1;
+            const tip = LIST_EDIT_RESOLUTION_ACTIVATION['BTC:mainnet'] - 1;
             const db  = makeDb(rosterRoutes(), tip);
             db.baseCoin = { BTC: 'BTC' };
             const info = await db.getProjectRosterInfo({ coin: 'BTC' }, 'PROJECTX');
@@ -367,7 +356,7 @@ describe('the project registry shows the roster the chain enforces', function ()
         });
 
         it('runs the single-query legacy form below the flag day', async function () {
-            const tip = activation.LIST_EDIT_RESOLUTION_ACTIVATION['BTC:mainnet'] - 1;
+            const tip = LIST_EDIT_RESOLUTION_ACTIVATION['BTC:mainnet'] - 1;
             const db  = makeDb([[/GROUP BY i1\.tick_id/, () => CANDIDATES]], tip);
             db.baseCoin = { BTC: 'BTC' };
             const rows = await db.getTokenProjects({ coin: 'BTC' }, 'TOKENONE');

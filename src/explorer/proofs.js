@@ -26,9 +26,15 @@
 
 'use strict';
 
-const eq   = require('../equivocation_header.js');
-const swq  = require('../stake_weighted_quorum.js');
-const ckpt = require('../checkpoint_commitment_activation.js');
+const eq   = require('../consensus/equivocation_header.js');
+const swq  = require('../consensus/stake_weighted_quorum.js');
+// The CHECKPOINT_COMMITMENT flag day is a registry row read by its literal key
+// (W5): the predicate is activeAt over the checkpoint's BTC-anchored snapshot_block.
+const gateRegistry = require('../consensus/gate_registry');
+const CHECKPOINT_COMMITMENT_KEY = 'checkpoint_commitment_activation.CHECKPOINT_COMMITMENT_ACTIVATION';
+function isCheckpointCommitmentActive(snapshotBlock, network){
+    return gateRegistry.activeAt(CHECKPOINT_COMMITMENT_KEY, network, null, snapshotBlock, null);
+}
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -116,7 +122,7 @@ class CheckpointProofs {
         // commitmentMissing (xchain-sdk/src/checkpoint.js): canonicalCheckpointString
         // appends the root suffix only when all four are present, so such a row would
         // otherwise verify against the LEGACY rootless preimage.
-        let commitmentMissing = ckpt.isCheckpointCommitmentActive(cp.snapshot_block, cp.network)
+        let commitmentMissing = isCheckpointCommitmentActive(cp.snapshot_block, cp.network)
             && (cp.state_root == null || cp.block_merkle_root == null
                 || cp.state_root_version == null || cp.block_merkle_version == null);
 
@@ -276,7 +282,7 @@ function canonicalCheckpointString(cp){
     let canonRaw = ['XCHECKPOINT', cp.chain, cp.network, String(cp.block_index), cp.block_hash,
                      cp.ledger_hash, cp.actions_hash, cp.contract_hash,
                      String(cp.checkpoint_seq), String(cp.snapshot_block)].join('|');
-    if(ckpt.isCheckpointCommitmentActive(cp.snapshot_block, cp.network) &&
+    if(isCheckpointCommitmentActive(cp.snapshot_block, cp.network) &&
        cp.state_root != null && cp.block_merkle_root != null &&
        cp.state_root_version != null && cp.block_merkle_version != null)
         canonRaw += '|' + [String(cp.state_root).toLowerCase(), String(cp.state_root_version),

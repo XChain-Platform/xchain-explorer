@@ -28,7 +28,10 @@
 
 'use strict';
 
-const listEditResolution = require('../../../list_edit_resolution_activation');
+// The LIST_EDIT_RESOLUTION flag day is a registry row read by its literal key
+// (W5), per coin: the <COIN>:<network> slot wins over the bare network slot.
+const gateRegistry = require('../../../consensus/gate_registry');
+const LIST_EDIT_RESOLUTION_KEY = 'list_edit_resolution_activation.LIST_EDIT_RESOLUTION_ACTIVATION';
 
 class ActionListMembershipReaders {
     /******************************************************************
@@ -181,7 +184,7 @@ class ActionListMembershipReaders {
         } catch(e){ /* config momentarily unavailable: fall through to inactive */ }
         if(!resolved) return false;
         let tip = await this.getMaxBlockIndex(config);
-        return listEditResolution.isListEditResolutionActive(tip, resolved.network, resolved.coin);
+        return gateRegistry.activeAt(LIST_EDIT_RESOLUTION_KEY, resolved.network, resolved.coin, tip, null);
     }
 
     // Current membership of the list a LIST action belongs to (the display leg).

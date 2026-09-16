@@ -45,7 +45,9 @@ const HUB_FILES = ['hub_db_sync.js', 'hub_schema_version.js'];
 // one, so its case keeps that title while comparing the renamed file; the entry drops out
 // of this map when a later grant re-takes the pin.
 const PINNED_TITLE_NAME = { 'hub_schema_version.js': 'hub-schema-version.js' };
-const DEP_FILES = ['price_batching_floor_activation.js', 'mirror_admission_activation.js'];
+// The two gate modules the client reaches with ../../consensus/gates/, vendored at the
+// same tail every repo carries the W5 twins at (src-relative, directory included).
+const DEP_FILES = ['consensus/gates/price_batching_floor_gate.js', 'consensus/gates/mirror_admission_gate.js'];
 
 // The client entry installs a directory of parts (src/hub/hub_db_sync/, subdirectories
 // included), vendored as a SET by the sync script's HUB_DIRS= line. Both sides are walked
@@ -126,11 +128,13 @@ function scriptHubFiles(){ return scriptFileList('HUB_FILES'); }
 function scriptDepFiles(){ return scriptFileList('DEP_FILES'); }
 function scriptHubDirs(){ return scriptFileList('HUB_DIRS'); }
 // Byte-identical consensus twins that are NOT vendored by sync-hub-mirror-client.sh
-// (they are hand-maintained in xchain-hub/src, xchain-indexer/src and here). The
-// twin's own header claims "the hub-mirror conformance suites compare the consumers",
+// (they are hand-maintained in xchain-indexer/src and here, at the same W5 tail: the
+// subtree gate under consensus/gates/ and the two carriers under consensus/). The
+// twins' own headers claim "the hub-mirror conformance suites compare the consumers",
 // so guard the explorer<->indexer pair here; a one-sided edit (comparator/threshold/
 // parse-semantics skew) must fail CI before the mainnet activation era, not ship green.
-const TWIN_FILES = ['retraction_signing_activation.js'];
+// (The retraction-signing predicate this list once named is a registry row since W5.)
+const TWIN_FILES = ['consensus/gates/state_subtree_gate.js', 'consensus/equivocation_header.js', 'consensus/stake_weighted_quorum.js'];
 
 describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
     before(function(){ if(!CANON_PRESENT) this.skip(); });
@@ -185,8 +189,8 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
             const local = fs.readFileSync(path.join(LOCAL_SRC, f), 'utf8');
             const canon = fs.readFileSync(path.join(CANON_SRC, f), 'utf8');
             assert.strictEqual(local, canon,
-                'this repo\'s ' + f + ' has drifted from the canonical xchain-indexer copy; ' +
-                'this is a hand-maintained triplet twin (hub/indexer/explorer) - keep all three equal.');
+                'this repo\'s src/' + f + ' has drifted from the canonical xchain-indexer copy; ' +
+                'this is a hand-maintained twin (the same tail in every repo that carries it) - keep every copy equal.');
         });
     });
 

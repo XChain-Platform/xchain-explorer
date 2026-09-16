@@ -25,8 +25,12 @@
 'use strict';
 
 const {
-    sinon, expect, mockRes, eq, swq, ckpt, makeExplorer, req, CP, PK, snapRow
+    sinon, expect, mockRes, eq, swq, stubCheckpointCommitment, makeExplorer, req, CP, PK, snapRow
 } = require('./helpers.js');
+
+// The checkpoint-commitment gate handle of the current test (a registry stub
+// since W5); pinCheckpointCommitmentInactive() installs it before each case.
+let ckptGate = null;
 
 // GET /{COIN}/api/checkpoints
 describe('XChainExplorer.processCheckpointsRequest', function () {
@@ -116,7 +120,8 @@ describe('XChainExplorer.processCheckpointsRequest', function () {
 // post-flag-day and the fail-closed guard would sink the quorum cases. Scoped here
 // rather than file-wide: the byte-parity suite below needs the REAL predicate.
 function pinCheckpointCommitmentInactive() {
-    sinon.stub(ckpt, 'isCheckpointCommitmentActive').returns(false);
+    ckptGate = stubCheckpointCommitment();
+    ckptGate.returns(false);
 }
 
 describe('XChainExplorer.processCheckpointVerifyRequest', function () {
@@ -173,7 +178,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
     it('SPV Phase 2: post CHECKPOINT_COMMITMENT flag-day the emitted canonical commits the roots', async function () {
         // Pin the checkpoint-commitment flag-day active; EQUIV stays off (default) so the
         // canonical is the raw v0 string + the SPV root suffix, with no header wrapping.
-        ckpt.isCheckpointCommitmentActive.returns(true);
+        ckptGate.returns(true);
         const STATE_ROOT = 'd4'.repeat(32), BLOCK_MERKLE = 'e5'.repeat(32);
         const cpRow = { ...CP, state_root: STATE_ROOT, state_root_version: 1,
                         block_merkle_root: BLOCK_MERKLE, block_merkle_version: 1 };
@@ -190,7 +195,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
     });
 
     it('SPV Phase 2: a null-root row keeps the rootless canonical even post-flag-day', async function () {
-        ckpt.isCheckpointCommitmentActive.returns(true);
+        ckptGate.returns(true);
         const explorer = makeExplorer();
         explorer.db.getCheckpointRows.resolves([{ ...CP }]);   // CP has no roots
         explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
@@ -203,7 +208,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
 
     it('SPV Phase 2: a null-root row post-flag-day fails closed, matching the SDK verifier', async function () {
         // Quorate on signatures alone; only the missing commitment may sink it.
-        ckpt.isCheckpointCommitmentActive.returns(true);
+        ckptGate.returns(true);
         const explorer = makeExplorer();
         explorer.db.getCheckpointRows.resolves([{ ...CP }]);   // CP has no roots
         explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
@@ -220,7 +225,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
     beforeEach(pinCheckpointCommitmentInactive);
 
     it('SPV Phase 2: one missing commitment field is enough to fail closed', async function () {
-        ckpt.isCheckpointCommitmentActive.returns(true);
+        ckptGate.returns(true);
         const explorer = makeExplorer();
         // Three of four roots present; block_merkle_version alone is null.
         explorer.db.getCheckpointRows.resolves([{ ...CP, state_root: 'd4'.repeat(32),
@@ -233,7 +238,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
     });
 
     it('SPV Phase 2: a rootless row BELOW the flag-day still verifies (legacy rows unaffected)', async function () {
-        ckpt.isCheckpointCommitmentActive.returns(false);
+        ckptGate.returns(false);
         const explorer = makeExplorer();
         explorer.db.getCheckpointRows.resolves([{ ...CP }]);
         explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);

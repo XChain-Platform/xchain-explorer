@@ -109,6 +109,24 @@ function getFileConfig() {
     };
 }
 
+// The `env` key src/config.js exports: the one object the readers under src/db/
+// may read an environment variable through, since the structural gate allows a
+// process.env read only in config.js itself.
+//
+// A LIVE view rather than a snapshot, which is the one place this stub must
+// differ from the real config: several suites set and delete a variable between
+// cases (ALLOW_NO_COLOCATED_HUB_DB, DEBUG, the per-coin tip thresholds) and read
+// the effect back through a Database built before the change. A frozen copy
+// taken when the stub is created would answer with whatever the environment
+// held at construction and quietly pass every one of those cases vacuously.
+const envView = new Proxy({}, {
+    get:  (_t, key)  => process.env[key],
+    has:  (_t, key)  => key in process.env,
+    ownKeys: ()      => Reflect.ownKeys(process.env),
+    getOwnPropertyDescriptor: (_t, key) =>
+        Object.getOwnPropertyDescriptor(process.env, key)
+});
+
 // Minimal configInfo stub that behaves like src/config.js
 function createConfigInfoStub(configOverrides) {
     const config = configOverrides || getFullConfig();
@@ -117,6 +135,7 @@ function createConfigInfoStub(configOverrides) {
         getConfig: async function() { return config; },
         onConfigChanged: function(cb) { listeners.push(cb); },
         triggerConfigChanged: function() { listeners.forEach(cb => cb()); },
+        env: envView,
         _listeners: listeners
     };
 }
@@ -125,5 +144,6 @@ module.exports = {
     getFullConfig,
     getHubConfig,
     getFileConfig,
-    createConfigInfoStub
+    createConfigInfoStub,
+    envView
 };

@@ -1,0 +1,230 @@
+/*********************************************************************
+ *
+ * Copyright © 2025–2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available -
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
+ *
+ * XChain Explorer - the site search
+ *
+ * getSearch counts matches per panel and returns the requested panel's rows:
+ * LIKE lookups for addresses, transactions, broadcasts and tokens, and the
+ * FULLTEXT match for contracts.
+ *
+ * One part of src/db/readers/action_detail_io.js (the entry composes it through
+ * composeReaderParts). Authored as a class body whose prototype is exported,
+ * like every other family under src/db/: `this` is the Database instance at
+ * call time, and the methods reach Database.prototype non-enumerable, by
+ * descriptor.
+ *
+ ********************************************************************/
+
+'use strict';
+
+// The per-panel COUNT statements. The contract panel joins the list only when its
+// sanitized FULLTEXT term survived, so an operator-only term counts zero contracts
+// without running a match nobody can bind.
+function searchCountQueries(search, ftTerm){
+    let countQueries = [
+        { type: 'address',     query: `SELECT COUNT(*) AS count FROM index_addresses WHERE LOWER(address) LIKE LOWER( ? )`, args: [search] },
+        { type: 'transaction', query: `SELECT COUNT(*) AS count FROM transactions t1 LEFT JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id) WHERE LOWER(t2.hash) LIKE LOWER( ? )`, args: [search] },
+        { type: 'broadcast',   query: `SELECT COUNT(*) AS count FROM broadcasts b LEFT JOIN index_memos m ON (m.id=b.memo_id) WHERE LOWER(b.message) LIKE LOWER( ? ) OR LOWER(m.memo) LIKE LOWER( ? )`, args: [search, search] },
+        { type: 'token',       query: `SELECT COUNT(*) AS count FROM tokens t1 LEFT JOIN index_tickers t2 ON (t2.id=t1.tick_id) WHERE LOWER(t2.tick) LIKE LOWER( ? ) OR LOWER(t1.description) LIKE LOWER( ? )`, args: [search, search] }
+    ];
+    if(ftTerm !== '')
+        countQueries.push({ type: 'contract', query: `SELECT COUNT(*) AS count FROM contracts m WHERE MATCH (m.meta_name, m.meta_description) AGAINST (? IN BOOLEAN MODE)`, args: [ftTerm] });
+    return countQueries;
+}
+
+// Fold the counted rows onto the totals block, and return the count for the panel
+// the caller asked for.
+function applySearchCounts(data, countQueries, countResults, dataType){
+    let total = 0;
+    for(let i = 0; i < countQueries.length; i++){
+        let results = countResults[i];
+        let type    = countQueries[i].type;
+        if(results && results.length){
+            let cnt = Number(results[0].count);
+            if(type=='address')     data.totals.addresses    = cnt;
+            if(type=='broadcast')   data.totals.broadcasts   = cnt;
+            if(type=='contract')    data.totals.contracts    = cnt;
+            if(type=='token')       data.totals.tokens       = cnt;
+            if(type=='transaction') data.totals.transactions = cnt;
+            if(type==dataType)      total = cnt;
+        }
+    }
+    return total;
+}
+
+// The bind list for the requested panel: the LIKE pattern once, twice where the
+// panel searches two columns, and the FULLTEXT term alone for contracts.
+function searchPageArgs(dataType, search, ftTerm){
+    let args  = [search];
+    if(['broadcast','token'].includes(dataType))
+        args.push(search);
+    // The contract panel binds the FULLTEXT term, not the LIKE pattern.
+    if(dataType=='contract')
+        args = [ftTerm];
+    return args;
+}
+
+// The three LIKE panels. False when the requested panel is not one of them.
+function searchLikeQuery(dataType, searchLimit){
+    let query = false;
+    if(dataType=='address')
+        query = `SELECT
+                            address
+                        FROM
+                            index_addresses
+                        WHERE
+                            LOWER(address) LIKE LOWER( ? )
+                        ORDER BY address ASC
+                        LIMIT ` + searchLimit;
+    if(dataType=='transaction')
+        query = `SELECT
+                            t2.hash
+                        FROM
+                            transactions t1
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        WHERE
+                            LOWER(t2.hash) LIKE LOWER( ? )
+                        ORDER BY t2.hash ASC
+                        LIMIT ` + searchLimit;
+    if(dataType=='broadcast')
+        query = `SELECT
+                            b.message,
+                            m.memo,
+                            b.action_index,
+                            s.status
+                        FROM
+                            broadcasts b
+                            LEFT  JOIN index_memos    m ON (m.id=b.memo_id)
+                            LEFT  JOIN index_statuses s ON (s.id=b.status_id)
+                        WHERE
+                            LOWER(b.message) LIKE LOWER( ? ) OR
+                            LOWER(m.memo)    LIKE LOWER( ? )
+                        ORDER BY b.action_index DESC
+                        LIMIT ` + searchLimit;
+    return query;
+}
+
+// The two remaining panels, given whatever the LIKE panels resolved to: tokens,
+// and contracts through the FULLTEXT match.
+function searchNamedQuery(dataType, searchLimit, query){
+    if(dataType=='token'){
+        query = `SELECT
+                            t2.tick,
+                            t1.description
+                        FROM
+                            tokens t1
+                            LEFT  JOIN index_tickers t2 ON (t2.id=t1.tick_id)
+                        WHERE
+                            LOWER(t2.tick)        LIKE LOWER( ? ) OR
+                            LOWER(t1.description) LIKE LOWER( ? )
+                        ORDER BY t2.tick ASC
+                        LIMIT ` + searchLimit;
+    }
+    // Contracts, matched through meta_search rather than by LIKE. Newest
+    // first: contract indexes are monotonic, so ORDER BY action_index DESC
+    // is "most recently deployed", which is what a name search is looking
+    // for when several contracts share a name (they are not unique).
+    if(dataType=='contract'){
+        query = `SELECT
+                            m.action_index,
+                            m.meta_name,
+                            m.meta_version,
+                            m.meta_description
+                        FROM
+                            contracts m
+                        WHERE
+                            MATCH (m.meta_name, m.meta_description) AGAINST (? IN BOOLEAN MODE)
+                        ORDER BY m.action_index DESC
+                        LIMIT ` + searchLimit;
+    }
+    return query;
+}
+
+// Reshape contract hits into what the results row navigates by.
+function shapeContractHits(db, config, data){
+    // A contract hit carries the derived address the reader actually
+    // navigates by (C:<CHAIN>:<action_index>, the same derivation
+    // getContractBalance uses) and a bounded description snippet: the
+    // column holds up to 512 bytes, which is a paragraph in a results row.
+    let chain = db.baseCoin ? (db.baseCoin[config.coin] || config.coin) : config.coin;
+    data.data = data.data.map((row) => ({
+        action_index:     row.action_index,
+        contract_address: 'C:' + chain + ':' + row.action_index,
+        meta_name:        db.util.isNull(row.meta_name)    ? null : row.meta_name,
+        meta_version:     db.util.isNull(row.meta_version) ? null : row.meta_version,
+        snippet:          db.metaSnippet(row.meta_description)
+    }));
+}
+
+class SearchReaders {
+    async getSearch(config){
+        // --- Performance guard (Fix A) ---
+        // Every search term is wrapped in leading+trailing % which defeats all B-tree indexes,
+        // causing full-table scans across every search column. Short terms (e.g. 1-2 chars)
+        // are especially costly because they can match a huge fraction of every table.
+        // The proper long-term fix is a FULLTEXT index on the searched columns, or a
+        // normalized lowercase prefix column with a covering index -- tracked post-launch.
+        // Until then: reject terms below the minimum length to cap scan cost.
+        const SEARCH_MIN_LENGTH = 3;
+        const searchRaw = (config.data.search || '').trim();
+        if(searchRaw.length < SEARCH_MIN_LENGTH){
+            return [{ data: [], totals: { addresses: 0, broadcasts: 0, contracts: 0, tokens: 0, transactions: 0 } }, null, 0];
+        }
+        // Cap the result LIMIT to a safe ceiling regardless of what the pager computed,
+        // as a defense-in-depth measure against runaway scans on popular terms.
+        const SEARCH_MAX_ROWS = 100;
+        // --- End Fix A ---
+        let searchTypes = ['address', 'broadcast', 'contract', 'token', 'transaction'];
+        let dataType    = config.data.type;
+        let search      = '%' + this.util.escapeLike(searchRaw) + '%';
+        let total       = 0;
+        let sql  = config.data.sql;
+        const searchLimit = Math.min(Number(sql.limit) || SEARCH_MAX_ROWS, SEARCH_MAX_ROWS);
+        // The contract panel is the ONE panel that is not a LIKE (spec 2.6): contracts
+        // carry a FULLTEXT index over (meta_name, meta_description), so a name or
+        // description word is matched through it rather than by a leading-% scan. Its
+        // term is sanitized for BOOLEAN MODE and can come back empty (a term of nothing
+        // but operator characters), which leaves the contract panel at zero while the
+        // other four still answer their own counts.
+        let ftTerm = this.fulltextTerm(searchRaw);
+        let data = {
+            data: [],
+            totals: {
+                addresses:    0,
+                broadcasts:   0,
+                contracts:    0,
+                tokens:       0,
+                transactions: 0
+            },
+        };
+        let countQueries = searchCountQueries(search, ftTerm);
+        let countResults = await Promise.all(countQueries.map(q => this.doQuery(config, q.query, q.args)));
+        total = applySearchCounts(data, countQueries, countResults, dataType);
+        if(total){
+            let args  = searchPageArgs(dataType, search, ftTerm);
+            let query = searchNamedQuery(dataType, searchLimit, searchLikeQuery(dataType, searchLimit));
+            if(query){
+                let results = await this.doQuery(config, query, args);
+                if(results && results.length)
+                    data.data = results;
+                if(dataType=='contract' && Array.isArray(data.data))
+                    shapeContractHits(this, config, data);
+            }
+        }
+        // Get count of total number of addresses
+        return [data, null, total]
+    }
+}
+
+module.exports = SearchReaders.prototype;

@@ -63,7 +63,14 @@ function tokenRow() {
         mint_stop_block: 0,
         owner: 'ownerAddr1',
         coin_price: 100,
-        coin_floor: 50
+        coin_floor: 50,
+        // Token-bridge state (ISSUE format 7): the four columns getToken selects for
+        // the wallet's tokenInfo projection. lock_bridge is a lock_ column so it
+        // groups into locks.bridge; the other three land in info.
+        bridge_chains: 'LTC,DOGE',
+        min_depth: 6,
+        lock_bridge: '1',
+        bridged: 1
     }];
 }
 

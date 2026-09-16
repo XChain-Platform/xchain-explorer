@@ -29,6 +29,10 @@
  * modules call them bare. This file therefore has to load BEFORE xchain.js.
  */
 
+// The page loads browser_logger.js first; the unit suites require this file under Node.
+var XCLogger = (typeof XCLogger !== 'undefined' && XCLogger) ? XCLogger
+    : ((typeof require === 'function') ? require('./browser_logger.js') : null);
+
 // Determine if value is null or undefined or empty
 function isNull(value){
     return (value === null || value === undefined || value==='');
@@ -176,7 +180,7 @@ function formatLocks(locks=null){
     return html;
 }
 
-// Canonical NFT-pattern classification (NFT_Standard.md#classification-rule-for-clients):
+// Canonical NFT-pattern classification (nft-standard.md#classification-rule-for-clients):
 // a token follows the NFT pattern when DECIMALS=0 AND LOCK_MAX_SUPPLY=1.
 // Mirrors sdk.nft.isNft; keep the two in sync.
 function isNftToken(decimals, lockMaxSupply){
@@ -313,8 +317,7 @@ var XCFormatters = {
 function xcFormatter(name){
     if(Object.prototype.hasOwnProperty.call(XCFormatters, name))
         return XCFormatters[name];
-    if(typeof console !== 'undefined' && console.error)
-        console.error('XCFormatters: no formatter named ' + JSON.stringify(name));
+    XCLogger.error('XCFormatters: no formatter named ' + JSON.stringify(name));
     return null;
 }
 

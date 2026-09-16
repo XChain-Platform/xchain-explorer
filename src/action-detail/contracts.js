@@ -17,6 +17,17 @@
 
 'use strict';
 
+const {
+    ACTION_FORMAT_PROBE,
+    DEPLOY_CHUNK_DETAIL,
+    DEPLOY_CONTRACT_DETAIL,
+    DEPLOY_CARRIER_CONTRACT,
+    DEPLOY_ASSEMBLER,
+    EXECUTE_DETAIL,
+    EXECUTE_EMISSIONS,
+    depositWithdrawDetail
+} = require('../db/action_detail/contracts_sql');
+
 const DEPLOY = {
     // DEPLOY action. The chunk carrier (v4) and the actual deploy (v0-v3) share the
     // DEPLOY action name but live in different tables, so pick the detail query by the
@@ -34,92 +45,12 @@ const DEPLOY = {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        let fmtRows = await db.doQuery(config, 'SELECT action_format FROM actions WHERE action_index=? LIMIT 1', [action_index]);
+        let fmtRows = await db.doQuery(config, ACTION_FORMAT_PROBE, [action_index]);
         let actionFormat = (fmtRows && fmtRows.length) ? Number(fmtRows[0].action_format) : null;
         if(actionFormat === 4){
-            query = `SELECT
-                        a2.action,
-                        a1.action_format,
-                        m.action_index,
-                        a3.address as source,
-                        m.code_hash,
-                        m.chunk_index,
-                        m.total_chunks,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status
-                    FROM
-                        deploy_chunks m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE
-                        m.action_index=?
-                    LIMIT 1`;
+            query = DEPLOY_CHUNK_DETAIL;
         } else {
-            // The two resolution columns, in one round trip rather than a follow-up:
-            //   deployed_contract_index  this action's own index when its own row deployed
-            //                            (an inline deploy, or a group already complete from
-            //                            lower carriers); else the index of the action that
-            //                            completed the group, which is the contract_executions
-            //                            row pointing back here through assembler_action_index,
-            //                            and only when THAT deployment came out valid; else
-            //                            null, meaning no contract exists for this assembler.
-            //   assembly_status          why the index is what it is, and the only terminal
-            //                            signal a polling client gets: an assembler consumed
-            //                            by a hash mismatch or a drained source at the
-            //                            completing carrier is never getting a contract, so
-            //                            its consumer's invalid status is reported here rather
-            //                            than leaving `pending: ...` to be polled forever.
-            // At most one execution row can name a given assembler (a group is consumed once),
-            // so the LIMIT 1 picks a row, not a winner among several.
-            query = `SELECT
-                        a2.action,
-                        a1.action_format,
-                        m.action_index,
-                        a3.address as source,
-                        m.code_hash,
-                        m.api_version,
-                        m.cooldown_blocks,
-                        sd.address as slash_destination,
-                        m.meta_name    as contract_meta_name,
-                        m.meta_version as contract_meta_version,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        s1.status,
-                        CASE WHEN s1.status='valid' THEN m.action_index ELSE (
-                            SELECT e1.action_index
-                            FROM contract_executions e1
-                            LEFT JOIN index_statuses es1 ON (es1.id=e1.status_id)
-                            WHERE e1.assembler_action_index=m.action_index AND es1.status='valid'
-                            LIMIT 1) END as deployed_contract_index,
-                        CASE WHEN s1.status='valid' THEN s1.status ELSE COALESCE((
-                            SELECT es2.status
-                            FROM contract_executions e2
-                            LEFT JOIN index_statuses es2 ON (es2.id=e2.status_id)
-                            WHERE e2.assembler_action_index=m.action_index
-                            LIMIT 1), s1.status) END as assembly_status
-                    FROM
-                        contracts m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    sd ON (sd.id=m.slash_destination_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE
-                        m.action_index=?
-                    LIMIT 1`;
+            query = DEPLOY_CONTRACT_DETAIL;
         }
         return { query, query2, query3 };
     },
@@ -135,22 +66,7 @@ const DEPLOY = {
     // known to be here: a chunk that deployed nothing has no constructor to describe.
     async afterMain({ db, config, action_index }, data) {
         if(Number(data.action_format) !== 4) return;
-        let rows = await db.doQuery(config,
-            `SELECT
-                c1.action_index,
-                c1.api_version,
-                c1.cooldown_blocks,
-                sd1.address as slash_destination,
-                c1.meta_name,
-                c1.meta_version,
-                cs1.status as contract_status
-             FROM
-                contracts c1
-                LEFT JOIN index_addresses sd1 ON (sd1.id=c1.slash_destination_id)
-                LEFT JOIN index_statuses  cs1 ON (cs1.id=c1.status_id)
-             WHERE
-                c1.action_index=?
-             LIMIT 1`, [action_index]);
+        let rows = await db.doQuery(config, DEPLOY_CARRIER_CONTRACT, [action_index]);
         let row = (rows && rows.length) ? rows[0] : null;
         data['deployed_contract_index'] = (row) ? row.action_index : null;
         // The contract's declared identity, on the same prefix convention as
@@ -166,14 +82,7 @@ const DEPLOY = {
         // Which DEPLOY asked for this contract. NULL when this action was itself the
         // assembler, which cannot happen on a format-4 carrier, so a null here means the
         // constructor row is gone rather than that the deploy was inline.
-        let exec = await db.doQuery(config,
-            `SELECT
-                e1.assembler_action_index
-             FROM
-                contract_executions e1
-             WHERE
-                e1.action_index=?
-             LIMIT 1`, [action_index]);
+        let exec = await db.doQuery(config, DEPLOY_ASSEMBLER, [action_index]);
         data['assembler_action_index'] = (exec && exec.length) ? exec[0].assembler_action_index : null;
     },
 };
@@ -190,45 +99,7 @@ const EXECUTE = {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        query = `SELECT
-                    a2.action,
-                    a1.action_format,
-                    m.action_index,
-                    m.contract_index,
-                    a3.address as caller,
-                    -- An EXECUTE served no top-level source, so the shared transaction card
-                    -- rendered a dash beside an Action Details card that showed the very same
-                    -- address as the caller. For a top-level call the two ARE the same address;
-                    -- for one emitted by a contract (a nested EXECUTE) the action's own source
-                    -- is the emitting contract while caller stays whoever triggered it.
-                    a5.address as source,
-                    m.method_name,
-                    m.input_params,
-                    m.gas_used,
-                    m.gas_limit,
-                    m.emitted_count,
-                    m.error_message,
-                    c1.meta_name    as contract_meta_name,
-                    c1.meta_version as contract_meta_version,
-                    b1.block_index,
-                    b1.block_time as timestamp,
-                    t2.hash as tx_hash,
-                    t1.tx_index,
-                    s1.status
-                FROM
-                    contract_executions m
-                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=m.caller_id)
-                    LEFT  JOIN index_addresses    a5 ON (a5.id=COALESCE(a1.source_id, t1.source_id))
-                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    LEFT  JOIN contracts          c1 ON (c1.action_index=m.contract_index)
-                WHERE
-                    m.action_index=?
-                LIMIT 1`;
+        query = EXECUTE_DETAIL;
         return { query, query2, query3 };
     },
     // EXECUTE: attach the actions this contract call emitted (emit.execute / emit.send /
@@ -237,9 +108,7 @@ const EXECUTE = {
     // action, e.g. SLASH). Browsing children needs contract_emissions (actions.source_id
     // is the emitting contract address, not a parent→child pointer.
     async afterMain({ db, config, action_index }, data) {
-        let emits = await db.doQuery(config,
-            `SELECT position, emitted_action, action_index
-             FROM contract_emissions WHERE execution_index=? ORDER BY position ASC`, [action_index]);
+        let emits = await db.doQuery(config, EXECUTE_EMISSIONS, [action_index]);
         data['emissions'] = (emits && emits.length) ? emits : [];
     },
 };
@@ -255,35 +124,7 @@ const DEPOSIT_WITHDRAW = {
         let query2 = null;
         let query3 = null;
         let custodyTable = (type=='DEPOSIT') ? 'deposits' : 'withdrawals';
-        query = `SELECT
-                    a2.action,
-                    a1.action_format,
-                    m.action_index,
-                    m.contract_index,
-                    a3.address as source,
-                    tk.tick,
-                    m.amount,
-                    c1.meta_name    as contract_meta_name,
-                    c1.meta_version as contract_meta_version,
-                    b1.block_index,
-                    b1.block_time as timestamp,
-                    t2.hash as tx_hash,
-                    t1.tx_index,
-                    s1.status
-                FROM
-                    ` + custodyTable + ` m
-                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                    LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=m.source_id)
-                    LEFT  JOIN index_tickers      tk ON (tk.id=m.tick_id)
-                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    LEFT  JOIN contracts          c1 ON (c1.action_index=m.contract_index)
-                WHERE
-                    m.action_index=?
-                LIMIT 1`;
+        query = depositWithdrawDetail(custodyTable);
         return { query, query2, query3 };
     },
 };

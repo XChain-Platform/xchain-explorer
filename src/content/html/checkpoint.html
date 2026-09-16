@@ -46,7 +46,7 @@
     </div>
 </div>
 
-<script type="text/javascript" src="/js/checkpoint-verify-render.js"></script>
+<script type="text/javascript" src="/js/checkpoint_verify_render.js"></script>
 <script type="text/javascript">
 $(document).ready(function() {
 
@@ -138,7 +138,7 @@ $(document).ready(function() {
         let btn = $(this);
         btn.prop('disabled', true).text('Verifying...');
         $.getJSON('/' + XC.coin + '/api/checkpoint/' + XC.query + '/verify', function(v){
-            // Verdict rendering lives in checkpoint-verify-render.js so a test can
+            // Verdict rendering lives in checkpoint_verify_render.js so a test can
             // drive it with a stubbed response through the real render path.
             $('#checkpoint-verdict').html(renderCheckpointVerdict(v));
             btn.prop('disabled', false).text('Verify Signatures');

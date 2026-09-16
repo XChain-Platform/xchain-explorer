@@ -1,0 +1,389 @@
+/*********************************************************************
+ *
+ * Copyright © 2025–2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available -
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
+ *
+ * XChain Explorer - Broadcaster
+ *
+ * Receives events from the ChangeDetector and broadcasts them to
+ * subscribed WebSocket clients. Evaluates per-client filter pipeline:
+ * types -> statuses -> ticks (AND logic), then applies fields
+ * projection. Handles once auto-unsubscribe after first match.
+ *
+ * WHERE THE METHODS LIVE
+ *
+ * This file holds the constructor and the block, action, lifecycle and entity
+ * handlers plus send. The rest lives in broadcaster/ and arrives on
+ * Broadcaster.prototype through mixinParts below:
+ *
+ *   mempool.js   the MEMPOOL_ACTION / MEMPOOL_REMOVED queue, frames and matching
+ *   channels.js  broadcastToChannel(Key), the filter pipeline, the fields
+ *                projection and extractAddresses
+ *   coin_map.js  COIN_MAP, the envelope table both this file and mempool.js read
+ *
+ * Nothing a caller sees changed: `new Broadcaster(options)` returns one object
+ * carrying every method under the same name with the same `this`.
+ *
+ ********************************************************************/
+
+const { COIN_MAP } = require('./broadcaster/coin_map.js');
+
+// BigInt-safe JSON serializer (shared with WebSocketServer via serialize.js so the
+// two socket-send paths cannot drift). See serialize.js for the BigInt rationale.
+const { safeStringify } = require('./serialize.js');
+const { WS_SCHEMA_VERSION } = require('./schema_version.js');
+
+// The method families carved out of this file. Each module is authored as a class
+// body and exports that class's prototype, so the methods arrive with `this` still
+// bound to the Broadcaster instance and no call site moved.
+const mempoolFrames = require('./broadcaster/mempool.js');
+const channelFanout = require('./broadcaster/channels.js');
+
+class Broadcaster {
+
+    constructor(options) {
+        this.wsServer        = options.wsServer;
+        this.changeDetector  = options.changeDetector;
+        this.maxBackpressure = options.maxBackpressure || 65536;
+
+        // NETWORK_STATS ordering state. ChangeDetector emits 'block' synchronously
+        // per block, but the stats frame needs an async DB read (getMaxActionIndex),
+        // so a catch-up burst (up to fetchLimit blocks in one poll tick) would issue
+        // concurrent reads whose completion order is not the dispatch order - a
+        // subscriber could see block_height move backwards. Serialize the frames
+        // per coin (_statsTails) and skip heights already superseded by a newer
+        // queued block (_newestBlock), which also collapses a burst into a single
+        // DB read for the newest height.
+        this._statsTails  = new Map(); // coin -> promise tail
+        this._newestBlock = new Map(); // coin -> highest block_index seen
+
+        // MEMPOOL_ACTION / MEMPOOL_REMOVED ordering state, same problem and same
+        // shape as _statsTails above: both mempool handlers now await a DB-backed
+        // address-id resolution, while ChangeDetector's emit is synchronous and
+        // awaits nothing, so a poll that emits an action and (for another tx) a
+        // removal could otherwise deliver the removal first. One tail per coin
+        // keeps the frames in the order the detector produced them.
+        this._mempoolTails = new Map(); // coin -> promise tail
+
+        // Per-coin address -> index-id memo for the mempool fan-out.
+        // db.getExactAddressId caches only NON-null results (a never-indexed address is
+        // re-queried every call), so without this a single subscribed address that
+        // has never been indexed would cost one DB read PER MEMPOOL ROW: a 500-row
+        // burst against N subscribed addresses would be O(N * 500) queries. Memoize
+        // the null too and the same burst is O(N).
+        // Invalidation: cleared per coin on the block signal (onBlock) rather than
+        // on a timer. An index id only ever changes meaning at a block boundary
+        // (the indexer reassigns ids on a reorg, and a never-indexed address gets
+        // its first id when its tx confirms), which is exactly when a block arrives,
+        // so a per-block clear is a superset of the db layer's own reorg-generation
+        // invalidation and needs no clock.
+        this._addressIdMemo = new Map(); // coin -> Map<address, id|null>
+
+        // Wire up ChangeDetector events
+        this.changeDetector.on('block',           (coin, block)  => this.onBlock(coin, block));
+        this.changeDetector.on('action',          (coin, action) => this.onAction(coin, action));
+        this.changeDetector.on('lifecycle_event',  (coin, event)  => this.onLifecycleEvent(coin, event));
+        this.changeDetector.on('entity_update',    (coin, event)  => this.onEntityUpdate(coin, event));
+        this.changeDetector.on('mempool_action',   (coin, row)    => this.onMempoolAction(coin, row));
+        this.changeDetector.on('mempool_removed',  (coin, row)    => this.onMempoolRemoved(coin, row));
+    }
+
+    // Handle new block from ChangeDetector. NEW_BLOCK is broadcast synchronously
+    // (in ChangeDetector emit order); the NETWORK_STATS frame is queued on the
+    // per-coin serial chain (see constructor) so its async DB read cannot reorder
+    // frames during a catch-up burst.
+    onBlock(coin, block) {
+        const info = COIN_MAP[coin];
+        if (!info) return;
+
+        // A block is the only moment an address's index id can change meaning (a
+        // reorg reassigns ids; a never-indexed address gets its first one when its
+        // tx confirms), so drop this coin's mempool address-id memo here. See
+        // _addressIdMemo in the constructor.
+        this._addressIdMemo.delete(coin);
+
+        const event = {
+            type:      'NEW_BLOCK',
+            chain:     info.chain,
+            network:   info.network,
+            timestamp: Date.now(),
+            data: {
+                block_index:  block.block_index,
+                block_hash:   block.block_hash   || null,
+                block_time:   block.block_time    || null,
+                tx_count:     block.tx_count      || 0,
+                action_count: block.action_count  || 0
+            }
+        };
+
+        // A block frame has one destination, the global 'blocks' channel: nothing about
+        // a block belongs to a single address, so there is no per-address fan-out here.
+        this.broadcastToChannel(coin, 'blocks', event, null);
+
+        // Queue the NETWORK_STATS frame on the per-coin serial chain. The final
+        // catch keeps a failed emission from poisoning the chain for later blocks.
+        if ((this._newestBlock.get(coin) || 0) < block.block_index)
+            this._newestBlock.set(coin, block.block_index);
+        const tail = this._statsTails.get(coin) || Promise.resolve();
+        this._statsTails.set(coin, tail.then(() => this.emitNetworkStats(coin, info, block)).catch(() => {}));
+    }
+
+    // Push NETWORK_STATS to 'network' subscribers. total_actions must report
+    // the CUMULATIVE max action index (matching the snapshot built in
+    // WebSocketServer.sendSnapshots and the documented contract), not the
+    // per-block action count, or a subscriber that seeds a counter from the
+    // snapshot sees it collapse on the next live frame. Runs only on the
+    // per-coin serial chain; a height superseded by a newer queued block is
+    // skipped (its frame would be stale on arrival, and skipping collapses a
+    // burst into one DB read).
+    async emitNetworkStats(coin, info, block) {
+        if ((this._newestBlock.get(coin) || 0) > block.block_index) return;
+        let totalActions = block.action_count || 0;
+        try {
+            totalActions = (await this.wsServer.explorer.db.getMaxActionIndex({ coin })) || 0;
+        } catch (e) {
+            // Non-fatal: fall back to the per-block count rather than drop the frame
+        }
+        const stats = {
+            type:      'NETWORK_STATS',
+            chain:     info.chain,
+            network:   info.network,
+            timestamp: Date.now(),
+            data: {
+                // Decimal strings, the v2 wire contract: total_actions comes from
+                // the db getter as Number while block_height arrives as a BIGINT
+                // row value, so the pair went out with two different JSON types
+                // and neither matched the SNAPSHOT the same subscriber seeded
+                // from. String() both so seed and live frame compare directly.
+                block_height:  String(block.block_index),
+                total_actions: String(totalActions)
+            }
+        };
+        this.broadcastToChannel(coin, 'network', stats, null);
+    }
+
+    // Handle new action from ChangeDetector
+    onAction(coin, action) {
+        const info = COIN_MAP[coin];
+        if (!info) return;
+
+        const event = {
+            type:      'NEW_ACTION',
+            chain:     info.chain,
+            network:   info.network,
+            timestamp: Date.now(),
+            data: {
+                action_index: action.action_index,
+                action:       action.action       || null,
+                tx_hash:      action.tx_hash      || null,
+                block_index:  action.block_index   || null,
+                source:       action.source        || null,
+                // 'destination' is intentionally omitted from the NEW_ACTION
+                // contract: the block-derived actions feed (getActionsSince)
+                // never selects a destination column, so it was always null here
+                // while the catch-up replay path already omits it. Emitting an
+                // always-null field advertises destination routing we cannot
+                // honor; drop it so live and replay shapes match and clients do
+                // not rely on it. The PLURAL `destinations` below replaces it and is
+                // what address-channel routing now reads.
+                status:       action.status        || null,
+                // Additive (spec M1.4): the recipients of this action, resolved by
+                // db.getActionsSince across the eight destination-bearing families.
+                // Same field name and semantics as the mempool frames, so a client
+                // reads one shape whether the tx is pending or confirmed.
+                //
+                // Unlike the mempool frames, this set is NOT derived from this
+                // server's subscriber list (I-43 does not apply): it is public chain
+                // data read from the indexer DB, so it belongs on EVERY channel the
+                // frame reaches, the global `actions` channel included. It leaks
+                // nothing a block explorer does not already publish.
+                //
+                // Always an array. db.getActionsSince guarantees the key on every
+                // row and degrades a failed lookup to [], and the fallback here
+                // covers a row reaching us from anywhere else (a test double, a
+                // future producer), so no subscriber ever has to null-check.
+                destinations: Array.isArray(action.destinations) ? action.destinations : []
+            }
+        };
+
+        // The firehose first: a subscriber on the global 'actions' channel sees every
+        // action, whoever it involves. The per-address fan-out below is the narrow view.
+        this.broadcastToChannel(coin, 'actions', event, action);
+
+        // Also broadcast to the address channel of every party to the action. The
+        // `seen` set is what keeps a client subscribed to an address that is BOTH
+        // source and destination (a sweep back to yourself, a multi-output SEND with
+        // change) from receiving the same frame twice; it also absorbs a repeated
+        // destination should one ever survive the dedupe in db/index.js.
+        const seen = new Set();
+        for (const address of [action.source, ...event.data.destinations]) {
+            if (!address || seen.has(address)) continue;
+            seen.add(address);
+            this.broadcastToChannel(coin, 'address', event, action, address);
+        }
+    }
+
+    // Handle lifecycle events (ORDER_MATCH, COINPAY_REQUIRED, SWAP_MATCH, etc.)
+    onLifecycleEvent(coin, lifecycleEvent) {
+        const info = COIN_MAP[coin];
+        if (!info) return;
+
+        const event = {
+            type:      lifecycleEvent.type,
+            chain:     info.chain,
+            network:   info.network,
+            timestamp: Date.now(),
+            data:      lifecycleEvent.data
+        };
+
+        // Lifecycle events ride the global 'actions' channel too, so a client watching
+        // that one stream sees the derived transitions beside the raw actions.
+        this.broadcastToChannel(coin, 'actions', event, lifecycleEvent);
+
+        // If the lifecycle event names a dedicated channel (e.g. 'attestation'),
+        // also broadcast there so clients can subscribe to just that stream.
+        // Entity channels (dispenser) are keyed per-entity, so route to the
+        // specific entity's channel key rather than the bare channel (which has
+        // no subscribers): a dispenser subscription is coin:dispenser:<index>.
+        if (lifecycleEvent.channel) {
+            const entityId = this.lifecycleChannelEntityId(lifecycleEvent);
+            if (entityId !== null && entityId !== undefined) {
+                this.broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent, entityId);
+            } else {
+                this.broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent);
+            }
+        }
+
+        // Broadcast to relevant address channels
+        const addresses = this.extractAddresses(lifecycleEvent.data);
+        for (const addr of addresses) {
+            this.broadcastToChannel(coin, 'address', event, lifecycleEvent, addr);
+        }
+    }
+
+    // Resolve the per-entity id a lifecycle event should route to when its
+    // `channel` is an entity channel. Global lifecycle channels (e.g.
+    // 'attestation') return null so the caller falls back to the bare channel.
+    // The dispenser channel is keyed on the parent dispenser's action_index,
+    // which the ChangeDetector enriches onto data.dispenser_action_index for the
+    // DISPENSE / DISPENSER_CLOSED / DISPENSER_EXPIRED events.
+    lifecycleChannelEntityId(lifecycleEvent) {
+        if (lifecycleEvent.channel === 'dispenser') {
+            const idx = lifecycleEvent.data && lifecycleEvent.data.dispenser_action_index;
+            return (idx === null || idx === undefined) ? null : idx;
+        }
+        // bet_feed is keyed on the parent market's action_index, which the
+        // ChangeDetector enriches onto data.feed_action_index for BET / BET_EXPIRED.
+        if (lifecycleEvent.channel === 'bet_feed') {
+            const idx = lifecycleEvent.data && lifecycleEvent.data.feed_action_index;
+            return (idx === null || idx === undefined) ? null : idx;
+        }
+        // xcall is keyed on the call_id the ChangeDetector's phase cursor stamps onto
+        // XCALL_COMPLETED / XCALL_EXPIRED. Lower-cased to match ChannelManager's
+        // subscribe-time normalization: the two must agree or a subscriber holding a
+        // valid subscription receives nothing.
+        if (lifecycleEvent.channel === 'xcall') {
+            const id = lifecycleEvent.data && lifecycleEvent.data.call_id;
+            return (id === null || id === undefined) ? null : String(id).toLowerCase();
+        }
+        return null;
+    }
+
+    // Handle entity update events (ADDRESS_UPDATE, TOKEN_UPDATE, MARKET_UPDATE, DISPENSER_UPDATE)
+    onEntityUpdate(coin, updateEvent) {
+        const info = COIN_MAP[coin];
+        if (!info) return;
+
+        const event = {
+            type:      updateEvent.type,
+            chain:     info.chain,
+            network:   info.network,
+            timestamp: Date.now(),
+            // Stamp the entity channel INTO data, the way WebSocketServer.sendSnapshots
+            // stamps it on the SNAPSHOT frame for the same entity. The channel was only
+            // ever an internal routing field here, so the two frame families describing
+            // one entity were discriminated by two different keys: data.channel for the
+            // snapshot, envelope type for the live update. A consumer unifying the two on
+            // data.channel (which the ChangeDetector comment about aligned frame shapes
+            // invites) silently dropped every live update. Additive optional field, so no
+            // schema bump (ws/schema_version.js). Copy rather than mutate: the same data
+            // object goes to every other listener on this event.
+            data:      { channel: updateEvent.channel, ...updateEvent.data }
+        };
+
+        // Entity channels are keyed per entity, so the frame needs the id it belongs to
+        // before it can be routed. Market is the one composite key and is built below.
+        let entityId = null;
+        switch (updateEvent.channel) {
+            case 'address':   entityId = updateEvent.data.address;      break;
+            case 'token':     entityId = updateEvent.data.tick;         break;
+            case 'dispenser': entityId = updateEvent.data.action_index; break;
+        }
+
+        if (updateEvent.channel === 'market') {
+            // Market uses composite key
+            const channelKey = coin + ':market:' + updateEvent.data.tick1 + ':' + updateEvent.data.tick2;
+            this.broadcastToChannelKey(channelKey, event, updateEvent);
+        } else if (entityId !== null && entityId !== undefined) {
+            const channelKey = coin + ':' + updateEvent.channel + ':' + entityId;
+            this.broadcastToChannelKey(channelKey, event, updateEvent);
+        }
+    }
+
+    // Send a message to a specific client. Stamps schema_version like the other
+    // two send sinks (WebSocketServer.send and broadcastToChannelKey's
+    // per-subscriber send) so the "every outbound frame is stamped" invariant
+    // in ws/schema_version.js holds for this sink too (e.g. the UNSUBSCRIBED
+    // frame emitted on a once:true subscription).
+    send(client, msg) {
+        if (client.ws.readyState === 1) {
+            try {
+                if (msg && typeof msg === 'object' && msg.schema_version === undefined)
+                    msg.schema_version = WS_SCHEMA_VERSION;
+                // Live frames for a coin whose indexed tip is stale carry the same
+                // additive `stale: true` marker WELCOME, CATCH_UP and SNAPSHOT do,
+                // so a subscriber never mistakes a replayed or lagging row for the
+                // chain tip. ChangeDetector maintains the set once per poll cycle.
+                if (msg && typeof msg === 'object' && msg.stale === undefined &&
+                    this.changeDetector && this.changeDetector.staleCoins &&
+                    this.changeDetector.staleCoins.has(client.coin))
+                    msg.stale = true;
+                client.ws.send(safeStringify(msg));
+            } catch (e) {
+                // ignore
+            }
+        }
+    }
+}
+
+// Copies a carved-out method family onto Broadcaster.prototype. Object.assign
+// cannot do this: a class method is non-enumerable, so assign would copy nothing.
+// Copying the descriptor keeps each method non-enumerable, exactly as a class-body
+// method is.
+//
+// A collision throws rather than resolving by require order, because the loser
+// would vanish silently and frames would start routing through another family's
+// code.
+function mixinParts(target, ...sources) {
+    for (const source of sources) {
+        for (const name of Object.getOwnPropertyNames(source)) {
+            if (name === 'constructor') continue;
+            if (Object.prototype.hasOwnProperty.call(target, name))
+                throw new Error('broadcaster.js part mixin collision: ' + name + ' is defined twice');
+            Object.defineProperty(target, name, Object.getOwnPropertyDescriptor(source, name));
+        }
+    }
+}
+
+mixinParts(Broadcaster.prototype, mempoolFrames, channelFanout);
+
+module.exports = Broadcaster;

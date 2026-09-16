@@ -154,6 +154,12 @@ INSERT INTO tokens (id, tick_id, action_index, last_action_index, supply, max_su
 (4, 4, 29, 29, '100.0000', '100.0000', NULL, 4, 'Test Token Three (4 decimals)',
     1, 1, 1, 1, 1, 0, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 3, '0.01000000', '0.00500000');
 
+-- Token-bridge state (ISSUE format 7). TOKENTHREE opts in so the API tier can read
+-- the populated shape off a real row; the other three keep the column defaults
+-- (bridge_chains/min_depth NULL, lock_bridge/bridged 0), which is the "never opted
+-- in" case the wallet distinguishes from "opted out".
+UPDATE tokens SET bridge_chains='RLTC,RDOGE', min_depth=6, lock_bridge=1, bridged=1 WHERE id=4;
+
 -- Balances (10 rows across addresses and tokens)
 INSERT INTO balances (id, address_id, tick_id, amount) VALUES
 (1, 1, 1, '500000.00000000'),

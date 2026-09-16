@@ -19,6 +19,7 @@ const express        = require('express');
 const cors           = require('cors');
 const { testCorsOptions } = require('../../../helpers/cors.js');
 const XChainExplorer = require('../../../../src/XChainExplorer.js');
+const { envView }    = require('../../../fixtures/mock-config.js');
 
 function createTestConfigInfo(dbPort) {
     const port = dbPort || 3307;
@@ -29,7 +30,7 @@ function createTestConfigInfo(dbPort) {
         getConfig: async function () {
             if (configCache) return configCache;
 
-            const coinFile = require('../../../../src/configs/BTC.js');
+            const coinFile = require('../../../../src/coin-config/BTC.js');
             const coinConfig = coinFile.getConfig('regtest');
 
             const config = {};
@@ -65,6 +66,9 @@ function createTestConfigInfo(dbPort) {
         },
         onConfigChanged: function (cb) { listeners.push(cb); },
         triggerConfigChanged: function () { listeners.forEach(cb => cb()); },
+        // The live process.env view src/config.js exports; the readers under
+        // src/db/ read every environment variable through it.
+        env: envView,
         _clearCache: function () { configCache = null; }
     };
 }

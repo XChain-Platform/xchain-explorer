@@ -31,7 +31,7 @@
  * lossless. A cross-serializer conformance test guards against future drift.
  *
  * Shared by Broadcaster and WebSocketServer so the two send paths cannot drift
- * out of sync again (the WebSocketServer._send path had never received the fix
+ * out of sync again (the WebSocketServer.send path had never received the fix
  * Broadcaster carried).
  *
  ********************************************************************/

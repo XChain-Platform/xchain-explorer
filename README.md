@@ -4,8 +4,8 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.17.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-5%2C099%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.19.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-5%2C275%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -206,7 +206,7 @@ neither source sets one, so these defaults hold on an unconfigured box:
 | Command | Description |
 |---|---|
 | `npm run api` | Start the explorer (HTTP + HTTPS servers) |
-| `npm test` | Run unit tests (~4,293 tests) |
+| `npm test` | Run unit tests (~4,468 tests) |
 | `npm run test:integration` | Integration tests (~154 tests, requires MariaDB) |
 | `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (34 tests) |
 | `npm run test:e2e` | End-to-end tests (55 tests, requires full stack) |
@@ -216,7 +216,7 @@ neither source sets one, so these defaults hold on an unconfigured box:
 | `npm run test:smoke` | Smoke tests (unit + connected, 39 tests) |
 | `npm run test:smoke:unit` | Smoke tests (unit only, 13 tests) |
 | `npm run test:smoke:connected` | Smoke tests (connected, requires services, 26 tests) |
-| `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal, 207 tests) |
+| `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal, 208 tests) |
 | `npm run test:fuzz` | Fuzz tests (property-based, 10 tests) |
 | `npm run test:fuzz:deep` | Fuzz tests with `FUZZ_ITERATIONS=10000` (10 tests) |
 | `npm run test:performance` | Performance tests (baseline, throughput, concurrency, pool, memory, 33 tests) |
@@ -241,7 +241,7 @@ neither source sets one, so these defaults hold on an unconfigured box:
 
 | Type | Tests | Description |
 |---|---|---|
-| Unit | ~1,925 | `db.action-queries.test.js`, `db.data-methods.test.js`, `db.query-builder.test.js`, `db.connection.test.js`, `utility.test.js`, `explorer.routing.test.js`, `explorer.paging.test.js`, `explorer.response.test.js`, `explorer.relay.test.js`, `explorer.icon.test.js`, `config.test.js`, `hub-connector.test.js`, `ws/*.test.js`, and more |
+| Unit | ~1,925 | `db_action_queries.test.js`, `db_data_methods.test.js`, `db_query_builder.test.js`, `db_connection.test.js`, `utility.test.js`, `explorer_routing.test.js`, `explorer_paging.test.js`, `explorer_response.test.js`, `explorer_relay.test.js`, `explorer_icon.test.js`, `config.test.js`, `hub_connector.test.js`, `ws/*.test.js`, and more |
 | Integration | ~154 | API actions, paging, markets, status, response format, error handling, pagination boundaries |
 | Conformance | 5 | Real-schema canary: executes explorer read paths against the indexer's live DDL in a real MariaDB |
 | E2E | 49 | Pipeline integrity, data formatting, markets, cross-endpoint consistency |
@@ -266,4 +266,4 @@ with a commercial license available for proprietary use.
 
 You may use, modify, and distribute this material under the terms of the License.
 See [LICENSE](./LICENSE.md) and [NOTICE](./NOTICE.md) for full terms.
-See the [licensing overview](https://docs.xchain.io/legal/LICENSING.html).
+See the [licensing overview](https://docs.xchain.io/legal/licensing.html).

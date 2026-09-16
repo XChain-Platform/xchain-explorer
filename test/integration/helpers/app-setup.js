@@ -21,6 +21,7 @@ const { testCorsOptions } = require('../../helpers/cors.js');
 const path           = require('path');
 const XChainExplorer = require('../../../src/XChainExplorer.js');
 const pre            = require('./fixture-preflight.js');
+const { envView }    = require('../../fixtures/mock-config.js');
 
 // Build a configInfo stub that behaves like src/config.js but uses our test config
 function createTestConfigInfo(dbPort) {
@@ -35,7 +36,7 @@ function createTestConfigInfo(dbPort) {
         getConfig: async function () {
             if (configCache) return configCache;
 
-            const coinFile = require('../../../src/configs/BTC.js');
+            const coinFile = require('../../../src/coin-config/BTC.js');
             const coinConfig = coinFile.getConfig('regtest');
 
             const config = {};
@@ -81,6 +82,9 @@ function createTestConfigInfo(dbPort) {
         },
         onConfigChanged: function (cb) { listeners.push(cb); },
         triggerConfigChanged: function () { listeners.forEach(cb => cb()); },
+        // The live process.env view src/config.js exports; the readers under
+        // src/db/ read every environment variable through it.
+        env: envView,
         // Allow tests to clear cache if config changes
         _clearCache: function () { configCache = null; }
     };
@@ -94,7 +98,7 @@ async function createApp(dbPort) {
     if (cachedResult) return cachedResult;
 
     // The integration fixture config declares only indexer + decoder DBs (no
-    // checkpoint schema), so db.js's mandatory co-located hub-mirror invariant
+    // checkpoint schema), so db/index.js's mandatory co-located hub-mirror invariant
     // would fatal at explorer.init(). Take the sanctioned bypass: start
     // anyway; hub-mirrored endpoints fail loud per request instead of at boot.
     process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';

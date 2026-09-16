@@ -110,7 +110,7 @@ jobs:
         run: npm run test:integration
 
   # Real-schema conformance canary: loads the REAL indexer, hub and decoder DDL
-  # into a real MariaDB and executes every routed db.js read path plus the
+  # into a real MariaDB and executes every routed db/index.js read path plus the
   # ChangeDetector WS poll loop against it. This is the always-on systemic catch
   # for a schema-drift class (a SELECT of a non-existent column shipping green
   # because unit tests stub the DB and the integration tier runs on a fixture
@@ -233,7 +233,7 @@ jobs:
           '
 
       # The explorer also embeds the hub-DB mirror client (hub_db_sync.js,
-      # hub-schema-version.js, the mirror-table SQL twins), canonical in
+      # hub_schema_version.js, the mirror-table SQL twins), canonical in
       # xchain-indexer. Same drift class, same fix: byte-compare vs a checkout
       # of the canonical repo.
       - name: Check out the canonical hub-mirror client (xchain-indexer)

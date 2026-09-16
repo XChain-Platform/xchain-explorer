@@ -12,14 +12,14 @@
  *
  **********************************************************************
  * Unit tests for the shared BigInt-safe serializer (src/ws/serialize.js),
- * used by both Broadcaster and WebSocketServer._send.
+ * used by both Broadcaster and WebSocketServer.send.
  */
 
 'use strict';
 
 const { expect } = require('chai');
 const { safeStringify } = require('../../../src/ws/serialize.js');
-const Utility = require('../../../src/utility');
+const Utility = require('../../../src/lib/utility');
 
 describe('serialize.safeStringify', function () {
 

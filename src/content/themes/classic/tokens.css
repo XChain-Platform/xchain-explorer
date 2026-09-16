@@ -104,6 +104,28 @@
     --xc-row-bg-success: #E0F2DF;
     --xc-row-bg-warning: #FFFAA0;
 
+    /* Bridge invariant badges (token page bridged-copies panel, transfer list).
+       The invariant is escrow >= supply, never equality, so the three states are
+       not a pass/fail pair: balanced is the resting state, SURPLUS is a warning
+       (a stranger can SEND to the escrow role address and nothing refuses it)
+       and DEFICIT is the alarm that says a destination credit is not backed.
+       Unknown is its own colour rather than a reuse of balanced, because a
+       missing number must never paint the healthy badge. Declared here and in
+       skin-demo so a skin can repaint the alarm to its own palette (D30). */
+    --xc-bridge-state-ok-bg: #E0F2DF;
+    --xc-bridge-state-ok-color: #14532d;
+    --xc-bridge-state-surplus-bg: #FFFAA0;
+    --xc-bridge-state-surplus-color: #664d03;
+    --xc-bridge-state-deficit-bg: #EFC9CA;
+    --xc-bridge-state-deficit-color: #7f1d1d;
+    --xc-bridge-state-unknown-bg: #e9ecef;
+    --xc-bridge-state-unknown-color: #495057;
+    --xc-bridge-origin-bg: #dee2e6;
+    --xc-bridge-origin-color: #212529;
+    /* The row a reader is already on, marked so the page's own chain is findable
+       in a per-chain table without a second colour vocabulary. */
+    --xc-bridge-this-chain-bg: rgba(0, 0, 0, 0.04);
+
     /* Fixed column widths, one per column class */
     --xc-th-width-record: 75px;
     --xc-th-width-time: 150px;

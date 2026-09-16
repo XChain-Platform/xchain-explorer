@@ -13,8 +13,9 @@
 # HEAD) and REFUSES the push if one is not a checkout beside this repo, so a
 # declared sibling can never be silently absent.
 
-# Indexer schema conformance, list-edit resolution and reorg DDL, and the
-# hub-connector contract.
+# Indexer schema conformance, list-edit resolution and reorg DDL, the
+# hub-connector contract, and federation read parity (which loads the indexer's
+# own RPC handlers and accessors; they pull in no npm package).
 xchain-indexer
 # Contract endpoints, the node-engine ceiling, and vm-query parity.
 xchain-vm

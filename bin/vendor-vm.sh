@@ -72,9 +72,19 @@ fi
 
 # Read CONSENSUS_VERSION straight from the frozen export so the check never needs to
 # load isolated-vm. Empty if the file/const is missing.
+# Two spellings, post-rename first. The VM renamed src/consensus-runtime.js to
+# src/consensus_runtime.js and left nothing at the old path, and an EMPTY read here
+# is indistinguishable from "no parseable const", which stages fail-open (see the
+# note below). So a single spelling would let a pre-rename canonical sibling stage
+# silently over a drifted tree instead of naming the drift.
 vm_version() {
-    grep -oE "CONSENSUS_VERSION = '[^']+'" "$1/src/consensus-runtime.js" 2>/dev/null \
-        | grep -oE "'[^']+'" | tr -d "'" || true
+    for f in "$1/src/consensus_runtime.js" "$1/src/consensus-runtime.js"; do
+        if [ -f "$f" ]; then
+            grep -oE "CONSENSUS_VERSION = '[^']+'" "$f" 2>/dev/null \
+                | grep -oE "'[^']+'" | tr -d "'" || true
+            return
+        fi
+    done
 }
 
 # Per-file sha1 manifest of the consensus surface (src/** + package.json, which
@@ -117,7 +127,7 @@ if [ "$MODE" = "check" ]; then
     # verify below.
     #
     # Keyed on the TREE, not on the version string. An empty $DEST_VER means three
-    # different things (no tree, no consensus-runtime.js, no parseable const), and
+    # different things (no tree, no consensus_runtime.js, no parseable const), and
     # staging over the latter two fails OPEN: the rsync carries no --delete, so it
     # repairs a drifted tree in place and then reports the repaired tree as in
     # sync, concealing exactly the drift the guard exists to name.

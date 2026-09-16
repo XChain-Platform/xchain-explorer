@@ -17,6 +17,23 @@
 
 'use strict';
 
+const {
+    ANCHOR_DETAIL,
+    ANCHOR_SECTIONS,
+    ATTEST_DETAIL,
+    NODEPROOF_DETAIL,
+    NODEPROOF_VERIFICATIONS,
+    PRICE_DETAIL,
+    ROLLCALL_DETAIL,
+    ROLLCALL_SIGNERS
+} = require('../db/action_detail/consensus_sql');
+
+// One logger for the whole service, cached at require time per the
+// observability contract: getLogger() returns a lazy singleton that resolves to
+// the real shipper once the entry point installs it.
+const { getLogger } = require('../observability');
+const log = getLogger();
+
 const ANCHOR = {
     // ANCHOR action (DOGE-only). The wire set restarted at v0: v0 is
     // the per-network checkpoint bundle, v1 the archive head (carries both its
@@ -26,7 +43,7 @@ const ANCHOR = {
     // these same version bytes under an older, unrelated meaning; this query has
     // no version filter and selects every row identically regardless of version
     // or activation, so a legacy row's columns come back exactly as stored and
-    // it is the RENDERER's job (anchor-detail-render.js) to tell a legacy row
+    // it is the RENDERER's job (anchor_detail_render.js) to tell a legacy row
     // from a current one, not this query's. archive_b64 is omitted (large; only
     // the recovery assembler needs it). The SPV root columns (state_root,
     // state_root_version, block_merkle_root, block_merkle_version) and
@@ -39,76 +56,8 @@ const ANCHOR = {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        query = `SELECT
-                    a2.action,
-                    a1.action_format,
-                    m.action_index,
-                    m.section_index,
-                    m.version,
-                    m.chain,
-                    m.network,
-                    b1.block_index,
-                    m.block_index as anchored_block_index,
-                    m.block_hash,
-                    m.ledger_hash,
-                    m.actions_hash,
-                    m.contract_hash,
-                    m.checkpoint_seq,
-                    m.snapshot_block,
-                    m.match_batch_seq,
-                    m.match_count,
-                    m.batch_crc32,
-                    m.total_chunks,
-                    m.chunk_index,
-                    m.state_root,
-                    m.state_root_version,
-                    m.block_merkle_root,
-                    m.block_merkle_version,
-                    m.validator_signatures,
-                    m.block_index_doge,
-                    m.publisher,
-                    m.publisher_attestations,
-                    b1.block_time as timestamp,
-                    t2.hash as tx_hash,
-                    t1.tx_index,
-                    s1.status
-                FROM
-                    anchor_actions m
-                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                    LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                WHERE
-                    m.action_index=?
-                ORDER BY m.section_index ASC
-                LIMIT 1`;
-        // A v0 ANCHOR is a BUNDLE: anchor_actions is keyed (action_index, section_index),
-        // one row per checkpointed chain, each with its own chain, block_index,
-        // checkpoint_seq, roots and signature list. The bundle-level fields (version,
-        // network, publisher, publisher_attestations, status, txid, DOGE block) are
-        // denormalized identically onto every row, so the ORDER BY above pins the header
-        // to section 0 instead of whatever the join plan returns first, and this query
-        // reads the sections the header cannot speak for. Same shape as db.getAnchor,
-        // which the /anchor page renders from. Archive rows (v1/v2) and every retired
-        // per-chain version stay at section_index 0, so they come back as one section.
-        query2 = `SELECT
-                    m.section_index,
-                    m.chain,
-                    m.block_index,
-                    m.block_hash,
-                    m.checkpoint_seq,
-                    m.snapshot_block,
-                    m.state_root,
-                    m.block_merkle_root,
-                    s1.status
-                FROM
-                    anchor_actions m
-                    LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
-                WHERE
-                    m.action_index=?
-                ORDER BY m.section_index ASC`;
+        query = ANCHOR_DETAIL;
+        query2 = ANCHOR_SECTIONS;
         return { query, query2, query3 };
     },
     // Attach the per-chain sections of a v0 bundle. Gated on version 0 exactly as
@@ -140,7 +89,7 @@ const ANCHOR = {
     afterMain({ action_index }, data) {
         if(data['publisher_attestations']){
             try { data['publisher_attestations'] = JSON.parse(data['publisher_attestations']); }
-            catch(_) { console.warn('getActionData: ANCHOR publisher_attestations parse failed for action_index=' + action_index + ':', _); data['publisher_attestations'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ANCHOR', field: 'publisher_attestations', action_index, err: _.message }); data['publisher_attestations'] = []; }
         } else {
             data['publisher_attestations'] = [];
         }
@@ -162,57 +111,7 @@ const ATTEST = {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        query = `SELECT
-                    a2.action,
-                    a1.action_format,
-                    m.action_index,
-                    m.version,
-                    m.request_id,
-                    m.provider_id,
-                    m.contract_index,
-                    fp.address as fee_payer,
-                    m.callback_method,
-                    m.redundancy,
-                    m.deadline_block,
-                    m.gas_escrow,
-                    m.fee_amount,
-                    ft.tick as fee_tick,
-                    m.request_status,
-                    m.response_hash,
-                    m.response_status,
-                    m.response_payload,
-                    m.meta,
-                    m.validator_signatures,
-                    m.callback_execute_action_index,
-                    m.batch_window_start,
-                    m.batch_window_end,
-                    m.batch_row_count,
-                    m.batch_btc_block_height,
-                    m.batch_crc32,
-                    m.batch_total_chunks,
-                    m.batch_chunk_index,
-                    m.payload,
-                    m.callback_params_json,
-                    a3.address as source,
-                    b1.block_index,
-                    b1.block_time as timestamp,
-                    t2.hash as tx_hash,
-                    t1.tx_index,
-                    s1.status
-                FROM
-                    attests m
-                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
-                    LEFT  JOIN index_addresses    fp ON (fp.id=m.fee_payer_id)
-                    LEFT  JOIN index_tickers      ft ON (ft.id=m.fee_tick_id)
-                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                WHERE
-                    m.action_index=?
-                LIMIT 1`;
+        query = ATTEST_DETAIL;
         return { query, query2, query3 };
     },
     // Expand the inlined validator-signature JSON on ATTEST responses into
@@ -220,7 +119,7 @@ const ATTEST = {
     async afterMain({ db, config, action_index }, data) {
         if(data['validator_signatures']){
             try { data['signatures'] = JSON.parse(data['validator_signatures']); }
-            catch(_) { console.warn('getActionData: ATTEST validator_signatures parse failed for action_index=' + action_index + ':', _); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ATTEST', field: 'validator_signatures', action_index, err: _.message }); data['signatures'] = []; }
         } else {
             data['signatures'] = [];
         }
@@ -237,7 +136,7 @@ const ATTEST = {
         // synthetic action is VERSION|REQUEST_ID) but no column persists it, so the
         // page rendered Request ID, Provider and Contract blank beside a badge saying
         // this action expired something. The request is recovered from the SAME
-        // in-block correlation the lifecycle page uses (db._correlateAttestationExpiries),
+        // in-block correlation the lifecycle page uses (db.correlateAttestationExpiries),
         // which resolves to null rather than to a guess when the block's two lists
         // disagree; a page with no link beats a page with the wrong one.
         if(Number(data['version']) === 2 && db.util.isNull(data['request_id'])){
@@ -251,7 +150,7 @@ const ATTEST = {
                 data['deadline_block']       = request.deadline_block;
                 // The expired callback the sweep injected. Same derivation the
                 // lifecycle page uses, and null when there was no callback to fire.
-                data['callback_execute_action_index'] = await db._deriveAttestationCallbackExecute(config, request);
+                data['callback_execute_action_index'] = await db.deriveAttestationCallbackExecute(config, request);
             }
         }
     },
@@ -268,48 +167,14 @@ const NODEPROOF = {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        query = `SELECT
-                    a4.action,
-                    a1.action_format,
-                    m.action_index,
-                    m.challenge_id,
-                    m.epoch_height,
-                    m.target_height,
-                    a2.address as source,
-                    m.block_index,
-                    b1.block_time as timestamp,
-                    t2.hash as tx_hash,
-                    t1.tx_index
-                FROM
-                    full_node_verifications m
-                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                WHERE
-                    m.action_index=?
-                LIMIT 1`;
+        query = NODEPROOF_DETAIL;
         return { query, query2, query3 };
     },
     // NODEPROOF: attach the per-validator PASS list this verdict recorded. One row
     // per verified full node (sharing this action_index), each carrying the verified
     // signing pubkey and its staking source address (index_pubkeys / index_addresses).
     async afterMain({ db, config, action_index }, data) {
-        let verifs = await db.doQuery(config,
-            `SELECT
-                    m.signing_pubkey_id,
-                    pk.pubkey as signing_pubkey,
-                    m.source_id,
-                    a3.address as staking_source,
-                    m.passed,
-                    m.block_index
-             FROM full_node_verifications m
-                LEFT JOIN index_pubkeys   pk ON (pk.id=m.signing_pubkey_id)
-                LEFT JOIN index_addresses a3 ON (a3.id=m.source_id)
-             WHERE m.action_index=?
-             ORDER BY m.id ASC`, [action_index]);
+        let verifs = await db.doQuery(config, NODEPROOF_VERIFICATIONS, [action_index]);
         data['verifications'] = (verifs && verifs.length) ? verifs : [];
     },
 };
@@ -321,7 +186,7 @@ const PRICE = {
     // THE BATCH COLUMNS ARE NOT OPTIONAL EXTRAS. A validator PRICE on the wire today
     // is a BATCH (PRICE|0|Z|<deflate> carrying an hourly window of full round bodies),
     // and the indexer deliberately stores NULL in pair_count / pairs_json / sig_count
-    // for one (xchain-indexer src/actions/price.js: those three would describe only one
+    // for one (xchain-indexer src/actions/price/index.js: those three would describe only one
     // round out of the window), putting the actual COIN/FIAT prices in rounds_json and
     // the window in batch_first_round / batch_last_round / round_count. Selecting only
     // the single-round columns is why a batch rendered as a page of dashes with every
@@ -330,50 +195,7 @@ const PRICE = {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        query = `SELECT
-                    a4.action,
-                    m.action_index,
-                    a1.action_format,
-                    m.version,
-                    a2.address as source,
-                    m.round_number,
-                    m.round_timestamp,
-                    m.pair_count,
-                    m.pairs_json,
-                    m.sig_count,
-                    m.sigs_json,
-                    m.batch_first_round,
-                    m.batch_last_round,
-                    m.round_count,
-                    m.rounds_json,
-                    c1.coin,
-                    t3.tick,
-                    f1.code as fiat,
-                    m.value,
-                    m.fee as oracle_fee,
-                    m.validation_status,
-                    b1.block_index,
-                    b1.block_time as timestamp,
-                    t2.hash as tx_hash,
-                    t1.tx_index,
-                    m1.memo,
-                    s1.status
-                FROM
-                    prices m
-                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                    LEFT  JOIN index_addresses    a2 ON (a2.id=m.source_id)
-                    LEFT  JOIN index_coins        c1 ON (c1.id=m.coin_id)
-                    LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    LEFT  JOIN index_fiats        f1 ON (f1.id=m.fiat_id)
-                    LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                WHERE
-                    m.action_index=?
-                LIMIT 1`;
+        query = PRICE_DETAIL;
         return { query, query2, query3 };
     },
     // Expand the inlined JSON columns on PRICE actions into structured arrays so
@@ -386,15 +208,15 @@ const PRICE = {
     afterMain({ action_index }, data) {
         if(data['pairs_json']){
             try { data['pairs'] = JSON.parse(data['pairs_json']); }
-            catch(_) { console.warn('getActionData: PRICE pairs_json parse failed for action_index=' + action_index + ':', _); data['pairs'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'pairs_json', action_index, err: _.message }); data['pairs'] = []; }
         }
         if(data['sigs_json']){
             try { data['signatures'] = JSON.parse(data['sigs_json']); }
-            catch(_) { console.warn('getActionData: PRICE sigs_json parse failed for action_index=' + action_index + ':', _); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'sigs_json', action_index, err: _.message }); data['signatures'] = []; }
         }
         if(data['rounds_json']){
             try { data['rounds'] = JSON.parse(data['rounds_json']); }
-            catch(_) { console.warn('getActionData: PRICE rounds_json parse failed for action_index=' + action_index + ':', _); data['rounds'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'rounds_json', action_index, err: _.message }); data['rounds'] = []; }
         }
         delete data['pairs_json'];
         delete data['sigs_json'];
@@ -408,7 +230,7 @@ const ROLLCALL = {
     //
     // NO LEDGER EFFECTS ON THIS action_index. The publish reward exists
     // (ROLLCALL_REWARD_AMOUNT) but it is credited by the BTC-side epoch close
-    // (xchain-indexer/src/rollcall_close.js), on a different chain from the action
+    // (xchain-indexer/src/consensus/rollcall_close.js), on a different chain from the action
     // being rendered here, so credits/debits/escrows keyed on this action_index are
     // always empty. Same shape as NODEPROOF above.
     effects: { credits: false, debits: false, escrows: false },
@@ -419,38 +241,7 @@ const ROLLCALL = {
         // epoch_height / ledger_hash / publisher are action-level constants repeated
         // on every rollcall_signers row this action wrote, so any one row carries
         // them; the per-validator present list is attached in afterMain below.
-        //
-        // LEFT JOIN on transactions rather than INNER: a detail page should render
-        // what the row holds even when no transaction joins. A ROLLCALL eviction
-        // (action_format 3) has no broadcast transaction behind it, so its action row
-        // carries tx_index NULL and an INNER join it can never satisfy drops it. This is
-        // the tx-less-safe shape getUnstakes (src/db/readers/staking-governance.js) and
-        // getAttestations (src/db.js) use: blocks joins off a block_index that is set on
-        // both paths, and transactions stays optional.
-        query = `SELECT
-                    a4.action,
-                    a1.action_format,
-                    m.action_index,
-                    m.epoch_height,
-                    m.ledger_hash,
-                    m.publisher,
-                    a2.address as source,
-                    m.block_index,
-                    b1.block_time as timestamp,
-                    t2.hash as tx_hash,
-                    t1.tx_index,
-                    m.gates
-                FROM
-                    rollcall_signers m
-                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
-                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                WHERE
-                    m.action_index=?
-                LIMIT 1`;
+        query = ROLLCALL_DETAIL;
         return { query, query2, query3 };
     },
     // The signer list IS the present list: a validator is recorded present at an
@@ -465,14 +256,7 @@ const ROLLCALL = {
     // (its primary key is the composite (epoch_height, pubkey)), so the `ORDER BY id`
     // that the NODEPROOF handler above can use would be a SQL error here.
     async afterMain({ db, config, action_index }, data) {
-        let signers = await db.doQuery(config,
-            `SELECT
-                    m.pubkey,
-                    m.sig,
-                    m.block_index
-             FROM rollcall_signers m
-             WHERE m.action_index=?
-             ORDER BY m.pubkey ASC`, [action_index]);
+        let signers = await db.doQuery(config, ROLLCALL_SIGNERS, [action_index]);
         data['signers'] = (signers && signers.length) ? signers : [];
         // ROLLCALL v1 GATES field as carried on this action's row (comma-joined
         // '<module>.<EXPORT>' consensus-gate keys, `rollcall_signers.gates`); NULL

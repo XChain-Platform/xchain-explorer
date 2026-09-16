@@ -105,6 +105,21 @@
     --xc-row-bg-success: #D8ECD9;
     --xc-row-bg-warning: #F5E2A8;
 
+    /* Bridge invariant badges, Slate Ink values. Same token names as classic
+       (the drop-in rule: a skin overrides values, never the set), moved onto
+       this palette so loading the skin repaints the alarm too. */
+    --xc-bridge-state-ok-bg: #D8ECD9;
+    --xc-bridge-state-ok-color: #1b4332;
+    --xc-bridge-state-surplus-bg: #F5E2A8;
+    --xc-bridge-state-surplus-color: #5a4410;
+    --xc-bridge-state-deficit-bg: #F4C7C3;
+    --xc-bridge-state-deficit-color: #6b2020;
+    --xc-bridge-state-unknown-bg: #dfe4ee;
+    --xc-bridge-state-unknown-color: #3b4658;
+    --xc-bridge-origin-bg: #cfd7e6;
+    --xc-bridge-origin-color: #1b2230;
+    --xc-bridge-this-chain-bg: rgba(21, 26, 36, 0.05);
+
     /* Fixed column widths. These are the ones the spec's own acceptance run
        flagged as layout-sensitive (DataTables auto-layout redistributes any
        remainder), so every value here is unchanged from classic. */

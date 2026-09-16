@@ -67,8 +67,8 @@ function loadConfig(overrides) {
     return proxyquire('../../../src/config.js', Object.assign({
         'fs':                   fsStub,
         'path':                 path,
-        './utility.js':         MockUtility,
-        './XChainHubConnector': MockHubConnector,
+        './lib/utility.js':         MockUtility,
+        './connectors/hub': MockHubConnector,
         './config.json':        validFileConfig
     }, overrides || {}));
 }
@@ -101,6 +101,10 @@ describe('SM-01: Config loads successfully', function () {
         expect(Object.keys(result.COIN_SUPPORTED)).to.have.lengthOf(9);
         expect(result.COIN_SUPPORTED).to.include.keys('BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC', 'DOGE', 'TDOGE', 'RDOGE');
     });
+
+});
+
+describe('SM-01: Config loads successfully', function () {
 
     it('COIN_AVAILABLE includes the configured coin/network', async function () {
         const config = loadConfig();
@@ -141,8 +145,8 @@ describe('SM-02: Config rejects no valid configuration', function () {
         const config = proxyquire('../../../src/config.js', {
             'fs':                   fsStub,
             'path':                 path,
-            './utility.js':         MockUtility,
-            './XChainHubConnector': MockHubConnector,
+            './lib/utility.js':         MockUtility,
+            './connectors/hub': MockHubConnector,
             './config.json':        false
         });
 
@@ -184,8 +188,8 @@ describe('SM-03: Config skips a coin with a missing config file', function () {
         const config = proxyquire('../../../src/config.js', {
             'fs':                   invalidFsStub,
             'path':                 path,
-            './utility.js':         MockUtility,
-            './XChainHubConnector': MockHubConnector,
+            './lib/utility.js':         MockUtility,
+            './connectors/hub': MockHubConnector,
             './config.json':        invalidConfig
         });
 
@@ -217,8 +221,8 @@ describe('SM-04: SSL certificates are accessible', function () {
             proxyquire('../../../src/config.js', {
                 'fs':                   missingFsStub,
                 'path':                 path,
-                './utility.js':         MockUtility,
-                './XChainHubConnector': MockHubConnector,
+                './lib/utility.js':         MockUtility,
+                './connectors/hub': MockHubConnector,
                 './config.json':        validFileConfig
             });
             expect.fail('Expected an error to be thrown');

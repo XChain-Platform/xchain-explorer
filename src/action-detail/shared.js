@@ -20,6 +20,14 @@
 
 'use strict';
 
+const {
+    ACTION_BASELINE,
+    ledgerEffectsQuery,
+    ledgerEffectsBatchQuery
+} = require('../db/action_detail/shared_sql');
+
+// Build the offer's live state: what is left to give and get, its expiration,
+// its allow/block lists and its newest status.
 async function applyOfferState({ db, config, action_index, type }, data) {
     data['state'] = {
         get_remaining:  data['get_amount'],
@@ -107,26 +115,7 @@ async function applyOfferListEdits({ db, config, coinConfigs, type }, data, resu
 // ledger effects (credits / debits / escrows) still attach by
 // action_index regardless of this branch.
 async function deblankBaseline(db, config, action_index, data) {
-    let genericQuery = `SELECT
-                a2.action,
-                a1.action_format,
-                a1.action_index,
-                a3.address as source,
-                b1.block_index,
-                b1.block_time as timestamp,
-                t2.hash as tx_hash,
-                t1.tx_index
-            FROM
-                actions                       a1
-                INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
-            WHERE
-                a1.action_index=?
-            LIMIT 1`;
-    let gres = await db.doQuery(config, genericQuery, [action_index]);
+    let gres = await db.doQuery(config, ACTION_BASELINE, [action_index]);
     return (gres && gres.length) ? Object.assign({}, data, gres[0]) : data;
 }
 
@@ -155,21 +144,7 @@ async function attachLedgerEffects(db, config, action_index, data, effects, prel
                 data[effect.key] = rows;
             continue;
         }
-        let a = effect.alias;
-        let query = `SELECT
-                    a1.address,
-                    t1.tick,
-                    ${a}.amount
-                FROM
-                    ${effect.table}
-                    LEFT  JOIN index_tickers   t1 ON (t1.id=${a}.tick_id)
-                    LEFT  JOIN index_addresses a1 ON (a1.id=${a}.address_id)
-                WHERE
-                    ${a}.action_index=?
-                ORDER BY
-                    t1.tick ASC,
-                    CAST(${a}.amount as DECIMAL(64,18)) DESC,
-                    a1.address ASC`;
+        let query = ledgerEffectsQuery(effect);
         let results = await db.doQuery(config, query, [action_index]);
         if(results && results.length)
             data[effect.key] = results;
@@ -196,24 +171,7 @@ async function prefetchLedgerEffects(db, config, indexesByEffect) {
         let map  = new Map();
         out[effect.key] = map;
         if(!idxs.length) continue;
-        let a  = effect.alias;
-        let ph = idxs.map(() => '?').join(',');
-        let query = `SELECT
-                    a1.address,
-                    t1.tick,
-                    ${a}.amount,
-                    ${a}.action_index as _group_index
-                FROM
-                    ${effect.table}
-                    LEFT  JOIN index_tickers   t1 ON (t1.id=${a}.tick_id)
-                    LEFT  JOIN index_addresses a1 ON (a1.id=${a}.address_id)
-                WHERE
-                    ${a}.action_index IN (${ph})
-                ORDER BY
-                    ${a}.action_index ASC,
-                    t1.tick ASC,
-                    CAST(${a}.amount as DECIMAL(64,18)) DESC,
-                    a1.address ASC`;
+        let query = ledgerEffectsBatchQuery(effect, idxs);
         let results = await db.doQuery(config, query, [...idxs]);
         for(let row of (results || [])){
             let key = Number(row._group_index);

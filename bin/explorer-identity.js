@@ -114,21 +114,23 @@ const { spawnSync } = require('child_process');
 const REPO_ROOT = path.resolve(__dirname, '..');
 const MOCHA_BIN = path.join(REPO_ROOT, 'node_modules', '.bin', 'mocha');
 
-// The structure pass's frozen twin set: the nine files this pass may not change
-// one byte of, and may move only through a coordinated twin window (merkle.js
-// sits under src/consensus/ by one). Listed here by hand rather than globbed,
-// because the point of the pin is to notice a file LEAVING the set as loudly as
-// it notices one changing.
+// The structure pass's frozen twin set: the files this pass may not change one
+// byte of, and may move only through a coordinated twin window (merkle.js sits
+// under src/consensus/ by one). Listed here by hand rather than globbed, because
+// the point of the pin is to notice a file LEAVING the set as loudly as it
+// notices one changing. W5 (row 21c) deleted the three predicate-only shims
+// (checkpoint_commitment, list_edit_resolution, retraction_signing; their rows
+// are read from the registry by literal key, no twin file left to freeze) and
+// moved the rest to src/consensus/: two vendored gates arrive through the
+// mirror script, one gate is renamed from the indexer's bytes, and the two
+// remaining carriers sit beside the registry they already required.
 const TWIN_FILES = [
-    'src/checkpoint_commitment_activation.js',
+    'src/consensus/equivocation_header.js',
+    'src/consensus/gates/mirror_admission_gate.js',
+    'src/consensus/gates/price_batching_floor_gate.js',
+    'src/consensus/gates/state_subtree_gate.js',
     'src/consensus/merkle.js',
-    'src/equivocation_header.js',
-    'src/list_edit_resolution_activation.js',
-    'src/mirror_admission_activation.js',
-    'src/price_batching_floor_activation.js',
-    'src/retraction_signing_activation.js',
-    'src/stake_weighted_quorum.js',
-    'src/state_subtree_activation.js',
+    'src/consensus/stake_weighted_quorum.js',
 ];
 
 // The three byte pins on rendered output. Only the first has a generator

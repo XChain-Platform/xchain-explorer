@@ -5,8 +5,8 @@
   "twins": [
     {
       "path": "src/checkpoint_commitment_activation.js",
-      "bytes": 4234,
-      "sha256": "c0d98b243f1cae170e2fb2f6316a7c628a9ff73c6e1ea6ae9a21592d9bbbe6cb"
+      "bytes": 3710,
+      "sha256": "28f2dc4dd73f36f5e6dcc3d7fe68867ee97d84c5ec8cb3e1a3131cfe7e9efd25"
     },
     {
       "path": "src/consensus/merkle.js",
@@ -15,38 +15,38 @@
     },
     {
       "path": "src/equivocation_header.js",
-      "bytes": 6960,
-      "sha256": "22ab002669fb11bde53e3f8178625093ab623992a72f8c84528dc5debdd38f64"
+      "bytes": 4181,
+      "sha256": "6158f864d42986d834c562ea5343044f82fb05535e75e0827c3d2cd7b7ad220f"
     },
     {
       "path": "src/list_edit_resolution_activation.js",
-      "bytes": 5137,
-      "sha256": "e007281a06f62e41373a823a060f2ab7d00c97e5ecb5e51ac966294df61114f5"
+      "bytes": 3908,
+      "sha256": "6193f3e22beacf70dc9262cce2e396fedffe1c1edd63f581d5e231b2946b6287"
     },
     {
       "path": "src/mirror_admission_activation.js",
-      "bytes": 26632,
-      "sha256": "c3aef0f4c3c7b65b3a9bcc4e544c33c511c3e069e7e50a5adb28c87642aa83e7"
+      "bytes": 22521,
+      "sha256": "a5c09396177a0593f6559b8e3c8dd838e35bb50b1b06bdebdb6d111bc9f3d596"
     },
     {
       "path": "src/price_batching_floor_activation.js",
-      "bytes": 8107,
-      "sha256": "b84fdc5dde5edc088821d08861a07e01409fde6ee23bfb659a023e722b239d7e"
+      "bytes": 7909,
+      "sha256": "654a10d3d135d2ce094c6dc568c53173673472fef7442dc9b2e4e9da64e61651"
     },
     {
       "path": "src/retraction_signing_activation.js",
-      "bytes": 3015,
-      "sha256": "cb2075a07e3db52a97c97c06dd592602d87bcfc8e3324e0b5756436a6663184b"
+      "bytes": 2833,
+      "sha256": "176410e087a7964cf4646e46bac5d6c478423de42b7a121b70a763634efa26d0"
     },
     {
       "path": "src/stake_weighted_quorum.js",
-      "bytes": 10465,
-      "sha256": "1f8dd1d77eecc13af02b943c569332a901ea28d504a7c4b9028b9da4fa4f2800"
+      "bytes": 10122,
+      "sha256": "966589728e7f7403ab745a073f5c90e41c67101c30ea210888611292d20bea47"
     },
     {
       "path": "src/state_subtree_activation.js",
-      "bytes": 21435,
-      "sha256": "fd480996a1c082f7c4024187eb9d05d7e99d8fada1816d7a6a5d978c6e10aa72"
+      "bytes": 10731,
+      "sha256": "4f58de7d49298ca6a07d0e50d57a09488722dcfac206903ecc2580aad0f4ed86"
     }
   ],
   "routes": {

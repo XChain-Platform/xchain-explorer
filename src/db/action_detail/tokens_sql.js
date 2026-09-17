@@ -335,10 +335,16 @@ const SWEEP_QUERY2 = `SELECT
                 ORDER BY
                     t1.tick ASC`;
 
+// The settle table the XBRIDGE pass writes. Named as data because it exists only on a
+// replica that has taken the indexer's bridge-tables migration, and the handler probes
+// the connected schema for it (src/db/schema_probe.js) before naming it in a statement.
+const BRIDGE_SETTLEMENTS_TABLE = 'bridge_settlements';
+
 const XBRIDGE_SETTLEMENT = `SELECT transfer_id, kind, block_index, src_chain, src_action_index, dest_chain, dest_address, tick
              FROM bridge_settlements WHERE action_index=? LIMIT 1`;
 
 module.exports = {
+    BRIDGE_SETTLEMENTS_TABLE,
     AIRDROP_QUERY,
     AIRDROP_QUERY2,
     DESTROY_QUERY,

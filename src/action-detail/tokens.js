@@ -19,6 +19,7 @@
 
 // Statement text lives under src/db/ with the rest of the explorer's SQL.
 const sql = require('../db/action_detail/tokens_sql.js');
+const { tablesPresent, setTablesAbsent, isMissingTableError } = require('../db/schema_probe.js');
 
 const AIRDROP = {
     queries() {
@@ -136,7 +137,12 @@ const SWEEP = {
 //     on DOGE, a DOGE burn settles on BTC), so this chain holds no settlement
 //     row for it and `bridge_settlement` is null until the far leg lands. That
 //     null is the in-flight state, not a missing record, which is why it is
-//     reported as an explicit `bridge_pending` flag rather than left blank.
+//     reported as an explicit `bridge_pending` flag rather than left blank;
+//   - a replica that has not taken the indexer's bridge-tables migration holds no
+//     bridge_settlements table at all, so this node knows NOTHING about the leg.
+//     Every key above is then omitted rather than nulled: absence reads as unknown,
+//     while `bridge_pending: true` would tell a holder their transfer is in flight
+//     on the strength of a table that was never read.
 //
 // The amount moved is not re-read here: the shared ledger-effect step already
 // attaches the credits and debits (the escrow credit on a lock, the escrow debit
@@ -147,7 +153,21 @@ const XBRIDGE = {
         return { query: null, query2: null, query3: null };
     },
     async afterMain({ db, config, action_index }, data) {
-        let settle = await db.doQuery(config, sql.XBRIDGE_SETTLEMENT, [action_index]);
+        // Ask the connected schema for the settle table before naming it: on a replica
+        // that never took the bridge migration the statement below is error 1146 for the
+        // whole action page, and the page is worth more than the section.
+        if(!await tablesPresent(db, config, [sql.BRIDGE_SETTLEMENTS_TABLE])) return;
+        let settle = null;
+        try {
+            settle = await db.doQuery(config, sql.XBRIDGE_SETTLEMENT, [action_index]);
+        } catch(e) {
+            // The net under a probe that answered wrong (it failed, or the table went
+            // away under a live explorer). A failure that is not a missing table is a
+            // real query failure and stays the caller's to handle.
+            if(!isMissingTableError(e)) throw e;
+            setTablesAbsent(db, config, [sql.BRIDGE_SETTLEMENTS_TABLE]);
+            return;
+        }
         let row = (settle && settle.length) ? settle[0] : null;
         data['bridge_settlement'] = row;
         // Lift the identifying fields to the top level so the detail card reads

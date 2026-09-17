@@ -123,7 +123,7 @@ describe('single-record api endpoints', function () {
         // Names that do not simply take '-s'. A page reaching one of these through
         // loadApiData must land on a real route, not on the pluralized 404 that
         // shipped for validator_capability and consensus_state.
-        const listBody = functionBody('loadDatatablesData');
+        const listBody = functionBody('xcDatatableEndpoint');
         const registered = registeredApiEndpoints();
         const names = [...esNames(listBody), ...specialCases(listBody).keys()];
         const broken = [];
@@ -139,7 +139,7 @@ describe('single-record api endpoints', function () {
     });
 
     it('keeps the two endpoint maps in agreement on every name both handle', function () {
-        const listBody = functionBody('loadDatatablesData');
+        const listBody = functionBody('xcDatatableEndpoint');
         const apiBody  = functionBody('loadApiData');
         const listEs   = esNames(listBody);
         const apiEs    = esNames(apiBody);

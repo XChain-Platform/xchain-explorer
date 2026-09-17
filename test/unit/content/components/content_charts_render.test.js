@@ -91,6 +91,9 @@ function bootWindow(){
         'chart.umd.js',
         'chartjs-adapter-moment.js',
         'chartjs-chart-financial.js',
+        'xchain_charts/data.js',
+        'xchain_charts/configs.js',
+        'xchain_charts/browser.js',
         'xchain_charts.js'
     ];
     for(const file of files){

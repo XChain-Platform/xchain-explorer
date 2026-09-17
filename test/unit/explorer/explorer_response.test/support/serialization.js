@@ -121,9 +121,9 @@ describe('XChainExplorer.processRequest – HTML responses', function () {
         const explorer = makeExplorer();
         // Ensure the stub gives us distinguishable template vs content strings
         explorer.util.fileGetContents.restore();
-        sinon.stub(explorer.util, 'fileGetContents')
-            .withArgs(sinon.match(/template\.html/)).resolves('<html>{CONTENT}</html>')
-            .resolves('<p>page content</p>');
+        const fileGetContentsStub = sinon.stub(explorer.util, 'fileGetContents');
+        fileGetContentsStub.withArgs(sinon.match(/template\.html/)).resolves('<html>{CONTENT}</html>');
+        fileGetContentsStub.resolves('<p>page content</p>');
 
         const res = await handle(explorer, '/');
 

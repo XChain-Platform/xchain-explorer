@@ -172,12 +172,12 @@ describe("Utility", function () {
             expect(output).to.not.include('Time');
         });
 
-        it('appends elapsed time with tab, parens, and closing paren', function () {
-            // Use a timer from the past to ensure non-zero elapsed time
-            stub = logWithTimerStub(u, 'Elapsed', Date.now() - 5000);
+        it('appends elapsed time in the exact log format', function () {
+            stub = sinon.stub(log, 'info');
+            timerStub = sinon.stub(u, 'getTimer').returns(5000);
+            u.logTimer(0, 'Elapsed');
             const output = stub.firstCall.args[1].timer;
-            expect(output).to.include('\t: (');
-            expect(output).to.match(/\)$/);
+            expect(output).to.equal('Elapsed\t: (5000)');
         });
 
         it('does not append tab section when getTimer returns 0 (empty timeString)', function () {

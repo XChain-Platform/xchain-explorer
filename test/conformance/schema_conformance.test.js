@@ -65,15 +65,16 @@ const { makeConfig } = require('../fixtures/mock-query-args.js');
 const { envView }    = require('../fixtures/mock-config.js');
 const pre = require('../integration/helpers/fixture-preflight.js');
 
-const DB_HOST = process.env.CONFORMANCE_DB_HOST || pre.FIXTURE_DB.host;
-const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || pre.FIXTURE_DB.port);
-const DB_USER = process.env.CONFORMANCE_DB_USER || pre.FIXTURE_DB.user;
-const DB_PASS = process.env.CONFORMANCE_DB_PASS || pre.FIXTURE_DB.password;
+const connection = pre.conformanceConnection();
+const DB_HOST = connection.host;
+const DB_PORT = connection.port;
+const DB_USER = connection.user;
+const DB_PASS = connection.password;
 
-const INDEXER_DB = 'XChain_Conformance_Indexer';
-const DECODER_DB = 'XChain_Conformance_Decoder';
-const FIXTURE_DB = 'XChain_Conformance_Fixture';
-const HUB_DB     = 'XChain_Conformance_Hub';
+const INDEXER_DB = pre.conformanceDatabase('XChain_Conformance_Indexer');
+const DECODER_DB = pre.conformanceDatabase('XChain_Conformance_Decoder');
+const FIXTURE_DB = pre.conformanceDatabase('XChain_Conformance_Fixture');
+const HUB_DB     = pre.conformanceDatabase('XChain_Conformance_Hub');
 
 const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql');
 const DECODER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-decoder', 'src', 'sql');

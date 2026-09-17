@@ -40,14 +40,11 @@
 # which publishes the same port with the same fixture credentials. Docker is
 # therefore REQUIRED for those tiers, never skipped, and the fixture is recycled
 # between them so each tier meets a fresh database the way each GitHub job does.
-# The conformance tier is the one that reads env, and it goes to the SAME
-# fixture rather than to the venue's own MariaDB. It creates four databases of
-# its own (XChain_Conformance_*) and builds the real DDL inside them, which
-# needs a privileged user; the venue's `ci` user holds CREATE globally but ALL
-# only on ci_%, so pointing this at CI_DB_* got the databases created and then
-# failed mid-DDL with "INDEX command denied" (measured on DankServer). GitHub
-# gives this job its own throwaway container with root for exactly that reason,
-# and the fixture is that container. Nothing here echoes or logs a password.
+# The conformance tier uses the fixture selected by fixture-preflight.js. On a
+# venue that is the shared CI database identity and conformance uses disposable
+# ci_* schemas covered by its grants. Everywhere else it is the root identity
+# of the throwaway container. bin/run-conformance.js passes the password only
+# in the child environment.
 #
 # SKIPPED-BY-DESIGN: none. Every run-step in ci.yml has a twin below. The
 # actions-only steps (actions/checkout, setup-node, npm ci, and the two
@@ -92,11 +89,6 @@ need_sib() {
     fi
   done
 }
-
-export CONFORMANCE_DB_HOST="${CONFORMANCE_DB_HOST:-127.0.0.1}"
-export CONFORMANCE_DB_PORT="${CONFORMANCE_DB_PORT:-3307}"
-export CONFORMANCE_DB_USER="${CONFORMANCE_DB_USER:-root}"
-export CONFORMANCE_DB_PASS="${CONFORMANCE_DB_PASS:-testpass}"
 
 need_sib xchain-indexer xchain-vm xchain-sdk xchain-decoder xchain-documentation \
          xchain-encoder xchain-hub
@@ -158,17 +150,10 @@ db_tier "integration (test:integration)" npm run test:integration
 # --- job: conformance (needs: ci) ------------------------------------------
 # Loads the REAL indexer, hub and decoder DDL from the sibling checkouts (the
 # suite resolves them as ../xchain-*/src/sql, which is why the layout above is
-# not optional) into a real MariaDB. The fixture is recycled here too; when
-# CONFORMANCE_DB_* points somewhere else, the suite follows the env and simply
-# leaves the fresh fixture unused.
-# A run that points CONFORMANCE_DB_* somewhere other than the fixture address
-# does not need the fixture at all, so a failed bring-up must not stop it.
+# not optional) into a real MariaDB. The fixture is recycled here too, and the
+# launcher inherits the same identity selected by fixture-preflight.js.
 run_tier "db fixture for conformance (mariadb on 3307)" db_fixture_reset
-if [ "$CONFORMANCE_DB_HOST" = "127.0.0.1" ] && [ "$CONFORMANCE_DB_PORT" = "3307" ]; then
-  db_tier  "conformance: schema canary (test:conformance)" npm run test:conformance
-else
-  run_tier "conformance: schema canary (test:conformance)" npm run test:conformance
-fi
+db_tier "conformance: schema canary (test:conformance)" npm run test:conformance
 
 npm run test:integration:down >/dev/null 2>&1
 echo "ci:full: db fixture torn down (no DB tiers remain)"

@@ -96,6 +96,39 @@ const CONTAINER_DB = {
 // fixture everywhere else.
 const FIXTURE_DB = VENUE_DB || CONTAINER_DB;
 
+// Build the child environment for conformance without putting the password in
+// argv or output. Values already present in the caller are replaced so the
+// lifecycle wrapper and conformance cannot select different identities.
+function conformanceEnvironment(baseEnv, fixtureDb) {
+    const env = { ...(baseEnv || process.env) };
+    const db  = fixtureDb || FIXTURE_DB;
+    env.CONFORMANCE_DB_HOST = db.host;
+    env.CONFORMANCE_DB_PORT = String(db.port);
+    env.CONFORMANCE_DB_USER = db.user;
+    env.CONFORMANCE_DB_PASS = db.password;
+    return env;
+}
+
+// Direct mocha runs do not pass through bin/run-conformance.js. They still use
+// the preflight result by default, while an explicitly supplied environment is
+// retained for focused developer runs.
+function conformanceConnection(env) {
+    const source = env || process.env;
+    return {
+        host:     source.CONFORMANCE_DB_HOST || FIXTURE_DB.host,
+        port:     Number(source.CONFORMANCE_DB_PORT || FIXTURE_DB.port),
+        user:     source.CONFORMANCE_DB_USER || FIXTURE_DB.user,
+        password: source.CONFORMANCE_DB_PASS || FIXTURE_DB.password
+    };
+}
+
+// The venue identity has DDL rights in its ci_* namespace. The disposable
+// container uses the historical names so GitHub and local Docker are unchanged.
+function conformanceDatabase(name, usingVenue) {
+    const venue = usingVenue === undefined ? USING_VENUE : usingVenue;
+    return venue ? `ci_${name}` : name;
+}
+
 const COMPOSE_FILE = 'test/integration/fixtures/docker-compose.test.yml';
 
 // Docker phrases a host-port bind collision differently per platform and per
@@ -322,6 +355,9 @@ module.exports = {
     USING_VENUE,
     VENUE_ENV_PATH,
     readVenueDb,
+    conformanceEnvironment,
+    conformanceConnection,
+    conformanceDatabase,
     isBindCollisionOutput,
     looksLikeForeignServerError,
     describeHolders,

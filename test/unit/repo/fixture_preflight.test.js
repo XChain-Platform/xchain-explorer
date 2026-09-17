@@ -238,6 +238,39 @@ describe('integration fixture preflight', function () {
             assert.match(ciFull, /FIXTURE_OK=0/);
         });
 
+        it('launches conformance from the preflight identity, not shell defaults', function () {
+            const ciFull = fs.readFileSync(path.join(REPO, 'bin', 'ci-full.sh'), 'utf8');
+            const runner = fs.readFileSync(path.join(REPO, 'bin', 'run-conformance.js'), 'utf8');
+            assert.doesNotMatch(ciFull, /export CONFORMANCE_DB_(HOST|PORT|USER|PASS)=/);
+            assert.strictEqual(pkg.scripts['test:conformance'], 'node bin/run-conformance.js');
+            assert.match(runner, /env:\s+pre\.conformanceEnvironment\(\)/);
+            assert.doesNotMatch(runner, /testpass|CONFORMANCE_DB_PASS\s*:/);
+        });
+
+        it('passes the selected identity only through the conformance environment', function () {
+            const selected = {
+                host: 'fixture.invalid', port: 4407, user: 'fixture-user',
+                password: 'dummy-not-a-real-secret'
+            };
+            const env = pre.conformanceEnvironment({
+                KEEP_ME: 'yes',
+                CONFORMANCE_DB_HOST: 'wrong.invalid',
+                CONFORMANCE_DB_PASS: 'wrong'
+            }, selected);
+            assert.strictEqual(env.KEEP_ME, 'yes');
+            assert.strictEqual(env.CONFORMANCE_DB_HOST, selected.host);
+            assert.strictEqual(env.CONFORMANCE_DB_PORT, '4407');
+            assert.strictEqual(env.CONFORMANCE_DB_USER, selected.user);
+            assert.strictEqual(env.CONFORMANCE_DB_PASS, selected.password);
+        });
+
+        it('keeps venue conformance schemas inside the ci grant namespace', function () {
+            assert.strictEqual(pre.conformanceDatabase('XChain_Conformance_Indexer', true),
+                'ci_XChain_Conformance_Indexer');
+            assert.strictEqual(pre.conformanceDatabase('XChain_Conformance_Indexer', false),
+                'XChain_Conformance_Indexer');
+        });
+
         it('keeps the fixture address in one place', function () {
             const compose = fs.readFileSync(
                 path.join(REPO, 'test', 'integration', 'fixtures', 'docker-compose.test.yml'), 'utf8');

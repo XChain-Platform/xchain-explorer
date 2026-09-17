@@ -50,6 +50,7 @@ const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
+const { injectAnchorActivation } = require('../../../../src/explorer/request/render_page.js');
 
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
 // (isNull, escapeHtml, formatAmount, formatHash, formatLivestamp) moved there
@@ -59,9 +60,17 @@ const { expect } = require('chai');
 const XCHAIN_SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
 const RENDER_SRC = srcText('src/content/js/anchor_detail_render.js');
-const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/anchor.html'), 'utf8');
+const PAGE_HTML  = injectAnchorActivation(
+    fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/anchor.html'), 'utf8')
+);
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8');
+
+// Lift the server-injected browser global from the rendered page so the JSDOM
+// harness runs the same value that reaches a real anchor detail page.
+const ACTIVATION_START = PAGE_HTML.indexOf('var ANCHOR_ACTIVATION = ');
+const ACTIVATION_END = PAGE_HTML.indexOf('</script>', ACTIVATION_START);
+const ACTIVATION_SRC = PAGE_HTML.slice(ACTIVATION_START, ACTIVATION_END);
 
 // Slice a top-level function out of the source by walking braces, so the test
 // runs shipped code rather than a copy that can drift.
@@ -86,6 +95,7 @@ function extractFn(src, name) {
 function installHelpers(dom) {
     dom.window.eval(JQUERY_SRC);
     dom.window.eval(NUMERAL_SRC);
+    dom.window.eval(ACTIVATION_SRC);
     dom.window.eval(`
         var XC = { coin: 'RDOGE', query: '1006', name: 'Dogecoin', network: 'regtest', pageInfo: {}, datatables: {} };
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -302,3 +312,14 @@ require('./content_client_anchor_detail.test/support/publisher_election.js');
 require('./content_client_anchor_detail.test/support/reward_trail.js');
 require('./content_client_anchor_detail.test/support/covering_checkpoint.js');
 require('./content_client_anchor_detail.test/support/page_wiring.js');
+
+describe('anchor.html activation injection', function () {
+    it('renders the registry activation heights into the browser global', function () {
+        expect(PAGE_HTML).not.to.include('{ANCHOR_ACTIVATION}');
+        expect(domWithPage().window.ANCHOR_ACTIVATION).to.deep.equal({
+            mainnet: 6360000,
+            testnet: 67858600,
+            regtest: 0,
+        });
+    });
+});

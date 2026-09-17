@@ -40,8 +40,9 @@
  * RegistryMissError naming the key: a row a build lacks is a build defect and
  * never a network state. Nothing may add a row after this module loads.
  *
- * EXPLORER-ONLY GATES: none. Every twinned carrier's table is in the SHARED
- * block, so this repo registers no rows of its own.
+ * EXPLORER-ONLY GATES: ANCHOR_ACTIVATION controls how the browser labels
+ * anchors around the DOGE wire restart. It is registered after the shared
+ * block from gate_registry/local_rows.js.
  *
  ********************************************************************/
 
@@ -49,6 +50,7 @@
 
 const core = require('./gate_registry/core.js');
 const { registerRows } = require('./gate_registry/shared_rows.js');
+const { registerLocalRows } = require('./gate_registry/local_rows.js');
 const { env } = require('../config.js');
 
 // The SHARED block, loaded for effect: each part queues its rows into
@@ -63,6 +65,7 @@ require('./gate_registry/shared_rows_5.js');
 
 const { registry } = core;
 registerRows(registry, env);
+registerLocalRows(registry);
 
 module.exports = {
     get: (key) => registry.get(key),

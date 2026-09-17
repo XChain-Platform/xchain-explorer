@@ -20,8 +20,8 @@
  * applied it to subtly different quantities), which produced a class of
  * silent-failure bugs where one service accepted data another rejected.
  *
- * Plain CommonJS, zero dependencies; require()-able from any service,
- * tool, or test. Each service keeps its own local copy of these values
+ * Plain CommonJS with only the local activation registry as a dependency;
+ * require()-able from any service, tool, or test. Each service keeps its own
  * so it stays self-contained for deployment (the services ship as
  * independent containers and do not share a node_modules tree); the
  * cross-service regression suite asserts every local copy equals the
@@ -37,6 +37,8 @@
 // drops any transaction whose compiled ACTION push exceeds this value, so the
 // encoder must enforce the identical compiled-size ceiling. A transaction the
 // encoder produces above this size would be silently dropped by every node.
+const gateRegistry = require('../consensus/gate_registry.js');
+
 const MAX_ACTION_DATA_LENGTH = 8192;
 
 // Bytes added by the OP_PUSHDATA2 push prefix (1-byte opcode + 2-byte
@@ -172,11 +174,7 @@ const MAX_DEPLOYCHUNK_PART_BYTES = 7800;
 // sdk/explorer/sync copies) MUST deploy before this height. testnet/regtest
 // activate at genesis so the e2e / regtest stack exercises stake-weighting
 // from block 0.
-const STAKE_WEIGHTED_QUORUM_ACTIVATION = {
-    mainnet: 961000,      // ARMED 2026-07-07: BTC anchor ~2026-08-04; deploy hub + ALL indexers (+ sdk/explorer/sync copies) before this height
-    testnet: 0,
-    regtest: 0,
-};
+const STAKE_WEIGHTED_QUORUM_ACTIVATION = gateRegistry.copy('stake_weighted_quorum.STAKE_WEIGHTED_QUORUM_ACTIVATION');
 
 // EQUIV_HEADER_ACTIVATION (WI-2 bump 2): the BTC-anchored flag-day at/above which every
 // consensus canonical is prefixed with a uniform signed header
@@ -189,11 +187,7 @@ const STAKE_WEIGHTED_QUORUM_ACTIVATION = {
 // post-flag-day (header-carrying) messages. Same ARMED height and deploy-by convention as
 // STAKE_WEIGHTED_QUORUM_ACTIVATION: mainnet is armed to 961000 (2026-07-07; BTC anchor
 // ~2026-08-04), not a disabled placeholder.
-const EQUIV_HEADER_ACTIVATION = {
-    mainnet: 961000,      // ARMED 2026-07-07: BTC anchor ~2026-08-04; deploy hub + ALL indexers (+ sdk/explorer/sync copies) before this height
-    testnet: 0,
-    regtest: 0,
-};
+const EQUIV_HEADER_ACTIVATION = gateRegistry.copy('equivocation_header.EQUIV_HEADER_ACTIVATION');
 
 // STATE_COMMITMENT_ACTIVATION (light-client SPV, spec §6.4): the flag-day at/above which
 // each indexer computes + commits the additive per-block `state_root` (balances+stakes SMT)
@@ -209,15 +203,7 @@ const EQUIV_HEADER_ACTIVATION = {
 // network key remains for regtest; coin-less mainnet/testnet lookups stay inert). Same heights
 // as the two state-hash gate maps, so ONE deploy-by date governs all Cohort-C flips; each height
 // precedes the Cohort-B BTC anchor (961000) as the checkpoint-commitment ordering requires.
-const STATE_COMMITMENT_ACTIVATION = {
-    'BTC:mainnet':  958500,     // ARMED 2026-07-07 at tip 957062; ~10 days of margin
-    'LTC:mainnet':  3143000,    // ARMED 2026-07-07 at tip 3138154; ~8 days
-    'DOGE:mainnet': 6291000,    // ARMED 2026-07-07 at tip 6280094; ~7.5 days
-    'BTC:testnet':  145000,     // ARMED 2026-07-07 at tip 143299
-    'LTC:testnet':  4805000,    // ARMED 2026-07-07 at tip 4797675
-    'DOGE:testnet': 67000000,   // ARMED 2026-07-07 at tip 66498605 (fast chain, wide margin)
-    regtest: 0,                 // armed from genesis: fresh regtest stacks exercise the roots end to end
-};
+const STATE_COMMITMENT_ACTIVATION = gateRegistry.copy('state_commitment_activation.STATE_COMMITMENT_ACTIVATION');
 
 // CHECKPOINT_COMMITMENT_ACTIVATION (light-client SPV, spec §6.1/§6.3, Phase 2): the flag-day at/above
 // which the quorum-signed checkpoint canonical (and the on-chain ANCHOR) COMMIT the additive
@@ -239,11 +225,7 @@ const STATE_COMMITMENT_ACTIVATION = {
 // regression suite. Same
 // ARMED height and deploy-by convention as the maps above: mainnet is armed to 961000
 // (2026-07-07; BTC anchor ~2026-08-04), not a disabled placeholder.
-const CHECKPOINT_COMMITMENT_ACTIVATION = {
-    mainnet: 961000,      // ARMED 2026-07-07: BTC anchor ~2026-08-04; deploy hub + ALL indexers (+ sdk/explorer/sync copies) before this height
-    testnet: 146000,      // ARMED 2026-07-22: first BTC-testnet anchor past all three STATE_COMMITMENT testnet thresholds; was 0, which forced the SPV root suffix from testnet genesis before the indexer computes roots, so the hub refused to sign every testnet checkpoint
-    regtest: 0,
-};
+const CHECKPOINT_COMMITMENT_ACTIVATION = gateRegistry.copy('checkpoint_commitment_activation.CHECKPOINT_COMMITMENT_ACTIVATION');
 
 // ANCHOR_REWARD_ACTIVATION (anchor-reward re-derivation): the flag-day at/above which the validator
 // anchor reward stops being TRUSTED from the hub's `pushvalidatorrewards` JSON-RPC and is instead
@@ -258,11 +240,7 @@ const CHECKPOINT_COMMITMENT_ACTIVATION = {
 // local copies in xchain-{hub,indexer}/src/anchor_reward_activation.js by the cross-service regression
 // suite. Same ARMED height and deploy-by convention as the maps above: mainnet is armed to 961000
 // (2026-07-07; BTC anchor ~2026-08-04), not a disabled placeholder.
-const ANCHOR_REWARD_ACTIVATION = {
-    mainnet: 961000,      // ARMED 2026-07-07: BTC anchor ~2026-08-04; deploy hub + ALL indexers (+ sdk/explorer/sync copies) before this height
-    testnet: 0,
-    regtest: 0,
-};
+const ANCHOR_REWARD_ACTIVATION = gateRegistry.copy('anchor_reward_activation.ANCHOR_REWARD_ACTIVATION');
 
 // ANCHOR_REWARD_AMOUNT: the frozen validator anchor-publish reward, signed into the XANCPUB attestation
 // by the hub and re-derived by the indexer (never from the wire). Changing it is itself a flag-day.
@@ -277,11 +255,7 @@ const ANCHOR_REWARD_AMOUNT = '10.00000000';
 // and v6 anchors are rejected. Consensus-relevant, same deploy rules and snapshot_block gating as
 // ANCHOR_REWARD_ACTIVATION; kept byte-identical to the local copies in
 // xchain-{hub,indexer}/src/anchor_reward_activation.js by the cross-service regression suite.
-const ARCHIVE_REWARD_ACTIVATION = {
-    mainnet: 963000,      // ARMED 2026-07-16, RE-PINNED 2026-08-12 off 969500 onto the pre-freeze train boundary (tip 959,853 on 07-27 at ~144 blocks/day + 21d); deploy every consumer before this era
-    testnet: 0,
-    regtest: 0,
-};
+const ARCHIVE_REWARD_ACTIVATION = gateRegistry.copy('anchor_reward_activation.ARCHIVE_REWARD_ACTIVATION');
 
 // ANCHOR_ACTIVATION: the DOGE height (per network) at/above which the ANCHOR wire set restarts at
 // version 0 (v0 = the per-network checkpoint bundle, v1 = the archive head with its publisher tail,
@@ -300,11 +274,7 @@ const ARCHIVE_REWARD_ACTIVATION = {
 // as an archive head with a publisher tail; on mainnet those rows carry state_root NULL 36/36 and
 // no publisher_attestations field at all 56/56. Regtest is 0: its stacks are rebuilt from genesis.
 // Operator rulings 2026-08-30.
-const ANCHOR_ACTIVATION = {
-    mainnet: 6360000,
-    testnet: 67858600,
-    regtest: 0,
-};
+const ANCHOR_ACTIVATION = gateRegistry.copy('anchor_activation.ANCHOR_ACTIVATION');
 
 // ARCHIVE_REWARD_AMOUNT: the frozen archive-publish reward, signed into the archive XANCPUB
 // attestation by the hub and re-derived by the indexer (never from the wire). Kept equal to the
@@ -326,11 +296,7 @@ const ARCHIVE_REWARD_AMOUNT = '10.00000000';
 // xchain-{hub,indexer}/src/cross_chain_royalty_activation.js by the cross-service regression
 // suite. Same ARMED height and deploy-by convention as the maps above: mainnet is armed to
 // 961000 (2026-07-07; BTC anchor ~2026-08-04), not a disabled placeholder.
-const CROSS_CHAIN_ROYALTY_ACTIVATION = {
-    mainnet: 961000,      // ARMED 2026-07-07: BTC anchor ~2026-08-04; deploy hub + ALL indexers before this height
-    testnet: 0,
-    regtest: 0,
-};
+const CROSS_CHAIN_ROYALTY_ACTIVATION = gateRegistry.copy('cross_chain_royalty_activation.CROSS_CHAIN_ROYALTY_ACTIVATION');
 
 // VALID_FIAT_CODES: the accepted FIAT_CODE allow-list for PRICE actions. The indexer's
 // config['FIATS'] keys (xchain-indexer/src/config.js) are the on-chain arbiter; this list

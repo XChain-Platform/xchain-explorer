@@ -14,6 +14,7 @@
 
 const assert = require('assert');
 const C = require('../../../src/protocol/constants.js');
+const gateRegistry = require('../../../src/consensus/gate_registry.js');
 
 describe('protocol/constants', function () {
     it('pins the on-chain ACTION size caps', function () {
@@ -85,5 +86,24 @@ describe('protocol/constants', function () {
         assert.ok(C.VALID_FIAT_CODES.includes('USD'));
         assert.strictEqual(new Set(C.VALID_FIAT_CODES).size, C.VALID_FIAT_CODES.length, 'no duplicate fiat codes');
         for (const code of C.VALID_FIAT_CODES) assert.match(code, /^[A-Z]{3}$/, 'ISO-4217 style 3-letter codes');
+    });
+});
+
+describe('protocol/constants registry sources', function () {
+    it('exports fresh copies of every activation registry row', function () {
+        const rows = {
+            STAKE_WEIGHTED_QUORUM_ACTIVATION: 'stake_weighted_quorum.STAKE_WEIGHTED_QUORUM_ACTIVATION',
+            EQUIV_HEADER_ACTIVATION: 'equivocation_header.EQUIV_HEADER_ACTIVATION',
+            STATE_COMMITMENT_ACTIVATION: 'state_commitment_activation.STATE_COMMITMENT_ACTIVATION',
+            CHECKPOINT_COMMITMENT_ACTIVATION: 'checkpoint_commitment_activation.CHECKPOINT_COMMITMENT_ACTIVATION',
+            ANCHOR_REWARD_ACTIVATION: 'anchor_reward_activation.ANCHOR_REWARD_ACTIVATION',
+            ARCHIVE_REWARD_ACTIVATION: 'anchor_reward_activation.ARCHIVE_REWARD_ACTIVATION',
+            ANCHOR_ACTIVATION: 'anchor_activation.ANCHOR_ACTIVATION',
+            CROSS_CHAIN_ROYALTY_ACTIVATION: 'cross_chain_royalty_activation.CROSS_CHAIN_ROYALTY_ACTIVATION',
+        };
+        for (const [name, key] of Object.entries(rows)) {
+            assert.deepStrictEqual(C[name], gateRegistry.copy(key), `${name} must equal its registry row`);
+            assert.notStrictEqual(C[name], gateRegistry.copy(key), `${name} must remain a caller-owned copy`);
+        }
     });
 });

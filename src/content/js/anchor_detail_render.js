@@ -12,14 +12,9 @@
  *
  **********************************************************************/
 
-// ANCHOR_ACTIVATION: the DOGE height (per network) at/above which the ANCHOR wire
-// set restarts at version 0. Vendored byte-identical from src/protocol/constants.js
-// (this service's own canonical copy): server code reaches that file with
-// require(), but content/js ships as plain static scripts with no bundler, so this
-// browser-served copy is kept in sync the same way every other cross-file copy of
-// this constant is - test/unit/content-client-anchor-detail.test.js pins it against
-// the real module.
-var ANCHOR_ACTIVATION = { mainnet: 6360000, testnet: 67858600, regtest: 0 };
+// ANCHOR_ACTIVATION is installed as a browser global by anchor.html before this
+// file loads. The server serializes the explorer-owned registry row into that
+// inline script because static browser code cannot require the Node registry.
 
 function renderAnchorHeights(d){
     let row   = d || {};

@@ -26,15 +26,34 @@
  * family under src/db/: `this` is the Database instance at call time, and the
  * methods reach Database.prototype non-enumerable, by descriptor.
  *
+ * The bridge columns this read projects exist only on a replica that has applied
+ * the indexer's 2026-09-12-token-bridge-fields.sql. Naming an absent column is
+ * error 1054 for the WHOLE statement, not a null value for one field, so the read
+ * probes the connected schema and falls back to the pre-bridge projection where
+ * those columns are missing. Degrading that way is the difference between a
+ * mainnet token page that answers its pre-bridge body and one that 500s.
+ *
  ********************************************************************/
 
 'use strict';
 
-// The columns and joins one token's detail reads. The caller appends the WHERE lane
-// it resolved (by name or by ^<id>) and the LIMIT, which is the only part that
-// varies per request; the SQL comments are the contract for what the odd columns
-// are for, so they stay with the text.
-const TOKEN_DETAIL_SELECT = `SELECT
+// The four `tokens` columns added by the indexer migration
+// 2026-09-12-token-bridge-fields.sql. Named here as data because the schema probe
+// below asks information_schema for exactly this list.
+const BRIDGE_COLUMNS = ['bridge_chains', 'min_depth', 'lock_bridge', 'bridged'];
+
+// How long a NEGATIVE schema probe is trusted. A positive answer is kept for the
+// life of the process (a column cannot vanish from under a running explorer), a
+// negative one expires so that applying the migration heals the route by itself
+// instead of needing the service restarted.
+const BRIDGE_PROBE_TTL_MS = 60000;
+
+// The columns and joins one token's detail reads, in the three parts the bridge
+// projection splits it into. The caller appends the WHERE lane it resolved (by name
+// or by ^<id>) and the LIMIT, which is the only part that varies per request; the
+// SQL comments are the contract for what the odd columns are for, so they stay with
+// the text.
+const TOKEN_DETAIL_HEAD = `SELECT
                         t2.tick,
                         -- F3 (id-determinism): expose tick_id for SDK ^<id> compaction ONLY when it
                         -- is in the deterministic set (index_tickers.block_index IS NOT NULL). An
@@ -67,17 +86,20 @@ const TOKEN_DETAIL_SELECT = `SELECT
                         a1.address as owner,
                         t1.coin_price,
                         t1.coin_floor,
-                        t1.escrow_action_index,
-                        -- Token-bridge state (ISSUE format 7, xchain-token-bridge.md section 8).
-                        -- The wallet's tokenInfo projection reads these off the grouped row, so
-                        -- where each lands matters: lock_bridge carries the lock_ prefix and the
-                        -- grouping loop below folds it into locks.bridge, while bridge_chains,
-                        -- min_depth and bridged match no group prefix and land in info. Omitting
-                        -- them made every wallet bridge surface read null in production.
+                        t1.escrow_action_index`;
+
+// Token-bridge state (ISSUE format 7, xchain-token-bridge.md section 8). The wallet's
+// tokenInfo projection reads these off the grouped row, so where each lands matters:
+// lock_bridge carries the lock_ prefix and the grouping loop below folds it into
+// locks.bridge, while bridge_chains, min_depth and bridged match no group prefix and
+// land in info. Omitting them made every wallet bridge surface read null in production.
+const TOKEN_DETAIL_BRIDGE = `,
                         t1.bridge_chains,
                         t1.min_depth,
                         t1.lock_bridge,
-                        t1.bridged
+                        t1.bridged`;
+
+const TOKEN_DETAIL_FROM = `
                     FROM
                         tokens t1
                         LEFT  JOIN index_tickers      t2 ON (t2.id=t1.tick_id)
@@ -86,6 +108,59 @@ const TOKEN_DETAIL_SELECT = `SELECT
                         LEFT  JOIN tokens             t4 ON (t4.tick_id=t1.callback_tick_id)
                     WHERE
                         `;
+
+// One token's detail statement, assembled for the schema shape actually connected.
+// `tickWhere` is the caller's resolved lane (by name or by ^<id>).
+function tokenDetailQuery(withBridge, tickWhere){
+    return TOKEN_DETAIL_HEAD
+         + (withBridge ? TOKEN_DETAIL_BRIDGE : '')
+         + TOKEN_DETAIL_FROM
+         + tickWhere + `
+                    LIMIT 1`;
+}
+
+// Whether the connected replica's `tokens` table carries EVERY bridge column,
+// memoized per coin (the pool a read runs on is picked by coin), never per request:
+// this is a property of the schema, and an information_schema round trip on every
+// token page would buy nothing. DATABASE() rather than the pool's configured name,
+// so the answer is about the schema the read itself lands in. A partly applied
+// migration answers false, which is the conservative side: projecting the subset
+// that happens to exist would still 1054 on the rest.
+//
+// A probe that ITSELF fails answers true, the behaviour before this guard existed,
+// and caches nothing. The 1054 recovery in getToken is what makes a wrong answer
+// survivable, so a broken probe can cost a route one failed statement but never its
+// correctness.
+async function bridgeColumnsPresent(db, config){
+    const coin = config.coin;
+    if(!db.tokenBridgeColumnMemo) db.tokenBridgeColumnMemo = {};
+    const memo = db.tokenBridgeColumnMemo[coin];
+    if(memo && (memo.present || (Date.now() - memo.at) < BRIDGE_PROBE_TTL_MS))
+        return memo.present;
+    try {
+        const placeholders = BRIDGE_COLUMNS.map(() => '?').join(',');
+        const rows = await db.doQuery(config,
+            `SELECT COLUMN_NAME
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='tokens'
+               AND COLUMN_NAME IN (${placeholders})`, BRIDGE_COLUMNS);
+        const found   = new Set((rows || []).map(r => String(r.COLUMN_NAME)));
+        const present = BRIDGE_COLUMNS.every(name => found.has(name));
+        db.tokenBridgeColumnMemo[coin] = { present, at: Date.now() };
+        return present;
+    } catch(e){
+        return true;
+    }
+}
+
+// MariaDB error 1054 (ER_BAD_FIELD_ERROR), "Unknown column", as it arrives through
+// doQuery, which wraps the driver's error as the `cause` of a DbQueryError. Matched
+// on the numeric errno as well as the name because the two spellings come from
+// different layers of the driver and only the number is stable.
+function isUnknownColumnError(err){
+    const cause = (err && err.cause) ? err.cause : err;
+    return Number(cause && cause.errno) === 1054 || (cause && cause.code) === 'ER_BAD_FIELD_ERROR';
+}
 
 // The response shape a token detail is filled into, with every group present and
 // empty. Declared up front rather than grown field by field so a reader can see
@@ -230,13 +305,31 @@ class EntityTokenReaders {
         let tickIdRef = (search.charAt(0) === '^' && this.util.isNumeric(search.substring(1)));
         let tickWhere = tickIdRef ? 't1.tick_id=?' : 't2.tick=?';
         let args  = [ tickIdRef ? Number(search.substring(1)) : config.data.search ];
-        let query = TOKEN_DETAIL_SELECT + tickWhere + `
-                    LIMIT 1`;
-        let results = await this.doQuery(config, query, args);
+        let withBridge = await bridgeColumnsPresent(this, config);
+        let results = null;
+        try {
+            results = await this.doQuery(config, tokenDetailQuery(withBridge, tickWhere), args);
+        } catch(e){
+            // The probe said the bridge columns were there and the statement says they
+            // are not (a stale memo, or a probe that failed and guessed). Record the real
+            // shape and answer from the pre-bridge projection: a public token page losing
+            // one card is a smaller failure than the whole route answering 500.
+            if(!withBridge || !isUnknownColumnError(e)) throw e;
+            this.tokenBridgeColumnMemo[config.coin] = { present: false, at: Date.now() };
+            withBridge = false;
+            results = await this.doQuery(config, tokenDetailQuery(false, tickWhere), args);
+        }
         if(results && results.length){
             let row = results[0];
             data = emptyTokenShape(config);
             groupTokenRow(this, data, row);
+            // Nothing was READ about this token's bridge state, so the body must claim
+            // nothing about it. bridge_chains, min_depth and bridged are absent for free
+            // (the grouping loop only places columns the row carries), but locks.bridge is
+            // seeded false by the empty shape, and false is a positive claim: "the owner
+            // may still change the bridge policy" is what a wallet acts on. Deleting the
+            // key leaves absence, which the wallet's tokenInfo already reads as unknown.
+            if(!withBridge) delete data.locks.bridge;
             await attachTokenSurfaces(this, config, data, row);
         }
         return [data];

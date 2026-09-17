@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- The vendored hub-mirror client moves to schema v7 and its seven mirror-table twins carry the admission-height columns, so a v6 hub stream is refused.
+
 ## [0.19.0] - 2026-09-16
 
 ### Added

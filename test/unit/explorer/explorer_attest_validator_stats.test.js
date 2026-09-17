@@ -151,6 +151,10 @@ describe('Database#getAttestValidatorStats (M3.3 data leg)', () => {
         expect(offsetIdx).to.be.lessThan(orderIdx);
     });
 
+});
+
+describe('Database#getAttestValidatorStats (M3.3 data leg)', () => {
+
     it('orders by the surrogate m.id, never by last_updated_block (monotonic but not unique) or action_index', async () => {
         const db = makeRealDb();
         const [query] = await db.getAttestValidatorStats(statsConfig());
@@ -178,6 +182,10 @@ describe('Database#getAttestValidatorStats (M3.3 data leg)', () => {
         const db = makeRealDb();
         expect(db.cursorPagedMethods).to.include('getAttestValidatorStats');
     });
+
+});
+
+describe('Database#getAttestValidatorStats (M3.3 data leg)', () => {
 
     it('getQueryWhereSql anchors getAttestValidatorStats on m.id IS NOT NULL (no action_index; the surrogate PK is the anchor)', async () => {
         const db = makeRealDb();

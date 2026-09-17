@@ -82,8 +82,8 @@ function statusMeasurementFields(){
         next_block_future_seconds:   {},
         indexer_wait_clears_at:      {},
         stale:           {},
-        // Durable consensus-divergence halt xchain-sync records into the same
-        // replica DB this pool serves (sync_halt, cleared_at IS NULL = active).
+        // Durable consensus-divergence halt xchain-sync records into the indexer
+        // or decoder replica DB (sync_halt, cleared_at IS NULL = active).
         // A halted replica applies no further blocks but keeps reporting a
         // small lag until its source mints past it, so neither stale nor
         // tip_age_seconds can see it; this is the only fail-closed signal that

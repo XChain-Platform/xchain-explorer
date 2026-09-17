@@ -255,13 +255,22 @@ describe('Database tip-freshness gate', () => {
 function markPooled(coin) {
     db.pools = {};
     db.pools[coin] = { pool: {}, config: {} };
+    db.decoderDb = { [coin]: 'decoder_db' };
 }
 
 // Dispatches by SQL text so the same stub answers the existence check,
 // the halt-row read, AND the unrelated last_block/last_block_time queries
 // getStatus also issues in the same per-coin pass. A fresh block_time
 // keeps `stale` out of the way of these assertions.
-function stubQueries({ tableExists = true, activeHalt = false, failOn = null } = {}) {
+function stubQueries({ tableExists = true, activeHalt = false, decoderHalt = false, failOn = null } = {}) {
+    sinon.stub(db, 'doDecoderQuery').callsFake(async (config, query, args) => {
+        if (failOn === 'decoder') throw new Error('decoder halt read failed');
+        if (/MAX\(block_index\)/.test(query)) return [];
+        if (/block_time/.test(query)) return [];
+        expect(query).to.match(/`decoder_db`\.sync_halt/);
+        expect(args).to.deep.equal(['decoder']);
+        return decoderHalt ? [{ id: 2 }] : [];
+    });
     return sinon.stub(db, 'doQuery').callsFake(async (config, query, args) => {
         if (/information_schema\.TABLES/.test(query)) {
             if (failOn === 'exists') throw new Error('existence check failed');
@@ -297,6 +306,13 @@ describe('Database tip-freshness gate', () => {
         it('reads true when an active (uncleared) halt row exists', async () => {
             markPooled('RBTC');
             stubQueries({ tableExists: true, activeHalt: true });
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.replica_halted).to.have.property('RBTC', true);
+        });
+
+        it('reads true when the decoder replica is halted but the indexer replica is not', async () => {
+            markPooled('RBTC');
+            stubQueries({ tableExists: true, activeHalt: false, decoderHalt: true });
             const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
             expect(data.replica_halted).to.have.property('RBTC', true);
         });

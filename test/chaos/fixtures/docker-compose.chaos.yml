@@ -31,9 +31,9 @@ services:
     image: ghcr.io/shopify/toxiproxy:2.9.0
     ports:
       # Toxiproxy API (for managing proxies and toxics)
-      - "8474:8474"
+      - "${XCHAIN_EXPLORER_CHAOS_API_PORT:-8474}:8474"
       # MariaDB proxy endpoint (explorer connects here instead of direct DB)
-      - "3307:3307"
+      - "${XCHAIN_EXPLORER_CHAOS_DB_PORT:-3307}:3307"
     networks:
       - chaos-net
     depends_on:

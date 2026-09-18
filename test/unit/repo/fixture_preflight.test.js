@@ -21,6 +21,7 @@ const fs     = require('fs');
 const path   = require('path');
 
 const pre = require('../../integration/helpers/fixture-preflight.js');
+const fixturePorts = require('../../../bin/fixture-ports.js');
 
 const REPO = path.join(__dirname, '..', '..', '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
@@ -279,8 +280,8 @@ describe('integration fixture preflight', function () {
         });
 
         it('keeps the fixture address in one place', function () {
-            const compose = fs.readFileSync(
-                path.join(REPO, 'test', 'integration', 'fixtures', 'docker-compose.test.yml'), 'utf8');
+            const compose = fixturePorts.render(
+                'test/integration/fixtures/docker-compose.test.yml', { CI_PORT_OFFSET: '0' });
             // CONTAINER_DB, not FIXTURE_DB: on a venue the latter is the shared
             // server and no container is published, so this would fail there.
             assert.match(compose, new RegExp(`"${pre.CONTAINER_DB.port}:3306"`),

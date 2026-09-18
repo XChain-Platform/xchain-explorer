@@ -36,8 +36,9 @@ const toxiproxy      = require('./toxiproxy-client');
 const mariadb        = require('mariadb');
 const fs             = require('fs');
 const path           = require('path');
+const fixturePorts   = require('../../../bin/fixture-ports.js');
 
-const DB_PORT = 3307;  // toxiproxy's proxied port
+const DB_PORT = fixturePorts.port('XCHAIN_EXPLORER_CHAOS_DB_PORT');
 
 let server      = null;
 let serverUrl   = null;

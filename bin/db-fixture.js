@@ -41,6 +41,7 @@ const { spawnSync } = require('child_process');
 const path          = require('path');
 
 const pre = require('../test/integration/helpers/fixture-preflight.js');
+const fixturePorts = require('./fixture-ports.js');
 
 const REPO = path.join(__dirname, '..');
 
@@ -48,6 +49,7 @@ function compose(args, opts) {
     return spawnSync('docker', ['compose', '-f', pre.COMPOSE_FILE, ...args], {
         cwd:      REPO,
         encoding: 'utf8',
+        env:      fixturePorts.composeEnvironment(pre.COMPOSE_FILE),
         ...(opts || {})
     });
 }

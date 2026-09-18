@@ -41,6 +41,7 @@
 
 const fs  = require('fs');
 const net = require('net');
+const fixturePorts = require('../../../bin/fixture-ports.js');
 
 const FIXTURE_DATABASE = 'XChain_BTC_Regtest_Indexer';
 
@@ -85,7 +86,7 @@ const USING_VENUE = VENUE_DB !== null;
 // FIXTURE_DB is a different address.
 const CONTAINER_DB = {
     host:     '127.0.0.1',
-    port:     3307,
+    port:     fixturePorts.port('XCHAIN_EXPLORER_DB_PORT'),
     user:     'root',
     password: 'testpass',
     database: FIXTURE_DATABASE

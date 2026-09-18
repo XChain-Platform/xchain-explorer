@@ -183,7 +183,7 @@ const STAKE_WEIGHTED_QUORUM_ACTIVATION = {
 // `EQUIV|<ENGINE_TAG>|<ROUND_ID>|<VIEW>||<CONTENT>`. This is consensus-breaking (it changes the
 // signed preimage of every settlement/checkpoint/price/attestation signature + the config-change
 // PBFT canonical), so it is gated, kept byte-identical to the local copies in
-// xchain-{hub,indexer,sdk,explorer,sync}/src/equivocation_header.js by the
+// xchain-{hub,indexer,sdk,explorer,sync}/src/consensus/equivocation_header.js by the
 // cross-service regression suite, and must deploy hub + ALL indexers atomically. Its sole
 // consumer is the SLASH v0 equivocation-slashing action, which is only constructible from
 // post-flag-day (header-carrying) messages. Same ARMED height and deploy-by convention as
@@ -233,9 +233,10 @@ const STATE_COMMITMENT_ACTIVATION = {
 // checkpoint canonical, exactly like STAKE_WEIGHTED_QUORUM_ACTIVATION / EQUIV_HEADER_ACTIVATION, so the
 // hub and the BTC/LTC/DOGE indexers all flip the SIGNED shape on the same anchor. The operator MUST pick
 // a snapshot_block at/after which every checkpointed chain is already past its own STATE_COMMITMENT
-// flag-day (else the engine would have no roots to sign). Kept byte-identical to the local copies in
-// xchain-{hub,indexer,sdk,explorer,sync}/src/checkpoint_commitment_activation.js (sync consumes it at
-// checkpoint.js to decide whether to expect the roots) by the cross-service regression suite. Same
+// flag-day (else the engine would have no roots to sign). Kept equal to the registry row
+// checkpoint_commitment_activation.CHECKPOINT_COMMITMENT_ACTIVATION every repo's src/consensus/gate_registry/
+// parts carry (sync reads it at checkpoint.js to decide whether to expect the roots) by the cross-service
+// regression suite. Same
 // ARMED height and deploy-by convention as the maps above: mainnet is armed to 961000
 // (2026-07-07; BTC anchor ~2026-08-04), not a disabled placeholder.
 const CHECKPOINT_COMMITMENT_ACTIVATION = {

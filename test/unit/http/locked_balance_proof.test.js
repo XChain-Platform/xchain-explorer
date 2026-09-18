@@ -29,7 +29,7 @@
 
 const assert = require('assert');
 const M      = require('../../../src/consensus/merkle.js');
-const SUB    = require('../../../src/state_subtree_activation.js');
+const SUB    = require('../../../src/consensus/gates/state_subtree_gate.js');
 const ProofServer = require('../../../src/http/proof_server.js');
 
 const EMPTY_ROOT = M.toHex(M.EMPTY_SMT_ROOT);
@@ -190,10 +190,10 @@ for (const spec of ['../../../../xchain-sdk/src/protocol/light_client.js',
         if (e.code !== 'MODULE_NOT_FOUND') throw e;
     }
 }
-// The activation registry did not move, so it keeps its single spelling; it
-// is still gated on `light` so the pair is armed or absent together.
+// The subtree gate sits at the same W5 tail in every repo, so it keeps its single
+// spelling; it is still gated on `light` so the pair is armed or absent together.
 if (light) {
-    try { sdkSub = require('../../../../xchain-sdk/src/state_subtree_activation.js'); }
+    try { sdkSub = require('../../../../xchain-sdk/src/consensus/gates/state_subtree_gate.js'); }
     catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; light = null; }
 }
 

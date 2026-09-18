@@ -4,9 +4,24 @@
   "repo": "xchain-explorer",
   "twins": [
     {
-      "path": "src/checkpoint_commitment_activation.js",
-      "bytes": 3710,
-      "sha256": "28f2dc4dd73f36f5e6dcc3d7fe68867ee97d84c5ec8cb3e1a3131cfe7e9efd25"
+      "path": "src/consensus/equivocation_header.js",
+      "bytes": 4171,
+      "sha256": "441998fc0d7cbf9cb94f79933224f1b5839981e79fb639bdda5eb0bacb07b46d"
+    },
+    {
+      "path": "src/consensus/gates/mirror_admission_gate.js",
+      "bytes": 22512,
+      "sha256": "1259b54724778b8a6cf4670bba9bebb6f5283e60360698b5a262cbc32cd9c812"
+    },
+    {
+      "path": "src/consensus/gates/price_batching_floor_gate.js",
+      "bytes": 7900,
+      "sha256": "9c9f986c6e59075c5761b50cb3ecf851fe99f40217f4da31ef18368935158f87"
+    },
+    {
+      "path": "src/consensus/gates/state_subtree_gate.js",
+      "bytes": 10722,
+      "sha256": "9f07ece9abad3b9abb7770ecb1d06aeb0161fa08170bd24b8f74ed41f31662d8"
     },
     {
       "path": "src/consensus/merkle.js",
@@ -14,39 +29,9 @@
       "sha256": "797a0c6e5299eb1f5e5572764de30e2748a8976c05514e1d654b7c6b13c37180"
     },
     {
-      "path": "src/equivocation_header.js",
-      "bytes": 4181,
-      "sha256": "6158f864d42986d834c562ea5343044f82fb05535e75e0827c3d2cd7b7ad220f"
-    },
-    {
-      "path": "src/list_edit_resolution_activation.js",
-      "bytes": 3908,
-      "sha256": "6193f3e22beacf70dc9262cce2e396fedffe1c1edd63f581d5e231b2946b6287"
-    },
-    {
-      "path": "src/mirror_admission_activation.js",
-      "bytes": 22521,
-      "sha256": "a5c09396177a0593f6559b8e3c8dd838e35bb50b1b06bdebdb6d111bc9f3d596"
-    },
-    {
-      "path": "src/price_batching_floor_activation.js",
-      "bytes": 7909,
-      "sha256": "654a10d3d135d2ce094c6dc568c53173673472fef7442dc9b2e4e9da64e61651"
-    },
-    {
-      "path": "src/retraction_signing_activation.js",
-      "bytes": 2833,
-      "sha256": "176410e087a7964cf4646e46bac5d6c478423de42b7a121b70a763634efa26d0"
-    },
-    {
-      "path": "src/stake_weighted_quorum.js",
-      "bytes": 10122,
-      "sha256": "966589728e7f7403ab745a073f5c90e41c67101c30ea210888611292d20bea47"
-    },
-    {
-      "path": "src/state_subtree_activation.js",
-      "bytes": 10731,
-      "sha256": "4f58de7d49298ca6a07d0e50d57a09488722dcfac206903ecc2580aad0f4ed86"
+      "path": "src/consensus/stake_weighted_quorum.js",
+      "bytes": 10112,
+      "sha256": "ca074be59873a47b30da94c98a812771e3fb3252fea83fd5e56dbf2bd5b26ddf"
     }
   ],
   "routes": {
@@ -2812,6 +2797,29 @@
         "integration fixture preflight wiring preflights before the integration files run",
         "integration fixture preflight wiring routes the fixture lifecycle scripts through the preflighting wrapper",
         "integration fixture preflight wiring stops the venue gate from running a DB tier without a fixture"
+      ],
+      "0d56c28efb5ee76d": [
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/price_batching_floor_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
       ],
       "0e5834c6c5a78468": [
         "expire-feed COUNT queries count the same set as their list queries getDispenserCloses serves the close reason, joined on the CLOSE's own action index",
@@ -7171,14 +7179,6 @@
         "Boundary Integration: URL path segments BV-URL-07: missing query segment for blocks",
         "Boundary Integration: URL path segments BV-URL-10: unicode in path does not cause server error"
       ],
-      "c97ad6f6953fa711": [
-        "retraction_signing_activation accepts numeric-string snapshot_block (wire values arrive as strings)",
-        "retraction_signing_activation activates testnet and regtest from genesis (threshold 0)",
-        "retraction_signing_activation fails safe (false) on a non-finite snapshot_block",
-        "retraction_signing_activation fails safe (false) on an unknown network",
-        "retraction_signing_activation is inactive strictly below the mainnet threshold and active at/above it",
-        "retraction_signing_activation mainnet is armed to a concrete positive height"
-      ],
       "c98ec1c00695d9c9": [
         "bet feed page response envelope resolves the flat record the endpoint actually returns",
         "bet feed page response envelope still reports a genuinely missing market as not found",
@@ -7257,34 +7257,6 @@
         "observability/patchConsole renders a multi-line message as ONE line with the breaks escaped",
         "observability/patchConsole resolves printf format strings and keeps an Error stack, via util.format",
         "observability/patchConsole routes console.* through the shim, mapping log to info"
-      ],
-      "caf5a029fc118188": [
-        "the explorer shows the membership the chain enforces getListCurrentMembership [REGRESSION] does not serve create-time membership once an edit exists",
-        "the explorer shows the membership the chain enforces getListCurrentMembership activates at exactly the flag-day height, not one block later",
-        "the explorer shows the membership the chain enforces getListCurrentMembership is INERT below the flag day, and reads no items at all",
-        "the explorer shows the membership the chain enforces getListCurrentMembership reads tick lists by tick and address lists by address",
-        "the explorer shows the membership the chain enforces getListCurrentMembership reports current membership from the edit head on an armed chain",
-        "the explorer shows the membership the chain enforces getListCurrentMembership stays on the create when the list was never edited",
-        "the explorer shows the membership the chain enforces getListCurrentMembership treats an unrecognized coin code as inactive rather than as mainnet",
-        "the explorer shows the membership the chain enforces getListHeadIndex falls back to the create when the list has no valid edits",
-        "the explorer shows the membership the chain enforces getListHeadIndex resolves an EDIT reference to the same head as the create",
-        "the explorer shows the membership the chain enforces getListHeadIndex resolves to the newest VALID edit, which holds current membership",
-        "the explorer shows the membership the chain enforces getListRootIndex leaves a create where it is: a NULL parent IS the root",
-        "the explorer shows the membership the chain enforces getListRootIndex returns the reference unchanged when it names no list at all",
-        "the explorer shows the membership the chain enforces getListRootIndex terminates on a chain that points at itself rather than spinning",
-        "the explorer shows the membership the chain enforces getListRootIndex walks an edit up to the create that roots its chain",
-        "the explorer shows the membership the chain enforces the LIST response must never be memoized [REGRESSION] a membership block makes the action uncacheable",
-        "the explorer shows the membership the chain enforces the LIST response must never be memoized an inert (below flag-day) membership block is uncacheable too",
-        "the explorer shows the membership the chain enforces the activation map is vendored, not re-typed matches the indexer copy byte for byte",
-        "the project registry shows the roster the chain enforces getProjectRosterInfo [REGRESSION] counts the CURRENT roster, not the create-time one",
-        "the project registry shows the roster the chain enforces getProjectRosterInfo is INERT below the flag day, and resolves no chain at all",
-        "the project registry shows the roster the chain enforces getProjectRosterInfo resolves the roster membership index to the edit-chain head",
-        "the project registry shows the roster the chain enforces getTokenProjects (the reverse \"official in X\" lookup) [REGRESSION] a roster that edited the token OUT no longer matches",
-        "the project registry shows the roster the chain enforces getTokenProjects (the reverse \"official in X\" lookup) a roster that edited the token IN matches, naming the edit",
-        "the project registry shows the roster the chain enforces getTokenProjects (the reverse \"official in X\" lookup) asks the membership question about heads only, never the pinned create",
-        "the project registry shows the roster the chain enforces getTokenProjects (the reverse \"official in X\" lookup) runs the single-query legacy form below the flag day",
-        "the project registry shows the roster the chain enforces the roster consumers inherit that one resolution getProject reads member tokens from the membership index",
-        "the project registry shows the roster the chain enforces the roster consumers inherit that one resolution getProjectTokens scopes the Official Tokens datatable to the head"
       ],
       "cd18f394238a9237": [
         "Database#getMaxMethodResults returns 100 for an unknown method string",
@@ -7473,27 +7445,6 @@
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path preserves per-row info for duplicate action_index rows",
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path produces identical enriched rows (status + details) across action types"
       ],
-      "d4a834d6f06270ec": [
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression mirror_admission_activation.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression price_batching_floor_activation.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression retraction_signing_activation.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
-      ],
       "d4ac69945c87d14c": [
         "Security: Path Traversal: Basic attacks blocks ../ traversal to parent directories",
         "Security: Path Traversal: Boundary check logic boundary check allows files within icons directory",
@@ -7594,15 +7545,6 @@
         "HubMirrorSyncManager syncs on the config-borne hub URL alone, with no HUB_API_URL in the env",
         "HubMirrorSyncManager takes the hub URL from the checkpoint config block, over the env"
       ],
-      "d7612bfffe2dd0af": [
-        "boundary: isRetractionSigningActive degenerate inputs fail safe returns false (never throws) at the non-numeric extremes",
-        "boundary: isRetractionSigningActive degenerate inputs fail safe returns false for any unknown network at every height",
-        "boundary: isRetractionSigningActive genesis-armed networks is on at height 0 for testnet and regtest (threshold 0, inclusive)",
-        "boundary: isRetractionSigningActive genesis-armed networks rejects a negative height even where the threshold is 0",
-        "boundary: isRetractionSigningActive mainnet flag-day is off one block below and on exactly at the threshold (inclusive)",
-        "boundary: isRetractionSigningActive mainnet flag-day stays on for the block immediately after and far beyond the threshold",
-        "boundary: isRetractionSigningActive mainnet flag-day treats the numeric string exactly at the boundary the same as the number"
-      ],
       "d77548f71fa8f07b": [
         "DB outage propagates (getData) getData rejects when the underlying data query fails",
         "DB outage propagates (getData) getData still returns a successful empty result without throwing",
@@ -7663,16 +7605,6 @@
         "cross-repo sibling coverage (what this run could NOT verify) declares every sibling it lists in .ci-siblings, so the venue ships them",
         "cross-repo sibling coverage (what this run could NOT verify) reports every sibling it looked for, so the list itself cannot rot silently",
         "cross-repo sibling coverage (what this run could NOT verify) resolves every sibling checkout the cross-repo guards depend on"
-      ],
-      "db6b64600442e940": [
-        "Boundary: isRetractionSigningActive() accepts a numeric-string snapshot_block (parseInt) at the boundary",
-        "Boundary: isRetractionSigningActive() honors a zero threshold for regtest (any finite snapshot_block is ON)",
-        "Boundary: isRetractionSigningActive() honors a zero threshold for testnet (any finite snapshot_block is ON)",
-        "Boundary: isRetractionSigningActive() is OFF exactly one block below the mainnet threshold",
-        "Boundary: isRetractionSigningActive() is OFF for an unknown / unrecognized network (rolling-deploy safe)",
-        "Boundary: isRetractionSigningActive() is OFF for non-finite snapshot_block input",
-        "Boundary: isRetractionSigningActive() is ON exactly AT the mainnet threshold (>= is inclusive)",
-        "Boundary: isRetractionSigningActive() is ON one block above the mainnet threshold"
       ],
       "dc20841654fa8096": [
         "config COIN_SUPPORTED contains all 9 coin/network combinations",
@@ -7833,6 +7765,33 @@
         "component registry and runtime (M2.1) validate rejects an UNDECLARED prop instead of ignoring it",
         "component registry and runtime (M2.1) validate reports an unknown component rather than throwing",
         "component registry and runtime (M2.1) validate treats a blank OPTIONAL prop as absent, not as the wrong type"
+      ],
+      "e574898387876cff": [
+        "the explorer shows the membership the chain enforces getListCurrentMembership [REGRESSION] does not serve create-time membership once an edit exists",
+        "the explorer shows the membership the chain enforces getListCurrentMembership activates at exactly the flag-day height, not one block later",
+        "the explorer shows the membership the chain enforces getListCurrentMembership is INERT below the flag day, and reads no items at all",
+        "the explorer shows the membership the chain enforces getListCurrentMembership reads tick lists by tick and address lists by address",
+        "the explorer shows the membership the chain enforces getListCurrentMembership reports current membership from the edit head on an armed chain",
+        "the explorer shows the membership the chain enforces getListCurrentMembership stays on the create when the list was never edited",
+        "the explorer shows the membership the chain enforces getListCurrentMembership treats an unrecognized coin code as inactive rather than as mainnet",
+        "the explorer shows the membership the chain enforces getListHeadIndex falls back to the create when the list has no valid edits",
+        "the explorer shows the membership the chain enforces getListHeadIndex resolves an EDIT reference to the same head as the create",
+        "the explorer shows the membership the chain enforces getListHeadIndex resolves to the newest VALID edit, which holds current membership",
+        "the explorer shows the membership the chain enforces getListRootIndex leaves a create where it is: a NULL parent IS the root",
+        "the explorer shows the membership the chain enforces getListRootIndex returns the reference unchanged when it names no list at all",
+        "the explorer shows the membership the chain enforces getListRootIndex terminates on a chain that points at itself rather than spinning",
+        "the explorer shows the membership the chain enforces getListRootIndex walks an edit up to the create that roots its chain",
+        "the explorer shows the membership the chain enforces the LIST response must never be memoized [REGRESSION] a membership block makes the action uncacheable",
+        "the explorer shows the membership the chain enforces the LIST response must never be memoized an inert (below flag-day) membership block is uncacheable too",
+        "the project registry shows the roster the chain enforces getProjectRosterInfo [REGRESSION] counts the CURRENT roster, not the create-time one",
+        "the project registry shows the roster the chain enforces getProjectRosterInfo is INERT below the flag day, and resolves no chain at all",
+        "the project registry shows the roster the chain enforces getProjectRosterInfo resolves the roster membership index to the edit-chain head",
+        "the project registry shows the roster the chain enforces getTokenProjects (the reverse \"official in X\" lookup) [REGRESSION] a roster that edited the token OUT no longer matches",
+        "the project registry shows the roster the chain enforces getTokenProjects (the reverse \"official in X\" lookup) a roster that edited the token IN matches, naming the edit",
+        "the project registry shows the roster the chain enforces getTokenProjects (the reverse \"official in X\" lookup) asks the membership question about heads only, never the pinned create",
+        "the project registry shows the roster the chain enforces getTokenProjects (the reverse \"official in X\" lookup) runs the single-query legacy form below the flag day",
+        "the project registry shows the roster the chain enforces the roster consumers inherit that one resolution getProject reads member tokens from the membership index",
+        "the project registry shows the roster the chain enforces the roster consumers inherit that one resolution getProjectTokens scopes the Official Tokens datatable to the head"
       ],
       "e57d9f45da0a5c8e": [
         "ANCHOR action detail sections @regression does not fan a v2 continuation out into sections",
@@ -8262,8 +8221,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 213,
-        "titleCount": 4468,
+        "fileCount": 212,
+        "titleCount": 4463,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "7ca4d7d5b63519d3",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -8397,7 +8356,7 @@
           "test/unit/db/readers/db_dispenser_escrow.test.js": "91f3e4eebb1ece3d",
           "test/unit/db/readers/db_dispenser_list_delay.test.js": "a219864686e88121",
           "test/unit/db/readers/db_expire_count_join_table.test.js": "0e5834c6c5a78468",
-          "test/unit/db/readers/db_list_edit_resolution.test.js": "caf5a029fc118188",
+          "test/unit/db/readers/db_list_edit_resolution.test.js": "e574898387876cff",
           "test/unit/db/readers/db_oracle_fees.test.js": "848ec7b4eb6a7563",
           "test/unit/db/readers/db_oracle_price_record.test.js": "54a8fb5c0bb49270",
           "test/unit/db/readers/db_orderbook_memoless.test.js": "ac459281d01e49b0",
@@ -8442,7 +8401,7 @@
           "test/unit/mirror/hub_db_sync.test.js": "f55a07ac9d44e266",
           "test/unit/mirror/hub_mirror_bridge_tables.test.js": "b82295a00869fe84",
           "test/unit/mirror/hub_mirror_charset_widen.test.js": "d531308aad6a4cd7",
-          "test/unit/mirror/hub_mirror_client_conformance.test.js": "d4a834d6f06270ec",
+          "test/unit/mirror/hub_mirror_client_conformance.test.js": "0d56c28efb5ee76d",
           "test/unit/mirror/hub_mirror_migrate.test.js": "60986510bdbb85b5",
           "test/unit/mirror/hub_mirror_pool.test.js": "203b533f2169b30e",
           "test/unit/mirror/hub_mirror_sync_manager.test.js": "d7304fac8a1b0b84",
@@ -8452,7 +8411,6 @@
           "test/unit/mirror/validators_hub_registry.test.js": "6ba3113e0aba826f",
           "test/unit/protocol/consensus_primitive_conformance.test.js": "091ee0965b4ff600",
           "test/unit/protocol/protocol_constants.test.js": "89477cc511f1aa72",
-          "test/unit/protocol/retraction_signing_activation.test.js": "c97ad6f6953fa711",
           "test/unit/render/html_templates_exist.test.js": "4bb485c7d8e7ff43",
           "test/unit/render/list_page_composition.test.js": "19b278e7eb66d5bf",
           "test/unit/render/platform_links.test.js": "ad6f9701f490c718",
@@ -8481,16 +8439,14 @@
         }
       },
       "test:boundary": {
-        "fileCount": 8,
-        "titleCount": 226,
+        "fileCount": 6,
+        "titleCount": 211,
         "files": {
           "test/boundary/integration/api_pagination_boundaries.test.js": "c96751a5eeb109d9",
           "test/boundary/integration/search_data_boundaries.test.js": "1d08cf4615c75417",
-          "test/boundary/retraction_signing_activation.test.js": "d7612bfffe2dd0af",
           "test/boundary/unit/bignum_boundaries.test.js": "849fd61c20837283",
           "test/boundary/unit/paging_boundaries.test.js": "ea1730e95b9cac39",
           "test/boundary/unit/relay_icon_boundaries.test.js": "0837168c1f947d25",
-          "test/boundary/unit/retraction_signing_boundaries.test.js": "db6b64600442e940",
           "test/boundary/unit/validation_boundaries.test.js": "6307b90aeac02140"
         }
       },
@@ -8503,13 +8459,12 @@
         }
       },
       "test:boundary:unit": {
-        "fileCount": 5,
-        "titleCount": 162,
+        "fileCount": 4,
+        "titleCount": 154,
         "files": {
           "test/boundary/unit/bignum_boundaries.test.js": "849fd61c20837283",
           "test/boundary/unit/paging_boundaries.test.js": "ea1730e95b9cac39",
           "test/boundary/unit/relay_icon_boundaries.test.js": "0837168c1f947d25",
-          "test/boundary/unit/retraction_signing_boundaries.test.js": "db6b64600442e940",
           "test/boundary/unit/validation_boundaries.test.js": "6307b90aeac02140"
         }
       },
@@ -8558,7 +8513,7 @@
       },
       "test:db": {
         "fileCount": 47,
-        "titleCount": 1430,
+        "titleCount": 1429,
         "files": {
           "test/unit/action_detail/db_action_detail_registry.test.js": "1f1916b92369ae39",
           "test/unit/action_detail/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",
@@ -8603,7 +8558,7 @@
           "test/unit/db/readers/db_dispenser_escrow.test.js": "91f3e4eebb1ece3d",
           "test/unit/db/readers/db_dispenser_list_delay.test.js": "a219864686e88121",
           "test/unit/db/readers/db_expire_count_join_table.test.js": "0e5834c6c5a78468",
-          "test/unit/db/readers/db_list_edit_resolution.test.js": "caf5a029fc118188",
+          "test/unit/db/readers/db_list_edit_resolution.test.js": "e574898387876cff",
           "test/unit/db/readers/db_oracle_fees.test.js": "848ec7b4eb6a7563",
           "test/unit/db/readers/db_oracle_price_record.test.js": "54a8fb5c0bb49270",
           "test/unit/db/readers/db_orderbook_memoless.test.js": "ac459281d01e49b0"

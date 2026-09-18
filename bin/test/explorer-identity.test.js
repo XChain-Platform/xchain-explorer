@@ -119,7 +119,10 @@ describe('bin/explorer-identity.js (AT1)', function () {
 
     it('carries the values the wave 1 barrier reads', function () {
         const identity = JSON.parse(fs.readFileSync(PIN, 'utf8'));
-        assert.strictEqual(identity.twins.length, 9, 'the frozen twin set is nine files');
+        // Six after W5 (activation registry row 28-pin): the three predicate-only
+        // shims (checkpoint_commitment, list_edit_resolution, retraction_signing)
+        // dropped out of TWIN_FILES when their rows moved to the registry.
+        assert.strictEqual(identity.twins.length, 6, 'the frozen twin set is six files');
         for (const twin of identity.twins) {
             assert.ok(!twin.missing, `${twin.path} is missing from the tree`);
             assert.match(twin.sha256, /^[0-9a-f]{64}$/);

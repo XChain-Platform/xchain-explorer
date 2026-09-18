@@ -35,9 +35,24 @@ const { mockRes, makeConfig }  = require('../../../../fixtures/mock-query-args.j
 
 // Same module instances XChainExplorer requires (Node module cache); stubbing
 // the activation predicates here pins the verify path deterministically.
-const eq   = require('../../../../../src/equivocation_header.js');
-const swq  = require('../../../../../src/stake_weighted_quorum.js');
-const ckpt = require('../../../../../src/checkpoint_commitment_activation.js');
+const eq   = require('../../../../../src/consensus/equivocation_header.js');
+const swq  = require('../../../../../src/consensus/stake_weighted_quorum.js');
+// The CHECKPOINT_COMMITMENT predicate is a registry read since W5 (activeAt over
+// the literal key through the module object), so pinning it means stubbing the
+// registry's activeAt for that one key and letting every other key through to
+// the real table. The handle returned is a sinon stub: returns(true|false) drives
+// the checkpoint-commitment verdict; sinon.restore() takes the stub down.
+const gateRegistry = require('../../../../../src/consensus/gate_registry');
+const CHECKPOINT_COMMITMENT_KEY = 'checkpoint_commitment_activation.CHECKPOINT_COMMITMENT_ACTIVATION';
+function stubCheckpointCommitment() {
+    const real = gateRegistry.activeAt;
+    const handle = sinon.stub();
+    sinon.stub(gateRegistry, 'activeAt').callsFake(function (key, network, coin, height, time) {
+        if (key === CHECKPOINT_COMMITMENT_KEY) return handle(key, network, coin, height, time);
+        return real(key, network, coin, height, time);
+    });
+    return handle;
+}
 
 // Load XChainExplorer with heavy deps replaced.
 const mockApp = { use: () => {}, get: () => {}, post: () => {}, enable: () => {} };
@@ -80,5 +95,5 @@ const snapRow = (pk, source) => ({ signing_pubkey: pk, amount: '5', source: sour
 
 module.exports = {
     proxyquire, sinon, expect, Utility, createConfigInfoStub, mockRes, makeConfig,
-    eq, swq, ckpt, mockApp, XChainExplorer, makeExplorer, req, CP, PK, snapRow
+    eq, swq, stubCheckpointCommitment, mockApp, XChainExplorer, makeExplorer, req, CP, PK, snapRow
 };

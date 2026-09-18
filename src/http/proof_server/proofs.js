@@ -19,8 +19,8 @@
 'use strict';
 
 const M   = require('../../consensus/merkle.js');
-const SUB = require('../../state_subtree_activation.js');   // byte-identical fourth carrier; escrow-leaf liveness only
-const swq = require('../../stake_weighted_quorum.js');
+const SUB = require('../../consensus/gates/state_subtree_gate.js');   // byte-identical fourth carrier; escrow-leaf liveness only
+const swq = require('../../consensus/stake_weighted_quorum.js');
 
 // One capability's stake set at the checkpoint height, for validatorSetProof.
 // Answers { error } to refuse the whole request, null when the capability is not

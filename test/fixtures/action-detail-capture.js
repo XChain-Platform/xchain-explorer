@@ -127,6 +127,11 @@ async function captureActionType(type, mode) {
         call++;
         // Call 1 is always getActionType; it decides which branch runs.
         if (call === 1) return [{ action: type }];
+        // A branch that asks the connected schema for a table (the XBRIDGE settle read)
+        // is captured against a replica that HAS it, so the golden pins the branch that
+        // reads the table rather than the degraded one.
+        if (/information_schema\.TABLES/i.test(statement))
+            return (args || []).map((name) => ({ TABLE_NAME: name }));
         return (mode === 'rows') ? [Object.assign({}, GENERIC_ROW)] : [];
     };
 

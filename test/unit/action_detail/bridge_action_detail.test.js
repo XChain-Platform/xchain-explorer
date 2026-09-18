@@ -29,8 +29,10 @@ const assert = require('node:assert/strict');
 
 const { REGISTRY, ACTION_TYPES, getHandler } = require('../../../src/action-detail');
 
-// Minimal ctx: the handler reaches the pool through db.doQuery, so the double
-// only has to answer that one call.
+// Minimal ctx over a replica that HAS the settle table: the handler asks the schema
+// for bridge_settlements before reading it, so the double answers that probe the way
+// the server answers it and the settle read with `rows`. The pre-bridge schema, where
+// the probe answers empty, is driven in bridge_action_detail_schema_shapes.test.js.
 function ctx(rows) {
     const queries = [];
     return {
@@ -38,9 +40,21 @@ function ctx(rows) {
         ctx: {
             action_index: 4242,
             config: { coin: 'DOGE' },
-            db: { async doQuery(config, sql, args) { queries.push({ sql, args }); return rows; } }
+            db: {
+                async doQuery(config, sql, args) {
+                    queries.push({ sql, args });
+                    if (/information_schema\.TABLES/i.test(sql)) return [{ TABLE_NAME: 'bridge_settlements' }];
+                    return rows;
+                }
+            }
         }
     };
+}
+
+// The statements that read the settle table, which is what these cases count: the
+// schema probe runs at most once per coin and is not part of any of them.
+function settleQueries(h) {
+    return h.queries.filter(q => /FROM bridge_settlements/.test(q.sql));
 }
 
 describe('XBRIDGE action detail handler @regression', function () {
@@ -65,9 +79,9 @@ describe('XBRIDGE action detail handler @regression', function () {
         const h = ctx([row]);
         const data = { action_format: 5 };
         await REGISTRY.XBRIDGE.afterMain(h.ctx, data);
-        assert.equal(h.queries.length, 1);
-        assert.match(h.queries[0].sql, /FROM bridge_settlements/);
-        assert.equal(h.queries[0].args[0], 4242, 'the settle row is keyed by the INJECTED leg own index');
+        const settle = settleQueries(h);
+        assert.equal(settle.length, 1);
+        assert.equal(settle[0].args[0], 4242, 'the settle row is keyed by the INJECTED leg own index');
         assert.equal(data.transfer_id, 'e'.repeat(64));
         assert.equal(data.bridge_kind, 'transfer');
         assert.equal(data.tick, 'BTC.FUFU');

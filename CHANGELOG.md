@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-17
+
+### Changed
+- The hub-mirror client moves to schema v7 with admission-height columns on seven mirror tables.
+- Activation modules and identity pins now follow the consolidated consensus layout.
+- The bridge and policy barrier twin matches the indexer implementation.
+
+### Fixed
+- Token detail reads adapt to the connected replica schema.
+- XBRIDGE detail renders against replicas created before bridge tables existed.
+
 ## [0.19.0] - 2026-09-16
 
 ### Added

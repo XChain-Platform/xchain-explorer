@@ -46,8 +46,18 @@ const configInfo    = createConfigInfoStub();
 const util          = new Utility(configInfo);
 const mockExplorer  = { configInfo, util };
 
+// Every token read probes the connected schema for the ISSUE format 7 bridge columns
+// first (bridgeColumnsPresent in src/db/readers/entities/tokens.js). The suites here
+// stub doQuery with ONE canned answer for every statement, so that probe would read a
+// token row as its column list, conclude the columns are absent, and push the read
+// under test down the degraded lane. Seeding the memo states the shape these suites
+// are about, a replica that HAS applied the migration, and keeps the probe from
+// issuing a query at all, so the first stubbed call is the read itself. The absent
+// shape has its own suite: test/unit/db/readers/db_token_bridge_schema_shapes.test.js.
 function makeDb() {
-    return new Database(mockExplorer);
+    const db = new Database(mockExplorer);
+    db.tokenBridgeColumnMemo = { BTC: { present: true, at: Date.now() } };
+    return db;
 }
 
 function cfg(overrides = {}) {

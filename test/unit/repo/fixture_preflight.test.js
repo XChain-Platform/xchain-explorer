@@ -23,6 +23,7 @@ const path   = require('path');
 const pre = require('../../integration/helpers/fixture-preflight.js');
 
 const REPO = path.join(__dirname, '..', '..', '..');
+const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
 
 // The real docker failure captured 2026-09-02.
 const DOCKER_BIND_FAILURE =
@@ -210,8 +211,6 @@ describe('integration fixture preflight', function () {
 describe('integration fixture preflight', function () {
 
     describe('wiring', function () {
-        const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
-
         it('routes the fixture lifecycle scripts through the preflighting wrapper', function () {
             // A revert to a bare `docker compose up` reinstates the fault: the
             // bind failure becomes a networking stack trace and the tiers run on
@@ -246,6 +245,14 @@ describe('integration fixture preflight', function () {
             assert.match(runner, /env:\s+pre\.conformanceEnvironment\(\)/);
             assert.doesNotMatch(runner, /testpass|CONFORMANCE_DB_PASS\s*:/);
         });
+
+    });
+
+});
+
+describe('integration fixture preflight', function () {
+
+    describe('wiring', function () {
 
         it('passes the selected identity only through the conformance environment', function () {
             const selected = {

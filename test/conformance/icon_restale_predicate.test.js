@@ -58,6 +58,8 @@ const { expect } = require('chai');
 const IconDownloader = require('../../src/icons/downloader.js');
 const { resolveDescriptionToSource, ACTION_REF_PATTERN } = require('../../src/icons/resolver.js');
 const pre = require('../integration/helpers/fixture-preflight.js');
+const { PRE_FIX_PREDICATE, RESOLVABLE, UNRESOLVABLE } =
+    require('./icon_restale_predicate.test/support/corpus.js');
 
 const connection = pre.conformanceConnection();
 const DB_HOST = connection.host;
@@ -67,10 +69,6 @@ const DB_PASS = connection.password;
 
 const RESTALE_DB      = pre.conformanceDatabase('XChain_Conformance_Restale');
 const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql');
-
-// The pre-fix predicate shape, kept verbatim as the NEGATIVE CONTROL. If the
-// corpus below ever stops catching this, the corpus has gone blind, not safe.
-const PRE_FIX_PREDICATE = "LOWER(TRIM(t.description)) REGEXP '^action:((btc|ltc|doge):)?([0-9]+)$'";
 
 /**
  * Split a DDL script into statements. Inline `--` comments come off FIRST,
@@ -84,23 +82,6 @@ function splitStatements(sql) {
         .join('\n')
         .split(';').map(s => s.trim()).filter(s => s.length > 0);
 }
-
-// Descriptions the live resolver RESOLVES. The predicate must still reach these
-// or the fix never lands on the rows it exists for.
-const RESOLVABLE = [
-    'action:12', 'action:BTC:5', 'ACTION:12', 'Action:BTC:5',
-    'action:ltc:7', 'ACTION:DOGE:99', 'aCtIoN:DoGe:1', '  action:7  ',
-];
-
-// Descriptions the live resolver returns null for. Every one is `action:`-shaped
-// enough to tempt a loose predicate; none may ever be selected. The U+0130 pair
-// is the attacker-mintable case this tier was written for.
-const UNRESOLVABLE = [
-    'action:foo', 'action:BTC:', 'action:', 'action:12a',
-    'action:XYZ:5', 'action:0x10', 'action: 12', 'Action:hello',
-    'ACTİON:12', 'ACTİON:BTC:5', 'actİon:12',
-    'actıon:12', 'ACTION：12', 'ＡＣＴＩＯＮ:12',
-];
 
 let adminPool = null;      // no default database: creates/drops the schema
 let pool      = null;      // BOUND to RESTALE_DB, so every pooled connection

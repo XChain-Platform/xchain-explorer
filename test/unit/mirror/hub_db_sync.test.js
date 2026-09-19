@@ -95,6 +95,10 @@ describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
         assert.ok(scheduleBootstrapRetry.calledOnce, 'the replacement connection gets a fresh drain');
     });
 
+});
+
+describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
+
     it('waitForPriceSyncHeight resolves immediately when already caught up', async function () {
         const { sync } = makeSync(0);
         sync.priceSyncHeight = 200;

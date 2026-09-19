@@ -57,7 +57,8 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
     'deployed_contract_index', 'contract_meta_name', 'contract_meta_version',                                      // Contracts: the identity the chain recorded, so history rows can print "Name vX (C:COIN:n)"
     'vote_kind',                                                                                                   // Governance
     'chain', 'network', 'checkpoint_seq', 'anchored_block_index',                                                  // Anchors
-    'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count'                   // Prices
+    'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count',                  // Prices
+    'leg_count', 'member_count', 'parent_batch_action_index'                                                       // Structure markers: multi-leg SEND/DESTROY, BATCH parent, BATCH member
 ]);
 
 // Lifecycle fields whose value the indexer writes AFTER the action confirmed.

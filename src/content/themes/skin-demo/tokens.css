@@ -72,6 +72,12 @@
     --xc-table-border-width: 2px;
     --xc-table-border-color: #7c8db3;
     --xc-table-cell-padding: 8px;
+    /* The legs or members a list row opens under itself (action_markers.js) */
+    --xc-legs-child-padding-y: 0.25rem;
+    --xc-legs-child-indent: 2rem;
+    --xc-legs-cell-font-size: 0.875em;
+    --xc-legs-cell-padding-y: 0.15rem;
+    --xc-legs-cell-padding-x: 0.5rem;
 
     /* Market page. All fixed heights/widths here are structural - the
        header/info panels and icon column are sized to these exactly, so

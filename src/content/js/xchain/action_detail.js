@@ -25,6 +25,11 @@ function getActionDetails(action, info){
     html = actionDetail_renderMessageActions(html, action, info, coin);
     html = actionDetail_renderContractActions(html, action, info, coin);
     html = actionDetail_renderConsensusActions(html, action, info, coin);
+    // The structure markers live in their own part (action_markers.js), loaded
+    // after this one; a page or a test harness that has only this part still
+    // gets the summary, without the count badge.
+    if(typeof actionDetail_renderStructureMarkers === 'function')
+        html = actionDetail_renderStructureMarkers(html, action, info, coin);
     return html;
 }
 

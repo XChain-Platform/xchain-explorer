@@ -78,6 +78,12 @@
     --xc-table-border-width: 1px;
     --xc-table-border-color: #ddd;
     --xc-table-cell-padding: 5px;
+    /* The legs or members a list row opens under itself (action_markers.js) */
+    --xc-legs-child-padding-y: 0.25rem;
+    --xc-legs-child-indent: 2rem;
+    --xc-legs-cell-font-size: 0.875em;
+    --xc-legs-cell-padding-y: 0.15rem;
+    --xc-legs-cell-padding-x: 0.5rem;
 
     /* Market page */
     --xc-market-info-height: 100px;

@@ -1451,6 +1451,10 @@
         "rollcall": {
             "rows": [
                 {
+                    "label": "Version",
+                    "cell": "rollcall-version"
+                },
+                {
                     "label": "Epoch Height (BTC)",
                     "cell": "rollcall-epoch-height"
                 },
@@ -1461,6 +1465,10 @@
                 {
                     "label": "Publisher",
                     "cell": "rollcall-publisher"
+                },
+                {
+                    "label": "Consensus Gates",
+                    "cell": "rollcall-gates"
                 },
                 {
                     "label": "Validators Present",

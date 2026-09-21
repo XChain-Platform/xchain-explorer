@@ -64,6 +64,99 @@ const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP  = configInfo.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = configInfo.env.EXPLORER_API_PORT_HTTPS || 8081;
 
+// Public reads used by token.html's bridge panels. They are mounted by api.js,
+// before XChainExplorer installs its wildcard page route, because one read is a
+// hub RPC and the other comes from the co-located hub-mirror schema rather than
+// the explorer's ordinary API-method table.
+function createBridgePanelHandlers(getExplorer, hubConnector){
+    const error = (res, status, message, code) =>
+        res.status(status).json({ error: message, code });
+
+    const nativeTickFor = (tick, chain) => {
+        const dot = tick.indexOf('.');
+        const root = dot > 0 ? tick.slice(0, dot).toUpperCase() : '';
+        return coins.ALLOWED_COINS.includes(root) && root !== String(chain || '').toUpperCase()
+            ? tick.slice(dot + 1) : tick;
+    };
+
+    const tickParam = (req, res) => {
+        const tick = String((req.params && req.params.tick) || '').trim();
+        if(!tick || tick.length > 250 || /[\x00-\x1f\x7f]/.test(tick)){
+            error(res, 400, 'Invalid token tick.', 'INVALID_TICK');
+            return null;
+        }
+        return tick;
+    };
+
+    return {
+        invariant: bridgeInvariantHandler(hubConnector, tickParam, error, nativeTickFor),
+        transfers: bridgeTransfersHandler(getExplorer, tickParam, error, nativeTickFor)
+    };
+}
+
+function bridgeInvariantHandler(hubConnector, tickParam, error, nativeTickFor){
+    return async function invariant(req, res){
+            const tick = tickParam(req, res);
+            if(tick === null) return;
+            if(!hubConnector)
+                return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
+            const routeCoin = String((req.params && req.params.coin) || '').toUpperCase();
+            const chain = coins.ALLOWED_COINS.find(coin => routeCoin.endsWith(coin)) || routeCoin;
+            const nativeTick = nativeTickFor(tick, chain);
+            try {
+                const result = await hubConnector.call({
+                    jsonrpc: '2.0', method: 'getbridgeinvariant', params: { tick: nativeTick }, id: 1
+                }, { attempts: 1 });
+                if(result === null || result === undefined)
+                    return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
+                // The renderer indexes the response by the displayed tick. Hub
+                // records use the native spelling, while a destination token page
+                // uses ORIGIN.TICK, so rename that one key at the HTTP boundary.
+                if(nativeTick !== tick && result && typeof result === 'object' &&
+                   Object.prototype.hasOwnProperty.call(result, nativeTick))
+                    return res.json({ [tick]: result[nativeTick] });
+                return res.json(result);
+            } catch(err){
+                log.warn('BRIDGE_INVARIANT_READ_FAILED', { err: err && err.message ? err.message : err });
+                return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
+            }
+    };
+}
+
+function bridgeTransfersHandler(getExplorer, tickParam, error, nativeTickFor){
+    return async function transfers(req, res){
+            const tick = tickParam(req, res);
+            if(tick === null) return;
+            const coin = String((req.params && req.params.coin) || '').toUpperCase();
+            const explorer = getExplorer();
+            const db = explorer && explorer.db;
+            const source = db && db.checkpointDb && db.checkpointDb[coin];
+            if(!db || typeof db.getBridgeTransfers !== 'function' || !source ||
+               !/^[A-Za-z0-9_$]+$/.test(String(source.name || '')))
+                return error(res, 503, 'Bridge transfers are unavailable.', 'BRIDGE_TRANSFERS_UNAVAILABLE');
+
+            // General-token rows store the native tick in the mirror. A bridged
+            // copy is displayed as ORIGIN.TICK, so remove a known foreign-chain
+            // root before binding the value. Native subassets retain their dot.
+            const nativeTick = nativeTickFor(tick, source.chain);
+
+            try {
+                const rows = await db.getBridgeTransfers({ coin, schema: source.name, network: source.network,
+                    tick: nativeTick, chain: source.chain, limit: 100 });
+                return res.json(Array.isArray(rows) ? rows : []);
+            } catch(err){
+                log.warn('BRIDGE_TRANSFERS_READ_FAILED', { coin, err: err && err.message ? err.message : err });
+                return error(res, 503, 'Bridge transfers are unavailable.', 'BRIDGE_TRANSFERS_UNAVAILABLE');
+            }
+    };
+}
+
+function mountBridgePanelRoutes(app, getExplorer, hubConnector){
+    const handlers = createBridgePanelHandlers(getExplorer, hubConnector);
+    app.get('/:coin/api/bridge-invariant/:tick', (req, res) => handlers.invariant(req, res));
+    app.get('/:coin/api/bridge-transfers/:tick', (req, res) => handlers.transfers(req, res));
+}
+
 // Everything the shutdown drain has to take down, published from startApi() as it
 // is built. Module scope because the signal handler is registered at load, before
 // startApi() has run: a SIGTERM that lands during startup finds the pieces that
@@ -194,6 +287,8 @@ async function startApi(){
     // Declared here so the ping closure can reference it after explorer is created.
     let explorer = null;
     const jsonRpcController = createJsonRpcController(() => explorer, requestGate);
+    // Before XChainExplorer, whose constructor mounts the GET 404 wildcard.
+    mountBridgePanelRoutes(app, () => explorer, HUB_ENDPOINTS ? new xchainHubConnector(HUB_ENDPOINTS) : null);
 
     const httpServer = startHttpListener(app);
     // Secondary and optional. Both the drain and the WS upgrade below read
@@ -271,6 +366,8 @@ const shutdown = createShutdown({ drain: createExplorerDrain(runtime) });
 for (const sig of ['SIGTERM', 'SIGINT']) {
     process.on(sig, () => shutdown(sig));
 }
+
+module.exports = { createBridgePanelHandlers, mountBridgePanelRoutes };
 
 startApi().catch(err => {
     log.error('FATAL_STARTUP_ERROR', { err: err && err.message ? err.message : err, stack: err && err.stack });

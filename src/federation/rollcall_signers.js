@@ -33,8 +33,16 @@ const crypto = require('crypto');
 const fs     = require('fs');
 const path   = require('path');
 const { getLogger } = require('../observability');
+const { copy } = require('../consensus/gate_registry');
 
 const log = getLogger();
+
+// The two ROLLCALL flag-day heights this answer carries, read from the shared gate
+// registry so the explorer reports the thresholds the indexer gates on. The BTC close
+// needs them to tell "this epoch is below activation" apart from "nobody signed", so
+// an answer without them is not the answer the indexer would have given.
+const ROLLCALL_ACTIVATION = copy('rollcall_activation.ROLLCALL_ACTIVATION');
+const ROLLCALL_GATES_ACTIVATION = copy('rollcall_gates_activation.ROLLCALL_GATES_ACTIVATION');
 
 // Upper bound on the key lists this read answers over. The close asks for the
 // responsible set plus one, so this is a ceiling on a malformed or hostile caller,
@@ -148,6 +156,8 @@ async function getrollcallsigners({ db, dbConfig, chain }, {network, epoch_heigh
             tip_block_index: (tipIndex === null || tipIndex === undefined) ? null : Number(tipIndex),
             tip_block_time:  Number.isFinite(tipTime) ? tipTime : null,
             manifest_hash:   rollcallManifestHash(),
+            rollcall_activation: ROLLCALL_ACTIVATION[chain['NETWORK']],
+            rollcall_gates_activation: ROLLCALL_GATES_ACTIVATION[chain['NETWORK']],
             signers,
             publishers: publishersOut
         };
@@ -159,5 +169,6 @@ async function getrollcallsigners({ db, dbConfig, chain }, {network, epoch_heigh
 
 module.exports = {
     ROLLCALL_READ_MAX_KEYS, MANIFEST_PATH,
+    ROLLCALL_ACTIVATION, ROLLCALL_GATES_ACTIVATION,
     rollcallManifestHash, rollcallSignersRequest, rollcallPresence, getrollcallsigners
 };

@@ -1149,10 +1149,6 @@
                 XC.pageInfo.canonical   = '/' + XC.coin + '/token/' + tick
                 updatePageInfo();
 
-                // Bridge panels run off the RESOLVED tick, not XC.query: the query
-                // can be a case variant or an alias, and a bridged copy's rooted
-                // name (BTC.FUFU) is what the invariant and the policy are keyed on.
-                loadBridgePanels(tick);
             }
         });
 
@@ -1182,4 +1178,3 @@
 
     });
 </script>
-

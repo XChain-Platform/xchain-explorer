@@ -15,15 +15,15 @@
  */
 var xcDatatableRowHandlers = xcDatatableRowHandlers || {};
 function xcDatatableRenderFeeRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Fee
 
-    token  = data[4];
-    amount = data[5];
-    type2  = data[6];
+    let token  = data[4];
+    let amount = data[5];
+    let type2  = data[6];
     // Fee payment method
-    txt  = (type2==1) ? 'Destroy' : 'Donate';
+    let txt = (type2==1) ? 'Destroy' : 'Donate';
     $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
     $('td', row).eq(5).html(numeral(amount).format(fmtCoin));
     $('td', row).eq(6).text(txt);
@@ -32,7 +32,7 @@ function xcDatatableRenderFeeRow(context){
 }
 xcDatatableRowHandlers.fee = xcDatatableRenderFeeRow;
 function xcDatatableRenderFileRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // File
 
@@ -47,18 +47,18 @@ function xcDatatableRenderFileRow(context){
 }
 xcDatatableRowHandlers.file = xcDatatableRenderFileRow;
 function xcDatatableRenderHolderRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Holder
 
-    address = data[1];
-    amount  = data[2];
-    percent = data[3];
-    value   = data[4];
+    let address = data[1];
+    let amount  = data[2];
+    let percent = data[3];
+    let value   = data[4];
     $('td', row).eq(1).html(formatLink('/' + coin + '/address/' + address, address));
     $('td', row).eq(2).html(formatAmount(amount));
     $('td', row).eq(3).html(numeral(percent).format(fmtCoin) + '%');
-    html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
+    let html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
     html += ' <span class="badge text-bg-info text-white">$' + numeral(value * XC.coin_price).format(fmtCurrency) + '</span>';
     $('td', row).eq(4).html(html);
     $('td', row).eq(5).html(formatLink('/' + coin + '/address/' + address, 'view', null, true));
@@ -66,13 +66,13 @@ function xcDatatableRenderHolderRow(context){
 }
 xcDatatableRowHandlers.holder = xcDatatableRenderHolderRow;
 function xcDatatableRenderIssueRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Issue
 
-    amount  = data[5];
-    amount2 = data[6];
-    locks   = data[7];
+    let amount  = data[5];
+    let amount2 = data[6];
+    let locks   = data[7];
     // data[8] = ownership-transfer destination; when set, this issue
     // moved the token's ownership record (the provenance trail for
     // NFT collections (nft-standard.md#collections))
@@ -87,15 +87,15 @@ function xcDatatableRenderIssueRow(context){
 }
 xcDatatableRowHandlers.issue = xcDatatableRenderIssueRow;
 function xcDatatableRenderLinkRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Link
 
-    coin1       = data[4];
-    coin1_index = data[5];
-    coin2       = data[6];
-    coin2_index = data[7];
-    memo        = data[8];
+    let coin1       = data[4];
+    let coin1_index = data[5];
+    let coin2       = data[6];
+    let coin2_index = data[7];
+    let memo        = data[8];
     $('td', row).eq(4).html(formatLink('/' + coin1 + '/action/' + coin1_index, coin1 + '-' + coin1_index));
     $('td', row).eq(5).html(formatLink('/' + coin2 + '/action/' + coin2_index, coin2 + '-' + coin2_index));
     // memo reaches the feed through a LEFT JOIN on index_memos, so it is
@@ -106,14 +106,14 @@ function xcDatatableRenderLinkRow(context){
 }
 xcDatatableRowHandlers.link = xcDatatableRenderLinkRow;
 function xcDatatableRenderListRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // List
 
-    type2 = data[4];
-    edit = data[5];
+    let type2 = data[4];
+    let edit  = data[5];
     // List Type
-    txt  = '';
+    let txt = '';
     if(type2==1) txt='Token';
     if(type2==2) txt='Address';
     $('td', row).eq(4).text(txt);
@@ -127,7 +127,7 @@ function xcDatatableRenderListRow(context){
 }
 xcDatatableRowHandlers.list = xcDatatableRenderListRow;
 function xcDatatableRenderMarketRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Markets
 
@@ -139,9 +139,9 @@ function xcDatatableRenderMarketRow(context){
         bid    = data[5],
         volume = data[6],
         change = data[7];
-        html   = '<img src="' + getTokenIcon(tick1) + '" class="icon-20">' +
-                 '<img src="' + getTokenIcon(tick2) + '" class="icon-20 ms-1 me-1">' +
-                 tick1 + ' / ' + tick2;
+    let html = '<img src="' + getTokenIcon(tick1) + '" class="icon-20">' +
+               '<img src="' + getTokenIcon(tick2) + '" class="icon-20 ms-1 me-1">' +
+               tick1 + ' / ' + tick2;
     $('td', row).eq(1).html(formatLink('/' + coin + '/market/' + market, html));
     $('td', row).eq(2).html(formatAmount(price));
     $('td', row).eq(3).html(formatAmount(ask));
@@ -154,24 +154,24 @@ function xcDatatableRenderMarketRow(context){
 }
 xcDatatableRowHandlers.market = xcDatatableRenderMarketRow;
 function xcDatatableRenderMessageRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Message
 
-    destination = data[4];
+    let destination = data[4];
     $('td', row).eq(4).html(formatLink('/' + coin + '/address/' + destination, destination));
     $('td', row).eq(7).html(action_link);
 
 }
 xcDatatableRowHandlers.message = xcDatatableRenderMessageRow;
 function xcDatatableRenderMintRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Mint
 
-    token       = data[4];
-    amount      = data[5];
-    destination = data[6];
+    let token       = data[4];
+    let amount      = data[5];
+    let destination = data[6];
     $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     // Write the cell either way: a MINT's DESTINATION is optional, and
@@ -185,16 +185,16 @@ function xcDatatableRenderMintRow(context){
 }
 xcDatatableRowHandlers.mint = xcDatatableRenderMintRow;
 function xcDatatableRenderOrderRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Order
 
-    token   = data[4];
-    amount  = data[5];
-    token2  = data[6];
-    amount2 = data[7];
-    give_ownership = data[8];
-    get_ownership  = data[9];
+    let token          = data[4];
+    let amount         = data[5];
+    let token2         = data[6];
+    let amount2        = data[7];
+    let give_ownership = data[8];
+    let get_ownership  = data[9];
     $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
     $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
     $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
@@ -204,13 +204,13 @@ function xcDatatableRenderOrderRow(context){
 }
 xcDatatableRowHandlers.order = xcDatatableRenderOrderRow;
 function xcDatatableRenderSendRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Send
 
-    token       = data[4];
-    amount      = data[5];
-    destination = data[6];
+    let token       = data[4];
+    let amount      = data[5];
+    let destination = data[6];
     $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(6).html(formatLink('/' + coin + '/address/' + destination, destination));
@@ -219,15 +219,15 @@ function xcDatatableRenderSendRow(context){
 }
 xcDatatableRowHandlers.send = xcDatatableRenderSendRow;
 function xcDatatableRenderSleepRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Sleep
 
-    type2        = data[4];
-    token        = data[5];
-    block_index2 = data[6];
+    let type2        = data[4];
+    let token        = data[5];
+    let block_index2 = data[6];
     // Sleep Type
-    txt  = '';
+    let txt = '';
     if(type2==1) txt='Address';
     if(type2==2) txt='Token';
     $('td', row).eq(4).text(txt);
@@ -239,16 +239,16 @@ function xcDatatableRenderSleepRow(context){
 }
 xcDatatableRowHandlers.sleep = xcDatatableRenderSleepRow;
 function xcDatatableRenderSwapRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Swap
 
-    token   = data[4];
-    amount  = data[5];
-    token2  = data[6];
-    amount2 = data[7];
-    give_ownership = data[8];
-    get_ownership  = data[9];
+    let token          = data[4];
+    let amount         = data[5];
+    let token2         = data[6];
+    let amount2        = data[7];
+    let give_ownership = data[8];
+    let get_ownership  = data[9];
     $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
     $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
     $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
@@ -258,13 +258,13 @@ function xcDatatableRenderSwapRow(context){
 }
 xcDatatableRowHandlers.swap = xcDatatableRenderSwapRow;
 function xcDatatableRenderSweepRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Sweep
 
-    destination = data[4];
+    let destination = data[4];
     $('td', row).eq(4).html(formatLink('/' + coin + '/address/' + destination, destination));
-    txt = (data[5]==1) ? 'True' : 'False';
+    let txt = (data[5]==1) ? 'True' : 'False';
     $('td', row).eq(5).text(txt);
     txt = (data[6]==1) ? 'True' : 'False';
     $('td', row).eq(6).text(txt);
@@ -279,15 +279,15 @@ function xcDatatableRenderSweepRow(context){
 }
 xcDatatableRowHandlers.sweep = xcDatatableRenderSweepRow;
 function xcDatatableRenderTokenRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Tokens
 
-    token   = data[3];
-    amount  = data[4];
-    amount2 = data[5];
-    amount3 = data[6];
-    locks   = data[7];
+    let token   = data[3];
+    let amount  = data[4];
+    let amount2 = data[5];
+    let amount3 = data[6];
+    let locks   = data[7];
     let tickHtml = formatLink('/' + coin + '/token/' + token, token, token);
     $('td', row).eq(3).html(tickHtml);
     $('td', row).eq(4).text(formatAmount(amount));
@@ -299,15 +299,15 @@ function xcDatatableRenderTokenRow(context){
 }
 xcDatatableRowHandlers.token = xcDatatableRenderTokenRow;
 function xcDatatableRenderProjectRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Official Tokens (project roster; same row shape as Tokens)
 
-    token   = data[3];
-    amount  = data[4];
-    amount2 = data[5];
-    amount3 = data[6];
-    locks   = data[7];
+    let token   = data[3];
+    let amount  = data[4];
+    let amount2 = data[5];
+    let amount3 = data[6];
+    let locks   = data[7];
     let pTickHtml = formatLink('/' + coin + '/token/' + token, token, token);
     $('td', row).eq(3).html(pTickHtml);
     $('td', row).eq(4).text(formatAmount(amount));
@@ -319,7 +319,7 @@ function xcDatatableRenderProjectRow(context){
 }
 xcDatatableRowHandlers.project = xcDatatableRenderProjectRow;
 function xcDatatableRenderActionRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Raw action list: one row per action with its type name; no per-type
 // details on this feed (they live on the action page). No status column
@@ -332,7 +332,7 @@ function xcDatatableRenderActionRow(context){
 }
 xcDatatableRowHandlers.action = xcDatatableRenderActionRow;
 function xcDatatableRenderOrderMatchRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Order match: each leg links the matched ORDER's action on its own coin
 // (the match row carries coins and action indexes, not ticks).
@@ -352,7 +352,7 @@ function xcDatatableRenderOrderMatchRow(context){
 }
 xcDatatableRowHandlers.order_match = xcDatatableRenderOrderMatchRow;
 function xcDatatableRenderSwapMatchRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Swap match: same two-leg rendering minus the amount and settlement
 // columns, which a swap match does not carry.
@@ -368,29 +368,29 @@ function xcDatatableRenderSwapMatchRow(context){
 }
 xcDatatableRowHandlers.swap_match = xcDatatableRenderSwapMatchRow;
 function xcDatatableRenderHistoryRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // History
 
     let action2 = data[3];
     let info    = data[4];
     $('td', row).eq(3).html(action2);
-    html = getActionDetails(action2, info);
+    let html = getActionDetails(action2, info);
     $('td', row).eq(4).html(html);
     $('td', row).eq(5).html(action_link);
 
 }
 xcDatatableRowHandlers.history = xcDatatableRenderHistoryRow;
 function xcDatatableRenderMarketHistoryRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Market History
 
-    type       = data[3];
-    let price  = bcformat(data[4],8);
-    amount     = bcformat(data[5],8);
-    let total  = bcformat(bcmul(price, amount),8);
-    $('td', row).eq(3).html(type);
+    let marketType = data[3];
+    let price      = bcformat(data[4],8);
+    let amount     = bcformat(data[5],8);
+    let total      = bcformat(bcmul(price, amount),8);
+    $('td', row).eq(3).html(marketType);
     $('td', row).eq(4).html(formatAmount(price));
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(6).html(formatAmount(total));

@@ -154,27 +154,8 @@ function xcDatatableCreateRow(row, data, idx, coin, action, type){
             let status       = data[data.length-2];
             let count        = data[0];
             let block_index  = data[1];
-            let block_index2 = false;
             let timestamp    = data[2];
             let source       = data[3];
-            let destination  = false;
-            let token        = false;
-            let token2       = false;
-            let amount       = false;
-            let amount2      = false;
-            let amount3      = false;
-            let coin_index   = false;
-            let coin2        = false;
-            let coin2_index2 = false;
-            let message      = false;
-            let value        = false;
-            let fee          = false;
-            let locks        = false;
-            let memo         = false;
-            let edit         = false;
-            let type2        = false;
-            let txt          = '';
-            let html         = '';
             // Define the various numeral formats used
             let fmtInteger   = '0,0';
             let fmtCurrency  = '0,0.00';
@@ -197,9 +178,7 @@ function xcDatatableCreateRow(row, data, idx, coin, action, type){
             $('td', row).eq(2).html(formatLivestamp(timestamp));
             $('td', row).eq(3).html(source_link);
     let context = { row, data, idx, coin, action, type, action_index, status, count,
-        block_index, block_index2, timestamp, source, destination, token, token2,
-        amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value,
-        fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin,
+        block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin,
         action_link, block_link, source_link };
     let handler = xcDatatableRowHandlers[action];
     if(handler) handler(context);

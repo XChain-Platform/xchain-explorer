@@ -15,7 +15,7 @@
  */
 var xcDatatableRowHandlers = xcDatatableRowHandlers || {};
 function xcDatatableRenderSearchRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Search
 
@@ -66,7 +66,7 @@ function xcDatatableRenderSearchRow(context){
 }
 xcDatatableRowHandlers.search = xcDatatableRenderSearchRow;
 function xcDatatableRenderContractRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Contract (DEPLOY list). The Name cell carries the contract's declared
 // meta.name (spec contract-meta-manifest 2.6), hardened and escaped: it is
@@ -87,7 +87,7 @@ function xcDatatableRenderContractRow(context){
 }
 xcDatatableRowHandlers.contract = xcDatatableRenderContractRow;
 function xcDatatableRenderExecutionRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Execution (EXECUTE list)
 
@@ -106,13 +106,13 @@ function xcDatatableRenderExecutionRow(context){
 }
 xcDatatableRowHandlers.execution = xcDatatableRenderExecutionRow;
 function xcDatatableRenderDepositOrWithdrawalRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Deposit / Withdrawal (contract custody)
 
     let contract_index = data[4];
-    token  = data[5];
-    amount = data[6];
+    let token  = data[5];
+    let amount = data[6];
     $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
     $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
     $('td', row).eq(6).html(formatAmount(amount));
@@ -122,7 +122,7 @@ function xcDatatableRenderDepositOrWithdrawalRow(context){
 xcDatatableRowHandlers.deposit = xcDatatableRenderDepositOrWithdrawalRow;
 xcDatatableRowHandlers.withdrawal = xcDatatableRenderDepositOrWithdrawalRow;
 function xcDatatableRenderValidatorRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Validator / capability stake. eq(7)-eq(9) are the hub federation registry's
 // view of the SAME signing pubkey (addr / served chains / registration
@@ -136,7 +136,7 @@ function xcDatatableRenderValidatorRow(context){
 
     let pubkey     = data[4];
     let version    = data[5];
-    amount         = data[6];
+    let amount     = data[6];
     let hub_addr   = data[7];
     let hub_chains = data[8];
     let hub_status = data[9];
@@ -159,13 +159,13 @@ function xcDatatableRenderValidatorRow(context){
 }
 xcDatatableRowHandlers.validator = xcDatatableRenderValidatorRow;
 function xcDatatableRenderStakeRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Raw stake list (all STAKE actions, any status; getStakes shaper, action_index last)
 
     let pubkey  = data[4];
     let version = data[5];
-    amount      = data[6];
+    let amount  = data[6];
     $('td', row).eq(4).html(formatHash(pubkey));
     $('td', row).eq(5).text('v' + version);
     $('td', row).eq(6).html(formatAmount(amount));
@@ -174,14 +174,14 @@ function xcDatatableRenderStakeRow(context){
 }
 xcDatatableRowHandlers.stake = xcDatatableRenderStakeRow;
 function xcDatatableRenderContractStakeRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Contract-targeted stake (STAKE v3)
 
     let pubkey         = data[4];
     let contract_index = data[5];
-    token  = data[6];
-    amount = data[7];
+    let token  = data[6];
+    let amount = data[7];
     let version = data[8];
     $('td', row).eq(4).html(formatHash(pubkey));
     $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
@@ -192,14 +192,14 @@ function xcDatatableRenderContractStakeRow(context){
 }
 xcDatatableRowHandlers.contract_stake = xcDatatableRenderContractStakeRow;
 function xcDatatableRenderContractUnstakeRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Contract-targeted unstake (UNSTAKE v1)
 
     let pubkey         = data[4];
     let contract_index = data[5];
-    token  = data[6];
-    amount = data[7];
+    let token  = data[6];
+    let amount = data[7];
     let cooldown_end = data[8];
     $('td', row).eq(4).html(formatHash(pubkey));
     $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
@@ -211,15 +211,15 @@ function xcDatatableRenderContractUnstakeRow(context){
 }
 xcDatatableRowHandlers.contract_unstake = xcDatatableRenderContractUnstakeRow;
 function xcDatatableRenderSlashEventRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Slash event (xchain.contract.slash emission; no own action_index; links to the EXECUTE)
 
     let pubkey         = data[3];
     let contract_index = data[4];
-    token       = data[5];
-    amount      = data[6];
-    destination = data[7];
+    let token       = data[5];
+    let amount      = data[6];
+    let destination = data[7];
     let execution_index = data[8];
     $('td', row).eq(3).html(formatHash(pubkey));
     $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
@@ -231,7 +231,7 @@ function xcDatatableRenderSlashEventRow(context){
 }
 xcDatatableRowHandlers.slash_event = xcDatatableRenderSlashEventRow;
 function xcDatatableRenderAttestationRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Attestation (ATTEST v0 request / v1 response from the `attests` table)
 //
@@ -272,7 +272,7 @@ function xcDatatableRenderAttestationRow(context){
 }
 xcDatatableRowHandlers.attestation = xcDatatableRenderAttestationRow;
 function xcDatatableRenderPollRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // VOTE poll (polls table; token-weighted governance, VOTE v0). eq(4) token,
 // eq(5) question, eq(6) lifecycle-status badge (open/finalized/failed_quorum),
@@ -285,7 +285,7 @@ function xcDatatableRenderPollRow(context){
 // Option labels are attacker-controlled on-chain bytes, so the cell is
 // written with .text(), exactly like the question above it.
 
-    token             = data[4];
+    let token         = data[4];
     let question      = data[5];
     let poll_status   = data[6];
     let end_block     = data[7];
@@ -304,7 +304,7 @@ function xcDatatableRenderPollRow(context){
 }
 xcDatatableRowHandlers.poll = xcDatatableRenderPollRow;
 function xcDatatableRenderVoteRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // VOTE ballot (votes table; one row per voter choice, VOTE v1). eq(4) links the
 // poll it voted on, eq(5) the chosen option index, eq(6) the split-mode share.
@@ -320,13 +320,13 @@ function xcDatatableRenderVoteRow(context){
 }
 xcDatatableRowHandlers.vote = xcDatatableRenderVoteRow;
 function xcDatatableRenderBetFeedRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // BET market (bet_feeds; BET format 0). eq(5) is the market LABEL, which is
 // attacker-controlled on-chain text, so it goes in with .text() and never
 // as markup. The status shown is the STORED feed status.
 
-    token            = data[4];
+    let token        = data[4];
     let label        = data[5];
     let feed_status  = data[6];
     let deadline     = data[7];
@@ -344,14 +344,14 @@ function xcDatatableRenderBetFeedRow(context){
 }
 xcDatatableRowHandlers.bet_feed = xcDatatableRenderBetFeedRow;
 function xcDatatableRenderBetRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // BET wager (bets; BET format 2). eq(4) links the market it was placed on.
 
     let feed_index = data[4];
     let outcome    = data[5];
-    token          = data[6];
-    amount         = data[7];
+    let token      = data[6];
+    let amount     = data[7];
     let bet_status = data[8];
     let bcls = (bet_status=='won') ? 'success' : (bet_status=='lost') ? 'danger'
              : (bet_status=='refunded') ? 'secondary' : 'primary';
@@ -365,7 +365,7 @@ function xcDatatableRenderBetRow(context){
 }
 xcDatatableRowHandlers.bet = xcDatatableRenderBetRow;
 function xcDatatableRenderXcallRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // XCALL (cross-chain call, source-chain request row). eq(3) overrides the
 // generic source-address link with the emitting contract.
@@ -386,11 +386,11 @@ function xcDatatableRenderXcallRow(context){
 }
 xcDatatableRowHandlers.xcall = xcDatatableRenderXcallRow;
 function xcDatatableRenderCollectRow(context){
-    let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
+    let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
 // Collect (validator reward claim; reward_claims)
 
-    amount = data[4];
+    let amount = data[4];
     $('td', row).eq(4).html(formatAmount(amount));
     $('td', row).eq(5).html(action_link);
 

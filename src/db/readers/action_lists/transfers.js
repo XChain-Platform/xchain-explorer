@@ -20,8 +20,9 @@
 
 'use strict';
 
-class TransferReaders {
+const { feeRows } = require('../../../action-detail/contracts.js');
 
+class TransferReaders {
     // A contract-emitted SEND has no broadcast transaction behind it: the injected
     // EXECUTE that ran it carries no TX_INDEX (xchain-indexer actions/xexec.js), and
     // execute/index.js propagates that absence into every action the run emits, so the
@@ -342,5 +343,58 @@ class TransferReaders {
         return [query, null, count];
     }
 }
+
+async function getFees(config){
+    let sql  = config.data.sql;
+    let rows = feeRows();
+    let joins = `
+                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(m.source_id, a1.source_id, t1.source_id))
+                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)`;
+    let count = `SELECT
+                        count(*) as total
+                    FROM
+                        ` + rows + ` m` + joins + `
+                    WHERE ` + sql.where.data;
+    let query = `SELECT
+                        m.action_index,
+                        a1.action_format,
+                        a4.action,
+                        a2.address as source,
+                        a3.address as destination,
+                        t3.tick,
+                        m.method,
+                        m.amount,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        m.gas_cost,
+                        m.gas_price,
+                        m.xchain_amount,
+                        m.payment_mode,
+                        m.native_coin_amount,
+                        m.native_coin,
+                        m.oracle_round,
+                        m.fee_preference,
+                        m.fee_version
+                    FROM
+                        ` + rows + ` m` + joins + `
+                    WHERE ` + sql.where.data + sql.where.offset +`
+                    ORDER BY m.action_index ` + sql.order + `
+                    LIMIT ` + sql.limit;
+    return [query, null, count];
+}
+
+Object.defineProperty(require('./coinpay.js'), 'getFees', {
+    value: getFees,
+    writable: true,
+    configurable: true
+});
 
 module.exports = TransferReaders.prototype;

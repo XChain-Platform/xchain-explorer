@@ -177,7 +177,7 @@ CREATE TABLE tokens (
     max_supply         VARCHAR(250),                         -- Maximum Supply
     max_mint           VARCHAR(250),                         -- Supply minted
     decimals           TINYINT(2),                           -- 0=non-divisible, 1-18=divisible
-    description        VARCHAR(250),                         -- URL to icon
+    description        VARCHAR(250) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci, -- URL to icon
     lock_max_supply    TINYINT(1) NOT NULL DEFAULT 0,        -- Locks MAX_SUPPLY
     lock_mint          TINYINT(1) NOT NULL DEFAULT 0,        -- Locks MINT
     lock_mint_supply   TINYINT(1) NOT NULL DEFAULT 0,        -- Locks MINT_SUPPLY

@@ -194,6 +194,32 @@ function migrationFiles(dir) {
         .map(f => path.join(mig, f));
 }
 
+function declaredColumnCharset(sql, table, column) {
+    const tablePattern = new RegExp(
+        'CREATE\\s+TABLE\\s+`?' + table + '`?\\s*\\(([\\s\\S]*?)\\n\\)\\s*ENGINE', 'i');
+    const tableMatch = sql.match(tablePattern);
+    if (!tableMatch) return null;
+
+    const columnPattern = new RegExp(
+        '^\\s*`?' + column + '`?\\s+[^\\n]*\\bCHARACTER\\s+SET\\s+([a-z0-9_]+)', 'mi');
+    const columnMatch = tableMatch[1].match(columnPattern);
+    return columnMatch ? columnMatch[1].toLowerCase() : null;
+}
+
+describe('Integration fixture drift guard', function () {
+    it('matches the real indexer DDL for tokens.description charset', function () {
+        const realSchema = path.join(INDEXER_SQL_DIR, 'tokens.sql');
+        if (!fs.existsSync(realSchema)) this.skip();
+
+        const realCharset = declaredColumnCharset(fs.readFileSync(realSchema, 'utf8'), 'tokens', 'description');
+        const fixtureCharset = declaredColumnCharset(fs.readFileSync(FIXTURE_SCHEMA, 'utf8'), 'tokens', 'description');
+
+        expect(realCharset, 'real indexer DDL must declare tokens.description charset').to.be.a('string');
+        expect(fixtureCharset, 'integration fixture tokens.description charset drifted from real indexer DDL')
+            .to.equal(realCharset);
+    });
+});
+
 module.exports = { fs, path, express, mariadb, expect, XChainExplorer, ChangeDetector, makeConfig, envView, DB_HOST, DB_PORT, DB_USER, DB_PASS, INDEXER_DB, DECODER_DB, FIXTURE_DB, HUB_DB, INDEXER_SQL_DIR, DECODER_SQL_DIR, HUB_SQL_DIR, MIRROR_SQL_DIR, FIXTURE_SCHEMA, HUB_LOCAL_TABLES, PROBE_ARGS, MEMPOOL_ACTION_STRING, isSchemaError, splitStatements, ddlFiles, migrationFiles };
 
 require('./schema_conformance.test/support/suite.js');

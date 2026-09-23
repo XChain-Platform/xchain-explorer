@@ -46,6 +46,8 @@ const { isPreflightPostRequest, MAX_PREFLIGHT_PARAMS_LENGTH } = require('./explo
 // other one.
 const { PREFLIGHT_BODY_LIMIT } = require('./explorer/mount.js');
 const { runRequest } = require('./explorer/request/index.js');
+const { newRequestState } = require('./explorer/request/state.js');
+const { resolveRoute } = require('./explorer/request/resolve_route.js');
 
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
@@ -182,7 +184,35 @@ class XChainExplorer {
     async processRequest(req, res){
         if(await this.answerActionNotYetIndexed(req, res))
             return;
+        if(await this.answerUnmatchedApiPath(req, res))
+            return;
         return runRequest(this, req, res, { configEnv, stats });
+    }
+
+    // A /{COIN}/api/... path that no registered route claims would otherwise
+    // fall through to explorer/request/not_found.js's applyFallbacks, which
+    // answers every unmatched request the same way regardless of request type:
+    // an HTML 404 page. An API client parsing that body as JSON fails. Run the
+    // same route resolution runRequest is about to run, and answer JSON here
+    // only in the exact case applyFallbacks treats as unmatched (neither a file
+    // nor a data method was found), so a route that matched and chose to answer
+    // 404 itself (its own JSON, or a plain string) is left untouched.
+    async answerUnmatchedApiPath(req, res){
+        try {
+            let config = await this.configInfo.getConfig();
+            let st = newRequestState(this, req, config);
+            await resolveRoute(this, req, st);
+            if(st.cfg.type !== 'api' || !this.util.isNull(st.cfg.file) || !this.util.isNull(st.cfg.data.method))
+                return false;
+            res.set('Content-Type', 'application/json; charset=utf-8');
+            res.status(404).send(JSON.stringify({
+                error: 'The requested resource was not found.',
+                code: 'NOT_FOUND'
+            }));
+            return true;
+        } catch(_){
+            return false;
+        }
     }
 
     // An action_index above the highest one this instance has indexed is not a

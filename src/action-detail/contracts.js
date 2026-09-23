@@ -136,3 +136,61 @@ module.exports = {
     DEPOSIT:  DEPOSIT_WITHDRAW,
     WITHDRAW: DEPOSIT_WITHDRAW
 };
+
+Object.defineProperty(module.exports, 'feeRows', {
+    value: function feeRows(){
+        return `(SELECT
+                        m.action_index,
+                        m.tick_id,
+                        m.amount,
+                        m.method,
+                        m.destination_id,
+                        m.gas_cost,
+                        m.gas_price,
+                        m.xchain_amount,
+                        m.payment_mode,
+                        m.native_coin_amount,
+                        m.native_coin,
+                        m.oracle_round,
+                        m.fee_preference,
+                        m.status_id,
+                        m.fee_version,
+                        NULL as source_id
+                    FROM
+                        fees m
+                    UNION ALL
+                    SELECT
+                        ce.action_index,
+                        CASE WHEN COUNT(DISTINCT d.tick_id)=1 THEN MIN(d.tick_id) ELSE NULL END as tick_id,
+                        CASE WHEN COUNT(DISTINCT d.tick_id)=1 THEN SUM(CAST(d.amount AS DECIMAL(65,8))) ELSE NULL END as amount,
+                        NULL as method,
+                        NULL as destination_id,
+                        ce.gas_used as gas_cost,
+                        NULL as gas_price,
+                        CASE WHEN COUNT(DISTINCT d.tick_id)=1 THEN SUM(CAST(d.amount AS DECIMAL(65,8))) ELSE NULL END as xchain_amount,
+                        CASE WHEN COUNT(d.action_index)=0 THEN 1 ELSE 2 END as payment_mode,
+                        NULL as native_coin_amount,
+                        NULL as native_coin,
+                        NULL as oracle_round,
+                        NULL as fee_preference,
+                        ce.status_id,
+                        2 as fee_version,
+                        ce.caller_id as source_id
+                    FROM
+                        contract_executions ce
+                        INNER JOIN actions         ca  ON (ca.action_index=ce.action_index)
+                        INNER JOIN index_actions   cia ON (cia.id=ca.action_id)
+                        INNER JOIN index_statuses  cis ON (cis.id=ce.status_id)
+                        LEFT  JOIN debits          d   ON (d.action_index=ce.action_index AND d.address_id=ce.caller_id)
+                    WHERE
+                        cia.action IN ('DEPLOY','EXECUTE')
+                        AND ca.tx_index IS NOT NULL
+                        AND ce.gas_used>0
+                        AND cis.status NOT LIKE 'invalid%'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM fees existing WHERE existing.action_index=ce.action_index
+                        )
+                    GROUP BY
+                        ce.action_index, ce.gas_used, ce.status_id, ce.caller_id)`;
+    }
+});

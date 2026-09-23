@@ -205,15 +205,24 @@ function getNetworkIcon(name=null, network=null){
 // Return nice display string for links
 function formatLink(url=null, text=null, icon=false, btn=false){
     var html = '',
-        cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '';
+        cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '',
+        escapeLinkAttribute = function(value){
+            if(typeof escapeHtml === 'function')
+                return escapeHtml(value);
+            if(value === null || value === undefined)
+                return '';
+            return String(value).replace(/[&<>"']/g, function(c){
+                return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+            });
+        };
     // A url whose last segment stringified a missing value is not a destination:
     // render the label alone rather than a dead link. ORDER/SWAP/DISPENSER use an
     // empty tick to mean the native coin, which built hrefs ending in /token/null.
     if(/\/(null|undefined)$/.test(String(url)))
         return (text) ? String(text) : '';
-        html += '<a href="' + url + '" class="' + cls + '">';
+        html += '<a href="' + escapeLinkAttribute(url) + '" class="' + cls + '">';
     if(icon && !isNull(icon))
-        html += '<img src="' + getTokenIcon(icon) + '" class="icon-20 ms-1 me-1">';
+        html += '<img src="' + escapeLinkAttribute(getTokenIcon(icon)) + '" class="icon-20 ms-1 me-1">';
     if(text)
         html += text;
     html += '</a>'

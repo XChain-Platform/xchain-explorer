@@ -78,7 +78,20 @@ class FileRoutes {
         // '..' because this part sits one directory below the class file the route
         // was written in: the icons still live at src/content/icons.
         const dirPath  = path.resolve(path.join(__dirname, '..', 'content/icons'));
-        const filePath = path.resolve(path.join(dirPath, req.path.replace(/^\/icon/, '')));
+        // req.path is the raw, still-encoded path. The client percent-encodes
+        // the tick segment (getTokenIcon), and the downloader names the file
+        // after the raw tick, so the segment is decoded before the disk lookup
+        // or a tick with '%' or '#' in it never finds its own icon. A path
+        // whose encoding does not parse is a miss, not an error page.
+        let rel;
+        try {
+            rel = decodeURIComponent(req.path.replace(/^\/icon/, ''));
+        } catch(_){
+            return res.redirect(302, '/icon/default.png');
+        }
+        if(rel.includes('\0'))
+            return res.redirect(302, '/icon/default.png');
+        const filePath = path.resolve(path.join(dirPath, rel));
         if(!filePath.startsWith(dirPath + path.sep))
             return res.status(403).json({ error: 'Access denied', code: 'PATH_DENIED' });
         if(fs.existsSync(filePath)){

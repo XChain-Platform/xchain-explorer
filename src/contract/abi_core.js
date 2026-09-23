@@ -14,14 +14,14 @@
 
 /**
  * Contract-ABI extraction core (spec: xchain-documentation/protocol/
- * Contract_ABI.md), shared by the explorer's contract introspection and the
+ * contract-abi.md), shared by the explorer's contract introspection and the
  * SDK's ContractUtils.parseAbi. The abi block is display metadata self-declared
  * by the contract author: never validated against the code, never consensus.
  * Extraction is fail-closed: a dynamic or structurally wrong abi/version/
  * methods yields null, while a malformed SINGLE method entry drops only that
  * method so one typo does not blank the whole ABI.
  *
- * CANONICAL COPY: xchain-explorer/src/abi-core.js. The SDK vendors it
+ * CANONICAL COPY: xchain-explorer/src/contract/abi_core.js. The SDK vendors it
  * byte-identically at xchain-sdk/src/contract/abi-core.js (it cannot depend on
  * the explorer). Edit the canonical file and run
  * xchain-explorer/bin/sync-abi-core.sh; drift fails CI (the SDK's

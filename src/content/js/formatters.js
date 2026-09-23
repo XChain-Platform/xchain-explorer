@@ -183,9 +183,13 @@ function isNftToken(decimals, lockMaxSupply){
     return Number(decimals)===0 && Number(lockMaxSupply)===1;
 }
 
-// Return path to the token icon
+// Return path to the token icon. The tick is one URL path segment, so it is
+// percent-encoded: a tick is free text and one carrying '#' or '%' (TDOGE
+// action 2693 issued "$$$$$$$$$$$78324%@##*(@#") otherwise truncates the
+// request at the fragment, or fails URL parsing outright, and the browser
+// shows a broken image instead of the token's icon or the default.
 function getTokenIcon(token){
-    let icon = '/icon/' + XC.coin + '/' + XC.network + '/' + token + '.png';
+    let icon = '/icon/' + XC.coin + '/' + XC.network + '/' + encodeURIComponent(String(token)) + '.png';
     return icon
 }
 
@@ -208,8 +212,13 @@ function formatLink(url=null, text=null, icon=false, btn=false){
     if(/\/(null|undefined)$/.test(String(url)))
         return (text) ? String(text) : '';
         html += '<a href="' + url + '" class="' + cls + '">';
+    // The server 302s a missing icon to the default, but a request the server
+    // never answers with an image (a malformed path, a network error) still
+    // leaves a broken-image glyph; the onerror walks to the default once and
+    // then unhooks itself so a missing default cannot loop.
     if(icon && !isNull(icon))
-        html += '<img src="' + getTokenIcon(icon) + '" class="icon-20 ms-1 me-1">';
+        html += '<img src="' + getTokenIcon(icon) + '" class="icon-20 ms-1 me-1"'
+              + ' onerror="this.onerror=null;this.src=\'/icon/default.png\';">';
     if(text)
         html += text;
     html += '</a>'

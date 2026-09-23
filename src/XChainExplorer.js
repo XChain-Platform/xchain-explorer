@@ -30,6 +30,7 @@ const HubMirrorSyncManager = require('./mirror/sync_manager.js');
 const ProofServer      = require('./http/proof_server.js');
 const rateLimit        = require('express-rate-limit');
 const { limitedHandler } = require('./http/rate_limit_log.js');   // limiter counter line, shared with api.js's app-wide limiter
+const themeResolver    = require('./content/themes/resolve.js');
 
 // The request handler families, each a class body exporting its own prototype.
 // installExplorerFamilies copies them onto XChainExplorer.prototype below the
@@ -186,7 +187,34 @@ class XChainExplorer {
             return;
         if(await this.answerUnmatchedApiPath(req, res))
             return;
+        this.applyThemeSelection(req, res);
         return runRequest(this, req, res, { configEnv, stats });
+    }
+
+    applyThemeSelection(req, res){
+        let configuredDefault;
+        try {
+            configuredDefault = typeof this.configInfo.defaultTheme === 'function'
+                ? this.configInfo.defaultTheme()
+                : undefined;
+        } catch(_){
+            configuredDefault = undefined;
+        }
+
+        const originalSend = res.send.bind(res);
+        res.send = (body) => {
+            if(typeof body === 'string' && body.startsWith('<!DOCTYPE')){
+                body = themeResolver.applyToHtml(body, {
+                    queryTheme: req.query && req.query.theme,
+                    cookieHeader: req.headers && req.headers.cookie,
+                    defaultThemeName: configuredDefault,
+                    onFallback: (requested, fallback) => {
+                        log.warn('THEME_RESOLUTION_FALLBACK', { requested, fallback });
+                    }
+                });
+            }
+            return originalSend(body);
+        };
     }
 
     // A /{COIN}/api/... path that no registered route claims would otherwise

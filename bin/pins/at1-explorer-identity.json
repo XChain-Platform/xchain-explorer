@@ -5,8 +5,8 @@
   "twins": [
     {
       "path": "src/consensus/equivocation_header.js",
-      "bytes": 4171,
-      "sha256": "441998fc0d7cbf9cb94f79933224f1b5839981e79fb639bdda5eb0bacb07b46d"
+      "bytes": 4357,
+      "sha256": "33795d35b6133135745471fd00c93da001aef942dd1d894ff929a4ebc53fb81e"
     },
     {
       "path": "src/consensus/gates/mirror_admission_gate.js",
@@ -30,8 +30,8 @@
     },
     {
       "path": "src/consensus/stake_weighted_quorum.js",
-      "bytes": 10112,
-      "sha256": "ca074be59873a47b30da94c98a812771e3fb3252fea83fd5e56dbf2bd5b26ddf"
+      "bytes": 10294,
+      "sha256": "946191601217a7b2ac0e6c50d37eb6a111ba30544680aeff434f52b9f5c2d661"
     }
   ],
   "routes": {

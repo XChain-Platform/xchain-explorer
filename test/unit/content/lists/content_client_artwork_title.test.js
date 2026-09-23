@@ -19,8 +19,9 @@
  * `title` on every entry, both ignored.
  *
  * Pins resolveArtworkTitle's precedence (top-level title, then entry title,
- * then entry name, image before audio before video) and that the legacy
- * mapper forwards the top-level `title` at all.
+ * then entry name, image before audio before video), and that the legacy
+ * mapper forwards the undeclared top-level `title` from a converted legacy
+ * document only, so a native TIS document titles from its declared entries.
  *********************************************************************/
 'use strict';
 
@@ -48,13 +49,14 @@ function extractFn(name){
 // from the same composed source so the slice runs as it does in the page.
 const ctx = vm.createContext({ console: { log: function(){} }, XC: { debug: false } });
 vm.runInContext(
-    ['isNull', 'stripHtml', 'resolveArtworkTitle',
+    ['isNull', 'stripHtml', 'resolveArtworkTitle', 'tokenLegacy_isLegacy',
      'tokenLegacy_mapDetails', 'tokenLegacy_mapMedia', 'tokenLegacy_addDescriptionUrls', 'tokenLegacy_finalize',
      'legacyJsonToXChainTIS'].map(extractFn).join('\n'),
     ctx
 );
 const resolveArtworkTitle   = ctx.resolveArtworkTitle;
 const legacyJsonToXChainTIS = ctx.legacyJsonToXChainTIS;
+const tokenLegacy_isLegacy  = ctx.tokenLegacy_isLegacy;
 
 // The OBEY document as published (trimmed to the fields that matter here).
 function obeyJson(){
@@ -133,5 +135,61 @@ describe('content client: Artwork Information title', function(){
         // ...but only behind a real title: strip the entry titles and the name shows.
         delete tis.audio[0].title;
         expect(resolveArtworkTitle(tis.title, [large, tis.audio[0]])).to.equal('Large by image_title');
+    });
+});
+
+// A native TIS document: only declared fields, plus the undeclared top-level title.
+function nativeJson(){
+    return {
+        tick: 'OBEY',
+        name: 'YOU ARE NOW CONSUMING',
+        title: 'UNDECLARED WORK TITLE',
+        images: [ { type: 'large', data: 'https://example.test/cover.gif', name: 'cover.gif', title: 'The Cover' } ],
+        audio: [ { type: 'mp3', data: 'https://example.test/BADGUY.mp3', name: 'BADGUY.mp3', title: 'BAD GUY audio layer' } ]
+    };
+}
+
+describe('content client: top-level title provenance', function(){
+
+    it('a converted legacy document keeps its top-level title as the artwork title', function(){
+        const tis = legacyJsonToXChainTIS(obeyJson());
+        expect(tis.title).to.equal('CONSUME / OBEY / FREE WILL SOLD SEPARATELY');
+        expect(resolveArtworkTitle(tis.title, [tis.images[0], tis.audio[0]])).to.equal('CONSUME / OBEY / FREE WILL SOLD SEPARATELY');
+    });
+
+    it('a native TIS document drops the undeclared top-level title and titles from its entries', function(){
+        const tis = legacyJsonToXChainTIS(nativeJson());
+        expect(tis).to.not.have.property('title');
+        expect(tis.name).to.equal('YOU ARE NOW CONSUMING');
+        expect(resolveArtworkTitle(tis.title, [tis.images[0], tis.audio[0]])).to.equal('The Cover');
+    });
+
+    it('a native TIS document with no entry titles falls through to the entry name', function(){
+        const o = nativeJson();
+        delete o.images[0].title;
+        delete o.audio[0].title;
+        const tis = legacyJsonToXChainTIS(o);
+        expect(resolveArtworkTitle(tis.title, [tis.images[0], tis.audio[0]])).to.equal('cover.gif');
+    });
+
+    it('classifies by legacy-only fields: each one alone marks the document legacy', function(){
+        expect(tokenLegacy_isLegacy(nativeJson())).to.equal(false);
+        ['asset', 'token', 'icon', 'image', 'image_large', 'image_large_hd', 'image_title', 'pgpsig',
+         'category', 'subcategory', 'category_custom', 'website_alternate1', 'contact_email1',
+         'website_social_twitter'].forEach(function(k){
+            const o = nativeJson();
+            o[k] = 'x';
+            expect(tokenLegacy_isLegacy(o), k).to.equal(true);
+        });
+        const o = nativeJson();
+        o.audio = 'https://example.test/song.mp3';
+        expect(tokenLegacy_isLegacy(o)).to.equal(true);
+        expect(tokenLegacy_isLegacy({})).to.equal(false);
+    });
+
+    it('a legacy marker on a TIS-shaped document restores the top-level title', function(){
+        const o = nativeJson();
+        o.image = 'https://example.test/icon.png';
+        expect(legacyJsonToXChainTIS(o).title).to.equal('UNDECLARED WORK TITLE');
     });
 });

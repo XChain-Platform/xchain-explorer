@@ -193,10 +193,10 @@ function pickDisplayMedia(arr, types){
     return false;
 }
 
-// The Artwork Information title, in precedence order: the document's top-level
-// `title` (what community JSONs write for the piece as a whole), then the first
-// display entry carrying a TIS v1.1.0 `title`, then the first entry `name`
-// (the filename, the only thing the old code read). Entries come in
+// The Artwork Information title, in precedence order: the top-level `title` a
+// converted legacy document carries (legacyJsonToXChainTIS drops it from native
+// TIS, which never declares it), then the first display entry carrying a TIS
+// v1.1.0 `title`, then the first entry `name` (the filename). Entries come in
 // image, audio, video order so a picture's caption wins over a soundtrack's.
 // Measured live: a token whose display image came from the legacy image_large field
 // (no name) fell through to its audio filename and titled the artwork "BADGUY.mp3".

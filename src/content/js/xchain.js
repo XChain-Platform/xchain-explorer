@@ -19,6 +19,14 @@
 // Setup short alias to localStorage
 let ls = localStorage;
 
+const formatLinkDefault = formatLink;
+function formatLinkWithActionFallback(url=null, text=null, icon=false, btn=false){
+    if(/\/action\/(null|undefined)$/.test(String(url)))
+        return '-';
+    return formatLinkDefault(url, text, icon, btn);
+}
+formatLink = formatLinkWithActionFallback;
+
 // Define XC Namespace object to track various properties
 XC = {
 

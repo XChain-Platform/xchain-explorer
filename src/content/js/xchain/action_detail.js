@@ -33,6 +33,13 @@ function getActionDetails(action, info){
     return html;
 }
 
+// /api/action/{idx} is the aliasing reader for BROADCAST's fee: it and
+// detail_simple.js's showBroadcastDetails both read info.broadcast_fee,
+// never info.fee (see the BROADCAST branch below for why). The address
+// page's broadcast rows come from a different endpoint, /api/broadcasts/
+// {addr}/address, whose plain positional `fee` column is read by
+// rows_actions_a.js's xcDatatableRenderBroadcastRow - an unrelated
+// renderer for an unrelated response shape, not a second copy of this key.
 function actionDetail_renderBasicActions(html, action, info, coin){
     // Render summaries for the initial transaction action families.
     if(action=='ADDRESS'){

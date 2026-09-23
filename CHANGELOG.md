@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-09-23
+
+### Fixed
+- A token whose tick carries `#` or `%` shows its icon or the default icon instead of a broken image: the icon path encodes the tick, the icon route decodes it, and the image falls back to the default on a load error.
+
 ## [0.18.0] - 2026-09-11
 
 ### Changed

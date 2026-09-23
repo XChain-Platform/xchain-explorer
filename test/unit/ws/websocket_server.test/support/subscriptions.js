@@ -151,6 +151,38 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(subscribed, 'a SUBSCRIBED frame was sent').to.exist;
         expect(subscribed.data).to.not.have.property('ignored_filters');
     });
+
+    it('a batch xcall subscribe confirms each call under its own normalized call_id', function () {
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+        const ids = ['a'.repeat(64), 'b'.repeat(64), 'C'.repeat(64)];
+
+        s.handleSubscribe(client, { channels: ['xcall'], params: { call_ids: ids } });
+
+        const frames = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .filter((m) => m.type === 'SUBSCRIBED');
+        expect(frames).to.have.lengthOf(3);
+        expect(frames.map((f) => f.data.channel)).to.deep.equal(['xcall', 'xcall', 'xcall']);
+        expect(frames.map((f) => f.data.call_id))
+            .to.deep.equal(['a'.repeat(64), 'b'.repeat(64), 'c'.repeat(64)]);
+    });
+});
+
+describe('WebSocketServer#onClose (backpressure accounting)', function () {
+    afterEach(() => sinon.restore());
+
+    it('reports the session backpressure skip total on the disconnect line', function () {
+        const s = makeServer();
+        const logSpy = sinon.stub(s, 'log');
+        const client = { ...makeClient('BTC'), ip: '198.51.100.7', backpressureSkips: 3 };
+
+        s.onClose(client);
+
+        const call = logSpy.getCalls().find((c) => c.args[0] === 'disconnect');
+        expect(call, 'a disconnect line was logged').to.exist;
+        expect(call.args[2]).to.include({ backpressure_skips: 3 });
+    });
 });
 
 describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', function () {

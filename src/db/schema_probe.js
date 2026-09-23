@@ -21,7 +21,8 @@
  * assumes the newest schema answers 500 on every request instead of answering the
  * part of the page that schema can serve.
  *
- * This is the shared table probe those readers ask first. It is deliberately not a
+ * This is the shared table and column probe those readers ask first (a statement
+ * naming a column the schema lacks is error 1054, the same whole-statement failure). It is deliberately not a
  * feature flag: the answer is a property of the connected schema, read from it, so
  * a replica that takes the migration later is served correctly with no config
  * change and no restart.
@@ -97,9 +98,59 @@ function isMissingTableError(err){
     return Number(cause && cause.errno) === 1146 || (cause && cause.code) === 'ER_NO_SUCH_TABLE';
 }
 
+// The per-coin column memo bucket, kept apart from the table memo so a column set
+// and a table set can never answer for each other.
+function columnBucket(db, config){
+    if(!db.schemaColumnMemo) db.schemaColumnMemo = {};
+    const coin = config.coin;
+    if(!db.schemaColumnMemo[coin]) db.schemaColumnMemo[coin] = {};
+    return db.schemaColumnMemo[coin];
+}
+
+// Whether `table` on the connected schema carries EVERY named column, on the same
+// terms as tablesPresent: memoized per coin, a negative answer aging out on the TTL,
+// and a probe that itself fails answering true and caching nothing. Callers pair
+// this with isUnknownColumnError below.
+async function columnsPresent(db, config, table, columns){
+    const bucket = columnBucket(db, config);
+    const key    = table + ':' + memoKey(columns);
+    const memo   = bucket[key];
+    if(memo && (memo.present || (Date.now() - memo.at) < SCHEMA_PROBE_TTL_MS))
+        return memo.present;
+    try {
+        const placeholders = columns.map(() => '?').join(',');
+        const rows = await db.doQuery(config,
+            `SELECT COLUMN_NAME
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME IN (${placeholders})`,
+            [table].concat(columns));
+        const found   = new Set((rows || []).map(r => String(r.COLUMN_NAME)));
+        const present = columns.every(name => found.has(name));
+        bucket[key] = { present, at: Date.now() };
+        return present;
+    } catch(e){
+        return true;
+    }
+}
+
+// Record that `table` does NOT carry these columns, after a statement proved it.
+function setColumnsAbsent(db, config, table, columns){
+    columnBucket(db, config)[table + ':' + memoKey(columns)] = { present: false, at: Date.now() };
+}
+
+// MariaDB error 1054 (ER_BAD_FIELD_ERROR), "Unknown column", unwrapped from doQuery's
+// DbQueryError the same way isMissingTableError unwraps 1146.
+function isUnknownColumnError(err){
+    const cause = (err && err.cause) ? err.cause : err;
+    return Number(cause && cause.errno) === 1054 || (cause && cause.code) === 'ER_BAD_FIELD_ERROR';
+}
+
 module.exports = {
     SCHEMA_PROBE_TTL_MS,
     tablesPresent,
     setTablesAbsent,
-    isMissingTableError
+    isMissingTableError,
+    columnsPresent,
+    setColumnsAbsent,
+    isUnknownColumnError
 };

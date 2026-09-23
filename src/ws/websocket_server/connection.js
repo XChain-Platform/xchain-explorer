@@ -135,7 +135,9 @@ class WebSocketConnection {
             // Entities whose SNAPSHOT was deferred because a fan-out was already
             // running for this client; drained when that fan-out settles.
             pendingSnapshots:  [],
-            backpressureSkips: 0
+            // Frames dropped for backpressure, and when the last skip was logged.
+            backpressureSkips:    0,
+            backpressureLoggedAt: 0
         };
 
         this.clients.set(clientId, client);
@@ -155,7 +157,10 @@ class WebSocketConnection {
 
     // Handle connection close
     onClose(client) {
-        this.log('disconnect', client.id, { coin: client.coin, subs: client.subscriptions.size });
+        this.log('disconnect', client.id, {
+            coin: client.coin, subs: client.subscriptions.size,
+            backpressure_skips: client.backpressureSkips || 0
+        });
         this.channelManager.removeClient(client);
         this.clients.delete(client.id);
         const ipCount = (this.ipCounts.get(client.ip) || 1) - 1;

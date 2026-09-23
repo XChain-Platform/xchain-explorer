@@ -36,6 +36,12 @@
 // two socket-send paths cannot drift). See serialize.js for the BigInt rationale.
 const { safeStringify } = require('../serialize.js');
 const { WS_SCHEMA_VERSION } = require('../schema_version.js');
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
+// At most one WS_BACKPRESSURE_SKIP line per client per window (a stuck client on
+// a busy fan-out can hit the drop thousands of times a second).
+const BACKPRESSURE_LOG_WINDOW_MS = 60000;
 
 class ChannelFanout {
 
@@ -145,6 +151,22 @@ class ChannelFanout {
     }
 }
 
+// Counts a frame dropped for a backed-up subscriber and reports it, throttled per
+// client so the drop leaves a trace without flooding the log.
+function noteBackpressureSkip(broadcaster, client) {
+    client.backpressureSkips = (client.backpressureSkips || 0) + 1;
+    const now = Date.now();
+    if (now - (client.backpressureLoggedAt || 0) < BACKPRESSURE_LOG_WINDOW_MS) return;
+    client.backpressureLoggedAt = now;
+    log.warn('WS_BACKPRESSURE_SKIP', {
+        client:   client.id,
+        coin:     client.coin,
+        buffered: client.ws.bufferedAmount,
+        max:      broadcaster.maxBackpressure,
+        skips:    client.backpressureSkips
+    });
+}
+
 // The filter step for one subscriber: backpressure, the filter pipeline, the
 // projection, then the stamped send. Answers false when the subscriber was
 // skipped or its send threw, which is what keeps a once subscription that was
@@ -152,7 +174,10 @@ class ChannelFanout {
 // is not open (no send, but the once subscription still counts as spent).
 function deliverToSubscriber(broadcaster, client, filter, event, actionData) {
     // Backpressure check
-    if (client.ws.bufferedAmount > broadcaster.maxBackpressure) return false;
+    if (client.ws.bufferedAmount > broadcaster.maxBackpressure) {
+        noteBackpressureSkip(broadcaster, client);
+        return false;
+    }
 
     // Filter pipeline (AND logic): all non-null filters must pass
     if (!broadcaster.passesFilter(filter, event, actionData)) return false;

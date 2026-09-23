@@ -107,6 +107,32 @@ describe('Broadcaster', function () {
 
             expect(ws.send.callCount).to.equal(0);
         });
+
+        it('counts every skipped frame and logs the skip at most once per window', function () {
+            const { getLogger } = require('../../../../../src/observability');
+            const warn = sinon.stub(getLogger(), 'warn');
+            try {
+                const ws = createMockWs();
+                ws.bufferedAmount = 100000;
+                const client = createClient(1, 'BTC', ws);
+                wsServer.addClient(client);
+                wsServer.channelManager.subscribe(client, ['actions']);
+
+                for (const idx of [501, 502]) {
+                    changeDetector.emit('action', 'BTC', {
+                        action_index: idx, action: 'SEND', source: '1abc', status: 'valid'
+                    });
+                }
+
+                expect(ws.send.callCount).to.equal(0);
+                expect(client.backpressureSkips).to.equal(2);
+                const skips = warn.getCalls().filter((c) => c.args[0] === 'WS_BACKPRESSURE_SKIP');
+                expect(skips).to.have.lengthOf(1);
+                expect(skips[0].args[1]).to.include({ client: 1, coin: 'BTC', skips: 1 });
+            } finally {
+                warn.restore();
+            }
+        });
     });
 });
 

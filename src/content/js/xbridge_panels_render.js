@@ -246,9 +246,26 @@ function xbridgeVersionInfo(format){
     return XBRIDGE_VERSIONS[n] || null;
 }
 
+// The rows a user leg's own xbridges record carries. Each renders only when the node
+// read it, so a replica without the table shows no dashes it never looked up.
+function xbridgeRecordRows(d, row){
+    var html = '';
+    var has  = function(v){ return v !== null && v !== undefined && v !== ''; };
+    if(has(d.dest_chain) || has(d.dest_address))
+        html += row('Destination', xbEsc(xbDash(d.dest_chain)) + ' ' + xbEsc(xbDash(d.dest_address)));
+    if(has(d.decimals))
+        html += row('Decimals', xbEsc(d.decimals));
+    // 0 is the indexer's "unset": the platform confirmation depth alone applies.
+    if(has(d.min_depth))
+        html += row('Min depth', (Number(d.min_depth) === 0) ? 'platform default' : xbEsc(d.min_depth));
+    if(has(d.memo))
+        html += row('Memo', xbEsc(d.memo));
+    return html;
+}
+
 // The XBRIDGE detail card. `d` is the getActionData row: action_format is the
-// version, and bridge_settlement / bridge_pending come from the explorer's
-// XBRIDGE handler (src/action-detail/tokens.js).
+// version, and the xbridges record fields, bridge_settlement and bridge_pending
+// come from the explorer's XBRIDGE handler (src/action-detail/tokens.js).
 function renderXbridgeAction(d){
     var info = xbridgeVersionInfo(d ? d.action_format : null);
     if(!info)
@@ -267,11 +284,17 @@ function renderXbridgeAction(d){
         html += row('Source leg', xbEsc(xbDash(s.src_chain)) + ' #' + xbEsc(xbDash(s.src_action_index)));
         html += row('Destination', xbEsc(xbDash(s.dest_chain)) + ' ' + xbEsc(xbDash(s.dest_address)));
         html += row('Settled in block', xbEsc(xbDash(s.block_index)));
-    } else if(d && d.bridge_pending && !info.injected){
-        // In flight, not missing: the settle for this leg is applied on the OTHER
-        // chain, so this node has no record of it by construction.
-        html += row('Settlement', '<span class="badge xc-bridge-state xc-bridge-state-unknown">in flight</span> '
-            + '<span class="small text-muted">settles on the destination chain</span>');
+    } else if(d && !info.injected){
+        html += xbridgeRecordRows(d, row);
+        if(d.bridge_pending && /^invalid/i.test(String(d.status || ''))){
+            // A refused leg moved nothing, so nothing will ever settle for it.
+            html += row('Settlement', '<span class="small text-muted">none: the action was refused</span>');
+        } else if(d.bridge_pending){
+            // In flight, not missing: the settle for this leg is applied on the OTHER
+            // chain, so this node has no record of it by construction.
+            html += row('Settlement', '<span class="badge xc-bridge-state xc-bridge-state-unknown">in flight</span> '
+                + '<span class="small text-muted">settles on the destination chain</span>');
+        }
     }
     html += '</tbody></table>';
     return html;

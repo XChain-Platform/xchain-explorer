@@ -15,8 +15,9 @@
  * IconResolver
  *
  * Pure description-parsing logic for the icon downloader. Mirrors the
- * priority chain used in content/js/xchain.js so the server-side
- * pipeline picks the same source the asset/token page would.
+ * priority chain the token page runs in content/js/xchain/token_info.js,
+ * token_media.js and token_content.js, so the server-side pipeline picks
+ * the same source the asset/token page would.
  *
  * Functions in this file do NOT make network calls; they just classify
  * the description and tell the caller what to fetch (or what inline
@@ -26,11 +27,12 @@
 
 // The one IPFS gateway this service resolves ipfs: through, root-addressed
 // (`<gateway><hash>`, no /ipfs/ path segment). Held as a constant because the
-// page must agree with it: content/js/xchain.js resolves ipfs: descriptions and
-// rewrites ipfs:// image entries against the SAME gateway, and a page pointed at
-// a different one renders an icon the downloader failed to fetch, or backs the
-// icons row off to permanently-failed while the page renders fine. Changing the
-// gateway is a two-file change, here and there.
+// page must agree with it: content/js/xchain/token_info.js resolves ipfs:
+// descriptions and content/js/xchain/token_legacy.js rewrites ipfs:// image
+// entries against the SAME gateway, and a page pointed at a different one renders
+// an icon the downloader failed to fetch, or backs the icons row off to
+// permanently-failed while the page renders fine. Changing the gateway is a
+// three-file change: here, token_info.js and token_legacy.js.
 const IPFS_GATEWAY = 'https://ipfsc.crystalsuite.com/';
 
 // The `action:` on-chain TIS reference grammar, written once in a dialect both
@@ -108,12 +110,12 @@ function resolveDescriptionToSource(description){
 
 // 0. action:<index> / action:<COIN>:<index>: an on-chain TIS document, the
 // format the platform's own Token_Information_Standard promotes. The token
-// page resolves it live (actionRefToRawPath in content/js/xchain.js), and this
-// file's whole contract is to pick the source that page would, so it has to
-// match the page's regex exactly: same three sibling tickers, same digits-only
-// index, and the sibling coin's network tier supplied by the caller (which
-// knows the flavor) rather than guessed here. Placed FIRST because it is an
-// exact-form match, so no later branch can shadow it. ACTION_REF_RE is the
+// page resolves it live (actionRefToRawPath, content/js/xchain/token_media.js)
+// and this file's whole contract is to pick the source that page would, so it
+// has to match the page's regex exactly: same three sibling tickers, same
+// digits-only index, and the sibling coin's network tier supplied by the caller
+// (which knows the flavor) rather than guessed here. Placed FIRST because it is
+// an exact-form match, so no later branch can shadow it. ACTION_REF_RE is the
 // shared grammar the icon worker's re-stale predicate also compiles, so the
 // two can never disagree about what "an action: description" is.
 function actionSource(desc){
@@ -210,13 +212,13 @@ function arweaveUrlSource(desc){
 function jsonUrlSource(desc){
     if(!/\.json($|;|\?|#)/i.test(desc)) return undefined;
     let url = desc.split(';')[0];
-    // Force https, matching the json branch in content/js/xchain.js, which builds
-    // this lane as 'https://' + desc-without-scheme and has no http path at all
-    // (its /relay? retry reuses the same https URL). Keeping http made the page
-    // and the downloader fetch two different documents for one description, and
-    // drove https-only origins to a permanent `failed` icon row for a token whose
-    // page renders fine. http-only JSON origins now fail on both sides rather
-    // than disagreeing.
+    // Force https, matching tokenInfo_getJsonUrl (content/js/xchain/token_info.js),
+    // which builds this lane as 'https://' + desc-without-scheme and has no http
+    // path at all (its /relay? retry reuses the same https URL). Keeping http made
+    // the page and the downloader fetch two different documents for one
+    // description, and drove https-only origins to a permanent `failed` icon row
+    // for a token whose page renders fine. http-only JSON origins now fail on
+    // both sides rather than disagreeing.
     url = 'https://' + url.replace(/^https?:\/\//i, '');
     return { scheme: 'json_url', url };
 }
@@ -236,8 +238,10 @@ function imageUrlSource(desc){
     return undefined;
 }
 
-// The branches in priority order. This order IS the page's priority chain in
-// content/js/xchain.js; reordering it makes the two pick different sources.
+// The branches in priority order. This order IS the page's priority chain
+// (tokenInfo_getJsonUrl in content/js/xchain/token_info.js, then
+// tokenContent_parseDescription in token_content.js); reordering it makes the
+// two pick different sources.
 const DESCRIPTION_BRANCHES = [
     actionSource, stampSource, ordSource, ipfsSource, arweaveSource, imgurSource,
     nonImageMediaSource, arweaveUrlSource, jsonUrlSource, imageUrlSource,
@@ -252,7 +256,8 @@ const DESCRIPTION_BRANCHES = [
  * handles it.
  *
  * Priority chain (icon-shaped sources first; caller resizes down). Steps 1-3
- * are the token page's own order (content/js/xchain.js), which this must match
+ * are the token page's own order (tokenContent_displayIcon in
+ * content/js/xchain/token_content.js), which this must match
  * or the cached listing icon and the page disagree for a token carrying both
  * sizes. 64x64 leads on both sides because the downloader renders at 64px, so
  * preferring the 48x48 would upscale past a native-size source that is present:
@@ -284,9 +289,9 @@ function selectIconUrlFromCip25Json(json){
 
 // TIS `data_ref` takes precedence over `data` on the same entry ONLY when it is a
 // real action reference, which is what the page does: resolveTisDataRefs
-// (content/js/xchain.js) overwrites `data` only when actionRefToRawPath RESOLVES
-// the ref, and that returns false for anything outside the action: grammar. The
-// spec agrees (token-information-standard.md: data_ref is a reference to an
+// (content/js/xchain/token_media.js) overwrites `data` only when actionRefToRawPath
+// RESOLVES the ref, and that returns false for anything outside the action: grammar.
+// The spec agrees (token-information-standard.md: data_ref is a reference to an
 // on-chain FILE action by ACTION_INDEX), so a URL-shaped or garbage data_ref is not
 // a ref at all and must leave `data` alone. TIS documents are attacker-supplied
 // on-chain bytes: substituting any non-empty string let a minted token make this

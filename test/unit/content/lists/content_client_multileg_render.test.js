@@ -203,11 +203,13 @@ describe('multi-leg actions: legs the page could not show', function(){
 
     describe('DESTROY leg order', function(){
 
-        it('the leg query imposes no sort, so the legs keep the order they were written in', function(){
-            const { DESTROY } = require('../../../../src/action-detail/tokens.js');
-            const { query2 } = DESTROY.queries({ action_index: 1183 });
-            expect(query2).to.contain('FROM');
-            expect(query2, 'a sort key here silently contradicts the transaction')
+        it('the leg query sorts on the recorded wire position and never on a value column', function(){
+            const { destroyLegsQuery } = require('../../../../src/db/action_detail/tokens_sql.js');
+            const ordered = destroyLegsQuery(true).replace(/\s+/g, ' ');
+            expect(ordered).to.contain('FROM destroys d1');
+            expect(ordered.split(/ORDER BY/i).slice(1).join(','), 'a value sort contradicts the transaction')
+                .to.match(/^\s*d1\.leg_ordinal ASC\s*$/);
+            expect(destroyLegsQuery(false), 'a replica without the column takes no sort')
                 .to.not.match(/ORDER\s+BY/i);
         });
 

@@ -80,7 +80,8 @@ describe('IconResolver.resolveDescriptionToSource', function(){
 });
 
 describe('IconResolver json_url lane mirrors the token page scheme', function(){
-    // content/js/xchain.js builds this lane as 'https://' + desc.split(';')[0]
+    // tokenInfo_getJsonUrl (content/js/xchain/token_info.js) builds this lane as
+    // 'https://' + desc.split(';')[0]
     // with any http(s) prefix stripped, and its /relay? retry reuses that same
     // https URL, so the page has no http path here. Forcing
     // http:// on a scheme-less description and pass an explicit http:// through,
@@ -149,9 +150,9 @@ describe('IconResolver.selectIconUrlFromCip25Json', function(){
         expect(selectIconUrlFromCip25Json(json)).to.equal('https://x.com/sm.png');
     });
 
-    // The token page takes 64x64 first (content/js/xchain.js). Starting at 48x48
-    // cached a different image than the page displayed, and upscaled it, since
-    // the downloader renders at 64px.
+    // The token page takes 64x64 first (content/js/xchain/token_content.js).
+    // Starting at 48x48 cached a different image than the page displayed, and
+    // upscaled it, since the downloader renders at 64px.
     it('prefers a 64x64 icon over 48x48, as the token page does', function(){
         const json = { images: [
             { type: 'icon', size: '48x48', data: 'https://x.com/48.png' },
@@ -259,9 +260,10 @@ describe('IconResolver.rewriteSchemeUrl', function(){
 
 // The on-chain TIS scheme (DESCRIPTION = action:<index> / action:<COIN>:<index>).
 // This file's whole contract is "pick the source the token page would", and the page
-// resolves this one live via actionRefToRawPath in content/js/xchain.js. It was the
-// one scheme missing here, so an on-chain-documented token showed its real icon on
-// its own page and the default icon on every cached listing surface, permanently.
+// resolves this one live via actionRefToRawPath in
+// content/js/xchain/token_media.js. It was the one scheme missing here, so an
+// on-chain-documented token showed its real icon on its own page and the default
+// icon on every cached listing surface, permanently.
 //
 // The parity assertion is the regex: the page accepts exactly three sibling tickers
 // and a digits-only index, and a resolver that accepts more (or less) drifts the two
@@ -318,9 +320,9 @@ describe('IconResolver.resolveDescriptionToSource: action scheme', function(){
 
 describe('IconResolver.selectIconUrlFromCip25Json: TIS data_ref', function(){
     it('prefers data_ref over data on the same entry, as the page does', function(){
-        // resolveTisDataRefs (content/js/xchain.js) overwrites `data` with the resolved
-        // ref before any picker runs, so a downloader that reads `data` fetches a
-        // different image than the page renders.
+        // resolveTisDataRefs (content/js/xchain/token_media.js) overwrites `data`
+        // with the resolved ref before any picker runs, so a downloader that reads
+        // `data` fetches a different image than the page renders.
         let json = { images: [{ type: 'icon', size: '64x64', data: 'https://x.com/old.png', data_ref: 'action:9' }] };
         expect(selectIconUrlFromCip25Json(json)).to.equal('action:9');
     });

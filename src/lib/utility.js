@@ -272,13 +272,13 @@ class Utility {
         return Number.isFinite(parsed) ? parsed : defaultVal;
     }
 
-    // Every address format XChain serves (base58 BTC/LTC/DOGE, bech32, xchain
-    // account tokens) is plain alphanumeric within a bounded length. A URL path
-    // segment echoed back into a response is not: it can carry HTML/script
-    // metacharacters, so anything reflected as an "address" must pass this
-    // shape check first, not just get URL-decoded and forwarded.
+    // Wallet addresses and account tokens are alphanumeric. Contract custody
+    // addresses use C:<CHAIN>:<action_index>. Keep both forms bounded and reject
+    // any other path-segment punctuation before reflecting an address.
     isAddressLike(value){
-        return typeof value === 'string' && /^[A-Za-z0-9]{1,128}$/.test(value);
+        if(typeof value !== 'string' || value.length < 1 || value.length > 128)
+            return false;
+        return /^[A-Za-z0-9]+$/.test(value) || /^C:[A-Za-z0-9]+:[0-9]+$/.test(value);
     }
 
     // Copy an object with its keys in alphabetical order, so anything built

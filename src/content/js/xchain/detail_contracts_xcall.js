@@ -140,7 +140,7 @@ function showDepositDetails(data){  showCustodyDetails('deposit', data);  }
 function showWithdrawDetails(data){ showCustodyDetails('withdraw', data); }
 function showCustodyDetails(kind, data){
     $('#info-' + kind + ' .' + kind + '-contract').html(formatContractIdentity(XC.coin, XC.chain, data.contract_index, data.contract_meta_name, data.contract_meta_version));
-    $('#info-' + kind + ' .' + kind + '-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-' + kind + ' .' + kind + '-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     $('#info-' + kind + ' .' + kind + '-amount').html(formatAmount(data.amount));
 }
 

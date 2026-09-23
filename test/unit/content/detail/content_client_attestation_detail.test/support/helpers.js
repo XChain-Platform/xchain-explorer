@@ -86,6 +86,7 @@ function installHelpers(dom) {
     dom.window.eval(JQUERY_SRC);
     dom.window.eval(`
         var XC = { coin: 'RBTC', query: 'a'.repeat(64), name: 'Bitcoin', network: 'regtest', pageInfo: {}, datatables: {} };
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatLivestamp(t){ return '<span class="livestamp">a while ago</span>'; }
         function updatePageInfo(){}

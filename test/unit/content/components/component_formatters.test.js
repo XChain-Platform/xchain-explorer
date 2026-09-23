@@ -200,6 +200,38 @@ describe('formatters module (M2.1)', function () {
     });
 });
 
+describe('formatters module, token hrefs', function () {
+    // The href to a token page carries the tick as one path segment. TDOGE
+    // action 2693 issued "$$$$$$$$$$$78324%@##*(@#", and a raw join sent the
+    // browser to a URL cut at the '#' with a dangling '%@' that the server
+    // refused as 400 before any route ran.
+    it('tokenUrl percent-encodes the tick and keeps an absent tick recognisable as a dead link', function () {
+        assert.equal(F.tokenUrl('TDOGE', 'XCHAIN'), '/TDOGE/token/XCHAIN');
+        assert.equal(F.tokenUrl('TDOGE', '$$$$$$$$$$$78324%@##*(@#'),
+            '/TDOGE/token/%24%24%24%24%24%24%24%24%24%24%2478324%25%40%23%23*(%40%23');
+        assert.equal(F.tokenUrl('TDOGE', 'A/B?c'), '/TDOGE/token/A%2FB%3Fc');
+        // formatLink strips a /token/null href; tokenUrl must keep producing one.
+        assert.equal(F.tokenUrl('TDOGE', null), '/TDOGE/token/null');
+        assert.equal(F.formatLink(F.tokenUrl('TDOGE', null), 'DOGE'), 'DOGE');
+    });
+
+    it('no client file joins a raw tick into a /token/ href any more', function () {
+        // Every token href goes through tokenUrl (or an explicit
+        // encodeURIComponent); a raw join is the 400 on a tick carrying # or %.
+        const HTML_DIR = path.join(ROOT, 'src', 'content', 'html');
+        const htmlFiles = fs.readdirSync(HTML_DIR).filter(f => f.endsWith('.html')).map(f => path.join('html', f));
+        const offenders = [];
+        for(const rel of jsFilesUnder(JS_DIR, 'js').concat(htmlFiles)){
+            const lines = fs.readFileSync(path.join(ROOT, 'src', 'content', rel), 'utf8').split('\n');
+            lines.forEach((line, i) => {
+                if(/\/token\/' *\+(?! *encodeURIComponent\()/.test(line))
+                    offenders.push(rel + ':' + (i + 1));
+            });
+        }
+        assert.deepEqual(offenders, []);
+    });
+});
+
 describe('formatters module (M2.1)', function () {
     describe('behaviour carried across the move', function () {
         it('escapeHtml neutralises every character that can break out of markup', function () {

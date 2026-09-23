@@ -71,6 +71,7 @@ function renderXcallDetails(data) {
 
     dom.window.XC = { coin: 'BTC' };
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatHash(v, len){ return v == null ? '-' : String(v).substring(0, len || 32); }
         ${extractFn('isNull')}

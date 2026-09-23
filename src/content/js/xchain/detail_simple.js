@@ -61,16 +61,16 @@ function showBroadcastDetails(data){
 
 // Display CALLBACK action information
 function showCallbackDetails(data){
-    $('#info-callback .callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    $('#info-callback .callback-callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.callback_tick, data.callback_tick, data.callback_tick));
+    $('#info-callback .callback-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
+    $('#info-callback .callback-callback-tick').html(formatLink(tokenUrl(XC.coin, data.callback_tick), data.callback_tick, data.callback_tick));
     $('#info-callback .callback-amount').html(formatAmount(data.callback_amount));
     $('#info-callback .callback-memo').text(data.memo);
 }
 
 // Display DIVIDEND action information
 function showDividendDetails(data){
-    $('#info-dividend .dividend-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    $('#info-dividend .dividend-dividend-tick').html(formatLink('/' + XC.coin + '/token/' + data.dividend_tick, data.dividend_tick, data.dividend_tick));
+    $('#info-dividend .dividend-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
+    $('#info-dividend .dividend-dividend-tick').html(formatLink(tokenUrl(XC.coin, data.dividend_tick), data.dividend_tick, data.dividend_tick));
     $('#info-dividend .dividend-amount').html(formatAmount(data.amount));
     $('#info-dividend .dividend-memo').text(data.memo);
 }
@@ -89,13 +89,13 @@ function showDispenserDetails(data){
     let isOwnershipDispenser = (Number(data.give_ownership || 0) == 1);
     $('#info-dispenser .dispenser-give-coin').text(data.give_coin);
     $('#info-dispenser .dispenser-give-tick').html(
-        formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick)
+        formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick, data.give_tick)
         + (isOwnershipDispenser ? ' ' + ownershipBadge() : '')
     );
     $('#info-dispenser .dispenser-give-amount').html(isOwnershipDispenser ? ownershipBadge() : formatAmount(data.give_amount));
     $('#info-dispenser .dispenser-give-escrow').html(isOwnershipDispenser ? ownershipBadge() : formatAmount(data.give_escrow));
     $('#info-dispenser .dispenser-get-coin').text(data.get_coin);
-    $('#info-dispenser .dispenser-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
+    $('#info-dispenser .dispenser-get-tick').html(formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick, data.get_tick));
     $('#info-dispenser .dispenser-get-amount').html(formatAmount(data.get_amount));
     $('#info-dispenser .dispenser-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
     // Fiat/oracle-priced dispensers: fiat_amount is the operative price (Get Amount is not),
@@ -159,10 +159,10 @@ function showDispenserExpireDetails(data){
 // event" either way - see protocol/actions/dispenser.md.
 function showDispenseDetails(data){
     $('#info-dispense .dispense-give-coin').text(data.give_coin);
-    $('#info-dispense .dispense-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
+    $('#info-dispense .dispense-give-tick').html(formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick, data.give_tick));
     $('#info-dispense .dispense-give-amount').html(formatAmount(data.give_amount));
     $('#info-dispense .dispense-get-coin').text(data.get_coin);
-    $('#info-dispense .dispense-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
+    $('#info-dispense .dispense-get-tick').html(formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick, data.get_tick));
     $('#info-dispense .dispense-get-amount').html(formatAmount(data.get_amount));
     $('#info-dispense .dispense-source').html(formatLink('/' + data.get_coin  + '/address/' + data.source, data.source));
     $('#info-dispense .dispense-destination').html(formatLink('/' + data.get_coin  + '/address/' + data.destination, data.destination));
@@ -179,7 +179,7 @@ function showFileDetails(data){
     // client-side after receiving the key via an ECIES MESSAGE.
     if(!isNull(data.gate_ticker)){
         let method = (data.encryption_method == 1) ? 'AES-256-GCM' : data.encryption_method;
-        $('#info-file .file-gate-ticker').html(formatLink('/' + XC.coin + '/token/' + data.gate_ticker, data.gate_ticker, data.gate_ticker));
+        $('#info-file .file-gate-ticker').html(formatLink(tokenUrl(XC.coin, data.gate_ticker), data.gate_ticker, data.gate_ticker));
         $('#info-file .file-encryption').text(method);
         $('#info-file .file-key-hash').html(formatHash(data.key_hash, 24));
         $('#info-file .file-raw').html(formatLink('/' + XC.coin + '/api/file/' + data.action_index + '/raw', 'download ciphertext'));
@@ -192,7 +192,7 @@ function showFileDetails(data){
         if(!isNull(data.gate_min_amount) && data.gate_min_amount !== ''){
             $('#info-file .file-gate-min-amount').html(
                 formatAmount(data.gate_min_amount) + ' ' +
-                formatLink('/' + XC.coin + '/token/' + data.gate_ticker, data.gate_ticker, data.gate_ticker));
+                formatLink(tokenUrl(XC.coin, data.gate_ticker), data.gate_ticker, data.gate_ticker));
             $('#info-file .file-threshold-row').removeClass('d-none');
         } else {
             $('#info-file .file-threshold-row').addClass('d-none');

@@ -106,6 +106,7 @@ function basics(apiResponse) {
         function showMarketNotFound(tick){ notFound = tick; }
         function loadApiData(coin, action, query, type, cb){ cb(${JSON.stringify(apiResponse)}); }
         function getTokenIcon(){ return '/icon/default.png'; }
+        function tokenUrl(coin, tick){ return '/' + coin + '/token/' + encodeURIComponent(String(tick)); }
         function formatAmount(v){ return String(v); }
         function bcformat(v){ return String(v); }
     `);

@@ -65,6 +65,7 @@ function render(data, xc) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
     dom.window.XC = Object.assign({ coin: 'DOGE', network: 'mainnet' }, xc || {});
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatHash(h, len){ return String(h == null ? '' : h).substring(0, len); }
         ${extractFn('isNull')}

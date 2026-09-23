@@ -98,6 +98,7 @@ function installHelpers(dom) {
     dom.window.eval(ACTIVATION_SRC);
     dom.window.eval(`
         var XC = { coin: 'RDOGE', query: '1006', name: 'Dogecoin', network: 'regtest', pageInfo: {}, datatables: {} };
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatLivestamp(t){ return '<span class="stamp">' + t + '</span>'; }
         function updatePageInfo(){}

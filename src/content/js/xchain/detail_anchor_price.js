@@ -92,7 +92,7 @@ function showPriceDetails(data){
     // cross-chain, so a DOGE-published price can name an LTC token. Namespacing the
     // link by the page coin opened a different chain's token page - or nothing at all.
     // Link the declared coin instead, keeping the page's network tier.
-    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink('/' + siblingCoin(data.coin) + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(siblingCoin(data.coin), data.tick), data.tick, data.tick));
     $('#info-price .price-fiat').text(isNull(data.fiat) ? '-' : data.fiat);
     $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
     // PRICE v1 carries the oracle's usage FEE as a decimal fraction (0.01 being 1%)
@@ -254,7 +254,7 @@ function showActionFeeDetails(data){
     if(data){
         let method = (data.method) ? (' - ' + XC.fee_preferences[data.method]) : '';
         let tick   = (data.tick!='') ? data.tick : false;
-        $('#info-fee .fee-tick').html(formatLink('/' + XC.coin + '/token/' + tick, tick, tick));
+        $('#info-fee .fee-tick').html(formatLink(tokenUrl(XC.coin, tick), tick, tick));
         $('#info-fee .fee-amount').html(formatAmount(data.amount));
         $('#info-fee .fee-method').html(data.method + method);
         $('#info-fee .fee-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
@@ -317,7 +317,7 @@ function detailAnchorPrice_actionRow(type, info, idx, dataType, cls){
         if(dataType=='Address')
             html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info, info) + '</td>';
         if(dataType=='Token')
-            html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info, info) + '</td>';
+            html += '    <td>' + formatLink(tokenUrl(XC.coin, info), info) + '</td>';
         html += '</tr>';
     } else if(type=='list-edits'){
         html += '<tr class="' + cls + '">'
@@ -325,7 +325,7 @@ function detailAnchorPrice_actionRow(type, info, idx, dataType, cls){
         if(dataType=='Address')
             html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
         if(dataType=='Token')
-            html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+            html += '    <td>' + formatLink(tokenUrl(XC.coin, info.tick), info.tick, info.tick) + '</td>';
         html += '    <td>' + info.status + '</td>';
         html += '</tr>';
     } else if(['send','airdrop','destroy'].includes(type)){
@@ -334,7 +334,7 @@ function detailAnchorPrice_actionRow(type, info, idx, dataType, cls){
         html += '<tr>'
         html += '    <td>' + (idx+1) + '</td>';
         html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
-        html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + formatLink(tokenUrl(XC.coin, info.tick), info.tick, info.tick) + '</td>';
         html += '    <td>' + formatAmount(info.amount) + '</td>';
         html += '</tr>';
     }
@@ -347,7 +347,7 @@ function detailAnchorPrice_transferRow(type, info, idx, cls){
     html += '    <td>' + (idx+1) + '</td>';
     if(type=='send'){
         html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.destination, info.destination) + '</td>';
-        html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + formatLink(tokenUrl(XC.coin, info.tick), info.tick, info.tick) + '</td>';
         html += '    <td>' + formatAmount(info.amount) + '</td>';
         // SEND v3 carries a MEMO per leg, so it belongs beside the leg it
         // describes rather than only inside the raw transaction data.
@@ -358,12 +358,12 @@ function detailAnchorPrice_transferRow(type, info, idx, cls){
         // The list is an ACTION index (airdrops.list_action_index names the LIST
         // action that defined the recipients), not a token.
         html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.list_action_index, formatAmount(info.list_action_index)) + '</td>';
-        html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + formatLink(tokenUrl(XC.coin, info.tick), info.tick, info.tick) + '</td>';
         html += '    <td>' + formatAmount(info.amount) + '</td>';
         html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
         html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';
     } else {
-        html += '    <td>' + formatLink('/' + XC.coin + '/token/' + info.tick, info.tick, info.tick) + '</td>';
+        html += '    <td>' + formatLink(tokenUrl(XC.coin, info.tick), info.tick, info.tick) + '</td>';
         html += '    <td>' + formatAmount(info.amount) + '</td>';
         html += '    <td>' + escapeHtml(isNull(info.memo) ? '' : info.memo) + '</td>';
         html += '    <td>' + (isNull(info.status) ? '' : info.status) + '</td>';

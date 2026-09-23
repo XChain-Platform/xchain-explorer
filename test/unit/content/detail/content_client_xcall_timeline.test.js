@@ -90,6 +90,7 @@ function makeWindow() {
     dom.window.eval(extractFn(XCHAIN_SRC, 'formatHash'));
     dom.window.eval(extractFn(XCHAIN_SRC, 'formatLivestamp'));
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function updatePageInfo(){}
     `);

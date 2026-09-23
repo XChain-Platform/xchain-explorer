@@ -101,6 +101,13 @@ $(document).ready(function(){
             XC.transactionInfo = null2string(o);
             showTransactionDetails();
 
+            if(!o || !o.tx_hash){
+                XC.pageInfo.title       = XC.query + ' Transaction Not Found';
+                XC.pageInfo.description = 'No transaction with hash ' + XC.query + ' was found on the XChain Platform';
+                updatePageInfo();
+                return;
+            }
+
             // Update the page with SEO friendly info
             XC.pageInfo.title       =  o.tx_hash + ' Transaction Information';
             XC.pageInfo.description = 'Learn about the transaction with hash ' + o.tx_hash + ' and the actions is triggered on the XChain Platform - This page displays XChain platform information about the transaction with index #' + o.tx_index;

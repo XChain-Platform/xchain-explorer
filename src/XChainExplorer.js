@@ -238,57 +238,6 @@ class XChainExplorer {
 // require map (proxyquire), which a part's own require would escape.
 installExplorerFamilies(XChainExplorer.prototype, { fs, axios, dns, configEnv });
 
-// Turn a FILE action's on-chain NAME (protocol/actions/file.md; attacker-controlled,
-// since the publisher writes it) into a header-safe Content-Disposition value: CR/LF
-// and other control characters are stripped so the name can never inject a second
-// header, the ASCII leg escapes the characters that would end the quoted-string early,
-// and filename* (RFC 6266/5987) carries the name unmangled for clients that read it.
-function safeAttachmentFilename(name){
-    let raw = String(name).replace(/[\r\n\x00-\x1f]/g, '').trim();
-    if(!raw) return null;
-    let ascii = raw.replace(/[^\x20-\x7e]/g, '_').replace(/[\\"]/g, '_');
-    let utf8  = encodeURIComponent(raw).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
-    return `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`;
-}
-
-// The installed FILE-raw handler tags a token-gated response with
-// X-XChain-Stored-Form=encrypted before it sends the ciphertext, but that response
-// otherwise carries no filename, so it looks like the same opaque octet-stream a
-// plaintext download forced to attachment would be. The gated file's own row never
-// stored a name (gated_files has no such column), but every FILE action - gated or
-// not - has a mandatory NAME field carried on the SAME action_index's `files` row
-// (src/explorer/files.js's comment on the gated_files/files split), which the
-// existing action-detail pipeline already resolves onto `data.name`
-// (src/db/action_detail/misc_sql.js FILE_QUERY, run through db.getActionData).
-// Route through that rather than inventing a name: watch for the encrypted marker
-// being set, start resolving the real filename at that moment, and hold res.send
-// until it lands so Content-Disposition is on the response before anything flushes.
-const installedProcessFileRawRequest = XChainExplorer.prototype.processFileRawRequest;
-XChainExplorer.prototype.processFileRawRequest = function(req, res){
-    let explorer    = this;
-    let setHeader   = res.set.bind(res);
-    let sendBody    = res.send.bind(res);
-    let namePromise = null;
-    res.set = function(field, value){
-        if(String(field).toLowerCase() === 'x-xchain-stored-form' && value === 'encrypted'){
-            let config = { coin: String(req.params.coin || '').toUpperCase(), data: {} };
-            namePromise = explorer.db.getActionData(config, Number(req.params.actionIndex))
-                .then((data) => (data && data.name) ? String(data.name) : null)
-                .catch(() => null);
-        }
-        return setHeader(field, value);
-    };
-    res.send = function(body){
-        if(!namePromise) return sendBody(body);
-        return namePromise.then((name) => {
-            let disposition = name ? safeAttachmentFilename(name) : null;
-            if(disposition) setHeader('Content-Disposition', disposition);
-            return sendBody(body);
-        });
-    };
-    return installedProcessFileRawRequest.call(explorer, req, res);
-};
-
 // One export shape: the class is the export and its helpers hang on it, so
 // requirers read XChainExplorer.isPreflightPostRequest and the rest as before.
 module.exports = Object.assign(XChainExplorer, {

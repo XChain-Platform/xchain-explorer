@@ -75,12 +75,20 @@ function harness(opts = {}) {
         hide: () => { if (sel === '#freshness-banner') shown.visible = false; }
     });
     w.getExplorerStatusInfo = (cb, force) => { statusCalls.push(force); };
+    // Record the page's timers instead of arming real ones, so a cadence test
+    // counts what was scheduled rather than guessing from elapsed time.
+    const timers = [];
+    let nextTimerId = 1;
+    w.setTimeout = (fn, ms) => { const id = nextTimerId++; timers.push({ id, fn, ms }); return id; };
+    w.clearTimeout = (id) => { const i = timers.findIndex((t) => t.id === id); if (i >= 0) timers.splice(i, 1); };
+    // Snapshot before running, so a callback that schedules again is recorded, not recursed into.
+    const drainTimers = () => { for (const t of timers.splice(0)) t.fn(); };
     w.XC = Object.assign({ coin: 'TBTC', freshnessRecheckMs: 5 }, opts.XC || {});
     w.eval('function isNull(v){ return (v === null || v === undefined || v === ""); }');
     w.eval(extractFn('formatTipAge'));
     w.eval(extractFn('freshnessBannerText'));
     w.eval(extractFn('updateFreshnessBanner'));
-    return { w, shown, statusCalls };
+    return { w, shown, statusCalls, timers, drainTimers };
 }
 
 describe('freshness banner (content/js/xchain.js)', function () {
@@ -168,14 +176,17 @@ describe('freshness banner (content/js/xchain.js)', function () {
             expect(shown.visible).to.equal(false);
         });
 
-        it('re-reads /status on its own cadence while stale, forcing past the localStorage window, once at a time', async function () {
-            const { w, shown, statusCalls } = harness();
+        it('re-reads /status on its own cadence while stale, forcing past the localStorage window, once at a time', function () {
+            const { w, shown, statusCalls, timers, drainTimers } = harness();
             w.XC.status = status('TBTC');
             w.updateFreshnessBanner();
             w.updateFreshnessBanner();
             expect(shown.visible).to.equal(true);
-            await new Promise((r) => setTimeout(r, 30));
+            expect(timers.map((t) => t.ms)).to.deep.equal([5]);
+            expect(statusCalls).to.deep.equal([]);
+            drainTimers();
             expect(statusCalls).to.deep.equal([true]);
+            expect(w.XC.freshnessRecheckTimer).to.equal(null);
         });
 
         it('does nothing on a page with no coin', function () {

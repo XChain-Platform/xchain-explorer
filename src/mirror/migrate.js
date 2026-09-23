@@ -24,7 +24,8 @@
  * Migrated today: price_snapshots (source_chain, source_action_index,
  * push_generation + idx_source_chain), capability_snapshots (the uq_cap_snap
  * widen), the item-5308 reorg fences on oracle_prices, cross_chain_matches
- * and cross_chain_calls, and the attestation_responses utf8mb4 widen.
+ * and cross_chain_calls, the attestation_responses utf8mb4 widen, and the
+ * oracle_prices.tick length widen.
  *
  * This module closes that gap: after ensureTables(), it probes each known
  * table with SHOW COLUMNS / SHOW FULL COLUMNS / SHOW INDEX and applies only
@@ -32,7 +33,7 @@
  * reliance on ALTER ... IF NOT EXISTS), so re-running is always safe.
  *
  * MONOTONIC ONLY. Every migration here either ADDs something or WIDENS an
- * existing thing (an index's column set, a column's character set), so no
+ * existing thing (an index's column set, a column's character set or length), so no
  * stored value is rewritten and no accepted value stops being accepted. A
  * narrowing has no place in this module: it would fail on stored rows rather
  * than convert them, and the mirror has no writer to repair them from.
@@ -82,7 +83,13 @@ const MIRROR_MIGRATIONS = {
         columns: [
             { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
         ],
-        indexes: []
+        indexes: [],
+        // tick widens to the 250 PRICE v1 admits. The hub keeps its own column narrow until
+        // the operator attests every mirror has widened, so this runs first; a strict mirror
+        // left at VARCHAR(50) would refuse a longer tick and wedge on every re-page.
+        widenLengths: [
+            { name: 'tick', length: 250, ddl: 'MODIFY `tick` VARCHAR(250) NOT NULL' }
+        ]
     },
     cross_chain_matches: {
         columns: [
@@ -178,6 +185,7 @@ async function ensureMirrorColumns(dbConn, log) {
 
         await addMissingColumnsAndIndexes(dbConn, table, spec, log, applied);
         await widenColumnCharsets(dbConn, table, spec, log, applied);
+        await widenColumnLengths(dbConn, table, spec, log, applied);
         await widenUniqueIndexes(dbConn, table, spec, log, applied);
     }
     return applied;
@@ -236,6 +244,32 @@ async function widenColumnCharsets(dbConn, table, spec, log, applied) {
         log('[hub-mirror] widening ' + table + ': ' + widenClauses.join('; '));
         await dbConn.doQuery(sql);
         applied.push(sql);
+    }
+}
+
+// Widen an existing VARCHAR column's length. SHOW COLUMNS carries the live Type
+// ('varchar(50)'); an absent or unreadable Type is skipped, never guessed at. Only ever
+// widens. A failed ALTER is logged rather than thrown: the hub holds longer values back
+// until the operator attests the mirrors are wide, so a narrow column is safe to start on.
+async function widenColumnLengths(dbConn, table, spec, log, applied) {
+    if (!(spec.widenLengths && spec.widenLengths.length)) return;
+    const rows = await dbConn.doQuery('SHOW COLUMNS FROM `' + table + '`');
+    const types = new Map((rows || []).map((r) => [String(r.Field).toLowerCase(), String(r.Type || '').toLowerCase()]));
+    const clauses = [];
+    for (const w of spec.widenLengths) {
+        const m = /^(?:var)?char\((\d+)\)/.exec(types.get(String(w.name).toLowerCase()) || '');
+        if (!m || Number(m[1]) >= w.length) continue;             // absent, unreadable or already wide
+        clauses.push(w.ddl);
+    }
+    if (clauses.length === 0) return;
+    const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
+    try {
+        log('[hub-mirror] widening ' + table + ': ' + clauses.join('; '));
+        await dbConn.doQuery(sql);
+        applied.push(sql);
+    } catch (err) {
+        logger.error('HUB_MIRROR_WIDEN_FAILED', { table, err: err && err.message ? err.message : err,
+            run_by_hand: sql + ' (the hub must not widen this column until it has applied)' });
     }
 }
 

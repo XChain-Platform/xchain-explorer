@@ -294,14 +294,6 @@ module.exports = {
     // this file's SSL probe in every tool that only wanted a module.
     env: env,
 
-    // EXPLORER_FEDERATION_READ_KEY: the x-api-key (a validator's DOGE_INDEXER_API_KEY) required by the
-    // federation read methods (getrollcallsigners, getanchoraction, getanchorconfirmations,
-    // getarchiveanchor, getpricebatches) at POST /{COIN}/api/. Unset means those methods
-    // refuse every caller with 401; it is never optional-open. Read per call, '' when unset.
-    federationReadKey: function(){
-        return env.EXPLORER_FEDERATION_READ_KEY || '';
-    },
-
     // Epoch ms of the last successful hub-config fetch (null until the first success).
     // Exposed so the status endpoint can report how stale the served hub config is when
     // the hub is unreachable. Kept as a getter rather than a direct export because the

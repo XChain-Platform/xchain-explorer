@@ -230,8 +230,8 @@ function createJsonRpcController(getExplorer, requestGate){
         },
 
         // getrollcallsigners, getanchoraction, getanchorconfirmations, getarchiveanchor and
-        // getpricebatches, served off the routed coin's replica. The key gate that guards
-        // them is mounted in front of the router (src/http/api_boot/json_rpc.js).
+        // getpricebatches, served off the routed coin's replica, public like every other
+        // route and bounded by the same per-IP rate limit.
         ...buildFederationRpc(getExplorer, configInfo)
     }
 }

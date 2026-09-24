@@ -20,15 +20,18 @@
 function showTransactionDetails(){
     // Setup short alias to action info object
     let o = (XC.actionInfo) ? XC.actionInfo : XC.transactionInfo;
+    // System-injected actions carry no tx_index; that one signal covers every family.
+    let noSourceTx      = Boolean(XC.actionInfo) && !o.tx_index;
+    let NOT_APPLICABLE  = 'Not applicable, no source transaction';
     // Update page with basic transaction details
-    let source        = (o.source)       ? formatLink('/' + XC.coin + '/address/' + o.source, o.source) : '-';
-    let tx_index      = (o.tx_index)     ? formatLink('/' + XC.coin + '/transaction/' + o.tx_index, formatAmount(o.tx_index)) : '-';
+    let source        = noSourceTx ? 'Protocol-generated' : (o.source) ? formatLink('/' + XC.coin + '/address/' + o.source, o.source) : '-';
+    let tx_index      = noSourceTx ? NOT_APPLICABLE : (o.tx_index) ? formatLink('/' + XC.coin + '/transaction/' + o.tx_index, formatAmount(o.tx_index)) : '-';
     let block_index   = (o.block_index)  ? formatLink('/' + XC.coin + '/block/' + o.block_index, formatAmount(o.block_index)) : '-';
     let action_index  = (o.action_index) ? formatLink('/' + XC.coin + '/action/' + o.action_index, formatAmount(o.action_index)) : '-';
     let action_format = (isNumeric(o.action_format)) ? o.action_format : '-';
     let action        = (o.action) ? o.action : '-';
     let status        = (o.status) ? o.status : '-';
-    let tx_data       = (o.tx_data) ? o.tx_data : '-';
+    let tx_data       = noSourceTx ? NOT_APPLICABLE : (o.tx_data) ? o.tx_data : '-';
     $('#tx-index').html(tx_index);
     $('#block').html(block_index);
     $('#action-command').text(action);
@@ -59,7 +62,7 @@ function showTransactionDetails(){
     if(o.tx_hash){
         formatTransactionLink(o.tx_hash);
     } else {
-       $('#tx-hash').text('-');
+       $('#tx-hash').text(noSourceTx ? NOT_APPLICABLE : '-');
     }
     // Load the actions table data
     showActionDatatable('actions',o.actions);

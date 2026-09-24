@@ -16,13 +16,62 @@
 // file loads. The server serializes the explorer-owned registry row into that
 // inline script because static browser code cannot require the Node registry.
 
+function anchorRenderTraits(d){
+    ANCHOR_VERSION_TRAITS[3] = {
+        label: 'Folded checkpoint + archive bundle',
+        checkpoint: true,
+        archive: true,
+        roots: true,
+        publisher: true,
+        continuation: false,
+        bundle: true
+    };
+    let traits = anchorTraits(d);
+    if(traits.known && traits.version === 3)
+        traits.archive = (anchorArchiveRow(d) !== null);
+    return traits;
+}
+
+function anchorCheckpointRows(d){
+    let row = d || {};
+    let rows = anchorSectionRows(row).filter(function(s){
+        return !isNull(s.chain);
+    });
+    if(!rows.length && !isNull(row.chain)) rows.push(row);
+    return rows;
+}
+
+function anchorArchiveRow(d){
+    let row = d || {};
+    let rows = anchorSectionRows(row).slice();
+    rows.push(row);
+    for(let i = 0; i < rows.length; i++)
+        if(isNull(rows[i].chain) && !isNull(rows[i].match_batch_seq)) return rows[i];
+    return null;
+}
+
+function anchorFoldedVerdicts(d){
+    let checkpoints = anchorCheckpointRows(d);
+    let archive = anchorArchiveRow(d);
+    return (checkpoints.length && archive) ? { checkpoints: checkpoints, archive: archive } : null;
+}
+
+function anchorFamilyVerdict(rows, cls){
+    let statuses = [];
+    rows.forEach(function(row){
+        let status = isNull(row.status) ? 'unknown' : String(row.status);
+        if(statuses.indexOf(status) < 0) statuses.push(status);
+    });
+    return '<span class="' + cls + '">' + statuses.map(anchorStatusBadge).join(' ') + '</span>';
+}
+
 function renderAnchorHeights(d){
     let row   = d || {};
-    let t     = anchorTraits(row);
+    let t     = anchorRenderTraits(row);
     let chain = isNull(row.chain) ? 'the checkpointed chain' : String(row.chain);
     let html  = '<table class="table table-sm table-borderless mb-0"><tbody>';
     if(t.bundle)
-        html += anchorBundleHeightRow(row);
+        html += anchorBundleHeightRow(Object.assign({}, row, { sections: anchorCheckpointRows(row) }));
     else
         html += anchorHeightRow('anchor-height-checkpointed', 'Checkpointed Block', row.block_index, 'checkpointed',
             'The height on ' + chain + ' that this anchor commits to. Checkpoint and commitment lookups key off THIS height.');
@@ -37,7 +86,8 @@ function renderAnchorHeights(d){
  * ------------------------------------------------------------------ */
 function renderAnchorIdentity(d){
     let row = d || {};
-    let t   = anchorTraits(row);
+    let t   = anchorRenderTraits(row);
+    let verdicts = anchorFoldedVerdicts(row);
     let html = '';
     html += anchorFieldRow('Action', isNull(row.action_index)
         ? '-'
@@ -46,16 +96,22 @@ function renderAnchorIdentity(d){
         + anchorEsc(isNull(row.version) ? '?' : row.version) + '</span> <span class="anchor-kind">'
         + anchorEsc(t.label) + '</span>'
         + (t.known ? '' : anchorNote(t.legacy
-            ? ('This ANCHOR was mined before the activation height for its network, so its version byte predates the current v0/v1/v2 wire set and is not read against today\'s traits table. Stored status: '
+            ? ('This ANCHOR was mined before the activation height for its network, so its version byte predates the current v0/v1/v2/v3 wire set and is not read against today\'s traits table. Stored status: '
                 + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
             : 'This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.')));
-    html += anchorFieldRow('Status', anchorStatusBadge(row.status));
-    // A bundle's verdict is all-or-nothing across its sections, so the single
-    // status above is the whole action's. Its CHAIN, though, is every chain it
-    // carries: naming one would misidentify the anchor.
+    if(verdicts){
+        html += anchorFieldRow('Checkpoint Sections Status',
+            anchorFamilyVerdict(verdicts.checkpoints, 'anchor-checkpoint-verdict'),
+            'anchor-checkpoint-status-row');
+        html += anchorFieldRow('Archive Status',
+            anchorFamilyVerdict([verdicts.archive], 'anchor-archive-verdict'),
+            'anchor-archive-status-row');
+    } else {
+        html += anchorFieldRow('Status', anchorStatusBadge(row.status));
+    }
     if(t.bundle){
         let chains = [];
-        anchorSectionRows(row).forEach(function(s){
+        anchorCheckpointRows(row).forEach(function(s){
             if(!isNull(s.chain)) chains.push(String(s.chain));
         });
         html += anchorFieldRow('Chains', '<span class="anchor-bundle-chains">'
@@ -79,7 +135,7 @@ function renderAnchorIdentity(d){
 // DOGE, that one is what the hub mirror holds.
 function renderAnchorCheckpointPayload(d){
     let row = d || {};
-    let t   = anchorTraits(row);
+    let t   = anchorRenderTraits(row);
     if(!t.checkpoint)
         return anchorEmpty('This anchor carries no checkpoint payload. A continuation chunk only extends an archive batch published by an earlier anchor.');
     // A bundle's checkpoint payload is per section, so this card carries only what
@@ -113,7 +169,7 @@ function renderAnchorCheckpointPayload(d){
 // lagging chain's section can name an older one of its own.
 function renderAnchorBundleHeader(d){
     let row      = d || {};
-    let sections = anchorSectionRows(row);
+    let sections = anchorCheckpointRows(row);
     let html = '<table class="table table-sm table-borderless mb-0"><tbody>';
     html += anchorFieldRow('Network', anchorEsc(isNull(row.network) ? '-' : row.network));
     html += anchorFieldRow('Sections', '<span class="anchor-section-count">' + sections.length + '</span> chain'
@@ -132,12 +188,14 @@ function renderAnchorBundleHeader(d){
 // payload of a bundle, so an empty one is a broken read rather than an absence.
 function renderAnchorSections(d){
     let row      = d || {};
-    let t        = anchorTraits(row);
-    let sections = anchorSectionRows(row);
+    let t        = anchorRenderTraits(row);
+    let sections = anchorCheckpointRows(row);
     if(!t.bundle)
         return anchorEmpty('This anchor carries a single checkpoint rather than a bundle of per-chain sections.');
     if(!sections.length)
-        return anchorEmpty('This bundle reports no sections. A v7 anchor always carries at least one, so this is an incomplete read rather than an empty cycle.');
+        return anchorEmpty(anchorArchiveRow(row)
+            ? 'This folded anchor carries no checkpoint sections in this cycle.'
+            : 'This bundle reports no checkpoint sections, so this is an incomplete read.');
 
     let html = '<div class="small text-muted mb-1">' + sections.length + ' chain'
         + (sections.length === 1 ? '' : 's') + ' committed by this anchor:</div>';
@@ -159,16 +217,17 @@ function renderAnchorSections(d){
 // what a reader can actually check an archive against.
 function renderAnchorArchivePayload(d){
     let row = d || {};
-    let t   = anchorTraits(row);
+    let t   = anchorRenderTraits(row);
     if(!t.archive)
         return anchorEmpty('This anchor carries no match archive.');
+    let archive = anchorArchiveRow(row) || row;
     let html = '<table class="table table-sm table-borderless mb-0"><tbody>';
-    html += anchorFieldRow('Batch Seq',    isNull(row.match_batch_seq) ? '-' : anchorEsc(row.match_batch_seq), 'anchor-batch-seq');
-    html += anchorFieldRow('Match Count',  isNull(row.match_count) ? '-' : anchorNum(row.match_count));
-    html += anchorFieldRow('Batch CRC32',  isNull(row.batch_crc32) ? '-' : '<span class="font-monospace small">' + anchorEsc(row.batch_crc32) + '</span>');
-    html += anchorFieldRow('Chunk',        anchorChunkLabel(row));
+    html += anchorFieldRow('Batch Seq',    isNull(archive.match_batch_seq) ? '-' : anchorEsc(archive.match_batch_seq), 'anchor-batch-seq');
+    html += anchorFieldRow('Match Count',  isNull(archive.match_count) ? '-' : anchorNum(archive.match_count));
+    html += anchorFieldRow('Batch CRC32',  isNull(archive.batch_crc32) ? '-' : '<span class="font-monospace small">' + anchorEsc(archive.batch_crc32) + '</span>');
+    html += anchorFieldRow('Chunk',        anchorChunkLabel(archive));
     html += anchorFieldRow('Archive Size',
-        isNull(row.archive_b64_length) ? '-' : (anchorNum(row.archive_b64_length) + ' base64 characters')
+        isNull(archive.archive_b64_length) ? '-' : (anchorNum(archive.archive_b64_length) + ' base64 characters')
             + anchorNote('The compressed archive body itself is not served here; check a copy against the batch CRC32 above.'),
         'anchor-archive-size');
     html += '</tbody></table>';
@@ -258,7 +317,7 @@ function renderAnchorCoveringCheckpoint(d){
 // chain-agnostic, so this set is the platform-wide one at that snapshot block.
 function renderAnchorElection(d){
     let row   = d || {};
-    let t     = anchorTraits(row);
+    let t     = anchorRenderTraits(row);
     let set   = Array.isArray(row.publisher_election) ? row.publisher_election : [];
     let tail  = Array.isArray(row.publisher_attestations) ? row.publisher_attestations : [];
     let html  = '';
@@ -358,7 +417,7 @@ function renderAnchorRewards(d){
 // loading placeholder after a response has been handled.
 function renderAnchorPage(d){
     let row = d || {};
-    let t   = anchorTraits(row);
+    let t   = anchorRenderTraits(row);
     $('#anchor-heading').html('<span class="anchor-heading-index">'
         + anchorEsc(isNull(row.action_index) ? '' : row.action_index) + '</span>');
     $('#anchor-identity').html(renderAnchorIdentity(row));

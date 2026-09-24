@@ -218,6 +218,7 @@ const VOTE = {
             }
         } else {
             data['vote_kind'] = 'ballot';
+            // A ballot's chosen options share this action_index; gather them in order.
             let rows = await db.doQuery(config,
                 sql.VOTE_BALLOT_CHOICES,
                 [action_index]);

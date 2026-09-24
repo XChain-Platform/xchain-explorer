@@ -360,12 +360,8 @@ to the whole page rather than one mount point:
         /* sidebar-specific wiring */
     }});
 
-    // Mount something new into a container this theme creates itself, so no
-    // platform page needs a mount point that only this theme uses.
-    var host = document.createElement('div');
-    host.id = 'my-theme-sidebar-status';
-    document.body.appendChild(host);
-    XCComponents.mount(host, 'my-component', { title: 'Live' });
+    // A new theme-only component must load its own three runtime assets before
+    // it mounts. The complete pattern appears under "Theme-only loading".
 })();
 ```
 
@@ -454,9 +450,145 @@ yours) also needs `template.html`'s `<script>`/`<link>` tags added so every
 page loads it, and its name added to the platform's own component registry
 tests, so a component that is registered but never loaded, or never
 inventoried, fails a test instead of silently missing from every page. A
-theme-only component skips both: it is loaded by the theme's own
-`custom.js`, not by the shared page shell, so it never needs a change to
-platform code at all.
+theme-only component skips both shared-platform changes. Its active theme's
+`custom.js` loads all three runtime files from the theme directory and mounts
+the component itself.
+
+### Theme-only loading: a complete example
+
+The explorer serves `src/content/themes/` at `/themes/`, so these source files:
+
+```
+src/content/themes/status-board/
+    theme.json
+    tokens.css
+    custom.js
+    components/live-status/
+        component.json
+        template.html
+        component.css
+        init.js
+```
+
+are available to the browser below
+`/themes/status-board/components/live-status/`. Merely putting the files there
+does not load them. The theme engine automatically loads `custom.js` for the
+active theme, but a brand-new component is deliberately absent from the shared
+page shell and mount manifest. That `custom.js` must therefore do four things,
+in this order:
+
+1. Add a `<link>` for `component.css`.
+2. Fetch `template.html` and place the returned fragment in a mount point.
+3. Add a `<script>` for `init.js`, whose execution registers the component.
+4. Wait until those loads finish, then call `XCComponents.mount`.
+
+For this browser-loaded case, `template.html` is a static fragment. It is not
+passed through the server-side `{SLOT}` substitution used by an override of a
+shared component. Put the fragment's fixed structure in the file and have the
+registered mount function fill its prop-dependent text or state.
+
+`components/live-status/template.html`:
+
+```html
+<section class="xc-live-status" aria-live="polite">
+    <h2 class="xc-live-status-title"></h2>
+    <span class="xc-live-status-value">Connecting</span>
+</section>
+```
+
+`components/live-status/component.css`:
+
+```css
+.xc-live-status {
+    color: var(--xc-surface-body-color);
+    background: var(--xc-surface-secondary-bg);
+    border: var(--xc-table-border-width) solid var(--xc-surface-border-color);
+    padding: var(--xc-table-cell-padding);
+}
+```
+
+`components/live-status/init.js` registers the name. It does not mount itself:
+
+```js
+(function(){
+    'use strict';
+
+    XCComponents.register('live-status', {
+        props: {
+            title: { type: 'string', required: true }
+        },
+        mount: function(el, props, ctx){
+            el.querySelector('.xc-live-status-title').textContent = props.title;
+            el.querySelector('.xc-live-status-value').textContent =
+                ctx.coin ? ctx.coin + ' connected' : 'Explorer connected';
+            return { mounted: true };
+        }
+    });
+})();
+```
+
+Finally, `custom.js` loads the files from their public theme URLs. Loading the
+script through a `src` attribute, rather than fetching and evaluating its text,
+keeps the existing Content-Security-Policy intact. These requests are static
+asset reads under `/themes/`; they do not add an API endpoint.
+
+```js
+(function(){
+    'use strict';
+
+    var base = '/themes/status-board/components/live-status/';
+
+    function loadStylesheet(href){
+        return new Promise(function(resolve, reject){
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            link.onload = resolve;
+            link.onerror = function(){ reject(new Error('Could not load ' + href)); };
+            document.head.appendChild(link);
+        });
+    }
+
+    function loadScript(src){
+        return new Promise(function(resolve, reject){
+            var script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = function(){ reject(new Error('Could not load ' + src)); };
+            document.head.appendChild(script);
+        });
+    }
+
+    function loadTemplate(src){
+        return fetch(src, { credentials: 'same-origin' }).then(function(response){
+            if(!response.ok)
+                throw new Error('Could not load ' + src + ': HTTP ' + response.status);
+            return response.text();
+        });
+    }
+
+    Promise.all([
+        loadTemplate(base + 'template.html'),
+        loadStylesheet(base + 'component.css'),
+        loadScript(base + 'init.js')
+    ]).then(function(assets){
+        var host = document.createElement('div');
+        host.id = 'status-board-live-status';
+        host.innerHTML = assets[0];
+        document.body.appendChild(host);
+        XCComponents.mount(host, 'live-status', { title: 'Network status' });
+    }).catch(function(error){
+        XCLogger.error('status-board: ' + error.message);
+    });
+})();
+```
+
+`Promise.all` is load-bearing here: mounting earlier can race the template,
+the CSS, or registration by `init.js`. If the component belongs at a particular
+place in the page, append `host` to that container instead of `document.body`.
+If several components share the same loader, factor these three helper
+functions into the theme's `custom.js` once and call them with a different
+component base URL each time.
 
 ## Checklist for shipping a theme
 
@@ -471,6 +603,8 @@ platform code at all.
 - [ ] Every component override you ship fills the same slots (for a
       `template.html` override) or the same declared props (for an
       `init.js` override) as the component it replaces.
+- [ ] Every theme-only component has its stylesheet, template, and registration
+      script loaded by `custom.js`, and mounts only after all three are ready.
 - [ ] `?theme=<name>` renders every page you expect it to, and removing
       the parameter restores the previous theme cleanly.
 - [ ] Nothing outside `src/content/themes/<name>/` changed to make any of

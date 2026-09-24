@@ -13,7 +13,7 @@
  **********************************************************************
  * The extracted component library (spec M2.4).
  *
- * Ten components, and the page shell's chrome among them: the nav, the search
+ * Fourteen components, and the page shell's chrome among them: the nav, the search
  * box, the theme toggle and the footer used to be 24KB of markup inlined in
  * template.html and are now composed from component templates.
  *
@@ -50,8 +50,8 @@ const NAMES = fs.readdirSync(COMPONENT_DIR).filter((d) =>
 // The library the spec names, so a component quietly dropped from the tree
 // fails here rather than at the moment a theme tries to override it.
 const EXPECTED = [
-    'chart', 'data-table', 'detail-card', 'footer', 'nav',
-    'qr-card', 'search-box', 'stat-card', 'tab-panel', 'theme-toggle'
+    'badge-list', 'chart', 'countdown', 'data-table', 'detail-card', 'footer', 'nav',
+    'qr-card', 'search-box', 'stat-card', 'stat-tile', 'tab-panel', 'theme-toggle', 'timeline'
 ].sort();
 
 const SOURCE = require('../../../helpers/content-source.js');

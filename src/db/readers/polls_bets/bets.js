@@ -293,9 +293,12 @@ class BetReaders {
                            timestamp: null, tx_hash: null, synthetic: true };
             let times  = await this.doQuery(config, `SELECT block_time FROM blocks WHERE block_index=? LIMIT 1`, [closedBlock]);
             if(times && times.length) closed.timestamp = times[0].block_time;
-            // Order by block, and place the synthetic latch AFTER any action-backed row
-            // in the same block: within a block, user txs process before the latch pass.
-            let at = rows.findIndex(r => r.block_index > closedBlock);
+            // Order by block, placing the synthetic latch after other same-block user
+            // actions (create/resolve/cancel process before the latch pass) but before
+            // a same-block 'expired' row: expiry is the one status that is causally
+            // downstream of the closed latch, since a feed can only expire once closed.
+            let at = rows.findIndex(r => r.block_index > closedBlock ||
+                                          (r.block_index === closedBlock && r.status === 'expired'));
             if(at === -1) rows.push(closed); else rows.splice(at, 0, closed);
         }
         return rows;

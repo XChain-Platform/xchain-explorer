@@ -294,6 +294,7 @@ module.exports = {
     // this file's SSL probe in every tool that only wanted a module.
     env: env,
 
+    defaultTheme: () => env.EXPLORER_DEFAULT_THEME || 'classic',
     // Epoch ms of the last successful hub-config fetch (null until the first success).
     // Exposed so the status endpoint can report how stale the served hub config is when
     // the hub is unreachable. Kept as a getter rather than a direct export because the

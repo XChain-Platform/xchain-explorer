@@ -96,17 +96,20 @@ ci_tier_deferred() {
   return 1
 }
 # <<< ci-tier <<<
+# >>> ci-tier timer (generated block; re-run the tier wirer to update) >>>
 run_tier() {
   ci_tier_deferred "$1" && return 0  # ci-tier guard (generated)
   local name="$1"; shift
+  local __ci_tier_t0=$SECONDS
   echo; echo "ci:full ===== $name ====="
   if "$@"; then
-    echo "ci:full ----- $name PASS"
+    echo "ci:full ----- $name PASS ($(( SECONDS - __ci_tier_t0 ))s)"
   else
     FAILED="$FAILED [$name]"
-    echo "ci:full ----- $name FAIL"
+    echo "ci:full ----- $name FAIL ($(( SECONDS - __ci_tier_t0 ))s)"
   fi
 }
+# <<< ci-tier timer <<<
 need_sib() {
   local s
   for s in "$@"; do
@@ -122,6 +125,16 @@ need_sib() {
 
 need_sib xchain-indexer xchain-vm xchain-sdk xchain-decoder xchain-documentation \
          xchain-encoder xchain-hub
+
+# need_sib above only proves the sibling directories exist. Several suites
+# (coins_conformance, federation_indexer_parity, compression, the checkpoints
+# parity helper) probe deeper into those siblings for a specific file and, by
+# default, skip the check rather than fail when it is absent. That is the
+# right default for a hand run without every sibling cloned, but this script
+# just proved every sibling IS here, so from this point on a skip would hide
+# a real gap instead of reporting one. Export the strict flag those suites
+# already read so every tier below fails loud instead of skipping quiet.
+export XCHAIN_REQUIRE_SIBLINGS=1
 
 # Checked once, up front, so a venue without docker fails before the long unit
 # tier rather than 20 minutes into the run.

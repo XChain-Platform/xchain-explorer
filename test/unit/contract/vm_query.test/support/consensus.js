@@ -16,6 +16,7 @@
 
 const { expect } = require('chai');
 const { loadVmQuery, dbStub, fakeVmModule, CFG } = require('./helpers.js');
+const { siblingCheckout, skipOrFail } = require('../../../../helpers/sibling_checkout.js');
 
 let envBackup;
 
@@ -139,10 +140,7 @@ describe('vm-query', () => {
 // and indexer DEPLOY, or it would reject code the chain accepted (breaking
 // contract-query previews) with no failing test to catch the drift. The
 // canonical source of record is xchain-documentation/protocol/constants.js
-// (MAX_CODE_SIZE); we also cross-check the vendored xchain-vm isolate export.
-// When the sibling xchain-documentation repo is not checked out (standalone
-// deploy), skip the canonical assertion rather than fail, matching the
-// ConsensusPrimitiveConformance cross-repo guard convention.
+// (MAX_CODE_SIZE); we also cross-check the xchain-vm isolate export.
 describe('vm-query protocol size-cap parity @regression', () => {
     const fs   = require('fs');
     const path = require('path');
@@ -152,18 +150,25 @@ describe('vm-query protocol size-cap parity @regression', () => {
     const DOCS_DIR   = process.env.XCHAIN_DOCS_DIR ||
         path.join(__dirname, '..', '..', '..', '..', '..', '..', 'xchain-documentation');
     const CONST_PATH = path.join(DOCS_DIR, 'protocol', 'constants.js');
+    const VM_DIR = process.env.XCHAIN_VM_SOURCE || process.env.XCHAIN_VM_DIR ||
+        path.join(__dirname, '..', '..', '..', '..', '..', '..', 'xchain-vm');
 
     it('explorer query-VM MAX_CODE_SIZE === canonical protocol constant', function(){
-        if(!fs.existsSync(CONST_PATH)) this.skip();
+        const verdict = siblingCheckout(__dirname, CONST_PATH);
+        if(!verdict.usable)
+            return skipOrFail(this, verdict, 'the canonical protocol MAX_CODE_SIZE guard');
         const protocol = require(CONST_PATH);
         expect(vmq.MAX_CODE_SIZE).to.equal(protocol.MAX_CODE_SIZE);
     });
 
-    it('explorer query-VM MAX_CODE_SIZE === vendored xchain-vm isolate cap', function(){
-        let vm;
-        try { vm = require('xchain-vm'); } catch(e){ this.skip(); return; }
-        if(vm == null || typeof vm.MAX_CODE_SIZE !== 'number') this.skip();
-        expect(vmq.MAX_CODE_SIZE).to.equal(vm.MAX_CODE_SIZE);
+    it('explorer query-VM MAX_CODE_SIZE === canonical xchain-vm isolate cap', function(){
+        const vmConstants = path.join(VM_DIR, 'src', 'protocol', 'constants.js');
+        const verdict = siblingCheckout(__dirname, vmConstants);
+        if(!verdict.usable)
+            return skipOrFail(this, verdict, 'the canonical xchain-vm MAX_CODE_SIZE guard');
+        const vmProtocol = require(vmConstants);
+        expect(vmProtocol.MAX_CODE_SIZE).to.be.a('number');
+        expect(vmq.MAX_CODE_SIZE).to.equal(vmProtocol.MAX_CODE_SIZE);
     });
 
     it('the caps the isolate actually receives are the named constants (no bare literal reintroduced)', () => {
@@ -175,15 +180,16 @@ describe('vm-query protocol size-cap parity @regression', () => {
     // be discovered by an explorer refusing to simulate in production. Read by
     // regex rather than require(), so the assertion never needs to load isolated-vm.
     it('the compiled consensus pin equals the canonical sibling xchain-vm epoch', function(){
-        const VM_DIR = process.env.XCHAIN_VM_SOURCE ||
-            path.join(__dirname, '..', '..', '..', '..', '..', '..', 'xchain-vm');
         // The VM's layout pass renamed src/consensus-runtime.js to
         // src/consensus_runtime.js and left nothing at the old path, so a sibling
         // checkout sits on one side of that move or the other. Pinning one
         // spelling turns this pin check into a silent skip against the other.
-        const RUNTIME = [path.join(VM_DIR, 'src', 'consensus_runtime.js'),
-                         path.join(VM_DIR, 'src', 'consensus-runtime.js')].find((p) => fs.existsSync(p));
-        if(!RUNTIME) this.skip();
+        const runtimePaths = [path.join(VM_DIR, 'src', 'consensus_runtime.js'),
+                              path.join(VM_DIR, 'src', 'consensus-runtime.js')];
+        const RUNTIME = runtimePaths.find((p) => fs.existsSync(p)) || runtimePaths[0];
+        const verdict = siblingCheckout(__dirname, RUNTIME);
+        if(!verdict.usable)
+            return skipOrFail(this, verdict, 'the canonical xchain-vm consensus epoch guard');
         const m = /CONSENSUS_VERSION\s*=\s*'([^']+)'/.exec(fs.readFileSync(RUNTIME, 'utf8'));
         expect(m, 'canonical CONSENSUS_VERSION not found in ' + RUNTIME).to.not.equal(null);
         expect(vmq.REQUIRED_VM_CONSENSUS_VERSION).to.equal(m[1]);

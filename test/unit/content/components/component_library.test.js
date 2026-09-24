@@ -54,6 +54,8 @@ const EXPECTED = [
     'qr-card', 'search-box', 'stat-card', 'stat-tile', 'tab-panel', 'theme-toggle', 'timeline'
 ].sort();
 
+const PRESENTATION = ['timeline', 'countdown', 'badge-list', 'stat-tile'];
+
 const SOURCE = require('../../../helpers/content-source.js');
 
 function loadAll(){
@@ -122,6 +124,16 @@ describe('component library (M2.4)', function () {
                 if(!shell.includes('/components/' + name + '/component.css')) missing.push(name + ' component.css');
             }
             assert.deepEqual(missing, [], 'component assets the shell never loads: ' + missing.join(', '));
+        });
+
+        it('loads every presentation component registration script from the shell', function () {
+            const shell = fs.readFileSync(path.join(HTML_DIR, 'template.html'), 'utf8');
+            const scripts = new Set([...new JSDOM(shell).window.document.querySelectorAll('script[src]')]
+                .map((script) => script.getAttribute('src')));
+            const missing = PRESENTATION.filter((name) =>
+                !scripts.has('/components/' + name + '/init.js'));
+            assert.deepEqual(missing, [],
+                'presentation components with no shell registration script: ' + missing.join(', '));
         });
 
         it('serves the component directory over HTTP, or none of those tags resolve', function () {

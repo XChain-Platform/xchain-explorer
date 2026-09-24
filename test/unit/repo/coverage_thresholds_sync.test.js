@@ -41,6 +41,11 @@ describe('coverage ratchet floors', () => {
     assert.match(pkg.scripts['coverage:check'], /--check-coverage/);
   });
 
+  it('measures unrequired source files in both coverage scripts', () => {
+    assert.match(pkg.scripts.coverage, /(?:^|\s)--all(?:\s|$)/);
+    assert.match(pkg.scripts['coverage:check'], /(?:^|\s)--all(?:\s|$)/);
+  });
+
 });
 
 // The ratchet excludes src/hub/**, the two byte-identical vendored copies of the

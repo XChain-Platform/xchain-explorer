@@ -132,6 +132,12 @@ function request(reqPath, query, cookie){
     return req;
 }
 
+function concretePagePaths(explorer){
+    return Object.keys(explorer.urls.html).map((route) => route
+        .replace('{COIN}', 'BTC')
+        .replace('{QUERY}', 'sample'));
+}
+
 describe('theme selection on rendered pages', function () {
 
     it('a config default themes the rendered page', async function () {
@@ -158,14 +164,19 @@ describe('theme selection on rendered pages', function () {
 
     it('?theme=skin-demo restyles any page and removing it restores the default', async function () {
         const explorer = makeExplorer();
-        const themed = mockRes();
-        await explorer.processRequest(request('/about', { theme: 'skin-demo' }), themed);
-        assert.match(themed._body, /href="\/themes\/skin-demo\/tokens\.css"/);
+        const pagePaths = concretePagePaths(explorer);
+        assert.ok(pagePaths.length > 1, 'expected multiple declared HTML routes');
 
-        const restored = mockRes();
-        await explorer.processRequest(request('/about'), restored);
-        assert.match(restored._body, /href="\/themes\/classic\/tokens\.css"/);
-        assert.equal(restored._body.includes('/themes/skin-demo/tokens.css'), false);
+        for(const pagePath of pagePaths){
+            const themed = mockRes();
+            await explorer.processRequest(request(pagePath, { theme: 'skin-demo' }), themed);
+            assert.match(themed._body, /href="\/themes\/skin-demo\/tokens\.css"/, pagePath);
+
+            const restored = mockRes();
+            await explorer.processRequest(request(pagePath), restored);
+            assert.match(restored._body, /href="\/themes\/classic\/tokens\.css"/, pagePath);
+            assert.equal(restored._body.includes('/themes/skin-demo/tokens.css'), false, pagePath);
+        }
     });
 
     it('an unknown query theme logs and renders with the default stylesheet', async function () {

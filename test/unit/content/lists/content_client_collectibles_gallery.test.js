@@ -74,6 +74,7 @@ function installHelpers(dom) {
     dom.window.eval(JQUERY_SRC);
     dom.window.eval(`
         var XC = { coin: 'RDOGE', network: 'regtest', name: 'Dogecoin', pageInfo: {}, datatables: {} };
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function updatePageInfo(){}
         var numeral = function(n){ return { format: function(){ return String(n); } }; };

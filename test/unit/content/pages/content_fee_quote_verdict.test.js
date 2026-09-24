@@ -62,6 +62,7 @@ function render(quote) {
     // isNull and escapeHtml come from the shipped helpers rather than stubs,
     // because the renderer's own escaping rides on them.
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         ${extractFn(XCHAIN_JS, 'isNull', 'xchain.js/formatters.js')}
         ${extractFn(XCHAIN_JS, 'escapeHtml', 'xchain.js/formatters.js')}

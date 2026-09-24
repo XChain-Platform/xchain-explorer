@@ -65,7 +65,7 @@ function collectibleEditionLabel(row){
 function renderCollectibleCard(row){
     let tick  = collectibleEsc(row.tick);
     let icon  = getTokenIcon(row.tick);
-    let href  = '/' + XC.coin + '/token/' + encodeURIComponent(String(row.tick));
+    let href  = tokenUrl(XC.coin, row.tick);
     let edition = collectibleEditionLabel(row);
     let html = '<div class="col-6 col-md-4 col-lg-3 mb-3 collectible-card" data-tick="' + tick + '">'
              + '<div class="card h-100">'

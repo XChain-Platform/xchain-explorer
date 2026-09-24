@@ -72,6 +72,7 @@ function renderListDetails(data) {
     // handed is the entire point of this change.
     let tables = {};
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
         function isNumeric(v){ return !isNaN(parseFloat(v)) && isFinite(v); }

@@ -35,6 +35,19 @@ function readPath(explorer, req, st){
     // Drop the leading and trailing slashes, then split the path into its parts.
     let urlPath = String(req.path).substring(1).replace(/\/$/,'').split('/');
 
+    // req.path is the raw request path, still percent-encoded, and the {QUERY}
+    // segment is what the readers bind straight into their lookups. A tick is
+    // free text (TDOGE issued "$$$$$$$$$$$78324%@##*(@#"), so a client has to
+    // encode it to get it through the URL at all, and a lookup on the encoded
+    // form answers NOT_FOUND for a token that exists. Decode each segment
+    // after the split so an encoded slash stays inside its segment. Express
+    // already refuses a malformed escape with 400, so the guard is for a path
+    // that reaches here some other way: keep the raw segment, which then
+    // simply matches nothing.
+    urlPath = urlPath.map(function(value){
+        try { return decodeURIComponent(value); } catch(_){ return value; }
+    });
+
     // Turn the literal string 'null' into a real null, so isNull judges it properly.
     urlPath.forEach(function(value, idx){
         if(String(value).toLowerCase()=='null')

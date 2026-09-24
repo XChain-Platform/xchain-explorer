@@ -97,7 +97,7 @@ function actionDetail_renderDisclosure(o){
         o.sends.forEach(function(s, i){
             rows += '<tr class="' + actionDetail_statusClass(s.status) + '">'
                 + '<td>' + (i + 1) + '</td>'
-                + '<td>' + formatLink('/' + coin + '/token/' + s.tick, s.tick, s.tick) + '</td>'
+                + '<td>' + formatLink(tokenUrl(coin, s.tick), s.tick, s.tick) + '</td>'
                 + '<td>' + formatAmount(s.amount) + '</td>'
                 + '<td>' + formatLink('/' + coin + '/address/' + s.destination, s.destination) + '</td>'
                 + '<td>' + escapeHtml(s.memo) + '</td>'
@@ -110,7 +110,7 @@ function actionDetail_renderDisclosure(o){
             let tick = (isNull(d.tick)) ? o.tick : d.tick;
             rows += '<tr class="' + actionDetail_statusClass(d.status) + '">'
                 + '<td>' + (i + 1) + '</td>'
-                + '<td>' + formatLink('/' + coin + '/token/' + tick, tick, tick) + '</td>'
+                + '<td>' + formatLink(tokenUrl(coin, tick), tick, tick) + '</td>'
                 + '<td>' + formatAmount(d.amount) + '</td>'
                 + '<td>' + escapeHtml(d.memo) + '</td>'
                 + '<td>' + escapeHtml(d.status) + '</td>'

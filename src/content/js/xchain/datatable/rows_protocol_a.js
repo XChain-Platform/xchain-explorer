@@ -34,9 +34,9 @@ function xcDatatableRenderSearchRow(context){
     if(type=='token'){
         let token       = data[1];
         let description = data[2];
-        $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, highlightSearchTerm(XC.query, token), token));
+        $('td', row).eq(1).html(formatLink(tokenUrl(coin, token), highlightSearchTerm(XC.query, token), token));
         $('td', row).eq(2).html(highlightSearchTerm(XC.query, description));
-        $('td', row).eq(3).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+        $('td', row).eq(3).html(formatLink(tokenUrl(coin, token), 'view', null, true));
     }
     if(type=='transaction'){
         let transaction = data[1];
@@ -114,7 +114,7 @@ function xcDatatableRenderDepositOrWithdrawalRow(context){
     let token  = data[5];
     let amount = data[6];
     $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(6).html(formatAmount(amount));
     $('td', row).eq(7).html(action_link);
 
@@ -185,7 +185,7 @@ function xcDatatableRenderContractStakeRow(context){
     let version = data[8];
     $('td', row).eq(4).html(formatHash(pubkey));
     $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(6).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(7).html(formatAmount(amount));
     $('td', row).eq(8).html(action_link);
 
@@ -203,7 +203,7 @@ function xcDatatableRenderContractUnstakeRow(context){
     let cooldown_end = data[8];
     $('td', row).eq(4).html(formatHash(pubkey));
     $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(6).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(7).html(formatAmount(amount));
     $('td', row).eq(8).html(formatLink('/' + coin + '/block/' + cooldown_end, numeral(cooldown_end).format(fmtInteger)));
     $('td', row).eq(9).html(action_link);
@@ -223,7 +223,7 @@ function xcDatatableRenderSlashEventRow(context){
     let execution_index = data[8];
     $('td', row).eq(3).html(formatHash(pubkey));
     $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(6).html(formatAmount(amount));
     $('td', row).eq(7).html(formatLink('/' + coin + '/address/' + destination, destination));
     $('td', row).eq(8).html(formatLink('/' + coin + '/action/' + execution_index, 'view', null, true));
@@ -293,7 +293,7 @@ function xcDatatableRenderPollRow(context){
     let winner_index  = data[9];
     let winner_label  = data[10];
     let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
-    $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(question) ? '-' : question);
     $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + (poll_status || '-') + '</span>');
     $('td', row).eq(7).html(isNull(end_block) ? '-' : formatLink('/' + coin + '/block/' + end_block, numeral(end_block).format(fmtInteger)));
@@ -334,7 +334,7 @@ function xcDatatableRenderBetFeedRow(context){
              : (feed_status=='cancelled' || feed_status=='expired') ? 'danger'
              : (feed_status=='resolved_void') ? 'secondary'
              : (feed_status=='closed') ? 'warning text-dark' : 'primary';
-    $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(label) ? '-' : label);
     $('td', row).eq(6).html('<span class="badge text-bg-' + fcls + '">' + escapeHtml(String(feed_status || '-')) + '</span>');
     $('td', row).eq(7).html(isNull(deadline) ? '-' : formatLivestamp(deadline));
@@ -357,7 +357,7 @@ function xcDatatableRenderBetRow(context){
              : (bet_status=='refunded') ? 'secondary' : 'primary';
     $('td', row).eq(4).html(isNull(feed_index) ? '-' : formatLink('/' + coin + '/bet_feed/' + feed_index, feed_index));
     $('td', row).eq(5).text(isNull(outcome) ? '-' : outcome);
-    $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(6).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(7).html(formatAmount(amount));
     $('td', row).eq(8).html('<span class="badge text-bg-' + bcls + '">' + escapeHtml(String(bet_status || '-')) + '</span>');
     $('td', row).eq(9).html(action_link);

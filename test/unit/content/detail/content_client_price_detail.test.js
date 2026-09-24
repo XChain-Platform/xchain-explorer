@@ -77,6 +77,7 @@ function renderPriceDetails(data) {
     // pulled from the shipped source rather than stubbed, because the round
     // renderer's escaping IS one of the things under test here.
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatHash(h, len){ return String(h).substring(0, len); }
         function formatLivestamp(ts){ return '<span data-livestamp=' + ts + '></span>'; }

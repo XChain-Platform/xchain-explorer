@@ -40,7 +40,7 @@ function xcDatatableRenderAirdropRow(context){
 
     let token  = data[4];
     let amount = data[5];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(7).html(action_link);
 
@@ -55,13 +55,13 @@ function xcDatatableRenderBalanceRow(context){
     let amount  = data[2];
     let percent = data[3];
     let value   = data[4];
-    $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(1).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(2).html(formatAmount(amount));
     $('td', row).eq(3).html(numeral(percent).format(fmtCoin) + '%');
     let html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
     html += ' <span class="badge text-bg-info text-white">$' + numeral(bcmul(value, XC.coin_price, 8)).format('0,0.00') + '</span>';
     $('td', row).eq(4).html(html);
-    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+    $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), 'view', null, true));
 
 }
 xcDatatableRowHandlers.balance = xcDatatableRenderBalanceRow;
@@ -180,7 +180,7 @@ function xcDatatableRenderPriceRow(context){
         typeHtml += ' <span class="badge text-bg-dark">Batch</span>';
     $('td', row).eq(4).html(typeHtml);
     $('td', row).eq(5).text(isNull(pcoin) ? '-' : pcoin);
-    $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(6).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(7).text(isNull(fiat) ? '-' : fiat);
     // Rounds: the batch's declared window and its round count; on every
     // other shape the single round the action is about.
@@ -224,7 +224,7 @@ function xcDatatableRenderControllerRow(context){
         : '<span class="badge text-bg-secondary">Token</span>');
     $('td', row).eq(4).html(isNull(subject) ? '-' : (scope=='address'
         ? formatLink('/' + coin + '/address/' + subject, subject)
-        : formatLink('/' + coin + '/token/' + subject, subject, subject)));
+        : formatLink(tokenUrl(coin, subject), subject, subject)));
     $('td', row).eq(5).text(isNull(aclass) ? '-' : aclass);
     $('td', row).eq(6).html(isNull(guard) ? '-' : formatLink('/' + coin + '/contract/' + guard, guard));
     $('td', row).eq(7).html(Number(isUnbind)===1
@@ -259,8 +259,8 @@ function xcDatatableRenderCallbackRow(context){
     let token  = data[4];
     let token2 = data[5];
     let amount = data[6];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
-    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
+    $('td', row).eq(5).html(formatLink(tokenUrl(coin, token2), token2, token2));
     $('td', row).eq(6).html(formatAmount(amount));
     $('td', row).eq(7).html(action_link);
 
@@ -273,7 +273,7 @@ function xcDatatableRenderCreditRow(context){
 
     let token  = data[4];
     let amount = data[5];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(7).html(action_link);
 
@@ -286,7 +286,7 @@ function xcDatatableRenderDebitRow(context){
 
     let token  = data[4];
     let amount = data[5];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(7).html(action_link);
 
@@ -299,7 +299,7 @@ function xcDatatableRenderDestroyRow(context){
 
     let token  = data[4];
     let amount = data[5];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(6).html(action_link);
 
@@ -318,15 +318,15 @@ function xcDatatableRenderDispenserRow(context){
     let get_amount     = data[9];
     let give_ownership = data[10];
     if(give_ownership == 1){
-        $('td', row).eq(4).html(formatLink('/' + give_coin + '/token/' + give_token, give_token, give_token) + ' ' + ownershipBadge());
+        $('td', row).eq(4).html(formatLink(tokenUrl(give_coin, give_token), give_token, give_token) + ' ' + ownershipBadge());
     } else {
-        $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
+        $('td', row).eq(4).html(formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount));
     }
     // Built as a LOCAL, never appended onto the shared `html` scratch variable:
     // see formatNativeCoinLeg for why that mattered.
     let getLeg = isNull(get_token)
         ? formatNativeCoinLeg(get_amount, get_coin)
-        : formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount);
+        : formatLinkAmount(tokenUrl(get_coin, get_token), get_token, get_token, get_amount);
     $('td', row).eq(5).html(getLeg);
     $('td', row).eq(6).html(formatLink('/' + coin + '/dispenser/' + action_index, 'view', null, true));
 
@@ -343,11 +343,11 @@ function xcDatatableRenderDispenseRow(context){
     let get_coin    = data[7];
     let get_token   = data[8];
     let get_amount  = data[9];
-    $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
+    $('td', row).eq(4).html(formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount));
     // Local, not the shared `html` scratch variable: see formatNativeCoinLeg.
     let getLeg = isNull(get_token)
         ? formatNativeCoinLeg(get_amount, get_coin)
-        : formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount);
+        : formatLinkAmount(tokenUrl(get_coin, get_token), get_token, get_token, get_amount);
     $('td', row).eq(5).html(getLeg);
     $('td', row).eq(6).html(action_link);
 
@@ -362,8 +362,8 @@ function xcDatatableRenderDividendRow(context){
     let token  = data[4];
     let token2 = data[5];
     let amount = data[6];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
-    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
+    $('td', row).eq(5).html(formatLink(tokenUrl(coin, token2), token2, token2));
     $('td', row).eq(6).html(formatAmount(data[6]));
     $('td', row).eq(7).html(action_link);
 
@@ -376,7 +376,7 @@ function xcDatatableRenderEscrowRow(context){
 
     let token  = data[4];
     let amount = data[5];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(7).html(action_link);
 

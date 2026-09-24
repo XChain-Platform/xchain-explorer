@@ -35,18 +35,18 @@ const { rollcallManifestHash, ROLLCALL_ACTIVATION,
 const { resolveRouteCoin, readVerdict, answeredTip } = require('../../../src/federation');
 const { getLogger } = require('../../../src/observability');
 
-const KEY = 'routing-test-key';
-const AUTH = { 'x-api-key': KEY };
+// A validator client sends its DOGE_INDEXER_API_KEY when it has one; the explorer ignores it.
+const AUTH = { 'x-api-key': 'routing-test-key' };
 const PUBKEY = 'd'.repeat(64);
 const ROLLCALL = { network: 'testnet', epoch_height: 5, max_block_time: 2000, pubkeys: [PUBKEY], publishers: [] };
 const SCENARIO = { tip: 90, tipTime: 3000, hcut: 60,
     signers: [{ pubkey: PUBKEY, sig: 'ee'.repeat(32), ledger_hash: 'ff'.repeat(32), publisher: PUBKEY, action_index: 4, block_index: 55, gates: null }],
     prices: [] };
 
-// A keyed app over one scripted replica, plus the calls it recorded.
+// An app over one scripted replica, plus the calls it recorded.
 function routedApp(dbOpts) {
     const calls = [];
-    const app = buildRpcApp({ key: KEY, db: explorerDb(SCENARIO, calls, dbOpts) });
+    const app = buildRpcApp({ db: explorerDb(SCENARIO, calls, dbOpts) });
     return { app, calls };
 }
 

@@ -88,6 +88,7 @@ describe('transaction page: an empty action list renders instead of throwing', f
             { runScripts: 'outside-only' });
         dom.window.eval(fs.readFileSync(path.join(ROOT, 'src/content/js/jquery.min.js'), 'utf8'));
         dom.window.eval(`
+            function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
             function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
             function formatAmount(v){ return String(v); }
             function getActionDetails(){ return 'summary'; }

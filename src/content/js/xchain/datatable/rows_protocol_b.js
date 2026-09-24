@@ -76,7 +76,7 @@ function xcDatatableRenderOraclePriceRow(context){
     $('td', row).eq(1).html(formatLivestamp(block_time));
     $('td', row).eq(2).text(isNull(source_chain) ? '-' : source_chain);
     $('td', row).eq(3).html(isNull(source_address) ? '-' : formatLink('/' + coin + '/address/' + source_address, source_address));
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(fiat) ? '-' : fiat);
     $('td', row).eq(6).html(numeral(value).format(fmtCurrency));
 
@@ -166,10 +166,10 @@ function xcDatatableRenderCrossChainMatchRow(context){
     $('td', row).eq(2).text(isNull(network) ? '-' : network);
     $('td', row).eq(3).html(isNull(match_id) ? '-' : formatHash(match_id));
     $('td', row).eq(4).text(isNull(a_chain) ? '-' : a_chain);
-    $('td', row).eq(5).html(isNull(a_tick) ? '-' : formatLink('/' + coin + '/token/' + a_tick, a_tick, a_tick));
+    $('td', row).eq(5).html(isNull(a_tick) ? '-' : formatLink(tokenUrl(coin, a_tick), a_tick, a_tick));
     $('td', row).eq(6).html(formatAmount(a_amount));
     $('td', row).eq(7).text(isNull(b_chain) ? '-' : b_chain);
-    $('td', row).eq(8).html(isNull(b_tick) ? '-' : formatLink('/' + coin + '/token/' + b_tick, b_tick, b_tick));
+    $('td', row).eq(8).html(isNull(b_tick) ? '-' : formatLink(tokenUrl(coin, b_tick), b_tick, b_tick));
     $('td', row).eq(9).html(formatAmount(b_amount));
     $('td', row).eq(10).html('<span class="badge text-bg-secondary">' + (mstatus || '-') + '</span>');
 
@@ -368,7 +368,7 @@ function xcDatatableRenderContractDelegationRow(context){
     let deactivation    = data[8];
     $('td', row).eq(4).html(isNull(signing_pubkey) ? '-' : formatHash(signing_pubkey));
     $('td', row).eq(5).html(isNull(contract_index) ? '-' : formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(6).html(isNull(tick) ? '-' : formatLink('/' + coin + '/token/' + tick, tick, tick));
+    $('td', row).eq(6).html(isNull(tick) ? '-' : formatLink(tokenUrl(coin, tick), tick, tick));
     $('td', row).eq(7).text(isNull(activation) ? '-' : numeral(activation).format(fmtInteger));
     $('td', row).eq(8).text(isNull(deactivation) ? '-' : numeral(deactivation).format(fmtInteger));
     $('td', row).eq(9).html(action_link);
@@ -386,7 +386,7 @@ function xcDatatableRenderVoteDelegationRow(context){
     let tick      = data[3];
     let delegator = data[4];
     let delegate  = data[5];
-    $('td', row).eq(3).html(isNull(tick) ? '-' : formatLink('/' + coin + '/token/' + tick, tick, tick));
+    $('td', row).eq(3).html(isNull(tick) ? '-' : formatLink(tokenUrl(coin, tick), tick, tick));
     $('td', row).eq(4).html(isNull(delegator) ? '-' : formatLink('/' + coin + '/address/' + delegator, delegator));
     $('td', row).eq(5).html(isNull(delegate) ? '-' : formatLink('/' + coin + '/address/' + delegate, delegate));
     $('td', row).eq(6).html(action_link);

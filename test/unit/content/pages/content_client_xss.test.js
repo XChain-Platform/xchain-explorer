@@ -146,6 +146,7 @@ function renderBetDetails(data) {
     // own doing rather than a helper's.
     dom.window.XC = { coin: 'BTC' };
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
         function formatLivestamp(v){ return String(v); }

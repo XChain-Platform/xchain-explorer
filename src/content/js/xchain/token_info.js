@@ -108,7 +108,7 @@ function tokenInfo_renderProjectBanners(o){
             let name = escapeHtml(p.project);
             projectBanners += '<div class="alert alert-success mb-1" role="alert">'
                  +  '<i class="fa fa-certificate pe-1"></i>This token is an official token in the '
-                 +  formatLink('/' + XC.coin + '/token/' + name, '<b>' + name + '</b>', p.project)
+                 +  formatLink(tokenUrl(XC.coin, name), '<b>' + name + '</b>', p.project)
                  +  ' project.'
                  +  '<a href="/' + XC.coin + '/action/' + Number(p.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
                  +  '</div>';
@@ -167,7 +167,7 @@ function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
 
     // Callback Token Information
     if(!isNull(o.callback.tick)){
-        $('#callback-tick').html(formatLink('/' + XC.coin + '/token/' + o.callback.tick, o.callback.tick));
+        $('#callback-tick').html(formatLink(tokenUrl(XC.coin, o.callback.tick), o.callback.tick));
         $('#callback-block').html(formatLink('/' + XC.coin + '/block/' + o.callback.block, numeral(o.callback.block).format('0,0')));
         if(o.callback.amount){
             $('#callback-amount').text(formatAmount(o.callback.amount));

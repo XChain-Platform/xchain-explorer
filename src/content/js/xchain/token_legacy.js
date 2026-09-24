@@ -23,6 +23,8 @@ function legacyJsonToXChainTIS(o){
         ipfs = /^ipfs:\/\//i,
         ar   = /^ar:/i,
         o    = (o) ? o : {};
+    // Classify before the icon/gateway rewrites below touch the input.
+    var legacy = tokenLegacy_isLegacy(o);
     // Map a top-level "icon" field (a common typo for "image" in community
     // JSONs) onto image so the rest of the pipeline picks it up.
     if(o.icon)
@@ -33,19 +35,34 @@ function legacyJsonToXChainTIS(o){
     // Replace any ar: urls with the arweave.net gateway
     if(ar.test(o.image))
         o.image = 'https://arweave.net/' + String(o.image).replace(ar,'');
-    tokenLegacy_mapDetails(o, json);
+    tokenLegacy_mapDetails(o, json, legacy);
     tokenLegacy_mapMedia(o, json, ipfs, ar);
     tokenLegacy_addDescriptionUrls(o, json);
     tokenLegacy_finalize(o, json);
     return json;
 }
 
+// Report whether a document carries a legacy-format field that TIS never declares.
+function tokenLegacy_isLegacy(o){
+    var keys = ['asset','token','icon','image','image_large','image_large_hd','image_title','pgpsig',
+                'category','subcategory','category_custom','website_alternate1','website_alternate2'];
+    if(typeof o !== 'object' || o === null)
+        return false;
+    if(typeof o.audio === 'string' || typeof o.video === 'string')
+        return true;
+    return Object.keys(o).some(function(k){
+        return keys.indexOf(k) !== -1 || /^(contact_|website_social_)/.test(k);
+    });
+}
+
 // Map identity and contact metadata in one bounded pass.
-function tokenLegacy_mapDetails(o, json){
-    // Pass basic token info fields forward. `title` is the piece's display title
-    // (community JSONs carry it at the top level beside `name`); the token page
-    // reads it ahead of any per-entry title or filename (resolveArtworkTitle).
-    ['token','description','image','website','pgpsig','name','title'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
+function tokenLegacy_mapDetails(o, json, legacy){
+    // Pass basic token info fields forward.
+    ['token','description','image','website','pgpsig','name'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
+    // Forward the piece's top-level display title from a legacy document only
+    // (TIS declares no top-level title, so a native document titles from its entries).
+    if(legacy && o.title)
+        json.title = o.title;
     // Owner fields
     json.owner = {};
     if(o.owner)

@@ -28,9 +28,18 @@
 'use strict';
 
 const path = require('path');
+const gateRegistry = require('../../consensus/gate_registry.js');
 const { renderPlatformSwitcher } = require('../../render/platform_links.js');
 const listPage     = require('../../render/list_page.js');
 const componentTpl = require('../../render/component_templates.js');
+
+// Inject plain JSON because browser scripts cannot load the Node registry.
+// Escape less-than signs so a future string value cannot close the script tag.
+function injectAnchorActivation(html) {
+    const activation = gateRegistry.copy('anchor_activation.ANCHOR_ACTIVATION');
+    const json = JSON.stringify(activation).replace(/</g, '\\u003c');
+    return html.replace('{ANCHOR_ACTIVATION}', () => json);
+}
 
 /**
  * Render the page this request resolved to into the response.
@@ -68,6 +77,7 @@ async function renderPage(explorer, st){
         // detail-card row configs (spec M2.5): 38 blocks whose row ORDER is
         // now data a theme can resequence, embedded once instead of fetched.
         htmlContent     = listPage.dataBlocks(htmlContent);
+        htmlContent     = injectAnchorActivation(htmlContent);
         // Use a replacement FUNCTION, not the raw string: String.replace treats $-sequences
         // ($&, $', $`, $1) specially in a string replacement, so any page content containing
         // them (e.g. a "$" in inline JS or a token description) would be mangled or truncated.
@@ -82,4 +92,4 @@ async function renderPage(explorer, st){
     }
 }
 
-module.exports = { renderPage };
+module.exports = { renderPage, injectAnchorActivation };

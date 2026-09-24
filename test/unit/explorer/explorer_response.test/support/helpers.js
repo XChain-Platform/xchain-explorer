@@ -66,9 +66,9 @@ function makeExplorer(configOverrides) {
     const explorer   = new XChainExplorer(mockApp, configInfo);
     // Stub async FS helpers used by the HTML page handler
     sinon.stub(explorer.util, 'fileExists').resolves(true);
-    sinon.stub(explorer.util, 'fileGetContents')
-        .withArgs(sinon.match(/template\.html/)).resolves('<html>{CONTENT}</html>')
-        .resolves('<p>page content</p>');
+    const fileGetContentsStub = sinon.stub(explorer.util, 'fileGetContents');
+    fileGetContentsStub.withArgs(sinon.match(/template\.html/)).resolves('<html>{CONTENT}</html>');
+    fileGetContentsStub.resolves('<p>page content</p>');
     return explorer;
 }
 

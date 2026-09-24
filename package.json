@@ -1,7 +1,7 @@
 {
   "name": "xchain-explorer",
   "description": "xchain-explorer is a free open source token platform explorer and set of APIs to pull data from the XChain platform supported blockchains",
-  "version": "0.20.0",
+  "version": "0.20.1",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
@@ -43,7 +43,7 @@
     "test:explorer": "mocha test/unit/explorer/explorer_anchor_reward_attestations.test.js test/unit/explorer/explorer_attest_validator_stats.test.js test/unit/explorer/explorer_capability_snapshots.test.js test/unit/explorer/explorer_checkpoints.test.js test/unit/explorer/explorer_commitments.test.js test/unit/explorer/explorer_emissions.test.js test/unit/explorer/explorer_icon.test.js test/unit/explorer/explorer_mirror_gate.test.js test/unit/explorer/explorer_paging.test.js test/unit/explorer/explorer_relay.test.js test/unit/explorer/explorer_reorgs.test.js test/unit/explorer/explorer_response.test.js test/unit/explorer/explorer_routing.test.js test/unit/explorer/explorer_slash_proposals.test.js test/unit/explorer/explorer_vote_delegations.test.js --timeout 0 --exit",
     "test:config": "mocha test/unit/config/config.test.js test/unit/connectors/hub_connector.test.js --timeout 0 --exit",
     "test:integration": "bash bin/run-integration.sh",
-    "test:conformance": "mocha test/conformance/**/*.test.js --timeout 120000 --exit --recursive",
+    "test:conformance": "node bin/run-conformance.js",
     "test:e2e": "mocha test/e2e/**/*.test.js --timeout 30000 --exit --recursive",
     "test:integration:up": "node bin/db-fixture.js up",
     "test:integration:down": "node bin/db-fixture.js down",
@@ -64,8 +64,8 @@
     "test:chaos:network": "node --expose-gc ./node_modules/.bin/mocha test/chaos/network_partition.test.js --timeout 0 --exit",
     "test:chaos:resource": "node --expose-gc ./node_modules/.bin/mocha test/chaos/resource_saturation.test.js --timeout 0 --exit",
     "test:chaos:external": "node --expose-gc ./node_modules/.bin/mocha test/chaos/external_deps.test.js --timeout 0 --exit",
-    "test:chaos:up": "docker compose -f test/chaos/fixtures/docker-compose.chaos.yml up -d --wait",
-    "test:chaos:down": "docker compose -f test/chaos/fixtures/docker-compose.chaos.yml down -v",
+    "test:chaos:up": "node bin/fixture-ports.js compose test/chaos/fixtures/docker-compose.chaos.yml up -d --wait",
+    "test:chaos:down": "node bin/fixture-ports.js compose test/chaos/fixtures/docker-compose.chaos.yml down -v",
     "test:mutation": "npx stryker run test/mutation/stryker.config.mjs",
     "test:mutation:utility": "npx stryker run test/mutation/stryker.config.mjs --mutate 'src/lib/utility.js'",
     "test:mutation:db": "npx stryker run test/mutation/stryker.config.mjs --mutate 'src/db/index.js'",

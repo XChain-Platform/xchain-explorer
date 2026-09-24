@@ -17,9 +17,9 @@ const {
 } = require('./helpers.js');
 
 // The on-chain TIS scheme the token page resolves (actionRefToRawPath in
-// content/js/xchain.js). Its bytes are the FILE action's stored bytes in the
-// colocated decoder DB, read the way the /{COIN}/api/file/{index}/raw route reads
-// them, so nothing here opens a socket.
+// content/js/xchain/token_media.js). Its bytes are the FILE action's stored
+// bytes in the colocated decoder DB, read the way the
+// /{COIN}/api/file/{index}/raw route reads them, so nothing here opens a socket.
 //
 // The load-bearing property is the FAILURE shape, not the happy path: answering
 // "no source" for an unreadable FILE would put the row on processToken's terminal

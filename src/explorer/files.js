@@ -42,6 +42,32 @@ function useHostBindings(host){
     fs = host.fs;
 }
 
+// Turn a FILE action's on-chain NAME (protocol/actions/file.md; attacker-controlled,
+// since the publisher writes it) into a header-safe Content-Disposition value: CR/LF
+// and other control characters are stripped so the name can never inject a second
+// header, the ASCII leg escapes the characters that would end the quoted-string early,
+// and filename* (RFC 6266/5987) carries the name unmangled for clients that read it.
+function safeAttachmentFilename(name){
+    let raw = String(name).replace(/[\r\n\x00-\x1f]/g, '').trim();
+    if(!raw) return null;
+    let ascii = raw.replace(/[^\x20-\x7e]/g, '_').replace(/[\\"]/g, '_');
+    let utf8  = encodeURIComponent(raw).replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    return `attachment; filename="${ascii}"; filename*=UTF-8''${utf8}`;
+}
+
+// Name a gated FILE's download from the NAME its action carries. gated_files stores
+// no name, but every FILE action has one on the SAME action_index's `files` row, which
+// getActionData resolves onto `data.name`. A failed or empty lookup serves the
+// ciphertext unnamed rather than failing the download.
+async function gatedFileDisposition(db, coin, actionIndex){
+    try {
+        let data = await db.getActionData({ coin, data: {} }, Number(actionIndex));
+        return (data && data.name) ? safeAttachmentFilename(String(data.name)) : null;
+    } catch(_){
+        return null;
+    }
+}
+
 class FileRoutes {
 
     // ICON request handler: serves token icons from a fixed directory and refuses
@@ -52,7 +78,20 @@ class FileRoutes {
         // '..' because this part sits one directory below the class file the route
         // was written in: the icons still live at src/content/icons.
         const dirPath  = path.resolve(path.join(__dirname, '..', 'content/icons'));
-        const filePath = path.resolve(path.join(dirPath, req.path.replace(/^\/icon/, '')));
+        // req.path is the raw, still-encoded path. The client percent-encodes
+        // the tick segment (getTokenIcon), and the downloader names the file
+        // after the raw tick, so the segment is decoded before the disk lookup
+        // or a tick with '%' or '#' in it never finds its own icon. A path
+        // whose encoding does not parse is a miss, not an error page.
+        let rel;
+        try {
+            rel = decodeURIComponent(req.path.replace(/^\/icon/, ''));
+        } catch(_){
+            return res.redirect(302, '/icon/default.png');
+        }
+        if(rel.includes('\0'))
+            return res.redirect(302, '/icon/default.png');
+        const filePath = path.resolve(path.join(dirPath, rel));
         if(!filePath.startsWith(dirPath + path.sep))
             return res.status(403).json({ error: 'Access denied', code: 'PATH_DENIED' });
         if(fs.existsSync(filePath)){
@@ -114,6 +153,8 @@ class FileRoutes {
             // do; inflating ciphertext here would be nonsense at best.
             res.set('Content-Type', 'application/octet-stream');
             res.set('X-XChain-Stored-Form', 'encrypted');
+            let disposition = await gatedFileDisposition(this.db, coin, actionIndex);
+            if(disposition) res.set('Content-Disposition', disposition);
             return res.send(raw);
         }
         return this.sendStoredFileBytes(res, file);
@@ -180,4 +221,4 @@ class FileRoutes {
     }
 }
 
-module.exports = { methods: FileRoutes.prototype, useHostBindings };
+module.exports = { methods: FileRoutes.prototype, useHostBindings, safeAttachmentFilename };

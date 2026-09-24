@@ -65,6 +65,11 @@ const VALID_TYPES = new Set([
     // (data['CONTROLLER']), not an `action` type, so it never appears as an
     // actionData.action value and whitelisting it would silently match nothing.
     'PRICE', 'ANCHOR', 'XCALL', 'NODEPROOF', 'ROLLCALL',
+    // Address options, batching, bridge, cross-chain settle and governance actions,
+    // all indexer-dispatched and broadcast on the global `actions` channel.
+    // UNKNOWN is intentionally absent: it is the indexer's catch-all for input no
+    // handler recognises, not an action family a client narrows to.
+    'ADDRESS', 'BATCH', 'CROSS_SETTLE', 'XBRIDGE', 'XEXEC', 'VOTE', 'SLASH',
     // Lifecycle event types (emitted by ChangeDetector, not indexed directly).
     // Only names the producer actually emits belong here (ws/change_detector.js's
     // LIFECYCLE_MAP, NON_ACTION_LIFECYCLE_TYPES and INLINE_LIFECYCLE_TYPES): the

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-09-23
+
+### Fixed
+- Re-slid BTC/DOGE testnet activations with LTC inert; canonical admission is non-throwing, and INERT legacy-signature mismatches stay on the invalid-row path.
+
+
+### Added
+- List rows mark what a reader cannot judge at a glance: a multi-recipient send, a multi-leg destroy and a batch carry a count badge that opens the legs or members under the row, and a batch member names its batch.
+
 ## [0.20.0] - 2026-09-17
 
 ### Changed

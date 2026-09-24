@@ -228,9 +228,17 @@ function showNodeproofDetails(data){
 // to an unrelated Dogecoin block of the same number and read as real. The label carries the
 // chain so the reader is not left to infer it.
 function showRollcallDetails(data){
+    let isV1 = Number(data.action_format) === 1;
+    $('#info-rollcall .rollcall-version').html(isV1
+        ? '<span class="badge text-bg-primary">ROLLCALL v1</span>'
+        : '<span class="badge text-bg-secondary">ROLLCALL v0</span>');
     $('#info-rollcall .rollcall-epoch-height').html(isNull(data.epoch_height) ? '-' : numeral(data.epoch_height).format('0,0'));
     $('#info-rollcall .rollcall-ledger-hash').html(isNull(data.ledger_hash) ? '-' : formatHash(data.ledger_hash, 32));
     $('#info-rollcall .rollcall-publisher').html(isNull(data.publisher) ? '-' : formatHash(data.publisher, 32));
+    let gates = isV1 && Array.isArray(data.gates) ? data.gates : [];
+    $('#info-rollcall .rollcall-gates').html(gates.length
+        ? gates.map(g => '<span class="badge text-bg-info me-1">' + escapeHtml(String(g)) + '</span>').join('')
+        : '-');
     // The signer list IS the present list: presence at an epoch is recorded by having
     // signed the canonical, so there is no separate attendance flag to render.
     let signers = Array.isArray(data.signers) ? data.signers : [];

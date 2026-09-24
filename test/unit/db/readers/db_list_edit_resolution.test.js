@@ -81,6 +81,12 @@ function listRoutes(headRows, itemRows) {
     ];
 }
 
+const members = (rows) => (index) => (index === EDIT ? rows.after : rows.before);
+const ADDRESSES = {
+    before: [{ address: 'mMemberA' }, { address: 'mMemberB' }],
+    after:  [{ address: 'mMemberB' }],
+};
+
 describe('the explorer shows the membership the chain enforces', function () {
 
     describe('getListRootIndex', function () {
@@ -129,13 +135,11 @@ describe('the explorer shows the membership the chain enforces', function () {
         });
     });
 
-    describe('getListCurrentMembership', function () {
+});
 
-        const members = (rows) => (index) => (index === EDIT ? rows.after : rows.before);
-        const ADDRESSES = {
-            before: [{ address: 'mMemberA' }, { address: 'mMemberB' }],
-            after:  [{ address: 'mMemberB' }],
-        };
+describe('the explorer shows the membership the chain enforces', function () {
+
+    describe('getListCurrentMembership', function () {
 
         it('reports current membership from the edit head on an armed chain', async function () {
             // regtest is armed at genesis, so any tip is above the threshold.
@@ -166,6 +170,14 @@ describe('the explorer shows the membership the chain enforces', function () {
             expect(state.current_list, 'sorted, and read from the tick column').to.deep.equal(['AAA', 'BBB']);
         });
 
+    });
+
+});
+
+describe('the explorer shows the membership the chain enforces', function () {
+
+    describe('getListCurrentMembership', function () {
+
         it('is INERT below the flag day, and reads no items at all', async function () {
             // Mainnet arms at 963000. Below it consensus still gates on the create's
             // rows, so resolving here would show a membership the chain is not
@@ -195,6 +207,10 @@ describe('the explorer shows the membership the chain enforces', function () {
             expect(state.current_list).to.equal(null);
         });
     });
+
+});
+
+describe('the explorer shows the membership the chain enforces', function () {
 
     describe('the LIST response must never be memoized', function () {
 
@@ -256,6 +272,21 @@ function rosterRoutes(extra) {
     ];
 }
 
+// Two projects: PROJECTX's roster was edited, OTHER's never was.
+const CANDIDATES = [
+    { project: 'PROJECTX', link_action_index: 74, roster_action_index: ROOT },
+    { project: 'OTHER',    link_action_index: 60, roster_action_index: OTHER_ROOT },
+];
+
+function reverseRoutes(listing) {
+    return [
+        [/GROUP BY i1\.tick_id/,                    () => CANDIDATES],
+        [/FROM lists WHERE action_index IN/,        (a) => a.map((i) => ROSTER_LISTS[i]).filter(Boolean)],
+        [/FROM lists l .*l\.list_action_index IN/,   (a) => (a.includes(ROOT) ? [{ root: ROOT, head: EDIT }] : [])],
+        [/FROM list_items li INNER JOIN index_tickers t2/, () => listing.map((i) => ({ action_index: i }))],
+    ];
+}
+
 describe('the project registry shows the roster the chain enforces', function () {
 
     describe('getProjectRosterInfo', function () {
@@ -287,6 +318,10 @@ describe('the project registry shows the roster the chain enforces', function ()
         });
     });
 
+});
+
+describe('the project registry shows the roster the chain enforces', function () {
+
     describe('the roster consumers inherit that one resolution', function () {
 
         it('getProject reads member tokens from the membership index', async function () {
@@ -313,22 +348,11 @@ describe('the project registry shows the roster the chain enforces', function ()
         });
     });
 
+});
+
+describe('the project registry shows the roster the chain enforces', function () {
+
     describe('getTokenProjects (the reverse "official in X" lookup)', function () {
-
-        // Two projects: PROJECTX's roster was edited, OTHER's never was.
-        const CANDIDATES = [
-            { project: 'PROJECTX', link_action_index: 74, roster_action_index: ROOT },
-            { project: 'OTHER',    link_action_index: 60, roster_action_index: OTHER_ROOT },
-        ];
-
-        function reverseRoutes(listing) {
-            return [
-                [/GROUP BY i1\.tick_id/,                    () => CANDIDATES],
-                [/FROM lists WHERE action_index IN/,        (a) => a.map((i) => ROSTER_LISTS[i]).filter(Boolean)],
-                [/FROM lists l .*l\.list_action_index IN/,   (a) => (a.includes(ROOT) ? [{ root: ROOT, head: EDIT }] : [])],
-                [/FROM list_items li INNER JOIN index_tickers t2/, () => listing.map((i) => ({ action_index: i }))],
-            ];
-        }
 
         it('[REGRESSION] a roster that edited the token OUT no longer matches', async function () {
             // The create's rows still list the token forever; only the head does not.

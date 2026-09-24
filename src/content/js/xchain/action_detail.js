@@ -25,9 +25,21 @@ function getActionDetails(action, info){
     html = actionDetail_renderMessageActions(html, action, info, coin);
     html = actionDetail_renderContractActions(html, action, info, coin);
     html = actionDetail_renderConsensusActions(html, action, info, coin);
+    // The structure markers live in their own part (action_markers.js), loaded
+    // after this one; a page or a test harness that has only this part still
+    // gets the summary, without the count badge.
+    if(typeof actionDetail_renderStructureMarkers === 'function')
+        html = actionDetail_renderStructureMarkers(html, action, info, coin);
     return html;
 }
 
+// /api/action/{idx} is the aliasing reader for BROADCAST's fee: it and
+// detail_simple.js's showBroadcastDetails both read info.broadcast_fee,
+// never info.fee (see the BROADCAST branch below for why). The address
+// page's broadcast rows come from a different endpoint, /api/broadcasts/
+// {addr}/address, whose plain positional `fee` column is read by
+// rows_actions_a.js's xcDatatableRenderBroadcastRow - an unrelated
+// renderer for an unrelated response shape, not a second copy of this key.
 function actionDetail_renderBasicActions(html, action, info, coin){
     // Render summaries for the initial transaction action families.
     if(action=='ADDRESS'){

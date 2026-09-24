@@ -36,6 +36,9 @@ Each call snapshots BOTH light and dark, writes the full snapshots to
 localStorage, and returns per-mode fingerprints plus a `rendered` reading of
 the surface colours that capture actually measured. Compare the hashes against
 `baseline-<date>.json`: every hash must reproduce exactly.
+`baseline-2026-08-20.json` predates the 2026-09-05 mode-switch correction, so
+its per-mode `rend` hashes are not light/dark evidence; see "Mode-switch
+correction (2026-09-05)" below.
 
 A capture can also come back as `{ invalid: [reasons] }` with no hashes at
 all. That is not a failed comparison, it is a refusal to mint evidence: the

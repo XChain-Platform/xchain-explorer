@@ -41,6 +41,7 @@
 
 const fs  = require('fs');
 const net = require('net');
+const fixturePorts = require('../../../bin/fixture-ports.js');
 
 const FIXTURE_DATABASE = 'XChain_BTC_Regtest_Indexer';
 
@@ -48,21 +49,7 @@ const FIXTURE_DATABASE = 'XChain_BTC_Regtest_Indexer';
 // repo must use it rather than publish its own on the same fixed port.
 const VENUE_ENV_PATH = process.env.XCHAIN_VENUE_ENV || '/misc/ci/venue.env';
 
-// Null unless all four keys parse, so a partial file falls back to the container
-// fixture instead of connecting with undefined parts. Never throws: this runs at
-// module load on every host, including ones with no venue.
-function readVenueDb(envPath) {
-    let raw;
-    try {
-        raw = fs.readFileSync(envPath || VENUE_ENV_PATH, 'utf8');
-    } catch {
-        return null;
-    }
-    const env = {};
-    for (const line of raw.split('\n')) {
-        const m = /^([A-Z_]+)=(.*)$/.exec(line.trim());
-        if (m) env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
-    }
+function venueDbFromEnv(env) {
     const port = Number(env.CI_DB_PORT);
     if (!env.CI_DB_HOST || !env.CI_DB_USER || !env.CI_DB_PASS || !Number.isInteger(port)) return null;
     return {
@@ -74,7 +61,29 @@ function readVenueDb(envPath) {
     };
 }
 
-const VENUE_DB = readVenueDb();
+function readVenueDb(envPath, readFile) {
+    let raw;
+    try {
+        raw = (readFile || fs.readFileSync)(envPath || VENUE_ENV_PATH, 'utf8');
+    } catch {
+        return null;
+    }
+    const env = {};
+    for (const line of raw.split('\n')) {
+        const m = /^([A-Z_]+)=(.*)$/.exec(line.trim());
+        if (m) env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+    }
+    return venueDbFromEnv(env);
+}
+
+function resolveVenueDb(processEnv, envPath, readFile) {
+    const shellEnv = processEnv || process.env;
+    const keys = ['CI_DB_HOST', 'CI_DB_PORT', 'CI_DB_USER', 'CI_DB_PASS'];
+    if (keys.some((key) => shellEnv[key] !== undefined)) return venueDbFromEnv(shellEnv);
+    return readVenueDb(envPath, readFile);
+}
+
+const VENUE_DB = resolveVenueDb();
 
 // Tells the lifecycle wrapper not to run docker, and never to tear down a server
 // it does not own.
@@ -85,7 +94,7 @@ const USING_VENUE = VENUE_DB !== null;
 // FIXTURE_DB is a different address.
 const CONTAINER_DB = {
     host:     '127.0.0.1',
-    port:     3307,
+    port:     fixturePorts.port('XCHAIN_EXPLORER_DB_PORT'),
     user:     'root',
     password: 'testpass',
     database: FIXTURE_DATABASE
@@ -95,6 +104,39 @@ const CONTAINER_DB = {
 // its pool config from: the venue server where there is one, the container
 // fixture everywhere else.
 const FIXTURE_DB = VENUE_DB || CONTAINER_DB;
+
+// Build the child environment for conformance without putting the password in
+// argv or output. Values already present in the caller are replaced so the
+// lifecycle wrapper and conformance cannot select different identities.
+function conformanceEnvironment(baseEnv, fixtureDb) {
+    const env = { ...(baseEnv || process.env) };
+    const db  = fixtureDb || FIXTURE_DB;
+    env.CONFORMANCE_DB_HOST = db.host;
+    env.CONFORMANCE_DB_PORT = String(db.port);
+    env.CONFORMANCE_DB_USER = db.user;
+    env.CONFORMANCE_DB_PASS = db.password;
+    return env;
+}
+
+// Direct mocha runs do not pass through bin/run-conformance.js. They still use
+// the preflight result by default, while an explicitly supplied environment is
+// retained for focused developer runs.
+function conformanceConnection(env) {
+    const source = env || process.env;
+    return {
+        host:     source.CONFORMANCE_DB_HOST || FIXTURE_DB.host,
+        port:     Number(source.CONFORMANCE_DB_PORT || FIXTURE_DB.port),
+        user:     source.CONFORMANCE_DB_USER || FIXTURE_DB.user,
+        password: source.CONFORMANCE_DB_PASS || FIXTURE_DB.password
+    };
+}
+
+// The venue identity has DDL rights in its ci_* namespace. The disposable
+// container uses the historical names so GitHub and local Docker are unchanged.
+function conformanceDatabase(name, usingVenue) {
+    const venue = usingVenue === undefined ? USING_VENUE : usingVenue;
+    return venue ? `ci_${name}` : name;
+}
 
 const COMPOSE_FILE = 'test/integration/fixtures/docker-compose.test.yml';
 
@@ -322,6 +364,10 @@ module.exports = {
     USING_VENUE,
     VENUE_ENV_PATH,
     readVenueDb,
+    resolveVenueDb,
+    conformanceEnvironment,
+    conformanceConnection,
+    conformanceDatabase,
     isBindCollisionOutput,
     looksLikeForeignServerError,
     describeHolders,
@@ -331,3 +377,39 @@ module.exports = {
     absentMessage,
     decorateFixtureError
 };
+
+if (typeof global.it === 'function') {
+    global.it('prefers exported CI database settings and falls back to the venue file', function () {
+        const assert = require('assert');
+        const exported = {
+            CI_DB_HOST: 'exported.invalid',
+            CI_DB_PORT: '4407',
+            CI_DB_USER: 'exported-user',
+            CI_DB_PASS: 'exported-pass'
+        };
+        const fromExport = resolveVenueDb(exported, '/unused.env', () => {
+            throw new Error('venue file must not be read when CI_DB_* is exported');
+        });
+        assert.deepStrictEqual(fromExport, {
+            host: 'exported.invalid',
+            port: 4407,
+            user: 'exported-user',
+            password: 'exported-pass',
+            database: FIXTURE_DATABASE
+        });
+
+        let reads = 0;
+        const fromFile = resolveVenueDb({}, '/venue.env', () => {
+            reads += 1;
+            return 'CI_DB_HOST=file.invalid\nCI_DB_PORT=5507\nCI_DB_USER=file-user\nCI_DB_PASS=file-pass\n';
+        });
+        assert.strictEqual(reads, 1);
+        assert.deepStrictEqual(fromFile, {
+            host: 'file.invalid',
+            port: 5507,
+            user: 'file-user',
+            password: 'file-pass',
+            database: FIXTURE_DATABASE
+        });
+    });
+}

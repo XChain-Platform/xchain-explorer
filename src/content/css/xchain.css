@@ -503,3 +503,22 @@ table.no-outer-borders tr:last-child {
 .clear-both {
   clear:both;
 }
+
+/* The legs or members opened under a list row by its count badge
+   (action_markers.js). Indented and flat so it reads as part of the row
+   above it, not as a second table. */
+.xc-legs-child {
+    padding: var(--xc-legs-child-padding-y) var(--xc-space-none) var(--xc-legs-child-padding-y) var(--xc-legs-child-indent);
+}
+.xc-legs-table td,
+.xc-legs-table th {
+    font-size: var(--xc-legs-cell-font-size);
+    padding: var(--xc-legs-cell-padding-y) var(--xc-legs-cell-padding-x);
+}
+.xc-legs-toggle {
+    cursor: pointer;
+    text-decoration: none;
+}
+tr.xc-legs-open .xc-legs-toggle .fa-caret-down {
+    transform: rotate(180deg);
+}

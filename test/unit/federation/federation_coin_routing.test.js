@@ -30,7 +30,8 @@ const sinon  = require('sinon');
 
 const { buildRpcApp, post, call } = require('./support/rpc_app.js');
 const { explorerDb } = require('./support/scripted_db.js');
-const { rollcallManifestHash } = require('../../../src/federation/rollcall_signers.js');
+const { rollcallManifestHash, ROLLCALL_ACTIVATION,
+        ROLLCALL_GATES_ACTIVATION } = require('../../../src/federation/rollcall_signers.js');
 const { resolveRouteCoin, readVerdict, answeredTip } = require('../../../src/federation');
 const { getLogger } = require('../../../src/observability');
 
@@ -61,6 +62,8 @@ describe('federation reads: coin routing', function () {
             assert.strictEqual(r.status, 200);
             assert.deepStrictEqual(r.body.result, { hcut: 60, tip_block_index: 90, tip_block_time: 3000,
                 manifest_hash: rollcallManifestHash(),
+                rollcall_activation: ROLLCALL_ACTIVATION['testnet'],
+                rollcall_gates_activation: ROLLCALL_GATES_ACTIVATION['testnet'],
                 signers: { [PUBKEY]: { sig: 'ee'.repeat(32), ledger_hash: 'ff'.repeat(32), publisher: PUBKEY,
                                        action_index: 4, block_index: 55, gates: null } },
                 publishers: {} });

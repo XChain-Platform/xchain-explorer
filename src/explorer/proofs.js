@@ -263,13 +263,16 @@ class CheckpointProofs {
     // GET /{COIN}/api/proof/action/{actionIndex}  (SPV spec §5/§8.1)
 }
 
-// The explorer's copy of the XCHECKPOINT canonical signing string, byte-identical
-// to the hub's StateCheckpointEngine.canonicalCheckpoint, the indexer's ANCHOR verifier,
-// xchain-sdk/src/checkpoint.js canonicalCheckpoint, xchain-sync/src/checkpoint.js
-// canonicalCheckpoint, xchain-indexer/bin/recovery.js's wrapperCanonical (rebuilds the
-// same base from parsed ANCHOR bytes), and xchain-hub/src/anchor/publisher.js's
-// archiveCanonical (nests rawCanonicalCheckpoint). Six independent sibling copies;
-// all must change in lockstep with this one.
+// The explorer's copy of the XCHECKPOINT canonical signing string. Five independent
+// sibling copies of the checkpoint family must change in lockstep with it: the hub's
+// StateCheckpointEngine.canonicalCheckpoint, xchain-sdk/src/checkpoint.js and
+// xchain-sync/src/checkpoint.js canonicalCheckpoint (all gated like this one), and the
+// indexer's ANCHOR v0 section verifier and bridge_proof_client/checkpoint_source.js
+// checkpointCanonical (both append the root suffix unconditionally, so they match this
+// string only at/above the CHECKPOINT_COMMITMENT flag day). The ten-field base is also
+// rebuilt by the rootless archive family: the indexer's ANCHOR v1 leg, its
+// bin/recovery.js wrapperCanonical, and the hub's archiveCanonical (which nests
+// rawCanonicalCheckpoint rather than re-joining).
 // At/above the EQUIV flag-day (gated on the BTC snapshot_block + network) the v0
 // canonical is wrapped in the uniform header (TAG=XCHECKPOINT, v0 ROUND_ID, VIEW=0).
 // SPV Phase 2 (spec §6.1): post CHECKPOINT_COMMITMENT flag-day the signed string

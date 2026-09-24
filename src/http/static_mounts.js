@@ -32,7 +32,6 @@
 // Directories under src/content/ mounted with express.static, one route each.
 const STATIC_DIRECTORIES = [
     'css',
-    'fonts',
     'charts',
     'images',
     'json',
@@ -53,7 +52,7 @@ const STATIC_DIRECTORIES = [
 // The mounts the guards exempt. Deliberately NARROWER than the mount list above:
 // only the two image mounts a page pulls in a burst are exempt, `/images` from
 // express.static and `/icon` from the downloader's own handler. Everything else
-// (css, js, fonts, themes, components, fontawesome) counts against both guards,
+// (css, js, themes, components, fontawesome) counts against both guards,
 // which is what ships today - the extension test never matched a .css or a .js -
 // so this change only ever REMOVES an exemption and grants no new one. Widening
 // it to the whole mount list would take shedding away from paths that have it

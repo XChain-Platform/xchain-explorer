@@ -108,8 +108,19 @@ function makeVenue() {
 
 const ARM_KEY = CHAIN + ':' + NET;
 
+// The shared map is the shipped activation carrier (BTC:regtest really is
+// armed at 11200), so arming it for a test and deleting the key afterward
+// would leave every OTHER test in this process reading an unarmed chain.
+// Save whatever was there before the first mutation and put exactly that
+// back, including the case where the key was never present at all.
+const EXPLORER_HAD_KEY = Object.prototype.hasOwnProperty.call(SUB.ESCROW_LOCKED_LEAF_ACTIVATION, ARM_KEY);
+const EXPLORER_PRIOR   = SUB.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY];
+
 function armExplorer() { SUB.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = 0; }
-function disarmExplorer() { delete SUB.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY]; }
+function disarmExplorer() {
+    if (EXPLORER_HAD_KEY) SUB.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = EXPLORER_PRIOR;
+    else delete SUB.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY];
+}
 
 describe('SPV Stage B: spendable proofs survive escrow leaves in the tree @regression', function () {
 
@@ -192,13 +203,21 @@ for (const spec of ['../../../../xchain-sdk/src/protocol/light_client.js',
 }
 // The subtree gate sits at the same W5 tail in every repo, so it keeps its single
 // spelling; it is still gated on `light` so the pair is armed or absent together.
+let SDK_HAD_KEY = false, SDK_PRIOR;
 if (light) {
-    try { sdkSub = require('../../../../xchain-sdk/src/consensus/gates/state_subtree_gate.js'); }
+    try {
+        sdkSub = require('../../../../xchain-sdk/src/consensus/gates/state_subtree_gate.js');
+        SDK_HAD_KEY = Object.prototype.hasOwnProperty.call(sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION, ARM_KEY);
+        SDK_PRIOR   = sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY];
+    }
     catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; light = null; }
 }
 
 function armSdk() { sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = 0; }
-function disarmSdk() { delete sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY]; }
+function disarmSdk() {
+    if (SDK_HAD_KEY) sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = SDK_PRIOR;
+    else delete sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY];
+}
 function disarmProofSuites() { disarmExplorer(); if (sdkSub) disarmSdk(); }
 
 describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regression', function () {
@@ -319,5 +338,21 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
         const r = await server.lockedBalanceProof({ coin: COIN }, CHAIN, NET, ADDR, TICK, HEIGHT);
         const tampered = Object.assign({}, r.proof, { amount: '8' });
         assert.strictEqual(light.verifyLockedBalanceProof(tampered, stateRoot, CHAIN, NET).reason, 'LEAF_AMOUNT_MISMATCH');
+    });
+});
+
+describe('SPV Stage B: arm/disarm restores the shared activation carriers @regression', function () {
+
+    it('BTC:regtest still reads 11200 after every prior arm/disarm cycle in this file', function () {
+        armExplorer();
+        disarmExplorer();
+        assert.strictEqual(SUB.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY], 11200,
+            'disarmExplorer must restore the shipped value, not delete the key');
+        if (sdkSub) {
+            armSdk();
+            disarmSdk();
+            assert.strictEqual(sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY], 11200,
+                'disarmSdk must restore the shipped value, not delete the key');
+        }
     });
 });

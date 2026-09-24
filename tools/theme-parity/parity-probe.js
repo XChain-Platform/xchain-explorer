@@ -92,8 +92,11 @@
  * under __xc:<phase>:<tag>|<mode>|<layer>, and returns fingerprints plus the
  * mode each capture actually rendered in.
  * Compare the returned hashes against tools/theme-parity/baseline-<date>.json;
- * every hash must reproduce exactly. To see WHAT moved when one does not,
- * diff the stored snapshots in the page:
+ * every hash must reproduce exactly. baseline-2026-08-20.json predates the
+ * body-side mode switch above (2026-09-05), so its per-mode rend hashes are not
+ * light/dark evidence: capture a fresh baseline with this probe before comparing
+ * modes (README, "Mode-switch correction"). To see WHAT moved when a hash does
+ * not reproduce, diff the stored snapshots in the page:
  *
  *     const a = JSON.parse(localStorage['__xc:before:coin_home|light|rend']);
  *     const b = JSON.parse(localStorage['__xc:after:coin_home|light|rend']);

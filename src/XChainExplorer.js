@@ -46,6 +46,8 @@ const { isPreflightPostRequest, MAX_PREFLIGHT_PARAMS_LENGTH } = require('./explo
 // other one.
 const { PREFLIGHT_BODY_LIMIT } = require('./explorer/mount.js');
 const { runRequest } = require('./explorer/request/index.js');
+const { newRequestState } = require('./explorer/request/state.js');
+const { resolveRoute } = require('./explorer/request/resolve_route.js');
 
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
@@ -180,7 +182,66 @@ class XChainExplorer {
     // Serve one request end to end: match its URL, fetch any data it names, and
     // send back the page or the JSON.
     async processRequest(req, res){
+        if(await this.answerActionNotYetIndexed(req, res))
+            return;
+        if(await this.answerUnmatchedApiPath(req, res))
+            return;
         return runRequest(this, req, res, { configEnv, stats });
+    }
+
+    // A /{COIN}/api/... path that no registered route claims would otherwise
+    // fall through to explorer/request/not_found.js's applyFallbacks, which
+    // answers every unmatched request the same way regardless of request type:
+    // an HTML 404 page. An API client parsing that body as JSON fails. Run the
+    // same route resolution runRequest is about to run, and answer JSON here
+    // only in the exact case applyFallbacks treats as unmatched (neither a file
+    // nor a data method was found), so a route that matched and chose to answer
+    // 404 itself (its own JSON, or a plain string) is left untouched.
+    async answerUnmatchedApiPath(req, res){
+        try {
+            let config = await this.configInfo.getConfig();
+            let st = newRequestState(this, req, config);
+            await resolveRoute(this, req, st);
+            if(st.cfg.type !== 'api' || !this.util.isNull(st.cfg.file) || !this.util.isNull(st.cfg.data.method))
+                return false;
+            res.set('Content-Type', 'application/json; charset=utf-8');
+            res.status(404).send(JSON.stringify({
+                error: 'The requested resource was not found.',
+                code: 'NOT_FOUND'
+            }));
+            return true;
+        } catch(_){
+            return false;
+        }
+    }
+
+    // An action_index above the highest one this instance has indexed is not a
+    // missing action, it is one the indexer has not reached: a client polling
+    // for confirmation of a just-broadcast action needs to tell that apart from
+    // an index that will never exist, so it gets its own code, the indexed
+    // high-water mark, and a Retry-After. An index at or below the mark falls
+    // through to the normal not-found answer. Any failure reading the mark
+    // falls through too, so this never turns a servable request into an error.
+    async answerActionNotYetIndexed(req, res){
+        try {
+            let m = /^\/([^/]+)\/api\/action\/([0-9]+)\/?$/.exec(String((req && req.path) || ''));
+            if(!m) return false;
+            let coin = m[1].toUpperCase();
+            if(!this.db || !this.db.pools || !this.db.pools[coin] || typeof this.db.getMaxActionIndex !== 'function')
+                return false;
+            let indexed = await this.db.getMaxActionIndex({ coin, data: {} });
+            if(BigInt(m[2]) <= indexed) return false;
+            res.set('Retry-After', '5');
+            res.set('Content-Type', 'application/json; charset=utf-8');
+            res.status(404).send(JSON.stringify({
+                error: 'This action has not been indexed yet.',
+                code: 'ACTION_NOT_YET_INDEXED',
+                indexed_through: indexed.toString()
+            }));
+            return true;
+        } catch(_){
+            return false;
+        }
     }
 
     static getSlowRequests() { return slowRequests; }

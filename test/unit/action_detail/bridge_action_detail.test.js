@@ -65,7 +65,7 @@ describe('XBRIDGE action detail handler @regression', function () {
         assert.equal(getHandler('XBRIDGE'), REGISTRY.XBRIDGE);
     });
 
-    it('runs no detail query of its own: the user legs have no wire table', function () {
+    it('keeps its reads out of the static query slots: both bridge tables are probe-guarded', function () {
         const built = REGISTRY.XBRIDGE.queries();
         assert.equal(built.query, null);
         assert.equal(built.query2, null);

@@ -116,7 +116,9 @@ describe('src/content charting assets: licence hygiene', () => {
     it('loads the chart stack from template.html and nothing proprietary', () => {
         const html = fs.readFileSync(TEMPLATE, 'utf8');
         for(const src of ['/js/chart.umd.js', '/js/chartjs-adapter-moment.js',
-                          '/js/chartjs-chart-financial.js', '/js/xchain_charts.js'])
+                          '/js/chartjs-chart-financial.js', '/js/xchain_charts/data.js',
+                          '/js/xchain_charts/configs.js', '/js/xchain_charts/browser.js',
+                          '/js/xchain_charts.js'])
             expect(html, `template.html does not load ${src}`).to.include(src);
         expect(html).to.include('/css/xchain-charts.css');
         expect(fs.existsSync(path.join(CSS_DIR, 'xchain-charts.css'))).to.equal(true);
@@ -162,6 +164,9 @@ describe('src/content charting assets: licence hygiene', () => {
         expect(at('/js/chart.umd.js')).to.be.below(at('/js/chartjs-adapter-moment.js'));
         expect(at('/js/chart.umd.js')).to.be.below(at('/js/chartjs-chart-financial.js'));
         expect(at('/js/chart.umd.js')).to.be.below(at('/js/xchain_charts.js'));
+        expect(at('/js/xchain_charts/data.js')).to.be.below(at('/js/xchain_charts/configs.js'));
+        expect(at('/js/xchain_charts/configs.js')).to.be.below(at('/js/xchain_charts/browser.js'));
+        expect(at('/js/xchain_charts/browser.js')).to.be.below(at('/js/xchain_charts.js'));
         // moment is a peer of the adapter and must already be on the page.
         expect(at('/js/moment.min.js')).to.be.below(at('/js/chartjs-adapter-moment.js'));
     });
@@ -170,6 +175,12 @@ describe('src/content charting assets: licence hygiene', () => {
 describe('XCC zoom range presets', () => {
 
     it('exposes the nine presets Highstock offered, in the same order', () => {
+        expect(Object.keys(XCC).sort()).to.deep.equal([
+            'DEFAULT_RANGE_INDEX', 'RANGES', 'aggregateTrades', 'applyRange',
+            'candlestickConfig', 'candlestickTooltip', 'depthConfig', 'depthTooltip',
+            'escapeHtml', 'formatters', 'isEmptyConfig', 'lastTimestamp', 'lineConfig',
+            'lineTooltip', 'normalizeRange', 'rangeIndex', 'rangeWindow'
+        ].sort());
         expect(XCC.RANGES.map(r => r.key))
             .to.deep.equal(['1d', '2d', '1w', '1m', '3m', '6m', '1y', 'ytd', 'all']);
         expect(XCC.RANGES[XCC.DEFAULT_RANGE_INDEX].key).to.equal('1m');

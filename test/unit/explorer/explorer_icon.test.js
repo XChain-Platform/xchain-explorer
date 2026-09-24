@@ -128,3 +128,53 @@ describe('XChainExplorer#processIconRequest', function () {
     });
 
 });
+
+describe('XChainExplorer#processIconRequest, percent-encoded tick segment', function () {
+    // The client percent-encodes the tick segment and the downloader names the
+    // file after the raw tick, so the lookup has to decode or a tick carrying
+    // '%' or '#' can never be served its own icon.
+    it('decodes a percent-encoded tick before the disk lookup', async function () {
+        const fsStub = { existsSync: sinon.stub().returns(true) };
+        const explorer = makeExplorer(fsStub);
+        const req = makeIconReq('/icon/DOGE/testnet/%24%24%24%24%24%24%24%24%24%24%2478324%25%40%23%23*(%40%23.png');
+        const res = mockRes();
+
+        await explorer.processIconRequest(req, res);
+
+        const expectedFile = path.resolve(path.join(ICONS_DIR, 'DOGE', 'testnet', '$$$$$$$$$$$78324%@##*(@#.png'));
+        expect(fsStub.existsSync.firstCall.args[0]).to.equal(expectedFile);
+        expect(res._sentFile).to.equal(expectedFile);
+        expect(res._redirect).to.be.null;
+    });
+
+    // An encoding that does not parse is a miss served as the default, never a
+    // thrown URIError turned into an error page the <img> renders as broken.
+    it('redirects a malformed percent-encoding to the default icon without touching disk', async function () {
+        const fsStub = { existsSync: sinon.stub() };
+        const explorer = makeExplorer(fsStub);
+        const req = makeIconReq('/icon/DOGE/testnet/BAD%ZZ.png');
+        const res = mockRes();
+
+        await explorer.processIconRequest(req, res);
+
+        expect(res._redirect).to.deep.equal({ code: 302, url: '/icon/default.png' });
+        expect(fsStub.existsSync.called).to.be.false;
+    });
+
+});
+
+describe('XChainExplorer#processIconRequest, decoding runs before containment', function () {
+    // Decoding happens BEFORE the containment check, so an encoded traversal is
+    // still caught by it.
+    it('returns 403 when the traversal is percent-encoded', async function () {
+        const fsStub = { existsSync: sinon.stub() };
+        const explorer = makeExplorer(fsStub);
+        const req = makeIconReq('/icon/%2E%2E%2F%2E%2E%2F%2E%2E%2F%2E%2E%2Ftmp%2Fevil');
+        const res = mockRes();
+
+        await explorer.processIconRequest(req, res);
+
+        expect(res._status).to.equal(403);
+        expect(fsStub.existsSync.called).to.be.false;
+    });
+});

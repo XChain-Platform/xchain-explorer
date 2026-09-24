@@ -94,8 +94,8 @@ const DESTROY_QUERY = `SELECT
                 LIMIT 1`;
 
 // Read every leg: action_index is non-unique here (one row per leg) so
-// the LIMIT 1 header above carries an arbitrary one. Take NO ORDER BY:
-// destroys records no leg position, so a sort reorders the wire.
+// the LIMIT 1 header above carries an arbitrary one. Sort on leg_ordinal
+// alone (destroyLegsQuery below): a sort on any value column reorders the wire.
 const DESTROY_QUERY2 = `SELECT
                     t1.tick,
                     d1.amount,
@@ -274,7 +274,8 @@ const SEND_QUERY = `SELECT
                     s1.action_index=?
                 LIMIT 1`;
 
-// Get a list of sends: one row per recipient, with its token and amount
+// Get a list of sends: one row per recipient, with its token and amount. Sorted
+// on leg_ordinal alone by sendLegsQuery below, for the same reason as destroys.
 const SEND_QUERY2 = `SELECT
                     a1.address as destination,
                     t1.tick,
@@ -335,16 +336,31 @@ const SWEEP_QUERY2 = `SELECT
                 ORDER BY
                     t1.tick ASC`;
 
-// The settle table the XBRIDGE pass writes. Named as data because it exists only on a
-// replica that has taken the indexer's bridge-tables migration, and the handler probes
-// the connected schema for it (src/db/schema_probe.js) before naming it in a statement.
-const BRIDGE_SETTLEMENTS_TABLE = 'bridge_settlements';
+// The recorded 0-based wire position of a SEND or DESTROY leg. Named as data because a
+// replica carries it only once it has taken the indexer's leg-ordinal migration.
+const LEG_ORDINAL_COLUMN = 'leg_ordinal';
 
-const XBRIDGE_SETTLEMENT = `SELECT transfer_id, kind, block_index, src_chain, src_action_index, dest_chain, dest_address, tick
-             FROM bridge_settlements WHERE action_index=? LIMIT 1`;
+// Append the wire-order sort to a leg read, served by the (action_index, leg_ordinal)
+// index. Rows written before the column existed all tie at 0 and keep insertion order.
+function legOrder(statement, alias, ordered){
+    if(!ordered) return statement;
+    return statement + `
+                ORDER BY
+                    ${alias}.leg_ordinal ASC`;
+}
+
+function destroyLegsQuery(ordered){
+    return legOrder(DESTROY_QUERY2, 'd1', ordered);
+}
+
+function sendLegsQuery(ordered){
+    return legOrder(SEND_QUERY2, 's1', ordered);
+}
 
 module.exports = {
-    BRIDGE_SETTLEMENTS_TABLE,
+    LEG_ORDINAL_COLUMN,
+    destroyLegsQuery,
+    sendLegsQuery,
     AIRDROP_QUERY,
     AIRDROP_QUERY2,
     DESTROY_QUERY,
@@ -356,6 +372,5 @@ module.exports = {
     SEND_QUERY,
     SEND_QUERY2,
     SWEEP_QUERY,
-    SWEEP_QUERY2,
-    XBRIDGE_SETTLEMENT
+    SWEEP_QUERY2
 };

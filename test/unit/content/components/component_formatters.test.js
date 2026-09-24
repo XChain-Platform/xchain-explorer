@@ -163,6 +163,29 @@ describe('formatters module (M2.1)', function () {
             assert.match(F.formatLink('/RDOGE/token/XCHAIN', 'XCHAIN'), /^<a href="\/RDOGE\/token\/XCHAIN"/);
         });
 
+        it('getTokenIcon percent-encodes the tick so # and % survive as one path segment', function () {
+            // TDOGE action 2693 issued this tick; unencoded, the browser cut the
+            // request at '#' and the server 400ed the dangling '%@', so the page
+            // showed a broken image rather than the icon or the default.
+            const hadXC = Object.prototype.hasOwnProperty.call(global, 'XC'), prevXC = global.XC;
+            global.XC = { coin: 'DOGE', network: 'testnet' };
+            try {
+                assert.equal(F.getTokenIcon('XCHAIN'), '/icon/DOGE/testnet/XCHAIN.png');
+                assert.equal(F.getTokenIcon('$$$$$$$$$$$78324%@##*(@#'),
+                    '/icon/DOGE/testnet/%24%24%24%24%24%24%24%24%24%24%2478324%25%40%23%23*(%40%23.png');
+                const out = F.getTokenIcon('a/b?c#d');
+                assert.equal(out.includes('#'), false);
+                assert.equal(out.includes('?'), false);
+                assert.equal(out.split('/').length, 5, 'the tick stays one segment');
+                // The img a link carries falls back to the default icon on load error.
+                const link = F.formatLink('/TDOGE/token/X', 'X', 'a b');
+                assert.match(link, /<img src="\/icon\/DOGE\/testnet\/a%20b\.png"/);
+                assert.match(link, /onerror="this\.onerror=null;this\.src='\/icon\/default\.png';"/);
+            } finally {
+                if(hadXC) global.XC = prevXC; else delete global.XC;
+            }
+        });
+
         it('formatHash truncates with the full value in the title, escaping both ends', function () {
             assert.equal(F.formatHash(null), '');
             assert.equal(F.formatHash('abc'), 'abc');

@@ -10,7 +10,8 @@ window.onload = function() {
 
   // the following lines will be replaced by docker/configurator, when it runs in a docker-container
   window.ui = SwaggerUIBundle({
-    url: "/json/xchain-platform-api.json",
+    // The generated spec docs/openapi.build.js writes and the coverage suite guards.
+    url: "/openapi.json",
     dom_id: '#swagger-ui',
     validatorUrl: null, // or undefined    
     deepLinking: true,

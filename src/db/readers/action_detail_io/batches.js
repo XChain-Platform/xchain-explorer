@@ -156,6 +156,22 @@ class ActionSummaryReaders {
                 details[name] = detail;
             }
         }
+        // Structure markers. A multi-send is ONE action with one sends[] row per
+        // leg, and the flattening above shows leg 0 alone, so a reader scanning a
+        // list could not tell a 4-recipient send from a single one; a BATCH parent
+        // projected no field at all and rendered as a bare name. leg_count and
+        // member_count let a list row mark itself without carrying the legs (the
+        // disclosure fetches the action). Both are absent, not 0 or 1, when there
+        // is nothing to mark, so single sends keep their exact prior shape.
+        let legs = (info.action=='SEND') ? info.sends : (info.action=='DESTROY') ? info.destroys : null;
+        if(Array.isArray(legs) && legs.length > 1){
+            if(!details) details = {};
+            details.leg_count = legs.length;
+        }
+        if(info.action=='BATCH' && Array.isArray(info.actions) && info.actions.length > 0){
+            if(!details) details = {};
+            details.member_count = info.actions.length;
+        }
         return { details, status };
     }
 
@@ -173,6 +189,13 @@ class ActionSummaryReaders {
         for(let data of actions){
             let info = actionData.get(Number(data.action_index));
             let { details, status } = this.projectActionSummary(info);
+            // The history feed derives BATCH membership per row (getHistoryData's
+            // correlated subquery) but the positional row shape has no slot for it,
+            // so it rides inside details, where the client marks the member row.
+            if(!this.util.isNull(data.parent_batch_action_index)){
+                if(!details) details = {};
+                details.parent_batch_action_index = Number(data.parent_batch_action_index);
+            }
             data.status  = status;
             data.details = details;
         }

@@ -107,10 +107,10 @@ describe('dispenser/dispense legs are values, not shared scratch state', functio
     // left there. Nothing writes to it above these two today, which is exactly
     // why this was latent rather than visible - so the guard is on the SOURCE.
     it('never reads or writes the shared `html` scratch variable in either branch', function () {
-        const start = CLIENT_SRC.indexOf("if(action=='dispenser'){");
-        const end   = CLIENT_SRC.indexOf("if(action=='dividend'){");
-        expect(start, "the dispenser render branch was not found").to.be.greaterThan(-1);
-        expect(end,   "the dividend render branch (end marker) was not found").to.be.greaterThan(start);
+        const start = CLIENT_SRC.indexOf('function xcDatatableRenderDispenserRow(');
+        const end   = CLIENT_SRC.indexOf('function xcDatatableRenderDividendRow(');
+        expect(start, "the dispenser row renderer was not found").to.be.greaterThan(-1);
+        expect(end,   "the dividend row renderer (end marker) was not found").to.be.greaterThan(start);
         const body = CLIENT_SRC.slice(start, end);
         const hits = [...body.matchAll(/(^|[^.\w])html\s*\+?=[^=]/g)].map(m => m[0].trim());
         expect(hits, 'the dispenser/dispense branches still build a leg on the shared\n'

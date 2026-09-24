@@ -61,6 +61,10 @@ function makeDb(state) {
                 if (!state.tables.includes('bridge_settlements')) throw missingTableError('bridge_settlements');
                 return state.rows;
             }
+            if (/FROM\s+xbridges/.test(sql)) {
+                if (!state.tables.includes('xbridges')) throw missingTableError('xbridges');
+                return state.record || [];
+            }
             return [];
         }
     };
@@ -77,11 +81,14 @@ function harness(overrides) {
 }
 
 const settleQueries = state => state.queries.filter(q => /FROM bridge_settlements/.test(q.sql));
-const probeQueries  = state => state.queries.filter(q => /information_schema\.TABLES/i.test(q.sql));
+// The settle table's own probe: the xbridges read asks about its table separately.
+const probeQueries  = state => state.queries.filter(q => /information_schema\.TABLES/i.test(q.sql)
+                                                        && (q.args || []).includes('bridge_settlements'));
 const withTable     = extra => harness({ tables: ['bridge_settlements'], rows: [SETTLE_ROW], ...extra });
 const withoutTable  = extra => harness({ tables: [], ...extra });
 
-const BRIDGE_KEYS = ['bridge_settlement', 'transfer_id', 'bridge_kind', 'bridge_pending'];
+const BRIDGE_KEYS = ['bridge_settlement', 'transfer_id', 'bridge_kind', 'bridge_pending',
+                     'dest_chain', 'dest_address', 'decimals', 'min_depth', 'memo', 'status'];
 
 describe('XBRIDGE detail on a replica that HAS bridge_settlements @regression', function () {
 
@@ -211,5 +218,53 @@ describe('XBRIDGE detail when the probe answers wrong @regression', function () 
     it('propagates a failure that is not a missing table', async function () {
         const h = withTable({ readFails: new DbQueryError('Database connection unavailable after 3 retries') });
         await assert.rejects(() => h.run({ action_format: 5 }), /connection unavailable/);
+    });
+});
+
+// The user leg's OWN record. Its settle row lands on the other chain, so on the chain
+// it was broadcast from the xbridges row is the only place these facts are recorded.
+const RECORD = { dest_chain: 'DOGE', dest_address: 'Ddest', tick: 'XCHAIN', decimals: 8,
+                 min_depth: 0, memo: 'to my doge wallet', status: 'valid' };
+const RECORD_KEYS = BRIDGE_KEYS.slice(4);
+const withRecord  = extra => harness({ tables: ['xbridges', 'bridge_settlements'], record: [RECORD], ...extra });
+const recordReads = state => state.queries.filter(q => /FROM\s+xbridges/.test(q.sql));
+
+describe('XBRIDGE detail: the user leg own xbridges record @regression', function () {
+
+    it('lifts destination, decimals, min depth, memo and verdict, and stays in flight', async function () {
+        const h    = withRecord();
+        const data = await h.run({ action_format: 0 });
+        for (const key of RECORD_KEYS)
+            assert.equal(data[key], RECORD[key], key);
+        assert.equal(data.tick, 'XCHAIN', 'the token the leg named, where the baseline had none');
+        assert.equal(recordReads(h.state)[0].args[0], 4242, 'keyed by the leg OWN action_index');
+        assert.equal(data.bridge_pending, true, 'its settlement is still on the other chain');
+    });
+
+    it('keeps a tick the baseline resolved, and adds nothing for a leg with no row', async function () {
+        const kept = await withRecord({ record: [{ ...RECORD, tick: 'OTHER' }] }).run({ action_format: 3, tick: 'FUFU' });
+        assert.equal(kept.tick, 'FUFU');
+        const injected = await withRecord({ record: [] }).run({ action_format: 5 });
+        for (const key of RECORD_KEYS)
+            assert.equal(Object.hasOwn(injected, key), false, key + ' must be absent');
+    });
+
+    it('names xbridges in no statement on a replica without it, and still reads the settlement', async function () {
+        const h    = withTable({ rows: [] });
+        const data = await h.run({ action_format: 0 });
+        assert.equal(recordReads(h.state).length, 0, 'a statement that cannot work must not be sent');
+        for (const key of RECORD_KEYS)
+            assert.equal(Object.hasOwn(data, key), false, key + ' must be absent, not defaulted');
+        assert.equal(data.bridge_pending, true, 'the settle table was read, so the pending claim stands');
+    });
+
+    it('recovers from the 1146 a stale positive memo earns, and records the real shape', async function () {
+        const h = withTable({ rows: [] });
+        h.db.schemaTableMemo = { DOGE: { xbridges: { present: true, at: Date.now() } } };
+        const data = await h.run({ action_format: 0 });
+        assert.equal(Object.hasOwn(data, 'dest_chain'), false);
+        assert.equal(h.db.schemaTableMemo.DOGE.xbridges.present, false);
+        await h.run({ action_format: 0 });
+        assert.equal(recordReads(h.state).length, 1, 'exactly one statement pays for the wrong memo');
     });
 });

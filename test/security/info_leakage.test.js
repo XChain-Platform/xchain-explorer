@@ -56,9 +56,9 @@ const XChainExplorer = proxyquire('../../src/XChainExplorer.js', {
 function makeExplorer(configInfo = createConfigInfoStub()) {
     const explorer   = new XChainExplorer(mockApp, configInfo);
     sinon.stub(explorer.util, 'fileExists').resolves(true);
-    sinon.stub(explorer.util, 'fileGetContents')
-        .withArgs(sinon.match(/template\.html/)).resolves('<html>{CONTENT}</html>')
-        .resolves('<p>page</p>');
+    const fileGetContentsStub = sinon.stub(explorer.util, 'fileGetContents');
+    fileGetContentsStub.withArgs(sinon.match(/template\.html/)).resolves('<html>{CONTENT}</html>');
+    fileGetContentsStub.resolves('<p>page</p>');
     return explorer;
 }
 

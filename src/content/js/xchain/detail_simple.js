@@ -33,6 +33,13 @@ function showBatchDetails(data){
 }
 
 // Display BROADCAST action information
+//
+// This is the aliasing reader for /api/action/{idx} (mirrored in
+// action_detail.js's actionDetail_renderBasicActions): it reads
+// data.broadcast_fee, never data.fee. /api/broadcasts/{addr}/address is a
+// different endpoint that returns fee as a plain positional column, read
+// by rows_actions_a.js's xcDatatableRenderBroadcastRow - an unrelated
+// renderer for an unrelated response shape, not a second copy of this key.
 function showBroadcastDetails(data){
     // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
     // NOT data.fee: the reserved data.fee slot is overwritten with the protocol-fee

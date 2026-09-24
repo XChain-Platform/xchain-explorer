@@ -22,9 +22,12 @@
 'use strict';
 
 const http = require('http');
+const fixturePorts = require('../../../bin/fixture-ports.js');
 
 const TOXIPROXY_HOST = process.env.TOXIPROXY_HOST || '127.0.0.1';
-const TOXIPROXY_PORT = parseInt(process.env.TOXIPROXY_PORT || '8474', 10);
+const TOXIPROXY_PORT = process.env.TOXIPROXY_PORT
+    ? parseInt(process.env.TOXIPROXY_PORT, 10)
+    : fixturePorts.port('XCHAIN_EXPLORER_CHAOS_API_PORT');
 
 // -------------------------------------------------------------------------
 // Low-level HTTP helper (avoids adding axios as a test dependency)

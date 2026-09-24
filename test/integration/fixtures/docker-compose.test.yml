@@ -22,7 +22,7 @@ services:
       MARIADB_ROOT_PASSWORD: testpass
       MARIADB_DATABASE: XChain_BTC_Regtest_Indexer
     ports:
-      - "3307:3306"
+      - "${XCHAIN_EXPLORER_DB_PORT:-3307}:3306"
     tmpfs:
       - /var/lib/mysql
     healthcheck:

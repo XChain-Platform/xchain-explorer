@@ -279,4 +279,20 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts)', fun
             `ChangeDetector emits types the subscribe filter rejects: ${rejected.join(', ')}`)
             .to.deep.equal([]);
     });
+
+    // Raw indexed actions reach the feed as NEW_ACTION under their own name, so every
+    // action the indexer dispatches must be filterable too. The vendored manifest's
+    // indexerHandled set is held equal to the dispatch switch by the indexer's guard.
+    it('every action the indexer dispatches is accepted by the types filter', function () {
+        const manifest = require('../../../../fixtures/action-manifest.json');
+        const dispatched = Object.keys(manifest.actions)
+            .filter((name) => manifest.actions[name].indexerHandled === true);
+        expect(dispatched.length, 'read no indexerHandled actions from action-manifest.json')
+            .to.be.greaterThan(0);
+        const rejected = dispatched.filter((t) => !ChannelManager.VALID_TYPES.has(t));
+        expect(rejected,
+            `indexer-dispatched actions the subscribe filter rejects: ${rejected.join(', ')}; ` +
+            'add them to VALID_TYPES in src/ws/channel_manager/channels.js')
+            .to.deep.equal([]);
+    });
 });

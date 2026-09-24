@@ -65,15 +65,16 @@ const { makeConfig } = require('../fixtures/mock-query-args.js');
 const { envView }    = require('../fixtures/mock-config.js');
 const pre = require('../integration/helpers/fixture-preflight.js');
 
-const DB_HOST = process.env.CONFORMANCE_DB_HOST || pre.FIXTURE_DB.host;
-const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || pre.FIXTURE_DB.port);
-const DB_USER = process.env.CONFORMANCE_DB_USER || pre.FIXTURE_DB.user;
-const DB_PASS = process.env.CONFORMANCE_DB_PASS || pre.FIXTURE_DB.password;
+const connection = pre.conformanceConnection();
+const DB_HOST = connection.host;
+const DB_PORT = connection.port;
+const DB_USER = connection.user;
+const DB_PASS = connection.password;
 
-const INDEXER_DB = 'XChain_Conformance_Indexer';
-const DECODER_DB = 'XChain_Conformance_Decoder';
-const FIXTURE_DB = 'XChain_Conformance_Fixture';
-const HUB_DB     = 'XChain_Conformance_Hub';
+const INDEXER_DB = pre.conformanceDatabase('XChain_Conformance_Indexer');
+const DECODER_DB = pre.conformanceDatabase('XChain_Conformance_Decoder');
+const FIXTURE_DB = pre.conformanceDatabase('XChain_Conformance_Fixture');
+const HUB_DB     = pre.conformanceDatabase('XChain_Conformance_Hub');
 
 const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql');
 const DECODER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-decoder', 'src', 'sql');
@@ -192,6 +193,32 @@ function migrationFiles(dir) {
         .sort()                            // dated filenames: lexical = chronological
         .map(f => path.join(mig, f));
 }
+
+function declaredColumnCharset(sql, table, column) {
+    const tablePattern = new RegExp(
+        'CREATE\\s+TABLE\\s+`?' + table + '`?\\s*\\(([\\s\\S]*?)\\n\\)\\s*ENGINE', 'i');
+    const tableMatch = sql.match(tablePattern);
+    if (!tableMatch) return null;
+
+    const columnPattern = new RegExp(
+        '^\\s*`?' + column + '`?\\s+[^\\n]*\\bCHARACTER\\s+SET\\s+([a-z0-9_]+)', 'mi');
+    const columnMatch = tableMatch[1].match(columnPattern);
+    return columnMatch ? columnMatch[1].toLowerCase() : null;
+}
+
+describe('Integration fixture drift guard', function () {
+    it('matches the real indexer DDL for tokens.description charset', function () {
+        const realSchema = path.join(INDEXER_SQL_DIR, 'tokens.sql');
+        if (!fs.existsSync(realSchema)) this.skip();
+
+        const realCharset = declaredColumnCharset(fs.readFileSync(realSchema, 'utf8'), 'tokens', 'description');
+        const fixtureCharset = declaredColumnCharset(fs.readFileSync(FIXTURE_SCHEMA, 'utf8'), 'tokens', 'description');
+
+        expect(realCharset, 'real indexer DDL must declare tokens.description charset').to.be.a('string');
+        expect(fixtureCharset, 'integration fixture tokens.description charset drifted from real indexer DDL')
+            .to.equal(realCharset);
+    });
+});
 
 module.exports = { fs, path, express, mariadb, expect, XChainExplorer, ChangeDetector, makeConfig, envView, DB_HOST, DB_PORT, DB_USER, DB_PASS, INDEXER_DB, DECODER_DB, FIXTURE_DB, HUB_DB, INDEXER_SQL_DIR, DECODER_SQL_DIR, HUB_SQL_DIR, MIRROR_SQL_DIR, FIXTURE_SCHEMA, HUB_LOCAL_TABLES, PROBE_ARGS, MEMPOOL_ACTION_STRING, isSchemaError, splitStatements, ddlFiles, migrationFiles };
 

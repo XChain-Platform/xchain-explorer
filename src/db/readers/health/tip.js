@@ -223,9 +223,9 @@ class HealthTipReaders {
         return (await this.getCoinFreshness(coin)).stale;
     }
 
-    // Reads whether this coin's indexer replica carries an active
+    // Reads whether either replicated database carries an active
     // consensus-divergence halt (xchain-sync's sync_halt table, cleared_at IS
-    // NULL). Checks table existence first via information_schema, a query that
+    // NULL). The indexer check verifies table existence first via information_schema, a query that
     // always succeeds (0 rows, not an error) on a deployment whose DB predates
     // the sync client, so that ordinary case never hits the failure log below.
     // Returns true (active halt), false (table read, no active halt), or null
@@ -237,6 +237,7 @@ class HealthTipReaders {
      */
     async getReplicaHaltStatus(coin) {
         let config = { coin, data: {} };
+        let states = [];
         let existing;
         try {
             existing = await this.doQuery(config,
@@ -245,15 +246,36 @@ class HealthTipReaders {
         } catch (e) {
             return null;
         }
-        if (!existing || !existing.length) return null;
-        try {
-            let rows = await this.doQuery(config,
-                `SELECT id FROM sync_halt WHERE db_type=? AND cleared_at IS NULL LIMIT 1`,
-                ['indexer']);
-            return !!(rows && rows.length);
-        } catch (e) {
-            return null;
+        if (!existing || !existing.length) {
+            states.push(null);
+        } else {
+            try {
+                let rows = await this.doQuery(config,
+                    `SELECT id FROM sync_halt WHERE db_type=? AND cleared_at IS NULL LIMIT 1`,
+                    ['indexer']);
+                states.push(!!(rows && rows.length));
+            } catch (e) {
+                states.push(null);
+            }
         }
+
+        let decoderName = this.decoderDb ? this.decoderDb[coin] : null;
+        if (this.util.isNull(decoderName) || !/^[A-Za-z0-9_$]+$/.test(decoderName)) {
+            states.push(null);
+        } else {
+            try {
+                let rows = await this.doDecoderQuery(config,
+                    'SELECT id FROM `' + decoderName + '`.sync_halt WHERE db_type=? AND cleared_at IS NULL LIMIT 1',
+                    ['decoder']);
+                states.push(!!(rows && rows.length));
+            } catch (e) {
+                states.push(null);
+            }
+        }
+
+        if (states.includes(true)) return true;
+        if (states.length > 0 && states.every(state => state === false)) return false;
+        return null;
     }
 
     // Returns the action-index high-water mark as an exact BigInt, never a Number.

@@ -115,6 +115,7 @@ function subscribedFrame(sub, filter, ignoredFilters, msg) {
     if (sub.tick1)        confirmation.data.tick1         = sub.tick1;
     if (sub.tick2)        confirmation.data.tick2         = sub.tick2;
     if (sub.action_index !== undefined) confirmation.data.action_index = sub.action_index;
+    if (sub.call_id !== undefined)      confirmation.data.call_id      = sub.call_id;
     // Echo request id if provided
     if (msg.id !== undefined) confirmation.id = msg.id;
     return confirmation;

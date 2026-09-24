@@ -124,4 +124,23 @@ describe('xbridge-panels-render as a module', function(){
         assert.match(R.renderXbridgeAction({ action_format: 7 }), /xc-bridge-unknown-version/);
         assert.match(R.renderXbridgeAction(null), /xc-bridge-unknown-version/);
     });
+
+    it('renders a source leg own record: destination, decimals, min depth and memo', function(){
+        const html = R.renderXbridgeAction({ action_format: 0, tick: 'XCHAIN', bridge_pending: true,
+            dest_chain: 'DOGE', dest_address: 'Ddest', decimals: 8, min_depth: 0, memo: 'to <me>', status: 'valid' });
+        assert.match(html, /xc-bridge-destination">DOGE Ddest</);
+        assert.match(html, /xc-bridge-decimals">8</);
+        assert.match(html, /xc-bridge-min-depth">platform default</, '0 is the unset depth');
+        assert.match(html, /xc-bridge-memo">to &lt;me&gt;</, 'the memo is escaped');
+        assert.match(html, /in flight/, 'the settle is still on the other chain');
+        assert.match(R.renderXbridgeAction({ action_format: 3, min_depth: 6 }), /xc-bridge-min-depth">6</);
+    });
+
+    it('renders no record rows the node never read, and no in-flight badge for a refused leg', function(){
+        const bare = R.renderXbridgeAction({ action_format: 0, tick: 'XCHAIN', bridge_pending: true });
+        assert.doesNotMatch(bare, /xc-bridge-(destination|decimals|min-depth|memo)/);
+        const refused = R.renderXbridgeAction({ action_format: 0, bridge_pending: true, status: 'invalid: insufficient funds' });
+        assert.doesNotMatch(refused, /in flight/);
+        assert.match(refused, /the action was refused/);
+    });
 });

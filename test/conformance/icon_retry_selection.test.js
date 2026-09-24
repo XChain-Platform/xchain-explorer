@@ -42,13 +42,15 @@ const mariadb = require('mariadb');
 const { expect } = require('chai');
 
 const IconDownloader = require('../../src/icons/downloader.js');
+const pre            = require('../integration/helpers/fixture-preflight.js');
 
-const DB_HOST = process.env.CONFORMANCE_DB_HOST || '127.0.0.1';
-const DB_PORT = Number(process.env.CONFORMANCE_DB_PORT || 3307);
-const DB_USER = process.env.CONFORMANCE_DB_USER || 'root';
-const DB_PASS = process.env.CONFORMANCE_DB_PASS || 'testpass';
+const connection = pre.conformanceConnection();
+const DB_HOST = connection.host;
+const DB_PORT = connection.port;
+const DB_USER = connection.user;
+const DB_PASS = connection.password;
 
-const RETRY_DB        = 'XChain_Conformance_IconRetry';
+const RETRY_DB        = pre.conformanceDatabase('XChain_Conformance_IconRetry');
 const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', 'xchain-indexer', 'src', 'sql');
 
 // The WHERE clause as it shipped before the fix, verbatim. Same role as

@@ -14,10 +14,15 @@
  * either side must land together. The /{COIN}/explorer/* datatable routes are
  * an internal surface for the web UI and are intentionally NOT documented.
  *
+ * This is the one published spec: /openapi.json serves it and the interactive
+ * docs page (src/content/js/swagger-initializer.js) loads it. Typed 200 bodies
+ * come from docs/openapi.schemas.js, keyed by each route's db method.
+ *
  * Run: node docs/openapi.build.js   (regenerates docs/openapi.json in place)
  */
 const fs = require('fs');
 const path = require('path');
+const { COMPONENT_SCHEMAS, responseSchema } = require('./openapi.schemas.js');
 
 const COINS = ['BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC', 'DOGE', 'TDOGE', 'RDOGE'];
 
@@ -595,6 +600,7 @@ function operation([p, method, types, tag, summary], opts) {
             content: {
                 'application/json': {
                     schema: o.schema
+                        || responseSchema(method)
                         || { $ref: isList ? '#/components/schemas/ListResponse' : '#/components/schemas/ObjectResponse' },
                 },
             },
@@ -672,7 +678,12 @@ const spec = {
             + 'LLM-friendly docs: https://docs.xchain.io/llms.txt',
         license: { name: 'AGPL-3.0-or-later', url: 'https://docs.xchain.io/legal/licensing.md' },
     },
-    servers: [{ url: 'https://explorer.xchain.io' }],
+    // Relative first: the docs page ships with every explorer, so "Try it out" must
+    // call the instance that served it, not mainnet.
+    servers: [
+        { url: '/', description: 'This explorer instance' },
+        { url: 'https://explorer.xchain.io', description: 'Public mainnet explorer' },
+    ],
     tags: [
         { name: 'Core' }, { name: 'Tokens' }, { name: 'Action history' }, { name: 'Markets' },
         { name: 'Dispensers' }, { name: 'Contracts' }, { name: 'Staking' }, { name: 'Prices' },
@@ -697,6 +708,7 @@ const spec = {
                 properties: {
                     total: { type: 'integer', description: 'Total matching rows' },
                     data: { type: 'array', items: { type: 'object' }, description: 'Result rows (fields vary per endpoint; amounts are decimal strings)' },
+                    runtime: { type: 'string', description: 'Amount of time to execute and return the data' },
                 },
                 required: ['total', 'data'],
             },
@@ -919,6 +931,11 @@ const spec = {
         },
     },
 };
+
+// Refuse a typed body that would silently replace a hand-written one above.
+for (const name of Object.keys(COMPONENT_SCHEMAS))
+    if (spec.components.schemas[name]) throw new Error(`openapi.build: schema ${name} is declared twice`);
+Object.assign(spec.components.schemas, COMPONENT_SCHEMAS);
 
 const out = path.join(__dirname, 'openapi.json');
 fs.writeFileSync(out, JSON.stringify(spec, null, 2) + '\n');

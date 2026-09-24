@@ -11,7 +11,12 @@
   },
   "servers": [
     {
-      "url": "https://explorer.xchain.io"
+      "url": "/",
+      "description": "This explorer instance"
+    },
+    {
+      "url": "https://explorer.xchain.io",
+      "description": "Public mainnet explorer"
     }
   ],
   "tags": [
@@ -111,7 +116,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Address"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -178,7 +203,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Airdrop"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -244,7 +289,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Batch"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -310,7 +375,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Broadcast"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -377,7 +462,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Callback"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -444,7 +549,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Destroy"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -511,7 +636,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Dividend"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -581,7 +726,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Dispenser"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -647,7 +812,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DispenserCancel"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -713,7 +898,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DispenserClose"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -779,7 +984,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DispenserExpire"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -845,7 +1070,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DispenserEdit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -915,7 +1160,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Dispense"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -984,7 +1249,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Fee"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1052,7 +1337,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/File"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1119,7 +1424,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Issue"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1185,7 +1510,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Link"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1251,7 +1596,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/List"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1319,7 +1684,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Message"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1388,7 +1773,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Mint"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1455,7 +1860,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Order"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1521,7 +1946,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderExpire"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1587,7 +2032,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderEdit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1653,7 +2118,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderCancel"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1718,7 +2203,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderMatch"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -1762,7 +2267,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderMatch"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2029,7 +2554,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Send"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2096,7 +2641,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Sleep"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2163,7 +2728,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Swap"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2229,7 +2814,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SwapEdit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2295,7 +2900,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SwapExpire"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2361,7 +2986,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SwapCancel"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2426,7 +3071,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SwapMatch"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2470,7 +3135,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SwapMatch"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -2538,7 +3223,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Sweep"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -8078,7 +8783,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/ExplorerStatus"
                 }
               }
             }
@@ -8122,7 +8827,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Action"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -8166,7 +8891,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/ActionDetail"
                 }
               }
             }
@@ -8210,7 +8935,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/AddressInfo"
                 }
               }
             }
@@ -8263,7 +8988,34 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Balance"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "address": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "description": "The queried address, echoed when it is address-shaped"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -8307,7 +9059,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/Block"
                 }
               }
             }
@@ -8547,7 +9299,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Credit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -8613,7 +9385,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Debit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -8679,7 +9471,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Escrow"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -8747,7 +9559,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/History"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -8800,7 +9632,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/Holder"
                 }
               }
             }
@@ -8865,7 +9697,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/Holder"
                 }
               }
             }
@@ -9207,7 +10039,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/Token"
                 }
               }
             }
@@ -9275,7 +10107,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TokenRow"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -9495,7 +10347,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/Transaction"
                 }
               }
             }
@@ -9539,7 +10391,28 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Total number of records available, as a decimal string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Market"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -9591,7 +10464,28 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Total number of records available, as a decimal string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Market"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -9702,7 +10596,28 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Total number of records available, as a decimal string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MarketHistory"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -9770,7 +10685,28 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Total number of records available, as a decimal string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MarketHistory"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -9830,7 +10766,28 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Total number of records available, as a decimal string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MarketOrder"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -9898,7 +10855,28 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Total number of records available, as a decimal string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/MarketOrder"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -9949,7 +10927,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/Orderbook"
                 }
               }
             }
@@ -11185,6 +12163,10 @@
               "type": "object"
             },
             "description": "Result rows (fields vary per endpoint; amounts are decimal strings)"
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
           }
         },
         "required": [
@@ -11624,6 +12606,4553 @@
         },
         "required": [
           "error"
+        ]
+      },
+      "Action": {
+        "type": "object",
+        "description": "One row of the raw action feed",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "description": "ADDRESS action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "dispenser_preference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Who may open a dispenser for this address (1=owner only, 2=anyone)"
+          },
+          "fee_preference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "require_memo": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Airdrop": {
+        "type": "object",
+        "description": "AIRDROP action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "list_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Batch": {
+        "type": "object",
+        "description": "BATCH action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Broadcast": {
+        "type": "object",
+        "description": "BROADCAST action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "broadcast_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "fee": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Callback": {
+        "type": "object",
+        "description": "CALLBACK action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "callback_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "callback_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Destroy": {
+        "type": "object",
+        "description": "DESTROY action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Dividend": {
+        "type": "object",
+        "description": "DIVIDEND action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "dividend_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Dispenser": {
+        "type": "object",
+        "description": "DISPENSER action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "current_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The dispenser's lifecycle status from its latest status row; `status` is the validity of the creating action only"
+          },
+          "escrow_remaining": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Amount of GIVE_TICK left in escrow now (create escrow + refills - payouts); \"0\" once the dispenser is closed, cancelled or expired; null when it cannot be derived"
+          },
+          "get_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_escrow": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Amount of GIVE_TICK escrowed when the dispenser was created"
+          },
+          "give_ownership": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "give_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "oracle_address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The ORACLE_ADDRESS a Mode B dispenser prices against; null otherwise"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "DispenserCancel": {
+        "type": "object",
+        "description": "DISPENSER_CANCEL action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "dispenser_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "DispenserClose": {
+        "type": "object",
+        "description": "DISPENSER_CLOSE action data (system-injected, so no transaction fields)",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "close_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the dispenser closed: empty after an auto-drain, cancelled once the close delay elapses on a cancel"
+          },
+          "dispenser_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "dispenser_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fiat": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fiat_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "oracle_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "DispenserEdit": {
+        "type": "object",
+        "description": "DISPENSER_EDIT action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "allow_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "dispenser_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "expiration": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "give_escrow": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "DispenserExpire": {
+        "type": "object",
+        "description": "DISPENSER_EXPIRE action data (system-injected, so no transaction fields)",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "dispenser_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Dispense": {
+        "type": "object",
+        "description": "DISPENSE action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "destination": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dispenser_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "get_amount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Coin attributed to this dispense. When one payment fills several dispenses in the same transaction, this is that dispense's share, not the payment's full amount"
+          },
+          "get_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Fee": {
+        "type": "object",
+        "description": "Protocol fee payment data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "destination": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fee_preference": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "fee_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "1=legacy, 2=unified gas"
+          },
+          "gas_cost": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "gas_price": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "method": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Legacy fee payment method (1=destroy, 2=donate)"
+          },
+          "native_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "native_coin_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "oracle_round": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "payment_mode": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "1=native coin, 2=XCHAIN balance"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "xchain_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "File": {
+        "type": "object",
+        "description": "FILE action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "encryption_method": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "gate_min_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gate_ticker": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "key_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Issue": {
+        "type": "object",
+        "description": "ISSUE action data (the fields as the action declared them)",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "allow_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "callback_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "callback_block": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "callback_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decimals": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lock_callback": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lock_description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lock_max_mint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lock_max_supply": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lock_mint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lock_mint_supply": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lock_sleep": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_mint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_supply": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mint_address_max": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mint_start_block": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mint_stop_block": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mint_supply": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "transfer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "transfer_supply": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Link": {
+        "type": "object",
+        "description": "LINK action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "coin1": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "coin1_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "coin2": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "coin2_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "List": {
+        "type": "object",
+        "description": "LIST action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "edit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "list_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "description": "MESSAGE action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "coin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Destination coin network for cross-chain messages"
+          },
+          "destination": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "encrypted_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "encryption_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "encryption_method": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "plaintext_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Mint": {
+        "type": "object",
+        "description": "MINT action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "destination": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "description": "ORDER action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "allow_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "expiration": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "get_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_ownership": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "get_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_ownership": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "give_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payout_legs": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "JSON [{to,bps}] split of seller proceeds applied at match; null when none"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "OrderCancel": {
+        "type": "object",
+        "description": "ORDER_CANCEL action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "order_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "OrderEdit": {
+        "type": "object",
+        "description": "ORDER_EDIT action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "allow_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "expiration": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "order_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "OrderExpire": {
+        "type": "object",
+        "description": "ORDER_EXPIRE action data (system-injected, so no transaction fields)",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "order_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "OrderMatch": {
+        "type": "object",
+        "description": "ORDER_MATCH action data (system-injected, so no transaction fields)",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "get_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "get_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "give_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "settlement_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Send": {
+        "type": "object",
+        "description": "SEND action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "destination": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Sleep": {
+        "type": "object",
+        "description": "SLEEP action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "resume_block": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Swap": {
+        "type": "object",
+        "description": "SWAP action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "allow_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "expiration": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "get_address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "get_ownership": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "get_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_ownership": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "give_tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "payout_legs": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "swap_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The swap's lifecycle status from its latest status row; `status` is the validity of the creating action only"
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "SwapCancel": {
+        "type": "object",
+        "description": "SWAP_CANCEL action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "swap_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "SwapEdit": {
+        "type": "object",
+        "description": "SWAP_EDIT action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "allow_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_list": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "expiration": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "swap_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "SwapExpire": {
+        "type": "object",
+        "description": "SWAP_EXPIRE action data (system-injected, so no transaction fields)",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "swap_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "SwapMatch": {
+        "type": "object",
+        "description": "SWAP_MATCH action data (system-injected, so no transaction fields)",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "get_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "get_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "give_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "give_coin": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Sweep": {
+        "type": "object",
+        "description": "SWEEP action data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "balances": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Nonzero when token balances are swept"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "destination": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dispensers": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Nonzero when open DISPENSERs are closed and their escrow credited to the destination"
+          },
+          "memo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "orders": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Nonzero when open ORDERs are cancelled and their escrow credited to the destination"
+          },
+          "ownerships": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Nonzero when token ownerships are swept"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "swaps": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Nonzero when open SWAPs are cancelled and their escrow credited to the destination"
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Credit": {
+        "type": "object",
+        "description": "Ledger credit data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Debit": {
+        "type": "object",
+        "description": "Ledger debit data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Escrow": {
+        "type": "object",
+        "description": "Escrowed balance data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Balance": {
+        "type": "object",
+        "description": "Address token balance data",
+        "properties": {
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "coin_price": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decimals": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "supply": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "TokenRow": {
+        "type": "object",
+        "description": "One token from the token search",
+        "properties": {
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "decimals": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "lock_callback": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lock_description": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lock_max_mint": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lock_max_supply": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lock_mint": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lock_mint_supply": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "lock_sleep": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "max_mint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "max_supply": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supply": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "ActionDetail": {
+        "type": "object",
+        "description": "One action, fully decoded. Carries the fields its action type defines (the columns its list route serves plus any detail-only sections) and the ledger tail below, which every action carries.",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "credits": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "description": "One ledger row the action wrote",
+              "properties": {
+                "address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "amount": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "tick": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "The credits this action wrote; null when none"
+          },
+          "debits": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "description": "One ledger row the action wrote",
+              "properties": {
+                "address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "amount": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "tick": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "The debits this action wrote; null when none"
+          },
+          "escrows": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "object",
+              "description": "One ledger row the action wrote",
+              "properties": {
+                "address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "amount": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "tick": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "The escrows this action wrote; null when none"
+          },
+          "fee": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "description": "The protocol fee this action paid",
+                "properties": {
+                  "amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "destination": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fee_preference": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "fee_version": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "gas_cost": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]+$"
+                  },
+                  "gas_price": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "method": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]+$"
+                  },
+                  "native_coin": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "native_coin_amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "oracle_round": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]+$"
+                  },
+                  "payment_mode": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "source": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "tick": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "xchain_amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            ],
+            "description": "Action fee information; null when the action paid none"
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "tx_data": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The decoded action string of the carrying transaction; null for a system-injected action"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "AddressInfo": {
+        "type": "object",
+        "description": "Address information (type, native-coin balances and UTXO counts from this coin's UTXO tracker, controller bindings). Tracker fields stay null when no tracker is configured or it is unreachable.",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "balances": {
+            "type": "object",
+            "description": "Balances of COIN (BTC, LTC, DOGE, etc) as decimal strings",
+            "properties": {
+              "confirmed": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "pending": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "received": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "controllers": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Controller bindings still gating this address's native actions; empty when none"
+          },
+          "estimated_value": {
+            "type": "object",
+            "description": "Estimated value of the confirmed balance in COIN and in USD",
+            "properties": {
+              "btc": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "usd": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "info": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string"
+              },
+              "address_id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "The address's deterministic index id, for ^<id> compaction; null when not deterministic"
+              }
+            }
+          },
+          "mempool_ready": {
+            "type": "boolean",
+            "description": "Present only when the tracker reports it"
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
+          },
+          "tracker_available": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Address Type (P2PKH, P2SH, Bech32, P2TR)"
+          },
+          "utxos": {
+            "type": "object",
+            "description": "Unspent Transaction Output counts (UTXOs)",
+            "properties": {
+              "confirmed": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "pending": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "address",
+          "balances",
+          "utxos",
+          "estimated_value",
+          "tracker_available",
+          "controllers",
+          "info"
+        ]
+      },
+      "Block": {
+        "type": "object",
+        "description": "COIN block data",
+        "properties": {
+          "actions_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "sha256 of the block's actions data"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "contract_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "sha256 of the block's contract data"
+          },
+          "ledger_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "sha256 of the block's credits, debits, escrows and balances"
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
+          },
+          "state_hash": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "sha256 of in-place mutations and backdated credits (replication integrity only)"
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "block_index",
+          "timestamp"
+        ]
+      },
+      "ExplorerStatus": {
+        "type": "object",
+        "description": "Explorer status data",
+        "properties": {
+          "available": {
+            "type": "object",
+            "description": "Coin networks this instance serves as CURRENT data, keyed by coin ticker. Starts from the configured availability map and then drops every coin the tip-age gate marks stale (see 'stale'), so this map varies per request and a delisted coin still appears in 'supported'. Read this to decide whether to query a coin; read 'supported' to learn which coins the instance knows about at all.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "hub_config_fetched_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ISO-8601 timestamp of the last successful hub-config fetch. null until the first successful fetch.",
+            "format": "date-time"
+          },
+          "hub_config_age_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Seconds since the last successful hub-config fetch. A climbing value means the served hub-derived config is stale. null until the first successful fetch."
+          },
+          "last_block": {
+            "type": "object",
+            "description": "Most recent block index processed by the indexer, keyed by coin ticker (e.g. RBTC: 850). Value is null for a coin whose per-coin DB read failed (the outage this health endpoint exists to surface).",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "last_block_time": {
+            "type": "object",
+            "description": "Unix block_time of the most recent block processed by the indexer, keyed by coin ticker. Compare against the chain tip to detect indexer lag. Value is null for a coin whose per-coin DB read failed.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "decoder_tip": {
+            "type": "object",
+            "description": "Decoder's highest processed block index, keyed by coin ticker. null when the decoder tip is unavailable.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "decoder_lag_blocks": {
+            "type": "object",
+            "description": "decoder_tip minus last_block (how far the indexer trails the decoder), keyed by coin ticker. null when the decoder tip is unavailable.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "tip_age_seconds": {
+            "type": "object",
+            "description": "Wall-clock seconds between now and the block_time of the newest indexed block, keyed by coin ticker. Never negative: a tip dated ahead of this host clamps to 0 here and reports its skew in tip_future_seconds. null when that block_time is missing or unreadable. Unlike decoder_lag_blocks this sees a JOINT indexer+decoder freeze, because it measures against the local clock rather than against the other replica. Only coins this instance measures (those with a live pool) appear here.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "tip_future_seconds": {
+            "type": "object",
+            "description": "Seconds the newest indexed block is dated AHEAD of this host's clock, keyed by coin ticker; 0 when the tip is not ahead, null when block_time is missing or unreadable. A non-zero value is host clock drift or a chain with lax timestamp rules, and it means tip_age_seconds is clamped rather than measured. Skew past the tolerance (EXPLORER_TIP_MAX_FUTURE_SKEW_S_<COIN>, else EXPLORER_TIP_MAX_FUTURE_SKEW_S, default 7200; 0 disables the check) reads stale, so a future-dated tip cannot pass as fresh indefinitely. Only coins this instance measures appear here.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "indexer_state": {
+            "type": "object",
+            "description": "Why the indexer trails the decoder, keyed by coin ticker. 'live' when decoder_lag_blocks is 0; 'future_block_wait' when the next block (last_block + 1) carries a block_time dated ahead of this host's clock, meaning no node on the chain may commit it yet and the pause is consensus rather than failure; 'behind' when that next block is already admissible and still uncommitted, which is the state worth alerting on; null when it cannot be determined. Read this field, NOT tip_future_seconds, to tell a deliberate wait apart from a wedge: tip_future_seconds describes the block the indexer has already committed, which is always past-dated, so it reads 0 for the whole duration of a future_block_wait. Chains with lax timestamp rules (Bitcoin testnet4 rides the 20-minute minimum-difficulty rule, stamping blocks about 1201s apart into the future) sit in future_block_wait as their steady state. Only coins this instance measures appear here.",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "next_block_time": {
+            "type": "object",
+            "description": "The decoder's recorded block_time (unix seconds) for the next block the indexer must commit (last_block + 1), keyed by coin ticker. Read from the decoder DB because the indexer has not committed that block yet. null when the indexer is at the decoder tip, the decoder DB is unreachable, or that block carries no usable timestamp. Only coins this instance measures appear here.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "next_block_future_seconds": {
+            "type": "object",
+            "description": "Seconds the next block to be committed is dated AHEAD of this host's clock, keyed by coin ticker; 0 when it is not ahead, null when unknown. This is the honest measure of a consensus wait, and the value tip_future_seconds is often mistaken for. Only coins this instance measures appear here.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "indexer_wait_clears_at": {
+            "type": "object",
+            "description": "ISO-8601 instant at which a 'future_block_wait' ends for that coin, i.e. when this host's clock reaches the next block's timestamp and the block becomes committable, keyed by coin ticker. null in every other state. Present so a client can render a countdown rather than leaving a confirmed-but-unindexed transaction looking lost. Only coins this instance measures appear here.",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "stale": {
+            "type": "object",
+            "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate), and also true when tip_future_seconds has passed that coin's max future skew. Fails closed, so a missing or unreadable block_time also reads true. A true entry is removed from 'available' and left in 'supported'. Only coins this instance measures appear here.",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "replica_halted": {
+            "type": "object",
+            "description": "Durable consensus-divergence halt verdict per coin ticker, read from xchain-sync's sync_halt tables on the indexer and decoder replicas (true = either database has an active, uncleared halt row). A halted replica keeps reporting a small lag until its source mints past it, so this is detectable neither by 'stale' nor by tip_age_seconds; it composes with 'stale' rather than replacing it (immediate detection here, eventual removal from 'available' there). true/false only when both tables were read successfully; null when the signal could not be determined (table absent, e.g. a DB not built by the sync client, or the read failed) and is never coerced to false. Only coins this instance measures appear here.",
+            "additionalProperties": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "chain_tip": {
+            "type": "object",
+            "description": "Coin node's chain tip as the decoder reports it, keyed by coin ticker. null when the decoder health call is unavailable.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "chain_lag_blocks": {
+            "type": "object",
+            "description": "Decoder's self-reported gap to the chain tip, keyed by coin ticker. null when the decoder health call is unavailable.",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "decoder_health": {
+            "type": "object",
+            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "supported": {
+            "type": "object",
+            "description": "Every coin network the XChain platform defines for this instance, keyed by coin ticker with a display name as the value. Static per config: the tip-age gate never removes a coin from here, only from 'available'.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "History": {
+        "type": "object",
+        "description": "History data",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "details": {
+            "type": [
+              "object",
+              "boolean"
+            ],
+            "description": "Summary fields of the action (tick, amount, destination and the like); false when the action carries none"
+          },
+          "parent_batch_action_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "The BATCH this action rode in; null outside a batch"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Holder": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "description": "Total number of records available"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HolderRow"
+            }
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
+          },
+          "coin_price": {
+            "type": "string",
+            "description": "Token price in COIN; absent when the token has no holders"
+          },
+          "decimals": {
+            "type": "integer",
+            "description": "Absent when the token has no holders"
+          },
+          "supply": {
+            "type": "string",
+            "description": "Absent when the token has no holders"
+          },
+          "tick": {
+            "type": "string",
+            "description": "Absent when the token has no holders"
+          }
+        },
+        "required": [
+          "total",
+          "data"
+        ],
+        "description": "Token holder data"
+      },
+      "HolderRow": {
+        "type": "object",
+        "description": "One holder of a token",
+        "properties": {
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Market": {
+        "type": "object",
+        "description": "DEX market data",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "last_updated": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "tick1": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick1_24hr_change": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick1_24hr_high": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick1_24hr_low": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick1_24hr_price": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick1_24hr_volume": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick1_ask": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick1_bid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick1_price": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2_24hr_change": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2_24hr_high": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2_24hr_low": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2_24hr_price": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2_24hr_volume": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2_ask": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2_bid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tick2_price": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MarketHistory": {
+        "type": "object",
+        "description": "DEX market history data",
+        "properties": {
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "amount": {
+            "type": "string"
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "price": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell"
+            ]
+          }
+        }
+      },
+      "MarketOrder": {
+        "type": "object",
+        "description": "DEX market order data",
+        "properties": {
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expiration": {
+            "type": [
+              "string",
+              "integer",
+              "null"
+            ],
+            "description": "Expiration block: a decimal string, or a number once an ORDER_EDIT has changed it"
+          },
+          "price": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell"
+            ]
+          }
+        }
+      },
+      "Orderbook": {
+        "type": "object",
+        "description": "DEX market orderbook data",
+        "properties": {
+          "asks": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "[price, amount]"
+            },
+            "description": "Open asks aggregated by price, lowest first"
+          },
+          "bids": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "[price, amount]"
+            },
+            "description": "Open bids aggregated by price, highest first"
+          },
+          "market": {
+            "type": "string",
+            "description": "TICK1/TICK2; present only when the book has orders"
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
+          }
+        },
+        "required": [
+          "asks",
+          "bids"
+        ]
+      },
+      "Token": {
+        "type": "object",
+        "description": "Token data. `locks.bridge` and the bridge fields of `info` appear only on a database that carries the bridge columns.",
+        "properties": {
+          "callback": {
+            "type": "object",
+            "properties": {
+              "amount": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "block": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              },
+              "price": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tick": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "controllers": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "info": {
+            "type": "object",
+            "properties": {
+              "bridge_chains": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "bridged": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "coin": {
+                "type": "string"
+              },
+              "decimals": {
+                "type": "integer"
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "escrow_action_index": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              },
+              "min_depth": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9]+$"
+              },
+              "owner": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tick": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "tick_id": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "Deterministic ticker id, for ^<id> compaction; null when not deterministic"
+              }
+            }
+          },
+          "linked_files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "action_index": {
+                  "type": "integer"
+                },
+                "block_index": {
+                  "type": "integer"
+                },
+                "gated": {
+                  "type": "boolean"
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "lists": {
+            "type": "object",
+            "properties": {
+              "allow": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "block": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          },
+          "locks": {
+            "type": "object",
+            "properties": {
+              "bridge": {
+                "type": "boolean"
+              },
+              "callback": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "boolean"
+              },
+              "max_mint": {
+                "type": "boolean"
+              },
+              "max_supply": {
+                "type": "boolean"
+              },
+              "mint": {
+                "type": "boolean"
+              },
+              "mint_supply": {
+                "type": "boolean"
+              },
+              "sleep": {
+                "type": "boolean"
+              }
+            }
+          },
+          "market": {
+            "type": "object",
+            "properties": {
+              "floor": {
+                "type": "number"
+              },
+              "price": {
+                "type": "number"
+              }
+            }
+          },
+          "mints": {
+            "type": "object",
+            "properties": {
+              "address_max": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "start_block": {
+                "type": "number"
+              },
+              "stop_block": {
+                "type": "number"
+              }
+            }
+          },
+          "open_polls": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "registry": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "link_action_index": {
+                    "type": "integer"
+                  },
+                  "membership_action_index": {
+                    "type": "integer"
+                  },
+                  "roster_action_index": {
+                    "type": "integer"
+                  },
+                  "total": {
+                    "type": "integer"
+                  }
+                }
+              }
+            ]
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
+          },
+          "supply": {
+            "type": "object",
+            "properties": {
+              "current": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "decimals": {
+                "type": "integer"
+              },
+              "max": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "info",
+          "callback",
+          "market",
+          "lists",
+          "locks",
+          "mints",
+          "supply"
+        ]
+      },
+      "Transaction": {
+        "type": "object",
+        "description": "Transaction data. An unknown transaction answers only an empty actions list and a null tx_data.",
+        "properties": {
+          "actions": {
+            "type": "array",
+            "description": "Actions this transaction carried, newest first",
+            "items": {
+              "type": "object",
+              "description": "One action summary",
+              "properties": {
+                "action": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "action_index": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "details": {
+                  "type": [
+                    "object",
+                    "boolean"
+                  ],
+                  "description": "Summary fields of the action (tick, amount, destination and the like); false when the action carries none"
+                },
+                "status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "tx_data": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The decoded action string the transaction carries"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "actions",
+          "tx_data"
         ]
       }
     },

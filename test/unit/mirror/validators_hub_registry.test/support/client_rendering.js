@@ -30,20 +30,14 @@ const SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '../../../../src/content/js/formatters.js'), 'utf8');
 const HTML = fs.readFileSync(path.resolve(__dirname, '..', '../../../../src/content/html/validators.html'), 'utf8');
 
-// Slice the SHIPPED createdRow callback out of loadDatatablesData by walking
-// braces, so this drives production code rather than a copy that can drift.
+// Load the named SHIPPED row seam and its validator renderer, so this drives
+// production code rather than a copy that can drift.
 function extractCreatedRow() {
-    const sig = 'createdRow: function(row, data, idx)';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('createdRow not found in xchain.js');
-    const braceStart = SRC.indexOf('{', start + sig.length - 1);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return 'var createdRow = function(row, data, idx)' + SRC.slice(braceStart, i) + ';';
+    return extractFn('xcDatatableCreateRow') + '\n'
+        + extractFn('xcDatatableRenderValidatorRow') + '\n'
+        + 'var xcDatatableRowHandlers = { validator: xcDatatableRenderValidatorRow };\n'
+        + 'var createdRow = function(row, data, idx){ '
+        + 'return xcDatatableCreateRow(row, data, idx, coin, action, type); };';
 }
 
 function extractFn(name) {

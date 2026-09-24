@@ -132,6 +132,10 @@ async function captureActionType(type, mode) {
         // reads the table rather than the degraded one.
         if (/information_schema\.TABLES/i.test(statement))
             return (args || []).map((name) => ({ TABLE_NAME: name }));
+        // Same for a column probe (the SEND/DESTROY leg_ordinal sort): the golden pins
+        // the ordered read a migrated replica takes.
+        if (/information_schema\.COLUMNS/i.test(statement))
+            return (args || []).map((name) => ({ COLUMN_NAME: name }));
         return (mode === 'rows') ? [Object.assign({}, GENERIC_ROW)] : [];
     };
 

@@ -17,15 +17,8 @@
 // inline script because static browser code cannot require the Node registry.
 
 function anchorRenderTraits(d){
-    ANCHOR_VERSION_TRAITS[3] = {
-        label: 'Folded checkpoint + archive bundle',
-        checkpoint: true,
-        archive: true,
-        roots: true,
-        publisher: true,
-        continuation: false,
-        bundle: true
-    };
+    ANCHOR_VERSION_TRAITS[3] = { label: 'Folded checkpoint + archive bundle', checkpoint: true, archive: true,
+        roots: true, publisher: true, continuation: false, bundle: true };
     let traits = anchorTraits(d);
     if(traits.known && traits.version === 3)
         traits.archive = (anchorArchiveRow(d) !== null);
@@ -34,20 +27,17 @@ function anchorRenderTraits(d){
 
 function anchorCheckpointRows(d){
     let row = d || {};
-    let rows = anchorSectionRows(row).filter(function(s){
-        return !isNull(s.chain);
-    });
+    let rows = anchorSectionRows(row).filter(function(s){ return !isNull(s.chain); });
     if(!rows.length && !isNull(row.chain)) rows.push(row);
     return rows;
 }
 
 function anchorArchiveRow(d){
     let row = d || {};
-    let rows = anchorSectionRows(row).slice();
-    rows.push(row);
-    for(let i = 0; i < rows.length; i++)
-        if(isNull(rows[i].chain) && !isNull(rows[i].match_batch_seq)) return rows[i];
-    return null;
+    let found = anchorSectionRows(row).concat([row]).filter(function(r){
+        return isNull(r.chain) && !isNull(r.match_batch_seq);
+    });
+    return found.length ? found[0] : null;
 }
 
 function anchorFoldedVerdicts(d){
@@ -57,11 +47,8 @@ function anchorFoldedVerdicts(d){
 }
 
 function anchorFamilyVerdict(rows, cls){
-    let statuses = [];
-    rows.forEach(function(row){
-        let status = isNull(row.status) ? 'unknown' : String(row.status);
-        if(statuses.indexOf(status) < 0) statuses.push(status);
-    });
+    let statuses = rows.map(function(row){ return isNull(row.status) ? 'unknown' : String(row.status); })
+        .filter(function(status, i, all){ return all.indexOf(status) === i; });
     return '<span class="' + cls + '">' + statuses.map(anchorStatusBadge).join(' ') + '</span>';
 }
 
@@ -81,9 +68,7 @@ function renderAnchorHeights(d){
     return html;
 }
 
-/* ------------------------------------------------------------------ *
- * Identity and payload
- * ------------------------------------------------------------------ */
+// Identity and payload
 function renderAnchorIdentity(d){
     let row = d || {};
     let t   = anchorRenderTraits(row);
@@ -100,20 +85,11 @@ function renderAnchorIdentity(d){
                 + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
             : 'This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.')));
     if(verdicts){
-        html += anchorFieldRow('Checkpoint Sections Status',
-            anchorFamilyVerdict(verdicts.checkpoints, 'anchor-checkpoint-verdict'),
-            'anchor-checkpoint-status-row');
-        html += anchorFieldRow('Archive Status',
-            anchorFamilyVerdict([verdicts.archive], 'anchor-archive-verdict'),
-            'anchor-archive-status-row');
-    } else {
-        html += anchorFieldRow('Status', anchorStatusBadge(row.status));
-    }
+        html += anchorFieldRow('Checkpoint Sections Status', anchorFamilyVerdict(verdicts.checkpoints, 'anchor-checkpoint-verdict'), 'anchor-checkpoint-status-row');
+        html += anchorFieldRow('Archive Status', anchorFamilyVerdict([verdicts.archive], 'anchor-archive-verdict'), 'anchor-archive-status-row');
+    } else html += anchorFieldRow('Status', anchorStatusBadge(row.status));
     if(t.bundle){
-        let chains = [];
-        anchorCheckpointRows(row).forEach(function(s){
-            if(!isNull(s.chain)) chains.push(String(s.chain));
-        });
+        let chains = anchorCheckpointRows(row).map(function(s){ return String(s.chain); });
         html += anchorFieldRow('Chains', '<span class="anchor-bundle-chains">'
             + anchorEsc(chains.length ? chains.join(', ') : '-') + '</span>'
             + ' <span class="badge text-bg-secondary">' + anchorEsc(isNull(row.network) ? '-' : row.network) + '</span>'
@@ -198,19 +174,15 @@ function renderAnchorSections(d){
             : 'This bundle reports no checkpoint sections, so this is an incomplete read.');
 
     let html = '<div class="small text-muted mb-1">' + sections.length + ' chain'
-        + (sections.length === 1 ? '' : 's') + ' committed by this anchor:</div>';
-    html += '<table class="table table-sm mb-0 anchor-sections-table"><thead><tr>'
+        + (sections.length === 1 ? '' : 's') + ' committed by this anchor:</div>'
+        + '<table class="table table-sm mb-0 anchor-sections-table"><thead><tr>'
         + '<th>#</th><th>Chain</th><th>Checkpointed Block</th><th>Checkpoint Seq</th><th>Snapshot Block</th>'
-        + '<th>State Root</th><th>Block Merkle Root</th><th>Signatures</th>'
-        + '</tr></thead><tbody>';
+        + '<th>State Root</th><th>Block Merkle Root</th><th>Signatures</th></tr></thead><tbody>';
     html += anchorSectionRowsHtml(sections, row);
     html += '</tbody></table>';
-    // Each section carries its OWN quorum over its own per-chain canonical, so the
-    // counts above are per chain and are attached signatures, not verified ones.
     html += anchorNote('Each section carries its own quorum signatures over its own chain\'s checkpoint canonical. Attached is not verified: the covering checkpoint page re-checks them.');
     return html;
 }
-
 
 // The cross-chain match archive. archive_b64 itself is never fetched: it is a
 // gzip chunk with nothing legible in it, so its LENGTH and the batch CRC32 are
@@ -235,7 +207,6 @@ function renderAnchorArchivePayload(d){
     return html;
 }
 
-
 // Every anchor sharing this archive batch id, chunk 0 first. The batch is only
 // complete once each chunk has landed, so the list is the reader's way of seeing
 // a half-published archive.
@@ -245,10 +216,9 @@ function renderAnchorChunks(d){
     if(!rows.length)
         return anchorEmpty('No sibling chunks are recorded for this batch.');
     let html = '<div class="small text-muted mt-2 mb-1">' + rows.length + ' chunk'
-        + (rows.length === 1 ? '' : 's') + ' recorded for this batch:</div>';
-    html += '<table class="table table-sm mb-0 anchor-chunks-table"><thead><tr>'
-        + '<th>Chunk</th><th>Action</th><th>Version</th><th>Anchor Tx Block</th><th>Size</th><th>Status</th>'
-        + '</tr></thead><tbody>';
+        + (rows.length === 1 ? '' : 's') + ' recorded for this batch:</div>'
+        + '<table class="table table-sm mb-0 anchor-chunks-table"><thead><tr>'
+        + '<th>Chunk</th><th>Action</th><th>Version</th><th>Anchor Tx Block</th><th>Size</th><th>Status</th></tr></thead><tbody>';
     rows.forEach(function(c){
         let self = (!isNull(c.action_index) && !isNull(row.action_index)
                     && String(c.action_index) === String(row.action_index));
@@ -265,10 +235,7 @@ function renderAnchorChunks(d){
     return html;
 }
 
-/* ------------------------------------------------------------------ *
- * Covering checkpoint (hub mirror)
- * ------------------------------------------------------------------ */
-
+// Covering checkpoint (hub mirror)
 // The state_checkpoints row covering the CHECKPOINTED height. Absence here is a
 // normal state on a chain whose mirror has not caught up, not an error, and the
 // message says which height was looked up so the miss is not mistaken for the
@@ -308,10 +275,7 @@ function renderAnchorCoveringCheckpoint(d){
     return html;
 }
 
-/* ------------------------------------------------------------------ *
- * Publisher election
- * ------------------------------------------------------------------ */
-
+// Publisher election
 // The oracle_publish electorate at this anchor's snapshot_block, plus which
 // member the anchor names as the elected publisher. capability_snapshots is
 // chain-agnostic, so this set is the platform-wide one at that snapshot block.
@@ -321,7 +285,6 @@ function renderAnchorElection(d){
     let set   = Array.isArray(row.publisher_election) ? row.publisher_election : [];
     let tail  = Array.isArray(row.publisher_attestations) ? row.publisher_attestations : [];
     let html  = '';
-
     if(!t.publisher && isNull(row.publisher))
         html += anchorEmpty('This ANCHOR version carries no publisher tail, so no publisher was elected for it.');
 
@@ -338,15 +301,12 @@ function renderAnchorElection(d){
     html += '</tbody></table>';
 
     if(!set.length){
-        html += anchorEmpty('No oracle_publish electorate is recorded at that snapshot block.');
-        return html;
+        return html + anchorEmpty('No oracle_publish electorate is recorded at that snapshot block.');
     }
-
     html += '<div class="small text-muted mt-2 mb-1">' + set.length + ' member'
         + (set.length === 1 ? '' : 's') + ' in the oracle_publish set:</div>';
     html += '<table class="table table-sm mb-0 anchor-election-table"><thead><tr>'
-        + '<th>Signing Pubkey</th><th>Amount</th><th>Source</th>'
-        + '</tr></thead><tbody>';
+        + '<th>Signing Pubkey</th><th>Amount</th><th>Source</th></tr></thead><tbody>';
     set.forEach(function(m){
         let elected = (!isNull(m.signing_pubkey) && !isNull(row.publisher)
                        && String(m.signing_pubkey).toLowerCase() === String(row.publisher).toLowerCase());
@@ -361,10 +321,7 @@ function renderAnchorElection(d){
     return html;
 }
 
-/* ------------------------------------------------------------------ *
- * Reward attestation trail
- * ------------------------------------------------------------------ */
-
+// Reward attestation trail
 
 // An empty trail is a NORMAL state: rewards are attested after the anchor is
 // mined, and pre-reward-era anchors never get one at all. It is rendered as an
@@ -376,11 +333,10 @@ function renderAnchorRewards(d){
         return anchorEmpty('No reward attestation is recorded for this anchor. Rewards are attested after the anchor is mined, and anchors published before the reward era never receive one.');
 
     let html = '<div class="small text-muted mb-1">' + rows.length + ' reward attestation'
-        + (rows.length === 1 ? '' : 's') + ' attributed to this anchor:</div>';
-    html += '<table class="table table-sm mb-0 anchor-rewards-table"><thead><tr>'
+        + (rows.length === 1 ? '' : 's') + ' attributed to this anchor:</div>'
+        + '<table class="table table-sm mb-0 anchor-rewards-table"><thead><tr>'
         + '<th>#</th><th>Type</th><th>Round</th><th>Snapshot Block</th>'
-        + '<th>Publisher</th><th>Amount</th><th>Linkage</th><th>Recorded</th>'
-        + '</tr></thead><tbody>';
+        + '<th>Publisher</th><th>Amount</th><th>Linkage</th><th>Recorded</th></tr></thead><tbody>';
     rows.forEach(function(r){
         let link = anchorRewardLinkage(r, row);
         html += '<tr class="anchor-reward-row">'
@@ -400,19 +356,14 @@ function renderAnchorRewards(d){
     // The reward rows carry their own chain/network, which is the scope the
     // trail was queried under; showing it keeps a cross-chain row from being
     // read as belonging to this coin.
-    let scopes = [];
-    rows.forEach(function(r){
-        let s = (isNull(r.chain) ? '-' : String(r.chain)) + '/' + (isNull(r.network) ? '-' : String(r.network));
-        if(scopes.indexOf(s) < 0) scopes.push(s);
-    });
+    let scopes = rows.map(function(r){
+        return (isNull(r.chain) ? '-' : String(r.chain)) + '/' + (isNull(r.network) ? '-' : String(r.network));
+    }).filter(function(s, i, all){ return all.indexOf(s) === i; });
     html += '<div class="small text-muted mt-1 anchor-reward-scope">Reward scope: ' + anchorEsc(scopes.join(', ')) + '</div>';
     return html;
 }
 
-/* ------------------------------------------------------------------ *
- * Page assembly
- * ------------------------------------------------------------------ */
-
+// Page assembly
 // Every panel gets a value on every path, so no panel is ever left showing the
 // loading placeholder after a response has been handled.
 function renderAnchorPage(d){
@@ -439,16 +390,11 @@ function renderAnchorPage(d){
 // are explicit: a detail page of blank placeholders cannot be told apart from a
 // page whose data did not arrive.
 function renderAnchorMessage(message, tone){
-    let cls  = (tone === 'danger') ? 'text-danger' : 'text-muted';
-    let cell = '<span class="' + cls + ' anchor-message">' + anchorEsc(message) + '</span>';
+    let cell = '<span class="' + ((tone === 'danger') ? 'text-danger' : 'text-muted') + ' anchor-message">' + anchorEsc(message) + '</span>';
     $('#anchor-identity').html('<tr><td>' + cell + '</td></tr>');
     $('#anchor-heights').html(cell);
     $('#anchor-checkpoint-payload').html(cell);
-    $('#anchor-sections').html('<span class="text-muted">-</span>');
-    $('#anchor-archive-payload').html('<span class="text-muted">-</span>');
-    $('#anchor-covering-checkpoint').html('<span class="text-muted">-</span>');
-    $('#anchor-election').html('<span class="text-muted">-</span>');
-    $('#anchor-rewards').html('<span class="text-muted">-</span>');
-    $('#anchor-archive-card').addClass('d-none');
-    $('#anchor-sections-card').addClass('d-none');
+    ['#anchor-sections', '#anchor-archive-payload', '#anchor-covering-checkpoint', '#anchor-election', '#anchor-rewards']
+        .forEach(function(sel){ $(sel).html('<span class="text-muted">-</span>'); });
+    $('#anchor-archive-card, #anchor-sections-card').addClass('d-none');
 }

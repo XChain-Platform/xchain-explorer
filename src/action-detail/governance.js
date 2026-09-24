@@ -218,7 +218,6 @@ const VOTE = {
             }
         } else {
             data['vote_kind'] = 'ballot';
-            // A ballot's chosen options share this action_index; gather them in order.
             let rows = await db.doQuery(config,
                 sql.VOTE_BALLOT_CHOICES,
                 [action_index]);
@@ -226,6 +225,8 @@ const VOTE = {
                 data['poll_ref'] = rows[0].poll_index;
                 data['memo']     = rows[0].memo;
                 data['ballot']   = rows.map(r => ({ choice: r.choice, share: r.share }));
+                let st = await db.doQuery(config, sql.VOTE_BALLOT_STATUS, [action_index]);
+                data['status']   = st && st.length ? st[0].status : null;
             } else {
                 data['ballot'] = [];
             }

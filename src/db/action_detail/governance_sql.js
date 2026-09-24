@@ -209,6 +209,15 @@ const VOTE_FINALIZED_POLL = `SELECT action_index AS poll_ref, poll_status, winni
 // List the options one ballot chose, in choice order.
 const VOTE_BALLOT_CHOICES = `SELECT poll_index, choice, share, memo FROM votes WHERE action_index=? ORDER BY choice ASC`;
 
+// Read the common status stored on a ballot's choice rows.
+const VOTE_BALLOT_STATUS = `SELECT COALESCE(s1.status, 'valid') AS status
+                FROM
+                    votes v
+                    LEFT JOIN index_statuses s1 ON (s1.id=v.status_id)
+                WHERE
+                    v.action_index=?
+                LIMIT 1`;
+
 module.exports = {
     BET_DETAIL,
     BET_LEG_FEED_STATUS,
@@ -216,5 +225,6 @@ module.exports = {
     BET_EXPIRE_REFUNDS,
     VOTE_DETAIL,
     VOTE_FINALIZED_POLL,
-    VOTE_BALLOT_CHOICES
+    VOTE_BALLOT_CHOICES,
+    VOTE_BALLOT_STATUS
 };

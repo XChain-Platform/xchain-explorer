@@ -13,7 +13,7 @@
  **********************************************************************
  * The extracted component library (spec M2.4).
  *
- * Ten components, and the page shell's chrome among them: the nav, the search
+ * Fourteen components, and the page shell's chrome among them: the nav, the search
  * box, the theme toggle and the footer used to be 24KB of markup inlined in
  * template.html and are now composed from component templates.
  *
@@ -50,9 +50,11 @@ const NAMES = fs.readdirSync(COMPONENT_DIR).filter((d) =>
 // The library the spec names, so a component quietly dropped from the tree
 // fails here rather than at the moment a theme tries to override it.
 const EXPECTED = [
-    'chart', 'data-table', 'detail-card', 'footer', 'nav',
-    'qr-card', 'search-box', 'stat-card', 'tab-panel', 'theme-toggle'
+    'badge-list', 'chart', 'countdown', 'data-table', 'detail-card', 'footer', 'nav',
+    'qr-card', 'search-box', 'stat-card', 'stat-tile', 'tab-panel', 'theme-toggle', 'timeline'
 ].sort();
+
+const PRESENTATION = ['timeline', 'countdown', 'badge-list', 'stat-tile'];
 
 const SOURCE = require('../../../helpers/content-source.js');
 
@@ -122,6 +124,26 @@ describe('component library (M2.4)', function () {
                 if(!shell.includes('/components/' + name + '/component.css')) missing.push(name + ' component.css');
             }
             assert.deepEqual(missing, [], 'component assets the shell never loads: ' + missing.join(', '));
+        });
+
+        it('loads every presentation component registration script from the shell', function () {
+            const shell = fs.readFileSync(path.join(HTML_DIR, 'template.html'), 'utf8');
+            const scripts = new Set([...new JSDOM(shell).window.document.querySelectorAll('script[src]')]
+                .map((script) => script.getAttribute('src')));
+            const missing = PRESENTATION.filter((name) =>
+                !scripts.has('/components/' + name + '/init.js'));
+            assert.deepEqual(missing, [],
+                'presentation components with no shell registration script: ' + missing.join(', '));
+        });
+
+        it('loads the timeline item helper before its registration script', function () {
+            const shell = fs.readFileSync(path.join(HTML_DIR, 'template.html'), 'utf8');
+            const scripts = [...new JSDOM(shell).window.document.querySelectorAll('script[src]')]
+                .map((script) => script.getAttribute('src'));
+            const helper = scripts.indexOf('/components/timeline/item.js');
+            const init = scripts.indexOf('/components/timeline/init.js');
+            assert.ok(helper >= 0, 'timeline item helper is not loaded by the shell');
+            assert.ok(helper < init, 'timeline item helper must load before timeline/init.js');
         });
 
         it('serves the component directory over HTTP, or none of those tags resolve', function () {

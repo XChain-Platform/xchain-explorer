@@ -43,23 +43,22 @@ describe('theme lint', () => {
     assert.deepEqual(report.missing, ['--xc-missing']);
   });
 
-  it('rejects an html route whose file exists but has no schema', () => {
+  it('rejects an html route with neither a page declaration nor a stored layout', () => {
     const collected = themeLint.collectRouteEntries();
-    if (fs.existsSync(themeLint.PAGE_LAYOUTS_FILE)) {
-      assert.deepEqual(themeLint.lintRouteSchemas(collected.routes, collected.hasSchema), []);
-    }
+    assert.deepEqual(themeLint.lintRouteSchemas(collected.routes, collected.hasSchema), []);
 
     const existingHtml = 'home.html';
     assert.equal(fs.existsSync(path.join(themeLint.HTML_DIR, existingHtml)), true);
     const fallback = themeLint.collectRouteEntries({
-      routes: { '/raw': existingHtml, '/list': 'actions.html' },
+      routes: { '/stored': existingHtml, '/list': 'actions.html', '/missing': 'missing.html' },
       pageLayoutsFile: path.join(themeLint.LAYOUT_DIR, 'missing-page-layouts.json'),
       listPage: { has: (file) => file === 'actions.html' },
     });
-    assert.equal(fallback.source, themeLint.LIST_PAGES_FILE);
+    assert.match(fallback.source, /list-pages\.json/);
+    assert.match(fallback.source, /content\/html/);
     assert.deepEqual(
       themeLint.lintRouteSchemas(fallback.routes, fallback.hasSchema),
-      ['/raw -> home.html has no page layout schema'],
+      ['/missing -> missing.html has no page layout schema'],
     );
   });
 
@@ -67,10 +66,6 @@ describe('theme lint', () => {
     const report = themeLint.lintAll();
     assert.deepEqual(report.componentSchemas, []);
     assert.deepEqual(report.themeTokens, []);
-    if (fs.existsSync(themeLint.PAGE_LAYOUTS_FILE)) {
-      assert.deepEqual(report.routeSchemas, []);
-    } else {
-      assert.ok(report.routeSchemas.length > 0, 'missing page-layouts.json must leave routes uncovered');
-    }
+    assert.deepEqual(report.routeSchemas, []);
   });
 });

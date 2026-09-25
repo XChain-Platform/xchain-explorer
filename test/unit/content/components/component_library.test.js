@@ -136,6 +136,16 @@ describe('component library (M2.4)', function () {
                 'presentation components with no shell registration script: ' + missing.join(', '));
         });
 
+        it('loads the timeline item helper before its registration script', function () {
+            const shell = fs.readFileSync(path.join(HTML_DIR, 'template.html'), 'utf8');
+            const scripts = [...new JSDOM(shell).window.document.querySelectorAll('script[src]')]
+                .map((script) => script.getAttribute('src'));
+            const helper = scripts.indexOf('/components/timeline/item.js');
+            const init = scripts.indexOf('/components/timeline/init.js');
+            assert.ok(helper >= 0, 'timeline item helper is not loaded by the shell');
+            assert.ok(helper < init, 'timeline item helper must load before timeline/init.js');
+        });
+
         it('serves the component directory over HTTP, or none of those tags resolve', function () {
             // The mount list moved to src/http/static_mounts.js, shared with the rate
             // limiter's exemption, so read the list itself rather than regexing a

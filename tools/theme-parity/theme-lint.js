@@ -210,11 +210,10 @@ function collectRouteEntries(options = {}) {
   }
 
   const listPage = options.listPage || require(path.join(SRC_DIR, 'render', 'list_page.js'));
-  const htmlDir = options.htmlDir || HTML_DIR;
   return {
     routes,
-    hasSchema: (file) => listPage.has(file) || fs.existsSync(path.join(htmlDir, file)),
-    source: `${LIST_PAGES_FILE} and ${htmlDir}`,
+    hasSchema: (file) => listPage.has(file),
+    source: LIST_PAGES_FILE,
   };
 }
 

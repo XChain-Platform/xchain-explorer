@@ -913,9 +913,19 @@
             $('#address-type').html('<span class="text-muted">-</span>');
         }
 
+        function renderAddressNotFound(){
+            $('.table-address-stats').first().find('tbody').html('<tr><td colspan="2" class="text-muted" id="address-not-found">No address exists with this identifier.</td></tr>');
+            $('.table-address-stats').eq(1).find('tbody').html('<tr><td colspan="2" class="text-muted">-</td></tr>');
+            $('.address_qrcode').empty();
+            $('#data-panels').html('<div class="p-5 text-center text-muted">No address activity to show.</div>');
+            XC.pageInfo.title       = addressId + ' Address Not Found';
+            XC.pageInfo.description = 'No address with identifier ' + addressId + ' was found on the XChain Platform';
+            updatePageInfo();
+        }
+
         // Request information on this address and update the header with this information
         if(addressId.length) loadApiData(XC.coin, 'address', addressId, null, function(o){
-            if(o){
+            if(o && o.address){
                 $('#address').html(o.address);
                 // Native-coin balance/UTXO figures come from the utxo-tracker. When it is not
                 // reachable the API returns nulls; show "Unavailable" rather than blank or null.
@@ -958,14 +968,12 @@
                 XC.pageInfo.canonical   = '/' + XC.coin + '/address/' + XC.query;
                 updatePageInfo();
 
+                setupActionListeners();
+                $('#tab-dropdown-balance').click();
+            } else {
+                renderAddressNotFound();
             }
-        });
-
-        // Setup listeners to load data panel when an action button is clicked
-        setupActionListeners();
-
-        // Activate the first tab by faking a click
-        $('#tab-dropdown-balance').click();
+        }, renderAddressNotFound);
 
         // SPV balance proofs (spendable and locked share the same response
         // shape: proof.amount is the authoritative AS-OF-checkpoint amount,

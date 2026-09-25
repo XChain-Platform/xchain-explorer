@@ -2104,6 +2104,18 @@ function wireActionProofButton(o){
 
 $(document).ready(function(){
 
+    function renderActionNotFound(){
+        XC.actionInfo = null;
+        $('#transaction-info tbody').html('<tr><td colspan="2" class="text-muted" id="action-not-found">No action exists at this index.</td></tr>');
+        $('#action-info tbody').html('<tr><td colspan="2" class="text-muted">-</td></tr>');
+        $('#data-panels').html('<div class="p-5 text-center text-muted">No action details to show.</div>');
+        $('#action-proof-btn').prop('disabled', true);
+        $('#action-proof-result').html('<span class="text-muted">-</span>');
+        XC.pageInfo.title       = 'Action #' + XC.query + ' Not Found';
+        XC.pageInfo.description = 'No action with index ' + XC.query + ' was found on the XChain Platform';
+        updatePageInfo();
+    }
+
     // Build out a list of data panels for this page
     XC.panels = [
         'credit',
@@ -2117,6 +2129,10 @@ $(document).ready(function(){
 
         // Request information on this action, store the response in XC.actionInfo, and update the page with the details
         loadApiData(XC.coin, 'action', XC.query, null, function(o){
+            if(!o || isNull(o.action_index)){
+                renderActionNotFound();
+                return;
+            }
             XC.actionInfo = null2string(o);
             showActionDetails();
 
@@ -2128,7 +2144,7 @@ $(document).ready(function(){
 
             wireActionProofButton(o);
 
-        });
+        }, renderActionNotFound);
 
         // Setup listeners to load data panel when an action button is clicked
         setupActionListeners();

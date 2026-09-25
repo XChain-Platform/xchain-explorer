@@ -94,6 +94,71 @@ describe('dispenser page wiring', () => {
 
 });
 
+describe('dispenser page action_index forwarding', () => {
+
+    const dispenser = read('dispenser.html');
+
+    // Runs the page's own <script> with the page globals stubbed, and reports
+    // where it navigated and which feeds it asked for.
+    function drive(pathname, query) {
+        const script = dispenser.split('<script type="text/javascript">')[1].split('</script>')[0];
+        let ready = null;
+        const replaced = [];
+        const feeds = [];
+        const chain = { html() { return chain; }, text() { return chain; } };
+        const $ = (arg) => (typeof arg === 'object' && arg && arg.nodeType === 9)
+            ? { ready: (fn) => { ready = fn; } } : chain;
+        $.getJSON = (url) => { feeds.push(url); };
+        const stubs = {
+            $, document: { nodeType: 9 },
+            window: { location: { pathname, replace: (u) => replaced.push(u) } },
+            XC: { coin: 'TDOGE', query, name: 'Dogecoin', network: 'testnet', pageInfo: {} },
+            isNull: (v) => v === null || v === undefined || v === '',
+            isNumeric: (v) => /^[0-9]+$/.test(String(v)),
+            updatePageInfo() {}, formatLink: () => '', numeral: () => ({ format: () => '' }),
+            loadDatatablesData: (coin, type) => { feeds.push(type); },
+        };
+        // eslint-disable-next-line no-new-func
+        new Function(...Object.keys(stubs), script)(...Object.values(stubs));
+        ready();
+        return { replaced, feeds };
+    }
+
+    it('forwards an action_index URL to the DISPENSER action instead of loading empty feeds', () => {
+        // /TDOGE/dispenser/3048 was what every dispenser list row linked to; the
+        // address-keyed params left XC.query null and both tables failed.
+        const r = drive('/TDOGE/dispenser/3048', null);
+        assert.deepStrictEqual(r.replaced, ['/TDOGE/action/3048']);
+        assert.deepStrictEqual(r.feeds, [], 'the page still requested feeds after forwarding');
+    });
+
+    it('still loads both feeds for a dispenser address', () => {
+        const addr = 'nqjVHBtKPPMb1TNfmnwx7kZ19G5NzG9rxy';
+        const r = drive('/TDOGE/dispenser/' + addr, addr);
+        assert.deepStrictEqual(r.replaced, []);
+        assert.ok(r.feeds.includes('dispenser') && r.feeds.includes('dispense'));
+    });
+
+});
+
+/*
+ * The dispensers list's "view" link. It pointed at /{COIN}/dispenser/{action_index},
+ * a page keyed by GET_ADDRESS, so every row's view opened a page whose tables
+ * both read "Could not load this data". It now uses the shared action link.
+ */
+describe('dispenser list row view link', () => {
+
+    const ROWS = fs.readFileSync(path.join(__dirname, '..', '..', '..', '..',
+        'src', 'content', 'js', 'xchain', 'datatable', 'rows_actions_a.js'), 'utf8');
+
+    it('links the view cell to the action page, not the address-keyed dispenser page', () => {
+        const fn = ROWS.split('function xcDatatableRenderDispenserRow(')[1].split('\n}\n')[0];
+        assert.ok(!fn.includes("'/dispenser/'"), 'the dispenser row still links /dispenser/{action_index}');
+        assert.ok(fn.includes('.eq(6).html(action_link)'), 'the dispenser row view cell is not the action link');
+    });
+
+});
+
 /*
  * The betting market page's response envelope.
  *

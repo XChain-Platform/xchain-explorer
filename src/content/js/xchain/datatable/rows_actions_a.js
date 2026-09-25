@@ -328,7 +328,10 @@ function xcDatatableRenderDispenserRow(context){
         ? formatNativeCoinLeg(get_amount, get_coin)
         : formatLinkAmount(tokenUrl(get_coin, get_token), get_token, get_token, get_amount);
     $('td', row).eq(5).html(getLeg);
-    $('td', row).eq(6).html(formatLink('/' + coin + '/dispenser/' + action_index, 'view', null, true));
+    // The action page, like every other row: /dispenser/{QUERY} is keyed by the
+    // dispenser's GET_ADDRESS, so handing it this action_index left XC.query null
+    // and both of that page's feeds failed with "Could not load this data".
+    $('td', row).eq(6).html(action_link);
 
 }
 xcDatatableRowHandlers.dispenser = xcDatatableRenderDispenserRow;

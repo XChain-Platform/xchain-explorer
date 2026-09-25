@@ -84,6 +84,15 @@
 <script type="text/javascript">
 $(document).ready(function() {
 
+    // Dispenser list rows used to link here by action_index, and those URLs are
+    // out in the wild. The record they meant is the DISPENSER action, so forward
+    // a numeric query there instead of requesting feeds with no address segment.
+    var lastSegment = String(window.location.pathname).split('/').pop();
+    if(isNull(XC.query) && isNumeric(lastSegment)){
+        window.location.replace('/' + XC.coin + '/action/' + encodeURIComponent(lastSegment));
+        return;
+    }
+
     // Update the page with SEO friendly info
     XC.pageInfo.title       = 'Dispenser ' + XC.query;
     XC.pageInfo.description = 'Dispensers and dispenses for address ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';

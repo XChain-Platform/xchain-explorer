@@ -2173,16 +2173,16 @@
   ],
   "coverage": {
     "script_values": {
-      "lines": 86.4,
-      "statements": 86.4,
-      "branches": 81.9,
-      "functions": 81
+      "lines": 62.1,
+      "statements": 62.1,
+      "branches": 82.2,
+      "functions": 84.1
     },
     "mirror_values": {
-      "lines": 86.4,
-      "statements": 86.4,
-      "branches": 81.9,
-      "functions": 81
+      "lines": 62.1,
+      "statements": 62.1,
+      "branches": 82.2,
+      "functions": 84.1
     },
     "mirror_agrees": true
   },
@@ -3015,44 +3015,6 @@
         "BET_EXPIRE action detail @regression returns a structured-cloneable payload, which the LRU cache requires",
         "BET_EXPIRE action detail @regression tallies the refunds off bet_statuses, exactly, in bignumber space"
       ],
-      "1bb9925e03281c85": [
-        "vm-query EXPLORER_VM_MAX_STATE_BYTES overrides the byte cap",
-        "vm-query a burst arriving during the DB loads cannot bypass the concurrency gate",
-        "vm-query caps concurrent slots PER IP so paced clients cannot hold the whole pool",
-        "vm-query maps a STATE_TOO_LARGE state load to 413 and threads the row/byte caps",
-        "vm-query passes nulled snapshots, tip block context, and the derived contract address to the VM",
-        "vm-query per-IP cap defaults to half the global pool (min 1) and skips when no IP is supplied",
-        "vm-query protocol size-cap parity @regression explorer query-VM MAX_CODE_SIZE === canonical protocol constant",
-        "vm-query protocol size-cap parity @regression explorer query-VM MAX_CODE_SIZE === vendored xchain-vm isolate cap",
-        "vm-query protocol size-cap parity @regression the caps the isolate actually receives are the named constants (no bare literal reintroduced)",
-        "vm-query protocol size-cap parity @regression the compiled consensus pin equals the canonical sibling xchain-vm epoch",
-        "vm-query rejects with NOT_FOUND (404) when the contract row is missing",
-        "vm-query rejects with VM_BUSY (429) above the concurrency cap and recovers after",
-        "vm-query rejects with VM_MODULE_UNAVAILABLE (503) when xchain-vm did not load",
-        "vm-query rejects with VM_QUERY_DISABLED (503) when the flag is off",
-        "vm-query request validation (all 400) empty method",
-        "vm-query request validation (all 400) method over 64 bytes",
-        "vm-query request validation (all 400) method with wire delimiter",
-        "vm-query request validation (all 400) missing method",
-        "vm-query request validation (all 400) more than 32 params",
-        "vm-query request validation (all 400) non-string caller",
-        "vm-query request validation (all 400) param over 1024 bytes",
-        "vm-query request validation (all 400) param with wire delimiter",
-        "vm-query request validation (all 400) params not an array",
-        "vm-query shutdown is a safe no-op when the VM was never used",
-        "vm-query threads a user-supplied caller through",
-        "vm-query vendored-VM consensus gate a canonical-shaped VM passes the gate and simulates",
-        "vm-query vendored-VM consensus gate an absent module stays VM_MODULE_UNAVAILABLE (a different repair)",
-        "vm-query vendored-VM consensus gate names the reason, so the log says which repair is needed",
-        "vm-query vendored-VM consensus gate refuses before request validation, so a bad body cannot mask the drift",
-        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): a divergent MAX_CODE_SIZE",
-        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): a newer consensus epoch",
-        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): an older consensus epoch",
-        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): no BINARY_ALLOC_GATE_BLOCK_TIME",
-        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): no CONSENSUS_VERSION export (VM predates the contract era)",
-        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): no PKG3_SANDBOX_ACTIVATION",
-        "vm-query vendored-VM consensus gate the flag being off still answers VM_QUERY_DISABLED, not drift"
-      ],
       "1c31b3f297b71629": [
         "Broadcaster mempool destination fan-out (M1.1) MEMPOOL_REMOVED reaches the same address channels, carrying source + destinations",
         "Broadcaster mempool destination fan-out (M1.1) address-id memoization costs zero DB reads when the coin has no address subscribers",
@@ -3093,6 +3055,12 @@
         "Boundary Integration: Token data values BV-NUM-01: max-value token preserves precision in supply",
         "Boundary Integration: Token data values BV-NUM-02: zero-supply token returns supply as zero",
         "Boundary Integration: Token data values BV-NUM-05: smallest-unit token (0.00000001) is not rounded to zero"
+      ],
+      "1d8184e028d7d9ff": [
+        "whereAnchor exports and uses the default anchor for an unmapped method",
+        "whereAnchor exports exactly 29 own method mappings",
+        "whereAnchor returns the anchor mapped to each representative query method",
+        "whereAnchor uses the default for names inherited from Object.prototype"
       ],
       "1f1916b92369ae39": [
         "action-detail registry @regression behaviour is byte-identical to the pre-extraction if-chain ADDRESS (empty results) issues the same SQL and returns the same shape",
@@ -3875,6 +3843,15 @@
         "contract identity: render-side hardening and the label the search Contract panel highlights the term inside the name and the description",
         "contract identity: render-side hardening and the label the search Contract panel renders a hit with no declared name or description without the word null",
         "contract identity: render-side hardening and the label the search Contract panel shows the name, version, address and description of a hit"
+      ],
+      "3dab76fc6e7219a0": [
+        "coverage ratchet floors documents the exclusion where a human reads the floors",
+        "coverage ratchet floors enforces every declared floor, at the declared value",
+        "coverage ratchet floors excludes the vendored hub mirror, and nothing else, from the ratchet",
+        "coverage ratchet floors fails the job on a shortfall rather than only reporting it",
+        "coverage ratchet floors measures the same tree in the reporting script as in the enforcing one",
+        "coverage ratchet floors measures unrequired source files in both coverage scripts",
+        "coverage ratchet floors ships the coverage:check script the CI coverage job invokes"
       ],
       "3e1d8b1e0020be6d": [
         "@p2 @action Less-used action type endpoints regression escrows endpoint returns data for seeded address",
@@ -6369,6 +6346,22 @@
         "E2E-40: Block-scoped action counts are consistent block 6 has dispensers and dispenses",
         "prefers exported CI database settings and falls back to the venue file"
       ],
+      "9ee09614469dece3": [
+        "theme default configuration defaults to classic",
+        "theme default configuration reads EXPLORER_DEFAULT_THEME live",
+        "theme selection on rendered pages ?theme=skin-demo restyles any page and removing it restores the default",
+        "theme selection on rendered pages a config default themes the rendered page",
+        "theme selection on rendered pages a cookie themes the rendered page",
+        "theme selection on rendered pages a query override beats a cookie on the rendered page",
+        "theme selection on rendered pages an unknown query theme logs and renders with the default stylesheet",
+        "theme selection precedence falls back loudly to classic when the configured default does not resolve",
+        "theme selection precedence falls back loudly to the default when the requested theme does not resolve",
+        "theme selection precedence uses the configured default when no request selection is present",
+        "theme selection precedence uses the cookie over the configured default",
+        "theme selection precedence uses the query override over the cookie and configured default",
+        "theme.json resolution rejects unknown names and names that could escape the theme directory",
+        "theme.json resolution resolves an extends chain root first so the child loads over its parent"
+      ],
       "9f25e74529b76ba3": [
         "db.getActionsSince destinations (M1.4) QUARANTINES only the missing family, so the next poll is back to one query",
         "db.getActionsSince destinations (M1.4) a MISSING table costs only its own family: the other seven still resolve",
@@ -6758,13 +6751,6 @@
         "Platform switcher the vendored link list omits the internal dashboard, and includes every live host",
         "Platform switcher the vendored link list points every entry at an https xchain.io origin"
       ],
-      "af3b636abf45a02d": [
-        "BET feed status timeline @regression adds no latch when the feed never latched closed",
-        "BET feed status timeline @regression places the synthetic closed latch BEFORE a later terminal row",
-        "BET feed status timeline @regression reads the block off the ACTION, so a transactionless BET_EXPIRE keeps its block",
-        "BET feed status timeline @regression shows a NULL block is what put the latch in the wrong place",
-        "BET feed status timeline @regression still marks the latch synthetic and leaves action-backed rows alone"
-      ],
       "af7981f422df163c": [
         "explorer feed shaping branches finds a plausibly-sized method table and branch set",
         "explorer feed shaping branches registers every method a shaping branch names",
@@ -6818,6 +6804,11 @@
         "db.js composes its extracted reader families reaches every extracted method on Database.prototype",
         "db.js composes its extracted reader families spot-checks one method from each family, since a family could be empty",
         "db.js composes its extracted reader families wires every module file into the composition"
+      ],
+      "b5afe2325c212f86": [
+        "sibling gate policy allows standalone skips but rejects guarded pending tests in strict mode",
+        "sibling gate policy catalogs all fifteen centrally enforced sibling-gated suites",
+        "sibling gate policy keeps the vm-query sibling checks strict-aware at their source"
       ],
       "b5f08dd1ca564cd2": [
         "docs/openapi.json carries the schemas module publishes every component schema byte-for-byte as the module builds it",
@@ -7009,6 +7000,44 @@
         "Security: batch endpoints: the limiter the service builds (row 51, C54) sends the draft headers and no legacy ones",
         "Security: batch endpoints: the refusal, driven through express-rate-limit 8 (row 51) refuses the third POST at a limit of two, with the batch JSON body",
         "Security: batch endpoints: the refusal, driven through express-rate-limit 8 (row 51) spends one bucket across both batch routes, not one each"
+      ],
+      "c4e702f0d8e5d592": [
+        "vm-query EXPLORER_VM_MAX_STATE_BYTES overrides the byte cap",
+        "vm-query a burst arriving during the DB loads cannot bypass the concurrency gate",
+        "vm-query caps concurrent slots PER IP so paced clients cannot hold the whole pool",
+        "vm-query maps a STATE_TOO_LARGE state load to 413 and threads the row/byte caps",
+        "vm-query passes nulled snapshots, tip block context, and the derived contract address to the VM",
+        "vm-query per-IP cap defaults to half the global pool (min 1) and skips when no IP is supplied",
+        "vm-query protocol size-cap parity @regression explorer query-VM MAX_CODE_SIZE === canonical protocol constant",
+        "vm-query protocol size-cap parity @regression explorer query-VM MAX_CODE_SIZE === canonical xchain-vm isolate cap",
+        "vm-query protocol size-cap parity @regression the caps the isolate actually receives are the named constants (no bare literal reintroduced)",
+        "vm-query protocol size-cap parity @regression the compiled consensus pin equals the canonical sibling xchain-vm epoch",
+        "vm-query rejects with NOT_FOUND (404) when the contract row is missing",
+        "vm-query rejects with VM_BUSY (429) above the concurrency cap and recovers after",
+        "vm-query rejects with VM_MODULE_UNAVAILABLE (503) when xchain-vm did not load",
+        "vm-query rejects with VM_QUERY_DISABLED (503) when the flag is off",
+        "vm-query request validation (all 400) empty method",
+        "vm-query request validation (all 400) method over 64 bytes",
+        "vm-query request validation (all 400) method with wire delimiter",
+        "vm-query request validation (all 400) missing method",
+        "vm-query request validation (all 400) more than 32 params",
+        "vm-query request validation (all 400) non-string caller",
+        "vm-query request validation (all 400) param over 1024 bytes",
+        "vm-query request validation (all 400) param with wire delimiter",
+        "vm-query request validation (all 400) params not an array",
+        "vm-query shutdown is a safe no-op when the VM was never used",
+        "vm-query threads a user-supplied caller through",
+        "vm-query vendored-VM consensus gate a canonical-shaped VM passes the gate and simulates",
+        "vm-query vendored-VM consensus gate an absent module stays VM_MODULE_UNAVAILABLE (a different repair)",
+        "vm-query vendored-VM consensus gate names the reason, so the log says which repair is needed",
+        "vm-query vendored-VM consensus gate refuses before request validation, so a bad body cannot mask the drift",
+        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): a divergent MAX_CODE_SIZE",
+        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): a newer consensus epoch",
+        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): an older consensus epoch",
+        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): no BINARY_ALLOC_GATE_BLOCK_TIME",
+        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): no CONSENSUS_VERSION export (VM predates the contract era)",
+        "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): no PKG3_SANDBOX_ACTIVATION",
+        "vm-query vendored-VM consensus gate the flag being off still answers VM_QUERY_DISABLED, not drift"
       ],
       "c5b87b330ac0cffe": [
         "Fuzz: Utility input sanitization escapeLike leaves no unescaped % or _ wildcard across 2000 hostile strings",
@@ -7682,6 +7711,14 @@
         "serialize.safeStringify serializes BigInt losslessly above 2^53 (no Number() precision loss)",
         "serialize.safeStringify serializes a BigInt DB column as a decimal STRING instead of throwing (raw JSON.stringify throws)"
       ],
+      "e038f4a92fd91e5e": [
+        "BET feed status timeline @regression adds no latch when the feed never latched closed",
+        "BET feed status timeline @regression places the synthetic closed latch BEFORE a later terminal row",
+        "BET feed status timeline @regression places the synthetic closed latch BEFORE an expired row in the SAME block",
+        "BET feed status timeline @regression reads the block off the ACTION, so a transactionless BET_EXPIRE keeps its block",
+        "BET feed status timeline @regression shows a NULL block is what put the latch in the wrong place",
+        "BET feed status timeline @regression still marks the latch synthetic and leaves action-backed rows alone"
+      ],
       "e55afde36345b87b": [
         "component registry and runtime (M2.1) load-order contract with xchain.js components.js does NOT mount on jQuery ready",
         "component registry and runtime (M2.1) load-order contract with xchain.js the shell loads formatters.js and components.js before xchain.js",
@@ -8067,14 +8104,6 @@
         "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) reads back every pinned name in the source (row 33: no orphaned pin)",
         "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) sees nine limiter env vars on each side today (sanity: the parsers matched something)"
       ],
-      "f5c78a220371e374": [
-        "coverage ratchet floors documents the exclusion where a human reads the floors",
-        "coverage ratchet floors enforces every declared floor, at the declared value",
-        "coverage ratchet floors excludes the vendored hub mirror, and nothing else, from the ratchet",
-        "coverage ratchet floors fails the job on a shortfall rather than only reporting it",
-        "coverage ratchet floors measures the same tree in the reporting script as in the enforcing one",
-        "coverage ratchet floors ships the coverage:check script the CI coverage job invokes"
-      ],
       "f610fd4aa113d3ff": [
         "BET detail render: a resolve shows the outcome it declared escapes the outcome, which is an on-chain attacker-supplied value",
         "BET detail render: a resolve shows the outcome it declared hides the row on a cancel, which shares the panel and declares no outcome",
@@ -8382,8 +8411,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 225,
-        "titleCount": 4632,
+        "fileCount": 228,
+        "titleCount": 4655,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "7ca4d7d5b63519d3",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -8481,8 +8510,9 @@
           "test/unit/content/pages/xbridge_panels_render.test.js": "343833f5d9a24ad7",
           "test/unit/contract/abi_core.test.js": "8a672ba9f91488b8",
           "test/unit/contract/contract_introspect.test.js": "04f2b2ff93543f66",
+          "test/unit/contract/sibling_gate_policy.test.js": "b5afe2325c212f86",
           "test/unit/contract/vendor_vm_check_guard.test.js": "73c1eb15d626ba50",
-          "test/unit/contract/vm_query.test.js": "1bb9925e03281c85",
+          "test/unit/contract/vm_query.test.js": "c4e702f0d8e5d592",
           "test/unit/db/core/db_action_queries.test.js": "67eaab6df8df8ffd",
           "test/unit/db/core/db_blocks_paging.test.js": "b12a894f829e191b",
           "test/unit/db/core/db_connection.test.js": "7c9836278ad0ead1",
@@ -8507,12 +8537,13 @@
           "test/unit/db/mempool/db_mempool_address_refs.test.js": "959cfcc187d82f85",
           "test/unit/db/mempool/db_mempool_listall_paging.test.js": "21dd83888010e79b",
           "test/unit/db/mempool/mempool.test.js": "bec894443bd82b92",
+          "test/unit/db/query_sql/where_anchors.test.js": "1d8184e028d7d9ff",
           "test/unit/db/readers/db_action_destinations.test.js": "9f25e74529b76ba3",
           "test/unit/db/readers/db_action_source_attribution.test.js": "38cd5b889e0e9bc9",
           "test/unit/db/readers/db_action_state_cache.test.js": "f1d7e9184af6e62f",
           "test/unit/db/readers/db_action_summary_batch_parity.test.js": "ceeb3b770bc5d73b",
           "test/unit/db/readers/db_action_summary_field_contract.test.js": "4b74db17492acc17",
-          "test/unit/db/readers/db_bet_feed_timeline.test.js": "af3b636abf45a02d",
+          "test/unit/db/readers/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
           "test/unit/db/readers/db_bet_leg_status.test.js": "82bf43fea502fa27",
           "test/unit/db/readers/db_checkpoint_hub_url_invariant.test.js": "c6db950acd39daee",
           "test/unit/db/readers/db_coin_price_usd.test.js": "6b3ae77833b6e51f",
@@ -8587,7 +8618,7 @@
           "test/unit/render/html_templates_exist.test.js": "4bb485c7d8e7ff43",
           "test/unit/render/list_page_composition.test.js": "19b278e7eb66d5bf",
           "test/unit/render/platform_links.test.js": "ad6f9701f490c718",
-          "test/unit/repo/coverage_thresholds_sync.test.js": "f5c78a220371e374",
+          "test/unit/repo/coverage_thresholds_sync.test.js": "3dab76fc6e7219a0",
           "test/unit/repo/engines_node_ceiling.test.js": "67835353c924205c",
           "test/unit/repo/fixture_ports.test.js": "dc378898866ff01a",
           "test/unit/repo/fixture_preflight.test.js": "8bbbe82f8531cb02",
@@ -8595,6 +8626,7 @@
           "test/unit/repo/sibling_coverage.test.js": "d8d1e52267ea606f",
           "test/unit/security/configuration/bundled_sibling_snapshot.test.js": "13dfdbaefb6250f2",
           "test/unit/security/configuration/dependency_advisories.test.js": "5cc2b8143bdd5808",
+          "test/unit/theme/theme_resolution.test.js": "9ee09614469dece3",
           "test/unit/ws/broadcaster.test.js": "a03215ddf329597d",
           "test/unit/ws/broadcaster_action_destinations.test.js": "5e1c022af4360e26",
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
@@ -8679,7 +8711,7 @@
       },
       "test:db": {
         "fileCount": 47,
-        "titleCount": 1436,
+        "titleCount": 1437,
         "files": {
           "test/unit/action_detail/db_action_detail_registry.test.js": "1f1916b92369ae39",
           "test/unit/action_detail/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",
@@ -8715,7 +8747,7 @@
           "test/unit/db/readers/db_action_state_cache.test.js": "f1d7e9184af6e62f",
           "test/unit/db/readers/db_action_summary_batch_parity.test.js": "ceeb3b770bc5d73b",
           "test/unit/db/readers/db_action_summary_field_contract.test.js": "4b74db17492acc17",
-          "test/unit/db/readers/db_bet_feed_timeline.test.js": "af3b636abf45a02d",
+          "test/unit/db/readers/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
           "test/unit/db/readers/db_bet_leg_status.test.js": "82bf43fea502fa27",
           "test/unit/db/readers/db_checkpoint_hub_url_invariant.test.js": "c6db950acd39daee",
           "test/unit/db/readers/db_coin_price_usd.test.js": "6b3ae77833b6e51f",

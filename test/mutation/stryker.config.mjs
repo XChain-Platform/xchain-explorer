@@ -50,12 +50,12 @@ export default {
     // executes the code cannot kill a mutant of it. They still guard the real
     // tree under `npm test`.
     ignore: [
-      'test/unit/ActionManifestConformance.test.js',
-      'test/unit/ConsensusPrimitiveConformance.test.js',
-      'test/unit/HubMirrorClientConformance.test.js',
-      'test/unit/fontawesome-icons.test.js',
-      'test/unit/jsonrpc-body-guard.test.js',
-      'test/unit/openapi-coverage.test.js',
+      'test/unit/action_detail/action_manifest_conformance.test.js',
+      'test/unit/protocol/consensus_primitive_conformance.test.js',
+      'test/unit/mirror/hub_mirror_client_conformance.test.js',
+      'test/unit/icons/fontawesome_icons.test.js',
+      'test/unit/http/jsonrpc_body_guard.test.js',
+      'test/unit/http/openapi_coverage.test.js',
       // Same source-text-reads-the-sandbox-copy failure as the six above, newly
       // reached now that the mutate globs cover every src/db/** file: both walk
       // every module under src/db/ off disk and parse class bodies with a

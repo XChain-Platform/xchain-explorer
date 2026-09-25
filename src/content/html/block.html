@@ -88,10 +88,24 @@
 <script type="text/javascript">
 $(document).ready(function(){
 
+    function renderBlockNotFound(){
+        $('#blockIndex').text(XC.query);
+        $('#blockIndex').closest('.card').find('table').first().find('tbody').html('<tr><td colspan="2" class="text-muted" id="block-not-found">No block exists at this height.</td></tr>');
+        $('#datatable-history tbody').html('<tr><td colspan="6" class="text-muted text-center">No actions to show.</td></tr>');
+        $('#datatable-commitment tbody').html('<tr><td colspan="9" class="text-muted text-center">No commitments to show.</td></tr>');
+        XC.pageInfo.title       = 'Block #' + XC.query + ' Not Found';
+        XC.pageInfo.description = 'No block at height ' + XC.query + ' was found on the XChain Platform';
+        updatePageInfo();
+    }
+
     if(XC.query){
 
         // Request information on this block and update the header with this information
         loadApiData(XC.coin, 'block', XC.query, null, function(o){
+            if(!o || isNull(o.block_index)){
+                renderBlockNotFound();
+                return;
+            }
             let block_index = numeral(o.block_index).format('0,0');
             $('#blockIndex').text(block_index);
             $('#blockTime').html(formatLivestamp(o.timestamp));
@@ -104,17 +118,15 @@ $(document).ready(function(){
             XC.pageInfo.canonical   = '/' + XC.coin + '/block/' + XC.query;
             updatePageInfo();
 
-        });
+            // Load all `history` actions for the given block
+            loadDatatablesData(XC.coin, 'history', XC.query, 'block');
 
-        // Load all `history` actions for the given block
-        loadDatatablesData(XC.coin, 'history', XC.query, 'block');
-
-        // Load this block's SPV commitments (state_tree_roots), decorated with
-        // the covering checkpoint and carrying ANCHOR when present. Bound to
-        // THIS block via type=block, same as the history table above.
-        loadDatatablesData(XC.coin, 'commitment', XC.query, 'block');
+            // Load this block's SPV commitments (state_tree_roots), decorated with
+            // the covering checkpoint and carrying ANCHOR when present. Bound to
+            // THIS block via type=block, same as the history table above.
+            loadDatatablesData(XC.coin, 'commitment', XC.query, 'block');
+        }, renderBlockNotFound);
     }
 
 });
 </script>
-

@@ -82,6 +82,7 @@ function renderBetDetails(data) {
      * so $.getJSON is inert here: this leg is about the fields the payload
      * already carries. */
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatLivestamp(t){ return 'in a while'; }
         function formatAmount(a){ return String(a); }

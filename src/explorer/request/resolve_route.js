@@ -35,6 +35,13 @@ function readPath(explorer, req, st){
     // Drop the leading and trailing slashes, then split the path into its parts.
     let urlPath = String(req.path).substring(1).replace(/\/$/,'').split('/');
 
+    // Decode each segment: req.path is still percent-encoded and a free-text tick
+    // is bound straight into the lookup. Splitting first keeps an encoded slash in
+    // its segment; a segment that will not decode stays raw and matches nothing.
+    urlPath = urlPath.map(function(value){
+        try { return decodeURIComponent(value); } catch(_){ return value; }
+    });
+
     // Turn the literal string 'null' into a real null, so isNull judges it properly.
     urlPath.forEach(function(value, idx){
         if(String(value).toLowerCase()=='null')

@@ -53,7 +53,7 @@ function detailBetStake_renderFeed(data, kind, esc, statusClass){
         $('#info-bet .bet-label').text(isNull(data.label) ? '-' : data.label);
         let outs = Array.isArray(data.outcome_labels) ? data.outcome_labels : [];
         $('#info-bet .bet-outcomes').html(outs.length ? outs.map((o, i) => i + ': ' + esc(o)).join('<br>') : '-');
-        $('#info-bet .bet-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-bet .bet-token').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
         // FEE is the ORACLE's percent cut of the pot, NOT the protocol's market
         // duration fee. Label it so the two are never confused (§10 naming pin).
         // Read it from the aliased column (bet_fee): db.js getActionData overwrites the
@@ -135,7 +135,7 @@ function showBetExpireDetails(data){
     let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
     $('#info-bet-expire .bet-expire-feed').html(isNull(data.feed_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_action_index, numeral(data.feed_action_index).format('0,0')));
     $('#info-bet-expire .bet-expire-label').text(isNull(data.label) ? '-' : data.label);
-    $('#info-bet-expire .bet-expire-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-bet-expire .bet-expire-token').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     $('#info-bet-expire .bet-expire-deadline').html(isNull(data.deadline) ? '-' : data.deadline + ' - ' + formatLivestamp(data.deadline) + ' (' + moment.unix(data.deadline).utcOffset(0).format() + ' GMT)');
     $('#info-bet-expire .bet-expire-refund-window').text(isNull(data.refund_window) ? '-' : numeral(data.refund_window).format('0,0') + ' seconds');
     $('#info-bet-expire .bet-expire-expire-at').html(isNull(data.expire_at) ? '-' : data.expire_at + ' - ' + formatLivestamp(data.expire_at) + ' (' + moment.unix(data.expire_at).utcOffset(0).format() + ' GMT)');
@@ -156,7 +156,7 @@ function showStakeDetails(data){
     $('#info-stake .stake-contract-row').toggleClass('d-none', !isContract);
     if(isContract){
         $('#info-stake .stake-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
-        $('#info-stake .stake-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-stake .stake-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     }
     if(!isNull(data.activation_block))
         $('#info-stake .stake-activation').html(formatLink('/' + XC.coin + '/block/' + data.activation_block, numeral(data.activation_block).format('0,0')));
@@ -189,7 +189,7 @@ function showUnstakeDetails(data){
     let hasTick = !isNull(data.tick);
     $('#info-unstake .unstake-token-row').toggleClass('d-none', !hasTick);
     if(hasTick)
-        $('#info-unstake .unstake-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-unstake .unstake-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
 }
 
 // Display DELEGATE action information (capability v0/v2 or contract-targeted v1/v3)
@@ -208,7 +208,7 @@ function showDelegateDetails(data){
     $('#info-delegate .delegate-contract-row').toggleClass('d-none', !isContract);
     if(isContract){
         $('#info-delegate .delegate-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
-        $('#info-delegate .delegate-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-delegate .delegate-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     }
     if(!isNull(data.activation_block))
         $('#info-delegate .delegate-activation').html(formatLink('/' + XC.coin + '/block/' + data.activation_block, numeral(data.activation_block).format('0,0')));

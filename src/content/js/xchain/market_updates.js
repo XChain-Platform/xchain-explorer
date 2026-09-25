@@ -30,13 +30,13 @@ function updateMarketBasics(market){
         $('.tick1-name').text(o.tick1);
         $('.tick2-name').text(o.tick2);
         // Update Market information header
-        $('#tokenIconLink1').attr('href','/' + XC.coin + '/token/' + o.tick1);
-        $('#tokenIconLink2').attr('href','/' + XC.coin + '/token/' + o.tick2);
+        $('#tokenIconLink1').attr('href',tokenUrl(XC.coin, o.tick1));
+        $('#tokenIconLink2').attr('href',tokenUrl(XC.coin, o.tick2));
         $('#tokenIcon1').attr('src', getTokenIcon(o.tick1));
         $('#tokenIcon2').attr('src', getTokenIcon(o.tick2));
-        $('#tokenLink1').attr('href', '/' + XC.coin + '/token/' + o.tick1);
-        $('#tokenLink2').attr('href', '/' + XC.coin + '/token/' + o.tick2);
-        $('#market-swap-button').attr('href', '/' + XC.coin + '/market/' + o.tick2 + '/' + o.tick1);
+        $('#tokenLink1').attr('href', tokenUrl(XC.coin, o.tick1));
+        $('#tokenLink2').attr('href', tokenUrl(XC.coin, o.tick2));
+        $('#market-swap-button').attr('href', '/' + XC.coin + '/market/' + encodeURIComponent(String(o.tick2)) + '/' + encodeURIComponent(String(o.tick1)));
         // Update Price information header
         $('#tick1-price').text(formatAmount(bcformat(o.tick1_price,8)));
         $('#tick1-24h-high').text(formatAmount(bcformat(o.tick1_24hr_high,8)));

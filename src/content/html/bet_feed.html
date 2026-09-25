@@ -112,7 +112,7 @@ $(document).ready(function() {
         $('#bet-feed-status-badge').html('<span class="badge text-bg-' + statusClass(d.feed_status) + '">' + esc(d.feed_status || '-') + '</span>');
         $('#feed-label').text(isNull(d.label) ? '-' : d.label);
         $('#feed-oracle').html(isNull(d.source) ? '-' : formatLink('/' + XC.coin + '/oracle/' + d.source, d.source));
-        $('#feed-token').html(isNull(d.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + d.tick, d.tick, d.tick));
+        $('#feed-token').html(isNull(d.tick) ? '-' : formatLink(tokenUrl(XC.coin, d.tick), d.tick, d.tick));
         // The FEE is the ORACLE's percent cut of the pot, a different quantity from
         // the protocol's market duration fee paid by the creator (§10 naming pin).
         $('#feed-fee').text(isNull(d.fee) ? '-' : d.fee + '% of the pot (oracle fee)');

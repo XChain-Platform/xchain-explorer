@@ -193,6 +193,14 @@ function getTokenIcon(token){
     return icon
 }
 
+// Return the token page URL for a tick, encoded as one path segment so a tick
+// carrying '#', '%', '?' or '/' still links to its page. An absent tick keeps
+// the '/token/null' tail that formatLink's dead-link guard recognises.
+function tokenUrl(coin, tick){
+    let tail = isNull(tick) ? String(tick) : encodeURIComponent(String(tick));
+    return '/' + coin + '/token' + '/' + tail;
+}
+
 // Handle getting the network icon using the coin name and network
 function getNetworkIcon(name=null, network=null){
     // Set defaults for name/network
@@ -260,7 +268,7 @@ function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
         return (txt==='') ? '-' : txt;
     }
     let linkCoin = isNull(legCoin) ? pageCoin : legCoin;
-    return formatLinkAmount('/' + linkCoin + '/token/' + legTick, legTick, legTick, amount);
+    return formatLinkAmount(tokenUrl(linkCoin, legTick), legTick, legTick, amount);
 }
 
 // Render a DISPENSER / DISPENSE native-coin leg: network icon, amount, coin name.
@@ -337,6 +345,7 @@ if(typeof module !== 'undefined' && module.exports){
         formatLocks: formatLocks,
         isNftToken: isNftToken,
         getTokenIcon: getTokenIcon,
+        tokenUrl: tokenUrl,
         getNetworkIcon: getNetworkIcon,
         formatLink: formatLink,
         formatHash: formatHash,

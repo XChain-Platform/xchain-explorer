@@ -121,7 +121,7 @@ $(document).ready(function() {
         // The electorate is the token whose holders may vote: the poll is
         // weighted by balances of this tick, not by the coin.
         $('#poll-tick').html(isNull(d.tick) ? '-'
-            : formatLink('/' + XC.coin + '/token/' + d.tick, d.tick) + ' <span class="small text-muted">holders of this token form the electorate</span>');
+            : formatLink(tokenUrl(XC.coin, d.tick), d.tick) + ' <span class="small text-muted">holders of this token form the electorate</span>');
         $('#poll-creator').html(isNull(d.source) ? '-' : formatLink('/' + XC.coin + '/address/' + d.source, d.source));
         $('#poll-close').html(isNull(d.end_block) ? '-'
             : formatLink('/' + XC.coin + '/block/' + d.end_block, numeral(d.end_block).format('0,0')));

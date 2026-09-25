@@ -97,6 +97,7 @@ function summary(action, info) {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
     dom.window.XC = { coin: 'BTC', list_types: LIST_TYPES };
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatLinkAmount(href, text, tick, amount){ return '<a href="' + href + '">' + amount + ' ' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
@@ -122,6 +123,7 @@ function attestDetail(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC' };
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatHash(v, len){ return v == null ? '-' : String(v).substring(0, len || 32); }
         function formatAmount(v){ return String(v); }
@@ -148,6 +150,7 @@ function voteDetail(data) {
     dom.window.XC = { coin: 'BTC' };
     dom.window.eval(`
         $.getJSON = function(){ return { done: function(){} }; };
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
         ${extractFn('isNull')}
@@ -174,6 +177,7 @@ function xcallExecuteHref(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC' };
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatHash(v, len){ return v == null ? '-' : String(v).substring(0, len || 32); }
         ${extractFn('isNull')}

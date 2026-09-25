@@ -76,6 +76,7 @@ function render(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '../../../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(`
         var coin = 'BTC', action = 'validator', type = null;
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatLivestamp(t){ return String(t); }
         function formatAmount(v){ return String(v); }

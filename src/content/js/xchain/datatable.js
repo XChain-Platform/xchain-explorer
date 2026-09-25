@@ -332,7 +332,7 @@ function loadDatatablesData(coin, action, query, type, opts){
             if(action=='airdrop'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -342,13 +342,13 @@ function loadDatatablesData(coin, action, query, type, opts){
                 amount  = data[2];
                 percent = data[3];
                 value   = data[4];
-                $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(1).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(2).html(formatAmount(amount));
                 $('td', row).eq(3).html(numeral(percent).format(fmtCoin) + '%');
                 html  = numeral(value).format(fmtCoin) + ' ' + XC.coin;
                 html += ' <span class="badge text-bg-info text-white">$' + numeral(bcmul(value, XC.coin_price, 8)).format('0,0.00') + '</span>';
                 $('td', row).eq(4).html(html);
-                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+                $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), 'view', null, true));
             }
             // Batch
             if(action=='batch'){
@@ -446,7 +446,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                     typeHtml += ' <span class="badge text-bg-dark">Batch</span>';
                 $('td', row).eq(4).html(typeHtml);
                 $('td', row).eq(5).text(isNull(pcoin) ? '-' : pcoin);
-                $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(6).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(7).text(isNull(fiat) ? '-' : fiat);
                 // Rounds: the batch's declared window and its round count; on every
                 // other shape the single round the action is about.
@@ -485,7 +485,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                     : '<span class="badge text-bg-secondary">Token</span>');
                 $('td', row).eq(4).html(isNull(subject) ? '-' : (scope=='address'
                     ? formatLink('/' + coin + '/address/' + subject, subject)
-                    : formatLink('/' + coin + '/token/' + subject, subject, subject)));
+                    : formatLink(tokenUrl(coin, subject), subject, subject)));
                 $('td', row).eq(5).text(isNull(aclass) ? '-' : aclass);
                 $('td', row).eq(6).html(isNull(guard) ? '-' : formatLink('/' + coin + '/contract/' + guard, guard));
                 $('td', row).eq(7).html(Number(isUnbind)===1
@@ -510,8 +510,8 @@ function loadDatatablesData(coin, action, query, type, opts){
                 token  = data[4];
                 token2 = data[5];
                 amount = data[6];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
-                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
+                $('td', row).eq(5).html(formatLink(tokenUrl(coin, token2), token2, token2));
                 $('td', row).eq(6).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -519,7 +519,7 @@ function loadDatatablesData(coin, action, query, type, opts){
             if(action=='credit'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -527,7 +527,7 @@ function loadDatatablesData(coin, action, query, type, opts){
             if(action=='debit'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -535,7 +535,7 @@ function loadDatatablesData(coin, action, query, type, opts){
             if(action=='destroy'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(6).html(action_link);
             }
@@ -549,15 +549,15 @@ function loadDatatablesData(coin, action, query, type, opts){
                 get_amount = data[9];
                 give_ownership = data[10];
                 if(give_ownership == 1){
-                    $('td', row).eq(4).html(formatLink('/' + give_coin + '/token/' + give_token, give_token, give_token) + ' ' + ownershipBadge());
+                    $('td', row).eq(4).html(formatLink(tokenUrl(give_coin, give_token), give_token, give_token) + ' ' + ownershipBadge());
                 } else {
-                    $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
+                    $('td', row).eq(4).html(formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount));
                 }
                 // Built as a LOCAL, never appended onto the shared `html` scratch variable:
                 // see formatNativeCoinLeg for why that mattered.
                 let getLeg = isNull(get_token)
                     ? formatNativeCoinLeg(get_amount, get_coin)
-                    : formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount);
+                    : formatLinkAmount(tokenUrl(get_coin, get_token), get_token, get_token, get_amount);
                 $('td', row).eq(5).html(getLeg);
                 $('td', row).eq(6).html(formatLink('/' + coin + '/dispenser/' + action_index, 'view', null, true));
             }
@@ -569,11 +569,11 @@ function loadDatatablesData(coin, action, query, type, opts){
                 get_coin   = data[7];
                 get_token  = data[8];
                 get_amount = data[9];
-                $('td', row).eq(4).html(formatLinkAmount('/' + give_coin + '/token/' + give_token, give_token, give_token, give_amount));
+                $('td', row).eq(4).html(formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount));
                 // Local, not the shared `html` scratch variable: see formatNativeCoinLeg.
                 let getLeg = isNull(get_token)
                     ? formatNativeCoinLeg(get_amount, get_coin)
-                    : formatLinkAmount('/' + get_coin + '/token/' + get_token, get_token, get_token, get_amount);
+                    : formatLinkAmount(tokenUrl(get_coin, get_token), get_token, get_token, get_amount);
                 $('td', row).eq(5).html(getLeg);
                 $('td', row).eq(6).html(action_link);
 
@@ -583,8 +583,8 @@ function loadDatatablesData(coin, action, query, type, opts){
                 token  = data[4];
                 token2 = data[5];
                 amount = data[6];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
-                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
+                $('td', row).eq(5).html(formatLink(tokenUrl(coin, token2), token2, token2));
                 $('td', row).eq(6).html(formatAmount(data[6]));
                 $('td', row).eq(7).html(action_link);
             }
@@ -592,7 +592,7 @@ function loadDatatablesData(coin, action, query, type, opts){
             if(action=='escrow'){
                 token  = data[4];
                 amount = data[5];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -603,7 +603,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 type2  = data[6];
                 // Fee payment method
                 txt  = (type2==1) ? 'Destroy' : 'Donate';
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html(numeral(amount).format(fmtCoin));
                 $('td', row).eq(6).text(txt);
                 $('td', row).eq(8).html(action_link);
@@ -682,7 +682,7 @@ function loadDatatablesData(coin, action, query, type, opts){
             if(action=='market'){
                 let tick1  = data[1],
                     tick2  = data[2],
-                    market = tick1 + '/' + tick2,
+                    market = encodeURIComponent(String(tick1)) + '/' + encodeURIComponent(String(tick2)), // each tick is one free-text segment
                     price  = data[3],
                     ask    = data[4],
                     bid    = data[5],
@@ -711,7 +711,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 token       = data[4];
                 amount      = data[5];
                 destination = data[6];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 // Write the cell either way: a MINT's DESTINATION is optional, and
                 // skipping it leaves the raw feed value DataTables rendered, which
@@ -729,9 +729,9 @@ function loadDatatablesData(coin, action, query, type, opts){
                 amount2 = data[7];
                 give_ownership = data[8];
                 get_ownership  = data[9];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
-                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
+                $('td', row).eq(6).html(formatLink(tokenUrl(coin, token2), token2, token2));
                 $('td', row).eq(7).html((get_ownership == 1) ? ownershipBadge() : formatAmount(amount2));
                 $('td', row).eq(8).html(action_link);
             }
@@ -740,7 +740,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 token       = data[4];
                 amount      = data[5];
                 destination = data[6];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html(formatAmount(amount));
                 $('td', row).eq(6).html(formatLink('/' + coin + '/address/' + destination, destination));
                 $('td', row).eq(7).html(action_link);
@@ -756,7 +756,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 if(type2==2) txt='Token';
                 $('td', row).eq(4).text(txt);
                 if(token!='')
-                    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+                    $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(6).html(formatLink('/' + coin + '/block/' + block_index2, numeral(block_index2).format(fmtInteger)));
                 $('td', row).eq(7).html(action_link);
             }
@@ -768,9 +768,9 @@ function loadDatatablesData(coin, action, query, type, opts){
                 amount2 = data[7];
                 give_ownership = data[8];
                 get_ownership  = data[9];
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
-                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
+                $('td', row).eq(6).html(formatLink(tokenUrl(coin, token2), token2, token2));
                 $('td', row).eq(7).html((get_ownership == 1) ? ownershipBadge() : formatAmount(amount2));
                 $('td', row).eq(8).html(action_link);
             }
@@ -797,13 +797,13 @@ function loadDatatablesData(coin, action, query, type, opts){
                 amount2 = data[5];
                 amount3 = data[6];
                 locks   = data[7];
-                let tickHtml = formatLink('/' + coin + '/token/' + token, token, token);
+                let tickHtml = formatLink(tokenUrl(coin, token), token, token);
                 $('td', row).eq(3).html(tickHtml);
                 $('td', row).eq(4).text(formatAmount(amount));
                 $('td', row).eq(5).text(formatAmount(amount2));
                 $('td', row).eq(6).text(formatAmount(amount3));
                 $('td', row).eq(7).html(formatLocks(locks));
-                $('td', row).eq(8).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+                $('td', row).eq(8).html(formatLink(tokenUrl(coin, token), 'view', null, true));
             }
             // Official Tokens (project roster; same row shape as Tokens)
             if(action=='project'){
@@ -812,13 +812,13 @@ function loadDatatablesData(coin, action, query, type, opts){
                 amount2 = data[5];
                 amount3 = data[6];
                 locks   = data[7];
-                let pTickHtml = formatLink('/' + coin + '/token/' + token, token, token);
+                let pTickHtml = formatLink(tokenUrl(coin, token), token, token);
                 $('td', row).eq(3).html(pTickHtml);
                 $('td', row).eq(4).text(formatAmount(amount));
                 $('td', row).eq(5).text(formatAmount(amount2));
                 $('td', row).eq(6).text(formatAmount(amount3));
                 $('td', row).eq(7).html(formatLocks(locks));
-                $('td', row).eq(8).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+                $('td', row).eq(8).html(formatLink(tokenUrl(coin, token), 'view', null, true));
             }
             // Raw action list: one row per action with its type name; no per-type
             // details on this feed (they live on the action page). No status column
@@ -892,9 +892,9 @@ function loadDatatablesData(coin, action, query, type, opts){
                 if(type=='token'){
                     let token       = data[1];
                     let description = data[2];
-                    $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, highlightSearchTerm(XC.query, token), token));
+                    $('td', row).eq(1).html(formatLink(tokenUrl(coin, token), highlightSearchTerm(XC.query, token), token));
                     $('td', row).eq(2).html(highlightSearchTerm(XC.query, description));
-                    $('td', row).eq(3).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+                    $('td', row).eq(3).html(formatLink(tokenUrl(coin, token), 'view', null, true));
                 }
                 if(type=='transaction'){
                     let transaction = data[1];
@@ -957,7 +957,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 token  = data[5];
                 amount = data[6];
                 $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(6).html(formatAmount(amount));
                 $('td', row).eq(7).html(action_link);
             }
@@ -1012,7 +1012,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 let version = data[8];
                 $('td', row).eq(4).html(formatHash(pubkey));
                 $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(6).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(7).html(formatAmount(amount));
                 $('td', row).eq(8).html(action_link);
             }
@@ -1025,7 +1025,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 let cooldown_end = data[8];
                 $('td', row).eq(4).html(formatHash(pubkey));
                 $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-                $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(6).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(7).html(formatAmount(amount));
                 $('td', row).eq(8).html(formatLink('/' + coin + '/block/' + cooldown_end, numeral(cooldown_end).format(fmtInteger)));
                 $('td', row).eq(9).html(action_link);
@@ -1040,7 +1040,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 let execution_index = data[8];
                 $('td', row).eq(3).html(formatHash(pubkey));
                 $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-                $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(6).html(formatAmount(amount));
                 $('td', row).eq(7).html(formatLink('/' + coin + '/address/' + destination, destination));
                 $('td', row).eq(8).html(formatLink('/' + coin + '/action/' + execution_index, 'view', null, true));
@@ -1100,7 +1100,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 let winner_index  = data[9];
                 let winner_label  = data[10];
                 let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
-                $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).text(isNull(question) ? '-' : question);
                 $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + (poll_status || '-') + '</span>');
                 $('td', row).eq(7).html(isNull(end_block) ? '-' : formatLink('/' + coin + '/block/' + end_block, numeral(end_block).format(fmtInteger)));
@@ -1131,7 +1131,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                          : (feed_status=='cancelled' || feed_status=='expired') ? 'danger'
                          : (feed_status=='resolved_void') ? 'secondary'
                          : (feed_status=='closed') ? 'warning text-dark' : 'primary';
-                $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).text(isNull(label) ? '-' : label);
                 $('td', row).eq(6).html('<span class="badge text-bg-' + fcls + '">' + escapeHtml(String(feed_status || '-')) + '</span>');
                 $('td', row).eq(7).html(isNull(deadline) ? '-' : formatLivestamp(deadline));
@@ -1149,7 +1149,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                          : (bet_status=='refunded') ? 'secondary' : 'primary';
                 $('td', row).eq(4).html(isNull(feed_index) ? '-' : formatLink('/' + coin + '/bet_feed/' + feed_index, feed_index));
                 $('td', row).eq(5).text(isNull(outcome) ? '-' : outcome);
-                $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(6).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(7).html(formatAmount(amount));
                 $('td', row).eq(8).html('<span class="badge text-bg-' + bcls + '">' + escapeHtml(String(bet_status || '-')) + '</span>');
                 $('td', row).eq(9).html(action_link);
@@ -1220,7 +1220,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 $('td', row).eq(1).html(formatLivestamp(block_time));
                 $('td', row).eq(2).text(isNull(source_chain) ? '-' : source_chain);
                 $('td', row).eq(3).html(isNull(source_address) ? '-' : formatLink('/' + coin + '/address/' + source_address, source_address));
-                $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+                $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
                 $('td', row).eq(5).text(isNull(fiat) ? '-' : fiat);
                 $('td', row).eq(6).html(numeral(value).format(fmtCurrency));
             }
@@ -1285,10 +1285,10 @@ function loadDatatablesData(coin, action, query, type, opts){
                 $('td', row).eq(2).text(isNull(network) ? '-' : network);
                 $('td', row).eq(3).html(isNull(match_id) ? '-' : formatHash(match_id));
                 $('td', row).eq(4).text(isNull(a_chain) ? '-' : a_chain);
-                $('td', row).eq(5).html(isNull(a_tick) ? '-' : formatLink('/' + coin + '/token/' + a_tick, a_tick, a_tick));
+                $('td', row).eq(5).html(isNull(a_tick) ? '-' : formatLink(tokenUrl(coin, a_tick), a_tick, a_tick));
                 $('td', row).eq(6).html(formatAmount(a_amount));
                 $('td', row).eq(7).text(isNull(b_chain) ? '-' : b_chain);
-                $('td', row).eq(8).html(isNull(b_tick) ? '-' : formatLink('/' + coin + '/token/' + b_tick, b_tick, b_tick));
+                $('td', row).eq(8).html(isNull(b_tick) ? '-' : formatLink(tokenUrl(coin, b_tick), b_tick, b_tick));
                 $('td', row).eq(9).html(formatAmount(b_amount));
                 $('td', row).eq(10).html('<span class="badge text-bg-secondary">' + (mstatus || '-') + '</span>');
             }
@@ -1447,7 +1447,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 let deactivation    = data[8];
                 $('td', row).eq(4).html(isNull(signing_pubkey) ? '-' : formatHash(signing_pubkey));
                 $('td', row).eq(5).html(isNull(contract_index) ? '-' : formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-                $('td', row).eq(6).html(isNull(tick) ? '-' : formatLink('/' + coin + '/token/' + tick, tick, tick));
+                $('td', row).eq(6).html(isNull(tick) ? '-' : formatLink(tokenUrl(coin, tick), tick, tick));
                 $('td', row).eq(7).text(isNull(activation) ? '-' : numeral(activation).format(fmtInteger));
                 $('td', row).eq(8).text(isNull(deactivation) ? '-' : numeral(deactivation).format(fmtInteger));
                 $('td', row).eq(9).html(action_link);
@@ -1460,7 +1460,7 @@ function loadDatatablesData(coin, action, query, type, opts){
                 let tick      = data[3];
                 let delegator = data[4];
                 let delegate  = data[5];
-                $('td', row).eq(3).html(isNull(tick) ? '-' : formatLink('/' + coin + '/token/' + tick, tick, tick));
+                $('td', row).eq(3).html(isNull(tick) ? '-' : formatLink(tokenUrl(coin, tick), tick, tick));
                 $('td', row).eq(4).html(isNull(delegator) ? '-' : formatLink('/' + coin + '/address/' + delegator, delegator));
                 $('td', row).eq(5).html(isNull(delegate) ? '-' : formatLink('/' + coin + '/address/' + delegate, delegate));
                 $('td', row).eq(6).html(action_link);

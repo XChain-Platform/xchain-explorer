@@ -99,13 +99,18 @@ describe('client: dispenser detail route parameters', function () {
         expect(dispenser.query).to.equal(oracle.query);
     });
 
-    it('refuses a non-address dispenser query rather than passing it through', function () {
-        // The numeric branch must not claim this route: a dispenser is not
-        // keyed by action_index, and accepting one would send the feeds an id
-        // they cannot scope by.
+    it('resolves a dispenser action_index too, for the one-dispenser view', function () {
+        // Every dispenser list row links /dispenser/{action_index}; a null query
+        // there left the page titled "Dispenser null" with both feeds failing.
+        const p = paramsFor('http://explorer.test/RDOGE/dispenser/1285');
+        expect(p.query).to.equal('1285');
+        expect(p.type).to.equal('dispenser');
+    });
+
+    it('refuses a query that is neither an address nor an action_index', function () {
         // Left unset rather than null: the branch simply does not assign, and
         // the page's own XC literal supplies the default.
-        expect(paramsFor('http://explorer.test/RDOGE/dispenser/1285').query).to.not.equal('1285');
+        expect(paramsFor('http://explorer.test/RDOGE/dispenser/12ab').query).to.not.equal('12ab');
     });
 
 });

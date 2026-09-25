@@ -23,6 +23,7 @@ const THEMES_DIR = path.join(SRC_DIR, 'content', 'themes');
 const LAYOUT_DIR = path.join(SRC_DIR, 'content', 'layouts');
 const HTML_DIR = path.join(SRC_DIR, 'content', 'html');
 const PAGE_LAYOUTS_FILE = path.join(LAYOUT_DIR, 'page-layouts.json');
+const LINT_PAGE_LAYOUTS_FILE = path.join(__dirname, 'page-layouts.json');
 const LIST_PAGES_FILE = path.join(LAYOUT_DIR, 'list-pages.json');
 const CSS_FILES = ['xchain.css', 'xchain-charts.css'];
 
@@ -87,7 +88,7 @@ function jsonFiles(directory) {
   return files;
 }
 
-function collectManifestEntries() {
+function collectManifestEntries(options = {}) {
   const listPage = require(path.join(SRC_DIR, 'render', 'list_page.js'));
   listPage.reset();
   const entries = [];
@@ -111,6 +112,9 @@ function collectManifestEntries() {
   }
 
   const schemaFiles = jsonFiles(LAYOUT_DIR).concat(jsonFiles(THEMES_DIR));
+  const pageLayoutsFile = options.pageLayoutsFile
+    || (fs.existsSync(PAGE_LAYOUTS_FILE) ? PAGE_LAYOUTS_FILE : LINT_PAGE_LAYOUTS_FILE);
+  if (!schemaFiles.includes(pageLayoutsFile)) schemaFiles.push(pageLayoutsFile);
   for (const file of schemaFiles) {
     const source = path.relative(ROOT, file);
     collectComponentEntries(readJson(file), source, '', entries);
@@ -196,15 +200,36 @@ function lintRouteSchemas(routes, hasSchema) {
   return errors;
 }
 
+function hasPageLayoutSchema(catalog, file) {
+  const pages = catalog.pages || {};
+  const schemas = catalog.schemas || {};
+  let current = pages[file];
+  const visited = new Set();
+  let layout;
+  let regions;
+  while (current && typeof current === 'object' && !Array.isArray(current)) {
+    if (layout === undefined && typeof current.layout === 'string') layout = current.layout;
+    if (regions === undefined && Array.isArray(current.regions)) regions = current.regions;
+    if (!current.extends) break;
+    if (visited.has(current.extends)) return false;
+    visited.add(current.extends);
+    const parent = schemas[current.extends];
+    if (!parent || typeof parent !== 'object' || Array.isArray(parent)) return false;
+    current = parent;
+  }
+  return typeof layout === 'string' && Array.isArray(regions) && regions.length > 0;
+}
+
 function collectRouteEntries(options = {}) {
   const routes = options.routes
     || require(path.join(SRC_DIR, 'explorer', 'routes', 'static_and_html.js')).html;
-  const pageLayoutsFile = options.pageLayoutsFile || PAGE_LAYOUTS_FILE;
+  const pageLayoutsFile = options.pageLayoutsFile
+    || (fs.existsSync(PAGE_LAYOUTS_FILE) ? PAGE_LAYOUTS_FILE : LINT_PAGE_LAYOUTS_FILE);
   if (fs.existsSync(pageLayoutsFile)) {
-    const pages = readJson(pageLayoutsFile).pages || {};
+    const catalog = readJson(pageLayoutsFile);
     return {
       routes,
-      hasSchema: (file) => Object.prototype.hasOwnProperty.call(pages, file),
+      hasSchema: (file) => hasPageLayoutSchema(catalog, file),
       source: pageLayoutsFile,
     };
   }
@@ -237,6 +262,7 @@ module.exports = {
   LAYOUT_DIR,
   HTML_DIR,
   PAGE_LAYOUTS_FILE,
+  LINT_PAGE_LAYOUTS_FILE,
   LIST_PAGES_FILE,
   CSS_FILES,
   stripComments,
@@ -251,6 +277,7 @@ module.exports = {
   themeTokenReport,
   lintThemeTokens,
   lintRouteSchemas,
+  hasPageLayoutSchema,
   collectRouteEntries,
   lintAll,
 };

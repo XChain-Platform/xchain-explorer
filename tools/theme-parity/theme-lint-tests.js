@@ -45,9 +45,13 @@ describe('theme lint', () => {
 
   it('rejects an html route whose file exists but has no schema', () => {
     const collected = themeLint.collectRouteEntries();
-    if (fs.existsSync(themeLint.PAGE_LAYOUTS_FILE)) {
-      assert.deepEqual(themeLint.lintRouteSchemas(collected.routes, collected.hasSchema), []);
-    }
+    assert.equal(
+      collected.source,
+      fs.existsSync(themeLint.PAGE_LAYOUTS_FILE)
+        ? themeLint.PAGE_LAYOUTS_FILE
+        : themeLint.LINT_PAGE_LAYOUTS_FILE,
+    );
+    assert.deepEqual(themeLint.lintRouteSchemas(collected.routes, collected.hasSchema), []);
 
     const existingHtml = 'home.html';
     assert.equal(fs.existsSync(path.join(themeLint.HTML_DIR, existingHtml)), true);
@@ -61,16 +65,20 @@ describe('theme lint', () => {
       themeLint.lintRouteSchemas(fallback.routes, fallback.hasSchema),
       ['/raw -> home.html has no page layout schema'],
     );
+
+    const catalog = {
+      schemas: { html: { layout: 'page.html', regions: [{ name: 'content' }] } },
+      pages: { declared: { extends: 'html' }, empty: {} },
+    };
+    assert.equal(themeLint.hasPageLayoutSchema(catalog, 'declared'), true);
+    assert.equal(themeLint.hasPageLayoutSchema(catalog, 'empty'), false);
+    assert.equal(themeLint.hasPageLayoutSchema(catalog, 'absent'), false);
   });
 
   it('reports the shipped repository accurately through the combined gate', () => {
     const report = themeLint.lintAll();
     assert.deepEqual(report.componentSchemas, []);
     assert.deepEqual(report.themeTokens, []);
-    if (fs.existsSync(themeLint.PAGE_LAYOUTS_FILE)) {
-      assert.deepEqual(report.routeSchemas, []);
-    } else {
-      assert.ok(report.routeSchemas.length > 0, 'missing page-layouts.json must leave routes uncovered');
-    }
+    assert.deepEqual(report.routeSchemas, []);
   });
 });

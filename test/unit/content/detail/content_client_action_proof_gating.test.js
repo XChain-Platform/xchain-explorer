@@ -59,8 +59,8 @@ function extractFn(name){
     return PAGE.slice(start, i);
 }
 
-// checkpointed=true  -> /api/checkpoint/<block> answers 200, a proof is available
-// checkpointed=false -> it 404s, which is what roughly five blocks in six do
+// checkpointed=true  -> the range probe lists one checkpoint, a proof is available
+// checkpointed=false -> it lists none (still a 200), which is what roughly five blocks in six do
 function bootPage(checkpointed){
     const dom = new JSDOM('<!doctype html><html><body>' + PAGE + '</body></html>', {
         runScripts: 'outside-only',
@@ -82,8 +82,7 @@ function bootPage(checkpointed){
     win.eval(`
         $.ajax = function(opts){
             probed.push(opts.url);
-            return { done: function(cb){ if(ok) cb({}); return this; },
-                     fail: function(cb){ if(!ok) cb({ status: 404 }); return this; } };
+            return $.Deferred().resolve({ count: ok ? 1 : 0, checkpoints: [] }).promise();
         };
         window.loadProofWidget  = function(url){ proofUrls.push(url); };
         window.renderActionProof = function(){ return ''; };
@@ -102,7 +101,7 @@ describe('client: action proof button is gated on the block being checkpointed',
         win.wireActionProofButton({ action_index: '39', block_index: '150208' });
 
         expect(win.probed, 'the checkpoint route is asked about the action\'s own block')
-            .to.deep.equal(['/TBTC/api/checkpoint/150208']);
+            .to.deep.equal(['/TBTC/api/checkpoints/range?from=150208&to=150208']);
         expect($btn(win).length, 'the button survives').to.equal(1);
         expect($btn(win).prop('disabled'), 'and is enabled').to.equal(false);
 
@@ -115,7 +114,9 @@ describe('client: action proof button is gated on the block being checkpointed',
         const win = bootPage(false);
         win.wireActionProofButton({ action_index: '38', block_index: '150182' });
 
-        expect(win.probed).to.deep.equal(['/TBTC/api/checkpoint/150182']);
+        expect(win.probed).to.deep.equal(['/TBTC/api/checkpoints/range?from=150182&to=150182']);
+        expect(win.probed.join(), 'the per-block route that 404s is never requested')
+            .to.not.contain('/api/checkpoint/');
         expect($btn(win).length, 'no control is offered that could only refuse').to.equal(0);
         expect($result(win).text(), 'the reader is told the reason instead')
             .to.contain('no signed checkpoint');

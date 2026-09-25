@@ -2078,14 +2078,21 @@ function renderActionProof(o){
 // A button that is always live and refuses that often reads as a broken feature
 // rather than as a property of the rail, so ask the cheap checkpoint route first
 // and state the refusal up front instead of spending a rate-limited proof
-// request to discover it on click.
+// request to discover it on click. The probe is the single-block range query,
+// which answers 200 with an empty list for an uncheckpointed block, so the
+// browser console stays free of a failed-request error on most action pages.
 //
 // The proof route wants the numeric action_index, not the page's own :query
 // (which may be a tx hash), so nothing is wired until the action lookup resolves it.
 function wireActionProofButton(o){
     if(isNull(o.action_index) || isNull(o.block_index))
         return;
-    $.ajax({ url: '/' + XC.coin + '/api/checkpoint/' + encodeURIComponent(o.block_index), dataType: 'json' })
+    var block = encodeURIComponent(o.block_index);
+    $.ajax({ url: '/' + XC.coin + '/api/checkpoints/range?from=' + block + '&to=' + block, dataType: 'json' })
+        .then(function(r){
+            if(!r || !r.count)
+                return $.Deferred().reject().promise();
+        })
         .done(function(){
             $('#action-proof-btn').prop('disabled', false).on('click', function(){
                 loadProofWidget('/' + XC.coin + '/api/proof/action/' + encodeURIComponent(o.action_index),

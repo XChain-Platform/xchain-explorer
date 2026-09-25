@@ -1,0 +1,16 @@
+{
+    "name": "timeline",
+    "description": "An ordered lifecycle made of labelled events and their states.",
+    "props": {
+        "items": {
+            "type": "array",
+            "required": true,
+            "description": "Ordered events with label, detail, meta and state fields."
+        },
+        "emptyText": {
+            "type": "string",
+            "default": "No timeline events.",
+            "description": "Text shown when the event list is empty."
+        }
+    }
+}

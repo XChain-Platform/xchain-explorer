@@ -1,0 +1,18 @@
+.xc-stat-tile {
+    align-items: center;
+    background: var(--bs-body-bg);
+    border: var(--xc-table-border-width) solid var(--bs-border-color);
+    border-radius: var(--xc-radius-lg);
+    display: flex;
+    gap: var(--xc-table-cell-padding);
+    padding: var(--xc-table-cell-padding);
+}
+
+.xc-stat-tile-icon {
+    color: var(--bs-primary);
+    font-size: var(--xc-icon-size-20);
+}
+
+.xc-stat-tile-body {
+    min-width: var(--xc-space-none);
+}

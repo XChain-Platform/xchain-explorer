@@ -35,7 +35,7 @@
     "test": "mocha --require ./test/setup.js 'test/unit/**/*.test.js' --timeout 0 --exit --recursive",
     "coverage": "c8 --all --reporter=text --reporter=html --include 'src/**/*.js' --exclude 'src/hub/**' mocha 'test/unit/**/*.test.js' --timeout 0 --recursive --exit",
     "coverage:check": "c8 --all --check-coverage --lines 62.1 --statements 62.1 --branches 82.2 --functions 84.1 --reporter=text-summary --include 'src/**/*.js' --exclude 'src/hub/**' mocha 'test/unit/**/*.test.js' --timeout 0 --recursive --exit",
-    "ci": "npm run check:vm && mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit && npm run ci:security && npm run test:boundary:unit",
+    "ci": "npm run check:vm && (mocha 'test/unit/**/*.test.js' --timeout 10000 --recursive --exit; u=$?; npm run ci:security; s=$?; npm run test:boundary:unit; b=$?; echo; echo \"ci tallies: unit=$u ci:security=$s test:boundary:unit=$b\"; [ \"$u\" -eq 0 ] && [ \"$s\" -eq 0 ] && [ \"$b\" -eq 0 ])",
     "ci:security": "mocha 'test/security/**/*.test.js' --timeout 5000 --exit --recursive",
     "test:ws": "mocha test/unit/ws/*.test.js --timeout 0 --exit",
     "test:utility": "mocha test/unit/lib/utility.test.js --timeout 0",

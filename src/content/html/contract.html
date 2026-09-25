@@ -267,6 +267,17 @@
 <script type="text/javascript">
 $(document).ready(function() {
 
+    function renderContractNotFound(){
+        $('.contract-name').closest('tbody').html('<tr><td colspan="2" class="text-muted" id="contract-not-found">No contract exists at this index.</td></tr>');
+        $('#contract-manifest-card, #contract-code-card, #contract-read-card, #contract-write-card, #contract-state-proof-header').hide();
+        $('#datatable-execution tbody').html('<tr><td colspan="8" class="text-muted text-center">No executions to show.</td></tr>');
+        $('#datatable-contract_stake tbody').html('<tr><td colspan="9" class="text-muted text-center">No stakes to show.</td></tr>');
+        $('#datatable-emission tbody').html('<tr><td colspan="9" class="text-muted text-center">No emissions to show.</td></tr>');
+        XC.pageInfo.title       = 'Contract ' + XC.query + ' Not Found';
+        XC.pageInfo.description = 'No contract with index ' + XC.query + ' was found on the XChain Platform';
+        updatePageInfo();
+    }
+
     // Fetch the single contract record (the /api/contract/{idx} route doesn't fit
     // loadApiData's pluralizing helper, so request it directly).
     $.getJSON('/' + XC.coin + '/api/contract/' + XC.query, function(o){
@@ -376,8 +387,14 @@ $(document).ready(function() {
             XC.pageInfo.description = 'Smart contract ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
             XC.pageInfo.canonical   = '/' + XC.coin + '/contract/' + XC.query;
             updatePageInfo();
+
+            loadDatatablesData(XC.coin, 'execution', XC.query, 'contract');
+            loadDatatablesData(XC.coin, 'contract_stake', XC.query, 'contract');
+            loadDatatablesData(XC.coin, 'emission', XC.query, 'contract');
+        } else {
+            renderContractNotFound();
         }
-    });
+    }).fail(renderContractNotFound);
 
     // Shared form-block builder for the Read and Write cards. When the abi
     // declares the method, params render as fixed named/typed inputs; else a
@@ -551,18 +568,6 @@ $(document).ready(function() {
 
         $('#contract-write-card').show();
     }
-
-    // Load executions against this contract (constructor row plus every EXECUTE
-    // call), reusing the same 'execution' datatype and 'contract' filter type
-    // the standalone Executions page's search box uses.
-    loadDatatablesData(XC.coin, 'execution', XC.query, 'contract');
-
-    // Load stakes targeting this contract
-    loadDatatablesData(XC.coin, 'contract_stake', XC.query, 'contract');
-
-    // Load emissions produced by this contract (per-contract rollup, joined
-    // through contract_executions since contract_emissions is keyed by execution).
-    loadDatatablesData(XC.coin, 'emission', XC.query, 'contract');
 
     // SPV contract-state proof. state_value null means the key has no leaf
     // (either never written or tombstoned); both read as non-inclusion here,

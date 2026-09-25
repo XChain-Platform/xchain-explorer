@@ -1132,9 +1132,19 @@
         let defaultIcon = '/icon/' + XC.chain + '/' + XC.network + '/' + XC.query + '.png';
         displayTokenIcon(defaultIcon);
 
+        function renderTokenNotFound(){
+            XC.tokenInfo = null;
+            $('#token-info').html('<div class="p-3 text-muted" id="token-not-found">No token is issued under this tick.</div>');
+            $('#token-market-info').html('<div class="p-3 text-muted">-</div>');
+            $('#data-panels').html('<div class="p-5 text-center text-muted">No token activity to show.</div>');
+            XC.pageInfo.title       = XC.query + ' Token Not Found';
+            XC.pageInfo.description = 'No token with tick ' + XC.query + ' was found on the XChain Platform';
+            updatePageInfo();
+        }
+
         // Request information on this token and update the header with this information
         loadApiData(XC.coin, 'token', XC.query, null, function(o){
-            if(o){
+            if(o && o.info){
 
                 // Setup short alias to action info object
                 XC.tokenInfo = o;
@@ -1149,8 +1159,12 @@
                 XC.pageInfo.canonical   = tokenUrl(XC.coin, tick)
                 updatePageInfo();
 
+                setupActionListeners();
+                $('#tab-dropdown-info').click();
+            } else {
+                renderTokenNotFound();
             }
-        });
+        }, renderTokenNotFound);
 
         // Detect icon loading failures and walk a two-step fallback:
         //   <whatever-failed> -> /icon/<chain>/<network>/<query>.png (the
@@ -1169,12 +1183,6 @@
                 el.off('error');
             }
         });
-
-        // Setup listeners to load data panel when an action button is clicked
-        setupActionListeners();
-
-        // Activate the first tab by faking a click
-        $('#tab-dropdown-info').click();
 
     });
 </script>

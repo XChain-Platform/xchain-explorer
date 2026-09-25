@@ -118,9 +118,9 @@ function formatContractIdentity(coin, chain, contractIndex, metaName, metaVersio
     // way every contract cell did before the manifest: half a derived address
     // ("C::1421") would be a wrong address, and a reader cannot tell that from a
     // right one.
-    var address = isNull(chain)
-        ? escapeHtml(contractIndex)
-        : escapeHtml('C:' + chain + ':' + contractIndex);
+    var address = isNull(chain) // plain text: formatLink escapes the label
+        ? String(nullToBlank(contractIndex))
+        : 'C:' + chain + ':' + contractIndex;
     return formatContractName(metaName, metaVersion)
         + ' <span class="text-muted">·</span> '
         + formatLink('/' + coin + '/contract/' + contractIndex, address);
@@ -216,8 +216,17 @@ function getNetworkIcon(name=null, network=null){
     return icon;
 }
 
-// Return nice display string for links
+// Return nice display string for links. The label is escaped here because most
+// labels are on-chain free text: a tick like "<TAMP0N>" otherwise parses as an
+// element and vanishes, and a crafted one injects markup. Pass markup to formatLinkHtml.
 function formatLink(url=null, text=null, icon=false, btn=false){
+    return formatLinkHtml(url, (text) ? escapeHtml(text) : text, icon, btn);
+}
+
+// The same link with a label that is ALREADY markup (a badge, an icon, formatHash
+// or highlightSearchTerm output). The caller owns escaping every on-chain value
+// inside that markup; nothing here escapes it again.
+function formatLinkHtml(url=null, text=null, icon=false, btn=false){
     var html = '',
         cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '',
         escapeLinkAttribute = function(value){
@@ -322,6 +331,7 @@ var XCFormatters = {
     amount:       formatAmount,
     locks:        formatLocks,
     link:         formatLink,
+    linkHtml:     formatLinkHtml,
     linkAmount:   formatLinkAmount,
     coinLeg:      formatCoinLegAmount,
     nativeCoinLeg: formatNativeCoinLeg,
@@ -368,6 +378,7 @@ if(typeof module !== 'undefined' && module.exports){
         tokenUrl: tokenUrl,
         getNetworkIcon: getNetworkIcon,
         formatLink: formatLink,
+        formatLinkHtml: formatLinkHtml,
         formatHash: formatHash,
         formatLinkAmount: formatLinkAmount,
         formatCoinLegAmount: formatCoinLegAmount,

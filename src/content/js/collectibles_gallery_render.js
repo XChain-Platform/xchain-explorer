@@ -86,7 +86,7 @@ function renderCollectibleCard(row){
               + collectibleEsc(row.description) + '</div>';
     if(!isNull(row.owner))
         html += '<div class="small text-muted text-truncate collectible-owner">'
-              + formatLink('/' + XC.coin + '/address/' + row.owner, collectibleEsc(row.owner)) + '</div>';
+              + formatLink('/' + XC.coin + '/address/' + row.owner, row.owner) + '</div>';
     html += '</div></div></div>';
     return html;
 }

@@ -141,8 +141,8 @@ function xcDatatableRenderMarketRow(context){
         change = data[7];
     let html = '<img src="' + getTokenIcon(tick1) + '" class="icon-20">' +
                '<img src="' + getTokenIcon(tick2) + '" class="icon-20 ms-1 me-1">' +
-               tick1 + ' / ' + tick2;
-    $('td', row).eq(1).html(formatLink('/' + coin + '/market/' + market, html));
+               escapeHtml(tick1) + ' / ' + escapeHtml(tick2); // ticks are free text inside markup
+    $('td', row).eq(1).html(formatLinkHtml('/' + coin + '/market/' + market, html));
     $('td', row).eq(2).html(formatAmount(price));
     $('td', row).eq(3).html(formatAmount(ask));
     $('td', row).eq(4).html(formatAmount(bid));

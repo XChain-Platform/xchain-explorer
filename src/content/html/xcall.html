@@ -113,7 +113,7 @@ $(document).ready(function() {
         html += fieldRow('Call ID',      '<span class="font-monospace small">' + esc(d.call_id) + '</span>');
         html += fieldRow('Block',        isNull(d.block_index) ? '-' : formatLink('/' + XC.coin + '/block/' + d.block_index, numeral(d.block_index).format('0,0')));
         html += fieldRow('Time',         isNull(d.timestamp) ? '-' : formatLivestamp(d.timestamp));
-        html += fieldRow('Transaction',  isNull(d.tx_hash) ? '-' : formatLink('/' + XC.coin + '/transaction/' + d.tx_hash, formatHash(d.tx_hash, 32)));
+        html += fieldRow('Transaction',  isNull(d.tx_hash) ? '-' : formatLinkHtml('/' + XC.coin + '/transaction/' + d.tx_hash, formatHash(d.tx_hash, 32)));
         html += fieldRow('Route',        esc(XC.coin) + ' <i class="fa fa-arrow-right-long"></i> ' + (isNull(d.target_chain) ? '-' : esc(d.target_chain)));
         html += fieldRow('Method',       isNull(d.method) ? '-' : esc(d.method));
         $('#xcall-header').html(html);

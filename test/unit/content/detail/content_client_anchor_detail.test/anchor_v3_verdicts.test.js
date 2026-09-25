@@ -39,7 +39,9 @@ function render(row){
         var ANCHOR_ACTIVATION = { regtest: 0 };
         var XC = { coin: 'RDOGE', network: 'regtest' };
         function isNull(v){ return v === null || v === undefined; }
-        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
+        function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatLink(href, text){ return formatLinkHtml(href, text ? String(text).replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }) : text); }
         function formatLivestamp(t){ return String(t); }
         function formatAmount(v){ return String(v); }
     `);

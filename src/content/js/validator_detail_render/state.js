@@ -186,17 +186,17 @@ function vdRow(label, value){
 
 function vdBlock(b){
     if(isNull(b)) return '-';
-    return formatLink('/' + XC.coin + '/block/' + encodeURIComponent(b), vdEsc(numeral(b).format('0,0')));
+    return formatLink('/' + XC.coin + '/block/' + encodeURIComponent(b), numeral(b).format('0,0'));
 }
 
 function vdAction(i){
     if(isNull(i)) return '-';
-    return formatLink('/' + XC.coin + '/action/' + encodeURIComponent(i), vdEsc(numeral(i).format('0,0')));
+    return formatLink('/' + XC.coin + '/action/' + encodeURIComponent(i), numeral(i).format('0,0'));
 }
 
 function vdAddress(a){
     if(isNull(a)) return '-';
-    return formatLink('/' + XC.coin + '/address/' + encodeURIComponent(a), formatHash(a, 24));
+    return formatLinkHtml('/' + XC.coin + '/address/' + encodeURIComponent(a), formatHash(a, 24));
 }
 
 function vdAmount(a){

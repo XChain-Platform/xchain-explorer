@@ -1,0 +1,31 @@
+.dataTables_wrapper {
+    font-size: 0.82rem;
+}
+
+.dataTables_wrapper table.dataTable {
+    border-collapse: collapse !important;
+}
+
+.dataTables_wrapper table.dataTable thead th {
+    background: var(--xc-console-panel-raised);
+    border-bottom-color: var(--xc-console-accent);
+    color: var(--xc-console-accent-strong);
+    font-size: 0.72rem;
+}
+
+.dataTables_wrapper table.dataTable tbody tr:hover > * {
+    background: var(--xc-console-panel-active);
+}
+
+.dataTables_wrapper .dataTables_filter input,
+.dataTables_wrapper .dataTables_length select {
+    background: var(--xc-console-panel-bg);
+    border: 1px solid var(--xc-console-border);
+    color: var(--xc-console-text);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+    background: var(--xc-console-panel-active) !important;
+    border-color: var(--xc-console-accent) !important;
+    color: var(--xc-console-accent-strong) !important;
+}

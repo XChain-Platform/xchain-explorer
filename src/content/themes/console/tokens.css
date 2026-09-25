@@ -1,0 +1,122 @@
+@import url("./components/nav/component.css");
+@import url("./components/data-table/component.css");
+@import url("./components/stat-card/component.css");
+@import url("./components/stat-tile/component.css");
+
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+    --xc-console-sidebar-width: 16rem;
+    --xc-console-sidebar-width-collapsed: 4.25rem;
+    --xc-console-grid-gap: 0.75rem;
+    --xc-console-panel-bg: #101820;
+    --xc-console-panel-raised: #17232e;
+    --xc-console-panel-active: #203442;
+    --xc-console-accent: #44d7b6;
+    --xc-console-accent-rgb: 68,215,182;
+    --xc-console-accent-strong: #7fffd4;
+    --xc-console-text: #d9e7e5;
+    --xc-console-muted: rgba(217, 231, 229, 0.68);
+    --xc-console-border: #29414d;
+    --xc-console-shadow: 0 0.35rem 1.2rem rgba(0, 0, 0, 0.28);
+    --xc-radius-lg: 0.2rem;
+    --xc-footer-bg: #0b1218;
+    --xc-footer-color: rgb(217, 231, 229);
+    --xc-footer-link-color: rgb(127, 255, 212);
+    --xc-table-border-color: #29414d;
+    --xc-table-cell-padding: 3px;
+    --xc-datatable-length-select-padding: 2px;
+    --xc-datatable-placeholder-padding-y: 12px;
+    --xc-chart-toolbar-gap: 0.2rem;
+    --xc-chart-toolbar-padding-top: 0.15rem;
+    --xc-chart-toolbar-padding-bottom: 0.2rem;
+    --xc-chart-tooltip-border-color: #29414d;
+    --xc-chart-tooltip-bg: #17232e;
+    --xc-chart-tooltip-color: #d9e7e5;
+    --xc-chart-tooltip-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.35);
+    --xc-chart-nodata-color: #9db4b1;
+    --xc-row-bg-danger: #542f38;
+    --xc-row-bg-success: #173f38;
+    --xc-row-bg-warning: #55491f;
+    --xc-bridge-state-ok-bg: #173f38;
+    --xc-bridge-state-ok-color: #a9f0df;
+    --xc-bridge-state-surplus-bg: #55491f;
+    --xc-bridge-state-surplus-color: #ffe49a;
+    --xc-bridge-state-deficit-bg: #542f38;
+    --xc-bridge-state-deficit-color: #ffc2cc;
+    --xc-bridge-state-unknown-bg: #26343e;
+    --xc-bridge-state-unknown-color: #c2d0d5;
+    --xc-bridge-origin-bg: #203442;
+    --xc-bridge-origin-color: #d9e7e5;
+    --xc-bridge-this-chain-bg: rgba(68, 215, 182, 0.08);
+    --xc-highlight-bg: #655a24;
+    --xc-surface-body-bg: #0c1319;
+    --xc-surface-body-bg-rgb: 12,19,25;
+    --xc-surface-body-color: #d9e7e5;
+    --xc-surface-body-color-rgb: 217,231,229;
+    --xc-surface-emphasis-color: #ffffff;
+    --xc-surface-emphasis-color-rgb: 255,255,255;
+    --xc-surface-secondary-color: rgba(217, 231, 229, 0.68);
+    --xc-surface-secondary-color-rgb: 217,231,229;
+    --xc-surface-secondary-bg: #17232e;
+    --xc-surface-secondary-bg-rgb: 23,35,46;
+    --xc-surface-tertiary-color: rgba(217, 231, 229, 0.48);
+    --xc-surface-tertiary-color-rgb: 217,231,229;
+    --xc-surface-tertiary-bg: #101820;
+    --xc-surface-tertiary-bg-rgb: 16,24,32;
+    --xc-surface-link-color: #44d7b6;
+    --xc-surface-link-color-rgb: 68,215,182;
+    --xc-surface-link-hover-color: #7fffd4;
+    --xc-surface-link-hover-color-rgb: 127,255,212;
+    --xc-surface-code-color: #ff9ac1;
+    --xc-surface-highlight-color: #ffffff;
+    --xc-surface-highlight-bg: #655a24;
+    --xc-surface-border-color: #29414d;
+    --xc-surface-border-color-translucent: rgba(127, 255, 212, 0.16);
+    --bs-primary: #44d7b6;
+    --bs-primary-rgb: 68,215,182;
+    --bs-success: #44d7b6;
+    --bs-success-rgb: 68,215,182;
+}
+
+body {
+    letter-spacing: 0.01em;
+}
+
+.card,
+.dropdown-menu,
+.tab-content {
+    background-color: var(--xc-console-panel-bg);
+    border-color: var(--xc-console-border);
+    box-shadow: var(--xc-console-shadow);
+}
+
+.card-title,
+.dropdown-header,
+table thead th {
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+}
+
+.btn,
+.badge,
+.form-control,
+.form-select {
+    border-radius: var(--xc-radius-lg);
+}
+
+.xc-console-stats {
+    display: grid;
+    gap: var(--xc-console-grid-gap);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: var(--xc-console-grid-gap) auto;
+    max-width: 1320px;
+    padding-inline: var(--xc-console-grid-gap);
+    width: 100%;
+}
+
+@media (max-width: 767.98px) {
+    .xc-console-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

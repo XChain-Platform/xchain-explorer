@@ -1,0 +1,22 @@
+.table-stats tbody {
+    display: grid;
+    gap: 1px;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+.table-stats tr {
+    background: var(--xc-console-panel-raised);
+    display: grid;
+    grid-template-columns: minmax(7rem, 1fr) auto;
+}
+
+.table-stats th,
+.table-stats td {
+    border-color: var(--xc-console-border);
+}
+
+.table-stats td {
+    color: var(--xc-console-accent-strong);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}

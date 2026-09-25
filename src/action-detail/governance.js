@@ -226,6 +226,8 @@ const VOTE = {
                 data['poll_ref'] = rows[0].poll_index;
                 data['memo']     = rows[0].memo;
                 data['ballot']   = rows.map(r => ({ choice: r.choice, share: r.share }));
+                let st = await db.doQuery(config, sql.VOTE_BALLOT_STATUS, [action_index]);
+                data['status']   = st && st.length ? st[0].status : null;
             } else {
                 data['ballot'] = [];
             }

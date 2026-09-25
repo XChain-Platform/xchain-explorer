@@ -87,6 +87,15 @@
 <script type="text/javascript">
 $(document).ready(function(){
 
+    function renderTransactionNotFound(){
+        XC.transactionInfo = null;
+        $('#transaction-info tbody').html('<tr><td colspan="2" class="text-muted" id="transaction-not-found">No transaction exists with this hash.</td></tr>');
+        $('#datatable-actions tbody').html('<tr><td colspan="6" class="text-muted text-center">No actions to show.</td></tr>');
+        XC.pageInfo.title       = XC.query + ' Transaction Not Found';
+        XC.pageInfo.description = 'No transaction with hash ' + XC.query + ' was found on the XChain Platform';
+        updatePageInfo();
+    }
+
     // Build out a list of data panels for this page. This page ships a single
     // static Actions panel with no #tab-dropdown-* switcher (unlike action.html,
     // market.html, etc.), so there is nothing for setupActionListeners() to wire
@@ -98,22 +107,19 @@ $(document).ready(function(){
 
         // Request information on this transaction, store the response in XC.transactionInfo, and update the page with the details
         loadApiData(XC.coin, 'transaction', XC.query, XC.type, function(o){
-            XC.transactionInfo = null2string(o);
-            showTransactionDetails();
-
             if(!o || !o.tx_hash){
-                XC.pageInfo.title       = XC.query + ' Transaction Not Found';
-                XC.pageInfo.description = 'No transaction with hash ' + XC.query + ' was found on the XChain Platform';
-                updatePageInfo();
+                renderTransactionNotFound();
                 return;
             }
+            XC.transactionInfo = null2string(o);
+            showTransactionDetails();
 
             // Update the page with SEO friendly info
             XC.pageInfo.title       =  o.tx_hash + ' Transaction Information';
             XC.pageInfo.description = 'Learn about the transaction with hash ' + o.tx_hash + ' and the actions is triggered on the XChain Platform - This page displays XChain platform information about the transaction with index #' + o.tx_index;
             XC.pageInfo.canonical   = '/' + XC.coin + '/transaction/' + XC.query;
             updatePageInfo();
-        });
+        }, renderTransactionNotFound);
 
         // Setup listeners to load data panel when an action button is clicked
         setupActionListeners();

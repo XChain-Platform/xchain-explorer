@@ -245,7 +245,7 @@ class PollReaders {
                         b1.block_time as timestamp,
                         t2.hash as tx_hash,
                         t1.tx_index,
-                        s1.status
+                        COALESCE(s1.status, 'valid') AS status
                     FROM
                         votes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)

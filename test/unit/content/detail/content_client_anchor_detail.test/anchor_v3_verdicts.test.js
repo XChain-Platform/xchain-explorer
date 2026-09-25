@@ -14,15 +14,15 @@
 
 'use strict';
 
-const { srcText } = require('../../../helpers/source_text');
+const { srcText } = require('../../../../helpers/source_text');
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
 const RENDER_SRC = srcText('src/content/js/anchor_detail_render.js');
-const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../../../src/content/js/jquery.min.js'), 'utf8');
-const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '../../../../src/content/js/numeral.js'), 'utf8');
+const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../../../../src/content/js/jquery.min.js'), 'utf8');
+const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '../../../../../src/content/js/numeral.js'), 'utf8');
 
 function render(row){
     const ids = [

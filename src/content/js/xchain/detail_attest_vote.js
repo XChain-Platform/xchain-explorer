@@ -57,7 +57,7 @@ function detailAttestVote_renderAttestIdentity(data, isResponse, isExpire, isBat
         if(isNull(data.request_id)){
             expireHtml = '<span class="text-muted attest-expire-unresolved">not recorded</span>';
         } else {
-            expireHtml = formatLink('/' + XC.coin + '/attestation/' + data.request_id,
+            expireHtml = formatLinkHtml('/' + XC.coin + '/attestation/' + data.request_id,
                                     formatHash(data.request_id, 32), 'View this attestation lifecycle');
             let links = [];
             if(!isNull(data.request_action_index))

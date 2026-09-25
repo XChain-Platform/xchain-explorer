@@ -148,7 +148,7 @@ $(document).ready(function() {
             ? '<span class="badge text-bg-success">Enabled</span>'
             : '<span class="badge text-bg-secondary">Disabled</span>']);
         rows.push(['Fee Destination', isNull(o.feeDestination) ? '-' :
-            formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.feeDestination), escapeHtml(o.feeDestination))]);
+            formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.feeDestination), o.feeDestination)]);
         rows.push(['Gas Price', isNull(o.gasPrice) ? '-' : escapeHtml(String(o.gasPrice))]);
         rows.push(['Tolerance', (isNull(o.toleranceMin) ? '-' : escapeHtml(String(o.toleranceMin))) +
             ' to ' + (isNull(o.toleranceMax) ? '-' : escapeHtml(String(o.toleranceMax)))]);
@@ -234,7 +234,7 @@ $(document).ready(function() {
         if(!isNull(o.minAcceptable))     rows.push(['Min Acceptable', escapeHtml(String(o.minAcceptable)) + ' ' + XC.coin]);
         if(!isNull(o.maxAcceptable))     rows.push(['Max Acceptable', escapeHtml(String(o.maxAcceptable)) + ' ' + XC.coin]);
         if(!isNull(o.feeDestination))
-            rows.push(['Fee Destination', formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.feeDestination), escapeHtml(o.feeDestination))]);
+            rows.push(['Fee Destination', formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.feeDestination), o.feeDestination)]);
         if(!isNull(o.blockIndex))
             rows.push(['As Of Block', formatLink('/' + XC.coin + '/block/' + o.blockIndex, o.blockIndex)]);
         if(!isNull(o.oracleRound)) rows.push(['Oracle Round', escapeHtml(String(o.oracleRound))]);
@@ -291,7 +291,7 @@ $(document).ready(function() {
         let rows = [];
         rows.push(['Valid', '<span class="badge text-bg-success">Valid</span>']);
         if(!isNull(o.oracleAddress))
-            rows.push(['Oracle Address', formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.oracleAddress), escapeHtml(o.oracleAddress))]);
+            rows.push(['Oracle Address', formatLink('/' + XC.coin + '/address/' + encodeURIComponent(o.oracleAddress), o.oracleAddress)]);
         if(!isNull(o.requiredFeeNative)) rows.push(['Required Native Fee', escapeHtml(String(o.requiredFeeNative)) + ' ' + XC.coin]);
         if(!isNull(o.requiredFeeSats))   rows.push(['Required Fee (sats)', numeral(o.requiredFeeSats).format('0,0')]);
         if(o.belowDust) rows.push(['Below Dust', 'Yes, no output required']);

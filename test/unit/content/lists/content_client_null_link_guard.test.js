@@ -59,6 +59,9 @@ function linker() {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
     dom.window.eval('function isNull(v){ return (v===null||v===undefined||v===""); }');
     dom.window.eval('function getTokenIcon(t){ return "/icon/" + t + ".png"; }');
+    // formatLink escapes its label and hands off to formatLinkHtml, which owns the guard.
+    dom.window.eval(extractFn('escapeHtml'));
+    dom.window.eval(extractFn('formatLinkHtml'));
     dom.window.eval(extractFn('formatLink'));
     return dom.window.formatLink;
 }

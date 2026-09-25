@@ -108,8 +108,9 @@ function actionDetail_renderMarketActions(html, action, info, coin){
             html  += formatLinkAmount(tokenUrl(get_coin, info.get_tick), info.get_tick, info.get_tick, info.get_amount);
         }
     }
+    // FILE type/name/title are on-chain free text and this summary reaches .html().
     if(action=='FILE')
-        html = info.type + ' - ' + info.name + ' - ' + info.title;
+        html = escapeHtml(info.type) + ' - ' + escapeHtml(info.name) + ' - ' + escapeHtml(info.title);
     if(action=='ISSUE')
         html = formatLink(tokenUrl(coin, info.tick), info.tick, info.tick);
     if(action=='LINK'){
@@ -148,7 +149,7 @@ function actionDetail_renderMessageActions(html, action, info, coin){
         if(!isNull(info.action_format) && [0,1].includes(Number(info.action_format))){
             html = 'Encryption key exchange with ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
         } else if(info.plaintext_message){
-            html = info.plaintext_message;
+            html = escapeHtml(info.plaintext_message); // sender-chosen text, bound for .html()
         } else {
             html = 'Encrypted message to ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
         }

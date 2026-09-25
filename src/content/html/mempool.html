@@ -75,7 +75,7 @@ $(document).ready(function() {
         let time = (isNumeric(row.first_seen)) ? formatLivestamp(row.first_seen) : '-';
         let details = '';
         if(row.source)
-            details += formatLink('/' + XC.coin + '/address/' + encodeURIComponent(row.source), formatHash(row.source, 16)) + ' ';
+            details += formatLinkHtml('/' + XC.coin + '/address/' + encodeURIComponent(row.source), formatHash(row.source, 16)) + ' ';
         if(row.data)
             details += '<span class="font-monospace small" title="' + escapeHtml(row.data) + '">' + escapeHtml(truncateData(row.data)) + '</span>';
         if(row.tx_hash)

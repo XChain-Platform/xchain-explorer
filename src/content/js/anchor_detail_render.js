@@ -73,7 +73,7 @@ function renderAnchorIdentity(d){
             + ' <span class="badge text-bg-secondary">' + anchorEsc(isNull(row.network) ? '-' : row.network) + '</span>');
     }
     html += anchorFieldRow('Transaction', isNull(row.tx_hash) ? '-'
-        : formatLink('/' + anchorCoin() + '/transaction/' + row.tx_hash,
+        : formatLinkHtml('/' + anchorCoin() + '/transaction/' + row.tx_hash,
             '<span class="font-monospace small text-break">' + anchorEsc(row.tx_hash) + '</span>'));
     html += anchorFieldRow('Time', isNull(row.timestamp) ? '-' : formatLivestamp(row.timestamp));
     return html;

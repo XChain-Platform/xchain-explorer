@@ -63,10 +63,10 @@ function renderGovernancePolls(rows){
         html += '<tr class="gov-poll-row" data-poll="' + govEsc(r.action_index) + '">'
               + '<td>' + (isNull(r.action_index)
                   ? '<span class="text-muted">-</span>'
-                  : formatLink('/' + XC.coin + '/poll/' + r.action_index, govEsc(r.action_index))) + '</td>'
+                  : formatLink('/' + XC.coin + '/poll/' + r.action_index, r.action_index)) + '</td>'
               + '<td class="gov-poll-tick">' + (isNull(r.tick)
                   ? '<span class="text-muted">-</span>'
-                  : formatLink(tokenUrl(XC.coin, r.tick), govEsc(r.tick))) + '</td>'
+                  : formatLink(tokenUrl(XC.coin, r.tick), r.tick)) + '</td>'
               + '<td class="text-truncate gov-poll-question">' + govEsc(r.question) + '</td>'
               + '<td class="gov-poll-status">' + govEsc(isNull(r.poll_status) ? '-' : r.poll_status) + '</td>'
               + '<td class="text-end gov-poll-end">' + (isNull(r.end_block)

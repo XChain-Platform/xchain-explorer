@@ -43,6 +43,28 @@ function searchCountQueries(search, ftTerm){
     return countQueries;
 }
 
+function isMissingFulltextIndex(error){
+    return error && error.name === 'DbQueryError' &&
+        Number(error.cause && error.cause.errno) === 1191;
+}
+
+async function runSearchCounts(db, config, countQueries){
+    let settled = await Promise.allSettled(countQueries.map(q => db.doQuery(config, q.query, q.args)));
+    let countResults = [];
+    for(let i = 0; i < settled.length; i++){
+        let result = settled[i];
+        let query  = countQueries[i];
+        if(result.status === 'fulfilled'){
+            countResults.push(result.value);
+            continue;
+        }
+        if(query.type !== 'contract' || !isMissingFulltextIndex(result.reason))
+            throw result.reason;
+        countResults.push([]);
+    }
+    return countResults;
+}
+
 // Fold the counted rows onto the totals block, and return the count for the panel
 // the caller asked for.
 function applySearchCounts(data, countQueries, countResults, dataType){
@@ -131,10 +153,6 @@ function searchNamedQuery(dataType, searchLimit, query){
                         ORDER BY t2.tick ASC
                         LIMIT ` + searchLimit;
     }
-    // Contracts, matched through meta_search rather than by LIKE. Newest
-    // first: contract indexes are monotonic, so ORDER BY action_index DESC
-    // is "most recently deployed", which is what a name search is looking
-    // for when several contracts share a name (they are not unique).
     if(dataType=='contract'){
         query = `SELECT
                             m.action_index,
@@ -165,6 +183,26 @@ function shapeContractHits(db, config, data){
         meta_version:     db.util.isNull(row.meta_version) ? null : row.meta_version,
         snippet:          db.metaSnippet(row.meta_description)
     }));
+}
+
+async function runSearchPage(db, config, dataType, searchLimit, search, ftTerm, data, total){
+    let args  = searchPageArgs(dataType, search, ftTerm);
+    let query = searchNamedQuery(dataType, searchLimit, searchLikeQuery(dataType, searchLimit));
+    if(!query)
+        return total;
+    try {
+        let results = await db.doQuery(config, query, args);
+        if(results && results.length)
+            data.data = results;
+    } catch(error){
+        if(dataType !== 'contract' || !isMissingFulltextIndex(error))
+            throw error;
+        data.totals.contracts = 0;
+        return 0;
+    }
+    if(dataType=='contract' && Array.isArray(data.data))
+        shapeContractHits(db, config, data);
+    return total;
 }
 
 class SearchReaders {
@@ -209,19 +247,10 @@ class SearchReaders {
             },
         };
         let countQueries = searchCountQueries(search, ftTerm);
-        let countResults = await Promise.all(countQueries.map(q => this.doQuery(config, q.query, q.args)));
+        let countResults = await runSearchCounts(this, config, countQueries);
         total = applySearchCounts(data, countQueries, countResults, dataType);
-        if(total){
-            let args  = searchPageArgs(dataType, search, ftTerm);
-            let query = searchNamedQuery(dataType, searchLimit, searchLikeQuery(dataType, searchLimit));
-            if(query){
-                let results = await this.doQuery(config, query, args);
-                if(results && results.length)
-                    data.data = results;
-                if(dataType=='contract' && Array.isArray(data.data))
-                    shapeContractHits(this, config, data);
-            }
-        }
+        if(total)
+            total = await runSearchPage(this, config, dataType, searchLimit, search, ftTerm, data, total);
         // Get count of total number of addresses
         return [data, null, total]
     }

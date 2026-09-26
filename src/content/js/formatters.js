@@ -207,7 +207,7 @@ function getTokenIcon(token){
 // keeps recognising it. The coin is mapped onto the page's network first: a
 // bare 'DOGE' leg on a TDOGE page is /TDOGE/, never mainnet (network_coin.js).
 function tokenUrl(coin, tick){
-    let tail = isNull(tick) ? String(tick) : encodeURIComponent(String(tick));
+    let tail = isNull(tick) ? 'null' : encodeURIComponent(String(tick));
     return '/' + networkCoin(coin) + '/token' + '/' + tail;
 }
 
@@ -287,12 +287,17 @@ function formatLinkAmount(url=null, text=null, icon=false, amount=false){
     return html;
 }
 
+// A market leg's denomination: no tick means the chain's native coin, shown plainly.
+function formatCoinLegTicker(pageCoin, legCoin, legTick){
+    let coin = isNull(legCoin) ? pageCoin : legCoin;
+    if(isNull(legTick))
+        return isNull(coin) ? '-' : escapeHtml(String(coin));
+    return formatLink(tokenUrl(coin, legTick), legTick, legTick);
+}
+
 // Render one leg of a dispenser/order trade: an amount plus whatever it is
-// denominated in. A NATIVE-coin leg carries no tick at all (the tick column is
-// null), and handing that to formatLinkAmount builds a '/token/null' href -
-// formatLink strips such a link now, but the cell would still be labelled with a
-// token that does not exist. So an absent tick renders the coin name plainly, and
-// a leg carrying neither renders a dash rather than an empty cell.
+// denominated in. A native-coin leg carries no tick at all, so an absent tick
+// renders the coin name plainly and a leg carrying neither renders a dash.
 function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
     if(isNull(legTick)){
         let txt = isNull(amount) ? '' : formatAmount(amount);
@@ -300,8 +305,8 @@ function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
             txt += (txt ? ' ' : '') + escapeHtml(String(legCoin));
         return (txt==='') ? '-' : txt;
     }
-    let linkCoin = isNull(legCoin) ? pageCoin : legCoin;
-    return formatLinkAmount(tokenUrl(linkCoin, legTick), legTick, legTick, amount);
+    let coin = isNull(legCoin) ? pageCoin : legCoin;
+    return formatLinkAmount(tokenUrl(coin, legTick), legTick, legTick, amount);
 }
 
 // Render a DISPENSER / DISPENSE native-coin leg: network icon, amount, coin name.
@@ -337,6 +342,7 @@ var XCFormatters = {
     link:         formatLink,
     linkHtml:     formatLinkHtml,
     linkAmount:   formatLinkAmount,
+    coinLegTicker: formatCoinLegTicker,
     coinLeg:      formatCoinLegAmount,
     nativeCoinLeg: formatNativeCoinLeg,
     hash:         formatHash,
@@ -385,6 +391,7 @@ if(typeof module !== 'undefined' && module.exports){
         formatLinkHtml: formatLinkHtml,
         formatHash: formatHash,
         formatLinkAmount: formatLinkAmount,
+        formatCoinLegTicker: formatCoinLegTicker,
         formatCoinLegAmount: formatCoinLegAmount,
         formatNativeCoinLeg: formatNativeCoinLeg,
         ownershipBadge: ownershipBadge,

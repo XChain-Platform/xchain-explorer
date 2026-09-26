@@ -69,6 +69,11 @@ function summary(action, info) {
         function formatLinkAmount(href, text, tick, amount){ return '<a href="' + href + '">' + amount + ' ' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
         function isNull(v){ return (v === null || v === undefined || v === ''); }
+        function formatCoinLegAmount(pageCoin, legCoin, tick, amount){
+            var coin = legCoin || pageCoin;
+            return isNull(tick) ? formatAmount(amount) + ' ' + coin
+                : formatLinkAmount(tokenUrl(coin, tick), tick, tick, amount);
+        }
         function getNetworkIcon(){ return 'fa-bitcoin'; }
     `);
     dom.window.eval(extractFn('actionDetail_renderBasicActions'));

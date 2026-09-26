@@ -89,13 +89,13 @@ function showDispenserDetails(data){
     let isOwnershipDispenser = (Number(data.give_ownership || 0) == 1);
     $('#info-dispenser .dispenser-give-coin').text(data.give_coin);
     $('#info-dispenser .dispenser-give-tick').html(
-        formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick, data.give_tick)
+        formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick)
         + (isOwnershipDispenser ? ' ' + ownershipBadge() : '')
     );
     $('#info-dispenser .dispenser-give-amount').html(isOwnershipDispenser ? ownershipBadge() : formatAmount(data.give_amount));
     $('#info-dispenser .dispenser-give-escrow').html(isOwnershipDispenser ? ownershipBadge() : formatAmount(data.give_escrow));
     $('#info-dispenser .dispenser-get-coin').text(data.get_coin);
-    $('#info-dispenser .dispenser-get-tick').html(formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick, data.get_tick));
+    $('#info-dispenser .dispenser-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
     $('#info-dispenser .dispenser-get-amount').html(formatAmount(data.get_amount));
     $('#info-dispenser .dispenser-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
     // Fiat/oracle-priced dispensers: fiat_amount is the operative price (Get Amount is not),
@@ -159,10 +159,10 @@ function showDispenserExpireDetails(data){
 // event" either way - see protocol/actions/dispenser.md.
 function showDispenseDetails(data){
     $('#info-dispense .dispense-give-coin').text(data.give_coin);
-    $('#info-dispense .dispense-give-tick').html(formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick, data.give_tick));
+    $('#info-dispense .dispense-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
     $('#info-dispense .dispense-give-amount').html(formatAmount(data.give_amount));
     $('#info-dispense .dispense-get-coin').text(data.get_coin);
-    $('#info-dispense .dispense-get-tick').html(formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick, data.get_tick));
+    $('#info-dispense .dispense-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
     $('#info-dispense .dispense-get-amount').html(formatAmount(data.get_amount));
     $('#info-dispense .dispense-source').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.source, data.source));
     $('#info-dispense .dispense-destination').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.destination, data.destination));

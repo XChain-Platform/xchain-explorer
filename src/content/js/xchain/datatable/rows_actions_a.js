@@ -318,7 +318,9 @@ function xcDatatableRenderDispenserRow(context){
     let get_amount     = data[9];
     let give_ownership = data[10];
     if(give_ownership == 1){
-        $('td', row).eq(4).html(formatLink(tokenUrl(give_coin, give_token), give_token, give_token) + ' ' + ownershipBadge());
+        $('td', row).eq(4).html(formatCoinLegTicker(coin, give_coin, give_token) + ' ' + ownershipBadge());
+    } else if(isNull(give_token)){
+        $('td', row).eq(4).html(formatNativeCoinLeg(give_amount, give_coin));
     } else {
         $('td', row).eq(4).html(formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount));
     }
@@ -345,7 +347,10 @@ function xcDatatableRenderDispenseRow(context){
     let get_coin    = data[7];
     let get_token   = data[8];
     let get_amount  = data[9];
-    $('td', row).eq(4).html(formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount));
+    let giveLeg = isNull(give_token)
+        ? formatNativeCoinLeg(give_amount, give_coin)
+        : formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount);
+    $('td', row).eq(4).html(giveLeg);
     // Local, not the shared `html` scratch variable: see formatNativeCoinLeg.
     let getLeg = isNull(get_token)
         ? formatNativeCoinLeg(get_amount, get_coin)

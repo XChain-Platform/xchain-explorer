@@ -112,13 +112,8 @@ function actionDetail_renderMarketActions(html, action, info, coin){
         // and label a remote native amount local. Fall back to it only where absent.
         let give_coin = info.give_coin || coin;
         let get_coin  = info.get_coin  || coin;
-        html  = formatLinkAmount(tokenUrl(give_coin, info.give_tick), info.give_tick, info.give_tick, info.give_amount) + ' for ';
-        if(isNull(info.get_tick)){
-            let cls = getNetworkIcon();
-            html += ' <i class="fa ' + cls + '"></i> ' + formatAmount(info.get_amount) + ' ' + get_coin ;
-        } else {
-            html  += formatLinkAmount(tokenUrl(get_coin, info.get_tick), info.get_tick, info.get_tick, info.get_amount);
-        }
+        html  = formatCoinLegAmount(coin, give_coin, info.give_tick, info.give_amount) + ' for ';
+        html += formatCoinLegAmount(coin, get_coin, info.get_tick, info.get_amount);
     }
     // FILE type/name/title are on-chain free text and this summary reaches .html().
     if(action=='FILE')

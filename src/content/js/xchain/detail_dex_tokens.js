@@ -138,13 +138,13 @@ function showOrderDetails(data){
     let isOwnershipGet  = (Number(data.get_ownership  || 0) == 1);
     $('#info-order .order-give-coin').text(data.give_coin);
     $('#info-order .order-give-tick').html(
-        formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick, data.give_tick)
+        formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick)
         + (isOwnershipGive ? ' ' + ownershipBadge() : '')
     );
     $('#info-order .order-give-amount').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.give_amount));
     $('#info-order .order-get-coin').text(data.get_coin);
     $('#info-order .order-get-tick').html(
-        formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick, data.get_tick)
+        formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick)
         + (isOwnershipGet ? ' ' + ownershipBadge() : '')
     );
     $('#info-order .order-get-amount').html(isOwnershipGet ? ownershipBadge() : formatAmount(data.get_amount));
@@ -198,10 +198,10 @@ function showOrderMatchDetails(data){
     $('#info-order-match .order-match-give-action-index').html(formatLink('/' + networkCoin(data.give_coin) + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
     $('#info-order-match .order-match-get-action-index').html(formatLink('/' + networkCoin(data.get_coin) + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
     $('#info-order-match .order-match-give-coin').text(data.give_coin);
-    $('#info-order-match .order-match-give-tick').html(formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick,  data.give_tick));
+    $('#info-order-match .order-match-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
     $('#info-order-match .order-match-give-amount').text(data.give_amount);
     $('#info-order-match .order-match-get-coin').text(data.get_coin);
-    $('#info-order-match .order-match-get-tick').html(formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick,  data.get_tick));
+    $('#info-order-match .order-match-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
     $('#info-order-match .order-match-get-amount').text(data.get_amount);
     $('#info-order-match .order-match-settlement-type').text(isNull(data.settlement_type) ? '-' : data.settlement_type);
 }
@@ -226,13 +226,13 @@ function showSwapDetails(data){
     let isOwnershipGet  = (Number(data.get_ownership  || 0) == 1);
     $('#info-swap .swap-give-coin').text(data.give_coin);
     $('#info-swap .swap-give-tick').html(
-        formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick, data.give_tick)
+        formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick)
         + (isOwnershipGive ? ' ' + ownershipBadge() : '')
     );
     $('#info-swap .swap-give-amount').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.give_amount));
     $('#info-swap .swap-get-coin').text(data.get_coin);
     $('#info-swap .swap-get-tick').html(
-        formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick, data.get_tick)
+        formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick)
         + (isOwnershipGet ? ' ' + ownershipBadge() : '')
     );
     $('#info-swap .swap-get-amount').html(isOwnershipGet ? ownershipBadge() : formatAmount(data.get_amount));
@@ -279,10 +279,10 @@ function showSwapMatchDetails(data){
     $('#info-swap-match .swap-match-give-action-index').html(formatLink('/' + networkCoin(data.give_coin) + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
     $('#info-swap-match .swap-match-get-action-index').html(formatLink('/' + networkCoin(data.get_coin) + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
     $('#info-swap-match .swap-match-give-coin').text(data.give_coin);
-    $('#info-swap-match .swap-match-give-tick').html(formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick,  data.give_tick));
+    $('#info-swap-match .swap-match-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
     $('#info-swap-match .swap-match-give-amount').text(data.give_amount);
     $('#info-swap-match .swap-match-get-coin').text(data.get_coin);
-    $('#info-swap-match .swap-match-get-tick').html(formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick,  data.get_tick));
+    $('#info-swap-match .swap-match-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
     $('#info-swap-match .swap-match-get-amount').text(data.get_amount);
 }
 

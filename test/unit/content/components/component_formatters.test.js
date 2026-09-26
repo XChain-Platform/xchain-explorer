@@ -59,7 +59,7 @@ function jsFilesUnder(dir, prefix){
 const MIGRATED = [
     'isNull', 'nullToBlank', 'escapeHtml', 'stripHtml',
     'formatAmount', 'formatLocks', 'isNftToken', 'getTokenIcon', 'getNetworkIcon',
-    'formatLink', 'formatHash', 'formatLinkAmount', 'formatCoinLegAmount',
+    'formatLink', 'formatHash', 'formatLinkAmount', 'formatCoinLegTicker', 'formatCoinLegAmount',
     'formatNativeCoinLeg', 'ownershipBadge', 'formatLivestamp'
 ];
 

@@ -166,13 +166,13 @@ function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
 
     // Marketcap and Pricing Information
     $('.xchain-coin').text(o.info.coin);
-    $('#market-price-coin').text(numeral(o.market.price).format(fmtCoin));
-    $('#market-price-fiat').text(numeral(bcmul(o.market.price, XC.coin_price, 2)).format(fmtFiat));
-    $('#market-floor-coin').text(numeral(o.market.floor).format(fmtCoin));
-    $('#market-floor-fiat').text(numeral(bcmul(o.market.floor, XC.coin_price, 2)).format(fmtFiat));
+    $('#market-price-coin').text(formatAmount(bcformat(o.market.price, 8)));
+    $('#market-price-fiat').text(formatAmount(bcmul(o.market.price, XC.coin_price, 2)));
+    $('#market-floor-coin').text(formatAmount(bcformat(o.market.floor, 8)));
+    $('#market-floor-fiat').text(formatAmount(bcmul(o.market.floor, XC.coin_price, 2)));
     var mcap = bcmul(o.market.price, o.supply.current, 8);
-    $('#market-marketcap-coin').text(numeral(mcap).format(fmtCoin));
-    $('#market-marketcap-fiat').text(numeral(bcmul(mcap, XC.coin_price, 2)).format(fmtFiat));
+    $('#market-marketcap-coin').text(formatAmount(mcap));
+    $('#market-marketcap-fiat').text(formatAmount(bcmul(mcap, XC.coin_price, 2)));
 
     // Callback Token Information
     if(!isNull(o.callback.tick)){
@@ -180,7 +180,7 @@ function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
         $('#callback-block').html(formatLink('/' + XC.coin + '/block/' + o.callback.block, numeral(o.callback.block).format('0,0')));
         if(o.callback.amount){
             $('#callback-amount').text(formatAmount(o.callback.amount));
-            $('#callback-price-coin').text(numeral(bcmul(o.callback.amount, o.callback.price, 8)).format(fmtCoin));
+            $('#callback-price-coin').text(formatAmount(bcmul(o.callback.amount, o.callback.price, 8)));
         }
     }
 

@@ -171,7 +171,7 @@ class MarketOrderReaders {
                 let found = false;
                 if(type=='bid'){
                     for(let bid of bids){
-                        if(bid.price==price){
+                        if(!this.util.bcgt(bid.price, price) && !this.util.bclt(bid.price, price)){
                             bid.amount = this.util.bcadd(bid.amount, order.get_remaining);
                             found = true;
                         }
@@ -181,7 +181,7 @@ class MarketOrderReaders {
                 }
                 if(type=='ask'){
                     for(let ask of asks){
-                        if(ask.price==price){
+                        if(!this.util.bcgt(ask.price, price) && !this.util.bclt(ask.price, price)){
                             ask.amount = this.util.bcadd(ask.amount, order.give_remaining);
                             found = true;
                         }

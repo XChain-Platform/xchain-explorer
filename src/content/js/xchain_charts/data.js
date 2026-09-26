@@ -16,6 +16,20 @@
 'use strict';
 
 var xcChartsDay = 86400000;
+var xcChartsMath = (typeof self !== 'undefined' && self.math) ? self.math
+    : ((typeof module === 'object' && module.exports) ? require('mathjs') : null);
+
+function xcChartsDecimal(value){
+    return xcChartsMath.bignumber(String(value));
+}
+
+function xcChartsAdd(a, b){
+    return xcChartsMath.add(xcChartsDecimal(a), xcChartsDecimal(b)).toFixed();
+}
+
+function xcChartsMultiply(a, b){
+    return xcChartsMath.multiply(xcChartsDecimal(a), xcChartsDecimal(b)).toFixed(8);
+}
 
     // Zoom presets. Order is load-bearing: the index is what gets persisted to
     // localStorage.marketChartZoom, matching the index Highstock's rangeSelector
@@ -45,8 +59,8 @@ var xcChartsDay = 86400000;
             return String(v);
         },
         volume: function(v){
-            if(typeof numeral === 'function')
-                return numeral(v).format('0,0.00000000');
+            if(typeof formatAmount === 'function' && typeof bcformat === 'function')
+                return formatAmount(bcformat(v, 8));
             return String(v);
         },
         time: function(ms){
@@ -136,27 +150,33 @@ var xcChartsDay = 86400000;
     // them by price and report both the base-token volume and its quote-token
     // value, newest price first, which is what the old line tooltip did.
     function xcChartsAggregateTrades(prices, volumes, time){
-        var totals = {};
+        var totals = {}, exactTotals = {};
         for(var i = 0; i < prices.length; i++){
             var p = prices[i];
             if(!p || Number(p.x) !== Number(time)) continue;
-            var vol = volumes[i] ? Number(volumes[i].y) : 0,
-                key = String(p.y);
-            if(!totals[key]) totals[key] = [0, 0];
-            totals[key][0] += vol;
-            totals[key][1] += Number(p.y) * vol;
+            var price = p.exactY == null ? String(p.y) : p.exactY,
+                vol = volumes[i] ? (volumes[i].exactY == null ? String(volumes[i].y) : volumes[i].exactY) : '0',
+                key = String(price);
+            if(!totals[key]) totals[key] = ['0', '0.00000000'];
+            exactTotals[key] = exactTotals[key] || p.exactY != null || (volumes[i] && volumes[i].exactY != null);
+            totals[key][0] = xcChartsAdd(totals[key][0], vol);
+            totals[key][1] = xcChartsAdd(totals[key][1], xcChartsMultiply(price, vol));
         }
         var info = [];
         for(var price in totals)
             if(Object.prototype.hasOwnProperty.call(totals, price))
-                info.push([Number(price), totals[price][0], totals[price][1]]);
-        info.sort(function(a, b){ return b[0] - a[0]; });
+                info.push(exactTotals[price]
+                    ? [price, totals[price][0], totals[price][1]]
+                    : [Number(price), Number(totals[price][0]), Number(totals[price][1])]);
+        info.sort(function(a, b){
+            return xcChartsDecimal(b[0]).cmp(xcChartsDecimal(a[0]));
+        });
         return info;
     }
 
     function xcChartsLineTooltip(o){
         var rows = [];
-        var entries = o.entries && o.entries.length ? o.entries : [[o.price, o.volume, Number(o.price) * Number(o.volume)]];
+        var entries = o.entries && o.entries.length ? o.entries : [[o.price, o.volume, xcChartsMultiply(o.price, o.volume)]];
         for(var i = 0; i < entries.length; i++){
             rows.push(xcChartsTooltipRow('Price',  xcChartsFormatters.amount(entries[i][0]), o.tick2, i === 0 ? 'first' : ''));
             rows.push(xcChartsTooltipRow('Volume', xcChartsFormatters.amount(entries[i][1]), o.tick1));

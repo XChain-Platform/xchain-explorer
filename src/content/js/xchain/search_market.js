@@ -252,28 +252,21 @@ function renderMarketChartDepth(){
     // Accumulate each side into running volume/value sums, which is what the
     // depth curve plots and what the tooltip reports
     $.each(types, function(idx,name){
-        var a = 0,
-            b = 0;
+        var a = '0',
+            b = '0';
         $.each(orders[name],function(ndx,data){
-            data[2] = numeral(parseFloat(data[0]) * parseFloat(data[1])).format('0.00000000');
-            a       = numeral(parseFloat(a) + parseFloat(data[1])).format('0.00000000');
-            b       = numeral(parseFloat(b) + parseFloat(data[2])).format('0.00000000');
+            data[2] = bcmul(data[0], data[1], 8);
+            a       = bcadd(a, data[1], 8);
+            b       = bcadd(b, data[2], 8);
             data[1] = a;
             data[2] = b;
-        });
-    });
-    // Convert all values to floats
-    $.each(types, function(idx,name){
-        $.each(orders[name],function(ndx,data){
-            data[0] = parseFloat(data[0]);
-            data[1] = parseFloat(data[1]);
         });
     });
     // Sort the data in ascending order
     $.each(types, function(idx, name){
         orders[name].sort(function(a,b){
-            if(a[0] < b[0]) return -1;
-            if(a[0] > b[0]) return 1;
+            if(bcnum(a[0]).lt(bcnum(b[0]))) return -1;
+            if(bcnum(a[0]).gt(bcnum(b[0]))) return 1;
             return 0;
         });
     });

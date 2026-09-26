@@ -78,7 +78,7 @@ function xcDatatableRenderOraclePriceRow(context){
     $('td', row).eq(3).html(isNull(source_address) ? '-' : formatLink('/' + coin + '/address/' + source_address, source_address));
     $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(fiat) ? '-' : fiat);
-    $('td', row).eq(6).html(numeral(value).format(fmtCurrency));
+    $('td', row).eq(6).html(formatAmount(bcformat(value, 2)));
 
 }
 xcDatatableRowHandlers.oracle_price = xcDatatableRenderOraclePriceRow;
@@ -267,7 +267,7 @@ function xcDatatableRenderPriceSnapshotRow(context){
     $('td', row).eq(2).text(isNull(reference_block) ? '-' : numeral(reference_block).format(fmtInteger));
     $('td', row).eq(3).text(isNull(reference_chain) ? '-' : reference_chain);
     $('td', row).eq(4).text(isNull(coin_pair) ? '-' : coin_pair);
-    $('td', row).eq(5).text(isNull(price) ? '-' : numeral(price).format(fmtCurrency));
+    $('td', row).eq(5).text(isNull(price) ? '-' : formatAmount(bcformat(price, 2)));
     $('td', row).eq(6).text(isNull(validators) ? '-' : validators);
     $('td', row).eq(7).text(isNull(round) ? '-' : round);
     $('td', row).eq(8).html('<span class="badge text-bg-secondary">' + (round_status || '-') + '</span>');

@@ -25,7 +25,7 @@ function xcDatatableRenderFeeRow(context){
     // Fee payment method
     let txt = (type2==1) ? 'Destroy' : 'Donate';
     $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
-    $('td', row).eq(5).html(numeral(amount).format(fmtCoin));
+    $('td', row).eq(5).html(formatAmount(bcformat(amount, 8)));
     $('td', row).eq(6).text(txt);
     $('td', row).eq(8).html(action_link);
 

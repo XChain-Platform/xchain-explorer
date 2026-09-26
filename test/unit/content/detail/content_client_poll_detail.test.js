@@ -55,6 +55,8 @@ const XCHAIN_SRC = srcText('src/content/js/xchain.js')
 const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/poll_tally_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/poll.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
+const MATH_SRC   = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/math.min.js'), 'utf8');
+const BC_SRC     = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/xchain/network_status.js'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces, so the test
 // runs shipped code rather than a copy that can drift.
@@ -77,6 +79,7 @@ function extractFn(src, name) {
 // live/revoked verdict is expressed through it, so a stub would test the stub.
 function installHelpers(dom) {
     dom.window.eval(JQUERY_SRC);
+    dom.window.eval(MATH_SRC);
     dom.window.eval(`
         var XC = { coin: 'RBTC', query: '4242', name: 'Bitcoin', network: 'regtest', pageInfo: {}, datatables: {} };
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
@@ -86,6 +89,11 @@ function installHelpers(dom) {
         function loadDatatablesData(){ window.__datatable = Array.prototype.slice.call(arguments); }
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(XCHAIN_SRC, 'isNull')}
+        ${extractFn(XCHAIN_SRC, 'isNumeric')}
+        ${extractFn(BC_SRC, 'bcnum')}
+        ${extractFn(BC_SRC, 'bcadd')}
+        ${extractFn(BC_SRC, 'bcmul')}
+        ${extractFn(BC_SRC, 'bcdiv')}
     `);
     dom.window.eval(RENDER_SRC);
 }

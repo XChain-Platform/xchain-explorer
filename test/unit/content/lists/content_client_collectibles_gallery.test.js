@@ -50,6 +50,8 @@ const XCHAIN_SRC = srcText('src/content/js/xchain.js')
 const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/collectibles_gallery_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/collectibles.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
+const MATH_SRC   = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/math.min.js'), 'utf8');
+const BC_SRC     = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/xchain/network_status.js'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces, so the test
 // runs shipped code rather than a copy that can drift.
@@ -72,6 +74,7 @@ function extractFn(src, name) {
 // stub would test the stub.
 function installHelpers(dom) {
     dom.window.eval(JQUERY_SRC);
+    dom.window.eval(MATH_SRC);
     dom.window.eval(`
         var XC = { coin: 'RDOGE', network: 'regtest', name: 'Dogecoin', pageInfo: {}, datatables: {} };
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
@@ -82,6 +85,8 @@ function installHelpers(dom) {
         ${extractFn(XCHAIN_SRC, 'isNumeric')}
         ${extractFn(XCHAIN_SRC, 'isNftToken')}
         ${extractFn(XCHAIN_SRC, 'getTokenIcon')}
+        ${extractFn(XCHAIN_SRC, 'formatAmount')}
+        ${extractFn(BC_SRC, 'bcnum')}
     `);
     dom.window.eval(RENDER_SRC);
 }
@@ -192,6 +197,24 @@ describe('collectibles gallery (M5.1)', function () {
             const $ = paint(dom, dom.window.renderCollectiblesGallery([OPEN_EDITION]));
             expect($('.collectible-edition').text()).to.equal('37 of 100');
         });
+
+        it('keeps every digit of an edition count above the safe integer boundary', function () {
+            const dom = renderDom();
+            const $ = paint(dom, dom.window.renderCollectiblesGallery([
+                Object.assign({}, ONE_OF_ONE, {
+                    supply: '9007199254740993', max_supply: '9007199254740994'
+                })
+            ]));
+            expect($('.collectible-edition').text())
+                .to.equal('9,007,199,254,740,993 of 9,007,199,254,740,994');
+        });
+    });
+
+});
+
+describe('collectibles gallery (M5.1)', function () {
+
+    describe('what a card claims', function () {
 
         it('names a still-open mint, so a frozen ceiling is not read as a closed edition', function () {
             const dom = renderDom();

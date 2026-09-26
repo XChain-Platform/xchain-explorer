@@ -41,7 +41,14 @@ function richListEsc(s){
 // A percent value as text, or an explicit unmeasured marker. Never "0%".
 function richListPercent(value){
     if(isNull(value)) return '<span class="text-muted rich-list-percent-unknown">n/a</span>';
-    return richListEsc(numeral(Number(value)).format('0,0.0000')) + '%';
+    return richListEsc(formatAmount(bcformat(value, 4))) + '%';
+}
+
+function richListAmount(value){
+    let fixed = bcformat(value, 8)
+        .replace(/(\.[0-9]*?)0+$/, '$1')
+        .replace(/\.$/, '');
+    return formatAmount(fixed);
 }
 
 // Is the summed holder balance materially different from the recorded supply?
@@ -51,7 +58,7 @@ function richListPercent(value){
 function richListSupplyMismatch(d){
     if(!d || isNull(d.supply) || isNull(d.held_total)) return false;
     if(!isNumeric(String(d.supply)) || !isNumeric(String(d.held_total))) return false;
-    return Number(d.supply) !== Number(d.held_total);
+    return !bcnum(d.supply).eq(bcnum(d.held_total));
 }
 
 // The supply/consensus panel: what exists, what is held, and how concentrated.
@@ -62,12 +69,12 @@ function renderRichListSupply(d){
              + '<td>' + value + '</td></tr>';
     };
     let html = '';
-    html += row('Circulating supply', richListEsc(numeral(Number(d.supply)).format('0,0[.][00000000]')));
+    html += row('Circulating supply', richListEsc(richListAmount(d.supply)));
     html += row('Maximum supply', isNull(d.max_supply)
         ? '<span class="text-muted">-</span>'
-        : richListEsc(Number(d.max_supply) === 0
+        : richListEsc(/^0+(\.0+)?$/.test(String(d.max_supply).trim())
             ? 'No cap declared'
-            : numeral(Number(d.max_supply)).format('0,0[.][00000000]'))
+            : richListAmount(d.max_supply))
           + (Number(d.lock_max_supply) === 1
               ? ' <span class="badge text-bg-secondary rich-list-ceiling-locked">locked</span>'
               : ' <span class="badge text-bg-warning rich-list-ceiling-open">can still rise</span>'));
@@ -82,7 +89,7 @@ function renderRichListSupply(d){
     if(richListSupplyMismatch(d))
         html += row('Balances recorded',
             '<span class="text-warning rich-list-supply-mismatch">'
-            + richListEsc(numeral(Number(d.held_total)).format('0,0[.][00000000]'))
+            + richListEsc(richListAmount(d.held_total))
             + '</span> <span class="small text-muted">held across all addresses, which does not match'
             + ' the recorded supply above. Both figures are shown as stored.</span>');
     return html;
@@ -109,7 +116,7 @@ function renderRichListHolders(d){
                   : formatLink('/' + XC.coin + '/address/' + r.address, r.address))
               + '</td>'
               + '<td class="text-end rich-list-amount">'
-              + richListEsc(numeral(Number(r.amount)).format('0,0[.][00000000]')) + '</td>'
+              + richListEsc(richListAmount(r.amount)) + '</td>'
               + '<td class="text-end rich-list-share">' + richListPercent(r.percent) + '</td>'
               + '</tr>';
     });

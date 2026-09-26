@@ -301,9 +301,9 @@ class Utility {
     // Sort rows by their 'price' property; order is 'ASC' or 'DESC'.
     priceSort(data, order='ASC'){
         data.sort((a, b) => {
-            if(a.price > b.price)
+            if(this.bcgt(a.price, b.price))
                 return (order=='DESC') ? -1 : 1;
-            if(a.price < b.price)
+            if(this.bclt(a.price, b.price))
                 return (order=='DESC') ? 1 : -1;
             return 0;
         });

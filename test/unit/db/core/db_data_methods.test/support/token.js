@@ -161,7 +161,7 @@ describe('Database#getToken', () => {
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        expect(data.market.price).to.equal(100);
+        expect(data.market.price).to.equal('100.00000000');
     });
 
     it('groups coin_floor into market.floor', async () => {
@@ -169,7 +169,7 @@ describe('Database#getToken', () => {
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        expect(data.market.floor).to.equal(50);
+        expect(data.market.floor).to.equal('50.00000000');
     });
 
     it('groups max_mint into mints.max', async () => {
@@ -177,7 +177,7 @@ describe('Database#getToken', () => {
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        expect(data.mints.max).to.equal(100);
+        expect(data.mints.max).to.equal('100.00000000');
     });
 
     it('groups mint_address_max into mints.address_max', async () => {
@@ -185,7 +185,20 @@ describe('Database#getToken', () => {
 
         const config = cfg({ data: { search: 'XCHAIN' } });
         const [data] = await db.getToken(config);
-        expect(data.mints.address_max).to.equal(0);
+        expect(data.mints.address_max).to.equal('0.00000000');
+    });
+
+    it('preserves large mint limits and prices as exact decimal strings', async () => {
+        const row = mockResults.tokenRow()[0];
+        row.max_mint = '9007199254740993';
+        row.mint_address_max = '9007199254740993';
+        row.coin_price = '90071992.54740993';
+        sinon.stub(db, 'doQuery').resolves([row]);
+
+        const [data] = await db.getToken(cfg({ data: { search: 'XCHAIN' } }));
+        expect(data.mints.max).to.equal('9007199254740993.00000000');
+        expect(data.mints.address_max).to.equal('9007199254740993.00000000');
+        expect(data.market.price).to.equal('90071992.54740993');
     });
 
     it('groups callback_block into callback.block', async () => {

@@ -101,6 +101,21 @@ describe('Database#getOrderbook: bid/ask price aggregation', () => {
         // Both at same ask price, so they merge into one ask entry
         expect(data.asks.length).to.equal(1);
     });
+
+    it('aggregates separately-created bignumbers at the same price', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ action_index: 5 }, { action_index: 6 }]);
+        const mathjs = require('mathjs');
+        sinon.stub(db, 'getOrderInfoBatch').resolves({
+            5: { give_tick: 'XCHAIN', give_price: mathjs.bignumber('2'), give_remaining: '10' },
+            6: { give_tick: 'XCHAIN', give_price: mathjs.bignumber('2'), give_remaining: '20' }
+        });
+        const config = makeActionConfig('getOrderbook', null);
+        config.data.search = 'XCHAIN';
+        config.data.search2 = 'BTC';
+        const [data] = await db.getOrderbook(config);
+        expect(data.asks).to.have.length(1);
+        expect(data.asks[0][1].toString()).to.equal('30');
+    });
 });
 
 

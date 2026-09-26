@@ -182,8 +182,8 @@ function marketUpdates_historyCandles(data){
     $.each(data,function(idx, item){
         if(item[0]==tstamp){
             close  = item[1];
-            if(item[1]>high) high = item[1];
-            if(item[1]<low)  low  = item[1];
+            if(bcnum(item[1]).gt(bcnum(high))) high = item[1];
+            if(bcnum(item[1]).lt(bcnum(low)))  low  = item[1];
             // Accumulate volume via bignumber to avoid IEEE-754 drift on
             // high-precision token amounts and overflow past MAX_SAFE_INTEGER
             // for large-supply 0-decimal tokens.
@@ -197,7 +197,7 @@ function marketUpdates_historyCandles(data){
             }
             // Update stats
             tstamp = item[0];
-            open   = close;
+            open   = item[1];
             high   = item[1];
             low    = item[1];
             close  = item[1];

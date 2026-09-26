@@ -179,11 +179,11 @@ function renderPollTally(poll, results, votes){
     if(final.length){
         let byOption = {};
         final.forEach(function(r){ byOption[Number(r.option_index)] = r; });
-        let total = final.reduce(function(a, r){ return a + Number(r.total_weight || 0); }, 0);
+        let total = final.reduce(function(a, r){ return bcadd(a, r.total_weight || 0, 18); }, '0');
         opts.forEach(function(label, i){
             let r   = byOption[i] || {};
-            let w   = Number(r.total_weight || 0);
-            let pct = total > 0 ? ((w / total) * 100).toFixed(1) + '%' : '-';
+            let w   = isNull(r.total_weight) ? '0' : String(r.total_weight);
+            let pct = bcnum(total).gt(0) ? bcdiv(bcmul(w, 100, 18), total, 1) + '%' : '-';
             body += '<tr class="poll-tally-row' + (winner === i ? ' poll-tally-winner' : '') + '">'
                  + '<td>' + pollEsc(i) + ': ' + pollEsc(label)
                  + (winner === i ? ' <span class="badge text-bg-success">winner</span>' : '') + '</td>'

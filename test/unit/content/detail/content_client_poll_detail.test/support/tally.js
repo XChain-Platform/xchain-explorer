@@ -56,5 +56,15 @@ describe('poll.html detail page @regression', function () {
             expect($('.poll-tally-ballots').map(function () { return $(this).text().trim(); }).get())
                 .to.deep.equal(['0', '0']);
         });
+
+        it('[closed] rounds an exact 66.65 percent weight share to 66.7 percent', function () {
+            const dom = renderDom();
+            const html = dom.window.renderPollTally(CLOSED_POLL, [
+                { option_index: 0, total_weight: '6003298303284210', voter_count: 1 },
+                { option_index: 1, total_weight: '3003900951455790', voter_count: 1 }
+            ], []);
+            const $ = paint(dom, html);
+            expect($('.poll-tally-row').first().children().last().text()).to.equal('66.7%');
+        });
     });
 });

@@ -235,7 +235,7 @@ function xcDatatableRenderCapabilitySnapshotRow(context){
     $('td', row).eq(2).html(isNull(snapshot_block) ? '-' : formatLink('/' + coin + '/block/' + snapshot_block, numeral(snapshot_block).format(fmtInteger)));
     $('td', row).eq(3).html('<span class="badge text-bg-info">' + escapeHtml(capability || '-') + '</span>');
     $('td', row).eq(4).html(isNull(signing_pubkey) ? '-' : formatHash(signing_pubkey));
-    $('td', row).eq(5).html(isNull(amount) ? '-' : numeral(amount).format(fmtCoin) + ' stake weight');
+    $('td', row).eq(5).html(isNull(amount) ? '-' : formatAmount(bcformat(amount, 8)) + ' stake weight');
     $('td', row).eq(6).text(isNull(source_key) || source_key === '' ? '-' : source_key);
 
 }

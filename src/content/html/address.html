@@ -930,7 +930,7 @@
                 // Native-coin balance/UTXO figures come from the utxo-tracker. When it is not
                 // reachable the API returns nulls; show "Unavailable" rather than blank or null.
                 let na     = function(v){ return (v===null||v===undefined) ? 'Unavailable' : v; };
-                let fmtAmt = function(v){ return (v===null||v===undefined) ? 'Unavailable' : (numeral(v).format('0,0.00000000') + ' ' + XC.coin); };
+                let fmtAmt = function(v){ return (v===null||v===undefined) ? 'Unavailable' : (formatAmount(bcformat(v, 8)) + ' ' + XC.coin); };
                 let fmtInt = function(v){ return (v===null||v===undefined) ? 'Unavailable' : numeral(v).format('0,0'); };
                 $('#address-type').html(na(o.type));
                 $('#balance-confirmed').text(fmtAmt(o.balances.confirmed));

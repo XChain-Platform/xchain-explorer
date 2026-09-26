@@ -236,7 +236,10 @@ function groupTokenRow(db, data, row){
         // Group MINT fields
         } else if(String(key).substring(0,5)=='mint_' || key=='max_mint'){
             name = String(key).replace('mint_','').replace('_mint','');
-            data.mints[name] = Number(value);
+            if(['max','address_max'].includes(name))
+                data.mints[name] = db.util.isNull(value) ? null : db.util.bcformat(value, row['decimals']).toString();
+            else
+                data.mints[name] = db.util.isNull(value) ? null : Number(value);
         // Group CALLBACK fields
         } else if(String(key).substring(0,9)=='callback_'){
             name = String(key).replace('callback_','').replace('coin_','');
@@ -253,7 +256,7 @@ function groupTokenRow(db, data, row){
         // Group COIN fields
         } else if(String(key).substring(0,5)=='coin_'){
             name = String(key).replace('coin_','');
-            data.market[name] = Number(value);
+            data.market[name] = db.util.isNull(value) ? null : db.util.bcformat(value, 8).toString();
         } else {
             data.info[name] = value;
         }

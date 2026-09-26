@@ -54,9 +54,9 @@ function collectibleEditionLabel(row){
     let supply = isNull(row.supply) ? null : String(row.supply);
     let max    = isNull(row.max_supply) ? null : String(row.max_supply);
     if(supply === null || !isNumeric(supply)) return null;
-    let minted = numeral(supply).format('0,0');
-    if(max === null || !isNumeric(max) || Number(max) <= 0) return minted;
-    return minted + ' of ' + numeral(max).format('0,0');
+    let minted = formatAmount(supply);
+    if(max === null || !isNumeric(max) || !bcnum(max).gt(0)) return minted;
+    return minted + ' of ' + formatAmount(max);
 }
 
 // One card. `description` is shown as TEXT even when it holds a TIS URL: the

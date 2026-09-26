@@ -312,12 +312,15 @@ function xcDatatableRenderReorgRow(context){
     let affected_chains = data[4];
     let validator_count = data[5];
     let reorg_status    = data[6];
-    let chains = [];
-    try { chains = JSON.parse(affected_chains) || []; } catch(e){ chains = []; }
+    let chains = [], chainsError = null;
+    if(!isNull(affected_chains)) try { chains = JSON.parse(affected_chains); if(!Array.isArray(chains)) chainsError = 'expected a JSON array'; }
+    catch(e){ chainsError = e && e.message ? e.message : 'could not parse JSON'; }
+    let chainsHtml = Array.isArray(chains) ? chains.map((chain, i) => typeof chain === 'string' && chain.length
+        ? escapeHtml(chain) : '<span class="text-danger">entry ' + (i + 1) + ': invalid chain name</span>').join(', ') : '';
     $('td', row).eq(1).html(isNull(reorg_timestamp) ? '-' : formatLivestamp(Math.floor(reorg_timestamp / 1000)));
     $('td', row).eq(2).html(isNull(reorg_height) ? '-' : formatLink('/' + coin + '/block/' + reorg_height, numeral(reorg_height).format(fmtInteger)));
     $('td', row).eq(3).html(isNull(reorg_id) ? '-' : formatHash(reorg_id, 24));
-    $('td', row).eq(4).text(chains.length ? chains.join(', ') : '-');
+    $('td', row).eq(4).html(chainsError ? '<span class="text-danger">Invalid affected_chains: ' + escapeHtml(chainsError) + '</span>' : (chainsHtml || '-'));
     $('td', row).eq(5).text(isNull(validator_count) ? '-' : validator_count);
     $('td', row).eq(6).html('<span class="badge text-bg-' + (reorg_status=='confirmed' ? 'success' : 'danger') + '">' + escapeHtml(reorg_status || '-') + '</span>');
 

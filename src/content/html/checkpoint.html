@@ -109,23 +109,7 @@ $(document).ready(function() {
         html += fieldRow('Created',       isNull(d.created_at) ? '-' : formatLivestamp(d.created_at));
         $('#checkpoint-fields').html(html);
 
-        // validator_signatures arrives normalized to an array, but a raw string can still
-        // reach here from an unnormalized mirror row, so both shapes are handled.
-        let sigs = d.validator_signatures;
-        if(typeof sigs === 'string'){
-            try { sigs = JSON.parse(sigs); } catch(e){ sigs = null; }
-        }
-        if(!Array.isArray(sigs) || sigs.length === 0){
-            $('#checkpoint-signers').html('<span class="badge text-bg-warning">No signatures attached</span>');
-            return;
-        }
-        let list = '<div class="small text-muted mb-1">' + sigs.length + ' signature' + (sigs.length == 1 ? '' : 's') + ' attached. Attached is not the same as valid; use Verify.</div>';
-        list += '<ul class="list-unstyled mb-0 small font-monospace">';
-        sigs.forEach(function(s){
-            list += '<li>' + esc((s && s.pubkey) ? s.pubkey : String(s)) + '</li>';
-        });
-        list += '</ul>';
-        $('#checkpoint-signers').html(list);
+        $('#checkpoint-signers').html(renderCheckpointSigners(d.validator_signatures));
     }).fail(function(xhr){
         let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
         let msg  = body.error ? body.error : 'Could not load this checkpoint';

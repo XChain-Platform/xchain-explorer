@@ -176,6 +176,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body.is_weighted).to.equal(false);
         expect(res._body.quorum).to.equal(1);
         expect(res._body.valid_sigs).to.equal(1);
+        expect(res._body.valid_signers).to.deep.equal([PK('a')]);
         expect(res._body.verified).to.equal(true);
         expect(res._body.snapshot_available).to.equal(true);
         expect(res._body.validators).to.deep.equal([{ pubkey: PK('a'), weight: '5', source: 'src_a' }]);
@@ -295,6 +296,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
         expect(res._body.quorum).to.equal(2);
         expect(res._body.valid_sigs).to.equal(2);              // b counted once, not dropped
+        expect(res._body.valid_signers).to.deep.equal([PK('a'), PK('b')]);
         expect(res._body.verified).to.equal(true);
     });
 

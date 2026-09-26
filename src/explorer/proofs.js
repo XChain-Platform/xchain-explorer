@@ -137,6 +137,7 @@ class CheckpointProofs {
             is_weighted:   isWeighted,
             quorum:        quorum,
             valid_sigs:    counted.validSigs,
+            valid_signers: counted.validSigners,
             verified:      verified,
             // Tells a client the verdict is STRUCTURAL, not a signature shortfall.
             commitment_missing:      commitmentMissing,

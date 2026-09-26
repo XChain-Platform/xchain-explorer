@@ -16,6 +16,14 @@
  * stubbed verify response instead of asserting on page source text.
  */
 
+function renderCheckpointValidSigners(signers, esc){
+    let validSigners = Array.isArray(signers) ? signers : [];
+    return validSigners.length
+        ? '<ul class="list-unstyled mb-0 small font-monospace checkpoint-valid-signers">'
+            + validSigners.map(function(pubkey){ return '<li>' + esc(pubkey) + '</li>'; }).join('') + '</ul>'
+        : '-';
+}
+
 // Builds the #checkpoint-verdict inner HTML from a verify-endpoint payload.
 // esc/dash/fieldRow are redefined locally rather than shared, matching the
 // per-function local-esc pattern already used by xchain.js (e.g. showBetDetails).
@@ -36,12 +44,15 @@ function renderCheckpointVerdict(v){
         let why = 'The signatures present do not meet the quorum.';
         if(v.commitment_missing)
             why = 'This checkpoint is past the commitment flag day but is missing a root or version field, so it cannot be verified against the current preimage.';
+        else if(v.signatures_unparseable)
+            why = 'The stored validator_signatures field is not valid JSON, so its signatures could not be checked.';
         else if(!v.validators || v.validators.length === 0)
             why = 'No validator set qualified for oracle_publish at the snapshot block, so there is nothing to verify against on this chain yet.';
         html += '<div class="alert alert-warning py-2 mb-2">Not verified. ' + esc(why) + '</div>';
     }
     html += '<table class="table table-sm table-borderless mb-2"><tbody>';
     html += fieldRow('Valid Signatures', dash(v.valid_sigs));
+    html += fieldRow('Valid Signers', renderCheckpointValidSigners(v.valid_signers, esc));
     // The count quorum is NOT the operative threshold once stake weighting is
     // active, so showing it there invites the reader to compare it against the
     // signature count and conclude the verdict is wrong. Past the flag day a
@@ -72,4 +83,34 @@ function renderCheckpointVerdict(v){
     if(!isNull(v.canonical))
         html += '<div class="small text-muted">Canonical signing string</div><pre class="mb-0 small">' + esc(v.canonical) + '</pre>';
     return html;
+}
+
+// validator_signatures arrives normalized to an array, but a raw string can still
+// reach here from an unnormalized mirror row, so both shapes are handled.
+function renderCheckpointSigners(raw){
+    let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
+    let sigs = raw;
+    if(typeof sigs === 'string'){
+        try { sigs = JSON.parse(sigs); }
+        catch(e){
+            return '<span class="text-danger checkpoint-signers-invalid">Invalid validator_signatures field: '
+                + esc(e && e.message ? e.message : 'could not parse JSON') + '</span>';
+        }
+    }
+    if(!Array.isArray(sigs))
+        return '<span class="text-danger checkpoint-signers-invalid">Invalid validator_signatures field: expected a JSON array.</span>';
+    if(sigs.length === 0)
+        return '<span class="badge text-bg-warning">No signatures attached</span>';
+    let list = '<div class="small text-muted mb-1">' + sigs.length + ' signature'
+        + (sigs.length == 1 ? '' : 's') + ' attached. Attached is not the same as valid; use Verify.</div>';
+    list += '<ul class="list-unstyled mb-0 small font-monospace">';
+    sigs.forEach(function(s, i){
+        let pubkey = (s && typeof s === 'object') ? s.pubkey : null;
+        let reason = isNull(pubkey) || String(pubkey) === '' ? 'pubkey is missing'
+            : (isNull(s.sig) || String(s.sig) === '' ? 'sig is missing' : null);
+        list += reason
+            ? '<li class="text-danger checkpoint-signer-invalid">entry ' + (i + 1) + ': ' + esc(reason) + '</li>'
+            : '<li>' + esc(pubkey) + '</li>';
+    });
+    return list + '</ul>';
 }

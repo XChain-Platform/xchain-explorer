@@ -255,7 +255,8 @@ function showActionFeeDetails(data){
         let tick   = (data.tick!='') ? data.tick : false;
         $('#info-fee .fee-tick').html(formatLink(tokenUrl(XC.coin, tick), tick, tick));
         $('#info-fee .fee-amount').html(formatAmount(data.amount));
-        $('#info-fee .fee-method').html(data.method + method);
+        // data.method is an on-chain fee-preference field reaching an .html() sink; escape it.
+        $('#info-fee .fee-method').html(escapeHtml(String(data.method)) + method);
         $('#info-fee .fee-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
     }
 }

@@ -173,3 +173,6 @@ module.exports = { expect, SRC, extractFn, loadClientFns, inspect, PAYLOADS, ren
 
 require('./content_client_xss.test/support/core.js');
 require('./content_client_xss.test/support/rendering.js');
+require('./content_client_xss.test/support/stored_field_escape.js');
+require('./content_client_xss.test/support/media_scheme_guard.js');
+require('./content_client_xss.test/support/link_scheme_guard.js');

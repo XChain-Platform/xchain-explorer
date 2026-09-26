@@ -235,10 +235,10 @@ function formatLinkHtml(url=null, text=null, icon=false, btn=false){
                 return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
             });
         };
-    // A url whose last segment stringified a missing value is not a destination:
-    // render the label alone rather than a dead link. ORDER/SWAP/DISPENSER use an
-    // empty tick to mean the native coin, which built hrefs ending in /token/null.
-    if(/\/(null|undefined)$/.test(String(url)))
+    // A url whose last segment stringified a missing value (the ORDER/SWAP/
+    // DISPENSER native-coin case, ending in /token/null) is not a destination,
+    // and neither is anything but a same-origin relative path or an http(s) URL.
+    if(/\/(null|undefined)$/.test(String(url)) || !/^(\/[^\/\\]|https?:\/\/)/.test(String(url)))
         return (text) ? String(text) : '';
         html += '<a href="' + escapeLinkAttribute(url) + '" class="' + cls + '">';
     // The server 302s a missing icon to the default, but a request the server

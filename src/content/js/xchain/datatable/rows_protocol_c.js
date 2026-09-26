@@ -54,7 +54,7 @@ function xcDatatableRenderCoinpayObligationRow(context){
     // a block link: on regtest the value is nine digits against a tip in the
     // thousands, and the link resolves to a block that cannot exist.
     $('td', row).eq(6).html(isNull(expiration) ? '-' : formatLivestamp(expiration));
-    $('td', row).eq(7).html('<span class="badge text-bg-secondary">' + (pay_status || '-') + '</span>');
+    $('td', row).eq(7).html('<span class="badge text-bg-secondary">' + escapeHtml(String(pay_status || '-')) + '</span>');
     $('td', row).eq(8).html(action_link);
 
 }
@@ -208,7 +208,7 @@ function xcDatatableRenderValidatorCapabilityRow(context){
     let yesno = (v) => '<span class="badge text-bg-' + (v == 1 ? 'success' : 'secondary') + '">' + (v == 1 ? 'Yes' : 'No') + '</span>';
     $('td', row).eq(1).html(formatLivestamp(updated_at));
     $('td', row).eq(2).html(formatHash(pubkey));
-    $('td', row).eq(3).html('<span class="badge text-bg-info">' + (capability || '-') + '</span>');
+    $('td', row).eq(3).html('<span class="badge text-bg-info">' + escapeHtml(String(capability || '-')) + '</span>');
     $('td', row).eq(4).html(yesno(qualified));
     $('td', row).eq(5).html(yesno(self_test_ok));
     $('td', row).eq(6).html(yesno(enabled));
@@ -284,7 +284,7 @@ function xcDatatableRenderGovernanceProposalRow(context){
     $('td', row).eq(2).text(isNull(parameter) ? '-' : parameter);
     $('td', row).eq(3).text(isNull(current_value) ? '-' : current_value);
     $('td', row).eq(4).text(isNull(proposed_value) ? '-' : proposed_value);
-    $('td', row).eq(5).html('<span class="badge text-bg-secondary">' + (pstatus || '-') + '</span>');
+    $('td', row).eq(5).html('<span class="badge text-bg-secondary">' + escapeHtml(String(pstatus || '-')) + '</span>');
     $('td', row).eq(6).html(formatLivestamp(voting_end));
     $('td', row).eq(7).html(isNull(activation) ? '-' : formatLink('/' + coin + '/block/' + activation, numeral(activation).format(fmtInteger)));
     $('td', row).eq(8).html(formatHash(proposer));
@@ -303,7 +303,7 @@ function xcDatatableRenderGovernanceVoteRow(context){
     $('td', row).eq(1).html(formatLivestamp(created_at));
     $('td', row).eq(2).html(isNull(proposal_id) ? '-' : formatLink('/' + coin + '/governance_votes/' + proposal_id + '/proposal', proposal_id));
     $('td', row).eq(3).html(formatHash(voter));
-    $('td', row).eq(4).html('<span class="badge text-bg-' + (vote == 'approve' ? 'success' : 'danger') + '">' + (vote || '-') + '</span>');
+    $('td', row).eq(4).html('<span class="badge text-bg-' + (vote == 'approve' ? 'success' : 'danger') + '">' + escapeHtml(String(vote || '-')) + '</span>');
 
 }
 xcDatatableRowHandlers.governance_vote = xcDatatableRenderGovernanceVoteRow;
@@ -334,7 +334,7 @@ function xcDatatableRenderConsensusStateRow(context){
     let key_name   = data[2];
     value          = data[3];
     $('td', row).eq(1).html(isNull(updated_at) ? '-' : formatLivestamp(updated_at));
-    $('td', row).eq(2).html('<span class="badge text-bg-info">' + (isNull(key_name) ? '-' : key_name) + '</span>');
+    $('td', row).eq(2).html('<span class="badge text-bg-info">' + (isNull(key_name) ? '-' : escapeHtml(String(key_name))) + '</span>');
     $('td', row).eq(3).html(isNull(value) ? '-' : '<code>' + escapeHtml(String(value)) + '</code>');
 
 }
@@ -353,7 +353,7 @@ function xcDatatableRenderConfigRow(context){
     $('td', row).eq(1).html(isNull(updated_at) ? '-' : formatLivestamp(updated_at));
     $('td', row).eq(2).text(isNull(coin_col) ? '-' : coin_col);
     $('td', row).eq(3).text(isNull(network_col) ? '-' : network_col);
-    $('td', row).eq(4).html('<span class="badge text-bg-secondary">' + (isNull(module_col) ? '-' : module_col) + '</span>');
+    $('td', row).eq(4).html('<span class="badge text-bg-secondary">' + (isNull(module_col) ? '-' : escapeHtml(String(module_col))) + '</span>');
     $('td', row).eq(5).text(isNull(param_name) ? '-' : param_name);
     $('td', row).eq(6).html(isNull(param_value) ? '-' : '<code>' + escapeHtml(String(param_value)) + '</code>');
 
@@ -372,7 +372,7 @@ function xcDatatableRenderTelemetryPingRow(context){
     let country      = data[6];
     let region       = data[7];
     $('td', row).eq(1).html(isNull(created_at) ? '-' : formatLivestamp(created_at));
-    $('td', row).eq(2).html('<span class="badge text-bg-info">' + (isNull(event) ? '-' : event) + '</span>');
+    $('td', row).eq(2).html('<span class="badge text-bg-info">' + (isNull(event) ? '-' : escapeHtml(String(event))) + '</span>');
     $('td', row).eq(3).text(isNull(node_version) ? '-' : node_version);
     $('td', row).eq(4).text(isNull(os_platform) ? '-' : os_platform);
     $('td', row).eq(5).text(isNull(arch) ? '-' : arch);

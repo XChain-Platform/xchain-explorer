@@ -295,7 +295,7 @@ function xcDatatableRenderPollRow(context){
     let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
     $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(question) ? '-' : question);
-    $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + (poll_status || '-') + '</span>');
+    $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + escapeHtml(String(poll_status || '-')) + '</span>');
     $('td', row).eq(7).html(isNull(end_block) ? '-' : formatLink('/' + coin + '/block/' + end_block, numeral(end_block).format(fmtInteger)));
     $('td', row).eq(8).html(isNull(binding) ? '-' : formatLinkHtml('/' + coin + '/contract/' + binding, '<span class="badge text-bg-danger">Binding</span>', 'Binding poll: finalization calls contract ' + binding));
     $('td', row).eq(9).text(isNull(winner_index) ? '-' : (winner_index + (isNull(winner_label) ? '' : ': ' + winner_label)));
@@ -382,7 +382,7 @@ function xcDatatableRenderXcallRow(context){
     $('td', row).eq(4).text(isNull(target_chain) ? '-' : target_chain);
     $('td', row).eq(5).text(isNull(target_contract_index) ? '-' : target_contract_index);
     $('td', row).eq(6).text(isNull(method) ? '-' : method);
-    $('td', row).eq(7).html('<span class="badge text-bg-' + cls + '">' + (request_status || '-') + '</span>');
+    $('td', row).eq(7).html('<span class="badge text-bg-' + cls + '">' + escapeHtml(String(request_status || '-')) + '</span>');
     $('td', row).eq(8).html(action_link);
 
 }

@@ -244,7 +244,10 @@ function xcDatatableRenderDeployChunkRow(context){
     let codeHash = data[4];
     let chunkIdx = data[5];
     let total    = data[6];
-    $('td', row).eq(4).html(isNull(codeHash) ? '-' : '<span class="font-monospace" title="' + codeHash + '">' + String(codeHash).substring(0,16) + '…</span>');
+    // codeHash is an on-chain CODE_HASH field; the indexer persists an invalid
+    // one as-is, so it can carry markup. formatHash escapes both the title
+    // attribute and the truncated body.
+    $('td', row).eq(4).html(isNull(codeHash) ? '-' : formatHash(codeHash));
     $('td', row).eq(5).text(isNull(chunkIdx) ? '-' : numeral(chunkIdx).format('0,0'));
     $('td', row).eq(6).text(isNull(total) ? '-' : numeral(total).format('0,0'));
     $('td', row).eq(7).html(action_link);

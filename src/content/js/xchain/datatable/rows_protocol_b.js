@@ -54,7 +54,7 @@ function xcDatatableRenderCapabilitySlashEventRow(context){
     let submitter          = data[6];
     let slash_action_index = data[7];
     $('td', row).eq(3).html(formatHash(pubkey));
-    $('td', row).eq(4).html('<span class="badge text-bg-secondary">' + (capability || '-') + '</span>');
+    $('td', row).eq(4).html('<span class="badge text-bg-secondary">' + escapeHtml(String(capability || '-')) + '</span>');
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(6).html(isNull(submitter) ? '-' : formatLink('/' + coin + '/address/' + submitter, submitter));
     $('td', row).eq(7).html(formatLink('/' + coin + '/action/' + slash_action_index, 'view', null, true));
@@ -112,7 +112,7 @@ function xcDatatableRenderRewardRow(context){
     let reward_type = data[5];
     amount          = data[6];
     $('td', row).eq(4).html(formatHash(pubkey));
-    $('td', row).eq(5).html('<span class="badge text-bg-secondary">' + (reward_type || '-') + '</span>');
+    $('td', row).eq(5).html('<span class="badge text-bg-secondary">' + escapeHtml(String(reward_type || '-')) + '</span>');
     $('td', row).eq(6).html(formatAmount(amount));
 
 }
@@ -171,7 +171,7 @@ function xcDatatableRenderCrossChainMatchRow(context){
     $('td', row).eq(7).text(isNull(b_chain) ? '-' : b_chain);
     $('td', row).eq(8).html(isNull(b_tick) ? '-' : formatLink(tokenUrl(coin, b_tick), b_tick, b_tick));
     $('td', row).eq(9).html(formatAmount(b_amount));
-    $('td', row).eq(10).html('<span class="badge text-bg-secondary">' + (mstatus || '-') + '</span>');
+    $('td', row).eq(10).html('<span class="badge text-bg-secondary">' + escapeHtml(String(mstatus || '-')) + '</span>');
 
 }
 xcDatatableRowHandlers.cross_chain_match = xcDatatableRenderCrossChainMatchRow;
@@ -270,7 +270,7 @@ function xcDatatableRenderPriceSnapshotRow(context){
     $('td', row).eq(5).text(isNull(price) ? '-' : formatAmount(bcformat(price, 2)));
     $('td', row).eq(6).text(isNull(validators) ? '-' : validators);
     $('td', row).eq(7).text(isNull(round) ? '-' : round);
-    $('td', row).eq(8).html('<span class="badge text-bg-secondary">' + (round_status || '-') + '</span>');
+    $('td', row).eq(8).html('<span class="badge text-bg-secondary">' + escapeHtml(String(round_status || '-')) + '</span>');
 
 }
 xcDatatableRowHandlers.price_snapshot = xcDatatableRenderPriceSnapshotRow;

@@ -204,3 +204,54 @@ function resolveArtworkTitle(topTitle, entries){
     }
     return false;
 }
+
+// True when url is an http(s) string. video/audio are on-chain token metadata
+// (attacker-controlled) and the youtube/soundcloud branches below only test
+// for a substring, which a "javascript:...//youtube" value also matches; the
+// scheme check has to run before that test, not stand in for it.
+function isHttpUrl(url){
+    return typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
+}
+
+// Build and show the video element, gated to an http(s) source: escapeHtml
+// alone does not stop a javascript: URI, which does not need any of the five
+// characters it escapes, and the youtube test below is a bare substring match
+// that a "javascript:...//youtube" value also passes.
+function tokenContent_displayVideo(video){
+    $('#video-header').show();
+    var el  = $('#video-wrapper'),
+        arr = video.split('.'),
+        ext = arr[arr.length-1].toLowerCase();
+    if(!isHttpUrl(video)) return;
+    var html;
+    if(/youtube/.test(video)){
+        el   = $('#video-wrapper-youtube');
+        html = '<iframe src="' + escapeHtml(video) + '" frameborder="0" allowfullscreen class="embedded-video"></iframe>';
+    } else {
+        var type = '';
+        if(ext=='mp4') type = 'video/mp4';
+        if(ext=='wmv') type = 'video/x-ms-asf';
+        if(ext=='mov') type = 'video/quicktime'
+        // `video` is an on-chain media URL (attacker-controlled); escape it so it
+        // cannot break out of the src attribute. `type` is a fixed constant above.
+        html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + escapeHtml(video) + '"></video>';
+    }
+    el.html(html).show();
+}
+
+// Build and show the audio element, gated to an http(s) source (same reason
+// as tokenContent_displayVideo above).
+function tokenContent_displayAudio(audio){
+    $('#audio-header').show();
+    var el = $('#audio-wrapper');
+    if(!isHttpUrl(audio)) return;
+    var html;
+    if(/soundcloud/.test(audio)){
+        el = $('#audio-wrapper-soundcloud');
+        html = '<iframe src="https://w.soundcloud.com/player/?url=' + escapeHtml(audio) + '" frameborder="0" allowfullscreen class="soundcloud-audio"></iframe>';
+    } else {
+        // `audio` is an on-chain media URL (attacker-controlled); escape it.
+        html = '<audio src="' + escapeHtml(audio) + '" autoplay="true" controls loop preload></audio>';
+    }
+    el.html(html).show();
+}

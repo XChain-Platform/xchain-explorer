@@ -47,7 +47,7 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         // defaults described an action it never took.
         if(info.action_format==1){
             let verb = (info.unbind==1) ? 'Unbind' : 'Bind';
-            html += verb + ' ' + (info.action_class || '-');
+            html += verb + ' ' + escapeHtml(String(info.action_class || '-')); // on-chain field into .html()
             if(info.controller != null)
                 html += ' ' + formatLink('/' + coin + '/action/' + info.controller, info.controller);
         } else {

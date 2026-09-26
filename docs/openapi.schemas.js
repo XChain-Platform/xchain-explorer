@@ -114,8 +114,11 @@ const ROWS = [
         ACTION_HEAD + ' destination:s tick:s amount:s memo:s status:s ' + TX_TAIL],
     ['Order', 'getOrders', 'ORDER action data',
         ACTION_HEAD + ' give_coin:s give_tick:s give_amount:s give_ownership:i get_coin:s get_tick:s get_amount:s'
-            + ' get_ownership:i get_address:s expiration:d allow_list:d block_list:d payout_legs:s memo:s status:s ' + TX_TAIL,
-        { payout_legs: 'JSON [{to,bps}] split of seller proceeds applied at match; null when none' }],
+            + ' get_ownership:i get_address:s expiration:d allow_list:d block_list:d payout_legs:s memo:s status:s'
+            + ' order_status:s give_remaining:s ' + TX_TAIL,
+        { payout_legs: 'JSON [{to,bps}] split of seller proceeds applied at match; null when none',
+            order_status: 'The order\'s lifecycle status from its latest status row; `status` is the validity of the creating action only',
+            give_remaining: 'give_amount less the valid matches filled against it; 0 when the creating action is not valid' }],
     ['OrderCancel', 'getOrderCancels', 'ORDER_CANCEL action data',
         ACTION_HEAD + ' order_action_index:d memo:s status:s ' + TX_TAIL],
     ['OrderEdit', 'getOrderEdits', 'ORDER_EDIT action data',

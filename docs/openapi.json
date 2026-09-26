@@ -14571,6 +14571,13 @@
               "null"
             ]
           },
+          "give_remaining": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "give_amount less the valid matches filled against it; 0 when the creating action is not valid"
+          },
           "give_tick": {
             "type": [
               "string",
@@ -14582,6 +14589,13 @@
               "string",
               "null"
             ]
+          },
+          "order_status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The order's lifecycle status from its latest status row; `status` is the validity of the creating action only"
           },
           "payout_legs": {
             "type": [

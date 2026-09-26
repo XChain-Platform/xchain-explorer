@@ -62,7 +62,23 @@ const GET_ORDERS_QUERY_SQL = `SELECT
                         t2.hash as tx_hash,
                         t1.tx_index,
                         m1.memo,
-                        s1.status
+                        s1.status,
+                        os_ist.status as order_status,
+                        (
+                            CASE WHEN s1.status='valid' THEN CAST(m.give_amount AS DECIMAL(65,18)) ELSE 0 END
+                            - COALESCE((
+                                SELECT SUM(
+                                    CASE WHEN om.get_action_index=m.action_index
+                                         THEN CAST(om.give_amount AS DECIMAL(65,18))
+                                         ELSE CAST(om.get_amount AS DECIMAL(65,18))
+                                    END
+                                )
+                                FROM order_matches om
+                                INNER JOIN index_statuses oms ON (oms.id=om.status_id)
+                                WHERE (om.give_action_index=m.action_index OR om.get_action_index=m.action_index)
+                                    AND oms.status='valid'
+                            ), 0)
+                        ) as give_remaining
                     FROM
                         orders m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -78,6 +94,9 @@ const GET_ORDERS_QUERY_SQL = `SELECT
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN order_statuses     os  ON (os.order_action_index=m.action_index
+                            AND os.action_index=(SELECT MAX(os2.action_index) FROM order_statuses os2 WHERE os2.order_action_index=m.action_index))
+                        LEFT  JOIN index_statuses     os_ist ON (os_ist.id=os.status_id)
                     WHERE `;
 
 class OrderReaders {

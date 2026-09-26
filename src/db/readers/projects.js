@@ -73,7 +73,8 @@ async function rostersByDirectMembership(db, config, tick, chain){
                         INNER JOIN list_items     li ON (li.action_index=lk.coin1_action_index)
                         INNER JOIN index_tickers  t2 ON (t2.id=li.item_id AND t2.tick=?)
                         INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
-                    ORDER BY latest.link_action_index DESC`;
+                    ORDER BY latest.link_action_index DESC
+                    LIMIT 1000`;
     let rows = await db.doQuery(config, query, [chain, chain, tick]);
     if(!rows || !rows.length) return [];
     return rows.map(r => ({
@@ -90,7 +91,8 @@ async function rostersByDirectMembership(db, config, tick, chain){
 async function rostersByResolvedListHead(db, config, tick, chain){
     let candidates = await db.doQuery(config, ROSTER_SELECT + LATEST_ROSTER_LINKS + `
                         INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
-                    ORDER BY latest.link_action_index DESC`, [chain, chain]);
+                    ORDER BY latest.link_action_index DESC
+                    LIMIT 1000`, [chain, chain]);
     if(!candidates || !candidates.length) return [];
     let heads   = await db.getListHeadIndexes(config, candidates.map(r => Number(r.roster_action_index)));
     let rosters = candidates.map(r => ({

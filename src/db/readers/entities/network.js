@@ -16,12 +16,12 @@
  *
  * One part of src/db/readers/entities.js (the entry composes it through
  * composeReaderParts). The mempool feed, the /api/network summary and the
- * per-action-type totals it quotes, with the tip generation stamp that
- * decides when a cached total is still the same chain state.
+ * per-action-type totals it quotes, with a bounded cache that keeps those
+ * growing-table counts off the request path during its lifetime.
  *
  * Totals travel with the summary that serves them: the counters are
- * expensive enough to be cached, and the only reason the cache can be
- * trusted is the tip generation read immediately above them.
+ * expensive enough to be cached, the TTL bounds their age, and a reorg
+ * generation prevents rolled-back values from surviving a chain rewrite.
  *
  * Authored as a class body whose prototype is exported, like every other
  * family under src/db/: `this` is the Database instance at call time, and the
@@ -123,6 +123,37 @@ function buildNetworkSummary(config, reqNetwork, parts){
         // XCHAIN_CONFIRMATIONS_<COIN> env overrides (#3212).
         finality: coinsRegistry.resolveConfirmations(config, reqNetwork)
     };
+}
+
+async function readActionTotals(db, config, coin){
+    let tables = structuredClone(db.actionTables);
+    tables.push('tokens');
+    let totals = {};
+    let dbName = db.pools && db.pools[coin] && db.pools[coin].config
+        ? db.pools[coin].config.database
+        : null;
+    // Count only tables present in the active schema so a partial migration
+    // cannot make the complete network response fail.
+    let countTables = tables.filter(t => t !== 'full_node_verifications');
+    if(dbName && countTables.length){
+        let placeholders = countTables.map(() => '?').join(',');
+        let existing = await db.doQuery(config,
+            `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME IN (${placeholders})`,
+            [dbName, ...countTables]);
+        let names = (existing || []).map(r => r.TABLE_NAME);
+        if(names.length){
+            let unionSql = names.map(t => `SELECT '${t}' AS t, COUNT(*) AS c FROM \`${t}\``).join(' UNION ALL ');
+            let rows = await db.doQuery(config, unionSql);
+            if(rows && rows.length)
+                for(let row of rows)
+                    totals[row.t] = Number(row.c);
+        }
+    }
+    // Count one verification per action because the table fans out by validator.
+    let fnvResult = await db.doQuery(config, `SELECT count(DISTINCT action_index) as count FROM full_node_verifications`);
+    if(fnvResult && fnvResult.length)
+        totals['full_node_verifications'] = Number(fnvResult[0].count);
+    return totals;
 }
 
 class EntityNetworkReaders {
@@ -240,50 +271,9 @@ class EntityNetworkReaders {
         return [data];
     }
 
-    // Generation token for the network-totals cache: the coin's current indexed tip
-    // height, briefly memoized per coin (EXPLORER_TIP_MEMO_MS, default 1s) so a
-    // request burst collapses onto a single MAX(block_index) lookup rather than
-    // one per request. A probe that fails returns null, which makes the caller
-    // skip the cache for that request: never serve a possibly-stale total because
-    // the freshness check itself broke. An empty blocks table is a real answer
-    // (nothing indexed yet), not a failed probe, so it gets a generation of its
-    // own ('none') rather than falling through to null.
-    async totalsTipGeneration(config){
-        const coin = config.coin;
-        const ttl  = parseInt(this.configInfo.env.EXPLORER_TIP_MEMO_MS, 10);
-        if(!this._totalsTipMemo) this._totalsTipMemo = {};
-        const memo = this._totalsTipMemo[coin];
-        if(memo && (Date.now() - memo.at) < (Number.isFinite(ttl) ? ttl : 1000))
-            return memo.tip;
-        let tip = null;
-        try {
-            const rows = await this.doQuery(config, 'SELECT MAX(block_index) AS tip FROM blocks', []);
-            if(rows && rows.length && !this.util.isNull(rows[0].tip))
-                tip = String(rows[0].tip);
-            else if(rows)
-                tip = 'none';
-        } catch(e){
-            tip = null;
-        }
-        this._totalsTipMemo[coin] = { tip, at: Date.now() };
-        return tip;
-    }
-
     // Exact per-action-table record counts for the homepage counters, cached per coin.
-    // COUNT(*) is exact (information_schema.TABLE_ROWS is only an optimizer estimate and
-    // visibly disagreed with the list views), but scanning the large action tables on every
-    // /api/network call would be wasteful, so the result is cached for EXPLORER_TOTALS_CACHE_MS
-    // (default 60s) per coin.
-    //
-    // The entry is keyed on the coin's current indexed tip and reorg generation, not on the
-    // coin alone. The counts are COUNT(*)s over tables the indexer only rewrites when it
-    // applies a block, so a set of counts belongs to the block it was taken at, and the TTL
-    // is only a ceiling on top of that. Keyed on the coin alone, counts read while a coin
-    // was still catching up - the state that answers 503 COIN_DATA_STALE - kept answering
-    // the public homepage for the rest of the flat TTL after the coin was healthy again, so
-    // a live coin rendered its counters at their outage values. A null generation means the
-    // tip probe itself failed: serve the counts but cache nothing, rather than let a
-    // possibly-stale set outlive the outage that produced it.
+    // The stable TTL bounds count frequency even while the indexed tip advances, and one
+    // shared promise collapses simultaneous cold requests onto the same count pass.
     //
     // NOTE ON THE CLIENT: the response carries no Cache-Control and no Expires, so nothing
     // here is cached by HTTP. The explorer's own page script keeps the parsed response in
@@ -292,46 +282,25 @@ class EntityNetworkReaders {
     async getActionTotals(config){
         const coin = config.coin;
         const ttl  = parseInt(this.configInfo.env.EXPLORER_TOTALS_CACHE_MS, 10) || 60000;
-        const gen  = await this.totalsTipGeneration(config);
-        // Only the newest generation for a coin is ever useful, so keep one entry per coin
-        // and compare its key rather than accumulating an entry per block.
-        const key  = (gen === null) ? null : [coin, this._reorgGen[coin] || 0, gen].join('|');
+        const key  = [coin, this._reorgGen[coin] || 0].join('|');
         if(!this._totalsCache) this._totalsCache = {};
-        const cached = (key === null) ? null : this._totalsCache[coin];
+        if(!this._totalsLoads) this._totalsLoads = {};
+        const cached = this._totalsCache[coin];
         if(cached && cached.key === key && (Date.now() - cached.at) < ttl)
             return cached.totals;
-        let tables = structuredClone(this.actionTables);
-        tables.push('tokens');
-        let totals = {};
-        let dbName = this.pools && this.pools[coin] && this.pools[coin].config
-            ? this.pools[coin].config.database
-            : null;
-        // full_node_verifications fans out per validator, so COUNT(*) over-counts; it needs
-        // COUNT(DISTINCT action_index). Every other whitelist table gets an exact COUNT(*).
-        let countTables = tables.filter(t => t !== 'full_node_verifications');
-        if(dbName && countTables.length){
-            // Restrict to tables that actually exist so a not-yet-migrated table can't fail the
-            // whole UNION, then count the survivors in one round trip. Table names come from the
-            // hardcoded actionTables whitelist (never user input), so interpolating them is safe.
-            let placeholders = countTables.map(() => '?').join(',');
-            let existing = await this.doQuery(config,
-                `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME IN (${placeholders})`,
-                [dbName, ...countTables]);
-            let names = (existing || []).map(r => r.TABLE_NAME);
-            if(names.length){
-                let unionSql = names.map(t => `SELECT '${t}' AS t, COUNT(*) AS c FROM \`${t}\``).join(' UNION ALL ');
-                let rows = await this.doQuery(config, unionSql);
-                if(rows && rows.length)
-                    for(let row of rows)
-                        totals[row.t] = Number(row.c);
-            }
-        }
-        let fnvResult = await this.doQuery(config, `SELECT count(DISTINCT action_index) as count FROM full_node_verifications`);
-        if(fnvResult && fnvResult.length)
-            totals['full_node_verifications'] = Number(fnvResult[0].count);
-        if(key !== null)
+        let active = this._totalsLoads[coin];
+        if(active && active.key === key)
+            return active.promise;
+        let promise = readActionTotals(this, config, coin);
+        this._totalsLoads[coin] = { key, promise };
+        try {
+            let totals = await promise;
             this._totalsCache[coin] = { key, at: Date.now(), totals };
-        return totals;
+            return totals;
+        } finally {
+            if(this._totalsLoads[coin] && this._totalsLoads[coin].promise === promise)
+                delete this._totalsLoads[coin];
+        }
     }
 }
 

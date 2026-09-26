@@ -377,6 +377,8 @@ describe('the project registry shows the roster the chain enforces', function ()
             await db.getTokenProjects({ coin: 'RBTC' }, 'TOKENONE');
             const call = db.calls.find((c) => /FROM list_items li INNER JOIN index_tickers t2/.test(c.sql));
             expect(call.args).to.deep.equal(['TOKENONE', EDIT, OTHER_ROOT]);
+            const candidates = db.calls.find((c) => /GROUP BY i1\.tick_id/.test(c.sql));
+            expect(candidates.sql).to.include('LIMIT 1000');
         });
 
         it('runs the single-query legacy form below the flag day', async function () {

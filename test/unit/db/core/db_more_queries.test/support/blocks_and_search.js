@@ -121,8 +121,8 @@ describe('Database#getSearch', () => {
         let callN = 0;
         sinon.stub(db, 'doQuery').callsFake(async () => {
             callN++;
-            // 4 count queries run first via Promise.all; address (index 0) matches with count=1
-            if(callN <= 4) return [{ count: callN === 1 ? 1 : 0 }];
+            // Five bounded count queries run first; address (index 0) matches with count=1.
+            if(callN <= 5) return [{ count: callN === 1 ? 1 : 0 }];
             return [{ address: 'addr1' }];
         });
         const config = makeActionConfig('getSearch', 'address');
@@ -136,7 +136,7 @@ describe('Database#getSearch', () => {
         let callN = 0;
         sinon.stub(db, 'doQuery').callsFake(async () => {
             callN++;
-            if(callN <= 4) return [{ count: callN === 4 ? 2 : 0 }]; // token is last in array
+            if(callN <= 5) return [{ count: callN === 4 ? 2 : 0 }];
             return [{ tick: 'XCHAIN', description: 'Gas Token' }];
         });
         const config = makeActionConfig('getSearch', 'token');
@@ -164,22 +164,26 @@ describe('Database#getSearch', () => {
         expect(spy.callCount).to.equal(0);
     });
 
-    it('returns zero results immediately for empty search string', async () => {
+    it('returns zero results immediately when search exceeds 256 bytes', async () => {
         const spy = sinon.spy(db, 'doQuery');
         const config = makeActionConfig('getSearch', 'address');
-        config.data.search = '';
+        config.data.search = 'x'.repeat(257);
         const [data, , total] = await db.getSearch(config);
         expect(total).to.equal(0);
+        expect(data.data).to.deep.equal([]);
         expect(spy.callCount).to.equal(0);
     });
 
     it('proceeds normally when search term meets minimum length (3+ chars)', async () => {
-        sinon.stub(db, 'doQuery').resolves([{ count: 0 }]);
+        const stub = sinon.stub(db, 'doQuery').resolves([{ count: 0 }]);
         const config = makeActionConfig('getSearch', 'address');
         config.data.search = 'abc';
         const [data, , total] = await db.getSearch(config);
         expect(total).to.equal(0);
         expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'contracts', 'tokens', 'transactions']);
+        expect(stub.callCount).to.equal(5);
+        for(const call of stub.getCalls()) expect(call.args[1]).to.include('LIMIT 100');
+        expect(stub.firstCall.args[2]).to.deep.equal(['abc%']);
     });
 
     // Search results stop at 100 rows whatever limit the pager asks for, so a
@@ -189,7 +193,7 @@ describe('Database#getSearch', () => {
         let callN = 0;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             callN++;
-            if(callN <= 4) return [{ count: callN === 1 ? 5 : 0 }];
+            if(callN <= 5) return [{ count: callN === 1 ? 5 : 0 }];
             capturedQuery = q;
             return [{ address: 'addr1' }];
         });

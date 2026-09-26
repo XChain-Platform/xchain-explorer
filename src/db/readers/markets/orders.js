@@ -101,7 +101,9 @@ const GET_ORDERBOOK_QUERY_SQL_2 = ` AND
                             WHERE
                                 s3.order_action_index=m.action_index
                         ) AND
-                        s2.status='open'`;
+                        s2.status='open'
+                    ORDER BY m.action_index DESC
+                    LIMIT 1000`;
 
 class MarketOrderReaders { 
 
@@ -150,8 +152,8 @@ class MarketOrderReaders {
             asks: [],
             bids: []
         };
-        let bids   = [];
-        let asks   = [];
+        let bids   = new Map();
+        let asks   = new Map();
         let tick1  = config.data.search;
         let tick2  = config.data.search2;
         let sql    = config.data.sql;
@@ -168,31 +170,23 @@ class MarketOrderReaders {
                 let give  = marketSideLabel(order.give_tick, order.give_coin);
                 let type  = (give==tick2) ? 'bid' : 'ask';
                 let price = (give==tick2) ? order.get_price : order.give_price;
-                let found = false;
+                // Use the exact decimal value as the bucket key so equivalent
+                // forms such as 2 and 2.0 share one price level.
+                let key = this.util.bcnum(price).toFixed();
                 if(type=='bid'){
-                    for(let bid of bids){
-                        if(!this.util.bcgt(bid.price, price) && !this.util.bclt(bid.price, price)){
-                            bid.amount = this.util.bcadd(bid.amount, order.get_remaining);
-                            found = true;
-                        }
-                    }
-                    if(!found)
-                        bids.push({ price: price, amount: order.get_remaining });
+                    let bid = bids.get(key);
+                    if(bid) bid.amount = this.util.bcadd(bid.amount, order.get_remaining);
+                    else bids.set(key, { price: price, amount: order.get_remaining });
                 }
                 if(type=='ask'){
-                    for(let ask of asks){
-                        if(!this.util.bcgt(ask.price, price) && !this.util.bclt(ask.price, price)){
-                            ask.amount = this.util.bcadd(ask.amount, order.give_remaining);
-                            found = true;
-                        }
-                    }
-                    if(!found)
-                        asks.push({ price: price, amount: order.give_remaining });
+                    let ask = asks.get(key);
+                    if(ask) ask.amount = this.util.bcadd(ask.amount, order.give_remaining);
+                    else asks.set(key, { price: price, amount: order.give_remaining });
                 }
             }
             // Sort asks and bids
-            bids = this.util.priceSort(bids,'DESC');
-            asks = this.util.priceSort(asks,'ASC');
+            bids = this.util.priceSort([...bids.values()],'DESC');
+            asks = this.util.priceSort([...asks.values()],'ASC');
             // Add the bids and asks to the response object
             for(let bid of bids)
                 data.bids.push([bid.price, bid.amount]);

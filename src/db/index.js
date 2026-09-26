@@ -86,7 +86,6 @@ const { ACTION_TABLES, CURSOR_PAGED_METHODS } = require('./method_tables.js');
 // COALESCE(<actions alias>.source_id, t1.source_id); the fallback covers system/synthetic
 // actions (expiries, completion UNSTAKEs), which are created with no SOURCE at all.
 class Database {
-
     constructor(explorer){
         this.explorer   = explorer;
         this.configInfo = explorer.configInfo
@@ -95,9 +94,7 @@ class Database {
         this.configInfo.onConfigChanged(()=>{
             this.setupConnectionPools();
         })
-
         this.transactionConnection = null;
-
         // LRU caches for frequently-queried immutable lookups
         this._addressIdCache  = new Map();
         // Byte-exact address -> id resolutions (getExactAddressId). Kept apart from

@@ -36,6 +36,7 @@
  *   - search.js          the site search
  *   - orders.js          one order's row, edits and remaining amounts
  *   - order_batches.js   the dispenser and order batch readers
+ *   - dispenser_prices.js the current price-source availability for dispensers
  *   - destinations.js    the live feed's destination attachment
  *   - this file          getActionData itself
  *
@@ -71,6 +72,7 @@ const summaryMethods     = require('./action_detail_io/batches.js');
 const searchMethods      = require('./action_detail_io/search.js');
 const orderMethods       = require('./action_detail_io/orders.js');
 const orderBatchMethods  = require('./action_detail_io/order_batches.js');
+const dispenserPrices    = require('./action_detail_io/dispenser_prices.js');
 const destinationMethods = require('./action_detail_io/destinations.js');
 
 // Run the handler's own queries for one action: the main row (or the de-blanked
@@ -204,5 +206,6 @@ module.exports = composeReaderParts(
     searchMethods,
     orderMethods,
     orderBatchMethods,
+    dispenserPrices,
     destinationMethods
 );

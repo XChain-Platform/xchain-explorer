@@ -55,9 +55,9 @@ function chainAndBalanceRows(info, c){
     if(method=='getDestroys')
         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.amount, info.memo, status, info.action_index];
     if(method=='getDispensers')
-        // give_ownership sits BEFORE status/action_index so action_index stays LAST
-        // and status second-to-last (the client's length-relative extraction + paging cursor).
-        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, info.give_ownership, status, info.action_index];
+        // Dynamic dispenser fields sit BEFORE status/action_index so action_index
+        // stays LAST and status second-to-last for paging and row coloring.
+        info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, info.give_ownership, info.price_stale === true, status, info.action_index];
     if(method=='getDispenses')
         info = [count_reverse, info.block_index, info.timestamp, info.destination, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index];
     if(method=='getDividends')

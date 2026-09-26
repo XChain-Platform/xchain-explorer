@@ -52,6 +52,11 @@ async function dispenserPass(db, config, data){
         if(TERMINAL_OFFER_STATUSES.includes(String(row.current_status)))
             row.escrow_remaining = '0';
     }
+    // Price availability uses the lifecycle resolved above, so only an open
+    // fiat-priced dispenser can be marked stale.
+    let priceStale = await db.getDispenserPriceStaleBatch(config, data);
+    for(let row of data)
+        row.price_stale = priceStale[String(row.action_index)] === true;
 }
 
 // Contract list rows carry the same identity shape the single-contract route

@@ -63,6 +63,8 @@ const DISPENSER = {
     async afterMain(ctx, data) {
         await shared.applyOfferState(ctx, data);
         shared.applyTerminalOfferState(data);
+        const stale = await ctx.db.getDispenserPriceStaleBatch(ctx.config, [data]);
+        data.price_stale = stale[String(data.action_index)] === true;
     },
     afterQuery2: shared.applyOfferListEdits,
 };

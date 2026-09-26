@@ -181,7 +181,6 @@ describe('dispenser detail rows', () => {
         assert.match(r['Price per fill'], /0\.00001985 DOGE/);
         assert.match(r['Transaction'], /\/TDOGE\/action\/3048/);
     });
-
     it('counts fills exactly on decimal amounts', () => {
         const fills = vm.runInContext('dispenserFillsLeft', ctx);
         assert.strictEqual(fills('0.3', '0.1'), '3');
@@ -190,31 +189,31 @@ describe('dispenser detail rows', () => {
         assert.strictEqual(fills(null, '1'), null);
         assert.strictEqual(fills('5', '0'), null);
     });
-
     it('prices a fiat dispenser in fiat and names who prices it', () => {
         const r = rows({ ...D3048, get_amount: '0', fiat_amount: '1.50', fiat_code: 'USD', oracle_address: 'nOracle' });
         assert.match(r['Price per fill'], /1\.50 USD/);
         assert.match(r['Price per fill'], /oracle-priced/);
     });
-
+    it('warns when an open fiat dispenser has no usable recent price', () => {
+        const r = rows({ ...D3048, fiat_amount: '1.50', fiat_code: 'USD', price_stale: true });
+        assert.match(r['Status'], /Not selling: no price in the last 24 hours/);
+        assert.match(r['Status'], /cannot settle until its required price sources publish/);
+    });
     it('leads with the consensus reason for an invalid dispenser', () => {
         const r = rows({ ...D3048, status: 'invalid: insufficient funds' });
         assert.match(r['Status'], /text-danger/);
         assert.match(r['Status'], /insufficient funds/);
     });
-
     it('escapes on-chain text bound for the card', () => {
         const r = rows({ ...D3048, fiat_amount: '1', fiat_code: '<img src=x>' });
         assert.ok(!r['Price per fill'].includes('<img'), 'fiat code reached the card unescaped');
     });
-
     it('renders zero allow/block lists as None without action links', () => {
         const r = rows({ ...D3048, allow_list: 940, block_list: 941,
             state: { ...D3048.state, allow_list: 0, block_list: '0' } });
         assert.strictEqual(r['Allow / block list'], 'None / None');
         assert.ok(!r['Allow / block list'].includes('/action/0'));
     });
-
 });
 
 /*

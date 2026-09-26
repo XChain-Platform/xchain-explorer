@@ -60,7 +60,10 @@ function dispenserStatusHtml(d){
         return '<span class="text-danger">' + escapeHtml(status) + '</span>';
     const live = d.state && d.state.status ? String(d.state.status) : 'unknown';
     const cls  = (live === 'open') ? 'text-success' : 'text-muted';
-    return '<span class="' + cls + ' fw-bold">' + escapeHtml(live) + '</span>';
+    let html = '<span class="' + cls + ' fw-bold">' + escapeHtml(live) + '</span>';
+    if(d.price_stale === true)
+        html += ' <span class="badge bg-warning text-dark" title="This fiat-priced dispenser cannot settle until its required price sources publish a usable price.">Not selling: no price in the last 24 hours</span>';
+    return html;
 }
 
 /**

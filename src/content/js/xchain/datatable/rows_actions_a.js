@@ -317,6 +317,7 @@ function xcDatatableRenderDispenserRow(context){
     let get_token      = data[8];
     let get_amount     = data[9];
     let give_ownership = data[10];
+    let price_stale    = data[11];
     if(give_ownership == 1){
         $('td', row).eq(4).html(formatCoinLegTicker(coin, give_coin, give_token) + ' ' + ownershipBadge());
     } else if(isNull(give_token)){
@@ -329,6 +330,8 @@ function xcDatatableRenderDispenserRow(context){
     let getLeg = isNull(get_token)
         ? formatNativeCoinLeg(get_amount, get_coin)
         : formatLinkAmount(tokenUrl(get_coin, get_token), get_token, get_token, get_amount);
+    if(price_stale === true)
+        getLeg += ' <span class="badge bg-warning text-dark" title="This fiat-priced dispenser cannot settle until its required price sources publish a usable price.">Not selling: no price in the last 24 hours</span>';
     $('td', row).eq(5).html(getLeg);
     // The dispenser's own page (escrow left, fills, its dispenses), not the
     // action page, which shows only the transaction that opened it.

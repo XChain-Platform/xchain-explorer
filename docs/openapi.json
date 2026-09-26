@@ -13210,6 +13210,18 @@
             ],
             "description": "Amount of GIVE_TICK left in escrow now (create escrow + refills - payouts); \"0\" once the dispenser is closed, cancelled or expired; null when it cannot be derived"
           },
+          "fiat_amount": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fiat_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "get_amount": {
             "type": [
               "string",

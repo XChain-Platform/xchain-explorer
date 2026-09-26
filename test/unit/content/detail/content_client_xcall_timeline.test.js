@@ -35,6 +35,8 @@ const { srcText } = require('../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 
 const SRC_DIR     = path.resolve(__dirname, '..', '..', '../../src/content');
@@ -97,6 +99,7 @@ function makeWindow() {
         function updatePageInfo(){}
     `);
     dom.window.XC = { coin: 'BTC', name: 'Bitcoin', network: 'mainnet', query: CALL_ID, pageInfo: {} };
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(RENDER_SRC);
     return dom.window;
 }

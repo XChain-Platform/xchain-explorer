@@ -65,9 +65,9 @@ function showIssueDetails(data){
 // Display LINK action information
 function showLinkDetails(data){
     $('#info-link .link-coin1').text(data.coin1);
-    $('#info-link .link-coin1-action-index').html(formatLink('/' + data.coin1 + '/action/' + data.coin1_action_index, formatAmount(data.coin1_action_index)));
+    $('#info-link .link-coin1-action-index').html(formatLink('/' + networkCoin(data.coin1) + '/action/' + data.coin1_action_index, formatAmount(data.coin1_action_index)));
     $('#info-link .link-coin2').text(data.coin2);
-    $('#info-link .link-coin2-action-index').html(formatLink('/' + data.coin2 + '/action/' + data.coin2_action_index, formatAmount(data.coin2_action_index)));
+    $('#info-link .link-coin2-action-index').html(formatLink('/' + networkCoin(data.coin2) + '/action/' + data.coin2_action_index, formatAmount(data.coin2_action_index)));
     $('#info-link .link-memo').text(data.memo);
 }
 
@@ -111,7 +111,7 @@ function showMessageDetails(data){
     $('#info-message .message-plaintext').text(data.plaintext_message);
     $('#info-message .message-encrypted').text(data.encrypted_message);
     // Link the destination on ITS own chain (messages.coin), not the broadcast chain.
-    $('#info-message .message-destination').html(formatLink('/' + (data.coin || XC.coin) + '/address/' + data.destination, data.destination));
+    $('#info-message .message-destination').html(formatLink('/' + networkCoin(data.coin || XC.coin) + '/address/' + data.destination, data.destination));
 }
 
 // Display MINT action information
@@ -148,7 +148,7 @@ function showOrderDetails(data){
         + (isOwnershipGet ? ' ' + ownershipBadge() : '')
     );
     $('#info-order .order-get-amount').html(isOwnershipGet ? ownershipBadge() : formatAmount(data.get_amount));
-    $('#info-order .order-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
+    $('#info-order .order-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
     if(data.expiration)
         $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-order .order-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
@@ -195,8 +195,8 @@ function showOrderExpireDetails(data){
 
 // Display ORDER_MATCH action information
 function showOrderMatchDetails(data){
-    $('#info-order-match .order-match-give-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
-    $('#info-order-match .order-match-get-action-index').html(formatLink('/'  + data.get_coin + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
+    $('#info-order-match .order-match-give-action-index').html(formatLink('/' + networkCoin(data.give_coin) + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
+    $('#info-order-match .order-match-get-action-index').html(formatLink('/' + networkCoin(data.get_coin) + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
     $('#info-order-match .order-match-give-coin').text(data.give_coin);
     $('#info-order-match .order-match-give-tick').html(formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick,  data.give_tick));
     $('#info-order-match .order-match-give-amount').text(data.give_amount);
@@ -236,7 +236,7 @@ function showSwapDetails(data){
         + (isOwnershipGet ? ' ' + ownershipBadge() : '')
     );
     $('#info-swap .swap-get-amount').html(isOwnershipGet ? ownershipBadge() : formatAmount(data.get_amount));
-    $('#info-swap .swap-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
+    $('#info-swap .swap-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
     if(!isNull(data.expiration))
         $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-swap .swap-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
@@ -276,8 +276,8 @@ function showSwapExpireDetails(data){
 
 // Display SWAP_MATCH action information
 function showSwapMatchDetails(data){
-    $('#info-swap-match .swap-match-give-action-index').html(formatLink('/' + data.give_coin + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
-    $('#info-swap-match .swap-match-get-action-index').html(formatLink('/'  + data.get_coin + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
+    $('#info-swap-match .swap-match-give-action-index').html(formatLink('/' + networkCoin(data.give_coin) + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
+    $('#info-swap-match .swap-match-get-action-index').html(formatLink('/' + networkCoin(data.get_coin) + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
     $('#info-swap-match .swap-match-give-coin').text(data.give_coin);
     $('#info-swap-match .swap-match-give-tick').html(formatLink(tokenUrl(data.give_coin, data.give_tick), data.give_tick,  data.give_tick));
     $('#info-swap-match .swap-match-give-amount').text(data.give_amount);

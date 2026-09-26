@@ -129,8 +129,8 @@ function actionDetail_renderMarketActions(html, action, info, coin){
         // Both link legs are ACTION indexes on their own chains (links.coin1_action_index /
         // coin2_action_index, indexer db.js createLink), not tickers, so /token/ opened a token
         // search for a number. showLinkDetails already uses /action/ for these two.
-        html += info.coin1 + ' action ' + formatLink('/' + info.coin1 + '/action/' + info.coin1_action_index, info.coin1_action_index) + ' to ';
-        html += info.coin2 + ' action ' + formatLink('/' + info.coin2 + '/action/' + info.coin2_action_index, info.coin2_action_index);
+        html += info.coin1 + ' action ' + formatLink('/' + networkCoin(info.coin1) + '/action/' + info.coin1_action_index, info.coin1_action_index) + ' to ';
+        html += info.coin2 + ' action ' + formatLink('/' + networkCoin(info.coin2) + '/action/' + info.coin2_action_index, info.coin2_action_index);
     }
     if(action=='LIST'){
         let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
@@ -159,11 +159,11 @@ function actionDetail_renderMessageActions(html, action, info, coin){
         // an 'Encryption key exchange'. A row missing action_format keeps the old
         // plaintext/encrypted fallback rather than defaulting into the key-exchange branch.
         if(!isNull(info.action_format) && [0,1].includes(Number(info.action_format))){
-            html = 'Encryption key exchange with ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
+            html = 'Encryption key exchange with ' + formatLink('/' + networkCoin(dest_coin) + '/address/' + info.destination, info.destination);
         } else if(info.plaintext_message){
             html = escapeHtml(info.plaintext_message); // sender-chosen text, bound for .html()
         } else {
-            html = 'Encrypted message to ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
+            html = 'Encrypted message to ' + formatLink('/' + networkCoin(dest_coin) + '/address/' + info.destination, info.destination);
         }
     }
     if(action=='MINT')

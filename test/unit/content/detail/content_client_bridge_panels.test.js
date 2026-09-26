@@ -49,6 +49,8 @@ const assert = require('node:assert/strict');
 const fs     = require('fs');
 const path   = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
 
 const SRC_DIR    = path.resolve(__dirname, '..', '..', '../../src/content');
 const XCHAIN_SRC = srcText('src/content/js/xchain.js')
@@ -85,6 +87,7 @@ function makeWindow() {
     const dom = new JSDOM('<!DOCTYPE html><body>' + pageMarkup() + '</body>', { runScripts: 'outside-only' });
     dom.window.eval(JQUERY_SRC);
     dom.window.eval(extractFn(XCHAIN_SRC, 'isNull'));
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(RENDER_SRC);
     dom.window.XC = { coin: 'DOGE', name: 'Dogecoin', network: 'regtest', query: 'BTC.FUFU',
                       status: { available: { BTC: {}, DOGE: {}, LTC: {} } } };
@@ -193,6 +196,14 @@ describe('explorer bridge panels: origin badge for a bridged copy @regression', 
         const html = w.renderBridgeOrigin('BTC.FUFU', ['BTC', 'DOGE']);
         assert.match(html, /href="\/BTC\/token\/BTC\.FUFU"/);
         assert.match(html, /xc-bridge-origin/);
+    });
+
+    it('keeps the origin link on the page network, never the bare mainnet /BTC/', function () {
+        const w = makeWindow();
+        w.XC.coin = 'TDOGE';
+        assert.match(w.renderBridgeOrigin('BTC.FUFU', ['BTC', 'DOGE']), /href="\/TBTC\/token\/BTC\.FUFU"/);
+        w.XC.coin = 'RDOGE';
+        assert.match(w.renderBridgeOrigin('BTC.FUFU', ['BTC', 'DOGE']), /href="\/RBTC\/token\/BTC\.FUFU"/);
     });
 
     it('renders no badge at all for a native row', function () {

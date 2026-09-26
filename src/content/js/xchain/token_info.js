@@ -248,8 +248,7 @@ function tokenInfo_prepareDescription(desc){
     // safe by construction.
     if(act.test(desc)){
         var actM    = desc.match(act),
-            actTier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '',
-            actCoin = actM[1] ? (actTier + actM[1].toUpperCase()) : XC.coin;
+            actCoin = networkCoin(actM[1] || XC.coin);
         $('#token-description').html(
             '<a href="/' + actCoin + '/action/' + actM[2] + '" title="Token information stored on-chain (' + actCoin + ' FILE action ' + actM[2] + ')">'
             + escapeHtml(desc) + '</a>'

@@ -49,6 +49,8 @@ const { srcText } = require('../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 const { injectAnchorActivation } = require('../../../../src/explorer/request/render_page.js');
 
@@ -107,6 +109,7 @@ function installHelpers(dom) {
         ${extractFn(XCHAIN_SRC, 'isNull')}
         ${extractFn(XCHAIN_SRC, 'formatAmount')}
     `);
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(RENDER_SRC);
 }
 

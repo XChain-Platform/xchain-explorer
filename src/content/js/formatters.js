@@ -32,6 +32,9 @@
 // The page loads browser_logger.js first; the unit suites require this file under Node.
 var XCLogger = (typeof XCLogger !== 'undefined' && XCLogger) ? XCLogger
     : ((typeof require === 'function') ? require('./browser_logger.js') : null);
+// Same arrangement for networkCoin: the page loads network_coin.js first.
+var networkCoin = (typeof networkCoin === 'function') ? networkCoin
+    : ((typeof require === 'function') ? require('./network_coin.js').networkCoin : null);
 
 // Determine if value is null or undefined or empty
 function isNull(value){
@@ -123,7 +126,7 @@ function formatContractIdentity(coin, chain, contractIndex, metaName, metaVersio
         : 'C:' + chain + ':' + contractIndex;
     return formatContractName(metaName, metaVersion)
         + ' <span class="text-muted">·</span> '
-        + formatLink('/' + coin + '/contract/' + contractIndex, address);
+        + formatLink('/' + networkCoin(coin) + '/contract/' + contractIndex, address);
 }
 
 function stripHtml(html){
@@ -201,10 +204,11 @@ function getTokenIcon(token){
 // percent-encoded for the same reason getTokenIcon encodes it: a tick carrying
 // '#', '%', '?' or '/' otherwise links to a truncated or unparseable page. An
 // absent tick still yields a '/token/null' tail so formatLink's dead-link guard
-// keeps recognising it.
+// keeps recognising it. The coin is mapped onto the page's network first: a
+// bare 'DOGE' leg on a TDOGE page is /TDOGE/, never mainnet (network_coin.js).
 function tokenUrl(coin, tick){
     let tail = isNull(tick) ? String(tick) : encodeURIComponent(String(tick));
-    return '/' + coin + '/token' + '/' + tail;
+    return '/' + networkCoin(coin) + '/token' + '/' + tail;
 }
 
 // Handle getting the network icon using the coin name and network

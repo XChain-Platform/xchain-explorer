@@ -32,6 +32,10 @@
  * and only a warning, while a NEGATIVE delta is a deficit and the alarm.
  ********************************************************************/
 
+// The page loads network_coin.js first; the unit suites require it under Node.
+var networkCoin = (typeof networkCoin === 'function') ? networkCoin
+    : ((typeof require === 'function') ? require('./network_coin.js').networkCoin : null);
+
 // Escape without jQuery so the module is drivable in isolation. The page also
 // ships escapeHtml() in formatters.js; this is deliberately the same mapping.
 function xbEsc(s){
@@ -200,7 +204,7 @@ function renderBridgeOrigin(tick, coins){
     var split = bridgeOriginOf(tick, coins);
     if(!split) return '';
     return '<a class="badge xc-bridge-origin text-decoration-none" '
-         + 'href="/' + xbEsc(split.origin) + '/token/' + encodeURIComponent(tick) + '">'
+         + 'href="/' + xbEsc(networkCoin(split.origin)) + '/token/' + encodeURIComponent(tick) + '">'
          + 'origin ' + xbEsc(split.origin) + '</a>';
 }
 

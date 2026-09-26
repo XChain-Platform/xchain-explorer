@@ -246,7 +246,8 @@
         XC.pageInfo.description = isNull(XC.query)
             ? ('Search the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network by address, token, contract, transaction or broadcast.')
             : ('Search for `' + XC.query + '` on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain Platform search results for `' + XC.query + '`.');
-        XC.pageInfo.canonical   = '/search?' + window.location.search;
+        // location.search already starts with '?'; prefixing another built /search??coin=.
+        XC.pageInfo.canonical   = '/search' + window.location.search;
         updatePageInfo();
 
         // Activate the tokens tab by faking a click

@@ -249,7 +249,7 @@ function renderXcallTimelineHeader(data){
     };
     var actionLink = function(v, onCoin){
         if(v === null || v === undefined || v === '') return '-';
-        return formatLink('/' + (onCoin || coin) + '/action/' + encodeURIComponent(v), v);
+        return formatLink('/' + networkCoin(onCoin || coin) + '/action/' + encodeURIComponent(v), v);
     };
     var mono = function(v){
         if(v === null || v === undefined || v === '') return '-';

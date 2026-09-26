@@ -40,18 +40,31 @@ const componentTpl = require(path.join(ROOT, 'src', 'render', 'component_templat
 const { srcText }  = require('./source_text');
 
 /**
- * The client source a suite slices shipped functions out of: formatters.js
- * first, then xchain.js, joined exactly as the browser loads them.
+ * network_coin.js, which the page loads ahead of formatters.js: every
+ * coin-built link calls its networkCoin, so a suite that evals a link
+ * builder evals this first.
+ */
+function networkCoinSource(){
+    return fs.readFileSync(path.join(JS_DIR, 'network_coin.js'), 'utf8');
+}
+
+/**
+ * The client source a suite slices shipped functions out of: network_coin.js,
+ * formatters.js, then xchain.js, joined exactly as the browser loads them.
  */
 function clientSource(){
-    return fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8')
+    return networkCoinSource()
+        + '\n'
+        + fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8')
         + '\n'
         + srcText('src/content/js/xchain.js');
 }
 
-/** Just the formatter module, for a suite that wants only the helpers. */
+/** Just the formatter module and the network_coin.js it builds on. */
 function formatterSource(){
-    return fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8');
+    return networkCoinSource()
+        + '\n'
+        + fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8');
 }
 
 /**
@@ -134,6 +147,6 @@ function loadComponents(only){
 }
 
 module.exports = {
-    clientSource, formatterSource, pageSource, pageActions, isComposed, pageExists,
+    clientSource, formatterSource, networkCoinSource, pageSource, pageActions, isComposed, pageExists,
     shellSource, loadComponents, HTML_DIR, JS_DIR, ROOT
 };

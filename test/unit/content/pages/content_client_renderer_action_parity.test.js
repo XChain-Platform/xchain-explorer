@@ -37,6 +37,8 @@ const { srcText } = require('../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
@@ -96,6 +98,7 @@ function panelHtml(id, nextId) {
 function summary(action, info) {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
     dom.window.XC = { coin: 'BTC', list_types: LIST_TYPES };
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -122,6 +125,7 @@ function attestDetail(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC' };
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -148,6 +152,7 @@ function voteDetail(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC' };
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(`
         $.getJSON = function(){ return { done: function(){} }; };
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
@@ -176,6 +181,7 @@ function xcallExecuteHref(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC' };
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }

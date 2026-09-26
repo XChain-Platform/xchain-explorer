@@ -161,7 +161,7 @@ describe('dispenser detail rows', () => {
     const vm = require('vm');
     const JS = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'js');
     const ctx = vm.createContext({ XC: { coin: 'TDOGE', chain: 'dogecoin', network: 'testnet' }, BigInt });
-    for (const f of ['formatters.js', 'dispenser_detail.js'])
+    for (const f of ['network_coin.js', 'formatters.js', 'dispenser_detail.js'])
         vm.runInContext(fs.readFileSync(path.join(JS, f), 'utf8'), ctx, { filename: f });
 
     // DISPENSER action 3048 on TDOGE, as /api/action/3048 returns it (trimmed).

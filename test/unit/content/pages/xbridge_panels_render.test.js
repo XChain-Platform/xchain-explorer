@@ -90,6 +90,16 @@ describe('xbridge-panels-render as a module', function(){
         assert.equal(R.renderBridgeOrigin('PEPE', ['BTC']), '');
     });
 
+    it('keeps the origin link on the page network: a testnet copy is /TBTC/, never mainnet /BTC/', function(){
+        const had = Object.prototype.hasOwnProperty.call(global, 'XC'), prev = global.XC;
+        try {
+            global.XC = { coin: 'TDOGE', network: 'testnet' };
+            assert.match(R.renderBridgeOrigin('BTC.PEPE', ['BTC']), /href="\/TBTC\/token\/BTC\.PEPE">origin BTC</);
+            global.XC = { coin: 'RLTC', network: 'regtest' };
+            assert.match(R.renderBridgeOrigin('BTC.PEPE', ['BTC']), /href="\/RBTC\/token\/BTC\.PEPE"/);
+        } finally { if(had) global.XC = prev; else delete global.XC; }
+    });
+
 });
 
 describe('xbridge-panels-render as a module', function(){

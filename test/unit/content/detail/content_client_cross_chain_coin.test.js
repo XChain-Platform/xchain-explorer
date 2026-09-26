@@ -33,6 +33,8 @@ const { srcText } = require('../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 
 const SRC = srcText('src/content/js/xchain.js');
@@ -60,6 +62,7 @@ function extractFn(name) {
 function summary(action, info) {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
     dom.window.XC = { coin: 'BTC' };
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -94,6 +97,7 @@ function messageDetail(data) {
         { runScripts: 'outside-only' });
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC', encryption_methods: { 1: 'ECIES', 2: 'ECDH' } };
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }

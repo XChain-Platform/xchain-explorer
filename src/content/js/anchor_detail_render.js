@@ -61,9 +61,9 @@ function renderAnchorHeights(d){
         html += anchorBundleHeightRow(Object.assign({}, row, { sections: anchorCheckpointRows(row) }));
     else
         html += anchorHeightRow('anchor-height-checkpointed', 'Checkpointed Block', row.block_index, 'checkpointed',
-            'The height on ' + chain + ' that this anchor commits to. Checkpoint and commitment lookups key off THIS height.');
+            'The height on ' + chain + ' that this anchor commits to. Checkpoint and commitment lookups key off THIS height.', row.chain);
     html += anchorHeightRow('anchor-height-broadcast', 'Anchor Transaction Block', row.block_index_doge, 'broadcast',
-        'The DOGE block the ANCHOR transaction itself was mined in. It sits at or ahead of the checkpointed height, and looking a commitment up by this number correctly finds nothing.');
+        'The DOGE block the ANCHOR transaction itself was mined in. It sits at or ahead of the checkpointed height, and looking a commitment up by this number correctly finds nothing.', 'DOGE');
     html += '</tbody></table>';
     return html;
 }
@@ -121,7 +121,7 @@ function renderAnchorCheckpointPayload(d){
     let sigs = Array.isArray(row.validator_signatures) ? row.validator_signatures : [];
     let html = '<table class="table table-sm table-borderless mb-0"><tbody>';
     html += anchorFieldRow('Checkpoint Seq',  isNull(row.checkpoint_seq) ? '-' : anchorEsc(row.checkpoint_seq));
-    html += anchorFieldRow('Snapshot Block',  anchorBlockLink(row.snapshot_block), 'anchor-snapshot-block');
+    html += anchorFieldRow('Snapshot Block',  anchorBlockLink(row.snapshot_block, 'BTC'), 'anchor-snapshot-block');
     html += anchorFieldRow('Block Hash',      anchorHash(row.block_hash));
     html += anchorFieldRow('Ledger Hash',     anchorHash(row.ledger_hash));
     html += anchorFieldRow('Actions Hash',    anchorHash(row.actions_hash));
@@ -152,7 +152,7 @@ function renderAnchorBundleHeader(d){
         + (sections.length === 1 ? '' : 's')
         + anchorNote('A one-section bundle is normal, not a fault: a chain whose newest checkpoint is already anchored simply does not ride this cycle.'),
         'anchor-section-count-row');
-    html += anchorFieldRow('Snapshot Block', anchorBlockLink(row.snapshot_block)
+    html += anchorFieldRow('Snapshot Block', anchorBlockLink(row.snapshot_block, 'BTC')
         + anchorNote('The bundle\'s election and attestation block, the highest of its sections\' snapshot blocks.'),
         'anchor-snapshot-block');
     html += '</tbody></table>';
@@ -226,7 +226,7 @@ function renderAnchorChunks(d){
             + '<td>' + anchorChunkLabel(c) + '</td>'
             + '<td>' + (isNull(c.action_index) ? '-' : formatLink('/' + anchorCoin() + '/anchor/' + c.action_index, anchorNum(c.action_index))) + '</td>'
             + '<td>v' + anchorEsc(isNull(c.version) ? '?' : c.version) + '</td>'
-            + '<td>' + anchorBlockLink(c.block_index_doge) + '</td>'
+            + '<td>' + anchorBlockLink(c.block_index_doge, 'DOGE') + '</td>'
             + '<td>' + (isNull(c.archive_b64_length) ? '-' : anchorNum(c.archive_b64_length)) + '</td>'
             + '<td>' + anchorStatusBadge(c.status) + '</td>'
             + '</tr>';
@@ -257,7 +257,7 @@ function renderAnchorCoveringCheckpoint(d){
     html += anchorFieldRow('Checkpoint', isNull(cp.block_index) ? '-'
         : formatLink('/' + anchorCoin() + '/checkpoint/' + cp.block_index, anchorNum(cp.block_index) + ' (verify)'), 'anchor-covering-link');
     html += anchorFieldRow('Checkpoint Seq', isNull(cp.checkpoint_seq) ? '-' : anchorEsc(cp.checkpoint_seq));
-    html += anchorFieldRow('Snapshot Block', anchorBlockLink(cp.snapshot_block));
+    html += anchorFieldRow('Snapshot Block', anchorBlockLink(cp.snapshot_block, 'BTC'));
     html += anchorFieldRow('State Root',     anchorRootCell(cp.state_root, cp.state_root_version));
     html += anchorFieldRow('Signatures',     '<span class="anchor-covering-sig-count">' + sigs.length + '</span> attached');
     html += anchorFieldRow('Created',        isNull(cp.created_at) ? '-' : formatLivestamp(cp.created_at));
@@ -292,7 +292,7 @@ function renderAnchorElection(d){
     html += anchorFieldRow('Publisher', isNull(row.publisher)
         ? '<span class="text-muted">-</span>'
         : '<span class="font-monospace small text-break anchor-publisher">' + anchorEsc(row.publisher) + '</span>', 'anchor-publisher-row');
-    html += anchorFieldRow('Elected At', anchorBlockLink(row.snapshot_block)
+    html += anchorFieldRow('Elected At', anchorBlockLink(row.snapshot_block, 'BTC')
         + anchorNote('The BTC snapshot block whose oracle_publish set the publisher was drawn from.'));
     html += anchorFieldRow('Wire Attestations',
         '<span class="anchor-tail-count">' + tail.length + '</span> carried'
@@ -343,7 +343,7 @@ function renderAnchorRewards(d){
             + '<td class="anchor-reward-id">' + anchorEsc(isNull(r.id) ? '-' : r.id) + '</td>'
             + '<td class="anchor-reward-type">' + anchorEsc(isNull(r.reward_type) ? '-' : r.reward_type) + '</td>'
             + '<td class="anchor-reward-round">' + anchorEsc(isNull(r.round_reference) ? '-' : r.round_reference) + '</td>'
-            + '<td>' + anchorBlockLink(r.snapshot_block) + '</td>'
+            + '<td>' + anchorBlockLink(r.snapshot_block, 'BTC') + '</td>'
             + '<td class="font-monospace small text-break">' + anchorEsc(isNull(r.publisher) ? '-' : r.publisher) + '</td>'
             + '<td class="anchor-reward-amount">' + (isNull(r.reward_amount) ? '-' : formatAmount(r.reward_amount)) + '</td>'
             + '<td><span class="badge text-bg-' + link.tone + ' anchor-reward-linkage">' + anchorEsc(link.label) + '</span>'

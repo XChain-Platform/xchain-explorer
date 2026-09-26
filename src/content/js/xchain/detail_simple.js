@@ -97,7 +97,7 @@ function showDispenserDetails(data){
     $('#info-dispenser .dispenser-get-coin').text(data.get_coin);
     $('#info-dispenser .dispenser-get-tick').html(formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick, data.get_tick));
     $('#info-dispenser .dispenser-get-amount').html(formatAmount(data.get_amount));
-    $('#info-dispenser .dispenser-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
+    $('#info-dispenser .dispenser-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
     // Fiat/oracle-priced dispensers: fiat_amount is the operative price (Get Amount is not),
     // ignored when oracle_address is set. Only show these rows when the dispenser is
     // fiat/oracle-priced so plain crypto-priced dispensers are unchanged.
@@ -106,7 +106,7 @@ function showDispenserDetails(data){
     if(isFiatDispenser){
         $('#info-dispenser .dispenser-fiat-code').text(isNull(data.fiat_code) ? '-' : data.fiat_code);
         $('#info-dispenser .dispenser-fiat-amount').text(isNull(data.fiat_amount) ? '-' : data.fiat_amount);
-        $('#info-dispenser .dispenser-oracle-address').html(isNull(data.oracle_address) ? '-' : formatLink('/' + data.get_coin + '/address/' + data.oracle_address, data.oracle_address));
+        $('#info-dispenser .dispenser-oracle-address').html(isNull(data.oracle_address) ? '-' : formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.oracle_address, data.oracle_address));
     }
     if(data.expiration)
         $('#info-dispenser .dispenser-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
@@ -164,8 +164,8 @@ function showDispenseDetails(data){
     $('#info-dispense .dispense-get-coin').text(data.get_coin);
     $('#info-dispense .dispense-get-tick').html(formatLink(tokenUrl(data.get_coin, data.get_tick), data.get_tick, data.get_tick));
     $('#info-dispense .dispense-get-amount').html(formatAmount(data.get_amount));
-    $('#info-dispense .dispense-source').html(formatLink('/' + data.get_coin  + '/address/' + data.source, data.source));
-    $('#info-dispense .dispense-destination').html(formatLink('/' + data.get_coin  + '/address/' + data.destination, data.destination));
+    $('#info-dispense .dispense-source').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.source, data.source));
+    $('#info-dispense .dispense-destination').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.destination, data.destination));
 }
 
 // Display FILE action information

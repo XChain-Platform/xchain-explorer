@@ -54,8 +54,9 @@ describe('vm-query', () => {
             'no CONSENSUS_VERSION export (VM predates the contract era)': { CONSENSUS_VERSION: undefined },
             'no BINARY_ALLOC_GATE_BLOCK_TIME':                            { BINARY_ALLOC_GATE_BLOCK_TIME: undefined },
             'no PKG3_SANDBOX_ACTIVATION':                                 { PKG3_SANDBOX_ACTIVATION: undefined },
+            'no JSON_STRINGIFY_HOOK_GATE_BLOCK_TIME':                     { JSON_STRINGIFY_HOOK_GATE_BLOCK_TIME: undefined },
             'an older consensus epoch':                                   { CONSENSUS_VERSION: '2' },
-            'a newer consensus epoch':                                    { CONSENSUS_VERSION: '5' },
+            'a newer consensus epoch':                                    { CONSENSUS_VERSION: '6' },
             'a divergent MAX_CODE_SIZE':                                  { MAX_CODE_SIZE: 32768 }
         };
 

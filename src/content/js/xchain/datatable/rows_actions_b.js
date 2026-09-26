@@ -96,8 +96,8 @@ function xcDatatableRenderLinkRow(context){
     let coin2       = data[6];
     let coin2_index = data[7];
     let memo        = data[8];
-    $('td', row).eq(4).html(formatLink('/' + coin1 + '/action/' + coin1_index, coin1 + '-' + coin1_index));
-    $('td', row).eq(5).html(formatLink('/' + coin2 + '/action/' + coin2_index, coin2 + '-' + coin2_index));
+    $('td', row).eq(4).html(formatLink('/' + networkCoin(coin1) + '/action/' + coin1_index, coin1 + '-' + coin1_index));
+    $('td', row).eq(5).html(formatLink('/' + networkCoin(coin2) + '/action/' + coin2_index, coin2 + '-' + coin2_index));
     // memo reaches the feed through a LEFT JOIN on index_memos, so it is
     // null for the (common) LINK that carries no memo.
     $('td', row).eq(6).text(nullToBlank(memo));
@@ -141,8 +141,8 @@ function xcDatatableRenderMarketRow(context){
         change = data[7];
     let html = '<img src="' + getTokenIcon(tick1) + '" class="icon-20">' +
                '<img src="' + getTokenIcon(tick2) + '" class="icon-20 ms-1 me-1">' +
-               tick1 + ' / ' + tick2;
-    $('td', row).eq(1).html(formatLink('/' + coin + '/market/' + market, html));
+               escapeHtml(tick1) + ' / ' + escapeHtml(tick2); // ticks are free text inside markup
+    $('td', row).eq(1).html(formatLinkHtml('/' + coin + '/market/' + market, html));
     $('td', row).eq(2).html(formatAmount(price));
     $('td', row).eq(3).html(formatAmount(ask));
     $('td', row).eq(4).html(formatAmount(bid));
@@ -342,9 +342,9 @@ function xcDatatableRenderOrderMatchRow(context){
     let get_coin   = data[6];
     let get_index  = data[7];
     let settlement = data[9];
-    $('td', row).eq(3).html(formatLink('/' + give_coin + '/action/' + give_index, give_coin + '-' + give_index));
+    $('td', row).eq(3).html(formatLink('/' + networkCoin(give_coin) + '/action/' + give_index, give_coin + '-' + give_index));
     $('td', row).eq(4).html(formatAmount(data[5]));
-    $('td', row).eq(5).html(formatLink('/' + get_coin + '/action/' + get_index, get_coin + '-' + get_index));
+    $('td', row).eq(5).html(formatLink('/' + networkCoin(get_coin) + '/action/' + get_index, get_coin + '-' + get_index));
     $('td', row).eq(6).html(formatAmount(data[8]));
     $('td', row).eq(7).text(isNull(settlement) ? '-' : settlement);
     $('td', row).eq(8).html(action_link);
@@ -361,8 +361,8 @@ function xcDatatableRenderSwapMatchRow(context){
     let give_index = data[4];
     let get_coin   = data[5];
     let get_index  = data[6];
-    $('td', row).eq(3).html(formatLink('/' + give_coin + '/action/' + give_index, give_coin + '-' + give_index));
-    $('td', row).eq(4).html(formatLink('/' + get_coin + '/action/' + get_index, get_coin + '-' + get_index));
+    $('td', row).eq(3).html(formatLink('/' + networkCoin(give_coin) + '/action/' + give_index, give_coin + '-' + give_index));
+    $('td', row).eq(4).html(formatLink('/' + networkCoin(get_coin) + '/action/' + get_index, get_coin + '-' + get_index));
     $('td', row).eq(5).html(action_link);
 
 }

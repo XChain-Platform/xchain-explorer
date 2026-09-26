@@ -44,11 +44,11 @@ function setXChainParams(coin){
         // operator ADDRESS (db.getOracleStats binds it to a2.address, and db's id lookup
         // resolves type 'oracle' through index_addresses exactly like 'address').
         if((['block','action','contract','execution','checkpoint','poll','anchor','attestation','bet_feed'].includes(type) && isNumeric(query)) ||
-           // dispenser joins these two rather than the numeric branch: a dispenser
-           // page is keyed by the dispenser's operating GET_ADDRESS (the address
-           // buyers pay), which is how both the dispensers and dispenses feeds
-           // scope themselves with type 'address'.
+           // dispenser takes either key: its action_index (one dispenser, what it
+           // holds and its own fills) or its operating GET_ADDRESS (every dispenser
+           // buyers pay at that address, as the feeds scope type 'address').
            (['address','oracle','dispenser'].includes(type) && isCryptoAddress(query)) ||
+           (type=='dispenser' && isNumeric(query)) ||
            // A validator resolves by signing pubkey OR by staking address, and an xcall by
            // its 64-hex call_id, so neither can use the numeric check above.
            (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||

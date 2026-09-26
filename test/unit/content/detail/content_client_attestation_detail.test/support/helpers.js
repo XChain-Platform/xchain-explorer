@@ -49,6 +49,8 @@ const { srcText } = require('../../../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
@@ -93,7 +95,7 @@ function installHelpers(dom) {
         function loadDatatablesData(){ window.__datatable = Array.prototype.slice.call(arguments); }
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(XCHAIN_SRC, 'isNull')}
-        ${extractFn(XCHAIN_SRC, 'siblingCoin')}
+        ${NETWORK_COIN_SRC}
     `);
     dom.window.eval(RENDER_SRC);
 }

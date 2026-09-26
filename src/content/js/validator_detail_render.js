@@ -335,7 +335,7 @@ function renderValidatorSlashes(d){
                      +  '<td>' + vdAction(r.execution_index) + '</td>'
                      +  '<td>' + (isNull(r.target_contract_index) ? '-' :
                                   formatLink('/' + XC.coin + '/contract/' + encodeURIComponent(r.target_contract_index),
-                                             vdEsc(r.target_contract_index))) + '</td>'
+                                             r.target_contract_index)) + '</td>'
                      +  '<td>' + vdEsc(isNull(r.tick) ? '-' : r.tick) + '</td>'
                      +  '<td>' + vdAmount(r.amount) + '</td>'
                      +  '<td>' + vdAddress(r.destination) + '</td>'

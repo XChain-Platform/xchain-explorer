@@ -35,6 +35,8 @@ const { srcText } = require('../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 
 const SRC_DIR     = path.resolve(__dirname, '..', '..', '../../src/content');
@@ -91,10 +93,13 @@ function makeWindow() {
     dom.window.eval(extractFn(XCHAIN_SRC, 'formatLivestamp'));
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
-        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
+        function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatLink(href, text){ return formatLinkHtml(href, text ? String(text).replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }) : text); }
         function updatePageInfo(){}
     `);
     dom.window.XC = { coin: 'BTC', name: 'Bitcoin', network: 'mainnet', query: CALL_ID, pageInfo: {} };
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(RENDER_SRC);
     return dom.window;
 }

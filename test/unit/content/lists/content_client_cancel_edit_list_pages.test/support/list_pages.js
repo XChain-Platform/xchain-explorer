@@ -281,6 +281,21 @@ describe('cancel/edit list pages', function () {
         expect(html[7], 'block list').to.include('/RDOGE/action/941');
     });
 
+    it('renders zero allow/block lists as Removed without action links', function () {
+        const fixtures = [
+            ['order_edit', [1, 3387, 1787937822, SRC_ADDR, 1271, null, 0, '0', 'removed', 1, 1273], 10, 6],
+            ['swap_edit', [1, 3396, 1787938150, SRC_ADDR, 1282, null, '0', 0, 'removed', 1, 1284], 10, 6],
+            ['dispenser_edit', [1, 3399, 1787938437, SRC_ADDR, 1285, null, null, 0, '0', 'removed', 1, 1288], 11, 7]
+        ];
+        for(const [action, data, columns, firstList] of fixtures){
+            const { html, text } = renderRow(action, data, columns);
+            for(const slot of [firstList, firstList + 1]){
+                expect(text[slot], `${action} list cell ${slot}`).to.equal('Removed');
+                expect(html[slot], `${action} list cell ${slot}`).to.not.include('<a ');
+            }
+        }
+    });
+
     // A memo is arbitrary on-chain bytes and reaches the cell through .text().
     it('does not let a memo inject markup into the page', function () {
         const { html, text } = renderRow('order_cancel',

@@ -26,6 +26,14 @@ function formatLinkWithActionFallback(url=null, text=null, icon=false, btn=false
     return formatLinkDefault(url, text, icon, btn);
 }
 formatLink = formatLinkWithActionFallback;
+// formatLinkHtml takes the same guard: formatLink reaches the page through it,
+// and markup labels (a hash, a badge) point at /action/ targets too.
+const formatLinkHtmlDefault = formatLinkHtml;
+formatLinkHtml = function(url=null, text=null, icon=false, btn=false){
+    if(/\/action\/(null|undefined)$/.test(String(url)))
+        return '-';
+    return formatLinkHtmlDefault(url, text, icon, btn);
+};
 
 // Define XC Namespace object to track various properties
 XC = {

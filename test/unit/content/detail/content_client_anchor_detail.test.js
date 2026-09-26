@@ -49,6 +49,8 @@ const { srcText } = require('../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 const { injectAnchorActivation } = require('../../../../src/explorer/request/render_page.js');
 
@@ -99,12 +101,15 @@ function installHelpers(dom) {
     dom.window.eval(`
         var XC = { coin: 'RDOGE', query: '1006', name: 'Dogecoin', network: 'regtest', pageInfo: {}, datatables: {} };
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
-        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
+        function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatLink(href, text){ return formatLinkHtml(href, text ? String(text).replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }) : text); }
         function formatLivestamp(t){ return '<span class="stamp">' + t + '</span>'; }
         function updatePageInfo(){}
         ${extractFn(XCHAIN_SRC, 'isNull')}
         ${extractFn(XCHAIN_SRC, 'formatAmount')}
     `);
+    dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(RENDER_SRC);
 }
 

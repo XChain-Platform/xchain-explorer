@@ -123,29 +123,18 @@ function updateTokenSection(id){
     }
 }
 
-// Resolve a DECLARED base ticker (BTC/LTC/DOGE, as an on-chain payload carries it) to
-// this deployment's coin id for that chain, keeping the page's network tier: on RDOGE,
-// 'LTC' is RLTC and mainnet's prefix is '' by design. A record that declares no coin,
-// or one outside the three base chains, falls back to the page coin - which is the
-// same-chain assumption every caller of this rule already made explicitly.
-function siblingCoin(base){
-    // Same network tier as the current page: RBTC + DOGE -> RDOGE, etc.
-    var tier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '';
-    var m    = (typeof base === 'string') ? base.match(/^(BTC|LTC|DOGE)$/i) : null;
-    return m ? (tier + m[1].toUpperCase()) : XC.coin;
-}
-
 // Resolve an action reference ("action:<index>" same-chain, or
 // "action:<COIN>:<index>" sibling-chain (base ticker, network tier implied
 // by the page's chain, same convention as LINK COIN1/COIN2) to this
-// explorer's raw FILE path. Returns false for anything else.
+// explorer's raw FILE path. Returns false for anything else. networkCoin
+// (network_coin.js) keeps the page's network: on RDOGE, 'LTC' is RLTC.
 function actionRefToRawPath(ref){
     if(typeof ref !== 'string')
         return false;
     var m = ref.match(/^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i);
     if(!m)
         return false;
-    return '/' + siblingCoin(m[1]) + '/api/file/' + m[2] + '/raw';
+    return '/' + networkCoin(m[1] || XC.coin) + '/api/file/' + m[2] + '/raw';
 }
 
 // Resolve TIS `data_ref` entries across the media arrays. A data_ref of

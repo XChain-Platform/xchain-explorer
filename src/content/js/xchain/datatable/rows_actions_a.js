@@ -317,8 +317,11 @@ function xcDatatableRenderDispenserRow(context){
     let get_token      = data[8];
     let get_amount     = data[9];
     let give_ownership = data[10];
+    let price_stale    = data[11];
     if(give_ownership == 1){
-        $('td', row).eq(4).html(formatLink(tokenUrl(give_coin, give_token), give_token, give_token) + ' ' + ownershipBadge());
+        $('td', row).eq(4).html(formatCoinLegTicker(coin, give_coin, give_token) + ' ' + ownershipBadge());
+    } else if(isNull(give_token)){
+        $('td', row).eq(4).html(formatNativeCoinLeg(give_amount, give_coin));
     } else {
         $('td', row).eq(4).html(formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount));
     }
@@ -327,11 +330,12 @@ function xcDatatableRenderDispenserRow(context){
     let getLeg = isNull(get_token)
         ? formatNativeCoinLeg(get_amount, get_coin)
         : formatLinkAmount(tokenUrl(get_coin, get_token), get_token, get_token, get_amount);
+    if(price_stale === true)
+        getLeg += ' <span class="badge bg-warning text-dark" title="This fiat-priced dispenser cannot settle until its required price sources publish a usable price.">Not selling: no price in the last 24 hours</span>';
     $('td', row).eq(5).html(getLeg);
-    // The action page, like every other row: /dispenser/{QUERY} is keyed by the
-    // dispenser's GET_ADDRESS, so handing it this action_index left XC.query null
-    // and both of that page's feeds failed with "Could not load this data".
-    $('td', row).eq(6).html(action_link);
+    // The dispenser's own page (escrow left, fills, its dispenses), not the
+    // action page, which shows only the transaction that opened it.
+    $('td', row).eq(6).html(formatLink('/' + coin + '/dispenser/' + action_index, 'view', null, true));
 
 }
 xcDatatableRowHandlers.dispenser = xcDatatableRenderDispenserRow;
@@ -346,7 +350,10 @@ function xcDatatableRenderDispenseRow(context){
     let get_coin    = data[7];
     let get_token   = data[8];
     let get_amount  = data[9];
-    $('td', row).eq(4).html(formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount));
+    let giveLeg = isNull(give_token)
+        ? formatNativeCoinLeg(give_amount, give_coin)
+        : formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount);
+    $('td', row).eq(4).html(giveLeg);
     // Local, not the shared `html` scratch variable: see formatNativeCoinLeg.
     let getLeg = isNull(get_token)
         ? formatNativeCoinLeg(get_amount, get_coin)

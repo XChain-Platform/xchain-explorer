@@ -119,7 +119,7 @@ try {
 // consensus input. Moving it is a deliberate edit made when the VM's epoch
 // moves, and the parity guard in test/unit/vm-query.test.js reddens if the
 // canonical sibling has moved past it.
-const REQUIRED_VM_CONSENSUS_VERSION = '4';
+const REQUIRED_VM_CONSENSUS_VERSION = '5';
 
 // Exports only a contract-era VM carries. Presence, not value: the values are
 // frozen by the VM's own determinism goldens, and pinning them here would put
@@ -132,7 +132,8 @@ const REQUIRED_VM_CONSENSUS_EXPORTS = [
     'ASYNC_SURFACE_GATE_BLOCK_TIME',
     'STATE_KEY_NUL_GATE_BLOCK_TIME',
     'METERING_EVAL_ORDER_GATE_BLOCK_TIME',
-    'PKG3_SANDBOX_ACTIVATION'
+    'PKG3_SANDBOX_ACTIVATION',
+    'JSON_STRINGIFY_HOOK_GATE_BLOCK_TIME'
 ];
 
 // Fail-closed consensus gate on the VENDORED VM, evaluated once at load.

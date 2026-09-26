@@ -39,10 +39,25 @@ const { srcText } = require('../../helpers/source_text');
 
 const assert = require('node:assert/strict');
 const fs     = require('fs');
+const os     = require('os');
 const path   = require('path');
 
-const ROOT        = path.resolve(__dirname, '..', '../..');          // xchain-explorer
-const PLATFORM    = path.resolve(ROOT, '..');                  // XChain-Platform
+function resolvePlatformRoot(repoRoot) {
+    const dotGit = path.join(repoRoot, '.git');
+    if (fs.lstatSync(dotGit).isDirectory()) return path.dirname(repoRoot);
+
+    const gitdir = /^gitdir:\s*(.+)\s*$/m.exec(fs.readFileSync(dotGit, 'utf8'));
+    assert.ok(gitdir, 'linked worktree .git file does not name its gitdir');
+    const worktreeGitDir = path.resolve(repoRoot, gitdir[1]);
+    const commonDirFile = path.join(worktreeGitDir, 'commondir');
+    if (!fs.existsSync(commonDirFile)) return path.dirname(repoRoot);
+
+    const commonGitDir = path.resolve(worktreeGitDir, fs.readFileSync(commonDirFile, 'utf8').trim());
+    return path.dirname(path.dirname(commonGitDir));
+}
+
+const ROOT        = path.resolve(__dirname, '..', '../..');
+const PLATFORM    = resolvePlatformRoot(ROOT);
 const INDEXER_SQL = path.join(PLATFORM, 'xchain-indexer', 'src', 'sql');
 const MIRROR_SQL  = path.join(ROOT, 'src', 'sql', 'hub-mirror');
 const SYNC_SCRIPT = path.join(PLATFORM, 'xchain-indexer', 'bin', 'sync-hub-mirror-client.sh');
@@ -50,6 +65,36 @@ const SYNC_SCRIPT = path.join(PLATFORM, 'xchain-indexer', 'bin', 'sync-hub-mirro
 // The two tables this row adds to the mirror set. Named literally, not scanned:
 // a scan of what is present cannot fail for something that is absent.
 const BRIDGE_TABLES = ['bridge_transfers', 'policy_snapshots'];
+
+describe('hub-mirror bridge tables: sibling checkout resolution @regression', function () {
+
+    let fixture;
+
+    beforeEach(function () {
+        fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'xchain-explorer-sibling-'));
+    });
+
+    afterEach(function () {
+        fs.rmSync(fixture, { recursive: true, force: true });
+    });
+
+    it('resolves the platform root from a main checkout', function () {
+        const repoRoot = path.join(fixture, 'xchain-explorer');
+        fs.mkdirSync(path.join(repoRoot, '.git'), { recursive: true });
+        assert.equal(resolvePlatformRoot(repoRoot), fixture);
+    });
+
+    it('resolves the main platform root from a nested linked worktree', function () {
+        const mainGitDir = path.join(fixture, 'xchain-explorer', '.git');
+        const worktreeGitDir = path.join(mainGitDir, 'worktrees', 'explorer-lane');
+        const repoRoot = path.join(fixture, 'tmp', 'wt', 'explorer-lane', 'xchain-explorer');
+        fs.mkdirSync(worktreeGitDir, { recursive: true });
+        fs.mkdirSync(repoRoot, { recursive: true });
+        fs.writeFileSync(path.join(repoRoot, '.git'), 'gitdir: ' + worktreeGitDir + '\n');
+        fs.writeFileSync(path.join(worktreeGitDir, 'commondir'), '../..\n');
+        assert.equal(resolvePlatformRoot(repoRoot), fixture);
+    });
+});
 
 describe('hub-mirror bridge tables: vendoring seam @regression', function () {
 

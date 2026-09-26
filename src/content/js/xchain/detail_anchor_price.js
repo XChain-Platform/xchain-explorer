@@ -91,8 +91,8 @@ function showPriceDetails(data){
     // coin) independently of the chain it was published on, and it is mirrored
     // cross-chain, so a DOGE-published price can name an LTC token. Namespacing the
     // link by the page coin opened a different chain's token page - or nothing at all.
-    // Link the declared coin instead, keeping the page's network tier.
-    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(siblingCoin(data.coin), data.tick), data.tick, data.tick));
+    // Link the declared coin instead; tokenUrl keeps the page's network tier.
+    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(data.coin, data.tick), data.tick, data.tick));
     $('#info-price .price-fiat').text(isNull(data.fiat) ? '-' : data.fiat);
     $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
     // PRICE v1 carries the oracle's usage FEE as a decimal fraction (0.01 being 1%)
@@ -196,10 +196,9 @@ function showPriceRounds(rounds){
 function formatPriceAnchorHeight(height){
     if(isNull(height)) return '-';
     let text   = numeral(height).format('0,0');
-    // mainnet's prefix is '' by design, so an absent map and a mainnet page both
-    // resolve to plain 'BTC' - which is right in the first case and correct in the second.
-    let prefix = (XC.networks && XC.networks[XC.network]) ? XC.networks[XC.network] : '';
-    let coin   = prefix + 'BTC';
+    // BTC at the page's network tier (TBTC on a testnet page, plain BTC on mainnet),
+    // by the same rule every other coin-built link follows (network_coin.js).
+    let coin   = networkCoin('BTC');
     let served = !!(XC.status && XC.status.available && XC.status.available[coin]);
     return served ? formatLink('/' + coin + '/block/' + height, text) : text;
 }

@@ -36,9 +36,10 @@ function renderLinkedFiles(files, bodyId, cardId){
             // /:coin/api/file/:actionIndex/raw); there is no page-level /file/ route, and
             // linking one 404s with the HTML shell rather than the file.
             : '<a href="/' + XC.coin + '/api/file/' + idx + '/raw" target="_blank">raw bytes</a>';
-        // title/name/type are on-chain, author-controlled free text; escape all three.
+        // title/name/type are on-chain, author-controlled free text; escape all three
+        // (formatLink escapes the title).
         html += '<tr>'
-             +  '<td>' + formatLink('/' + XC.coin + '/action/' + idx, escapeHtml(nullToBlank(f.title))) + '</td>'
+             +  '<td>' + formatLink('/' + XC.coin + '/action/' + idx, nullToBlank(f.title)) + '</td>'
              +  '<td>' + escapeHtml(nullToBlank(f.name)) + '</td>'
              +  '<td>' + escapeHtml(nullToBlank(f.type)) + '</td>'
              +  '<td>' + numeral(Number(f.block_index)).format('0,0') + '</td>'
@@ -82,7 +83,7 @@ function renderOpenPolls(polls, bodyId, cardId){
         let closes   = formatLink('/' + XC.coin + '/block/' + Number(p.end_block), numeral(p.end_block).format('0,0'));
         let binding  = isNull(p.callback_contract_index)
             ? '<span class="badge text-bg-secondary">Advisory</span>'
-            : formatLink('/' + XC.coin + '/contract/' + Number(p.callback_contract_index),
+            : formatLinkHtml('/' + XC.coin + '/contract/' + Number(p.callback_contract_index),
                 '<span class="badge text-bg-danger">Binding</span>',
                 'Binding poll: finalization calls contract ' + Number(p.callback_contract_index));
         let view     = formatLink('/' + XC.coin + '/action/' + Number(p.action_index), 'view', null, true);
@@ -108,7 +109,7 @@ function tokenInfo_renderProjectBanners(o){
             let name = escapeHtml(p.project);
             projectBanners += '<div class="alert alert-success mb-1" role="alert">'
                  +  '<i class="fa fa-certificate pe-1"></i>This token is an official token in the '
-                 +  formatLink(tokenUrl(XC.coin, name), '<b>' + name + '</b>', p.project)
+                 +  formatLinkHtml(tokenUrl(XC.coin, p.project), '<b>' + name + '</b>', p.project)
                  +  ' project.'
                  +  '<a href="/' + XC.coin + '/action/' + Number(p.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
                  +  '</div>';
@@ -135,6 +136,13 @@ function tokenInfo_renderProjectBanners(o){
     }
 }
 
+// Render the token's current allow and block list action references.
+function tokenInfo_renderLists(lists){
+    let current = lists || {};
+    $('#allow-list').html(isNull(current.allow) ? 'None' : formatListReference(XC.coin, current.allow));
+    $('#block-list').html(isNull(current.block) ? 'None' : formatListReference(XC.coin, current.block));
+}
+
 // Render the token summary cards from one consistent snapshot.
 function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     // Controller bindings (protocol/controller-bound-tokens.md): guard contracts
@@ -154,6 +162,7 @@ function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     $('#max-mint').text(formatAmount(o.mints.max));
     $('#owner').html(formatLink('/' + XC.coin + '/address/' + o.info.owner, o.info.owner));
     $('#token-description').text(desc);
+    tokenInfo_renderLists(o.lists);
 
     // Marketcap and Pricing Information
     $('.xchain-coin').text(o.info.coin);
@@ -247,8 +256,7 @@ function tokenInfo_prepareDescription(desc){
     // safe by construction.
     if(act.test(desc)){
         var actM    = desc.match(act),
-            actTier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '',
-            actCoin = actM[1] ? (actTier + actM[1].toUpperCase()) : XC.coin;
+            actCoin = networkCoin(actM[1] || XC.coin);
         $('#token-description').html(
             '<a href="/' + actCoin + '/action/' + actM[2] + '" title="Token information stored on-chain (' + actCoin + ' FILE action ' + actM[2] + ')">'
             + escapeHtml(desc) + '</a>'

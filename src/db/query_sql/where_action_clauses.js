@@ -178,6 +178,9 @@ function entityClause(db, config, sql){
             sql += ' AND t3.tick=?';
         }
     }
+    // Match the ticker that unlocks a gated FILE, independent of LINK mappings.
+    if(type=='gate' && method=='getFiles')
+        sql += ' AND gf.gate_ticker=?';
     // getFiles 'name' mode (spec explorer-coverage-completion M1.7):
     // discovery-by-filename. files.name is a plain VARCHAR column on the base
     // `files` table (not interned like tick/address), and only 'token' routes

@@ -2146,7 +2146,8 @@ $(document).ready(function(){
             // Update the page with SEO friendly info
             XC.pageInfo.title       =  o.action + ' Action Information';
             XC.pageInfo.description = 'Learn about the ' + o.action + ' action on the XChain Platform. This page displays XChain platform information about the action index #' + o.action_index;
-            XC.pageInfo.canonical   = '/' + XC.coin + '/transaction/' + XC.query;
+            // The action page's own URL, not a /transaction/ path the index would not resolve.
+            XC.pageInfo.canonical   = '/' + XC.coin + '/action/' + o.action_index;
             updatePageInfo();
 
             wireActionProofButton(o);

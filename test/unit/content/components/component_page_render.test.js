@@ -71,6 +71,7 @@ function browserRealm(file, coin){
     // rather than whatever jsdom's document lifecycle happens to do.
     win.jQuery.fn.ready = function(){ return this; };
     win.numeral = function(v){ return { format: function(){ return String(v); } }; };
+    win.eval(read(JS_DIR, 'network_coin.js'));
     win.eval(read(JS_DIR, 'formatters.js'));
     win.eval(srcText('src/content/js/components.js'));
     win.eval(srcText('src/content/js/xchain.js'));

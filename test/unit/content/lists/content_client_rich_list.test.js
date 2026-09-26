@@ -72,7 +72,9 @@ function installHelpers(dom) {
     dom.window.eval(`
         var XC = { coin: 'RDOGE', query: 'RARETOKEN', network: 'regtest', name: 'Dogecoin', pageInfo: {}, datatables: {} };
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
-        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
+        function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatLink(href, text){ return formatLinkHtml(href, text ? String(text).replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }) : text); }
         function updatePageInfo(){}
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(XCHAIN_SRC, 'isNull')}

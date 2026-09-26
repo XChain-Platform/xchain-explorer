@@ -53,6 +53,8 @@ const GET_DISPENSERS_QUERY_SQL = `SELECT
                         c2.coin as get_coin,
                         t4.tick as get_tick,
                         m.get_amount,
+                        f1.code as fiat_code,
+                        m.fiat_amount,
                         a5.address as oracle_address,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -75,6 +77,7 @@ const GET_DISPENSERS_QUERY_SQL = `SELECT
                         LEFT  JOIN index_coins        c2 ON (c2.id=m.get_coin_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.give_tick_id)
                         LEFT  JOIN index_tickers      t4 ON (t4.id=m.get_tick_id)
+                        LEFT  JOIN index_fiats        f1 ON (f1.id=m.fiat_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE `;
 

@@ -2,7 +2,22 @@
 <div class="container mt-3">
     <div class="row">
 
-        <div class="col-12">
+        <div class="col-12" id="dispenser-index-card" style="display:none">
+            <div class="card table-responsive">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-arrows-h"></i> <span id="dispenser-index-heading">Dispenser</span>
+                </div>
+                <table class="table table-striped cell-border table-hover table-condensed no-bottom-margin" width="100%">
+                <tbody id="dispenser-detail-rows">
+                    <tr>
+                        <td colspan="2" class="loading-data">Loading dispenser...</td>
+                    </tr>
+                </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-12" id="dispenser-address-card">
             <div class="card table-responsive">
                 <div class="card-title mb-0 p-1 fw-bold">
                     <i class="fa fa-lg fa-arrows-h"></i> Dispenser Information
@@ -26,7 +41,7 @@
             </div>
         </div>
 
-        <div class="col-12">
+        <div class="col-12" id="dispenser-list-section">
             <div class="card table-responsive">
                 <div class="card-title mb-0 p-1 fw-bold">
                     <i class="fa fa-lg fa-arrows-h"></i> Dispensers
@@ -81,45 +96,62 @@
     </div>
 </div>
 
+<script type="text/javascript" src="/js/dispenser_detail.js"></script>
 <script type="text/javascript">
-$(document).ready(function() {
+// One dispense count, asked of the same feed the table below reads (one row),
+// so the card can never disagree with the table.
+function dispenserCount(coin, feed, query, type, target){
+    $.getJSON('/' + coin + '/explorer/' + feed + '/' + query + '/' + type + '?length=1&start=0&draw=1', function(o){
+        $(target).text(numeral(o && o.recordsTotal ? o.recordsTotal : 0).format('0,0'));
+    });
+}
 
-    // Dispenser list rows used to link here by action_index, and those URLs are
-    // out in the wild. The record they meant is the DISPENSER action, so forward
-    // a numeric query there instead of requesting feeds with no address segment.
-    var lastSegment = String(window.location.pathname).split('/').pop();
-    if(isNull(XC.query) && isNumeric(lastSegment)){
-        window.location.replace('/' + XC.coin + '/action/' + encodeURIComponent(lastSegment));
-        return;
-    }
+// /{COIN}/dispenser/{action_index}: one dispenser, read from its DISPENSER
+// action, with only its own fills below.
+function loadDispenserByIndex(){
+    $('#dispenser-index-card').show();
+    $('#dispenser-address-card, #dispenser-list-section').hide();
+    $('#dispenser-index-heading').text('Dispenser #' + XC.query);
+    XC.pageInfo.title       = 'Dispenser #' + XC.query;
+    XC.pageInfo.description = 'Dispenser ' + XC.query + ': what it sells, its price, what is left in escrow and its dispenses, on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+    XC.pageInfo.canonical   = '/' + XC.coin + '/dispenser/' + XC.query;
+    updatePageInfo();
+    $.getJSON('/' + XC.coin + '/api/action/' + XC.query, function(o){
+        // Single-row routes answer a bare object; an action that is not a
+        // DISPENSER has no dispenser to show.
+        let d = (o && !isNull(o.action_index)) ? o : null;
+        if(!d || d.action !== 'DISPENSER'){
+            renderDispenserMessage('No dispenser was opened by action #' + XC.query + '.', 'muted');
+            return;
+        }
+        renderDispenserDetail(XC.coin, d);
+        dispenserCount(XC.coin, 'dispenses', XC.query, 'dispenser', '#dispenser-index-dispense-count');
+    }).fail(function(xhr){
+        let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
+        renderDispenserMessage(body.error ? body.error : 'Could not load this dispenser', 'danger');
+    });
+    loadDatatablesData(XC.coin, 'dispense', XC.query, 'dispenser');
+}
 
-    // Update the page with SEO friendly info
+// /{COIN}/dispenser/{address}: every dispenser paid at an address, and their
+// fills. Both tables are the shipped dispenser/dispense feeds scoped by
+// address, and inherit the positional createdRow handlers, which is why the
+// two THEADs above are copied column-for-column from dispensers.html /
+// dispenses.html rather than trimmed (a missing column misaligns every cell).
+function loadDispenserByAddress(){
     XC.pageInfo.title       = 'Dispenser ' + XC.query;
     XC.pageInfo.description = 'Dispensers and dispenses for address ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
     XC.pageInfo.canonical   = '/' + XC.coin + '/dispenser/' + XC.query;
     updatePageInfo();
-
     $('#dispenser-address').html(formatLink('/' + XC.coin + '/address/' + XC.query, XC.query));
-
-    // Both tables are the SHIPPED dispenser/dispense feeds scoped to this
-    // address, loaded through the same loadDatatablesData call the list pages
-    // make. The `address` type is already registered on both routes, so this
-    // page needs no new feed, no new route and no per-page render code - and it
-    // inherits the positional createdRow handlers, which is why the two THEADs
-    // above are copied column-for-column from dispensers.html / dispenses.html
-    // rather than trimmed (a missing column misaligns every cell, XC render
-    // lesson from the mints Destination column).
     loadDatatablesData(XC.coin, 'dispenser', XC.query, 'address');
     loadDatatablesData(XC.coin, 'dispense',  XC.query, 'address');
+    dispenserCount(XC.coin, 'dispensers', XC.query, 'address', '#dispenser-open-count');
+    dispenserCount(XC.coin, 'dispenses',  XC.query, 'address', '#dispenser-dispense-count');
+}
 
-    // The counts come from the same feeds, asked for one row each, so the info
-    // card can never disagree with the tables below it.
-    $.getJSON('/' + XC.coin + '/explorer/dispensers/' + XC.query + '/address?length=1&start=0&draw=1', function(o){
-        $('#dispenser-open-count').text(numeral(o && o.recordsTotal ? o.recordsTotal : 0).format('0,0'));
-    });
-    $.getJSON('/' + XC.coin + '/explorer/dispenses/' + XC.query + '/address?length=1&start=0&draw=1', function(o){
-        $('#dispenser-dispense-count').text(numeral(o && o.recordsTotal ? o.recordsTotal : 0).format('0,0'));
-    });
-
+$(document).ready(function() {
+    if(isNumeric(XC.query)) loadDispenserByIndex();
+    else loadDispenserByAddress();
 });
 </script>

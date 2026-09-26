@@ -104,7 +104,7 @@ function renderRichListHolders(d){
               + '<td class="rich-list-address">'
               + (isNull(r.address)
                   ? '<span class="text-muted">-</span>'
-                  : formatLink('/' + XC.coin + '/address/' + r.address, richListEsc(r.address)))
+                  : formatLink('/' + XC.coin + '/address/' + r.address, r.address))
               + '</td>'
               + '<td class="text-end rich-list-amount">'
               + richListEsc(numeral(Number(r.amount)).format('0,0[.][00000000]')) + '</td>'

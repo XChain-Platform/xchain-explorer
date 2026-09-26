@@ -68,7 +68,7 @@ $(document).ready(function() {
             $('#rich-list-holders').html('<span class="text-muted">No holders to show.</span>');
             return;
         }
-        $('#rich-list-tick').html(formatLink(tokenUrl(XC.coin, d.tick), $('<div>').text(d.tick).html()));
+        $('#rich-list-tick').html(formatLink(tokenUrl(XC.coin, d.tick), d.tick));
         $('#rich-list-supply').html(renderRichListSupply(d));
         $('#rich-list-holders').html(renderRichListHolders(d));
         $('#rich-list-coverage').html(renderRichListCoverage(d));

@@ -31,6 +31,8 @@ const { srcText } = require('../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
@@ -71,24 +73,25 @@ function renderPriceDetails(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
 
-    dom.window.XC = { coin: 'BTC', network: 'testnet', networks: { mainnet: '', testnet: 'T', regtest: 'R' }, ...(data.__xc || {}) };
+    // A testnet page, spelled consistently: the coin carries the tier params.js derives XC.network from.
+    dom.window.XC = { coin: 'TBTC', network: 'testnet', networks: { mainnet: '', testnet: 'T', regtest: 'R' }, ...(data.__xc || {}) };
+    dom.window.eval(NETWORK_COIN_SRC);
     // Helpers the renderer leans on, kept naive so anything the assertions
     // observe is showPriceDetails' own doing. escapeHtml and nullToBlank are
     // pulled from the shipped source rather than stubbed, because the round
     // renderer's escaping IS one of the things under test here.
     dom.window.eval(`
-        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatHash(h, len){ return String(h).substring(0, len); }
         function formatLivestamp(ts){ return '<span data-livestamp=' + ts + '></span>'; }
         ${extractFn('isNull')}
+        ${extractFn('tokenUrl')}
         ${extractFn('nullToBlank')}
         ${extractFn('escapeHtml')}
     `);
     dom.window.eval(extractFn('formatPriceAnchorHeight'));
-    // The SHIPPED coin-id rule, not a stub: which chain the ticker link names is
-    // exactly what the cross-chain cases below assert.
-    dom.window.eval(extractFn('siblingCoin'));
+    // tokenUrl above and network_coin.js are the SHIPPED coin-id rule, not stubs: which
+    // chain the ticker link names is exactly what the cross-chain cases below assert.
     dom.window.eval(extractFn('showPriceRounds'));
     dom.window.eval(extractFn('showPriceDetails'));
     dom.window.showPriceDetails(data);

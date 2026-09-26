@@ -121,7 +121,9 @@ function makeWindow(coin, chain, query) {
     dom.window.eval(extractFn(XCHAIN_SRC, 'formatLivestamp'));
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
-        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
+        function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatLink(href, text){ return formatLinkHtml(href, text ? String(text).replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }) : text); }
     `);
     dom.window.XC = {
         coin:  coin  || 'RBTC',

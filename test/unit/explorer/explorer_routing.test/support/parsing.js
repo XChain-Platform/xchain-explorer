@@ -129,6 +129,14 @@ describe('method matching (api)', function () {
         expect(cfg.data.type).to.equal('token');
     });
 
+    it('/BTC/api/files/XCHAIN/gate routes to gated FILE discovery', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/files/XCHAIN/gate');
+        expect(cfg).to.not.be.null;
+        expect(cfg.data.method).to.equal('getFiles');
+        expect(cfg.data.search).to.equal('XCHAIN');
+        expect(cfg.data.type).to.equal('gate');
+    });
+
     it('/BTC/api/status → method=getStatus', async function () {
         const { cfg } = await request(explorer, '/BTC/api/status');
         expect(cfg).to.not.be.null;

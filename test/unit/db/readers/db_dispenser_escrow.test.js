@@ -187,6 +187,7 @@ describe('getDispensers list lane serves escrow', function () {
         expect(data[0].give_escrow).to.equal('500');
         // ...and the remainder from the same derivation the detail lane uses
         expect(data[0].escrow_remaining).to.equal('750');
+        expect(data[0].price_stale).to.equal(false);
     });
 
     it('selects give_escrow in the list SQL rather than re-deriving it', async () => {
@@ -335,6 +336,7 @@ describe('per-action and WebSocket lanes read the same derivation', function () 
         const result = await db.getActionData(cfg(), 100);
         expect(shared.calledOnce).to.equal(true);
         expect(result.state.give_remaining).to.equal('750');
+        expect(result.price_stale).to.equal(false);
     });
 
     it('[REGRESSION] getDispenserInfo no longer selects a give_remaining column that does not exist', async () => {

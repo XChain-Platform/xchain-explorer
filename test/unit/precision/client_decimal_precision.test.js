@@ -107,6 +107,6 @@ describe('client decimal precision', function(){
             market: { price: '90071992.54740993', floor: '0' },
             callback: { tick: null }, locks: {}
         }, '', '0,0.00000000', '0,0.00');
-        expect(dom.window.$('#market-price-coin').text()).to.equal('90,071,992.54740993');
+        expect(dom.window.$('#market-price-coin').text()).to.equal('90,071,992.54740993 DOGE');
     });
 });

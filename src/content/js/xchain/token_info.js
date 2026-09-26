@@ -143,6 +143,45 @@ function tokenInfo_renderLists(lists){
     $('#block-list').html(isNull(current.block) ? 'None' : formatListReference(XC.coin, current.block));
 }
 
+// Format market numbers only when every input needed to derive them is present.
+function tokenInfo_multiplyMarketValues(valueA, valueB, decimals){
+    if(isNull(valueA) || isNull(valueB) || !isFinite(valueA) || !isFinite(valueB))
+        return null;
+    return bcmul(valueA, valueB, decimals);
+}
+
+// Keep the native coin unit in the same node as its amount so it appears once.
+function tokenInfo_formatMarketValue(value, decimals, coin){
+    if(isNull(value) || !isFinite(value))
+        return '-';
+    let formatted = formatAmount(bcformat(value, decimals));
+    return isNull(coin) ? formatted : formatted + ' ' + coin;
+}
+
+// Prefix available fiat values while leaving an unavailable value as a plain dash.
+function tokenInfo_formatFiatValue(value){
+    let formatted = tokenInfo_formatMarketValue(value, 2);
+    return formatted === '-' ? formatted : '$' + formatted;
+}
+
+// Render market values without turning absent API numbers into zeroes.
+function tokenInfo_renderMarket(o){
+    let coin = isNull(o.info.coin) ? '' : o.info.coin;
+    $('.xchain-coin').text(coin);
+
+    let priceFiat = tokenInfo_multiplyMarketValues(o.market.price, XC.coin_price, 2);
+    let floorFiat = tokenInfo_multiplyMarketValues(o.market.floor, XC.coin_price, 2);
+    let marketcap = tokenInfo_multiplyMarketValues(o.market.price, o.supply.current, 8);
+    let marketcapFiat = tokenInfo_multiplyMarketValues(marketcap, XC.coin_price, 2);
+
+    $('#market-price-coin').text(tokenInfo_formatMarketValue(o.market.price, 8, coin));
+    $('#market-price-fiat').text(tokenInfo_formatFiatValue(priceFiat));
+    $('#market-floor-coin').text(tokenInfo_formatMarketValue(o.market.floor, 8, coin));
+    $('#market-floor-fiat').text(tokenInfo_formatFiatValue(floorFiat));
+    $('#market-marketcap-coin').text(tokenInfo_formatMarketValue(marketcap, 8, coin));
+    $('#market-marketcap-fiat').text(tokenInfo_formatFiatValue(marketcapFiat));
+}
+
 // Render the token summary cards from one consistent snapshot.
 function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     // Controller bindings (protocol/controller-bound-tokens.md): guard contracts
@@ -161,18 +200,11 @@ function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     $('#max-supply').text(formatZeroSentinel(o.supply.max, 'No cap declared'));
     $('#max-mint').text(formatZeroSentinel(o.mints.max, 'No per-transaction cap'));
     $('#owner').html(formatLink('/' + XC.coin + '/address/' + o.info.owner, o.info.owner));
-    $('#token-description').text(desc);
+    $('#token-description').text(isNull(desc) ? 'No description' : desc);
     tokenInfo_renderLists(o.lists);
 
     // Marketcap and Pricing Information
-    $('.xchain-coin').text(o.info.coin);
-    $('#market-price-coin').text(formatAmount(bcformat(o.market.price, 8)));
-    $('#market-price-fiat').text(formatAmount(bcmul(o.market.price, XC.coin_price, 2)));
-    $('#market-floor-coin').text(formatAmount(bcformat(o.market.floor, 8)));
-    $('#market-floor-fiat').text(formatAmount(bcmul(o.market.floor, XC.coin_price, 2)));
-    var mcap = bcmul(o.market.price, o.supply.current, 8);
-    $('#market-marketcap-coin').text(formatAmount(mcap));
-    $('#market-marketcap-fiat').text(formatAmount(bcmul(mcap, XC.coin_price, 2)));
+    tokenInfo_renderMarket(o);
 
     // Callback Token Information
     if(!isNull(o.callback.tick)){
@@ -207,7 +239,7 @@ function showTokenInfo(){
         fmtFiat  = '0,0.00';
 
     // Basic Token Information
-    $('.xchain-tick').text(o.info.tick);
+    $('.xchain-tick').text(nullToBlank(o.info.tick));
 
     tokenInfo_renderProjectBanners(o);
 

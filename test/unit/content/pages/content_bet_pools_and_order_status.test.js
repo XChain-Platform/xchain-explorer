@@ -42,12 +42,14 @@ const fs   = require('fs');
 const path = require('path');
 const assert = require('assert');
 const { JSDOM } = require('jsdom');
+const math = require('mathjs');
 
 // The bet feed readers live in the polls and bets reader family since db/index.js
 // became the composition root, so the pinned bodies are read from there.
 const SRC_DB   = srcText('src/db/readers/polls_bets.js');
 const SRC_JS   = srcText('src/content/js/xchain.js');
 const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
+const BET_FEED_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/bet_feed.html'), 'utf8');
 
 // Slice a method body out of the source by walking braces, the technique the
 // sibling content-client tests use, so this reads shipped code not a copy.
@@ -62,6 +64,47 @@ function extractFn(src, signature) {
         else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
     }
     return src.slice(start, i);
+}
+
+function renderBetFeedPools(pools) {
+    const callback = extractFn(BET_FEED_HTML, 'function(o)');
+    const dom = new JSDOM('<!DOCTYPE html><body>' + BET_FEED_HTML + '</body>',
+        { runScripts: 'outside-only' });
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.math = math;
+    dom.window.XC = { coin: 'BTC', query: '42', name: 'Bitcoin', network: 'mainnet', pageInfo: {} };
+    dom.window.eval(`
+        function isNull(value){ return value === null || value === undefined; }
+        function tokenUrl(coin, tick){ return '/' + coin + '/token/' + tick; }
+        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatLivestamp(){ return 'soon'; }
+        function formatAmount(value){ return String(value); }
+        function updatePageInfo(){}
+        function statusClass(){ return 'primary'; }
+        function esc(value){ return String(value); }
+        var numeral = function(value){ return { format: function(){ return String(value); } }; };
+        var moment = { unix: function(){ return { utcOffset: function(){ return { format: function(){ return 'when'; } }; } }; } };
+    `);
+    dom.window.eval('(' + callback + ')')({
+        action_index: 42,
+        label: 'Precision market',
+        source: 'oracle',
+        tick: 'TOKEN',
+        fee: '0',
+        deadline: 1,
+        expire_at: 2,
+        min_amount: null,
+        allow_list: null,
+        block_list: null,
+        block_index: 1,
+        feed_status: 'open',
+        outcome_labels: ['first', 'second'],
+        pools,
+        timeline: [],
+        details: null
+    });
+    return [...dom.window.document.querySelectorAll('#feed-pools tbody tr')]
+        .map((row) => row.lastElementChild.textContent);
 }
 
 describe('bet feed pools: a resolved market still shows its stakes', () => {
@@ -148,6 +191,26 @@ describe('bet feed page: the winner is marked on its own outcome row', () => {
             'the winner comparison must be strict and numeric');
         assert.ok(/d\.winning_outcome !== null/.test(html),
             'the winner check must guard null explicitly rather than relying on truthiness');
+    });
+
+});
+
+describe('bet feed page: pool percentages retain decimal precision', () => {
+
+    it('[REGRESSION] computes implied percentages without converting pool amounts to floats', () => {
+        const percentages = renderBetFeedPools([
+            { outcome: 0, pool: '33350000000000000000000000000000000000000000000', bet_count: 1 },
+            { outcome: 1, pool: '66650000000000000000000000000000000000000000000', bet_count: 1 }
+        ]);
+        assert.deepStrictEqual(percentages, ['33.4%', '66.7%']);
+    });
+
+    it('keeps the one-decimal display for ordinary exact pool splits', () => {
+        const percentages = renderBetFeedPools([
+            { outcome: 0, pool: '1', bet_count: 1 },
+            { outcome: 1, pool: '3', bet_count: 1 }
+        ]);
+        assert.deepStrictEqual(percentages, ['25.0%', '75.0%']);
     });
 
 });

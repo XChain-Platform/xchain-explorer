@@ -130,14 +130,21 @@ $(document).ready(function() {
         let pools = Array.isArray(d.pools) ? d.pools : [];
         let byOutcome = {};
         pools.forEach(function(p){ byOutcome[p.outcome] = p; });
-        let total = pools.reduce(function(a, p){ return a + Number(p.pool || 0); }, 0);
+        let total = pools.reduce(function(a, p){
+            return math.add(a, math.bignumber(p.pool || 0));
+        }, math.bignumber(0));
         if(!outs.length){
             $('#feed-pools').text('-');
         } else {
             let html = '<table class="table table-sm mb-0"><thead><tr><th>Outcome</th><th>Pool</th><th>Bets</th><th>Implied</th></tr></thead><tbody>';
             outs.forEach(function(label, i){
                 let p   = byOutcome[i] || { pool: 0, bet_count: 0 };
-                let pct = total > 0 ? ((Number(p.pool || 0) / total) * 100).toFixed(1) + '%' : '-';
+                let pct = math.larger(total, math.bignumber(0))
+                    ? math.multiply(
+                        math.divide(math.bignumber(p.pool || 0), total),
+                        math.bignumber(100)
+                    ).toFixed(1) + '%'
+                    : '-';
                 // Mark the winner on its own row. Strict numeric equality: outcome 0 is a
                 // legitimate winner and a truthy test would drop it.
                 let won = (d.winning_outcome !== null && d.winning_outcome !== undefined && Number(d.winning_outcome) === i);

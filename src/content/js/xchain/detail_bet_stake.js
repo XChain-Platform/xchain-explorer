@@ -83,14 +83,21 @@ function detailBetStake_renderFeed(data, kind, esc, statusClass){
             let feed  = (res && res.data) ? (Array.isArray(res.data) ? res.data[0] : res.data) : null;
             let pools = (feed && Array.isArray(feed.pools)) ? feed.pools : [];
             if(!pools.length){ $('#info-bet .bet-pools').text('No open bets'); return; }
-            let total = pools.reduce((a, p) => a + Number(p.pool || 0), 0);
+            let total = pools.reduce(function(a, p){
+                return math.add(a, math.bignumber(p.pool || 0));
+            }, math.bignumber(0));
             let html  = '<table class="table table-sm mb-0"><thead><tr><th>Outcome</th><th>Pool</th><th>Bets</th><th>Implied</th></tr></thead><tbody>';
             pools.forEach(function(p){
                 let label = outs[p.outcome];
                 let name  = (label == null) ? String(p.outcome) : (p.outcome + ': ' + esc(label));
                 // Implied probability from the parimutuel split. Odds are NOT fixed at
                 // bet time; this is the split as it stands right now.
-                let pct   = total > 0 ? ((Number(p.pool || 0) / total) * 100).toFixed(1) + '%' : '-';
+                let pct = math.larger(total, math.bignumber(0))
+                    ? math.multiply(
+                        math.divide(math.bignumber(p.pool || 0), total),
+                        math.bignumber(100)
+                    ).toFixed(1) + '%'
+                    : '-';
                 html += '<tr><td>' + name + '</td><td>' + formatAmount(p.pool) + '</td><td>' + numeral(p.bet_count).format('0,0') + '</td><td>' + pct + '</td></tr>';
             });
             html += '</tbody></table><div class="small text-muted mt-1">Parimutuel: the split shown is current, not the odds locked at bet time.</div>';

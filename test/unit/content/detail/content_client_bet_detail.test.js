@@ -38,6 +38,7 @@ const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
+const math = require('mathjs');
 
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
 // (isNull, escapeHtml, formatAmount, formatLink and friends) moved there in the
@@ -72,16 +73,16 @@ function panelHtml() {
     return ACTION_HTML.slice(start, end);
 }
 
-function renderBetDetails(data) {
+function renderBetDetails(data, poolFeed) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + panelHtml() + '</body>',
         { runScripts: 'outside-only' });
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
 
     dom.window.XC = { coin: 'BTC' };
-    /* Helpers the renderer leans on, kept naive so anything the assertions
-     * observe is showBetDetails' own doing. The pools lookup is a live fetch,
-     * so $.getJSON is inert here: this leg is about the fields the payload
-     * already carries. */
+    dom.window.math = math;
+    dom.window.poolFeed = poolFeed;
+    /* Keep formatter helpers simple so observed output belongs to showBetDetails.
+     * Leave the pool lookup inert unless a test supplies a pool response. */
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -89,7 +90,10 @@ function renderBetDetails(data) {
         function formatAmount(a){ return String(a); }
         var numeral  = function(n){ return { format: function(){ return String(n); } }; };
         var moment   = { unix: function(){ return { utcOffset: function(){ return { format: function(){ return 'when'; } }; } }; } };
-        $.getJSON = function(){ return { done: function(){} }; };
+        $.getJSON = function(url, callback){
+            if(window.poolFeed) callback({ data: window.poolFeed });
+            return { done: function(){} };
+        };
         ${extractFn('isNull')}
         ${extractFn('formatIndexedLabel')}
     `);
@@ -103,6 +107,9 @@ function renderBetDetails(data) {
         resolveOutcome:     $('#info-bet .bet-resolve-outcome').text().trim(),
         resolveOutcomeHtml: $('#info-bet .bet-resolve-outcome').html(),
         resolveHidden:      $('#info-bet .bet-resolve-fields').hasClass('d-none'),
+        poolPercentages:    $('#info-bet .bet-pools tbody tr').map(function(){
+            return $('td', this).last().text();
+        }).get(),
         html: $('#info-bet').html()
     };
 }
@@ -160,6 +167,31 @@ describe('BET detail render: the oracle fee is a number, not the protocol-fee re
             + 'generic protocol-fee record, which renders as "[object Object]"');
         expect(fn).to.contain('data.bet_fee');
     });
+});
+
+describe('BET detail render: pool percentages retain decimal precision', function () {
+
+    it('[REGRESSION] computes implied percentages without converting pool amounts to floats', function () {
+        const poolFeed = {
+            pools: [
+                { outcome: 0, pool: '33350000000000000000000000000000000000000000000', bet_count: 1 },
+                { outcome: 1, pool: '66650000000000000000000000000000000000000000000', bet_count: 1 }
+            ]
+        };
+        const out = renderBetDetails(FEED, poolFeed);
+        expect(out.poolPercentages).to.deep.equal(['33.4%', '66.7%']);
+    });
+
+    it('keeps the one-decimal display for ordinary exact pool splits', function () {
+        const poolFeed = {
+            pools: [
+                { outcome: 0, pool: '1', bet_count: 1 },
+                { outcome: 1, pool: '3', bet_count: 1 }
+            ]
+        };
+        expect(renderBetDetails(FEED, poolFeed).poolPercentages).to.deep.equal(['25.0%', '75.0%']);
+    });
+
 });
 
 /* A BET format 3 (resolve) declares the OUTCOME that settles the market, and the

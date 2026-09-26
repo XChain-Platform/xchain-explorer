@@ -119,6 +119,45 @@ describe('action detail render: fields that reached the API with nowhere to go',
 
 });
 
+describe('action detail list removal sentinel', function(){
+
+    const actions = [
+        ['Dispenser', 'showDispenserDetails', '#info-dispenser .dispenser', { state: {} }],
+        ['Order', 'showOrderDetails', '#info-order .order', { state: {} }],
+        ['Swap', 'showSwapDetails', '#info-swap .swap', { state: {} }]
+    ];
+
+    it('renders zero lists as None on actions and their state blocks', function(){
+        for(const [name, fn, root, extra] of actions){
+            const win = bootPage();
+            const fixture = Object.assign({ allow_list: 0, block_list: '0' }, extra);
+            fixture.state = Object.assign({ allow_list: '0', block_list: 0 }, fixture.state);
+            win[fn](fixture);
+            for(const suffix of ['-allow-list', '-block-list', '-state-allow-list', '-state-block-list']){
+                expect(text(win, root + suffix), name + suffix).to.equal('None');
+                expect(win.jQuery(root + suffix + ' a'), name + suffix + ' link').to.have.length(0);
+            }
+        }
+    });
+
+    it('renders zero lists as Removed on edit actions', function(){
+        const edits = [
+            ['showDispenserEditDetails', '#info-dispenser-edit .dispenser-edit'],
+            ['showOrderEditDetails', '#info-order-edit .order-edit'],
+            ['showSwapEditDetails', '#info-swap-edit .swap-edit']
+        ];
+        for(const [fn, root] of edits){
+            const win = bootPage();
+            win[fn]({ allow_list: 0, block_list: '0' });
+            for(const suffix of ['-allow-list', '-block-list']){
+                expect(text(win, root + suffix)).to.equal('Removed');
+                expect(win.jQuery(root + suffix + ' a')).to.have.length(0);
+            }
+        }
+    });
+
+});
+
 describe('action detail render: fields that reached the API with nowhere to go', function(){
 
     describe('DEPLOY constructor gas', function(){

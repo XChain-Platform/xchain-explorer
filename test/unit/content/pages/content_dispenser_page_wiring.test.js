@@ -157,13 +157,11 @@ describe('dispenser page modes', () => {
  * and amount formatting are the shipped ones.
  */
 describe('dispenser detail rows', () => {
-
     const vm = require('vm');
     const JS = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'js');
     const ctx = vm.createContext({ XC: { coin: 'TDOGE', chain: 'dogecoin', network: 'testnet' }, BigInt });
     for (const f of ['network_coin.js', 'formatters.js', 'dispenser_detail.js'])
         vm.runInContext(fs.readFileSync(path.join(JS, f), 'utf8'), ctx, { filename: f });
-
     // DISPENSER action 3048 on TDOGE, as /api/action/3048 returns it (trimmed).
     const D3048 = {
         action: 'DISPENSER', action_index: '3048', status: 'valid', block_index: '67933889', timestamp: '1790363081',
@@ -174,7 +172,6 @@ describe('dispenser detail rows', () => {
         state: { give_remaining: '60', expiration: '1798138987', status: 'open' },
     };
     const rows = (d) => Object.fromEntries(vm.runInContext('dispenserDetailRows', ctx)('TDOGE', d));
-
     it('says what is left: escrow remaining of escrowed, and whole fills that buys', () => {
         const r = rows(D3048);
         assert.match(r['Left in escrow'], /60 S0UR-PATCH-K1DS/);
@@ -209,6 +206,13 @@ describe('dispenser detail rows', () => {
     it('escapes on-chain text bound for the card', () => {
         const r = rows({ ...D3048, fiat_amount: '1', fiat_code: '<img src=x>' });
         assert.ok(!r['Price per fill'].includes('<img'), 'fiat code reached the card unescaped');
+    });
+
+    it('renders zero allow/block lists as None without action links', () => {
+        const r = rows({ ...D3048, allow_list: 940, block_list: 941,
+            state: { ...D3048.state, allow_list: 0, block_list: '0' } });
+        assert.strictEqual(r['Allow / block list'], 'None / None');
+        assert.ok(!r['Allow / block list'].includes('/action/0'));
     });
 
 });

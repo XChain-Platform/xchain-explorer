@@ -151,8 +151,8 @@ function showOrderDetails(data){
     $('#info-order .order-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
     if(data.expiration)
         $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-order .order-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-order .order-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-order .order-allow-list').html(formatListReference(XC.coin, data.allow_list));
+    $('#info-order .order-block-list').html(formatListReference(XC.coin, data.block_list));
     $('#info-order .order-memo').text(data.memo);
     // Order Status Details
     // Render the ORDER's lifecycle status; the Action Status row above is the
@@ -167,8 +167,8 @@ function showOrderDetails(data){
     $('#info-order .order-state-give-remaining').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.state.give_remaining));
     if(data.state.expiration)
         $('#info-order .order-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-order .order-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));
-    $('#info-order .order-state-block-list').html(formatLink('/' + XC.coin + '/action/' + data.state.block_list, formatAmount(data.state.block_list)));
+    $('#info-order .order-state-allow-list').html(formatListReference(XC.coin, data.state.allow_list));
+    $('#info-order .order-state-block-list').html(formatListReference(XC.coin, data.state.block_list));
     $('#info-order .order-state').text(data.state.status);
 }
 
@@ -183,8 +183,8 @@ function showOrderEditDetails(data){
     $('#info-order-edit .order-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
     if(!isNull(data.expiration))
         $('#info-order-edit .order-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-order-edit .order-edit-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-order-edit .order-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-order-edit .order-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
+    $('#info-order-edit .order-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
     $('#info-order-edit .order-edit-memo').text(data.memo);
 }
 
@@ -239,16 +239,16 @@ function showSwapDetails(data){
     $('#info-swap .swap-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
     if(!isNull(data.expiration))
         $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-swap .swap-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-swap .swap-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-swap .swap-allow-list').html(formatListReference(XC.coin, data.allow_list));
+    $('#info-swap .swap-block-list').html(formatListReference(XC.coin, data.block_list));
     $('#info-swap .swap-memo').text(data.memo);
     // Swap Status Details
     $('#info-swap .swap-state-get-remaining').html(isOwnershipGet  ? ownershipBadge() : formatAmount(data.state.get_remaining));
     $('#info-swap .swap-state-give-remaining').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.state.give_remaining));
     if(data.state.expiration)
         $('#info-swap .swap-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-swap .swap-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));
-    $('#info-swap .swap-state-block-list').html(formatLink('/' + XC.coin + '/action/' + data.state.block_list, formatAmount(data.state.block_list)));
+    $('#info-swap .swap-state-allow-list').html(formatListReference(XC.coin, data.state.allow_list));
+    $('#info-swap .swap-state-block-list').html(formatListReference(XC.coin, data.state.block_list));
     $('#info-swap .swap-state').text(data.state.status);
 }
 
@@ -263,8 +263,8 @@ function showSwapEditDetails(data){
     $('#info-swap-edit .swap-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
     if(!isNull(data.expiration))
         $('#info-swap-edit .swap-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-swap-edit .swap-edit-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-swap-edit .swap-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-swap-edit .swap-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
+    $('#info-swap-edit .swap-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
     $('#info-swap-edit .swap-edit-memo').text(data.memo);
 }
 

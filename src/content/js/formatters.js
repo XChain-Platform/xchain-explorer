@@ -35,12 +35,10 @@ var XCLogger = (typeof XCLogger !== 'undefined' && XCLogger) ? XCLogger
 // Same arrangement for networkCoin: the page loads network_coin.js first.
 var networkCoin = (typeof networkCoin === 'function') ? networkCoin
     : ((typeof require === 'function') ? require('./network_coin.js').networkCoin : null);
-
 // Determine if value is null or undefined or empty
 function isNull(value){
     return (value === null || value === undefined || value==='');
 }
-
 // Make a value safe to hand to jQuery's .text(). jQuery (1.10.2, the build this
 // app ships) does NOT treat an absent value as "no text": .text(null) stringifies
 // it and writes the literal four characters "null" into the element, and
@@ -53,7 +51,6 @@ function isNull(value){
 function nullToBlank(value){
     return isNull(value) ? '' : value;
 }
-
 // Function to remove HTML content from string
 // Escape user-controlled text for safe insertion via jQuery .html() / innerHTML.
 // The canonical five-entity replacement. Apply to ANY on-chain free-text field
@@ -65,7 +62,6 @@ function escapeHtml(s){
         return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
     });
 }
-
 // Bidi overrides (LRE/RLE/PDF/LRO/RLO, LRI/RLI/FSI/PDI, LRM/RLM), zero-width
 // characters (ZWSP/ZWNJ/ZWJ, word joiner, BOM) and C0/C1 controls. The same three
 // sets the wallet's textHardening.js and the SDK's decoder/hardening.js carry, and
@@ -76,7 +72,6 @@ var BIDI_CONTROLS    = /[\u202A-\u202E\u2066-\u2069\u200E\u200F]/g;
 var ZERO_WIDTH       = /[\u200B-\u200D\u2060\uFEFF]/g;
 var TEXT_CONTROLS    = /[\u0000-\u001F\u007F-\u009F]/g;
 var BIDI_PLACEHOLDER = '\u2426'; // SYMBOL FOR SUBSTITUTE FORM TWO
-
 // Neutralize on-chain free text for display. A bidi control becomes a VISIBLE
 // placeholder rather than vanishing: silently dropping it would let "evil<RLO>txt"
 // read clean, which is the attack. Zero-width characters are dropped, controls
@@ -165,7 +160,6 @@ function formatAmount(amount=null){
         str[0] = str[0].replace(/(\d)(?=(\d{3})+$)/g, '$1,');
     return str.join('.');
 }
-
 // Return nice display string for token locks. Field order MUST match the
 // 7-element pipe-string XChainExplorer.js builds for getIssues/getTokens/
 // getProjectTokens rows: max_supply|mint|mint_supply|max_mint|description|
@@ -226,7 +220,6 @@ function getNetworkIcon(name=null, network=null){
 function formatLink(url=null, text=null, icon=false, btn=false){
     return formatLinkHtml(url, (text) ? escapeHtml(text) : text, icon, btn);
 }
-
 // The same link with a label that is ALREADY markup (a badge, an icon, formatHash
 // or highlightSearchTerm output). The caller owns escaping every on-chain value
 // inside that markup; nothing here escapes it again.
@@ -260,7 +253,13 @@ function formatLinkHtml(url=null, text=null, icon=false, btn=false){
     html += '</a>'
     return html;
 }
-
+// Render a list action pointer, except for the edit sentinel that removes a list.
+function formatListReference(coin, actionIndex, isEdit=false, linkLabel=null){
+    if(actionIndex === 0 || actionIndex === '0')
+        return isEdit ? 'Removed' : 'None';
+    let label = isNull(linkLabel) ? formatAmount(actionIndex) : linkLabel;
+    return formatLink('/' + coin + '/action/' + actionIndex, label);
+}
 // Return a truncated hex string (hash / pubkey / request_id) with the full value as
 // a hover title, keeping long 64/128-hex identifiers readable in tables.
 
@@ -388,6 +387,7 @@ if(typeof module !== 'undefined' && module.exports){
         tokenUrl: tokenUrl,
         getNetworkIcon: getNetworkIcon,
         formatLink: formatLink,
+        formatListReference: formatListReference,
         formatLinkHtml: formatLinkHtml,
         formatHash: formatHash,
         formatLinkAmount: formatLinkAmount,

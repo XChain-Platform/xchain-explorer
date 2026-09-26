@@ -77,7 +77,9 @@ function dispenserDetailRows(coin, d){
     const fills = ownership ? (remaining === '1' ? '1' : '0') : dispenserFillsLeft(remaining, d.give_amount);
     const addr  = (a) => isNull(a) ? '-' : formatLink('/' + coin + '/address/' + a, a);
     const expiration = isNull(state.expiration || d.expiration) ? '-' : formatLivestamp(state.expiration || d.expiration);
-    const list = (idx) => isNull(idx) ? 'none' : formatLink('/' + coin + '/action/' + idx, 'list #' + idx);
+    const list = (idx) => isNull(idx) ? 'none' : formatListReference(coin, idx, false, 'list #' + idx);
+    const allowList = Object.prototype.hasOwnProperty.call(state, 'allow_list') ? state.allow_list : d.allow_list;
+    const blockList = Object.prototype.hasOwnProperty.call(state, 'block_list') ? state.block_list : d.block_list;
     return [
         ['Status',            dispenserStatusHtml(d)],
         ['Selling',           selling],
@@ -90,7 +92,7 @@ function dispenserDetailRows(coin, d){
         ['Owner',             addr(d.source)],
         ['Opened',            formatLink('/' + coin + '/block/' + d.block_index, formatAmount(d.block_index)) + ' ' + formatLivestamp(d.timestamp)],
         ['Expiration',        expiration],
-        ['Allow / block list', list(d.allow_list) + ' / ' + list(d.block_list)],
+        ['Allow / block list', list(allowList) + ' / ' + list(blockList)],
         ['Transaction',       formatLink('/' + coin + '/action/' + d.action_index, 'DISPENSER action #' + d.action_index)],
     ];
 }

@@ -110,8 +110,8 @@ function showDispenserDetails(data){
     }
     if(data.expiration)
         $('#info-dispenser .dispenser-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-dispenser .dispenser-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-dispenser .dispenser-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-dispenser .dispenser-allow-list').html(formatListReference(XC.coin, data.allow_list));
+    $('#info-dispenser .dispenser-block-list').html(formatListReference(XC.coin, data.block_list));
     $('#info-dispenser .dispenser-memo').text(data.memo);
     // Dispenser Status Details
     // getActionData deletes state.get_remaining for DISPENSER (only give_remaining is
@@ -119,8 +119,8 @@ function showDispenserDetails(data){
     $('#info-dispenser .dispenser-state-give-remaining').html(formatAmount(data.state.give_remaining));
     if(data.state.expiration)
         $('#info-dispenser .dispenser-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-dispenser .dispenser-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));
-    $('#info-dispenser .dispenser-state-block-list').html(formatLink('/' + XC.coin + '/action/' + data.state.block_list, formatAmount(data.state.block_list)));
+    $('#info-dispenser .dispenser-state-allow-list').html(formatListReference(XC.coin, data.state.allow_list));
+    $('#info-dispenser .dispenser-state-block-list').html(formatListReference(XC.coin, data.state.block_list));
     $('#info-dispenser .dispenser-state').text(data.state.status);
 }
 
@@ -141,8 +141,8 @@ function showDispenserEditDetails(data){
     $('#info-dispenser-edit .dispenser-edit-give-escrow').html(formatAmount(data.give_escrow));
     if(!isNull(data.expiration))
         $('#info-dispenser-edit .dispenser-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-dispenser-edit .dispenser-edit-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-dispenser-edit .dispenser-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    $('#info-dispenser-edit .dispenser-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
+    $('#info-dispenser-edit .dispenser-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
     $('#info-dispenser-edit .dispenser-edit-memo').text(data.memo);
 }
 

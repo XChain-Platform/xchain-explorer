@@ -134,8 +134,8 @@ function xcDatatableRenderOrderEditOrSwapEditRow(context){
 // columns rather than detail-page-only fields. Each is nullable and a null means
 // "this edit left that setting alone", which renders as a dash - dropping the
 // column would hide the difference between an edit that cleared a list and one
-// that never touched it. allow_list/block_list are ACTION INDEXES pointing at a
-// LIST action, not inline lists, so they link like any other action pointer.
+// that never touched it. Zero is the removal sentinel and reads Removed; other
+// allow_list/block_list values point at LIST actions and render as links.
 
     let edited     = data[4];
     let expiration = data[5];
@@ -147,8 +147,8 @@ function xcDatatableRenderOrderEditOrSwapEditRow(context){
     // expiration is a Unix TIMESTAMP (seconds), the same field coinpay
     // obligations carry, not a block height.
     $('td', row).eq(5).html(isNull(expiration) ? '-' : formatLivestamp(expiration));
-    $('td', row).eq(6).html(isNull(allowList) ? '-' : formatLink('/' + coin + '/action/' + allowList, allowList));
-    $('td', row).eq(7).html(isNull(blockList) ? '-' : formatLink('/' + coin + '/action/' + blockList, blockList));
+    $('td', row).eq(6).html(isNull(allowList) ? '-' : formatListReference(coin, allowList, true));
+    $('td', row).eq(7).html(isNull(blockList) ? '-' : formatListReference(coin, blockList, true));
     $('td', row).eq(8).text(isNull(why) ? '-' : String(why));
     $('td', row).eq(9).html(action_link);
 
@@ -172,8 +172,8 @@ function xcDatatableRenderDispenserEditRow(context){
     $('td', row).eq(4).html(isNull(edited) ? '-' : formatLink('/' + coin + '/action/' + edited, edited));
     $('td', row).eq(5).text(isNull(escrow) ? '-' : formatAmount(escrow));
     $('td', row).eq(6).html(isNull(expiration) ? '-' : formatLivestamp(expiration));
-    $('td', row).eq(7).html(isNull(allowList) ? '-' : formatLink('/' + coin + '/action/' + allowList, allowList));
-    $('td', row).eq(8).html(isNull(blockList) ? '-' : formatLink('/' + coin + '/action/' + blockList, blockList));
+    $('td', row).eq(7).html(isNull(allowList) ? '-' : formatListReference(coin, allowList, true));
+    $('td', row).eq(8).html(isNull(blockList) ? '-' : formatListReference(coin, blockList, true));
     $('td', row).eq(9).text(isNull(why) ? '-' : String(why));
     $('td', row).eq(10).html(action_link);
 

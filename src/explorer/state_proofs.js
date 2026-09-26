@@ -39,6 +39,11 @@ const log = getLogger();
 // miss, and keeps an unbounded path segment from reaching the proof descent.
 const CONTRACT_STATE_KEY_MAX_BYTES = 1024;
 
+// Accept only decimal identifiers that JavaScript can represent exactly.
+function isSafeIntegerParam(value){
+    return /^[0-9]+$/.test(String(value)) && Number.isSafeInteger(Number(value));
+}
+
 class StateProofs {
 
     // A per-row block-content inclusion proof for the action, bound to the signed
@@ -62,7 +67,7 @@ class StateProofs {
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
             let actionIndex = req.params.actionIndex;
-            if(!/^[0-9]+$/.test(String(actionIndex)))
+            if(!isSafeIntegerParam(actionIndex))
                 return res.status(400).json({ error: 'Invalid action index', code: 'INVALID_ACTION_INDEX' });
             let config = { coin, data: {} };
             let result = await this.proofServer.actionProof(config, parsed.coin, parsed.network, Number(actionIndex));
@@ -104,7 +109,7 @@ class StateProofs {
             if(parsed.coin !== 'BTC')
                 return res.status(400).json({ error: 'validator-set proof is BTC-only (stakes_root is BTC-only)', code: 'STAKES_BTC_ONLY' });
             let height = req.query.height;
-            if(!/^[0-9]+$/.test(String(height)))
+            if(!isSafeIntegerParam(height))
                 return res.status(400).json({ error: 'height (BTC snapshot block) is required', code: 'INVALID_HEIGHT' });
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
@@ -160,7 +165,7 @@ class StateProofs {
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
 
             let contractIndex = String(req.params.contractIndex || '');
-            if(!/^[0-9]+$/.test(contractIndex))
+            if(!isSafeIntegerParam(contractIndex))
                 return res.status(400).json({ error: 'contractIndex must be a non-negative integer',
                                               code: 'INVALID_CONTRACT_INDEX' });
 
@@ -184,7 +189,7 @@ class StateProofs {
                                               code: 'KEY_TOO_LONG' });
 
             let height = (req.query.height !== undefined && req.query.height !== '') ? req.query.height : null;
-            if(height !== null && !/^[0-9]+$/.test(String(height)))
+            if(height !== null && !isSafeIntegerParam(height))
                 return res.status(400).json({ error: 'Invalid height', code: 'INVALID_HEIGHT' });
 
             let config = { coin, data: {} };
@@ -232,7 +237,7 @@ class StateProofs {
             if(!address || !tick)
                 return res.status(400).json({ error: 'address and tick are required', code: 'MISSING_PARAMETER' });
             let height = (req.query.height !== undefined && req.query.height !== '') ? req.query.height : null;
-            if(height !== null && !/^[0-9]+$/.test(String(height)))
+            if(height !== null && !isSafeIntegerParam(height))
                 return res.status(400).json({ error: 'Invalid height', code: 'INVALID_HEIGHT' });
             let config = { coin, data: {} };
             let result = await this.proofServer.lockedBalanceProof(config, parsed.coin, parsed.network, address, tick,
@@ -267,7 +272,7 @@ class StateProofs {
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
             let contractIndex = req.params.contractIndex;
-            if(!/^[0-9]+$/.test(String(contractIndex)))
+            if(!isSafeIntegerParam(contractIndex))
                 return res.status(400).json({ error: 'Invalid contract index', code: 'INVALID_CONTRACT_INDEX' });
 
             // Same freshness contract as the catch-all data routes. This route is

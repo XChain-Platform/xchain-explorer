@@ -65,13 +65,13 @@ describe('XChainExplorer#processRelayRequest', function () {
             get: sinon.stub().resolves({ data: payload })
         };
         const explorer = makeExplorer(axiosStub);
-        const req = makeRelayReq('https://example.com/token.json');
+        const req = makeRelayReq('https://ipfsc.crystalsuite.com/token.json');
         const res = mockRes();
 
         await explorer.processRelayRequest(req, res);
 
         expect(axiosStub.get.calledOnce).to.be.true;
-        expect(axiosStub.get.firstCall.args[0]).to.equal('https://example.com/token.json');
+        expect(axiosStub.get.firstCall.args[0]).to.equal('https://ipfsc.crystalsuite.com/token.json');
         expect(res._type).to.equal('json');
         // The body is re-serialized JSON text that still carries the payload fields.
         expect(res._body).to.include('XCHAIN');
@@ -84,7 +84,7 @@ describe('XChainExplorer#processRelayRequest', function () {
             get: sinon.stub().resolves({ data: fakeBuffer.buffer.slice(fakeBuffer.byteOffset, fakeBuffer.byteOffset + fakeBuffer.byteLength) })
         };
         const explorer = makeExplorer(axiosStub);
-        const req = makeRelayReq('https://example.com/logo.png');
+        const req = makeRelayReq('https://ipfsc.crystalsuite.com/logo.png');
         const res = mockRes();
 
         await explorer.processRelayRequest(req, res);
@@ -94,6 +94,38 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(axiosStub.get.firstCall.args[1]).to.have.property('responseType', 'arraybuffer');
         // Those bytes come back to the page as a non-empty base64 string.
         expect(res._body).to.be.a('string').and.have.length.above(0);
+    });
+});
+
+describe('XChainExplorer#processRelayRequest', function () {
+    it('fetches the extensionless IPFS and inscription URLs emitted by the token page', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { ok: true } }) };
+        const explorer = makeExplorer(axiosStub);
+        const urls = [
+            'https://ipfsc.crystalsuite.com/QmMetadata',
+            'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + 'ab'.repeat(32)
+        ];
+
+        for(const url of urls)
+            await explorer.processRelayRequest(makeRelayReq(url), mockRes());
+
+        expect(axiosStub.get.callCount).to.equal(2);
+        expect(axiosStub.get.firstCall.args[0]).to.equal(urls[0]);
+        expect(axiosStub.get.secondCall.args[0]).to.equal(urls[1]);
+    });
+});
+
+describe('XChainExplorer#processRelayRequest', function () {
+    it('refuses an arbitrary public host without making a request', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { relayed: true } }) };
+        const explorer = makeExplorer(axiosStub);
+        const res = mockRes();
+
+        await explorer.processRelayRequest(makeRelayReq('https://example.com/token.json'), res);
+
+        expect(res._status).to.equal(403);
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
+        expect(axiosStub.get.called).to.be.false;
     });
 });
 
@@ -214,7 +246,7 @@ describe('XChainExplorer#processRelayRequest', function () {
             get: sinon.stub().rejects(new Error('ECONNREFUSED'))
         };
         const explorer = makeExplorer(axiosStub);
-        const req = makeRelayReq('https://example.com/token.json');
+        const req = makeRelayReq('https://arweave.net/token.json');
         const res = mockRes();
 
         await explorer.processRelayRequest(req, res);
@@ -226,7 +258,7 @@ describe('XChainExplorer#processRelayRequest', function () {
     it('returns 503 for an unsupported file extension (.html)', async function () {
         const axiosStub = { get: sinon.stub() };
         const explorer = makeExplorer(axiosStub);
-        const req = makeRelayReq('https://example.com/page.html');
+        const req = makeRelayReq('https://ipfsc.crystalsuite.com/page.html');
         const res = mockRes();
 
         await explorer.processRelayRequest(req, res);

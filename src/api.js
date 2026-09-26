@@ -101,7 +101,10 @@ function bridgeInvariantHandler(hubConnector, tickParam, error, nativeTickFor){
             if(!hubConnector)
                 return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
             const routeCoin = String((req.params && req.params.coin) || '').toUpperCase();
-            const chain = coins.ALLOWED_COINS.find(coin => routeCoin.endsWith(coin)) || routeCoin;
+            const chain = coins.ALLOWED_COINS.find(coin =>
+                routeCoin === coin || routeCoin === 'T' + coin || routeCoin === 'R' + coin);
+            if(!chain)
+                return error(res, 404, 'Unknown coin.', 'UNKNOWN_COIN');
             const nativeTick = nativeTickFor(tick, chain);
             try {
                 const result = await hubConnector.call({

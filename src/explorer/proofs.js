@@ -80,7 +80,7 @@ class CheckpointProofs {
             if(gate.blocked)
                 return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let blockIndex = req.params.blockIndex;
-            if(!/^[0-9]+$/.test(String(blockIndex)))
+            if(!this.util.isSafeIntegerParam(blockIndex))
                 return res.status(400).json({ error: 'Invalid block_index', code: 'INVALID_BLOCK_INDEX' });
             let config = { coin, data: {} };
             let rows = await this.db.getCheckpointRows(config, Number(blockIndex), 1);
@@ -215,7 +215,7 @@ class CheckpointProofs {
             if(!address || !tick)
                 return res.status(400).json({ error: 'address and tick are required', code: 'MISSING_PARAMETER' });
             let height = (req.query.height !== undefined && req.query.height !== '') ? req.query.height : null;
-            if(height !== null && !/^[0-9]+$/.test(String(height)))
+            if(height !== null && !this.util.isSafeIntegerParam(height))
                 return res.status(400).json({ error: 'Invalid height', code: 'INVALID_HEIGHT' });
             let config = { coin, data: {} };
             let result = await this.proofServer.balanceProof(config, parsed.coin, parsed.network, address, tick,
@@ -245,7 +245,7 @@ class CheckpointProofs {
             if(gate.blocked)
                 return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
             let from = req.query.from, to = req.query.to;
-            if(!/^[0-9]+$/.test(String(from)) || !/^[0-9]+$/.test(String(to)))
+            if(!this.util.isSafeIntegerParam(from) || !this.util.isSafeIntegerParam(to))
                 return res.status(400).json({ error: 'from and to (integers) are required', code: 'INVALID_RANGE' });
             from = Number(from); to = Number(to);
             if(to < from)

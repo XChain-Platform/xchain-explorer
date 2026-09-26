@@ -143,6 +143,16 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body).to.include({ code: 'INVALID_BLOCK_INDEX' });
     });
 
+    it('400s a block_index above the safe integer boundary before the DB call', async function () {
+        const explorer = makeExplorer();
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(
+            req({ coin: 'BTC', blockIndex: '9007199254740992' }), res);
+        expect(res._status).to.equal(400);
+        expect(res._body).to.include({ code: 'INVALID_BLOCK_INDEX' });
+        expect(explorer.db.getCheckpointRows.called).to.equal(false);
+    });
+
     it('404s when no checkpoint exists at the height', async function () {
         const explorer = makeExplorer();
         explorer.db.getCheckpointRows.resolves([]);

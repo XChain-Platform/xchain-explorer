@@ -272,6 +272,15 @@ class Utility {
         return Number.isFinite(parsed) ? parsed : defaultVal;
     }
 
+    // Accept only decimal identifiers that JavaScript can represent exactly.
+    isSafeIntegerParam(value){
+        if(typeof value === 'number')
+            return Number.isSafeInteger(value) && value >= 0;
+        if(typeof value !== 'string' || !/^[0-9]+$/.test(value))
+            return false;
+        return Number.isSafeInteger(Number(value));
+    }
+
     // Wallet addresses and account tokens are alphanumeric. Contract custody
     // addresses use C:<CHAIN>:<action_index>. Keep both forms bounded and reject
     // any other path-segment punctuation before reflecting an address.

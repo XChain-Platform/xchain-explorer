@@ -17,6 +17,7 @@
 const express    = require('express');
 const proxyquire = require('proxyquire');
 const request    = require('supertest');
+const sinon      = require('sinon');
 const { expect } = require('chai');
 
 function loadRouteMount(){
@@ -123,6 +124,24 @@ describe('explorer bridge panel routes', function(){
 });
 
 describe('explorer bridge panel routes, HEAD and failures', function(){
+    it('rejects suffix aliases without calling the hub', async function(){
+        const hub = { call: sinon.stub().resolves({ FUFU: {} }) };
+        const app = buildApp({}, hub);
+
+        const res = await request(app).get('/EVILBTC/api/bridge-invariant/FUFU');
+
+        expect(res.status).to.equal(404);
+        expect(res.body.code).to.equal('UNKNOWN_COIN');
+        expect(hub.call.called).to.equal(false);
+    });
+
+    it('accepts an exact network-prefixed namespace', async function(){
+        const hub = { call: sinon.stub().resolves({ FUFU: {} }) };
+        const res = await request(buildApp({}, hub)).get('/TBTC/api/bridge-invariant/FUFU');
+        expect(res.status).to.equal(200);
+        expect(hub.call.calledOnce).to.equal(true);
+    });
+
     it('answers HEAD for both paths as JSON routes, never as the 404 page', async function(){
         const db = {
             checkpointDb: { BTC: { name: 'mirror', chain: 'BTC', network: 'regtest' } },

@@ -122,7 +122,7 @@ class FileRoutes {
     async processFileRawRequest(req, res){
         let coin = String(req.params.coin || '').toUpperCase();
         let actionIndex = req.params.actionIndex;
-        if(!/^[0-9]+$/.test(String(actionIndex)))
+        if(!this.util.isSafeIntegerParam(actionIndex))
             return res.status(400).json({ error: 'Invalid action_index', code: 'INVALID_ACTION_INDEX' });
         if(!this.db.pools || !this.db.pools[coin])
             return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });

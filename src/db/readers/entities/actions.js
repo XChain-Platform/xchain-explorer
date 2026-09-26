@@ -31,6 +31,8 @@
 
 'use strict';
 
+const { DbInputError } = require('../../shared.js');
+
 class EntityActionReaders {
     /******************************************************************
      *
@@ -132,8 +134,11 @@ class EntityActionReaders {
         let args  = [];
         let extra = '';
         if (!this.util.isNull(q.blockIndex)) {
+            // Bind one exact non-negative block height, never a coerced prefix.
+            if(!this.util.isSafeIntegerParam(q.blockIndex))
+                throw new DbInputError('Invalid block_index', 'INVALID_BLOCK_INDEX');
             extra += ' AND b1.block_index=?';
-            args.push(this.util.sanitizeInt(q.blockIndex));
+            args.push(Number(q.blockIndex));
         }
         if (!this.util.isNull(q.txid)) {
             extra += ' AND t2.hash=?';

@@ -53,7 +53,7 @@ function validateParams(explorer, st){
     // as processFileRawRequest below. parseInt/sanitizeInt cannot do this job:
     // parseInt('7junk') is 7, which reproduces the bug in JS.
     if(cfg.data.method === 'getAction' && cfg.data.type === 'action_index' &&
-       !/^[0-9]+$/.test(String(cfg.data.search || ''))){
+       !explorer.util.isSafeIntegerParam(cfg.data.search)){
         st.badParam   = true;
         response.code = 400;
         response.json = { error: 'Invalid action_index', code: 'INVALID_ACTION_INDEX' };
@@ -65,7 +65,7 @@ function validateParams(explorer, st){
     // same strict shape and the INVALID_BLOCK_INDEX code processCheckpointVerifyRequest
     // already established for a malformed block-index segment.
     } else if(cfg.data.method === 'getCheckpoint' && cfg.data.type === 'block' &&
-       !/^[0-9]+$/.test(String(cfg.data.search || ''))){
+       !explorer.util.isSafeIntegerParam(cfg.data.search)){
         st.badParam   = true;
         response.code = 400;
         response.json = { error: 'Invalid block_index', code: 'INVALID_BLOCK_INDEX' };

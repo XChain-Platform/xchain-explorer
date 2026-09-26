@@ -35,6 +35,13 @@ const ssrfGuard = require('../http/ssrf_guard.js');
 let axios = null;
 let dns   = null;
 
+// Limit public relay egress to the metadata gateways the token page constructs.
+const RELAY_HOSTS = new Set([
+    'arweave.net',
+    'inscription-decoder.vercel.app',
+    'ipfsc.crystalsuite.com'
+]);
+
 function useHostBindings(host){
     axios = host.axios;
     dns   = host.dns;
@@ -72,9 +79,8 @@ class RelayEgress {
         });
     }
 
-    // RELAY request handler: fetches remote token content a page cannot fetch
-    // itself, because relaying keeps it on the explorer's own https and most .json
-    // hosts send no Access-Control-Allow-Origin, without which a browser refuses.
+    // Fetch token content through the bounded gateways the page constructs. Relaying
+    // keeps extensionless metadata same-origin without exposing general outbound HTTP.
     async processRelayRequest(req, res){
         // Nothing to relay without a url parameter.
         if(!this.util.isNull(req.query.url)){
@@ -149,6 +155,10 @@ class RelayEgress {
         if(!['80', '443'].includes(port))
             return { status: 403, body: { error: 'Destination not permitted', code: 'RELAY_DENIED' } };
 
+        // Relay only through the metadata gateways emitted by token_info.js.
+        if(!RELAY_HOSTS.has(parsed.hostname.toLowerCase()))
+            return { status: 403, body: { error: 'Destination not permitted', code: 'RELAY_DENIED' } };
+
         // Nothing refused it.
         return null;
     }
@@ -169,9 +179,14 @@ class RelayEgress {
         const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
                        lookup: this.ssrfSafeLookup.bind(this) };
 
-        // JSON files, and arweave.net gateway URLs, which carry no .json extension.
-        const isArweave = /^arweave\.net$/i.test(parsed.hostname);
-        if(ext=='json' || isArweave){
+        // JSON files and the exact extensionless gateway forms the token page emits.
+        const hostname      = parsed.hostname.toLowerCase();
+        const isArweave     = hostname === 'arweave.net';
+        const isIpfs        = hostname === 'ipfsc.crystalsuite.com' && ext === '';
+        const isInscription = hostname === 'inscription-decoder.vercel.app' &&
+            parsed.pathname === '/api/image' && parsed.searchParams.get('type') === 'json' &&
+            /^[0-9a-f]{64}$/i.test(String(parsed.searchParams.get('tx') || ''));
+        if(ext=='json' || isArweave || isIpfs || isInscription){
             let response = await axios.get(parsed.href, opts);
             if(!this.util.isNull(response.data)){
                 res.type('json').send(this.util.jsonStringify(response.data));

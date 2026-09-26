@@ -47,6 +47,19 @@ function gatedDb(getActionData) {
 }
 
 describe('XChainExplorer#processFileRawRequest gated filename', function () {
+    it('rejects an unsafe action index before reading either file table', async function () {
+        const db = gatedDb(sinon.stub().resolves({ name: 'secret.bin' }));
+        const explorer = makeExplorer(db);
+        const res = mockRes();
+
+        await explorer.processFileRawRequest(fileReq('9007199254740992'), res);
+
+        expect(res._status).to.equal(400);
+        expect(res._body).to.include({ code: 'INVALID_ACTION_INDEX' });
+        expect(db.getGatedFileRaw.called).to.equal(false);
+        expect(db.getFileRaw.called).to.equal(false);
+    });
+
     it('names a gated download from the action NAME, both filename legs', async function () {
         const getActionData = sinon.stub().resolves({ name: 'report.pdf' });
         const explorer = makeExplorer(gatedDb(getActionData));

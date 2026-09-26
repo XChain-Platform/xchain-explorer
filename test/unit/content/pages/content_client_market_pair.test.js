@@ -69,9 +69,20 @@ function queryFor(url) {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only', url });
     dom.window.eval(HELPERS);
     dom.window.eval('var XC = { chains: {}, networks: {} };');
+    dom.window.eval(extractFn('params_hasTextDetailQuery'));
     dom.window.eval(extractFn('setXChainParams'));
     dom.window.setXChainParams('RDOGE');
     return dom.window.XC.query;
+}
+
+function apiUrl(query) {
+    const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
+    dom.window.eval('var XC = { debug: false }; var urls = [];');
+    dom.window.eval('var $ = { getJSON: function(url){ urls.push(url); } };');
+    dom.window.eval(extractFn('xcEncodePathSegments'));
+    dom.window.eval(extractFn('loadApiData'));
+    dom.window.loadApiData('RDOGE', 'markets', query, null, function () {});
+    return dom.window.urls[0];
 }
 
 // resolveMarketPair supplies the counter-tick a single-tick URL omits.
@@ -124,7 +135,13 @@ describe('client: market page counter-tick resolution', function () {
     });
 
     it('a two-tick market URL yields the full pair', function () {
-        expect(queryFor('https://explorer.test/RDOGE/market/XCHAIN/RDOGE')).to.equal('XCHAIN/RDOGE');
+        expect(Array.from(queryFor('https://explorer.test/RDOGE/market/XCHAIN/RDOGE')))
+            .to.deep.equal(['XCHAIN', 'RDOGE']);
+    });
+
+    it('decodes an encoded ticker segment exactly once at page ingress', function () {
+        expect(queryFor('https://explorer.test/RDOGE/market/A%23B')).to.equal('A#B');
+        expect(queryFor('https://explorer.test/RDOGE/token/A%23B')).to.equal('A#B');
     });
 });
 
@@ -170,9 +187,15 @@ describe('client: market page counter-tick resolution', function () {
         const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
         dom.window.eval('var XC = { debug: false }; var urls = [];');
         dom.window.eval('var $ = { getJSON: function(url){ urls.push(url); } };');
+        dom.window.eval(extractFn('xcEncodePathSegments'));
         dom.window.eval(extractFn('loadApiData'));
         dom.window.loadApiData('RDOGE', 'markets', 'XCHAIN', null, function () {});
         expect(dom.window.urls).to.deep.equal(['/RDOGE/api/markets/XCHAIN']);
+    });
+
+    it('loadApiData encodes a raw ticker without encoding pair separators', function () {
+        expect(apiUrl('A#B')).to.equal('/RDOGE/api/markets/A%23B');
+        expect(apiUrl(['SAFE', 'A#B'])).to.equal('/RDOGE/api/markets/SAFE/A%23B');
     });
 });
 

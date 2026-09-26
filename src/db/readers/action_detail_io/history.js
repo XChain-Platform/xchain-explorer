@@ -63,8 +63,9 @@ function historyFeedShape(type){
 
 // The full-history shortcut: the highest action_index standing in for a COUNT(*).
 async function presetHistoryTotal(db, config, q){
-    // For full-history (search='null'): pre-set total to the highest action_index to avoid a COUNT(*) scan.
-    if(config.data.search=='null'){
+    // Token history treats "null" as a ticker, while list history uses it as the
+    // full-history route marker that avoids a COUNT(*) scan.
+    if(config.data.search=='null' && config.data.type!='token'){
         let query = `SELECT
                             action_index
                         FROM

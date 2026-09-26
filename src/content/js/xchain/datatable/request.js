@@ -47,7 +47,7 @@ function xcDatatableUrl(coin, endpoint, action, query, type){
     // Set the explorer API url
     let url = '/' + coin + '/explorer/' + endpoint;
     if(query || action=='history' || action=='block')
-        url += '/' + query;
+        url += '/' + xcEncodePathSegments(query);
     if(type)
         url += '/' + type;
     return url;

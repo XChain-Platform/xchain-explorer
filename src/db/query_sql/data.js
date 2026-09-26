@@ -39,6 +39,31 @@ const { runListQuery } = require('./data_rows.js');
 const { applyPostPasses } = require('./data_post.js');
 const { apiPageOffset, explorerLimits, explorerOffsets } = require('./query_limits.js');
 
+const CANONICAL_TICKERS = Symbol('canonicalTickers');
+const TICK_FILTER_TYPES = new Set(['token', 'tick', 'gate']);
+const TICK_FILTER_METHODS = new Set([
+    'getMarket', 'getMarkets', 'getMarketOrders', 'getOrderbook',
+    'getMarketHistory', 'getProject', 'getProjectTokens'
+]);
+
+async function canonicalTicker(db, config, value){
+    if(db.util.isNull(value)) return value;
+    let canonical = await db.getCanonicalTick(config, value);
+    return db.util.isNull(canonical) ? value : canonical;
+}
+
+async function canonicalizeTickerFilters(db, config){
+    if(config[CANONICAL_TICKERS]) return;
+    let data = config.data || {};
+    if(TICK_FILTER_TYPES.has(data.type) || TICK_FILTER_METHODS.has(data.method))
+        data.search = await canonicalTicker(db, config, data.search);
+    if(['getMarket', 'getMarketOrders', 'getOrderbook', 'getMarketHistory'].includes(data.method))
+        data.search2 = await canonicalTicker(db, config, data.search2);
+    if(data.method === 'getActions' && data.query && !db.util.isNull(data.query.tick))
+        data.query.tick = await canonicalTicker(db, config, data.query.tick);
+    config[CANONICAL_TICKERS] = true;
+}
+
 class QueryData {
 
     /******************************************************************
@@ -48,6 +73,7 @@ class QueryData {
     async getData(config){
         let data  = [];
         let total = null;
+        await canonicalizeTickerFilters(this, config);
         let { cacheName, cacheKey, hit } = await resultCacheLookup(this, config);
         if(hit)
             return hit;
@@ -65,6 +91,7 @@ class QueryData {
     }
 
     async getQuery(config){
+        await canonicalizeTickerFilters(this, config);
         let count = '';
         let query = '';
         let args  = null;

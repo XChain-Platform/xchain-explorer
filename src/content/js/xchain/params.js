@@ -16,10 +16,18 @@
  * Custom javascript for xchain explorer
  */
 
+// Encode data values as URL path segments while preserving explicit structure.
+function xcEncodePathSegments(value){
+    let parts = Array.isArray(value) ? value : [value];
+    return parts.map(function(part){
+        return encodeURIComponent(String(part));
+    }).join('/');
+}
+
 // Function to handle setting current COIN and QUERY values
 function setXChainParams(coin){
     // Strip any HTML content from the pathname and split it up into its various parts
-    let path = String(stripHtml(window.location.pathname)).split('/');
+    let path = String(stripHtml(window.location.pathname)).split('/').map(function(value){ try { return decodeURIComponent(value); } catch(_) { return value; }});
     // Set the coin based on passed coin or path
     if(isNull(coin)){
         let query = new URLSearchParams(window.location.search);
@@ -74,7 +82,7 @@ function setXChainParams(coin){
         // "undefined", which then flowed into the page title and an API request
         // for a nonexistent 'undefined' ticker. Keep the single tick here; the
         // market page resolves the counter via resolveMarketPair before use.
-        XC.query = isNull(path[4]) ? path[3] : path[3] + '/' + path[4];
+        XC.query = isNull(path[4]) ? path[3] : [path[3], path[4]];
     }
 }
 

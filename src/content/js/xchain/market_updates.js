@@ -23,7 +23,7 @@ function updateMarketBasics(market){
         // unknown pair) is a resolution failure; say so instead of leaving
         // every panel on "Loading".
         if(!o || isNull(o.tick2)){
-            showMarketNotFound(String(market).split('/')[0]);
+            showMarketNotFound(Array.isArray(market) ? market[0] : String(market).split('/')[0]);
             return;
         }
         // Update page with token names

@@ -191,7 +191,7 @@ $(document).ready(function() {
         if(isNull(d.tick)){
             $('#poll-delegations').html('<span class="text-muted">-</span>');
         } else {
-            $.getJSON('/' + XC.coin + '/api/vote_delegations/' + d.tick + '/tick', function(go){
+            $.getJSON('/' + XC.coin + '/api/vote_delegations/' + encodeURIComponent(String(d.tick)) + '/tick', function(go){
                 let rows = (go && !isNull(go.data)) ? go.data : (Array.isArray(go) ? go : []);
                 $('#poll-delegations').html(renderPollDelegations(rows, d.tick));
             }).fail(function(xhr){

@@ -73,7 +73,9 @@ function installHelpers(dom) {
     dom.window.eval(JQUERY_SRC);
     dom.window.eval(MATH_SRC);
     dom.window.eval(`
-        var XC = { coin: 'RDOGE', query: 'RARETOKEN', network: 'regtest', name: 'Dogecoin', pageInfo: {}, datatables: {} };
+        var XC = { coin: 'RDOGE', query: 'RARETOKEN', network: 'regtest', name: 'Dogecoin', pageInfo: {}, datatables: {}, chains: {}, networks: {} };
+        function stripHtml(v){ return String(v); }
+        function getXChainParam(coin, type){ return String(coin).toUpperCase(); }
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
         function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -82,6 +84,8 @@ function installHelpers(dom) {
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(XCHAIN_SRC, 'isNull')}
         ${extractFn(XCHAIN_SRC, 'isNumeric')}
+        ${extractFn(XCHAIN_SRC, 'params_hasTextDetailQuery')}
+        ${extractFn(XCHAIN_SRC, 'setXChainParams')}
         ${extractFn(XCHAIN_SRC, 'formatAmount')}
         ${extractFn(BC_SRC, 'bcnum')}
         ${extractFn(BC_SRC, 'bcformat')}
@@ -105,14 +109,16 @@ function paint(dom, html) {
     return dom.window.$;
 }
 
-function loadPage(routes) {
+function loadPage(routes, tick = 'RARETOKEN') {
     const bodyHtml = PAGE_HTML.slice(0, PAGE_HTML.indexOf('<script'));
     const scriptStart = PAGE_HTML.indexOf('$(document).ready(function() {');
     if (scriptStart < 0) throw new Error("rich_list.html's inline ready block was not found");
     const inline = PAGE_HTML.slice(scriptStart, PAGE_HTML.lastIndexOf('</script>'));
 
-    const dom = new JSDOM('<!DOCTYPE html><body>' + bodyHtml + '</body>', { runScripts: 'outside-only' });
+    const url = 'https://explorer.test/RDOGE/rich_list/' + encodeURIComponent(tick);
+    const dom = new JSDOM('<!DOCTYPE html><body>' + bodyHtml + '</body>', { runScripts: 'outside-only', url });
     installHelpers(dom);
+    dom.window.setXChainParams('RDOGE');
     dom.window.eval('jQuery.fn.ready = function(fn){ fn(jQuery); return this; };');
 
     const seen = [];
@@ -256,6 +262,13 @@ describe('rich list and supply stats (M5.2)', function () {
         it('requests the rich list for the page tick', function () {
             const { seen } = loadPage({ '/RDOGE/api/rich_list/RARETOKEN': TRUNCATED });
             expect(seen).to.deep.equal(['/RDOGE/api/rich_list/RARETOKEN']);
+        });
+
+        it('decodes a chain-valid fragment ticker before rebuilding rich-list URLs', function () {
+            const route = '/RDOGE/api/rich_list/A%23B';
+            const page = loadPage({ [route]: Object.assign({}, TRUNCATED, { tick: 'A#B' }) }, 'A#B');
+            expect(page.seen).to.deep.equal([route]);
+            expect(page.window.XC.pageInfo.canonical).to.equal('/RDOGE/rich_list/A%23B');
         });
 
         it('renders supply, ranking and the coverage note together', function () {

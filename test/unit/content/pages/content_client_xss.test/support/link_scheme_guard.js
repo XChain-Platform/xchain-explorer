@@ -88,10 +88,10 @@ describe('formatLinkHtml: relative/http(s) allow-list @regression', function(){
         expect(out.querySelector('a').getAttribute('href')).to.equal('https://example.test/x');
     });
 
-    it('keeps the existing dead-link guard for a /token/null tail', function(){
+    it('links a token literally named null', function(){
         const win = bootPage();
         const out = parse(win, win.formatLinkHtml('/TDOGE/token/null', 'TICK'));
-        expect(out.querySelector('a')).to.equal(null);
+        expect(out.querySelector('a').getAttribute('href')).to.equal('/TDOGE/token/null');
         expect(out.textContent).to.equal('TICK');
     });
 

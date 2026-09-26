@@ -156,10 +156,10 @@ describe('formatters module (M2.1)', function () {
             assert.equal(F.formatAmount('1234567.89012345'), '1,234,567.89012345');
         });
 
-        it('formatLink renders the label alone rather than a dead /token/null href', function () {
-            // A native-coin leg carries no tick, which used to build /token/null.
-            assert.equal(F.formatLink('/RDOGE/token/null', 'DOGE'), 'DOGE');
-            assert.equal(F.formatLink('/RDOGE/token/undefined', 'DOGE'), 'DOGE');
+        it('formatLink distinguishes absent destinations from literal ticker names', function () {
+            assert.equal(F.formatLink(F.tokenUrl('RDOGE', null), 'DOGE'), 'DOGE');
+            assert.match(F.formatLink('/RDOGE/token/null', 'null'), /^<a href="\/RDOGE\/token\/null"/);
+            assert.match(F.formatLink('/RDOGE/token/undefined', 'undefined'), /^<a href="\/RDOGE\/token\/undefined"/);
             assert.match(F.formatLink('/RDOGE/token/XCHAIN', 'XCHAIN'), /^<a href="\/RDOGE\/token\/XCHAIN"/);
         });
 
@@ -205,13 +205,12 @@ describe('formatters module, token hrefs', function () {
     // action 2693 issued "$$$$$$$$$$$78324%@##*(@#", and a raw join sent the
     // browser to a URL cut at the '#' with a dangling '%@' that the server
     // refused as 400 before any route ran.
-    it('tokenUrl percent-encodes the tick and keeps an absent tick recognisable as a dead link', function () {
+    it('tokenUrl percent-encodes the tick and returns no destination for absence', function () {
         assert.equal(F.tokenUrl('TDOGE', 'XCHAIN'), '/TDOGE/token/XCHAIN');
         assert.equal(F.tokenUrl('TDOGE', '$$$$$$$$$$$78324%@##*(@#'),
             '/TDOGE/token/%24%24%24%24%24%24%24%24%24%24%2478324%25%40%23%23*(%40%23');
         assert.equal(F.tokenUrl('TDOGE', 'A/B?c'), '/TDOGE/token/A%2FB%3Fc');
-        // formatLink strips a /token/null href; tokenUrl must keep producing one.
-        assert.equal(F.tokenUrl('TDOGE', null), '/TDOGE/token/null');
+        assert.equal(F.tokenUrl('TDOGE', null), null);
         assert.equal(F.formatLink(F.tokenUrl('TDOGE', null), 'DOGE'), 'DOGE');
     });
 

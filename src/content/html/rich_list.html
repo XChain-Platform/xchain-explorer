@@ -50,7 +50,7 @@ $(document).ready(function() {
 
     XC.pageInfo.title       = XC.query + ' Rich List';
     XC.pageInfo.description = 'Largest holders and supply statistics for the token ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
-    XC.pageInfo.canonical   = '/' + XC.coin + '/rich_list/' + XC.query;
+    XC.pageInfo.canonical   = '/' + XC.coin + '/rich_list/' + encodeURIComponent(String(XC.query));
     updatePageInfo();
 
     $.getJSON('/' + XC.coin + '/api/rich_list/' + encodeURIComponent(XC.query), function(o){

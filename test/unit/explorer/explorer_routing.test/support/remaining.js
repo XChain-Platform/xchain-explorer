@@ -27,10 +27,10 @@ before(function () { explorer = state.explorer; });
 
 describe('null string handling', function () {
 
-    it('/BTC/api/history/null/block converts "null" search to null', async function () {
+    it('/BTC/api/history/null/block preserves the literal search segment', async function () {
         const { cfg } = await request(explorer, '/BTC/api/history/null/block');
         expect(cfg).to.not.be.null;
-        expect(cfg.data.search).to.be.null;
+        expect(cfg.data.search).to.equal('null');
     });
 
 });

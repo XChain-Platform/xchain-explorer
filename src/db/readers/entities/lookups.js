@@ -123,6 +123,7 @@ class EntityLookupReaders {
     }
 
     async getTokenInfo(config, tick) {
+        tick = await this.getCanonicalTick(config, tick) || tick;
         let query = `SELECT
                         t2.tick,
                         t1.supply,
@@ -153,6 +154,8 @@ class EntityLookupReaders {
     // LEFT JOIN + COALESCE for the same reason as the market readers: the native side
     // of a token/native pair has no index_tickers row (see src/db/readers/markets.js).
     async getMarketInfo(config, tick1, tick2) {
+        tick1 = await this.getCanonicalTick(config, tick1) || tick1;
+        tick2 = await this.getCanonicalTick(config, tick2) || tick2;
         let side1 = 'COALESCE(t1.tick, c1.coin)';
         let side2 = 'COALESCE(t2.tick, c2.coin)';
         let query = `SELECT

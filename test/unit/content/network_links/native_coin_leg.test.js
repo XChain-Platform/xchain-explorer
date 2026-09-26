@@ -74,11 +74,11 @@ function expectNativeCell(win, selector, amount){
 }
 
 describe('client: native coin market legs', function () {
-    it('keeps the tokenUrl dead-link contract for every absent tick shape', function () {
+    it('returns no token destination for every absent tick shape', function () {
         const win = boot();
-        expect(win.tokenUrl('DOGE', null)).to.equal('/TDOGE/token/null');
-        expect(win.tokenUrl('DOGE', undefined)).to.equal('/TDOGE/token/null');
-        expect(win.tokenUrl('DOGE', '')).to.equal('/TDOGE/token/null');
+        expect(win.tokenUrl('DOGE', null)).to.equal(null);
+        expect(win.tokenUrl('DOGE', undefined)).to.equal(null);
+        expect(win.tokenUrl('DOGE', '')).to.equal(null);
     });
 
     it('renders the real action 3051 summary as an unlinked DOGE payment', function () {

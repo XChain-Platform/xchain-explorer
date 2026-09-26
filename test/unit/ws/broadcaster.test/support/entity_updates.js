@@ -67,6 +67,21 @@ describe('Broadcaster', function () {
             const msg = JSON.parse(client.ws.send.firstCall.args[0]);
             expect(msg.type).to.equal('MARKET_UPDATE');
         });
+
+        it('broadcasts a market update when the first ticker contains a colon', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['market'], { tick1: 'A:B', tick2: 'C' });
+
+            changeDetector.emit('entity_update', 'BTC', {
+                type: 'MARKET_UPDATE',
+                channel: 'market',
+                data: { tick1: 'A:B', tick2: 'C', last_price: '2' }
+            });
+
+            expect(client.ws.send.called).to.be.true;
+            expect(JSON.parse(client.ws.send.firstCall.args[0]).type).to.equal('MARKET_UPDATE');
+        });
     });
 });
 

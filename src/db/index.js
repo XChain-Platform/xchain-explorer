@@ -107,6 +107,7 @@ class Database {
         // let whichever ran first answer for both.
         this._exactAddressIdCache = new Map();
         this._tickIdCache     = new Map();
+        this._tickNameCache   = new Map();
         this._actionDataCache = new Map();
         // Per-coin reorg generation counter mixed into the id/action cache keys
         // (M-3). The indexer reassigns ^id / action_index values on a reorg, so

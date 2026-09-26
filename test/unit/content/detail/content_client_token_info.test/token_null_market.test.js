@@ -63,6 +63,14 @@ function text(win, selector){
 }
 
 describe('client: token summary nullable fields', function () {
+    it('links the chain-valid ticker null while leaving an absent ticker unlinked', function () {
+        const win = boot();
+        const literal = win.formatLink(win.tokenUrl('TLTC', 'null'), 'null');
+        const absent = win.formatLink(win.tokenUrl('TLTC', null), 'missing');
+        expect(literal).to.include('href="/TLTC/token/null"');
+        expect(absent).to.equal('missing');
+    });
+
     it('renders an absent description and market values as unavailable', function () {
         const win = boot();
         const token = tokenFixture();

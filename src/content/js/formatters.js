@@ -196,13 +196,12 @@ function getTokenIcon(token){
 
 // Return the token page URL for a tick. The tick is one path segment and is
 // percent-encoded for the same reason getTokenIcon encodes it: a tick carrying
-// '#', '%', '?' or '/' otherwise links to a truncated or unparseable page. An
-// absent tick still yields a '/token/null' tail so formatLink's dead-link guard
-// keeps recognising it. The coin is mapped onto the page's network first: a
+// '#', '%', '?' or '/' otherwise links to a truncated or unparseable page.
+// An absent tick has no destination. The coin maps onto the page's network first: a
 // bare 'DOGE' leg on a TDOGE page is /TDOGE/, never mainnet (network_coin.js).
 function tokenUrl(coin, tick){
-    let tail = isNull(tick) ? 'null' : encodeURIComponent(String(tick));
-    return '/' + networkCoin(coin) + '/token' + '/' + tail;
+    if(isNull(tick)) return null;
+    return '/' + networkCoin(coin) + '/token/' + encodeURIComponent(String(tick));
 }
 
 // Handle getting the network icon using the coin name and network
@@ -235,10 +234,8 @@ function formatLinkHtml(url=null, text=null, icon=false, btn=false){
                 return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
             });
         };
-    // A url whose last segment stringified a missing value (the ORDER/SWAP/
-    // DISPENSER native-coin case, ending in /token/null) is not a destination,
-    // and neither is anything but a same-origin relative path or an http(s) URL.
-    if(/\/(null|undefined)$/.test(String(url)) || !/^(\/[^\/\\]|https?:\/\/)/.test(String(url)))
+    // Only same-origin relative paths and http(s) URLs are destinations.
+    if(!/^(\/[^\/\\]|https?:\/\/)/.test(String(url)))
         return (text) ? String(text) : '';
         html += '<a href="' + escapeLinkAttribute(url) + '" class="' + cls + '">';
     // The server 302s a missing icon to the default, but a request the server

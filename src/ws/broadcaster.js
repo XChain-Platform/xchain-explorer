@@ -331,10 +331,16 @@ class Broadcaster {
 
         if (updateEvent.channel === 'market') {
             // Market uses composite key
-            const channelKey = coin + ':market:' + updateEvent.data.tick1 + ':' + updateEvent.data.tick2;
+            const channelKey = this.wsServer.channelManager.buildChannelKey(coin, 'market', {
+                tick1: updateEvent.data.tick1,
+                tick2: updateEvent.data.tick2
+            });
             this.broadcastToChannelKey(channelKey, event, updateEvent);
         } else if (entityId !== null && entityId !== undefined) {
-            const channelKey = coin + ':' + updateEvent.channel + ':' + entityId;
+            let entityKey = { address: entityId };
+            if(updateEvent.channel === 'token') entityKey = { tick: entityId };
+            if(updateEvent.channel === 'dispenser') entityKey = { action_index: entityId };
+            const channelKey = this.wsServer.channelManager.buildChannelKey(coin, updateEvent.channel, entityKey);
             this.broadcastToChannelKey(channelKey, event, updateEvent);
         }
     }

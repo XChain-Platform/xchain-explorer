@@ -95,10 +95,10 @@ describe('tick labels render as visible text, not markup @regression', function(
         expect(out.textContent).to.equal('A&amp;B');
     });
 
-    it('keeps the dead-link label escaped when the target is /token/null', function(){
+    it('keeps a literal null ticker label escaped inside its link', function(){
         const win = bootPage();
         const out = parse(win, win.formatLink('/TDOGE/token/null', TICK));
-        expect(out.querySelector('a')).to.equal(null);
+        expect(out.querySelector('a').getAttribute('href')).to.equal('/TDOGE/token/null');
         expect(out.textContent).to.equal(TICK);
     });
 

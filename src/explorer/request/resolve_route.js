@@ -48,11 +48,6 @@ function readPath(explorer, req, st){
         try { return decodeURIComponent(value); } catch(_){ return value; }
     });
 
-    // Turn the literal string 'null' into a real null, so isNull judges it properly.
-    urlPath.forEach(function(value, idx){
-        if(String(value).toLowerCase()=='null')
-            urlPath[idx] = null;
-    });
     st.urlPath = urlPath;
 
     // The first part of the path names the COIN (BTC, LTC, DOGE, and their

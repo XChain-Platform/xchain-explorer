@@ -66,22 +66,27 @@ function linker() {
     return dom.window.formatLink;
 }
 
-describe('formatLink: a stringified-null target is not a link', () => {
+describe('formatLink: absent and literal ticker targets', () => {
 
     const formatLink = linker();
 
-    it('renders no anchor for a /token/null target', () => {
-        const out = formatLink('/RDOGE/token/null', null, null);
-        assert.ok(!/<a /.test(out), 'a dead /token/null link was still rendered: ' + out);
-        assert.ok(!/null/.test(out), 'the word "null" reached the cell: ' + out);
+    it('renders no anchor for an absent target', () => {
+        const out = formatLink(null, null, null);
+        assert.ok(!/<a /.test(out), 'an absent target rendered a link: ' + out);
     });
 
-    it('renders no anchor for an undefined segment either', () => {
-        assert.ok(!/<a /.test(formatLink('/RDOGE/token/undefined', null, null)));
+    it('links a token literally named undefined', () => {
+        assert.ok(/<a href="\/RDOGE\/token\/undefined"/.test(
+            formatLink('/RDOGE/token/undefined', 'undefined', null)));
     });
 
-    it('keeps the label when there is one, minus the link', () => {
-        assert.strictEqual(formatLink('/RDOGE/token/null', 'DOGE', false), 'DOGE');
+    it('links a token literally named null', () => {
+        assert.ok(/<a href="\/RDOGE\/token\/null"/.test(
+            formatLink('/RDOGE/token/null', 'null', false)));
+    });
+
+    it('keeps the label when its destination is absent', () => {
+        assert.strictEqual(formatLink(null, 'DOGE', false), 'DOGE');
     });
 
     it('still links a real token', () => {

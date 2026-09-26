@@ -52,8 +52,10 @@ function loadApiData(coin, action, query, type, callback, errback){
     }
     // Set the explorer API url
     let url = '/' + coin + '/api/' + endpoint;
-    if(query || action=='history' || action=='block')
-        url += '/' + query;
+    if(query || action=='history' || action=='block'){
+        let parts = Array.isArray(query) ? query : [query];
+        url += '/' + parts.map(function(part){ return encodeURIComponent(String(part)); }).join('/');
+    }
     if(type)
         url += '/' + type;
     if(XC.debug)

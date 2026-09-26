@@ -214,6 +214,13 @@ describe('market routes', function () {
 });
 
 describe('percent-encoded path segments', function () {
+    it('keeps the chain-valid ticker null as a literal search key', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/token/null');
+        expect(cfg).to.not.be.null;
+        expect(cfg.data.method).to.equal('getToken');
+        expect(cfg.data.search).to.equal('null');
+    });
+
     // req.path arrives still encoded. TDOGE issued "$$$$$$$$$$$78324%@##*(@#",
     // which a client can only send encoded, and a lookup on the encoded form
     // answered NOT_FOUND for a token that exists.

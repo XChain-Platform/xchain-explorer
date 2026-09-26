@@ -118,29 +118,43 @@ class EntityResolverReaders {
         return (results && results.length) ? results[0].id : null;
     }
 
+    async getCanonicalTick(config, tick){
+        if(this.util.isNull(tick)) return null;
+        let input = String(tick);
+        let nativeTick = this.baseCoin && this.baseCoin[config.coin];
+        if(nativeTick && input.toLowerCase() === String(nativeTick).toLowerCase())
+            return nativeTick;
+        let key = this.cacheKey(config.coin, input.toLowerCase());
+        let cached = this.cacheGet(this._tickNameCache, key);
+        if(cached !== undefined) return cached;
+
+        // The exact predicate seeks the unique binary-collated ticker index.
+        // Case folding runs only on a miss and scans that index for canonical spelling.
+        let query = 'SELECT id, tick FROM index_tickers WHERE tick=? LIMIT 1';
+        let results = await this.doQuery(config, query, [input]);
+        if(!results || !results.length){
+            query = 'SELECT id, tick FROM index_tickers FORCE INDEX (tick) WHERE LOWER(tick)=? LIMIT 1';
+            results = await this.doQuery(config, query, [input.toLowerCase()]);
+        }
+        if(!results || !results.length) return null;
+        let canonical = results[0].tick;
+        this.cacheSet(this._tickNameCache, key, canonical);
+        this.cacheSet(this._tickIdCache, key, results[0].id);
+        return canonical;
+    }
+
     async getTickId(config, tick){
         // A `^<id>` reference resolves directly to the numeric id, no lookup
         // needed. Everything after the caret is the id (do not drop any digit).
         let str = String(tick);
         if(str.charAt(0) === '^' && this.util.isNumeric(str.substring(1)))
             return Number(str.substring(1));
-        let key    = this.cacheKey(config.coin, tick);
+        let key    = this.cacheKey(config.coin, str.toLowerCase());
         let cached = this.cacheGet(this._tickIdCache, key);
         if(cached !== undefined) return cached;
-        let id    = null;
-        let args  = [tick];
-        let query = `SELECT
-                        id
-                    FROM
-                        index_tickers
-                    WHERE
-                        tick=?
-                    LIMIT 1`
-        let results = await this.doQuery(config, query, args);
-        if(results && results.length)
-            id = results[0].id;
-        if(id !== null) this.cacheSet(this._tickIdCache, key, id);
-        return id;
+        await this.getCanonicalTick(config, tick);
+        cached = this.cacheGet(this._tickIdCache, key);
+        return (cached === undefined) ? null : cached;
     }
 }
 

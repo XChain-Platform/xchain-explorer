@@ -1292,7 +1292,7 @@
         "tags": [
           "Files"
         ],
-        "summary": "FILE actions (on-chain files, incl. token-gated)",
+        "summary": "FILE actions, including discovery by gate ticker",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -1304,7 +1304,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick; name = FILE discovery name (by-name lookup); on /contracts: a word from a contract name or description"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick; name = FILE discovery name (by-name lookup); on /contracts: a word from a contract name or description; gate = the token ticker required to unlock a gated FILE"
           },
           {
             "name": "TYPE",
@@ -1316,7 +1316,8 @@
                 "block",
                 "address",
                 "token",
-                "name"
+                "name",
+                "gate"
               ]
             },
             "description": "How to interpret {QUERY}"

@@ -78,6 +78,29 @@ describe('Database#getFiles (token type)', () => {
     });
 });
 
+describe('Database#getFiles (gate type)', () => {
+    let result;
+    before(async () => {
+        const config = makeActionConfig('getFiles', 'gate');
+        result = await db.getFiles(config);
+    });
+
+    it('starts from files and joins gated_files for rows and count', () => {
+        const [query, , count] = result;
+        expect(query).to.include('files m');
+        expect(query).to.include('JOIN gated_files');
+        expect(count).to.include('files m');
+        expect(count).to.include('JOIN gated_files');
+    });
+
+    it('returns the same FILE columns as the other list modes', () => {
+        const [query] = result;
+        for(const column of ['m.action_index', 'm.name', 'm.title', 's1.status',
+            'gf.gate_ticker', 'gf.gate_min_amount', 'gf.encryption_method', 'gf.key_hash'])
+            expect(query).to.include(column);
+    });
+});
+
 // Both getFiles paths select the gated_files columns, and the wallet reads
 // row.gate_min_amount straight off /api/files, so the column name is fixed
 // by an already-shipped consumer: an alias here, or a missing column on
@@ -85,7 +108,7 @@ describe('Database#getFiles (token type)', () => {
 // wallet reads as an unconditional gate rather than as an error. Pinned on both paths since they are separate SQL
 // literals that have drifted out of sync before.
 
-['address', 'token'].forEach((type) => {
+['address', 'token', 'gate'].forEach((type) => {
     describe(`Database#getFiles (${type} type) gating columns`, () => {
         let query;
         before(async () => {

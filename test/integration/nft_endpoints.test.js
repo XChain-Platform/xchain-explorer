@@ -50,11 +50,12 @@ async function seedIndexerFixtures() {
     // must return exactly the rows added here.
     await db.query(`INSERT IGNORE INTO index_tickers (id, tick) VALUES
         (90,'PEPEUNIQUE'), (91,'PEPEEDITION'), (92,'PEPESET'), (93,'PEPESET.ONE')`);
+    await db.query(`INSERT IGNORE INTO index_actions (id, action) VALUES (90,'FILE')`);
     await db.query(`INSERT IGNORE INTO index_mime_types (id, type) VALUES (2,'text/html')`);
     // actions rows ride on baseline transactions (tx 1-7 span blocks 1-4)
     await db.query(`INSERT IGNORE INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format) VALUES
         (90,1,1,0,2,0), (91,1,2,0,2,0), (92,2,3,0,2,0), (93,2,4,0,2,0),
-        (95,3,5,0,8,0), (97,4,7,0,8,0)`);
+        (95,3,5,0,90,0), (96,3,6,0,90,1), (97,4,7,0,90,0), (98,4,8,0,90,1)`);
     await db.query(`INSERT IGNORE INTO tokens (id, tick_id, action_index, last_action_index, supply, max_supply, max_mint, decimals, description,
         lock_max_supply, lock_mint, lock_mint_supply, lock_max_mint, lock_description, lock_sleep, lock_callback, owner_id, coin_price, coin_floor) VALUES
         (90, 90, 90, 90, '1',   '1',   NULL, 0, 'ipfs:QmTestUnique',  1,0,0,0,1,0,0, 1, '0', '0'),
@@ -63,11 +64,13 @@ async function seedIndexerFixtures() {
         (93, 93, 93, 93, '1',   '1',   NULL, 0, 'Collection item',    1,0,0,0,0,0,0, 1, '0', '0')`);
 
     // --- FILE seeds ---------------------------------------------------------
-    // action 95 = non-gated PNG (tx 5, hash id 5); action 97 = non-gated HTML
-    // (tx 7, hash id 7). action 97 must NOT be served inline; action 96 = gated file.
+    // Action 95 is a plain PNG and action 97 is plain HTML. Actions 96 and 98
+    // are gated but have no mappings_files row, matching FILE v1 indexing.
     await db.query(`INSERT IGNORE INTO files (action_index, name, title, type_id, memo_id, status_id) VALUES
         (95, 'pepe.png',  'Pepe Artwork', 1, NULL, 1),
-        (97, 'page.html', 'Sketchy HTML', 2, NULL, 1)`);
+        (96, 'secret.bin', 'First gated file', 1, 1, 1),
+        (97, 'page.html', 'Sketchy HTML', 2, NULL, 1),
+        (98, 'sequel.bin', 'Second gated file', 1, 2, 1)`);
     await db.query(`CREATE TABLE IF NOT EXISTS gated_files (
         action_index        BIGINT UNSIGNED NOT NULL,
         gate_ticker         VARCHAR(250) NOT NULL,
@@ -77,8 +80,9 @@ async function seedIndexerFixtures() {
         raw_data            MEDIUMBLOB,
         UNIQUE INDEX action_index (action_index)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci`);
-    await db.query(`INSERT IGNORE INTO gated_files (action_index, gate_ticker, encryption_method, key_hash, status_id, raw_data) VALUES
-        (96, 'PEPEUNIQUE', 1, '${'a'.repeat(64)}', 1, ?)`, [CIPHERTEXT]);
+    await db.query(`INSERT IGNORE INTO gated_files (action_index, gate_ticker, gate_min_amount, encryption_method, key_hash, status_id, raw_data) VALUES
+        (96, 'PEPEUNIQUE', '1', 1, '${'a'.repeat(64)}', 1, ?),
+        (98, 'PEPEUNIQUE', '2', 1, '${'b'.repeat(64)}', 1, NULL)`, [CIPHERTEXT]);
 }
 
 async function seedDecoderFixtures() {
@@ -145,6 +149,49 @@ describe('Token detail decimals exposure', function () {
         expect(res.body.supply.decimals).to.equal(0);
         expect(res.body.locks.max_supply).to.equal(true);
         expect(res.body.info).to.not.have.property('callback_decimals');
+    });
+
+});
+
+describe('Gated FILE discovery endpoint', function () {
+
+    it('does not confuse a gate ticker with a LINK mapping', async function () {
+        const res = await request.get('/RBTC/api/files/PEPEUNIQUE/token');
+        expect(res.status).to.equal(200);
+        expect(res.body.total).to.equal(0);
+        expect(res.body.data).to.deep.equal([]);
+    });
+
+    it('returns unmapped FILEs whose gate_ticker matches', async function () {
+        const res = await request.get('/RBTC/api/files/PEPEUNIQUE/gate?limit=1');
+        expect(res.status).to.equal(200);
+        expect(res.body.total).to.equal(2);
+        expect(res.body.data).to.have.lengthOf(1);
+        expect(res.body.data[0]).to.deep.include({
+            action: 'FILE',
+            action_format: 1,
+            gate_ticker: 'PEPEUNIQUE',
+            gate_min_amount: '2',
+            encryption_method: 1,
+            key_hash: 'b'.repeat(64),
+            name: 'sequel.bin',
+            status: 'valid'
+        });
+        expect(Number(res.body.data[0].action_index)).to.equal(98);
+    });
+
+    it('uses the files-list page and sort query contract', async function () {
+        const res = await request.get('/RBTC/api/files/PEPEUNIQUE/gate?limit=1&page=2&sortorder=DESC');
+        expect(res.status).to.equal(200);
+        expect(res.body.total).to.equal(2);
+        expect(res.body.data).to.have.lengthOf(1);
+        expect(Number(res.body.data[0].action_index)).to.equal(96);
+        expect(res.body.data[0]).to.have.all.keys([
+            'action', 'action_format', 'action_index', 'block_index',
+            'encryption_method', 'gate_min_amount', 'gate_ticker', 'key_hash',
+            'memo', 'name', 'source', 'status', 'timestamp', 'title', 'tx_hash',
+            'tx_index', 'type'
+        ]);
     });
 
 });

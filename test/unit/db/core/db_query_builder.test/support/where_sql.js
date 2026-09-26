@@ -178,6 +178,11 @@ function registerWhereSqlCases3() {
         expect(sql).to.equal('m.action_index IS NOT NULL AND m.type_id=1 AND t4.tick=?');
     });
 
+    it('type=gate on getFiles: filters on the gated FILE ticker', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getFiles', 'gate'));
+        expect(sql).to.equal('m.action_index IS NOT NULL AND gf.gate_ticker=?');
+    });
+
     it('type=token on getTokens: appends AND t3.tick LIKE ?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getTokens', 'token'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND t3.tick LIKE ?');

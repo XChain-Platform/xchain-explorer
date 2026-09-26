@@ -664,10 +664,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)"
+                    "description": "Type of search to perform (address, block, token, name, gate)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)"
+                    "description": "String to search for (address, block, token, name, or gate ticker)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{

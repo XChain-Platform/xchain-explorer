@@ -35,6 +35,8 @@
 // The page loads network_coin.js first; the unit suites require it under Node.
 var networkCoin = (typeof networkCoin === 'function') ? networkCoin
     : ((typeof require === 'function') ? require('./network_coin.js').networkCoin : null);
+var parseNetworkCoin = (typeof parseNetworkCoin === 'function') ? parseNetworkCoin
+    : ((typeof require === 'function') ? require('./network_coin.js').parseNetworkCoin : null);
 
 // Escape without jQuery so the module is drivable in isolation. The page also
 // ships escapeHtml() in formatters.js; this is deliberately the same mapping.
@@ -52,20 +54,24 @@ function xbEsc(s){
 // PEPECASH). NOT the consensus parse: the indexer's parseBridgedTick is the
 // authority on whether a tick is bridged, and it also refuses a prefix equal to
 // THIS chain's own coin. Here the caller passes the coin list it already has
-// (XC.coins on the page), and a tick whose prefix is not in it is left whole,
-// so an ordinary subasset such as `PEPECASH.CARD` never renders as bridged.
+// (XC.status.available on the page), and the namespaces are compared by chain
+// so BTC matches TBTC or RBTC without treating `PEPECASH.CARD` as bridged.
 function bridgeOriginOf(tick, coins){
     if(tick === null || tick === undefined) return null;
     var s     = String(tick);
     var parts = s.split('.');
     if(parts.length !== 2) return null;
     if(!parts[0].length || !parts[1].length) return null;
+    var origin = parseNetworkCoin(parts[0]);
+    if(!origin) return null;
     var known = (coins && coins.length) ? coins : [];
     var hit   = false;
-    for(var i = 0; i < known.length; i++)
-        if(String(known[i]).toUpperCase() === parts[0].toUpperCase()) hit = true;
+    for(var i = 0; i < known.length; i++){
+        var served = parseNetworkCoin(known[i]);
+        if(served && served.chain === origin.chain) hit = true;
+    }
     if(!hit) return null;
-    return { origin: parts[0].toUpperCase(), name: parts[1] };
+    return { origin: origin.chain, name: parts[1] };
 }
 
 // Per-chain rows for one tick out of a getbridgeinvariant payload.

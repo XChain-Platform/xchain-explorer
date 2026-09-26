@@ -79,8 +79,8 @@ function xcDatatableRenderIssueRow(context){
     let transfer = data[8];
     if(!isNull(transfer))
         $('td', row).eq(3).html(source_link + ' <i class="fa fa-arrow-right ps-1 pe-1" title="Token ownership transferred"></i> ' + formatLink('/' + coin + '/address/' + transfer, transfer));
-    $('td', row).eq(5).text(formatAmount(amount));
-    $('td', row).eq(6).text(formatAmount(amount2));
+    $('td', row).eq(5).text(formatZeroSentinel(amount, 'No cap declared'));
+    $('td', row).eq(6).text(formatZeroSentinel(amount2, 'No per-transaction cap'));
     $('td', row).eq(7).html(formatLocks(locks));
     $('td', row).eq(8).html(action_link);
 
@@ -233,7 +233,7 @@ function xcDatatableRenderSleepRow(context){
     $('td', row).eq(4).text(txt);
     if(token!='')
         $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
-    $('td', row).eq(6).html(formatLink('/' + coin + '/block/' + block_index2, numeral(block_index2).format(fmtInteger)));
+    $('td', row).eq(6).html(formatResumeBlock(coin, block_index2));
     $('td', row).eq(7).html(action_link);
 
 }
@@ -291,8 +291,8 @@ function xcDatatableRenderTokenRow(context){
     let tickHtml = formatLink(tokenUrl(coin, token), token, token);
     $('td', row).eq(3).html(tickHtml);
     $('td', row).eq(4).text(formatAmount(amount));
-    $('td', row).eq(5).text(formatAmount(amount2));
-    $('td', row).eq(6).text(formatAmount(amount3));
+    $('td', row).eq(5).text(formatZeroSentinel(amount2, 'No cap declared'));
+    $('td', row).eq(6).text(formatZeroSentinel(amount3, 'No per-transaction cap'));
     $('td', row).eq(7).html(formatLocks(locks));
     $('td', row).eq(8).html(formatLink(tokenUrl(coin, token), 'view', null, true));
 
@@ -311,8 +311,8 @@ function xcDatatableRenderProjectRow(context){
     let pTickHtml = formatLink(tokenUrl(coin, token), token, token);
     $('td', row).eq(3).html(pTickHtml);
     $('td', row).eq(4).text(formatAmount(amount));
-    $('td', row).eq(5).text(formatAmount(amount2));
-    $('td', row).eq(6).text(formatAmount(amount3));
+    $('td', row).eq(5).text(formatZeroSentinel(amount2, 'No cap declared'));
+    $('td', row).eq(6).text(formatZeroSentinel(amount3, 'No per-transaction cap'));
     $('td', row).eq(7).html(formatLocks(locks));
     $('td', row).eq(8).html(formatLink(tokenUrl(coin, token), 'view', null, true));
 

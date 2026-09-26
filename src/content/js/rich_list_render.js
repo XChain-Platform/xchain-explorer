@@ -65,7 +65,9 @@ function renderRichListSupply(d){
     html += row('Circulating supply', richListEsc(numeral(Number(d.supply)).format('0,0[.][00000000]')));
     html += row('Maximum supply', isNull(d.max_supply)
         ? '<span class="text-muted">-</span>'
-        : richListEsc(numeral(Number(d.max_supply)).format('0,0[.][00000000]'))
+        : richListEsc(Number(d.max_supply) === 0
+            ? 'No cap declared'
+            : numeral(Number(d.max_supply)).format('0,0[.][00000000]'))
           + (Number(d.lock_max_supply) === 1
               ? ' <span class="badge text-bg-secondary rich-list-ceiling-locked">locked</span>'
               : ' <span class="badge text-bg-warning rich-list-ceiling-open">can still rise</span>'));

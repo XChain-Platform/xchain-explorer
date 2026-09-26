@@ -50,11 +50,11 @@ const BET = {
     // de-blanking VOTE v2 needs. bet_kind tells the client which shape it received.
     async afterMain({ db, config, action_index }, data) {
         let fmt = db.util.isNull(data['action_format']) ? null : Number(data['action_format']);
+        if(fmt !== null)
+            data['outcome_labels'] = db.util.isNull(data['outcomes']) ? [] : String(data['outcomes']).split(',');
         if(!db.util.isNull(data['label']) || fmt === 0){
             data['bet_kind'] = 'feed';
             data['feed_ref'] = data['action_index'];
-            // OUTCOMES is the canonical comma-joined label list; split for display.
-            data['outcome_labels'] = db.util.isNull(data['outcomes']) ? [] : String(data['outcomes']).split(',');
             // DETAILS is attacker-controlled base64 JSON. Decode for convenience but
             // keep the raw, and fall back to null (never the raw string) so a caller
             // cannot mistake un-parsed hostile bytes for a parsed object. It is
@@ -162,6 +162,15 @@ const BET_EXPIRE = {
     },
 };
 
+function parseVoteOptions(raw, field, action_index){
+    if(!raw) return [];
+    try { return JSON.parse(raw); }
+    catch(error){
+        log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field, action_index, err: error.message });
+        return [];
+    }
+}
+
 const VOTE = {
     // VOTE action. One action_index lands in exactly one of three tables: v0 -> polls
     // (poll definition), v1 -> votes (ballot; one row per chosen option), v3 ->
@@ -183,12 +192,7 @@ const VOTE = {
         if(!db.util.isNull(data['poll_status'])){
             data['vote_kind'] = 'poll';
             // options is a JSON array of labels; callback_params a JSON array of dev params.
-            if(data['options']){
-                try { data['options'] = JSON.parse(data['options']); }
-                catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field: 'options', action_index, err: _.message }); data['options'] = []; }
-            } else {
-                data['options'] = [];
-            }
+            data['options'] = parseVoteOptions(data['options'], 'options', action_index);
             if(data['callback_params']){
                 try { data['callback_params'] = JSON.parse(data['callback_params']); }
                 catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field: 'callback_params', action_index, err: _.message }); }
@@ -211,10 +215,7 @@ const VOTE = {
                 data['poll_ref']       = prow[0].poll_ref;
                 data['poll_status']    = prow[0].poll_status;
                 data['winning_option'] = prow[0].winning_option;
-                if(prow[0].options){
-                    try { data['options'] = JSON.parse(prow[0].options); }
-                    catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field: 'finalize options', action_index, err: _.message }); data['options'] = []; }
-                }
+                data['options'] = parseVoteOptions(prow[0].options, 'finalize options', action_index);
             }
         } else {
             data['vote_kind'] = 'ballot';
@@ -225,7 +226,12 @@ const VOTE = {
             if(rows && rows.length){
                 data['poll_ref'] = rows[0].poll_index;
                 data['memo']     = rows[0].memo;
-                data['ballot']   = rows.map(r => ({ choice: r.choice, share: r.share }));
+                let options = parseVoteOptions(rows[0].poll_options, 'ballot options', action_index);
+                data['ballot']   = rows.map(r => ({
+                    choice: r.choice,
+                    label: options[r.choice] == null ? null : String(options[r.choice]),
+                    share: r.share
+                }));
                 let st = await db.doQuery(config, sql.VOTE_BALLOT_STATUS, [action_index]);
                 data['status']   = st && st.length ? st[0].status : null;
             } else {

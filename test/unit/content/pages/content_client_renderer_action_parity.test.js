@@ -46,7 +46,8 @@ const { expect } = require('chai');
 // component milestone. Concatenated rather than switched, so this file keeps
 // naming ONE source for every helper it lifts.
 const SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8')
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters/protocol.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
 
 // Slice a top-level function out of the source by walking braces.
@@ -132,6 +133,7 @@ function attestDetail(data) {
         function formatHash(v, len){ return v == null ? '-' : String(v).substring(0, len || 32); }
         function formatAmount(v){ return String(v); }
         ${extractFn('isNull')}
+        ${extractFn('formatIndexedLabel')}
     `);
     dom.window.eval(extractFn('detailAttestVote_renderAttestIdentity'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestBatch'));

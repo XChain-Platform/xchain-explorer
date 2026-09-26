@@ -187,14 +187,18 @@ function actionDetail_renderMessageActions(html, action, info, coin){
         html += formatLink('/' + coin + '/address/' + info.source, info.source) + ' to ';
         html += formatLink('/' + coin + '/address/' + info.destination, info.destination);
     }
-    if(action=='SLEEP'){
-        if(info.type==1)
-            html = 'Address';
-        if(info.type==2)
-            html = formatLink(tokenUrl(coin, info.tick), info.tick, info.tick);
-        html += ' until block ' + formatAmount(info.resume_block);
-    }
+    if(action=='SLEEP')
+        html = actionDetail_sleepSummary(info, coin);
     return html;
+}
+
+function actionDetail_sleepSummary(info, coin){
+    let subject = '';
+    if(info.type==1) subject = 'Address';
+    if(info.type==2) subject = formatLink(tokenUrl(coin, info.tick), info.tick, info.tick);
+    if(Number(info.resume_block) === -1) return subject + ' Indefinitely';
+    if(Number(info.resume_block) === 0) return subject + ' Immediately';
+    return subject + ' until block ' + formatAmount(info.resume_block);
 }
 
 function actionDetail_renderContractActions(html, action, info, coin){

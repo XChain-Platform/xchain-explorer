@@ -90,9 +90,9 @@ XC = {
 
     // List of supported fee prefences
     fee_preferences: {
+        0: 'Default: donate to protocol development',
         1: 'Fee is destroyed, lowering supply',
-        2: 'Fee is donated to XChain protocol development', // default
-        3: 'Fee is donated to XChain community development'
+        2: 'Fee is donated to XChain protocol development'
     },
 
     // List of supported dispenser prefences (who may open a dispenser for this address)

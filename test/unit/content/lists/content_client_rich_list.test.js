@@ -160,6 +160,13 @@ describe('rich list and supply stats (M5.2)', function () {
             expect($('.rich-list-ceiling-locked').length).to.equal(1);
         });
 
+        it('renders a zero maximum supply as no declared cap', function () {
+            const dom = renderDom();
+            const $ = paintRows(dom, dom.window.renderRichListSupply(
+                Object.assign({}, TRUNCATED, { max_supply: 0 })));
+            expect($('#out').text()).to.include('No cap declared');
+        });
+
         it('says the top-ten concentration was NOT MEASURED rather than showing zero', function () {
             const dom = renderDom();
             const $ = paintRows(dom, dom.window.renderRichListSupply(TRUNCATED));

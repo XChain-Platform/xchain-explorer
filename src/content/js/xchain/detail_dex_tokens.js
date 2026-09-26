@@ -18,31 +18,27 @@
 
 // Display ISSUE action information
 function showIssueDetails(data){
-    $('#info-issue .issue-transfer').html(formatLink('/' + XC.coin + '/address/' + data.transfer, data.transfer));
+    $('#info-issue .issue-transfer').html(isNull(data.transfer) ? '' : formatLink('/' + XC.coin + '/address/' + data.transfer, data.transfer));
     $('#info-issue .issue-ticker').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
-    $('#info-issue .issue-decimals').text(data.decimals);
-    $('#info-issue .issue-max-supply').text(formatAmount(data.max_supply));
-    $('#info-issue .issue-max-mint').text(formatAmount(data.max_mint));
+    $('#info-issue .issue-decimals').text(nullToBlank(data.decimals));
+    $('#info-issue .issue-max-supply').text(formatZeroSentinel(data.max_supply, 'No cap declared'));
+    $('#info-issue .issue-max-mint').text(formatZeroSentinel(data.max_mint, 'No per-transaction cap'));
     $('#info-issue .issue-mint-supply').text(formatAmount(data.mint_supply));
-    $('#info-issue .issue-transfer-supply').html(formatLink('/' + XC.coin + '/address/' + data.transfer_supply, data.transfer_supply));
-    $('#info-issue .issue-callback-block').text(data.callback_block);
-    $('#info-issue .issue-callback-tick').text(data.callback_tick);
+    $('#info-issue .issue-transfer-supply').html(isNull(data.transfer_supply) ? '' : formatLink('/' + XC.coin + '/address/' + data.transfer_supply, data.transfer_supply));
+    $('#info-issue .issue-callback-block').text(nullToBlank(data.callback_block));
+    $('#info-issue .issue-callback-tick').text(nullToBlank(data.callback_tick));
     $('#info-issue .issue-callback-amount').text(formatAmount(data.callback_amount));
-    $('#info-issue .issue-description').text(data.description);
+    $('#info-issue .issue-description').text(nullToBlank(data.description));
     let isPolicyUpdate = (Number(data.action_format) === 5);
     $('#info-issue .issue-allow-list').html(formatListReference(XC.coin, data.allow_list, isPolicyUpdate));
     $('#info-issue .issue-block-list').html(formatListReference(XC.coin, data.block_list, isPolicyUpdate));
-    $('#info-issue .issue-memo').text(data.memo);
-    $('#info-issue .issue-mint-address-max').text(formatAmount(data.mint_address_max));
-    $('#info-issue .issue-mint-start-block').text(formatAmount(data.mint_start_block));
-    $('#info-issue .issue-mint-stop-block').text(formatAmount(data.mint_stop_block));
-    $('#info-issue .issue-lock-max-supply').text(data.lock_max_supply);
-    $('#info-issue .issue-lock-max-mint').text(data.lock_max_mint);
-    $('#info-issue .issue-lock-mint').text(data.lock_mint);
-    $('#info-issue .issue-lock-mint-supply').text(data.lock_mint_supply);
-    $('#info-issue .issue-lock-description').text(data.lock_description);
-    $('#info-issue .issue-lock-sleep').text(data.lock_sleep);
-    $('#info-issue .issue-lock-callback').text(data.lock_callback);
+    $('#info-issue .issue-memo').text(nullToBlank(data.memo));
+    $('#info-issue .issue-mint-address-max').text(formatZeroSentinel(data.mint_address_max, 'No per-address cap'));
+    $('#info-issue .issue-mint-start-block').text(formatZeroSentinel(data.mint_start_block, 'No start restriction'));
+    $('#info-issue .issue-mint-stop-block').text(formatZeroSentinel(data.mint_stop_block, 'No stop restriction'));
+    for(const field of ['max-supply','max-mint','mint','mint-supply','description','sleep','callback'])
+        $('#info-issue .issue-lock-' + field).text(formatBinaryFlag(data['lock_' + field.replaceAll('-', '_')], 'Locked', 'Unlocked'));
+    showIssueFieldGroups(data.action_format);
     // ISSUE v6 binds (or unbinds) a guard contract as the token's controller for one
     // action class. Those four wire fields are null on every other ISSUE format, so
     // the card is shown only for format 6 rather than adding four blank rows to the
@@ -63,13 +59,31 @@ function showIssueDetails(data){
     }
 }
 
+function showIssueFieldGroups(actionFormat){
+    let format = Number(actionFormat);
+    let groups = [
+        [['.issue-description'], [0,1]],
+        [['.issue-decimals','.issue-max-supply','.issue-mint-supply','.issue-transfer-supply','.issue-transfer'], [0]],
+        [['.issue-allow-list','.issue-block-list'], [0,5]],
+        [['.issue-max-mint','.issue-mint-address-max','.issue-mint-start-block','.issue-mint-stop-block'], [0,2]],
+        [['.issue-callback-block','.issue-callback-tick','.issue-callback-amount'], [0,4]],
+        [['.issue-lock-max-supply','.issue-lock-max-mint','.issue-lock-mint','.issue-lock-mint-supply',
+          '.issue-lock-description','.issue-lock-sleep','.issue-lock-callback'], [0,3]]
+    ];
+    groups.forEach(function(group){
+        group[0].forEach(function(selector){
+            $('#info-issue ' + selector).closest('tr').toggleClass('d-none', !group[1].includes(format));
+        });
+    });
+}
+
 // Display LINK action information
 function showLinkDetails(data){
     $('#info-link .link-coin1').text(data.coin1);
     $('#info-link .link-coin1-action-index').html(formatLink('/' + networkCoin(data.coin1) + '/action/' + data.coin1_action_index, formatAmount(data.coin1_action_index)));
     $('#info-link .link-coin2').text(data.coin2);
     $('#info-link .link-coin2-action-index').html(formatLink('/' + networkCoin(data.coin2) + '/action/' + data.coin2_action_index, formatAmount(data.coin2_action_index)));
-    $('#info-link .link-memo').text(data.memo);
+    $('#info-link .link-memo').text(nullToBlank(data.memo));
 }
 
 // Display LIST action information
@@ -108,9 +122,14 @@ function showListDetails(data){
 function showMessageDetails(data){
     let encryption_method = (XC.encryption_methods[data.encryption_method]) ? (data.encryption_method + ' - ' + XC.encryption_methods[data.encryption_method]) : '';
     $('#info-message .message-method').text(encryption_method);
-    $('#info-message .message-key').text(data.encryption_key);
-    $('#info-message .message-plaintext').text(data.plaintext_message);
-    $('#info-message .message-encrypted').text(data.encrypted_message);
+    let format = Number(data.action_format);
+    $('#info-message .message-key').text(nullToBlank(data.encryption_key));
+    $('#info-message .message-plaintext').text(nullToBlank(data.plaintext_message));
+    $('#info-message .message-encrypted').text(nullToBlank(data.encrypted_message));
+    $('#info-message .message-method').closest('tr').toggleClass('d-none', ![0,1].includes(format));
+    $('#info-message .message-key').closest('tr').toggleClass('d-none', ![0,1].includes(format));
+    $('#info-message .message-encrypted').closest('tr').toggleClass('d-none', format !== 2);
+    $('#info-message .message-plaintext').closest('tr').toggleClass('d-none', format !== 3);
     // Link the destination on ITS own chain (messages.coin), not the broadcast chain.
     $('#info-message .message-destination').html(formatLink('/' + networkCoin(data.coin || XC.coin) + '/address/' + data.destination, data.destination));
 }
@@ -120,7 +139,7 @@ function showMintDetails(data){
     $('#info-mint .mint-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     $('#info-mint .mint-amount').html(formatAmount(data.amount));
     $('#info-mint .mint-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
-    $('#info-mint .mint-memo').text(data.memo);
+    $('#info-mint .mint-memo').text(nullToBlank(data.memo));
 }
 
 // Display ORDER action information
@@ -154,7 +173,7 @@ function showOrderDetails(data){
         $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-order .order-allow-list').html(formatListReference(XC.coin, data.allow_list));
     $('#info-order .order-block-list').html(formatListReference(XC.coin, data.block_list));
-    $('#info-order .order-memo').text(data.memo);
+    $('#info-order .order-memo').text(nullToBlank(data.memo));
     // Order Status Details
     // Render the ORDER's lifecycle status; the Action Status row above is the
     // action's parse validity and reads valid for a filled order and an open one
@@ -176,7 +195,7 @@ function showOrderDetails(data){
 // Display ORDER_CANCEL action information
 function showOrderCancelDetails(data){
     $('#info-order-cancel .order-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
-    $('#info-order-cancel .order-cancel-memo').text(data.memo);
+    $('#info-order-cancel .order-cancel-memo').text(nullToBlank(data.memo));
 }
 
 // Display ORDER_EDIT action information
@@ -186,7 +205,7 @@ function showOrderEditDetails(data){
         $('#info-order-edit .order-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-order-edit .order-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
     $('#info-order-edit .order-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
-    $('#info-order-edit .order-edit-memo').text(data.memo);
+    $('#info-order-edit .order-edit-memo').text(nullToBlank(data.memo));
 }
 
 // Display ORDER_EXPIRE action information
@@ -217,8 +236,8 @@ function showSleepDetails(data){
     let sleep_type = data.type + ' - Sleep ' + XC.sleep_types[data.type];
     $('#info-sleep .sleep-type').text(sleep_type);
     $('#info-sleep .sleep-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
-    $('#info-sleep .sleep-resume-block').html(formatLink('/' + XC.coin + '/block/' + data.resume_block, formatAmount(data.resume_block)));
-    $('#info-sleep .sleep-memo').text(data.memo);
+    $('#info-sleep .sleep-resume-block').html(formatResumeBlock(XC.coin, data.resume_block));
+    $('#info-sleep .sleep-memo').text(nullToBlank(data.memo));
 }
 
 // Display SWAP action information
@@ -242,7 +261,7 @@ function showSwapDetails(data){
         $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-swap .swap-allow-list').html(formatListReference(XC.coin, data.allow_list));
     $('#info-swap .swap-block-list').html(formatListReference(XC.coin, data.block_list));
-    $('#info-swap .swap-memo').text(data.memo);
+    $('#info-swap .swap-memo').text(nullToBlank(data.memo));
     // Swap Status Details
     $('#info-swap .swap-state-get-remaining').html(isOwnershipGet  ? ownershipBadge() : formatAmount(data.state.get_remaining));
     $('#info-swap .swap-state-give-remaining').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.state.give_remaining));
@@ -256,7 +275,7 @@ function showSwapDetails(data){
 // Display SWAP_CANCEL action information
 function showSwapCancelDetails(data){
     $('#info-swap-cancel .swap-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
-    $('#info-swap-cancel .swap-cancel-memo').text(data.memo);
+    $('#info-swap-cancel .swap-cancel-memo').text(nullToBlank(data.memo));
 }
 
 // Display SWAP_EDIT action information
@@ -266,7 +285,7 @@ function showSwapEditDetails(data){
         $('#info-swap-edit .swap-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-swap-edit .swap-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
     $('#info-swap-edit .swap-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
-    $('#info-swap-edit .swap-edit-memo').text(data.memo);
+    $('#info-swap-edit .swap-edit-memo').text(nullToBlank(data.memo));
 }
 
 // Display SWAP_EXPIRE action information
@@ -289,13 +308,13 @@ function showSwapMatchDetails(data){
 
 // Display SWEEP action information
 function showSweepDetails(data){
-    $('#info-sweep .sweep-balances').html(data.balances);
-    $('#info-sweep .sweep-ownerships').html(data.ownerships);
-    $('#info-sweep .sweep-orders').html(data.orders);
-    $('#info-sweep .sweep-swaps').html(data.swaps);
-    $('#info-sweep .sweep-dispensers').html(data.dispensers);
+    $('#info-sweep .sweep-balances').text(formatBinaryFlag(data.balances, 'Yes', 'No'));
+    $('#info-sweep .sweep-ownerships').text(formatBinaryFlag(data.ownerships, 'Yes', 'No'));
+    $('#info-sweep .sweep-orders').text(formatBinaryFlag(data.orders, 'Yes', 'No'));
+    $('#info-sweep .sweep-swaps').text(formatBinaryFlag(data.swaps, 'Yes', 'No'));
+    $('#info-sweep .sweep-dispensers').text(formatBinaryFlag(data.dispensers, 'Yes', 'No'));
     $('#info-sweep .sweep-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
-    $('#info-sweep .sweep-memo').text(data.memo);
+    $('#info-sweep .sweep-memo').text(nullToBlank(data.memo));
 }
 
 // Display COINPAY action information (native-coin settlement payment for an

@@ -103,7 +103,8 @@ function detailBetStake_renderAction(data, kind, esc, statusClass){
     // Render wager, cancellation, and resolution fields.
     if(kind=='bet'){
         $('#info-bet .bet-feed-ref').html(isNull(data.feed_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_ref, data.feed_ref));
-        $('#info-bet .bet-outcome').text(isNull(data.outcome) ? '-' : data.outcome);
+        let outcomeLabel = Array.isArray(data.outcome_labels) ? data.outcome_labels[data.outcome] : null;
+        $('#info-bet .bet-outcome').text(formatIndexedLabel(data.outcome, outcomeLabel));
         $('#info-bet .bet-amount').html(isNull(data.amount) ? '-' : formatAmount(data.amount));
         let bs   = data.bet_status;
         let bcls = (bs=='won') ? 'success' : (bs=='lost') ? 'danger' : (bs=='refunded') ? 'secondary' : 'primary';
@@ -124,8 +125,9 @@ function detailBetStake_renderAction(data, kind, esc, statusClass){
         // valid action is labelled a claim rather than presented as the winner.
         // The value is on-chain input, so it goes out escaped like the rest of the panel.
         let ro = data.resolve_outcome;
+        let resolveLabel = Array.isArray(data.outcome_labels) ? data.outcome_labels[ro] : null;
         $('#info-bet .bet-resolve-outcome').html(isNull(ro) ? '-'
-            : esc(ro) + (data.status == 'valid' ? '' : ' <span class="badge text-bg-warning text-dark">claimed - resolve ' + esc(isNull(data.status) ? 'not accepted' : data.status) + '</span>'));
+            : esc(formatIndexedLabel(ro, resolveLabel)) + (data.status == 'valid' ? '' : ' <span class="badge text-bg-warning text-dark">claimed - resolve ' + esc(isNull(data.status) ? 'not accepted' : data.status) + '</span>'));
     }
 }
 

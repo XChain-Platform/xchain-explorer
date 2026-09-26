@@ -239,6 +239,7 @@ class PollReaders {
                         a2.address as source,
                         m.poll_index,
                         m.choice,
+                        p.options as poll_options,
                         m.share,
                         m.memo,
                         b1.block_index,
@@ -251,6 +252,7 @@ class PollReaders {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN polls              p  ON (p.action_index=m.poll_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)

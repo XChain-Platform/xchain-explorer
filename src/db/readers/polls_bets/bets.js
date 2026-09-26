@@ -316,6 +316,7 @@ class BetReaders {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN bet_feeds          f  ON (f.action_index=m.feed_action_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     bs ON (bs.id=m.bet_status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -328,6 +329,7 @@ class BetReaders {
                         a2.address as source,
                         m.feed_action_index,
                         m.outcome,
+                        f.outcomes,
                         pt.tick,
                         m.amount,
                         bs.status as bet_status,

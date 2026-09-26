@@ -311,9 +311,10 @@ function xcDatatableRenderVoteRow(context){
 
     let poll_index = data[4];
     let choice     = data[5];
-    let share      = data[6];
+    let choiceLabel = data[6];
+    let share      = data[7];
     $('td', row).eq(4).html(isNull(poll_index) ? '-' : formatLink('/' + coin + '/action/' + poll_index, poll_index));
-    $('td', row).eq(5).text(isNull(choice) ? '-' : choice);
+    $('td', row).eq(5).text(formatIndexedLabel(choice, choiceLabel));
     $('td', row).eq(6).text(isNull(share) ? '-' : share);
     $('td', row).eq(7).html(action_link);
 
@@ -350,13 +351,14 @@ function xcDatatableRenderBetRow(context){
 
     let feed_index = data[4];
     let outcome    = data[5];
-    let token      = data[6];
-    let amount     = data[7];
-    let bet_status = data[8];
+    let outcomeLabel = data[6];
+    let token      = data[7];
+    let amount     = data[8];
+    let bet_status = data[9];
     let bcls = (bet_status=='won') ? 'success' : (bet_status=='lost') ? 'danger'
              : (bet_status=='refunded') ? 'secondary' : 'primary';
     $('td', row).eq(4).html(isNull(feed_index) ? '-' : formatLink('/' + coin + '/bet_feed/' + feed_index, feed_index));
-    $('td', row).eq(5).text(isNull(outcome) ? '-' : outcome);
+    $('td', row).eq(5).text(formatIndexedLabel(outcome, outcomeLabel));
     $('td', row).eq(6).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(7).html(formatAmount(amount));
     $('td', row).eq(8).html('<span class="badge text-bg-' + bcls + '">' + escapeHtml(String(bet_status || '-')) + '</span>');

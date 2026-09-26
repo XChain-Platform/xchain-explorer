@@ -106,6 +106,7 @@ function messageDetail(data) {
     dom.window.eval(`
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function nullToBlank(value){ return value == null ? '' : value; }
     `);
     dom.window.eval(extractFn('showMessageDetails'));
     dom.window.showMessageDetails(data);

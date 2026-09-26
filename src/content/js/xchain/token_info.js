@@ -158,8 +158,8 @@ function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     renderLinkedFiles(o.linked_files, 'token-linked-files-body', 'token-linked-files-card');
 
     $('#supply').text(formatAmount(o.supply.current));
-    $('#max-supply').text(formatAmount(o.supply.max));
-    $('#max-mint').text(formatAmount(o.mints.max));
+    $('#max-supply').text(formatZeroSentinel(o.supply.max, 'No cap declared'));
+    $('#max-mint').text(formatZeroSentinel(o.mints.max, 'No per-transaction cap'));
     $('#owner').html(formatLink('/' + XC.coin + '/address/' + o.info.owner, o.info.owner));
     $('#token-description').text(desc);
     tokenInfo_renderLists(o.lists);

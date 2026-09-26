@@ -45,14 +45,21 @@ function showBroadcastDetails(data){
     // NOT data.fee: the reserved data.fee slot is overwritten with the protocol-fee
     // record when one exists, so reading it here rendered '[object Object]'.
     let percent = (isNumeric(data.broadcast_fee)) ? (' <span class="badge text-bg-info text-white">' + bcmul(data.broadcast_fee, 100, 2) + '%</span>') : '';
-    $('#info-broadcast .broadcast-message').text(data.message);
+    let format = Number(data.action_format);
+    let fee = nullToBlank(data.broadcast_fee);
+    $('#info-broadcast .broadcast-message').text(nullToBlank(data.message));
     $('#info-broadcast .broadcast-value').text(formatAmount(data.value));
-    $('#info-broadcast .broadcast-fee').html(data.broadcast_fee + percent);
-    $('#info-broadcast .broadcast-memo').text(data.memo);
+    $('#info-broadcast .broadcast-fee').html(fee === '' ? '' : fee + percent);
+    $('#info-broadcast .broadcast-memo').text(nullToBlank(data.memo));
+    $('#info-broadcast .broadcast-message').closest('tr').toggleClass('d-none', ![0,1,2].includes(format));
+    $('#info-broadcast .broadcast-value').closest('tr').toggleClass('d-none', ![0,1,3].includes(format));
+    $('#info-broadcast .broadcast-fee').closest('tr').toggleClass('d-none', ![1,2].includes(format));
+    $('#info-broadcast .broadcast-memo').closest('tr').toggleClass('d-none', ![1,2,3].includes(format));
     // BROADCAST v3 references an earlier broadcast (its only meaningful payload);
     // link it and reveal the row, hidden for v0-v2 which have no reference.
-    if(data.broadcast_action_index != null){
-        $('#info-broadcast .broadcast-reference').html(formatLink('/' + XC.coin + '/action/' + data.broadcast_action_index, data.broadcast_action_index));
+    if(format === 3){
+        $('#info-broadcast .broadcast-reference').html(isNull(data.broadcast_action_index) ? '' :
+            formatLink('/' + XC.coin + '/action/' + data.broadcast_action_index, data.broadcast_action_index));
         $('#info-broadcast .broadcast-reference-row').removeClass('d-none');
     } else {
         $('#info-broadcast .broadcast-reference-row').addClass('d-none');
@@ -64,7 +71,7 @@ function showCallbackDetails(data){
     $('#info-callback .callback-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     $('#info-callback .callback-callback-tick').html(formatLink(tokenUrl(XC.coin, data.callback_tick), data.callback_tick, data.callback_tick));
     $('#info-callback .callback-amount').html(formatAmount(data.callback_amount));
-    $('#info-callback .callback-memo').text(data.memo);
+    $('#info-callback .callback-memo').text(nullToBlank(data.memo));
 }
 
 // Display DIVIDEND action information
@@ -72,7 +79,7 @@ function showDividendDetails(data){
     $('#info-dividend .dividend-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     $('#info-dividend .dividend-dividend-tick').html(formatLink(tokenUrl(XC.coin, data.dividend_tick), data.dividend_tick, data.dividend_tick));
     $('#info-dividend .dividend-amount').html(formatAmount(data.amount));
-    $('#info-dividend .dividend-memo').text(data.memo);
+    $('#info-dividend .dividend-memo').text(nullToBlank(data.memo));
 }
 
 // Display DESTROY action information
@@ -112,7 +119,7 @@ function showDispenserDetails(data){
         $('#info-dispenser .dispenser-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-dispenser .dispenser-allow-list').html(formatListReference(XC.coin, data.allow_list));
     $('#info-dispenser .dispenser-block-list').html(formatListReference(XC.coin, data.block_list));
-    $('#info-dispenser .dispenser-memo').text(data.memo);
+    $('#info-dispenser .dispenser-memo').text(nullToBlank(data.memo));
     // Dispenser Status Details
     // getActionData deletes state.get_remaining for DISPENSER (only give_remaining is
     // meaningful), so the data layer never carries the field; do not read it here.
@@ -127,7 +134,7 @@ function showDispenserDetails(data){
 // Display DISPENSER_CANCEL action information
 function showDispenserCancelDetails(data){
     $('#info-dispenser-cancel .dispenser-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
-    $('#info-dispenser-cancel .dispenser-cancel-memo').text(data.memo);
+    $('#info-dispenser-cancel .dispenser-cancel-memo').text(nullToBlank(data.memo));
 }
 
 // Display DISPENSER_CLOSE action information
@@ -143,7 +150,7 @@ function showDispenserEditDetails(data){
         $('#info-dispenser-edit .dispenser-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-dispenser-edit .dispenser-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
     $('#info-dispenser-edit .dispenser-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
-    $('#info-dispenser-edit .dispenser-edit-memo').text(data.memo);
+    $('#info-dispenser-edit .dispenser-edit-memo').text(nullToBlank(data.memo));
 }
 
 // Display DISPENSER_EXPIRE action information
@@ -173,7 +180,7 @@ function showFileDetails(data){
     $('#info-file .file-name').text(data.name);
     $('#info-file .file-title').text(data.title);
     $('#info-file .file-type').text(data.type);
-    $('#info-file .file-memo').text(data.memo);
+    $('#info-file .file-memo').text(nullToBlank(data.memo));
     // Token-gated FILE: show the gate token, encryption method and key hash, plus
     // a link to the raw (still-encrypted) ciphertext endpoint. Holders decrypt
     // client-side after receiving the key via an ECIES MESSAGE.

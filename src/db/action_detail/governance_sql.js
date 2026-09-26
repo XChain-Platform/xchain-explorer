@@ -27,7 +27,7 @@ const BET_DETAIL = `SELECT
                     a3.address as source,
                     -- feed definition (format 0)
                     f.label,
-                    f.outcomes,
+                    COALESCE(f.outcomes, pf.outcomes) as outcomes,
                     -- Alias the oracle cut: getActionData overwrites the reserved fee slot
                     f.fee as bet_fee,
                     f.deadline,
@@ -76,6 +76,7 @@ const BET_DETAIL = `SELECT
                     LEFT  JOIN index_statuses     bcs ON (bcs.id=bc.status_id)
                     LEFT  JOIN bet_resolves       br ON (br.action_index=a1.action_index)
                     LEFT  JOIN index_statuses     brs ON (brs.id=br.status_id)
+                    LEFT  JOIN bet_feeds          pf ON (pf.action_index=COALESCE(bt.feed_action_index, bc.feed_action_index, br.feed_action_index))
                 WHERE
                     a1.action_index=?
                 LIMIT 1`;
@@ -206,8 +207,12 @@ const VOTE_DETAIL = `SELECT
 const VOTE_FINALIZED_POLL = `SELECT action_index AS poll_ref, poll_status, winning_option, options
                    FROM polls WHERE finalized_action_index=? LIMIT 1`;
 
-// List the options one ballot chose, in choice order.
-const VOTE_BALLOT_CHOICES = `SELECT poll_index, choice, share, memo FROM votes WHERE action_index=? ORDER BY choice ASC`;
+// List the options one ballot chose and the parent labels, tolerating a missing poll.
+const VOTE_BALLOT_CHOICES = `SELECT v.poll_index, v.choice, v.share, v.memo, p.options as poll_options
+                FROM votes v
+                LEFT JOIN polls p ON (p.action_index=v.poll_index)
+                WHERE v.action_index=?
+                ORDER BY v.choice ASC`;
 
 // Read the common status stored on a ballot's choice rows.
 const VOTE_BALLOT_STATUS = `SELECT COALESCE(s1.status, 'valid') AS status

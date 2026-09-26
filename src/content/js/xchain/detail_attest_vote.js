@@ -293,7 +293,10 @@ function detailAttestVote_renderVoteChoice(data, kind){
     if(kind=='ballot'){
         $('#info-vote .vote-poll-ref').html(isNull(data.poll_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.poll_ref, data.poll_ref));
         let ballot = Array.isArray(data.ballot) ? data.ballot : [];
-        $('#info-vote .vote-choices').html(ballot.length ? ballot.map(b => 'option ' + b.choice + (isNull(b.share) ? '' : ' (share ' + b.share + ')')).join('<br>') : '-');
+        $('#info-vote .vote-choices').html(ballot.length ? ballot.map(function(b){
+            let choice = $('<div>').text(formatIndexedLabel(b.choice, b.label)).html();
+            return choice + (isNull(b.share) ? '' : ' (share ' + $('<div>').text(b.share).html() + ')');
+        }).join('<br>') : '-');
         $('#info-vote .vote-memo').text(isNull(data.memo) ? '-' : data.memo);
     }
     if(kind=='delegation'){

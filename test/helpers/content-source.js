@@ -57,6 +57,8 @@ function clientSource(){
         + '\n'
         + fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8')
         + '\n'
+        + fs.readFileSync(path.join(JS_DIR, 'formatters', 'protocol.js'), 'utf8')
+        + '\n'
         + srcText('src/content/js/xchain.js');
 }
 
@@ -64,7 +66,9 @@ function clientSource(){
 function formatterSource(){
     return networkCoinSource()
         + '\n'
-        + fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8');
+        + fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8')
+        + '\n'
+        + fs.readFileSync(path.join(JS_DIR, 'formatters', 'protocol.js'), 'utf8');
 }
 
 /**

@@ -247,11 +247,19 @@ function showTokenInfo(){
 
     let description = tokenInfo_prepareDescription(desc);
     let jsonUrl = tokenInfo_getJsonUrl(description);
-    tokenInfo_loadContent(jsonUrl);
+    tokenInfo_loadContent(jsonUrl, XC.coin, o.info.tick);
 }
 
-// Prepare description links and the patterns needed for content loading.
-function tokenInfo_prepareDescription(desc){
+// Derive the one metadata URL a token description points at, or false when it names
+// none. Pure, so the /relay endpoint runs this same rule to confirm that a URL it is
+// asked to fetch is one the named token really references.
+function tokenInfo_metadataUrl(desc){
+    return tokenInfo_getJsonUrl(tokenInfo_parseDescription(desc));
+}
+
+// Read a description into the patterns and ';'-separated parts the fetch rule uses.
+// Touches no page state, so the server can run it too.
+function tokenInfo_parseDescription(desc){
     // RegExp for pattern matching in description
     let json    = /^(.*).json/i,
         http    = /^http:\/\//,
@@ -270,13 +278,24 @@ function tokenInfo_prepareDescription(desc){
     if(typeof desc === 'string')
         desc = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
 
+    // A description that starts with http or names a .json file is a link, and its
+    // first ';'-separated part is the URL itself.
+    var arr = (json.test(desc)||http.test(desc)||https.test(desc)) ? desc.split(';') : undefined;
+    return { desc: desc, json: json, ord: ord, ipfs: ipfs, ar: ar, arweave: arweave, act: act, arr: arr };
+}
+
+// Prepare description links and the patterns needed for content loading.
+function tokenInfo_prepareDescription(desc){
+    let info = tokenInfo_parseDescription(desc);
+    let arr  = info.arr;
+    desc     = info.desc;
+
     // If the file starts with http and end with JSON, then assume it is valid url and link it
-    if(json.test(desc)||http.test(desc)||https.test(desc)){
+    if(arr){
         // arr[0]/arr[1] are user-controlled description text. Escape both the
         // href (against attribute breakout) and the visible text (against tag
         // injection); getValidUrl already constrains the scheme.
-        var arr  = desc.split(';'),
-            html = '<a href="' + escapeHtml(getValidUrl(arr[0])) + '" target="_blank">' + escapeHtml(arr[0]) + '</a>';
+        var html = '<a href="' + escapeHtml(getValidUrl(arr[0])) + '" target="_blank">' + escapeHtml(arr[0]) + '</a>';
         if(arr[1])
             html += ';' + escapeHtml(arr[1]);
         $('#token-description').html(html);
@@ -286,15 +305,15 @@ function tokenInfo_prepareDescription(desc){
     // holds the token's information document (on its own chain for the
     // cross-chain form). Coin + index are regex-validated, so the href is
     // safe by construction.
-    if(act.test(desc)){
-        var actM    = desc.match(act),
+    if(info.act.test(desc)){
+        var actM    = desc.match(info.act),
             actCoin = networkCoin(actM[1] || XC.coin);
         $('#token-description').html(
             '<a href="/' + actCoin + '/action/' + actM[2] + '" title="Token information stored on-chain (' + actCoin + ' FILE action ' + actM[2] + ')">'
             + escapeHtml(desc) + '</a>'
         );
     }
-    return { desc: desc, json: json, ord: ord, ipfs: ipfs, ar: ar, arweave: arweave, act: act, arr: arr };
+    return info;
 }
 
 // Resolve a supported description into its fetch target.
@@ -333,8 +352,18 @@ function tokenInfo_getJsonUrl(info){
     return jsonUrl;
 }
 
+// The same-origin relay address for a token's metadata. The relay fetches a host
+// outside its fixed gateways only for the URL this coin and tick's description names,
+// so both travel with it; each value is encoded so a query string inside the metadata
+// URL stays part of that URL instead of splitting into relay parameters.
+function tokenInfo_relayUrl(jsonUrl, coin, tick){
+    return '/relay?url=' + encodeURIComponent(jsonUrl)
+         + '&coin=' + encodeURIComponent(nullToBlank(coin))
+         + '&tick=' + encodeURIComponent(nullToBlank(tick));
+}
+
 // Load token content through the direct and relay fallbacks.
-function tokenInfo_loadContent(jsonUrl){
+function tokenInfo_loadContent(jsonUrl, coin, tick){
     // Handle trying to load any JSON content and show the token content
     if(jsonUrl){
         if(XC.debug)
@@ -346,11 +375,16 @@ function tokenInfo_loadContent(jsonUrl){
             if(XC.debug)
                 XCLogger.log('failed to get JSON... retrying using xchain-explorer relay')
             // Try to request the JSON through the xchain relay
-            $.getJSON( '/relay?url=' + jsonUrl, function(o){ 
+            $.getJSON( tokenInfo_relayUrl(jsonUrl, coin, tick), function(o){
                 showTokenContent(o);
             });
-        }); 
+        });
     } else {
         showTokenContent();
     }
 }
+
+// Node requires this file for the pure metadata-URL rule (the /relay check and the
+// unit suites); the browser keeps the globals above.
+if(typeof module !== 'undefined' && module.exports)
+    module.exports = { tokenInfo_metadataUrl: tokenInfo_metadataUrl };

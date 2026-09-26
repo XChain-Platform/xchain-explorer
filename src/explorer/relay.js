@@ -27,6 +27,9 @@
 const path      = require('path');
 const net       = require('net');
 const ssrfGuard = require('../http/ssrf_guard.js');
+// The token page's own description-to-URL rule, so the relay and the page can never
+// disagree about which URL a token references.
+const { tokenInfo_metadataUrl } = require('../content/js/xchain/token_info.js');
 
 // The entry file's own `axios` and `dns`, handed over at install time rather than
 // required here. The SSRF suites build the explorer through proxyquire with both
@@ -35,7 +38,8 @@ const ssrfGuard = require('../http/ssrf_guard.js');
 let axios = null;
 let dns   = null;
 
-// Limit public relay egress to the metadata gateways the token page constructs.
+// The metadata gateways the token page constructs, relayed for any caller. Any other
+// public host is relayed only for the exact URL a named token's description points at.
 const RELAY_HOSTS = new Set([
     'arweave.net',
     'inscription-decoder.vercel.app',
@@ -88,11 +92,17 @@ class RelayEgress {
                 // Parse and validate the requested URL.
                 const parsed = new URL(req.query.url);
 
-                // Every destination check in one place, in its original order, so a
-                // refusal keeps the status and code it always had.
+                // Protocol, address range and port first, each refusal with its own
+                // status and code, before anything reads the database.
                 const refusal = this.relayDestinationRefusal(parsed);
                 if(refusal)
                     return res.status(refusal.status).json(refusal.body);
+
+                // Outside the fixed gateways, relay only a URL that a token on the named
+                // chain actually references, so this never serves as a general proxy.
+                if(!RELAY_HOSTS.has(parsed.hostname.toLowerCase()) &&
+                   !(await this.isTokenMetadataUrl(req.query.coin, req.query.tick, parsed)))
+                    return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
 
                 // Answered only for the content kinds a page can actually use; anything
                 // else falls through to the 503 below, exactly as before.
@@ -155,12 +165,37 @@ class RelayEgress {
         if(!['80', '443'].includes(port))
             return { status: 403, body: { error: 'Destination not permitted', code: 'RELAY_DENIED' } };
 
-        // Relay only through the metadata gateways emitted by token_info.js.
-        if(!RELAY_HOSTS.has(parsed.hostname.toLowerCase()))
-            return { status: 403, body: { error: 'Destination not permitted', code: 'RELAY_DENIED' } };
-
-        // Nothing refused it.
+        // Nothing refused it. Which public hosts may be fetched is decided after this
+        // gate, by RELAY_HOSTS or isTokenMetadataUrl.
         return null;
+    }
+
+    /**
+     * Does the token `tick` on chain `coin` reference exactly this URL? True only when
+     * its description derives, by the token page's own rule, to the same URL.
+     *
+     * @returns {boolean} false on any missing, unknown or unreadable input, never a throw
+     */
+    async isTokenMetadataUrl(coin, tick, parsed){
+        // Both identifiers must be single non-empty values; a repeated parameter arrives
+        // as an array.
+        if(typeof coin !== 'string' || typeof tick !== 'string' || !coin || !tick)
+            return false;
+        // Only a chain this explorer holds a database for has tokens to consult.
+        coin = coin.toUpperCase();
+        if(!this.db.pools || !Object.prototype.hasOwnProperty.call(this.db.pools, coin))
+            return false;
+        try {
+            const description = await this.db.findTokenDescription({ coin, data: {} }, tick);
+            if(this.util.isNull(description))
+                return false;
+            // An action: or ord: description derives through page-only helpers and never
+            // names a non-gateway host, so a throw there is simply no match.
+            const derived = tokenInfo_metadataUrl(String(description));
+            return Boolean(derived) && new URL(derived).href === parsed.href;
+        } catch(e) {
+            return false;
+        }
     }
 
     /**

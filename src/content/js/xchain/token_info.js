@@ -136,6 +136,13 @@ function tokenInfo_renderProjectBanners(o){
     }
 }
 
+// Render the token's current allow and block list action references.
+function tokenInfo_renderLists(lists){
+    let current = lists || {};
+    $('#allow-list').html(isNull(current.allow) ? 'None' : formatListReference(XC.coin, current.allow));
+    $('#block-list').html(isNull(current.block) ? 'None' : formatListReference(XC.coin, current.block));
+}
+
 // Render the token summary cards from one consistent snapshot.
 function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     // Controller bindings (protocol/controller-bound-tokens.md): guard contracts
@@ -155,6 +162,7 @@ function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     $('#max-mint').text(formatAmount(o.mints.max));
     $('#owner').html(formatLink('/' + XC.coin + '/address/' + o.info.owner, o.info.owner));
     $('#token-description').text(desc);
+    tokenInfo_renderLists(o.lists);
 
     // Marketcap and Pricing Information
     $('.xchain-coin').text(o.info.coin);

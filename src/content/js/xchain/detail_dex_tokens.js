@@ -29,8 +29,9 @@ function showIssueDetails(data){
     $('#info-issue .issue-callback-tick').text(data.callback_tick);
     $('#info-issue .issue-callback-amount').text(formatAmount(data.callback_amount));
     $('#info-issue .issue-description').text(data.description);
-    $('#info-issue .issue-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-issue .issue-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
+    let isPolicyUpdate = (Number(data.action_format) === 5);
+    $('#info-issue .issue-allow-list').html(formatListReference(XC.coin, data.allow_list, isPolicyUpdate));
+    $('#info-issue .issue-block-list').html(formatListReference(XC.coin, data.block_list, isPolicyUpdate));
     $('#info-issue .issue-memo').text(data.memo);
     $('#info-issue .issue-mint-address-max').text(formatAmount(data.mint_address_max));
     $('#info-issue .issue-mint-start-block').text(formatAmount(data.mint_start_block));

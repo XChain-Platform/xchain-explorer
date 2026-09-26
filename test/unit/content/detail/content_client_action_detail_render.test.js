@@ -349,4 +349,31 @@ describe('action detail render: fields that reached the API with nowhere to go',
 
 });
 
+describe('ISSUE action detail list references', function(){
+
+    it('renders zero lists as None on an issuance', function(){
+        const win = bootPage();
+        win.showIssueDetails({ action_format: 0, tick: 'CAMPA', allow_list: 0, block_list: '0' });
+        expect(text(win, '#info-issue .issue-allow-list')).to.equal('None');
+        expect(text(win, '#info-issue .issue-block-list')).to.equal('None');
+        expect(win.jQuery('#info-issue .issue-allow-list a, #info-issue .issue-block-list a')).to.have.length(0);
+    });
+
+    it('renders zero lists as Removed on a policy update', function(){
+        const win = bootPage();
+        win.showIssueDetails({ action_format: 5, tick: 'CAMPA', allow_list: '0', block_list: 0 });
+        expect(text(win, '#info-issue .issue-allow-list')).to.equal('Removed');
+        expect(text(win, '#info-issue .issue-block-list')).to.equal('Removed');
+        expect(win.jQuery('#info-issue .issue-allow-list a, #info-issue .issue-block-list a')).to.have.length(0);
+    });
+
+    it('keeps nonzero list references linked', function(){
+        const win = bootPage();
+        win.showIssueDetails({ action_format: 5, tick: 'CAMPA', allow_list: 940, block_list: '941' });
+        expect(win.jQuery('#info-issue .issue-allow-list a').attr('href')).to.equal('/RDOGE/action/940');
+        expect(win.jQuery('#info-issue .issue-block-list a').attr('href')).to.equal('/RDOGE/action/941');
+    });
+
+});
+
 require('./content_client_action_detail_render.test/support/deploy_card.js');

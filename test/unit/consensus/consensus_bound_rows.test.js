@@ -27,3 +27,38 @@ describe('consensus-bound registry rows', function () {
         assert.doesNotThrow(() => gateRegistry.get(key));
     });
 });
+
+describe('price scale registry rows', function () {
+    const prefix = 'price_scale_activation.';
+
+    it('registers each price scale row exactly once', function () {
+        const names = [
+            'PRICE_SCALE_MAX_DECIMALS',
+            'PRICE_SCALE_ACTIVATION',
+            'PRICE_VALUE_RE_LEGACY',
+            'PRICE_VALUE_RE_CANONICAL'
+        ];
+
+        for (const name of names) {
+            const key = `${prefix}${name}`;
+            assert.strictEqual(gateRegistry.keys().filter((candidate) => candidate === key).length, 1);
+        }
+    });
+
+    it('pins the price scale activation and decimal limit', function () {
+        assert.deepStrictEqual(
+            gateRegistry.get(`${prefix}PRICE_SCALE_ACTIVATION`),
+            { mainnet: 0, testnet: 0, regtest: 0 }
+        );
+        assert.strictEqual(gateRegistry.get(`${prefix}PRICE_SCALE_MAX_DECIMALS`), 8);
+    });
+
+    it('pins canonical price value syntax', function () {
+        const canonical = gateRegistry.get(`${prefix}PRICE_VALUE_RE_CANONICAL`);
+
+        assert.strictEqual(canonical.test('1.5'), true);
+        assert.strictEqual(canonical.test('12345.12345678'), true);
+        assert.strictEqual(canonical.test('01.5'), false);
+        assert.strictEqual(canonical.test('1.123456789'), false);
+    });
+});

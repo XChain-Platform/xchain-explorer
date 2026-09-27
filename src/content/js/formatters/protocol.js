@@ -37,11 +37,27 @@ function formatResumeBlock(coin, value){
     return formatLink('/' + coin + '/block/' + value, formatAmount(value));
 }
 
+// The contract page's "Owner Withdraw" cell, from the response's owner_withdraw
+// (OWNER_WITHDRAW_OPT_IN): true when the deployer can still WITHDRAW the tokens
+// the contract holds, false when tokens leave only through the contract's own
+// code, and anything else (an older server, an unresolved network) unknown
+// rather than guessed. All markup is ours; nothing author-supplied reaches it.
+function formatOwnerWithdraw(value){
+    if(value === true)
+        return '<span class="badge text-bg-warning">Allowed</span> '
+            + '<span class="text-muted small">The deployer can withdraw tokens this contract holds at any time.</span>';
+    if(value === false)
+        return '<span class="badge text-bg-success">Not allowed</span> '
+            + '<span class="text-muted small">Tokens leave only through the contract\'s own logic.</span>';
+    return '<span class="text-muted">Unknown</span>';
+}
+
 if(typeof module !== 'undefined' && module.exports){
     module.exports = {
         formatZeroSentinel,
         formatBinaryFlag,
         formatIndexedLabel,
-        formatResumeBlock
+        formatResumeBlock,
+        formatOwnerWithdraw
     };
 }

@@ -28,6 +28,7 @@
 'use strict';
 
 const { TERMINAL_OFFER_STATUSES } = require('../../action-detail/shared.js');
+const { attachOwnerWithdraw, resolveContractNetwork } = require('../../contract/owner_withdraw.js');
 
 // A dispenser list lane with no escrow leaves a client listing
 // dispensers unable to say how full any of them is, so give_escrow
@@ -60,11 +61,15 @@ async function dispenserPass(db, config, data){
 }
 
 // Contract list rows carry the same identity shape the single-contract route
-// serves: three flat meta_* columns plus the parsed `meta` object. Done here
-// rather than in getContracts because that method returns SQL, not rows.
-function contractPass(db, data){
-    for(let row of data)
+// serves: three flat meta_* columns plus the parsed `meta` object, and the
+// derived owner_withdraw flag, which reads meta_json before it is parsed away.
+// Done here rather than in getContracts because that method returns SQL, not rows.
+async function contractPass(db, config, data){
+    let network = await resolveContractNetwork(db, config);
+    for(let row of data){
+        attachOwnerWithdraw(row, network);
         db.attachContractMeta(row);
+    }
 }
 
 // /validators stays the ONE validator table (no second federation-registry
@@ -95,7 +100,7 @@ async function applyPostPasses(db, config, data){
     if(method=='getDispensers')
         await dispenserPass(db, config, data);
     if(method=='getContracts')
-        contractPass(db, data);
+        await contractPass(db, config, data);
     if(method=='getValidators')
         await validatorPass(db, config, data);
     return data;

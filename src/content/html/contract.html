@@ -17,6 +17,7 @@
                     <tr class="contract-ctor-row d-none"><th>Constructor Params</th><td class="contract-ctor-params text-break">-</td></tr>
                     <tr><th>API Version</th><td class="contract-api-version">-</td></tr>
                     <tr><th>Status</th><td class="contract-status">-</td></tr>
+                    <tr><th><span title="Whether the deployer can pull tokens out of this contract with WITHDRAW. Contracts deployed after the owner-withdraw activation allow it only when their meta declares ownerWithdraw: true.">Owner Withdraw</span></th><td class="contract-owner-withdraw">-</td></tr>
                     <tr><th>Staking</th><td class="contract-stakeable">-</td></tr>
                     <tr class="contract-staking-row d-none"><th>Cooldown</th><td class="contract-cooldown">-</td></tr>
                     <tr class="contract-staking-row d-none"><th>Slash Destination</th><td class="contract-slash">-</td></tr>
@@ -347,6 +348,7 @@ $(document).ready(function() {
 
             $('.contract-api-version').text(o.api_version);
             $('.contract-status').text(o.status);
+            $('.contract-owner-withdraw').html(formatOwnerWithdraw(o.owner_withdraw));
             let stakeable = !isNull(o.cooldown_blocks);
             $('.contract-stakeable').html(stakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
             if(stakeable){

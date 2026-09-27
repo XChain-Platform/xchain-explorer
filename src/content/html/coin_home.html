@@ -153,6 +153,25 @@
                 </div>
             </div>
         </div>
+        <div class="col-12 pb-3">
+            <div class="card">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-chart-simple"></i> Network Snapshot
+                </div>
+                <div class="card-body p-2">
+                    <div class="row g-2">
+                        <div class="col-12 col-sm-6 col-xl-3" id="home-stat-block"></div>
+                        <div class="col-12 col-sm-6 col-xl-3" id="home-stat-unconfirmed"></div>
+                        <div class="col-12 col-sm-6 col-xl-3" id="home-stat-actions"></div>
+                        <div class="col-12 col-sm-6 col-xl-3" id="home-stat-tokens"></div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="small text-muted me-2">Next mint window boundary</span>
+                        <span id="home-mint-window"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -802,6 +821,14 @@
 </div>
 
 
+<script type="application/json" id="xc-mount-manifest">[
+    {"el":"home-stat-block","component":"stat-tile","props":{"label":"Indexed block","value":"Loading...","icon":"fa-cube"}},
+    {"el":"home-stat-unconfirmed","component":"stat-tile","props":{"label":"Unconfirmed XChain","value":"Loading...","icon":"fa-clock"}},
+    {"el":"home-stat-actions","component":"stat-tile","props":{"label":"Actions indexed","value":"Loading...","icon":"fa-list-check"}},
+    {"el":"home-stat-tokens","component":"stat-tile","props":{"label":"Tokens","value":"Loading...","icon":"fa-database"}},
+    {"el":"home-mint-window","component":"countdown","props":{"target":0,"current":0,"unit":"blocks","completeText":"No scheduled window"}}
+]</script>
+
 <!-- Code to load/update data -->
 <script type="text/javascript">
 $(document).ready(function(){
@@ -848,6 +875,44 @@ $(document).ready(function(){
             // Update action totals
             for(let action in o.totals)
                 $('#total-' + action).text(numeral(o.totals[action]).format('0,0'));
+            if(typeof XCComponents !== 'undefined'){
+                let actionTotal = 0;
+                for(let action in o.totals)
+                    if(Object.prototype.hasOwnProperty.call(o.totals, action))
+                        actionTotal += Number(o.totals[action]) || 0;
+                XCComponents.mount('home-stat-block', 'stat-tile', {
+                    label: 'Indexed block', value: numeral(o.network.block).format('0,0'), icon: 'fa-cube'
+                });
+                XCComponents.mount('home-stat-unconfirmed', 'stat-tile', {
+                    label: 'Unconfirmed XChain', value: numeral(o.network.unconfirmed).format('0,0'), icon: 'fa-clock'
+                });
+                XCComponents.mount('home-stat-actions', 'stat-tile', {
+                    label: 'Actions indexed', value: numeral(actionTotal).format('0,0'), icon: 'fa-list-check'
+                });
+                XCComponents.mount('home-stat-tokens', 'stat-tile', {
+                    label: 'Tokens', value: numeral(o.totals.tokens || 0).format('0,0'), icon: 'fa-database'
+                });
+
+                let mintWindow = o.mint_window || o.network.mint_window || {};
+                let current = Number(o.network.block);
+                let start = Number(mintWindow.start_block || mintWindow.mint_start_block);
+                let stop = Number(mintWindow.stop_block || mintWindow.mint_stop_block);
+                let target = current;
+                let unit = 'blocks';
+                let completeText = 'No scheduled window';
+                if(isFinite(start) && current < start){
+                    target = start;
+                    unit = 'blocks until open';
+                    completeText = 'Mint window open';
+                } else if(isFinite(stop) && current < stop){
+                    target = stop;
+                    unit = 'blocks until close';
+                    completeText = 'Mint window closed';
+                }
+                XCComponents.mount('home-mint-window', 'countdown', {
+                    target: target, current: current, unit: unit, completeText: completeText
+                });
+            }
             // Update network information
             $('#network-block-index').text(numeral(o.network.block).format('0,0'));
             // Unconfirmed: the node's TOTAL mempool size first, then the

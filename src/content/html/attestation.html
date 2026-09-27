@@ -11,6 +11,7 @@
                 </div>
                 <div class="card-body p-2">
                     <div id="attestation-headline" class="mb-2 text-muted">Loading attestation...</div>
+                    <div id="attestation-timeline" class="mb-2"></div>
                     <div id="attestation-lifecycle"></div>
                 </div>
                 <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
@@ -80,6 +81,9 @@
     </div>
 </div>
 
+<script type="application/json" id="xc-mount-manifest">[
+    {"el":"attestation-timeline","component":"timeline","props":{"items":[],"emptyText":"Loading attestation lifecycle..."}}
+]</script>
 <!-- Lifecycle / request / response / expiry / relay / leg renders live here so a
      unit test can drive the real render path with stubbed endpoint payloads. -->
 <script type="text/javascript" src="/js/attestation_detail_render/state.js"></script>
@@ -103,6 +107,22 @@ $(document).ready(function() {
         $('#attestation-expiry').html('<span class="text-muted">-</span>');
         $('#attestation-relay').html('<span class="text-muted">-</span>');
         $('#attestation-legs').html('<span class="text-muted">-</span>');
+        if(typeof XCComponents !== 'undefined')
+            XCComponents.mount('attestation-timeline', 'timeline', {
+                items: [], emptyText: 'No attestation lifecycle to show.'
+            });
+    };
+
+    let mountTimeline = function(d){
+        if(typeof XCComponents === 'undefined') return;
+        let items = attestationStages(d).map(function(stage){
+            return {
+                label: stage.label,
+                detail: stage.note,
+                state: stage.reached ? 'complete' : 'pending'
+            };
+        });
+        XCComponents.mount('attestation-timeline', 'timeline', { items: items });
     };
 
     // XC.query is null whenever the path segment did not match a shape
@@ -148,6 +168,7 @@ $(document).ready(function() {
         $('#attestation-headline').html('<span id="attestation-leg-count">' + legs.length + '</span> leg'
             + (legs.length === 1 ? '' : 's') + ' recorded for this request id.');
         $('#attestation-status-badge').html(attStatusBadge(d));
+        mountTimeline(d);
         $('#attestation-lifecycle').html(renderAttestationLifecycle(d));
         $('#attestation-request-id').html('<span class="font-monospace small text-break" id="attestation-request-id-value">'
             + esc(d.request_id) + '</span>');

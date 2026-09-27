@@ -32,6 +32,7 @@
 'use strict';
 
 const DecoderConnector = require('../../../connectors/decoder.js');
+const IndexerConnector = require('../../../connectors/indexer.js');
 const { staleFailClosed } = require('../../shared.js');
 
 // The per-coin measurement maps a /status report carries, each empty until the loop
@@ -73,10 +74,10 @@ function statusMeasurementFields(){
         // indexer_state: 'live' (lag 0), 'future_block_wait' (the next block is
         // dated ahead of this host's clock, so no node may commit it yet and the
         // pause is consensus, not failure), 'behind' (the next block is
-        // admissible now and still uncommitted, the state worth paging on), or
-        // null when it cannot be determined. indexer_wait_clears_at is the
-        // instant a future_block_wait ends, so a UI can show a countdown instead
-        // of an apparently lost transaction.
+        // admissible now and still uncommitted, including while held on an
+        // oracle-sync barrier or while the indexer is simply slow), or null
+        // when it cannot be determined. indexer_wait_clears_at is the known
+        // earliest clear instant for a future wait or time-bounded barrier.
         indexer_state:               {},
         next_block_time:             {},
         next_block_future_seconds:   {},
@@ -157,8 +158,24 @@ function measureTipAge(data, coin, nowSec, tipSec){
     data.tip_future_seconds[coin] = (tipDelta === null) ? null : Math.max(0, -tipDelta);
 }
 
+async function readIndexerBarrierDeadline(coinConfigs, coin){
+    let parsed = coinCodeParser(coinConfigs)(coin);
+    let url = IndexerConnector.resolveIndexerUrl(parsed ? parsed.coin : null,
+                                                  parsed ? parsed.network : null);
+    if(!url) return null;
+    try {
+        let health = await new IndexerConnector(url).health();
+        let clearsAt = health && Number(health.stallClearsAt);
+        if(!health || health.stallClass !== 'barrier_defer' || !Number.isFinite(clearsAt) || clearsAt <= 0)
+            return null;
+        return new Date(clearsAt).toISOString();
+    } catch(e){
+        return null;
+    }
+}
+
 // WHY a coin's indexer trails, read off the stamp of the block it is waiting on.
-async function measureIndexerState(db, data, coin, nowSec){
+async function measureIndexerState(db, data, coin, nowSec, coinConfigs){
     // Why the indexer is behind, not just that it is. A chain whose
     // timestamps are systematically future-dated (Bitcoin testnet4 rides
     // the 20-minute min-difficulty rule, stamping each block ~1201s after
@@ -185,17 +202,18 @@ async function measureIndexerState(db, data, coin, nowSec){
                 data.indexer_state[coin]          = 'future_block_wait';
                 data.indexer_wait_clears_at[coin] = new Date(nextTime * 1000).toISOString();
             } else {
-                // The next block is admissible NOW and still uncommitted:
-                // genuinely behind. This is the state that deserves alarm,
-                // and the one a future-stamp wait was being mistaken for.
+                // The next block is admissible NOW and still uncommitted. A
+                // slow indexer and one holding this block on an oracle-sync
+                // barrier intentionally share the same public state.
                 data.indexer_state[coin] = 'behind';
+                data.indexer_wait_clears_at[coin] = await readIndexerBarrierDeadline(coinConfigs, coin);
             }
         }
     }
 }
 
 // Everything /status measures for one coin this instance actually holds a pool for.
-async function measureCoinStatus(db, data, coin){
+async function measureCoinStatus(db, data, coin, coinConfigs){
     await measureIndexerPosition(db, data, coin);
     // Fail closed on a frozen replica: a coin whose newest indexed block has
     // aged past its threshold stops being advertised as available, so a
@@ -205,7 +223,7 @@ async function measureCoinStatus(db, data, coin){
     let nowSec = Math.floor(Date.now() / 1000);
     let tipSec = data.last_block_time[coin];
     measureTipAge(data, coin, nowSec, tipSec);
-    await measureIndexerState(db, data, coin, nowSec);
+    await measureIndexerState(db, data, coin, nowSec, coinConfigs);
     data.stale[coin] = db.isTipStale(coin, tipSec, nowSec);
     // A stale coin stays listed in `available`: it IS served, with its
     // rows annotated (see staleFailClosed). The client reads `stale`,
@@ -325,7 +343,7 @@ class EntityStatusReaders {
         let available = coinConfigs['COIN_AVAILABLE'] || {};
         for (let coin of Object.keys(available)) {
             if (this.pools && this.pools[coin] && this.pools[coin].pool)
-                await measureCoinStatus(this, data, coin);
+                await measureCoinStatus(this, data, coin, coinConfigs);
         }
         await measureChainVisibility(this, data, coinConfigs, available);
         return [data];

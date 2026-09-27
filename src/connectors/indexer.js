@@ -105,6 +105,10 @@ class XChainIndexerConnector {
         return this.call('feeschedule', {});
     }
 
+    async health(){
+        return this.call('health', {});
+    }
+
     // Source-deduped stake weights for a capability at a block (each effective signing
     // key's { pubkey, source, weight }). Powers the validator-set proof: the explorer
     // needs the (source, weight) PREIMAGES (the stakes_root leaf is a hash) to build

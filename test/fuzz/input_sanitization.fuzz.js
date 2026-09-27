@@ -113,6 +113,21 @@ describe('Fuzz: Utility input sanitization', function () {
       expect(JSON.parse(u.jsonStringify(big)), `BigInt not stringified for ${big}`).to.equal(big.toString());
     }
   });
+});
+
+describe('Fuzz: Utility numeric classification', function () {
+  this.timeout(60000);
+
+  it('isFloat is false for integers past 32 bits and true for a real fraction', function () {
+    expect(u.isFloat(2 ** 31)).to.equal(false);
+    expect(u.isFloat(2 ** 53 - 1)).to.equal(false);
+    expect(u.isFloat(-(2 ** 31) - 1)).to.equal(false);
+    expect(u.isFloat(0.5)).to.equal(true);
+    expect(u.isFloat(2 ** 31 + 0.5)).to.equal(true);
+    expect(u.isFloat('1.5')).to.equal(false);
+    expect(u.isFloat(NaN)).to.equal(false);
+    expect(u.isFloat(Infinity)).to.equal(false);
+  });
 
   it(`isInteger and isFloat are mutually exclusive for every finite number (${ITERATIONS})`, function () {
     for (let i = 0; i < ITERATIONS; i++) {

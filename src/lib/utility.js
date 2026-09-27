@@ -218,7 +218,7 @@ class Utility {
 
     // True only for a real number carrying a fraction; a numeric string is false.
     isFloat(value){
-        return value === +value && value !== (value|0);
+        return typeof value === 'number' && Number.isFinite(value) && !Number.isInteger(value);
     }
 
     // Unlike isFloat, a numeric string counts, since the value is coerced first.

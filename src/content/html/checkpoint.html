@@ -43,9 +43,21 @@
             </div>
         </div>
 
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-title mb-0 p-1 fw-bold">
+                    <i class="fa fa-lg fa-timeline"></i> Settlement Lifecycle
+                </div>
+                <div class="card-body p-2" id="checkpoint-timeline"></div>
+            </div>
+        </div>
+
     </div>
 </div>
 
+<script type="application/json" id="xc-mount-manifest">[
+    {"el":"checkpoint-timeline","component":"timeline","props":{"items":[],"emptyText":"Loading settlement lifecycle..."}}
+]</script>
 <script type="text/javascript" src="/js/checkpoint_verify_render.js"></script>
 <script type="text/javascript">
 $(document).ready(function() {
@@ -70,6 +82,38 @@ $(document).ready(function() {
             + (isNull(version) ? '' : ' <span class="badge text-bg-secondary">v' + esc(version) + '</span>'));
     };
 
+    let mountTimeline = function(d){
+        if(typeof XCComponents === 'undefined') return;
+        let signatures = d ? d.validator_signatures : [];
+        if(typeof signatures === 'string'){
+            try { signatures = JSON.parse(signatures); } catch(e) { signatures = []; }
+        }
+        signatures = Array.isArray(signatures) ? signatures : [];
+        let items = d ? [
+            {
+                label: 'Snapshot prepared',
+                detail: isNull(d.snapshot_block) ? 'No snapshot block recorded.' : 'State captured for validator qualification.',
+                meta: isNull(d.snapshot_block) ? null : 'Block ' + numeral(d.snapshot_block).format('0,0'),
+                state: isNull(d.snapshot_block) ? 'pending' : 'complete'
+            },
+            {
+                label: 'Validator signatures collected',
+                detail: signatures.length + ' signature' + (signatures.length === 1 ? '' : 's') + ' attached.',
+                state: signatures.length ? 'complete' : 'pending'
+            },
+            {
+                label: 'Checkpoint settled',
+                detail: 'Checkpoint roots recorded on this chain.',
+                meta: isNull(d.block_index) ? null : 'Block ' + numeral(d.block_index).format('0,0'),
+                state: 'complete'
+            }
+        ] : [];
+        XCComponents.mount('checkpoint-timeline', 'timeline', {
+            items: items,
+            emptyText: 'No settlement lifecycle to show.'
+        });
+    };
+
     $('#checkpoint-block').text(XC.query);
 
     XC.pageInfo.title       = 'Checkpoint at Block ' + XC.query;
@@ -92,6 +136,7 @@ $(document).ready(function() {
             $('#checkpoint-fields').html('<tr><td class="text-muted">No checkpoint was signed at this height.</td></tr>');
             $('#checkpoint-signers').html('<span class="text-muted">No signers.</span>');
             $('#checkpoint-verify-btn').prop('disabled', true);
+            mountTimeline(null);
             return;
         }
 
@@ -110,12 +155,14 @@ $(document).ready(function() {
         $('#checkpoint-fields').html(html);
 
         $('#checkpoint-signers').html(renderCheckpointSigners(d.validator_signatures));
+        mountTimeline(d);
     }).fail(function(xhr){
         let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
         let msg  = body.error ? body.error : 'Could not load this checkpoint';
         $('#checkpoint-fields').html('<tr><td class="text-danger">' + esc(msg) + '</td></tr>');
         $('#checkpoint-signers').html('<span class="text-muted">-</span>');
         $('#checkpoint-verify-btn').prop('disabled', true);
+        mountTimeline(null);
     });
 
     $('#checkpoint-verify-btn').on('click', function(){

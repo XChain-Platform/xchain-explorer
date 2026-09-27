@@ -36,7 +36,11 @@ describe('price scale registry rows', function () {
             'PRICE_SCALE_MAX_DECIMALS',
             'PRICE_SCALE_ACTIVATION',
             'PRICE_VALUE_RE_LEGACY',
-            'PRICE_VALUE_RE_CANONICAL'
+            'PRICE_VALUE_RE_CANONICAL',
+            'PRICE_V1_CANONICAL_ACTIVATION',
+            'PRICE_V1_FEE_RE_CANONICAL',
+            'PRICE_V1_VALUE_MAX_LENGTH',
+            'PRICE_V1_FEE_MAX_LENGTH'
         ];
 
         for (const name of names) {
@@ -60,5 +64,18 @@ describe('price scale registry rows', function () {
         assert.strictEqual(canonical.test('12345.12345678'), true);
         assert.strictEqual(canonical.test('01.5'), false);
         assert.strictEqual(canonical.test('1.123456789'), false);
+    });
+
+    it('pins the PRICE v1 canonical rows', function () {
+        assert.deepStrictEqual(
+            gateRegistry.get(`${prefix}PRICE_V1_CANONICAL_ACTIVATION`),
+            { mainnet: gateRegistry.UNARMED, testnet: gateRegistry.UNARMED, regtest: 0 }
+        );
+        assert.deepStrictEqual(
+            gateRegistry.get(`${prefix}PRICE_V1_FEE_RE_CANONICAL`),
+            /^(0|[1-9][0-9]*)(\.[0-9]{1,18})?$/
+        );
+        assert.strictEqual(gateRegistry.get(`${prefix}PRICE_V1_VALUE_MAX_LENGTH`), 19);
+        assert.strictEqual(gateRegistry.get(`${prefix}PRICE_V1_FEE_MAX_LENGTH`), 20);
     });
 });

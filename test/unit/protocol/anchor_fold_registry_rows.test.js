@@ -36,8 +36,6 @@ describe('consensus gate registry anchor fold rows', function () {
     });
 
     it('ships both activation maps inert on every network', function () {
-        // Wait for this repository's SHARED-block twin to carry the pair.
-        if (present.length !== 2) this.skip();
         withEnv(undefined, () => {
             for (const key of KEYS) {
                 assert.deepStrictEqual(gateRegistry.get(key), {
@@ -50,16 +48,12 @@ describe('consensus gate registry anchor fold rows', function () {
     });
 
     it('arms both regtest entries from the shared venue variable', function () {
-        // Wait for this repository's SHARED-block twin to carry the pair.
-        if (present.length !== 2) this.skip();
         withEnv('armed', () => {
             for (const key of KEYS) assert.strictEqual(gateRegistry.get(key).regtest, 0);
         });
     });
 
     it('stays inactive below the sentinel on mainnet and testnet', function () {
-        // Wait for this repository's SHARED-block twin to carry the pair.
-        if (present.length !== 2) this.skip();
         withEnv(undefined, () => {
             for (const key of KEYS) {
                 assert.strictEqual(gateRegistry.activeAt(key, 'mainnet', null, 99999999, null), false);

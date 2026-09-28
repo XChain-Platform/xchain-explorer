@@ -1,7 +1,6 @@
 'use strict';
 
 // Copyright (c) 2025-2026 Dankest, LLC
-// Based on XChain Platform by Dankest, LLC - https://dankest.llc
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -69,10 +68,6 @@ const typeMap = (type) => Object.fromEntries(TABLES.map((table) => [table, type]
 const noLog = () => {};
 
 describe('hub-mirror created_at DATETIME retype', function () {
-    beforeEach(function () {
-        errors.length = 0;
-    });
-
     it('retypes each legacy TIMESTAMP with one UTC-pinned statement per table', async function () {
         const db = fakeMirrorDb(typeMap('timestamp'));
         const applied = await ensureMirrorColumns(db, noLog);
@@ -103,6 +98,12 @@ describe('hub-mirror created_at DATETIME retype', function () {
         const applied = await ensureMirrorColumns(db, noLog);
         expect(applied).to.have.lengthOf(1);
         expect(applied[0]).to.include('ALTER TABLE `bridge_transfers`');
+    });
+});
+
+describe('hub-mirror created_at DATETIME retype safeguards', function () {
+    beforeEach(function () {
+        errors.length = 0;
     });
 
     it('logs a failed retype and continues with the other tables', async function () {

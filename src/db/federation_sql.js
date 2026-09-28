@@ -34,16 +34,16 @@
 
 'use strict';
 
-// The archive-head version set (the indexer's ARCHIVE_HEAD_VERSIONS in
-// stateHash.js). Version 1 is the archive head, which carries its wrapper
-// checkpoint's identity.
+// The legacy archive-head version set. Version 1 carries its wrapper checkpoint's
+// identity. A folded version 3 archive row is identified by its row attributes,
+// so it is deliberately absent from this set.
 const ARCHIVE_HEAD_VERSIONS     = [1];
 const ARCHIVE_HEAD_VERSIONS_SQL = 'IN (' + ARCHIVE_HEAD_VERSIONS.join(', ') + ')';
 
 // ANCHOR versions that carry a full checkpoint identity: 0 is a bundle section,
-// 1 the archive head. Version 2 is a continuation chunk with no identity of its
-// own, so it is never a getanchoraction match.
-const CHECKPOINT_VERSIONS = [0, 1];
+// 1 the legacy archive head, and a folded version 3 chain row is a checkpoint
+// section. Version 2 is a continuation chunk with no identity of its own.
+const CHECKPOINT_VERSIONS = [0, 1, 3];
 
 // The members of CHECKPOINT_VERSIONS that are checkpoints in their own right (bundle
 // sections). Ranked ahead of archive heads, because both can share one checkpoint key
@@ -93,8 +93,9 @@ const ARCHIVE_CHUNK_SET_BY_AUTHOR_SQL =
 const ARCHIVE_ANCHOR_ROW_LIMIT = 50;
 
 // Archive heads for one batch identified by its content (checkpoint identity plus
-// batch_crc32 and match_count), earliest first. Status is returned, never filtered,
-// because an invalid head still spent the fee. Params: [chain, network, block_index,
+// batch_crc32 and match_count), earliest first. The row-attribute predicate selects
+// legacy and folded archive rows. Status is returned, never filtered, because an
+// invalid head still spent the fee. Params: [chain, network, block_index,
 // checkpoint_seq, batch_crc32, match_count].
 const ARCHIVE_ANCHOR_BY_CONTENT_SQL =
     `SELECT a.action_index, a.version, a.chain, a.network, a.block_index,
@@ -107,7 +108,7 @@ const ARCHIVE_ANCHOR_BY_CONTENT_SQL =
      LEFT JOIN index_addresses    adr ON adr.id           = act.source_id
      LEFT JOIN transactions       t   ON t.tx_index       = act.tx_index
      LEFT JOIN index_transactions it  ON it.id            = t.tx_hash_id
-     WHERE a.version ${ARCHIVE_HEAD_VERSIONS_SQL}
+     WHERE a.match_batch_seq IS NOT NULL AND a.version <> 2
        AND a.chain = ? AND a.network = ? AND a.block_index = ? AND a.checkpoint_seq = ?
        AND a.batch_crc32 = ? AND a.match_count = ?
      ORDER BY a.action_index ASC

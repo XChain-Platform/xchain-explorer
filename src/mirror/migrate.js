@@ -32,11 +32,12 @@
  * the ALTERs that are actually missing. Idempotent and probe-based (no
  * reliance on ALTER ... IF NOT EXISTS), so re-running is always safe.
  *
- * MONOTONIC ONLY. Every migration here either ADDs something or WIDENS an
- * existing thing (an index's column set, a column's character set or length), so no
- * stored value is rewritten and no accepted value stops being accepted. A
- * narrowing has no place in this module: it would fail on stored rows rather
- * than convert them, and the mirror has no writer to repair them from.
+ * MONOTONIC ONLY. Every migration here either ADDs something, WIDENS an
+ * existing thing, or RETYPEs TIMESTAMP to DATETIME. DATETIME holds every
+ * TIMESTAMP value, and the UTC pin keeps each stored instant. No accepted value
+ * stops being accepted. A narrowing has no place in this module: it would fail
+ * on stored rows rather than convert them, and the mirror has no writer to
+ * repair them from.
  *
  * It lives explorer-side (NOT in the vendored client) on purpose: the
  * canonical hub_db_sync.js in xchain-indexer is byte-identity-gated by
@@ -71,6 +72,9 @@ const MIRROR_MIGRATIONS = {
         ],
         indexes: [
             { name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }
+        ],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
         ]
     },
     // Fence the three twins the same item-5308 rollout touched. _applyRetraction
@@ -89,6 +93,9 @@ const MIRROR_MIGRATIONS = {
         // left at VARCHAR(50) would refuse a longer tick and wedge on every re-page.
         widenLengths: [
             { name: 'tick', length: 250, ddl: 'MODIFY `tick` VARCHAR(250) NOT NULL' }
+        ],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
         ]
     },
     cross_chain_matches: {
@@ -97,14 +104,21 @@ const MIRROR_MIGRATIONS = {
             { name: 'a_push_generation', ddl: 'ADD COLUMN a_push_generation BIGINT NOT NULL DEFAULT 0' },
             { name: 'b_push_generation', ddl: 'ADD COLUMN b_push_generation BIGINT NOT NULL DEFAULT 0' }
         ],
-        indexes: []
+        indexes: [],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
     },
     cross_chain_calls: {
         columns: [
             { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
             { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
         ],
-        indexes: []
+        indexes: [],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp',
+              ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' }
+        ]
     },
     // The two bridge mirror twins carry the same fence pair as cross_chain_calls
     // above, for the same reason: _applyRetraction fences from the incoming event,
@@ -119,14 +133,20 @@ const MIRROR_MIGRATIONS = {
             { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
             { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
         ],
-        indexes: []
+        indexes: [],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
     },
     policy_snapshots: {
         columns: [
             { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
             { name: 'push_generation', ddl: 'ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0' }
         ],
-        indexes: []
+        indexes: [],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
     },
     // uq_cap_snap gained `source` (a key delegated by two sources now keeps
     // both (source, pubkey) rows). The add-if-name-missing logic above cannot widen
@@ -140,6 +160,25 @@ const MIRROR_MIGRATIONS = {
         widenIndexes: [
             { name: 'uq_cap_snap', requiredColumn: 'source',
               addDdl: 'ADD UNIQUE KEY uq_cap_snap (snapshot_block, capability, signing_pubkey, source)' }
+        ],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    state_checkpoints: {
+        columns: [],
+        indexes: [],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp',
+              ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    anchor_reward_attestations: {
+        columns: [],
+        indexes: [],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp',
+              ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' }
         ]
     },
     // attestation_responses.response_payload / meta hold the PROVIDER bytes of a
@@ -187,6 +226,7 @@ async function ensureMirrorColumns(dbConn, log) {
         await widenColumnCharsets(dbConn, table, spec, log, applied);
         await widenColumnLengths(dbConn, table, spec, log, applied);
         await widenUniqueIndexes(dbConn, table, spec, log, applied);
+        await retypeColumnTypes(dbConn, table, spec, log, applied);
     }
     return applied;
 }
@@ -270,6 +310,34 @@ async function widenColumnLengths(dbConn, table, spec, log, applied) {
     } catch (err) {
         logger.error('HUB_MIRROR_WIDEN_FAILED', { table, err: err && err.message ? err.message : err,
             run_by_hand: sql + ' (the hub must not widen this column until it has applied)' });
+    }
+}
+
+// Retype allowlisted columns only when the live type matches the declared source.
+// The UTC pin and ALTER share a statement because doQuery may use a new connection.
+async function retypeColumnTypes(dbConn, table, spec, log, applied) {
+    if (!(spec.retypeColumns && spec.retypeColumns.length)) return;
+    const rows = await dbConn.doQuery('SHOW COLUMNS FROM `' + table + '`');
+    const types = new Map((rows || []).map(
+        (r) => [String(r.Field).toLowerCase(), String(r.Type || '').toLowerCase()]));
+    const clauses = [];
+    for (const column of spec.retypeColumns) {
+        const live = types.get(String(column.name).toLowerCase()) || '';
+        if (!live.startsWith(String(column.from).toLowerCase())) continue;
+        clauses.push(column.ddl);
+    }
+    if (clauses.length === 0) return;
+    const sql = "SET STATEMENT time_zone = '+00:00' FOR ALTER TABLE `" + table + '` ' + clauses.join(', ');
+    try {
+        log('[hub-mirror] retyping ' + table + ': ' + clauses.join('; '));
+        await dbConn.doQuery(sql);
+        applied.push(sql);
+    } catch (err) {
+        logger.error('HUB_MIRROR_RETYPE_FAILED', {
+            table,
+            err: err && err.message ? err.message : err,
+            run_by_hand: sql
+        });
     }
 }
 

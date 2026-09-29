@@ -15,11 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Restored separate token activation sentinels for each testnet chain.
 - Retyped legacy mirror timestamps to the DATETIME columns the indexer uses.
 - Armed the testnet release train at BTC 154566.
-- Armed testnet mirror admission producers at BTC 154567, LTC 4903068 and DOGE 67949959.
-- Armed testnet mirror admission consumers at BTC 154614, LTC 4903291 and DOGE 67950901.
+- Armed testnet mirror admission producers at BTC 154567, LTC 4903068 and DOGE 67951140.
+- Armed testnet mirror admission consumers at BTC 154614, LTC 4903291 and DOGE 67952082.
 - Armed the testnet anchor attestation barrier at BTC 154614.
-- Armed testnet token bridges at BTC 154567, LTC 4903068 and DOGE 67949959.
-- Armed testnet token policy inheritance at BTC 154567, LTC 4903068 and DOGE 67949959.
+- Armed testnet token bridges at BTC 154567, LTC 4903068 and DOGE 67951140.
+- Armed testnet token policy inheritance at BTC 154567, LTC 4903068 and DOGE 67951140.
 
 ### Fixed
 - Used exact decimal arithmetic for amounts, supplies, prices, bet pools, and stakes.

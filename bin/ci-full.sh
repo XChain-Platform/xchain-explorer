@@ -123,6 +123,11 @@ need_sib() {
   done
 }
 
+fast_defer() {
+  DEFERRED="$DEFERRED [$1]"
+  echo; echo "ci:full ===== $1 DEFERRED (CI_TIER=fast, runs in the full sweep) ====="
+}
+
 need_sib xchain-indexer xchain-vm xchain-sdk xchain-decoder xchain-documentation \
          xchain-encoder xchain-hub
 
@@ -177,7 +182,24 @@ db_tier() {
 }
 
 # --- job: ci (XChain-Platform/.github ci-reusable.yml -> npm run ci) -------
-run_tier "ci" npm run ci
+FAST_CI_PLAN=""
+if [ "${CI_TIER:-full}" = "fast" ]; then
+  if FAST_CI_PLAN="$(node bin/ci_fast_select.js --plan 2>&1)"; then
+    echo "$FAST_CI_PLAN"
+  else
+    echo "ci:full: fast selector unavailable ($FAST_CI_PLAN); running the full unit tier"
+    FAST_CI_PLAN="consensus 1"
+  fi
+fi
+if [ "${CI_TIER:-full}" != "fast" ] || printf '%s\n' "$FAST_CI_PLAN" | grep -qx 'consensus 1'; then
+  run_tier "ci" npm run ci
+else
+  run_tier "ci (changed tests)" node bin/ci_fast_select.js --run
+  fast_defer "ci"
+fi
+if [ "${CI_TIER:-full}" = "fast" ]; then
+  run_tier "fast-tier selector self-test" ./node_modules/.bin/mocha --no-config --timeout 20000 --exit bin/test/ci_fast_select.test.js
+fi
 
 # --- job: perf (needs: ci) -------------------------------------------------
 run_tier "db fixture for perf (mariadb on 3307)" db_fixture_reset

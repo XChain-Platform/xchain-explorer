@@ -69,7 +69,15 @@ describe('ci fast selector', function() {
         assert.deepStrictEqual(planInvocations, [
             '  if FAST_CI_PLAN="$(node bin/ci_fast_select.js --plan 2>&1)"; then'
         ]);
-        assert(script.includes('run_tier "ci (changed tests)" node bin/ci_fast_select.js --run'));
+        assert(script.includes(
+            'if [ "${CI_TIER:-full}" != "fast" ] || [ "$FAST_CI_PLAN_OK" -eq 0 ]; then\n' +
+            '  run_tier "ci" npm run ci\n' +
+            'elif printf \'%s\\n\' "$FAST_CI_PLAN" | grep -qx \'consensus 1\'; then\n' +
+            '  fast_defer "ci"\n' +
+            'else\n' +
+            '  run_tier "ci (changed tests)" node bin/ci_fast_select.js --run\n' +
+            'fi'
+        ));
         assert(script.includes(
             'run_tier "fast-tier selector self-test" ./node_modules/.bin/mocha ' +
             '--no-config --timeout 20000 --exit bin/test/ci_fast_select.test.js'

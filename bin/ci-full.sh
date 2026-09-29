@@ -183,19 +183,21 @@ db_tier() {
 
 # --- job: ci (XChain-Platform/.github ci-reusable.yml -> npm run ci) -------
 FAST_CI_PLAN=""
+FAST_CI_PLAN_OK=1
 if [ "${CI_TIER:-full}" = "fast" ]; then
   if FAST_CI_PLAN="$(node bin/ci_fast_select.js --plan 2>&1)"; then
     echo "$FAST_CI_PLAN"
   else
     echo "ci:full: fast selector unavailable ($FAST_CI_PLAN); running the full unit tier"
-    FAST_CI_PLAN="consensus 1"
+    FAST_CI_PLAN_OK=0
   fi
 fi
-if [ "${CI_TIER:-full}" != "fast" ] || printf '%s\n' "$FAST_CI_PLAN" | grep -qx 'consensus 1'; then
+if [ "${CI_TIER:-full}" != "fast" ] || [ "$FAST_CI_PLAN_OK" -eq 0 ]; then
   run_tier "ci" npm run ci
+elif printf '%s\n' "$FAST_CI_PLAN" | grep -qx 'consensus 1'; then
+  fast_defer "ci"
 else
   run_tier "ci (changed tests)" node bin/ci_fast_select.js --run
-  fast_defer "ci"
 fi
 if [ "${CI_TIER:-full}" = "fast" ]; then
   run_tier "fast-tier selector self-test" ./node_modules/.bin/mocha --no-config --timeout 20000 --exit bin/test/ci_fast_select.test.js

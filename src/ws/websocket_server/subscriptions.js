@@ -219,7 +219,9 @@ class WebSocketSubscriptions {
 
         // Handle catch-up requests
         if (params.since_action_index !== undefined && params.since_action_index !== null) {
-            this.handleCatchUp(client, params.since_action_index, result.filter, msg.id);
+            // The replay routes on the keys THIS subscribe resolved to, as the live feed does.
+            const keys = result.subscribed.map(sub => this.channelManager.channelKeyForSub(client.coin, sub));
+            this.handleCatchUp(client, params.since_action_index, result.filter, msg.id, keys);
         }
     }
 

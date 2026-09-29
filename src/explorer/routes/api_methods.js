@@ -106,7 +106,9 @@ const AS_DECLARED_IN = {
                 // staking panel: positions, cooldowns, the COLLECT trail and both slash
                 // families, instead of the six separate calls the page would otherwise make.
                 '/{COIN}/api/staking/{QUERY}'                  : ['getAddressStaking',    'address'],
-                '/{COIN}/api/delegations/{QUERY}/{TYPE}'       : ['getDelegations',       ['block', 'address', 'source']],
+                // 'pubkey' answers "which delegations hold this signing key", the lookup the
+                // node CLI's STAKE v1 pre-check needs to mirror the indexer's validateFreeKey.
+                '/{COIN}/api/delegations/{QUERY}/{TYPE}'       : ['getDelegations',       ['block', 'address', 'source', 'pubkey']],
                 '/{COIN}/api/rewards/{QUERY}/{TYPE}'           : ['getValidatorRewards',  ['address', 'source']],
                 // Full-node possession-proof verdicts (NODEPROOF v0, read-only)
                 '/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}' : ['getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address']],

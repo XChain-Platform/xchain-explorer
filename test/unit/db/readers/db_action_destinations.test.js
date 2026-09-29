@@ -21,7 +21,8 @@
  * notification never fired for anyone.
  *
  * Three properties are load-bearing and are what these tests defend:
- *   - the EIGHT families are consulted and `contracts` is NOT (its
+ *   - the EIGHT destination_id families plus bridge_settlements are consulted
+ *     and `contracts` is NOT (its
  *     slash_destination_id is deploy-time routing config, not a recipient);
  *   - the batch costs a BOUNDED number of queries, not one per action, since
  *     this feed drives a 5s poll;
@@ -170,8 +171,8 @@ describe('db.getActionsSince destinations (M1.4)', () => {
         await db.getActionsSince(cfg, 500n, 100);
         const call = db.calls.filter(c => !isFeedQuery(c.query))[0];
 
-        // 2 action indexes x 8 families, and nothing but those indexes.
-        expect(call.args).to.have.lengthOf(16);
+        // 2 action indexes x 9 families, and nothing but those indexes.
+        expect(call.args).to.have.lengthOf(18);
         expect(call.args.slice(0, 2)).to.deep.equal([501n, 502n]);
         expect(new Set(call.args.map(String))).to.deep.equal(new Set(['501', '502']));
     });
@@ -239,7 +240,7 @@ describe('db.getActionsSince destinations (M1.4)', () => {
                 return [];
             });
 
-        await db.getActionsSince(cfg, 500n, 100);   // discovers it: 1 union + 8 retries
+        await db.getActionsSince(cfg, 500n, 100);   // discovers it: 1 union + 9 retries
         db.calls = [];
         db.doQuery.resetHistory();
         await db.getActionsSince(cfg, 500n, 100);
@@ -292,5 +293,50 @@ describe('db.getActionsSince destinations (M1.4)', () => {
 
         expect(rows).to.have.lengthOf(1);
         expect(rows[0].destinations).to.deep.equal(['destAddr']);
+    });
+});
+
+describe('db.getActionsSince destinations: XBRIDGE settle legs', () => {
+    it('consults bridge_settlements, reading dest_address directly and only for kind=transfer rows', async () => {
+        const db = mkDb([{ action_index: 701n, action: 'XBRIDGE', source: null }], () => []);
+        await db.getActionsSince(cfg, 700n, 100);
+        const sql = destQueries(db).join('\n');
+
+        // The bridge branch selects the address string and never joins on a destination_id.
+        const bridge = sql.split('UNION ALL').find(p => p.includes('bridge_settlements m'));
+        expect(bridge, 'bridge_settlements family').to.be.a('string');
+        expect(bridge).to.include('m.dest_address as destination');
+        expect(bridge).to.include("m.kind='transfer'");
+        expect(bridge).to.not.include('destination_id');
+    });
+
+    it('attaches the credited address to a source-less XBRIDGE settle action', async () => {
+        const db = mkDb(
+            [{ action_index: 701n, action: 'XBRIDGE', source: null }],
+            (query) => query.includes('bridge_settlements m') ? [destRow(701n, 'bridgeDest')] : []);
+
+        const rows = await db.getActionsSince(cfg, 700n, 100);
+
+        expect(rows[0].destinations).to.deep.equal(['bridgeDest']);
+    });
+
+    it('a deployment without bridge_settlements quarantines only that family', async () => {
+        const db = mkDb(
+            [{ action_index: 501n, action: 'SEND', source: 'srcAddr' }],
+            (query) => {
+                if (query.includes('bridge_settlements m')) throw wrapped('ER_NO_SUCH_TABLE', 1146);
+                if (query.includes('sends m')) return [destRow(501n, 'destAddr')];
+                return [];
+            });
+
+        const first = await db.getActionsSince(cfg, 500n, 100);
+        expect(first[0].destinations).to.deep.equal(['destAddr']);
+        db.calls = [];
+        await db.getActionsSince(cfg, 500n, 100);
+
+        const after = destQueries(db);
+        expect(after).to.have.lengthOf(1);
+        expect(after[0]).to.not.include('bridge_settlements');
+        expect(after[0]).to.include('sends m');
     });
 });

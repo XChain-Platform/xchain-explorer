@@ -128,6 +128,10 @@ function genericClause(db, config, sql){
         sql += ' AND a3.address=?';
     if(type=='source')
         sql += ' AND a2.address=?';
+    // getDelegations only: the delegations holding one signing pubkey (a3 joins
+    // index_pubkeys on m.signing_pubkey_id); the reader binds the key lowercased.
+    if(type=='pubkey' && method=='getDelegations')
+        sql += ' AND a3.pubkey=?';
     sql = dispenserLaneClause(db, config, sql);
     return entityClause(db, config, sql);
 }

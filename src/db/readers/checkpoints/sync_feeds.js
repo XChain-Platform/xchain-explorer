@@ -128,6 +128,9 @@ class SyncFeedReaders {
         return [query, null, count];
     }
 
+    // Feeds the NEW_BLOCK frame. action_count counts on the action's own block_index with
+    // no transactions join: a system-synthesized action has a NULL tx_index and no
+    // transactions row, so a join would drop it and disagree with the NEW_ACTION feed.
     async getBlocksSince(config, sinceBlockIndex, limit) {
         let query = `SELECT
                         b1.block_index,
@@ -136,9 +139,7 @@ class SyncFeedReaders {
                         t3.hash as contract_hash,
                         t4.hash as state_hash,
                         (SELECT COUNT(*) FROM transactions t WHERE t.block_index=b1.block_index) as tx_count,
-                        (SELECT COUNT(*) FROM actions a
-                            INNER JOIN transactions t ON t.tx_index=a.tx_index
-                            WHERE t.block_index=b1.block_index) as action_count
+                        (SELECT COUNT(*) FROM actions a WHERE a.block_index=b1.block_index) as action_count
                     FROM
                         blocks b1
                         LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
@@ -156,7 +157,7 @@ class SyncFeedReaders {
         let results = await readActionsSinceRows(this, config, sinceActionIndex, limit);
         if(!results || !results.length) return [];
         // Destinations are attached in a SECOND pass rather than joined into the
-        // query above, because eight LEFT JOINs would multiply the feed's rows (a
+        // query above, because nine LEFT JOINs would multiply the feed's rows (a
         // multi-output SEND would emit one NEW_ACTION per output) and the feed's
         // LIMIT is a limit on ACTIONS, not on output rows. See
         // attachActionDestinations for the batch shape and its failure mode.

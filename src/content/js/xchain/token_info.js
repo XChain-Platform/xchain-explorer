@@ -257,11 +257,18 @@ function tokenInfo_metadataUrl(desc){
     return tokenInfo_getJsonUrl(tokenInfo_parseDescription(desc));
 }
 
+// Match a description that names a JSON document: ".json" ends it or precedes a
+// ';', '?' or '#'. The page, the /relay check and the server icon resolver all use
+// this one rule, so the listing icon and the rendered page pick the same source.
+function tokenInfo_jsonPattern(){
+    return /\.json($|;|\?|#)/i;
+}
+
 // Read a description into the patterns and ';'-separated parts the fetch rule uses.
 // Touches no page state, so the server can run it too.
 function tokenInfo_parseDescription(desc){
     // RegExp for pattern matching in description
-    let json    = /^(.*).json/i,
+    let json    = tokenInfo_jsonPattern(),
         http    = /^http:\/\//,
         https   = /^https:\/\//,
         ord     = /^ord:/i,
@@ -387,4 +394,4 @@ function tokenInfo_loadContent(jsonUrl, coin, tick){
 // Node requires this file for the pure metadata-URL rule (the /relay check and the
 // unit suites); the browser keeps the globals above.
 if(typeof module !== 'undefined' && module.exports)
-    module.exports = { tokenInfo_metadataUrl: tokenInfo_metadataUrl };
+    module.exports = { tokenInfo_metadataUrl: tokenInfo_metadataUrl, tokenInfo_jsonPattern: tokenInfo_jsonPattern };

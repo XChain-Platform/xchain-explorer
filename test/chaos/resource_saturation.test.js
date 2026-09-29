@@ -19,7 +19,8 @@ const {
     concurrentRequests,
     runAutocannon,
     seedDatabase,
-    startHealthPoller
+    startHealthPoller,
+    waitUntil
 } = require('./helpers/chaos-setup');
 const {
     waitForToxiproxy,
@@ -36,6 +37,13 @@ function measureEventLoopLag() {
         const start = Date.now();
         setTimeout(() => resolve(Date.now() - start), 0);
     });
+}
+
+// Sample lag until it drops under limitMs or timeoutMs passes; returns the last sample.
+async function waitForLagBelow(limitMs, timeoutMs) {
+    let lag;
+    await waitUntil(async () => (lag = await measureEventLoopLag()) < limitMs, { timeout: timeoutMs, interval: 50 });
+    return lag;
 }
 
 // ---------------------------------------------------------------------------
@@ -196,9 +204,8 @@ describe('CE-RES-03: Event Loop Saturation', function () {
         // Wait for autocannon to finish
         await bursting;
 
-        // Post-burst: allow a short settle period then measure again
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const afterLag = await measureEventLoopLag();
+        // Post-burst: poll until lag recovers (bounded), then assert the last sample
+        const afterLag = await waitForLagBelow(100, 5000);
         // eslint-disable-next-line no-console -- chaos tests log diagnostic output intentionally
         console.log(`CE-RES-03: event loop lag after burst=${afterLag}ms`);
 

@@ -67,11 +67,15 @@ describe('xchain-ws.js catch-up cursor precision', function () {
     function loadClient() {
         const vm = require('node:vm');
         const clientPath = path.join(__dirname, '../../../src/content/js/xchain_ws.js');
-        const sandbox = { console: { log() {}, warn() {}, error() {} } };
+        // Inert timers: a catch-up arms a backstop timer these tests never fire.
+        const sandbox = { console: { log() {}, warn() {}, error() {} }, setTimeout() { return 0; }, clearTimeout() {} };
         vm.createContext(sandbox);
         // The page loads browser_logger.js ahead of the client, which logs through it.
         vm.runInContext(fs.readFileSync(path.join(__dirname, '../../../src/content/js/browser_logger.js'), 'utf8'), sandbox);
         vm.runInContext(fs.readFileSync(clientPath, 'utf8'), sandbox, { filename: 'xchain_ws.js' });
+        // ...and xchain_ws_catch_up.js after it, which installs _resubscribe.
+        const catchUpPath = path.join(__dirname, '../../../src/content/js/xchain_ws_catch_up.js');
+        vm.runInContext(fs.readFileSync(catchUpPath, 'utf8'), sandbox, { filename: 'xchain_ws_catch_up.js' });
         return sandbox.XChainWS;
     }
 

@@ -123,6 +123,7 @@ class StateProofs {
                             CHECKPOINT_PRE_COMMITMENT: [409, 'Checkpoint predates the state-commitment flag-day (no committed roots)'],
                             NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
                             INDEXER_UNAVAILABLE: [502, 'Indexer API unavailable for the stake set'],
+                            INDEXER_STAKE_WEIGHTS_UNAVAILABLE: [502, 'Indexer could not supply the stake set at this height (indexer lagging, not ready, or stake lookup failed)'],
                             INDEXER_AUTH_REQUIRED: [503, 'Indexer requires authentication for the stake set; set EXPLORER_INDEXER_API_KEY on the explorer'],
                             PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'],
                             STAKE_SNAPSHOT_TRUNCATED: [409, 'Stake snapshot at this height is truncated (the qualifying validator set overflowed the indexer query cap); no proof is served until operators raise the cap'],

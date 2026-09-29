@@ -202,3 +202,76 @@ describe('ChangeDetector', function () {
         });
     });
 });
+
+describe('ChangeDetector', function () {
+    afterEach(() => sinon.restore());
+
+    describe('_emitEntityUpdates() routing inputs', function () {
+        function collect(det) {
+            let evs = [];
+            det.on('entity_update', (c, e) => evs.push(e));
+            return evs;
+        }
+
+        it('emits ADDRESS_UPDATE for a subscribed RECEIVING address on a getActionsSince-shaped row', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedAddresses.returns(new Set(['addrX']));
+            det.db.getAddressBalances.resolves([{ tick: 'X', amount: '5' }]);
+            let evs = collect(det);
+            // The live feed carries only the plural `destinations`, never a singular `destination`.
+            await det.emitEntityUpdates('BTC', {}, { action: 'SEND', source: 'addrOther', destinations: ['addrX'], action_index: 7 });
+            expect(evs.map(e => e.type)).to.deep.equal(['ADDRESS_UPDATE']);
+            expect(evs[0].data.address).to.equal('addrX');
+            expect(evs[0].data.last_action_index).to.equal(7);
+        });
+
+        it('emits one ADDRESS_UPDATE per subscribed destination and skips unsubscribed ones', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedAddresses.returns(new Set(['addrX', 'addrY']));
+            let evs = collect(det);
+            await det.emitEntityUpdates('BTC', {}, { action: 'SEND', source: 'addrS', destinations: ['addrX', 'addrY', 'addrZ'], action_index: 8 });
+            expect(evs.map(e => e.data.address)).to.deep.equal(['addrX', 'addrY']);
+            expect(det.db.getAddressBalances.args.map(a => a[1])).to.deep.equal(['addrX', 'addrY']);
+        });
+
+        it('emits a single ADDRESS_UPDATE when the source is also a destination', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedAddresses.returns(new Set(['addrX']));
+            let evs = collect(det);
+            await det.emitEntityUpdates('BTC', {}, { action: 'SWEEP', source: 'addrX', destinations: ['addrX', 'addrX'], action_index: 9 });
+            expect(evs.length).to.equal(1);
+        });
+
+        it('still emits for the source when destinations is missing or not an array', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedAddresses.returns(new Set(['addrA']));
+            let evs = collect(det);
+            await det.emitEntityUpdates('BTC', {}, { action: 'SEND', source: 'addrA', action_index: 1 });
+            await det.emitEntityUpdates('BTC', {}, { action: 'SEND', source: 'addrA', destinations: 'addrB', action_index: 2 });
+            expect(evs.map(e => e.data.address)).to.deep.equal(['addrA', 'addrA']);
+        });
+
+        it('emits TOKEN_UPDATE for a subscribed tick on an XBRIDGE action', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedTicks.returns(new Set(['GOLD']));
+            det.db.getTokenInfo.resolves({ supply: '90', holders: 4 });
+            let evs = collect(det);
+            await det.emitEntityUpdates('BTC', {}, { action: 'XBRIDGE', action_index: 11 });
+            expect(evs.map(e => e.type)).to.deep.equal(['TOKEN_UPDATE']);
+            expect(evs[0].data.tick).to.equal('GOLD');
+            expect(evs[0].data.last_action_index).to.equal(11);
+        });
+
+        it('stamps MARKET_UPDATE with the subscribed tick spelling, not getMarketInfo canonical ticks', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedMarkets.returns([{ tick1: 'xcp', tick2: 'btc' }]);
+            det.db.getMarketInfo.resolves({ tick1: 'XCP', tick2: 'BTC', last_price: '1' });
+            let evs = collect(det);
+            await det.emitEntityUpdates('BTC', {}, { action: 'ORDER', action_index: 12 });
+            expect(evs[0].type).to.equal('MARKET_UPDATE');
+            expect(evs[0].data.tick1).to.equal('xcp');
+            expect(evs[0].data.tick2).to.equal('btc');
+            expect(evs[0].data.last_price).to.equal('1');
+        });
+    });
+});

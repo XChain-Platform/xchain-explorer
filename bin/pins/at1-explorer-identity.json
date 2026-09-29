@@ -20,8 +20,8 @@
     },
     {
       "path": "src/consensus/gates/state_subtree_gate.js",
-      "bytes": 10722,
-      "sha256": "9f07ece9abad3b9abb7770ecb1d06aeb0161fa08170bd24b8f74ed41f31662d8"
+      "bytes": 11386,
+      "sha256": "cb5b05479973080128636f18326c59391624a56342db86a07c639401adbb12e3"
     },
     {
       "path": "src/consensus/merkle.js",

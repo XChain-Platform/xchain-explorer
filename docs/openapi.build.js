@@ -98,7 +98,7 @@ const ROUTES = [
     // neither of these could be assembled by a caller paging the plural routes.
     ['/{COIN}/api/validator/{QUERY}', 'getValidator', 'validator', 'Staking', 'One validator by signing pubkey or address: identity, capabilities, stake, delegation and rotation history, rewards and COLLECT trail, both slash families, NODEPROOF history, attestation quality'],
     ['/{COIN}/api/staking/{QUERY}', 'getAddressStaking', 'address', 'Staking', 'One address’s staking position: stakes, cooldowns measured against the indexer tip, rewards and COLLECT trail, and both slash families'],
-    ['/{COIN}/api/delegations/{QUERY}/{TYPE}', 'getDelegations', ['block', 'address', 'source'], 'Staking', 'Signing-key delegations'],
+    ['/{COIN}/api/delegations/{QUERY}/{TYPE}', 'getDelegations', ['block', 'address', 'source', 'pubkey'], 'Staking', 'Signing-key delegations; pubkey lists the delegations holding one signing key'],
     ['/{COIN}/api/rewards/{QUERY}/{TYPE}', 'getValidatorRewards', ['address', 'source'], 'Staking', 'Validator rewards (oracle/anchor/attestation)'],
     ['/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}', 'getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address'], 'Staking', 'Full-node possession-proof verdicts (NODEPROOF v0), filtered'],
     ['/{COIN}/api/full_node_verifications', 'getFullNodeVerifications', null, 'Staking', 'Full-node possession-proof verdicts (NODEPROOF v0)'],

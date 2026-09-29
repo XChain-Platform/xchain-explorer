@@ -215,7 +215,11 @@ class StakingReaders {
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-        return [query, null, count];
+        // Bind a pubkey lookup lowercased: index_pubkeys holds every key lowercased (indexer getPubkeyId).
+        let args = (config.data.type=='pubkey' && !this.util.isNull(config.data.search))
+            ? [String(config.data.search).toLowerCase()]
+            : null;
+        return [query, args, count];
     }
 
     async getValidatorRewards(config){

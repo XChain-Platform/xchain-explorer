@@ -103,7 +103,7 @@ function resolver(marketsResponse) {
 
 // updateMarketBasics answers for the pair the API actually resolved; a
 // missing row must surface, not leave the page half-composed.
-function basics(apiResponse) {
+function basics(apiResponse, status) {
     const dom = new JSDOM(
         '<!DOCTYPE html><body>' +
         '<span class="tick1-name"></span><span class="tick2-name"></span>' +
@@ -115,7 +115,11 @@ function basics(apiResponse) {
         var XC = { coin: 'RDOGE' };
         var notFound = null;
         function showMarketNotFound(tick){ notFound = tick; }
-        function loadApiData(coin, action, query, type, cb){ cb(${JSON.stringify(apiResponse)}); }
+        var status = ${JSON.stringify(status || 200)};
+        function loadApiData(coin, action, query, type, cb, errback){
+            if(status == 200) cb(${JSON.stringify(apiResponse)});
+            else if(typeof errback === 'function') errback(${JSON.stringify(apiResponse)}, { status: status });
+        }
         function getTokenIcon(){ return '/icon/default.png'; }
         function tokenUrl(coin, tick){ return '/' + coin + '/token/' + encodeURIComponent(String(tick)); }
         function formatAmount(v){ return String(v); }
@@ -201,11 +205,24 @@ describe('client: market page counter-tick resolution', function () {
 
 describe('client: market page counter-tick resolution', function () {
     it('a market that does not resolve renders the visible not-found state', function () {
-        // The API answers `false` for an unknown pair (no row matched), and
-        // loadApiData passes that straight to the callback.
+        // An empty or row-less body reaching the success callback still reads
+        // as not found.
         const w = basics(false);
         expect(w.notFound).to.equal('XCHAIN');
         expect(w.$('.tick2-name').text()).to.equal('');
+    });
+
+    it('a 404 NOT_FOUND for an unknown pair renders the visible not-found state', function () {
+        // The API answers 404 for an unknown pair, which loadApiData routes to
+        // the errback rather than the success callback.
+        const w = basics({ error: 'The requested resource was not found.', code: 'NOT_FOUND' }, 404);
+        expect(w.notFound).to.equal('XCHAIN');
+        expect(w.$('.tick2-name').text()).to.equal('');
+    });
+
+    it('a non-404 failure does not claim the market is missing', function () {
+        const w = basics({ error: 'stale', code: 'COIN_DATA_STALE' }, 503);
+        expect(w.notFound).to.equal(null);
     });
 
     it('a resolved market populates the pair header from the API row', function () {

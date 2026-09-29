@@ -225,6 +225,11 @@ resequence their own content, so an override does not need any new runtime
 support to take effect: it reads through the identical `hidden`/`order`
 resolution every one of those components already applies.
 
+Some action-detail cards (ATTEST, VOTE, BET) split their table into several
+sections, one per sub-shape, and their `rows` list every section's rows in
+page order. On those cards `order` moves a row only within its own section,
+and a `rows` list that does not cover every section is left unapplied.
+
 ### How an override resolves
 
 A theme overrides a layout file by shipping a file of the same name at

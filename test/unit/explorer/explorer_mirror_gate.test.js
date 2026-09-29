@@ -249,6 +249,12 @@ describe('explorer hub-mirror staleness gate', function () {
                 expect(res._body.code).to.equal('STAKE_SNAPSHOT_TRUNCATED');
             });
 
+            it('maps a suffixed INDEXER_STAKE_WEIGHTS_UNAVAILABLE to 502 on its prefix', async function () {
+                const res = await routed('INDEXER_STAKE_WEIGHTS_UNAVAILABLE:oracle_publish');
+                expect(res._status).to.equal(502);
+                expect(res._body.code).to.equal('INDEXER_STAKE_WEIGHTS_UNAVAILABLE');
+            });
+
             it('maps STAKE_SNAPSHOT_MALFORMED to 500 without echoing the exception text', async function () {
                 const res = await routed('STAKE_SNAPSHOT_MALFORMED:oracle_publish:blank/missing source would collapse the stake bucket');
                 expect(res._status).to.equal(500);

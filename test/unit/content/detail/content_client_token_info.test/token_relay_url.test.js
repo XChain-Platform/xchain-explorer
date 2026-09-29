@@ -77,6 +77,12 @@ describe('client: token metadata URL rule shared with the relay', function () {
         'https://arweave.net/abc123/x.json',
         'ord:' + 'ab'.repeat(32),
         'just a sentence',
+        'https://api.example.com/token/json',
+        'https://host.example/meta.json/icon.png',
+        'a jsonish coin',
+        'The first JSON token;XChain',
+        'https://example.org/meta.json?v=2',
+        'https://example.org/meta.JSON',
         null
     ];
     for (const desc of descriptions) {
@@ -87,6 +93,21 @@ describe('client: token metadata URL rule shared with the relay', function () {
             expect(win.tokenInfo_metadataUrl(desc)).to.equal(pageUrl);
         });
     }
+
+    it('treats only a real .json link as a metadata document', function () {
+        for (const desc of ['https://api.example.com/token/json', 'https://host.example/meta.json/icon.png', 'a jsonish coin', 'The first JSON token'])
+            expect(tokenInfo_metadataUrl(desc), desc).to.equal(false);
+        expect(tokenInfo_metadataUrl('https://example.org/meta.json?v=2')).to.equal('https://example.org/meta.json?v=2');
+        expect(tokenInfo_metadataUrl('https://example.org/meta.JSON')).to.equal('https://example.org/meta.JSON');
+        expect(tokenInfo_metadataUrl('example.org/meta.json;sha')).to.equal('https://example.org/meta.json');
+    });
+
+    it('fetches nothing for a prose description that merely contains "json"', function () {
+        const win = boot();
+        win.XC.tokenInfo = tokenFixture('FAIRYWINK', 'The first JSON token');
+        win.showTokenInfo();
+        expect(win.fetched).to.have.length(0);
+    });
 
     it('derives an ordinary JSON host to the URL itself', function () {
         expect(tokenInfo_metadataUrl(FAIRYWINK_URL)).to.equal(FAIRYWINK_URL);

@@ -4593,7 +4593,7 @@
         "tags": [
           "Staking"
         ],
-        "summary": "Signing-key delegations",
+        "summary": "Signing-key delegations; pubkey lists the delegations holding one signing key",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -4605,7 +4605,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; source = source address; pubkey = pubkey"
           },
           {
             "name": "TYPE",
@@ -4616,7 +4616,8 @@
               "enum": [
                 "block",
                 "address",
-                "source"
+                "source",
+                "pubkey"
               ]
             },
             "description": "How to interpret {QUERY}"

@@ -35,8 +35,9 @@ const { tokenInfo_metadataUrl } = require('../content/js/xchain/token_info.js');
 // required here. The SSRF suites build the explorer through proxyquire with both
 // replaced in XChainExplorer.js's require map; a second require in this file would
 // resolve the real modules and let a guard test fetch the live network.
-let axios = null;
-let dns   = null;
+// `dns` is used only to build the shared DNS-rebind lookup from http/ssrf_guard.js.
+let axios      = null;
+let safeLookup = null;
 
 // The metadata gateways the token page constructs, relayed for any caller. Any other
 // public host is relayed only for the exact URL a named token's description points at.
@@ -47,8 +48,12 @@ const RELAY_HOSTS = new Set([
 ]);
 
 function useHostBindings(host){
-    axios = host.axios;
-    dns   = host.dns;
+    // Refuse a missing dns binding before touching either binding: makeSafeLookup would
+    // silently fall back to the real dns module, the live-network leak noted above
+    if(!host.dns || typeof host.dns.lookup !== 'function')
+        throw new Error('relay: host dns binding is missing; refusing to fall back to the real dns module');
+    axios      = host.axios;
+    safeLookup = ssrfGuard.makeSafeLookup(host.dns);
 }
 
 class RelayEgress {
@@ -67,20 +72,10 @@ class RelayEgress {
     // (rather than re-resolving separately) means there is no gap between the
     // check and the connection, closing the DNS-name / DNS-rebinding bypass of
     // the literal hostname blocklist.
+    // Delegates to ssrf_guard.makeSafeLookup, so /relay and the IconDownloader share
+    // one DNS-rebind guard (all:true walk, fail-closed RELAY_DENIED) instead of two copies.
     ssrfSafeLookup(hostname, options, callback){
-        if(typeof options === 'function'){ callback = options; options = {}; }
-        dns.lookup(hostname, options, (err, address, family) => {
-            if(err) return callback(err);
-            let entries = Array.isArray(address) ? address : [{ address, family }];
-            for(let e of entries){
-                if(this.isPrivateAddress(e.address)){
-                    let denied = new Error('Destination resolves to a non-permitted address');
-                    denied.code = 'RELAY_DENIED';
-                    return callback(denied);
-                }
-            }
-            callback(null, address, family);
-        });
+        return safeLookup(hostname, options, callback);
     }
 
     // Fetch token content through the bounded gateways the page constructs. Relaying

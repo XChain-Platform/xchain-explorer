@@ -44,6 +44,11 @@ function updateMarketBasics(market){
         $('#tick1-24h-price').text(formatAmount(bcformat(o.tick1_24hr_price,8)));
         $('#tick1-24h-change').text(formatAmount(bcformat(o.tick1_24hr_change,8)));
         $('#tick1-24h-volume').text(formatAmount(bcformat(o.tick1_24hr_volume,8)));
+    }, function(body, xhr){
+        // An unknown pair answers 404 NOT_FOUND, which skips the success handler
+        // above; render the same not-found state instead of leaving "Loading"
+        if((xhr && xhr.status == 404) || (body && body.code == 'NOT_FOUND'))
+            showMarketNotFound(Array.isArray(market) ? market[0] : String(market).split('/')[0]);
     });
 }
 

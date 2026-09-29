@@ -24,6 +24,7 @@
  * bytes are already encoded).
  *
  ********************************************************************/
+const { tokenInfo_jsonPattern } = require('../content/js/xchain/token_info.js');   // the page's own JSON-link rule
 
 // The one IPFS gateway this service resolves ipfs: through, root-addressed
 // (`<gateway><hash>`, no /ipfs/ path segment). Held as a constant because the
@@ -208,9 +209,9 @@ function arweaveUrlSource(desc){
     return { scheme: 'arweave_url', url };
 }
 
-// 8. URL ending in .json (with optional ";<sha256>" attestation suffix)
+// 8. URL ending in .json (optional ";<sha256>" suffix), by the page's tokenInfo_jsonPattern
 function jsonUrlSource(desc){
-    if(!/\.json($|;|\?|#)/i.test(desc)) return undefined;
+    if(!tokenInfo_jsonPattern().test(desc)) return undefined;
     let url = desc.split(';')[0];
     // Force https, matching tokenInfo_getJsonUrl (content/js/xchain/token_info.js),
     // which builds this lane as 'https://' + desc-without-scheme and has no http

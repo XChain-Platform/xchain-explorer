@@ -17,6 +17,12 @@ const {
     selectIconUrlFromCip25Json,
     rewriteSchemeUrl,
 } = require('../../../src/icons/resolver');
+// The token page's own rule, required the way /relay loads it, so parity is checked
+// against shipped code rather than a copy.
+const {
+    tokenInfo_metadataUrl,
+    tokenInfo_jsonPattern,
+} = require('../../../src/content/js/xchain/token_info.js');
 
 // One case per DESCRIPTION scheme the resolver understands, so the table below is
 // the full list of what a token is allowed to point its icon at.
@@ -87,7 +93,7 @@ describe('IconResolver json_url lane mirrors the token page scheme', function(){
     // http:// on a scheme-less description and pass an explicit http:// through,
     // which made the cached listing icon and the rendered page fetch different
     // documents and pushed https-only origins into a permanent `failed` row.
-    const page = d => 'https://' + String(d).split(';')[0].replace(/^https?:\/\//i, '');
+    const page = d => tokenInfo_metadataUrl(d);
 
     ['example.com/meta.json',
      'http://example.com/meta.json',
@@ -100,6 +106,31 @@ describe('IconResolver json_url lane mirrors the token page scheme', function(){
             expect(r.scheme).to.equal('json_url');
             expect(r.url).to.equal(page(desc));
             expect(r.url.slice(0, 8)).to.equal('https://');
+        });
+    });
+});
+
+describe('IconResolver json_url lane uses the token page JSON-link rule', function(){
+    // Plain-URL descriptions only: arweave, ipfs:, ar:, ord: and action: forms take
+    // earlier lanes on both sides.
+    const cases = [
+        ['example.com/meta.json', 'json_url'],
+        ['https://example.com/meta.json;abc123sha', 'json_url'],
+        ['https://example.org/meta.json?v=2', 'json_url'],
+        ['https://example.org/meta.JSON', 'json_url'],
+        ['https://host.example/meta.json/icon.png', 'image_url'],
+        ['https://api.example.com/token/json', null],
+        ['a jsonish coin', null],
+    ];
+    cases.forEach(([desc, scheme]) => {
+        it(`"${desc}" takes the json_url lane exactly when the page fetches it as JSON`, function(){
+            const r = resolveDescriptionToSource(desc);
+            expect(r ? r.scheme : null).to.equal(scheme);
+            expect(r !== null && r.scheme === 'json_url').to.equal(tokenInfo_jsonPattern().test(desc));
+            if(r && r.scheme === 'json_url')
+                expect(r.url).to.equal(tokenInfo_metadataUrl(desc));
+            else
+                expect(tokenInfo_metadataUrl(desc)).to.equal(false);
         });
     });
 });

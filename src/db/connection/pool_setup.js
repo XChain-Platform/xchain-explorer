@@ -128,7 +128,10 @@ function setIndexerPool(db, mariadb, cfg, key){
             connectionLimit:  poolSizing.resolvePoolSize('indexer'),
             //connectTimeout: 0,
             insertIdAsNumber: true,
-            queryTimeout:     poolSizing.resolveQueryTimeout('indexer')
+            queryTimeout:     poolSizing.resolveQueryTimeout('indexer'),
+            // Run the session at +00:00 like the indexer and decoder writers, so
+            // UNIX_TIMESTAMP() and NOW() agree with their UTC-literal DATETIME columns
+            timezone:         'Z'
         }
     };
     // Reuse an existing pool ONLY when it targets the SAME database too.
@@ -187,7 +190,9 @@ function setDecoderPool(db, mariadb, dcfg, cfg, key){
                     // knob to raise it.
                     connectionLimit:  poolSizing.resolvePoolSize('decoder'),
                     insertIdAsNumber: true,
-                    queryTimeout:     poolSizing.resolveQueryTimeout('decoder')
+                    queryTimeout:     poolSizing.resolveQueryTimeout('decoder'),
+                    // Session at +00:00: mempool first_seen is a UTC-literal DATETIME
+                    timezone:         'Z'
                 });
             }
         }

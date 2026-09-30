@@ -66,8 +66,9 @@ function mirrorRowsSql(){
                 ${currentMemberCount('mirror.action_index')} AS member_count,
                 mirror.block_index AS share_block,
                 NULL AS share_action_index,
-                (SELECT COUNT(*)
+                (SELECT MAX(snapshot.seq)
                     FROM bridge_settlements settlement
+                        INNER JOIN list_snapshots snapshot ON (snapshot.snapshot_id=settlement.transfer_id)
                     WHERE settlement.kind='list'
                         AND settlement.src_chain=mirror.home_chain
                         AND settlement.src_action_index=mirror.home_list_index) AS seq

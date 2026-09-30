@@ -1,7 +1,5 @@
 /*********************************************************************
  *
- * GENERATED
- *
  * Copyright © 2025–2026 Dankest, LLC
  * Based on XChain Platform by Dankest, LLC – https://dankest.llc
  *
@@ -68,7 +66,7 @@ function makeDb(options){
             return [{
                 kind: 'mirror', home_chain: 'DOGE', home_list_index: 202,
                 local_list_index: 303, type: 2, member_count: 4,
-                share_block: 800, share_action_index: null, seq: 5
+                share_block: 800, share_action_index: null, seq: 9
             }];
         }
         if(sql.includes('SELECT action_index, list_action_index FROM lists WHERE action_index IN'))
@@ -105,7 +103,7 @@ const MIRROR = {
     member_count: 4,
     share_block: 800,
     share_action_index: null,
-    seq: 5
+    seq: 9
 };
 
 describe('shared-list explorer route', function () {
@@ -125,6 +123,10 @@ describe('shared-list explorer route', function () {
         expect(homeSql).to.include('share_action.action_format=2');
         expect(homeSql).to.include("share_status.status='valid'");
         expect(homeSql).to.include('MAX(head.action_index)');
+        const mirrorSql = db.calls.find(call => call.sql.includes('FROM list_share_mirrors mirror')).sql;
+        expect(mirrorSql).to.include('SELECT MAX(snapshot.seq)');
+        expect(mirrorSql).to.include('snapshot.snapshot_id=settlement.transfer_id');
+        expect(mirrorSql).not.to.include('SELECT COUNT(*) FROM bridge_settlements settlement');
     });
 
     it('puts the latest valid transfer owner in the LIST action state', async function () {

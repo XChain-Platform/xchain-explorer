@@ -15,7 +15,7 @@
 'use strict';
 
 const { expect } = require('chai');
-const projectReaders = require('../../../../src/db/readers/projects.js');
+const projectReaders = require('../../../../../src/db/readers/projects.js');
 
 const PROJECT = {
     project: 'PROJECTX',

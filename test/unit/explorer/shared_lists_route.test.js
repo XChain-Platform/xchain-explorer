@@ -1,5 +1,7 @@
 /*********************************************************************
  *
+ * GENERATED
+ *
  * Copyright © 2025–2026 Dankest, LLC
  * Based on XChain Platform by Dankest, LLC – https://dankest.llc
  *
@@ -48,6 +50,12 @@ function missingTable(){
     return wrapped;
 }
 
+function mirrorSeqFromSql(sql){
+    if(sql.includes('SELECT MAX(snapshot.seq)')) return 9;
+    if(sql.includes('SELECT COUNT(*) FROM bridge_settlements settlement')) return 2;
+    return null;
+}
+
 function makeDb(options){
     let db = new Database(explorer);
     options = options || {};
@@ -66,7 +74,7 @@ function makeDb(options){
             return [{
                 kind: 'mirror', home_chain: 'DOGE', home_list_index: 202,
                 local_list_index: 303, type: 2, member_count: 4,
-                share_block: 800, share_action_index: null, seq: 9
+                share_block: 800, share_action_index: null, seq: mirrorSeqFromSql(sql)
             }];
         }
         if(sql.includes('SELECT action_index, list_action_index FROM lists WHERE action_index IN'))

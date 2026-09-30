@@ -84,8 +84,7 @@ function rosterConfig(){
     };
 }
 
-describe('project roster coin-qualified items', function () {
-
+function mirrorRosterTests(){
     it('lists only this chain tokens from a mirror roster and counts only token rows', async function () {
         const db = makeDb({
             items: [
@@ -119,7 +118,9 @@ describe('project roster coin-qualified items', function () {
         expect(query).to.not.include('list_items');
         expect(count).to.not.include('list_items');
     });
+}
 
+function reverseLookupTests(){
     it('finds a project through a case-folded own-chain name in both roster paths', async function () {
         for(const [resolved, membership] of [[false, 73], [true, 140]]){
             const db = makeDb({ items: [], tokens: [], reverseItem: 'BTC:FOO', resolved });
@@ -136,7 +137,9 @@ describe('project roster coin-qualified items', function () {
                 : ['BTC', 'BTC', 'FOO', 'BTC:FOO', 'BTC:^5']);
         }
     });
+}
 
+function bareRosterTests(){
     it('keeps bare roster items on the legacy token id path', async function () {
         const db = makeDb({
             items: [{ item_id: 5, item_text: 'FOO' }],
@@ -152,7 +155,9 @@ describe('project roster coin-qualified items', function () {
         const projects = await db.getTokenProjects({ coin: 'BTC' }, 'FOO');
         expect(projects.map(row => row.project)).to.deep.equal(['PROJECTX']);
     });
+}
 
+function emptyRosterTests(){
     it('uses an impossible predicate when no own-chain item resolves', async function () {
         const db = makeDb({
             items: [{ item_id: 101, item_text: 'BTC:^999' }],
@@ -170,4 +175,11 @@ describe('project roster coin-qualified items', function () {
         expect(query).to.include('WHERE 1=0');
         expect(count).to.include('WHERE 1=0');
     });
+}
+
+describe('project roster coin-qualified items', function () {
+    mirrorRosterTests();
+    reverseLookupTests();
+    bareRosterTests();
+    emptyRosterTests();
 });

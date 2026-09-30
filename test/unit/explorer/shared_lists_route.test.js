@@ -1,7 +1,5 @@
 /*********************************************************************
  *
- * GENERATED
- *
  * Copyright © 2025–2026 Dankest, LLC
  * Based on XChain Platform by Dankest, LLC – https://dankest.llc
  *
@@ -18,6 +16,7 @@
 
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
+const { DatabaseSync } = require('node:sqlite');
 
 const API_ROUTES = require('../../../src/explorer/routes/api_methods.js').api;
 const API_SPEC = require('../../../src/content/json/xchain-platform-api.json');
@@ -50,16 +49,32 @@ function missingTable(){
     return wrapped;
 }
 
-function mirrorSeqFromSql(sql){
-    if(sql.includes('SELECT MAX(snapshot.seq)')) return 9;
-    if(sql.includes('SELECT COUNT(*) FROM bridge_settlements settlement')) return 2;
-    return null;
+function mirrorFixture(){
+    let fixture = new DatabaseSync(':memory:');
+    fixture.exec(`CREATE TABLE list_share_mirrors
+            (action_index INTEGER, home_chain TEXT, home_list_index INTEGER, block_index INTEGER);
+        CREATE TABLE lists
+            (action_index INTEGER, list_action_index INTEGER, type INTEGER, status_id INTEGER);
+        CREATE TABLE index_statuses (id INTEGER, status TEXT);
+        CREATE TABLE list_items (action_index INTEGER, item_id INTEGER);
+        CREATE TABLE bridge_settlements
+            (transfer_id TEXT, kind TEXT, src_chain TEXT, src_action_index INTEGER);
+        CREATE TABLE list_snapshots (snapshot_id TEXT, seq INTEGER);
+        INSERT INTO index_statuses VALUES (1, 'valid');
+        INSERT INTO list_share_mirrors VALUES (303, 'DOGE', 202, 800);
+        INSERT INTO lists VALUES (303, NULL, 2, 1), (304, 303, 2, 1);
+        INSERT INTO list_items VALUES (304, 1), (304, 2), (304, 3), (304, 4);
+        INSERT INTO list_snapshots VALUES ('applied-1', 1), ('applied-9', 9), ('unapplied-12', 12);
+        INSERT INTO bridge_settlements VALUES
+            ('applied-1', 'list', 'DOGE', 202), ('applied-9', 'list', 'DOGE', 202);`);
+    return fixture;
 }
 
 function makeDb(options){
     let db = new Database(explorer);
     options = options || {};
     db.calls = [];
+    db.mirrorFixture = mirrorFixture();
     db.doQuery = async (cfg, query, args) => {
         let sql = String(query).replace(/\s+/g, ' ');
         db.calls.push({ sql, args });
@@ -71,11 +86,7 @@ function makeDb(options){
         if(sql.includes('FROM list_share_mirrors mirror')){
             if(options.missingMirrors) throw missingTable();
             if(options.mirrorError) throw new Error('mirror read failed');
-            return [{
-                kind: 'mirror', home_chain: 'DOGE', home_list_index: 202,
-                local_list_index: 303, type: 2, member_count: 4,
-                share_block: 800, share_action_index: null, seq: mirrorSeqFromSql(sql)
-            }];
+            return db.mirrorFixture.prepare(query).all(...args);
         }
         if(sql.includes('SELECT action_index, list_action_index FROM lists WHERE action_index IN'))
             return args.map(action_index => ({ action_index, list_action_index: null }));
@@ -135,6 +146,8 @@ describe('shared-list explorer route', function () {
         expect(mirrorSql).to.include('SELECT MAX(snapshot.seq)');
         expect(mirrorSql).to.include('snapshot.snapshot_id=settlement.transfer_id');
         expect(mirrorSql).not.to.include('SELECT COUNT(*) FROM bridge_settlements settlement');
+        expect(db.mirrorFixture.prepare('SELECT COUNT(*) AS n FROM bridge_settlements').get().n).to.equal(2);
+        expect(db.mirrorFixture.prepare('SELECT MAX(seq) AS seq FROM list_snapshots').get().seq).to.equal(12);
     });
 
     it('puts the latest valid transfer owner in the LIST action state', async function () {

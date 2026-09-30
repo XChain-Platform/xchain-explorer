@@ -1,6 +1,4 @@
 /*********************************************************************
- * GENERATED
- *
  * Copyright © 2025–2026 Dankest, LLC
  * Based on XChain Platform by Dankest, LLC – https://dankest.llc
  *
@@ -19,10 +17,10 @@ const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const { DatabaseSync } = require('node:sqlite');
 
-const API_ROUTES = require('../../../src/explorer/routes/api_methods.js').api;
-const API_SPEC = require('../../../src/content/json/xchain-platform-api.json');
-const Database = proxyquire('../../../src/db/index.js', {
-    './connection.js': proxyquire('../../../src/db/connection.js', {
+const API_ROUTES = require('../../../../src/explorer/routes/api_methods.js').api;
+const API_SPEC = require('../../../../src/content/json/xchain-platform-api.json');
+const Database = proxyquire('../../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../../src/db/connection.js', {
         mariadb: { createPool: () => ({}) }
     })
 });

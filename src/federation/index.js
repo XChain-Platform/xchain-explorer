@@ -25,7 +25,9 @@
  * and POST /{COIN}/api/ is how it is reached. Each read refuses with the indexer's
  * own "not ready" answer when this explorer has no pool for the coin or when the
  * coin's replica carries an active sync halt, and writes one log line saying what it
- * answered and off which tip. The key gate in front of all five is key_gate.js.
+ * answered and off which tip. No key stands in front of them: the rows are the
+ * replica's, public through the explorer pages already, and the per-IP rate limit
+ * bounds a client that retries every block.
  *
  ********************************************************************/
 
@@ -43,7 +45,7 @@ const log = getLogger();
 // The method bodies, by the name the dispatcher routes on.
 const HANDLERS = { getrollcallsigners, getanchoraction, getanchorconfirmations, getarchiveanchor, getpricebatches };
 
-// The gated set, lowercase, exactly the handler names. The key gate reads it.
+// The federation method set, lowercase, exactly the handler names; the tests pin it.
 const FEDERATION_READ_METHODS = new Set(Object.keys(HANDLERS));
 
 // The indexer's answer when it cannot serve a read yet; the clients read any error as "defer".

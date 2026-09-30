@@ -19,7 +19,7 @@
  * composed from layout data rather than stored as a fragment) fills {CONTENT}, and
  * the cross-site switcher fills its own.
  *
- * The three render modules are required here rather than handed in, because no
+ * The four render modules are required here rather than handed in, because no
  * suite replaces them in XChainExplorer.js's require map: they read files under
  * src/ and have no network or database reach to stub out.
  *
@@ -32,6 +32,7 @@ const gateRegistry = require('../../consensus/gate_registry.js');
 const { renderPlatformSwitcher } = require('../../render/platform_links.js');
 const listPage     = require('../../render/list_page.js');
 const componentTpl = require('../../render/component_templates.js');
+const { versionAssetUrls } = require('../../render/asset_version.js');
 
 // Inject plain JSON because browser scripts cannot load the Node registry.
 // Escape less-than signs so a future string value cannot close the script tag.
@@ -87,6 +88,9 @@ async function renderPage(explorer, st){
         // replacement-function reason as {CONTENT}: $-sequences in the markup
         // must not be treated as capture-group references.
         pageContent     = pageContent.replace('{PLATFORM_SWITCHER}', () => renderPlatformSwitcher());
+        // Last, so asset URLs from every slot above get a content version and a
+        // deploy never serves a new page beside a cached old script.
+        pageContent     = versionAssetUrls(pageContent);
 
         st.response.html = pageContent;
     }

@@ -140,7 +140,7 @@ function showDepositDetails(data){  showCustodyDetails('deposit', data);  }
 function showWithdrawDetails(data){ showCustodyDetails('withdraw', data); }
 function showCustodyDetails(kind, data){
     $('#info-' + kind + ' .' + kind + '-contract').html(formatContractIdentity(XC.coin, XC.chain, data.contract_index, data.contract_meta_name, data.contract_meta_version));
-    $('#info-' + kind + ' .' + kind + '-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-' + kind + ' .' + kind + '-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     $('#info-' + kind + ' .' + kind + '-amount').html(formatAmount(data.amount));
 }
 
@@ -194,7 +194,7 @@ function showXcallDetails(data){
         // XC.coin because the callback is delivered back on this chain. Fall back to the page
         // coin only if target_chain is missing.
         let exec_coin = data.target_chain || XC.coin;
-        $('#info-xcall .xcall-execute-action').html(isNull(exec.execute_action_index) ? '-' : formatLink('/' + exec_coin + '/action/' + exec.execute_action_index, exec.execute_action_index));
+        $('#info-xcall .xcall-execute-action').html(isNull(exec.execute_action_index) ? '-' : formatLink('/' + networkCoin(exec_coin) + '/action/' + exec.execute_action_index, exec.execute_action_index));
         $('#info-xcall .xcall-result-status').text(isNull(exec.result_status) ? '-' : exec.result_status);
         $('#info-xcall .xcall-return-payload').html(isNull(exec.return_payload_b64) ? '-' : formatHash(exec.return_payload_b64, 32));
         $('#info-xcall .xcall-gas-used').text(isNull(exec.gas_used) ? '-' : numeral(exec.gas_used).format('0,0'));

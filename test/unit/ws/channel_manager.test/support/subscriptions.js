@@ -93,6 +93,20 @@ describe('ChannelManager', function () {
             expect(result.subscribed[0].tick2).to.equal('BTC');
         });
 
+        it('round-trips chain-valid colons in token and market ticker keys', function () {
+            const client = createClient(1);
+            const token = cm.subscribe(client, ['token'], { tick: 'A:B' });
+            const market = cm.subscribe(client, ['market'], { tick1: 'A:B', tick2: 'C' });
+            expect(token.success).to.be.true;
+            expect(market.success).to.be.true;
+            expect(cm.getSubscribedTicks('BTC')).to.deep.equal(new Set(['A:B']));
+            expect(cm.getSubscribedMarkets('BTC')).to.deep.equal([{ tick1: 'A:B', tick2: 'C' }]);
+            expect(cm.listSubscriptions(client)).to.deep.include({
+                channel: 'market', tick1: 'A:B', tick2: 'C',
+                filters: { types: null, fields: null, once: false }
+            });
+        });
+
         it('subscribes to dispenser channel', function () {
             const client = createClient(1);
             const result = cm.subscribe(client, ['dispenser'], { action_index: 12345 });
@@ -289,5 +303,4 @@ describe('ChannelManager', function () {
         });
     });
 });
-
 

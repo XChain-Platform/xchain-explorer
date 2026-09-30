@@ -236,7 +236,9 @@ class MarketOverviewReaders {
                 });
             }
         }
-        return data;
+        // Return one record (or null on a miss) like every single-record reader,
+        // so getData treats it as an object and an unknown pair reaches the 404
+        return [data[0] || null];
     }
 
     async getMarketHistory(config){

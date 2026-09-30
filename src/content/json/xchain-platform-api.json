@@ -664,10 +664,10 @@
                     "$ref": "#/components/parameters/COIN"
                 },{
                     "$ref": "#/components/parameters/TYPE",
-                    "description": "Type of search to perform (address, block, token)"
+                    "description": "Type of search to perform (address, block, token, name, gate)"
                 },{
                     "$ref": "#/components/parameters/QUERY",
-                    "description": "String to search for (address, block, token)"
+                    "description": "String to search for (address, block, token, name, or gate ticker)"
                 },{
                     "$ref": "#/components/parameters/limit"
                 },{
@@ -3015,7 +3015,7 @@
                     },
                     "indexer_state": {
                         "type": "object",
-                        "description": "Why the indexer trails the decoder, keyed by coin ticker. 'live' when decoder_lag_blocks is 0; 'future_block_wait' when the next block (last_block + 1) carries a block_time dated ahead of this host's clock, meaning no node on the chain may commit it yet and the pause is consensus rather than failure; 'behind' when that next block is already admissible and still uncommitted, which is the state worth alerting on; null when it cannot be determined. Read this field, NOT tip_future_seconds, to tell a deliberate wait apart from a wedge: tip_future_seconds describes the block the indexer has already committed, which is always past-dated, so it reads 0 for the whole duration of a future_block_wait. Chains with lax timestamp rules (Bitcoin testnet4 rides the 20-minute minimum-difficulty rule, stamping blocks about 1201s apart into the future) sit in future_block_wait as their steady state. Only coins this instance measures appear here.",
+                        "description": "Why the indexer trails the decoder, keyed by coin ticker. 'live' when decoder_lag_blocks is 0; 'future_block_wait' when the next block (last_block + 1) carries a block_time dated ahead of this host's clock, meaning no node on the chain may commit it yet and the pause is consensus rather than failure; 'behind' when that next block is already admissible and still uncommitted, including an oracle-sync barrier hold or an indexer that is simply slow; null when it cannot be determined. Read this field, NOT tip_future_seconds, to tell a deliberate wait apart from a wedge: tip_future_seconds describes the block the indexer has already committed, which is always past-dated, so it reads 0 for the whole duration of a future_block_wait. Chains with lax timestamp rules (Bitcoin testnet4 rides the 20-minute minimum-difficulty rule, stamping blocks about 1201s apart into the future) sit in future_block_wait as their steady state. Only coins this instance measures appear here.",
                         "additionalProperties": {
                             "type": ["string", "null"]
                         }
@@ -3036,7 +3036,7 @@
                     },
                     "indexer_wait_clears_at": {
                         "type": "object",
-                        "description": "ISO-8601 instant at which a 'future_block_wait' ends for that coin, i.e. when this host's clock reaches the next block's timestamp and the block becomes committable, keyed by coin ticker. null in every other state. Present so a client can render a countdown rather than leaving a confirmed-but-unindexed transaction looking lost. Only coins this instance measures appear here.",
+                        "description": "ISO-8601 instant at which the current indexer wait may first clear, keyed by coin ticker. For 'future_block_wait', this is when the host's clock reaches the next block's timestamp and the block becomes committable. For 'behind' on a time-bounded indexer barrier, this is the indexer's own stallClearsAt value. null when no bound is known, including an ordinary slow indexer and a barrier that depends on height rather than time. Present so a client can render a countdown rather than leaving a confirmed-but-unindexed transaction looking lost. Only coins this instance measures appear here.",
                         "additionalProperties": {
                             "type": ["string", "null"]
                         }

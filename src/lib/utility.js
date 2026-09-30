@@ -218,7 +218,7 @@ class Utility {
 
     // True only for a real number carrying a fraction; a numeric string is false.
     isFloat(value){
-        return value === +value && value !== (value|0);
+        return typeof value === 'number' && Number.isFinite(value) && !Number.isInteger(value);
     }
 
     // Unlike isFloat, a numeric string counts, since the value is coerced first.
@@ -272,6 +272,15 @@ class Utility {
         return Number.isFinite(parsed) ? parsed : defaultVal;
     }
 
+    // Accept only decimal identifiers that JavaScript can represent exactly.
+    isSafeIntegerParam(value){
+        if(typeof value === 'number')
+            return Number.isSafeInteger(value) && value >= 0;
+        if(typeof value !== 'string' || !/^[0-9]+$/.test(value))
+            return false;
+        return Number.isSafeInteger(Number(value));
+    }
+
     // Wallet addresses and account tokens are alphanumeric. Contract custody
     // addresses use C:<CHAIN>:<action_index>. Keep both forms bounded and reject
     // any other path-segment punctuation before reflecting an address.
@@ -301,9 +310,9 @@ class Utility {
     // Sort rows by their 'price' property; order is 'ASC' or 'DESC'.
     priceSort(data, order='ASC'){
         data.sort((a, b) => {
-            if(a.price > b.price)
+            if(this.bcgt(a.price, b.price))
                 return (order=='DESC') ? -1 : 1;
-            if(a.price < b.price)
+            if(this.bclt(a.price, b.price))
                 return (order=='DESC') ? 1 : -1;
             return 0;
         });

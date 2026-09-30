@@ -63,6 +63,7 @@ function renderRows(type, rows) {
         { runScripts: 'outside-only' });
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
         function initStaticDatatable(){ }

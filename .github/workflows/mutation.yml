@@ -1,0 +1,70 @@
+# Scheduled mutation-testing run.
+#
+# npm test only proves the suite passes against real code; it says nothing
+# about whether the suite would NOTICE code that quietly stopped being
+# correct. test/mutation/stryker.config.mjs answers that for the modules it
+# targets, but nothing ran it on a cadence, so a mutation-score regression
+# (a test deleted, a branch left unexercised) could ship for months before
+# anyone ran Stryker by hand.
+#
+# Full mutation testing is slow (thousands of mutants against the db split,
+# XChainExplorer.js, config.js and lib/utility.js), which is why this is a
+# weekly job rather than a per-push or per-PR gate.
+name: mutation
+
+# Least privilege for the default GITHUB_TOKEN: this job only reads the repo
+# and uploads its own report as a workflow artifact.
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # Sundays 09:00 UTC, clear of the audit workflow's Monday 07:00 UTC run.
+    - cron: "0 9 * * 0"
+  # Re-run on demand, e.g. right after a change to the db split or the
+  # mutation config itself.
+  workflow_dispatch:
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    # A full run over the current mutate set comfortably exceeds a typical
+    # job's default patience; give it room rather than let a slow-but-healthy
+    # run read as a failure.
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Stryker mutation testing
+        run: npm run test:mutation
+
+      # jsonReporter and htmlReporter both write under reports/mutation (see
+      # test/mutation/stryker.config.mjs); a run that produced neither means
+      # Stryker exited before scoring anything; catch that here instead of
+      # silently archiving an empty directory.
+      - name: Verify the mutation report is non-empty
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ ! -s reports/mutation/results.json ]; then
+            echo "reports/mutation/results.json is missing or empty" >&2
+            exit 1
+          fi
+
+      - name: Archive the mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          if-no-files-found: error
+          retention-days: 30

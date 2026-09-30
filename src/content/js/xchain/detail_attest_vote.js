@@ -57,7 +57,7 @@ function detailAttestVote_renderAttestIdentity(data, isResponse, isExpire, isBat
         if(isNull(data.request_id)){
             expireHtml = '<span class="text-muted attest-expire-unresolved">not recorded</span>';
         } else {
-            expireHtml = formatLink('/' + XC.coin + '/attestation/' + data.request_id,
+            expireHtml = formatLinkHtml('/' + XC.coin + '/attestation/' + data.request_id,
                                     formatHash(data.request_id, 32), 'View this attestation lifecycle');
             let links = [];
             if(!isNull(data.request_action_index))
@@ -109,7 +109,7 @@ function detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatc
     if(!isResponse && !isExpire && !isBatch){
         $('#info-attest .attest-fee-payer').html(isNull(data.fee_payer) ? '-' : formatLink('/' + XC.coin + '/address/' + data.fee_payer, data.fee_payer));
         // Request-side economics the requester escrowed and paid (fee_amount+fee_tick, gas_escrow).
-        $('#info-attest .attest-fee').html(isNull(data.fee_amount) ? '-' : formatLink('/' + XC.coin + '/token/' + data.fee_tick, data.fee_tick, formatAmount(data.fee_amount) + ' ' + data.fee_tick));
+        $('#info-attest .attest-fee').html(isNull(data.fee_amount) ? '-' : formatLink(tokenUrl(XC.coin, data.fee_tick), data.fee_tick, formatAmount(data.fee_amount) + ' ' + data.fee_tick));
         $('#info-attest .attest-gas-escrow').html(isNull(data.gas_escrow) ? '-' : formatAmount(data.gas_escrow));
         $('#info-attest .attest-callback').text(data.callback_method);
         $('#info-attest .attest-redundancy').text(data.redundancy);
@@ -183,7 +183,7 @@ function detailAttestVote_renderVoteFinalize(data, kind){
 function detailAttestVote_renderPollSummary(data){
     // Render the poll definition and gate parameters.
         let pcls = (data.poll_status=='finalized') ? 'success' : (data.poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
-        $('#info-vote .vote-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-vote .vote-token').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
         $('#info-vote .vote-question').text(isNull(data.question) ? '-' : data.question);
         let opts = Array.isArray(data.options) ? data.options : [];
         $('#info-vote .vote-options').html(opts.length ? opts.map((o, i) => i + ': ' + $('<div>').text(o).html()).join('<br>') : '-');
@@ -293,11 +293,14 @@ function detailAttestVote_renderVoteChoice(data, kind){
     if(kind=='ballot'){
         $('#info-vote .vote-poll-ref').html(isNull(data.poll_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.poll_ref, data.poll_ref));
         let ballot = Array.isArray(data.ballot) ? data.ballot : [];
-        $('#info-vote .vote-choices').html(ballot.length ? ballot.map(b => 'option ' + b.choice + (isNull(b.share) ? '' : ' (share ' + b.share + ')')).join('<br>') : '-');
+        $('#info-vote .vote-choices').html(ballot.length ? ballot.map(function(b){
+            let choice = $('<div>').text(formatIndexedLabel(b.choice, b.label)).html();
+            return choice + (isNull(b.share) ? '' : ' (share ' + $('<div>').text(b.share).html() + ')');
+        }).join('<br>') : '-');
         $('#info-vote .vote-memo').text(isNull(data.memo) ? '-' : data.memo);
     }
     if(kind=='delegation'){
-        $('#info-vote .vote-deleg-token').html(isNull(data.delegation_tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.delegation_tick, data.delegation_tick, data.delegation_tick));
+        $('#info-vote .vote-deleg-token').html(isNull(data.delegation_tick) ? '-' : formatLink(tokenUrl(XC.coin, data.delegation_tick), data.delegation_tick, data.delegation_tick));
         $('#info-vote .vote-delegator').html(isNull(data.delegator) ? '-' : formatLink('/' + XC.coin + '/address/' + data.delegator, data.delegator));
         // delegate_to NULL is a CLEAR (revoke) of any standing delegation.
         $('#info-vote .vote-delegate-to').html(isNull(data.delegate_to) ? '<span class="badge text-bg-secondary">cleared</span>' : formatLink('/' + XC.coin + '/address/' + data.delegate_to, data.delegate_to));

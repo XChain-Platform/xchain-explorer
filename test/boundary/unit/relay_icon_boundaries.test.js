@@ -111,12 +111,10 @@ function registerRelayCases1() {
         expect(res._status).to.equal(403);
     });
 
-    it('allows 172.32.0.1 (just outside private class B)', async function () {
+    it('rejects 172.32.0.1 because public IPs are not metadata gateways', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('http://172.32.0.1/file.json'), res);
-        // Not blocked by SSRF check; will fail on actual request (connection refused)
-        // so should get 400 from the catch block, NOT 403
-        expect(res._status).to.not.equal(403);
+        expect(res._status).to.equal(403);
     });
 
     it('blocks 192.168.1.1 (private class C)', async function () {
@@ -232,11 +230,10 @@ function registerRelayCases3() {
     // URL edge cases
     // -----------------------------------------------------------------------
 
-    it('handles URL with credentials (user:pass@host)', async function () {
+    it('rejects credentials on an unapproved public host', async function () {
         const res = mockRes();
         await explorer.processRelayRequest(makeRelayReq('http://user:pass@example.com/data.json'), res);
-        // Should not crash; hostname is "example.com", not blocked
-        expect(res._status).to.not.equal(403);
+        expect(res._status).to.equal(403);
     });
 }
 
@@ -266,7 +263,7 @@ function registerRelayCases4() {
         const axiosStub = { get: sinon.stub().resolves({ data: '<xml/>' }) };
         const expl = makeExplorer(axiosStub);
         const res = mockRes();
-        await expl.processRelayRequest(makeRelayReq('https://example.com/data.xml'), res);
+        await expl.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/data.xml'), res);
         // .xml is not .json or .png -> falls through
         expect(res._status).to.equal(503);
     });
@@ -275,7 +272,8 @@ function registerRelayCases4() {
         const axiosStub = { get: sinon.stub().resolves({ data: {} }) };
         const expl = makeExplorer(axiosStub);
         const res = mockRes();
-        await expl.processRelayRequest(makeRelayReq('https://example.com/api/data'), res);
+        await expl.processRelayRequest(
+            makeRelayReq('https://inscription-decoder.vercel.app/api/data'), res);
         expect(res._status).to.equal(503);
     });
 }

@@ -69,9 +69,20 @@ function queryFor(url) {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only', url });
     dom.window.eval(HELPERS);
     dom.window.eval('var XC = { chains: {}, networks: {} };');
+    dom.window.eval(extractFn('params_hasTextDetailQuery'));
     dom.window.eval(extractFn('setXChainParams'));
     dom.window.setXChainParams('RDOGE');
     return dom.window.XC.query;
+}
+
+function apiUrl(query) {
+    const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
+    dom.window.eval('var XC = { debug: false }; var urls = [];');
+    dom.window.eval('var $ = { getJSON: function(url){ urls.push(url); } };');
+    dom.window.eval(extractFn('xcEncodePathSegments'));
+    dom.window.eval(extractFn('loadApiData'));
+    dom.window.loadApiData('RDOGE', 'markets', query, null, function () {});
+    return dom.window.urls[0];
 }
 
 // resolveMarketPair supplies the counter-tick a single-tick URL omits.
@@ -92,7 +103,7 @@ function resolver(marketsResponse) {
 
 // updateMarketBasics answers for the pair the API actually resolved; a
 // missing row must surface, not leave the page half-composed.
-function basics(apiResponse) {
+function basics(apiResponse, status) {
     const dom = new JSDOM(
         '<!DOCTYPE html><body>' +
         '<span class="tick1-name"></span><span class="tick2-name"></span>' +
@@ -104,8 +115,13 @@ function basics(apiResponse) {
         var XC = { coin: 'RDOGE' };
         var notFound = null;
         function showMarketNotFound(tick){ notFound = tick; }
-        function loadApiData(coin, action, query, type, cb){ cb(${JSON.stringify(apiResponse)}); }
+        var status = ${JSON.stringify(status || 200)};
+        function loadApiData(coin, action, query, type, cb, errback){
+            if(status == 200) cb(${JSON.stringify(apiResponse)});
+            else if(typeof errback === 'function') errback(${JSON.stringify(apiResponse)}, { status: status });
+        }
         function getTokenIcon(){ return '/icon/default.png'; }
+        function tokenUrl(coin, tick){ return '/' + coin + '/token/' + encodeURIComponent(String(tick)); }
         function formatAmount(v){ return String(v); }
         function bcformat(v){ return String(v); }
     `);
@@ -123,7 +139,13 @@ describe('client: market page counter-tick resolution', function () {
     });
 
     it('a two-tick market URL yields the full pair', function () {
-        expect(queryFor('https://explorer.test/RDOGE/market/XCHAIN/RDOGE')).to.equal('XCHAIN/RDOGE');
+        expect(Array.from(queryFor('https://explorer.test/RDOGE/market/XCHAIN/RDOGE')))
+            .to.deep.equal(['XCHAIN', 'RDOGE']);
+    });
+
+    it('decodes an encoded ticker segment exactly once at page ingress', function () {
+        expect(queryFor('https://explorer.test/RDOGE/market/A%23B')).to.equal('A#B');
+        expect(queryFor('https://explorer.test/RDOGE/token/A%23B')).to.equal('A#B');
     });
 });
 
@@ -169,19 +191,38 @@ describe('client: market page counter-tick resolution', function () {
         const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
         dom.window.eval('var XC = { debug: false }; var urls = [];');
         dom.window.eval('var $ = { getJSON: function(url){ urls.push(url); } };');
+        dom.window.eval(extractFn('xcEncodePathSegments'));
         dom.window.eval(extractFn('loadApiData'));
         dom.window.loadApiData('RDOGE', 'markets', 'XCHAIN', null, function () {});
         expect(dom.window.urls).to.deep.equal(['/RDOGE/api/markets/XCHAIN']);
+    });
+
+    it('loadApiData encodes a raw ticker without encoding pair separators', function () {
+        expect(apiUrl('A#B')).to.equal('/RDOGE/api/markets/A%23B');
+        expect(apiUrl(['SAFE', 'A#B'])).to.equal('/RDOGE/api/markets/SAFE/A%23B');
     });
 });
 
 describe('client: market page counter-tick resolution', function () {
     it('a market that does not resolve renders the visible not-found state', function () {
-        // The API answers `false` for an unknown pair (no row matched), and
-        // loadApiData passes that straight to the callback.
+        // An empty or row-less body reaching the success callback still reads
+        // as not found.
         const w = basics(false);
         expect(w.notFound).to.equal('XCHAIN');
         expect(w.$('.tick2-name').text()).to.equal('');
+    });
+
+    it('a 404 NOT_FOUND for an unknown pair renders the visible not-found state', function () {
+        // The API answers 404 for an unknown pair, which loadApiData routes to
+        // the errback rather than the success callback.
+        const w = basics({ error: 'The requested resource was not found.', code: 'NOT_FOUND' }, 404);
+        expect(w.notFound).to.equal('XCHAIN');
+        expect(w.$('.tick2-name').text()).to.equal('');
+    });
+
+    it('a non-404 failure does not claim the market is missing', function () {
+        const w = basics({ error: 'stale', code: 'COIN_DATA_STALE' }, 503);
+        expect(w.notFound).to.equal(null);
     });
 
     it('a resolved market populates the pair header from the API row', function () {

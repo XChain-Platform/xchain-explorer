@@ -45,8 +45,8 @@ const fixturePorts = require('../../../bin/fixture-ports.js');
 
 const FIXTURE_DATABASE = 'XChain_BTC_Regtest_Indexer';
 
-// Presence of this file means the host provides a shared CI database and this
-// repo must use it rather than publish its own on the same fixed port.
+// Accept a host-side symlink to a shared venue environment file and use its
+// database instead of publishing another one on the same fixed port.
 const VENUE_ENV_PATH = process.env.XCHAIN_VENUE_ENV || '/misc/ci/venue.env';
 
 function venueDbFromEnv(env) {

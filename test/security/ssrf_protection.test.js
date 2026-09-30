@@ -61,7 +61,7 @@ describe('Security: SSRF: Redirect bypass prevention', function () {
         const explorer  = makeExplorer(axiosStub);
         const res       = mockRes();
 
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/data.json'), res);
 
         // A redirect is how an allowed host hands the fetch on to a blocked one: the
         // guard only ever vets the URL it was given, so the client itself has to
@@ -76,7 +76,7 @@ describe('Security: SSRF: Redirect bypass prevention', function () {
         const explorer  = makeExplorer(axiosStub);
         const res       = mockRes();
 
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/data.json'), res);
 
         const opts = axiosStub.get.firstCall.args[1];
         expect(opts).to.have.property('timeout', 5000);
@@ -165,31 +165,32 @@ describe('Security: SSRF: File extension filtering', function () {
         const explorer  = makeExplorer(axiosStub);
         const res       = mockRes();
 
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/data.json'), res);
         expect(res._status).to.not.equal(503);
     });
 
     it('rejects .html extension', async function () {
         const res = mockRes();
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/page.html'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/page.html'), res);
         expect(res._status).to.equal(503);
     });
 
     it('rejects .js extension', async function () {
         const res = mockRes();
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/script.js'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/script.js'), res);
         expect(res._status).to.equal(503);
     });
 
-    it('rejects no extension', async function () {
+    it('rejects an unmatched no-extension path', async function () {
         const res = mockRes();
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/api/data'), res);
+        await explorer.processRelayRequest(
+            makeRelayReq('https://inscription-decoder.vercel.app/api/data'), res);
         expect(res._status).to.equal(503);
     });
 
     it('rejects .xml extension', async function () {
         const res = mockRes();
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/feed.xml'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/feed.xml'), res);
         expect(res._status).to.equal(503);
     });
 });
@@ -242,7 +243,7 @@ describe('Security: SSRF: Error response safety', function () {
         const explorer  = makeExplorer(axiosStub);
         const res       = mockRes();
 
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://arweave.net/data.json'), res);
         expect(res._status).to.equal(400);
         expect(res._body).to.include({ error: 'Invalid or unreachable URL', code: 'RELAY_FETCH_FAILED' });
         expect(res._body.error).to.not.include('ECONNREFUSED');
@@ -253,7 +254,7 @@ describe('Security: SSRF: Error response safety', function () {
         const explorer  = makeExplorer(axiosStub);
         const res       = mockRes();
 
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://arweave.net/data.json'), res);
         expect(res._body.error).to.not.include('192.168');
         expect(res._body.error).to.not.include('ECONNREFUSED');
     });
@@ -279,7 +280,7 @@ describe('Security: SSRF: DNS resolution bypass', function () {
         const axiosStub = { get: sinon.stub().resolves({ data: { ok: true } }) };
         const explorer  = makeExplorer(axiosStub);
         const res       = mockRes();
-        await explorer.processRelayRequest(makeRelayReq('https://example.com/data.json'), res);
+        await explorer.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/data.json'), res);
         const opts = axiosStub.get.firstCall.args[1];
         expect(opts.lookup).to.be.a('function');
     });

@@ -119,6 +119,25 @@ describe('token page: files LINKed to the token', function(){
 
 });
 
+describe('token page: current ISSUE list policy', function(){
+
+    it('renders zero allow and block lists as None without links', function(){
+        const win = bootPage();
+        win.tokenInfo_renderLists({ allow: 0, block: '0' });
+        expect(win.jQuery('#allow-list').text().trim()).to.equal('None');
+        expect(win.jQuery('#block-list').text().trim()).to.equal('None');
+        expect(win.jQuery('#allow-list a, #block-list a')).to.have.length(0);
+    });
+
+    it('keeps nonzero current list references linked', function(){
+        const win = bootPage();
+        win.tokenInfo_renderLists({ allow: 940, block: '941' });
+        expect(win.jQuery('#allow-list a').attr('href')).to.equal('/RDOGE/action/940');
+        expect(win.jQuery('#block-list a').attr('href')).to.equal('/RDOGE/action/941');
+    });
+
+});
+
 describe('token page: files LINKed to the token', function(){
 
     it('labels a gated file instead of offering a raw link that would refuse', function(){

@@ -21,7 +21,7 @@ function xcDatatableRenderSearchRow(context){
 
     if(type=='address'){
         let address = data[1];
-        $('td', row).eq(1).html(formatLink('/' + coin + '/address/' + address, highlightSearchTerm(XC.query, address)));
+        $('td', row).eq(1).html(formatLinkHtml('/' + coin + '/address/' + address, highlightSearchTerm(XC.query, address)));
         $('td', row).eq(2).html(formatLink('/' + coin + '/address/' + address, 'view', null, true));
     }
     if(type=='broadcast'){
@@ -34,13 +34,13 @@ function xcDatatableRenderSearchRow(context){
     if(type=='token'){
         let token       = data[1];
         let description = data[2];
-        $('td', row).eq(1).html(formatLink('/' + coin + '/token/' + token, highlightSearchTerm(XC.query, token), token));
+        $('td', row).eq(1).html(formatLinkHtml(tokenUrl(coin, token), highlightSearchTerm(XC.query, token), token));
         $('td', row).eq(2).html(highlightSearchTerm(XC.query, description));
-        $('td', row).eq(3).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+        $('td', row).eq(3).html(formatLink(tokenUrl(coin, token), 'view', null, true));
     }
     if(type=='transaction'){
         let transaction = data[1];
-        $('td', row).eq(1).html(formatLink('/' + coin + '/transaction/' + transaction, highlightSearchTerm(XC.query, transaction)));
+        $('td', row).eq(1).html(formatLinkHtml('/' + coin + '/transaction/' + transaction, highlightSearchTerm(XC.query, transaction)));
         $('td', row).eq(2).html(formatLink('/' + coin + '/transaction/' + transaction, 'view', null, true));
     }
     // Contract: the fifth search category, matched on the declared name or
@@ -58,7 +58,7 @@ function xcDatatableRenderSearchRow(context){
             ? '<span class="text-muted fst-italic">Unnamed contract</span>'
             : highlightSearchTerm(XC.query, hardenText(meta_name, 64)));
         $('td', row).eq(2).text(isNull(meta_version) ? '' : hardenText(meta_version, 32));
-        $('td', row).eq(3).html(formatLink('/' + coin + '/contract/' + idx, escapeHtml(address)));
+        $('td', row).eq(3).html(formatLink('/' + coin + '/contract/' + idx, address));
         $('td', row).eq(4).html(highlightSearchTerm(XC.query, hardenText(snippet, 160)));
         $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + idx, 'view', null, true));
     }
@@ -114,7 +114,7 @@ function xcDatatableRenderDepositOrWithdrawalRow(context){
     let token  = data[5];
     let amount = data[6];
     $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(6).html(formatAmount(amount));
     $('td', row).eq(7).html(action_link);
 
@@ -185,7 +185,7 @@ function xcDatatableRenderContractStakeRow(context){
     let version = data[8];
     $('td', row).eq(4).html(formatHash(pubkey));
     $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(6).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(7).html(formatAmount(amount));
     $('td', row).eq(8).html(action_link);
 
@@ -203,7 +203,7 @@ function xcDatatableRenderContractUnstakeRow(context){
     let cooldown_end = data[8];
     $('td', row).eq(4).html(formatHash(pubkey));
     $('td', row).eq(5).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(6).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(7).html(formatAmount(amount));
     $('td', row).eq(8).html(formatLink('/' + coin + '/block/' + cooldown_end, numeral(cooldown_end).format(fmtInteger)));
     $('td', row).eq(9).html(action_link);
@@ -223,7 +223,7 @@ function xcDatatableRenderSlashEventRow(context){
     let execution_index = data[8];
     $('td', row).eq(3).html(formatHash(pubkey));
     $('td', row).eq(4).html(formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(6).html(formatAmount(amount));
     $('td', row).eq(7).html(formatLink('/' + coin + '/address/' + destination, destination));
     $('td', row).eq(8).html(formatLink('/' + coin + '/action/' + execution_index, 'view', null, true));
@@ -260,7 +260,7 @@ function xcDatatableRenderAttestationRow(context){
     let att_valid       = (att_status==1);
     let att_verdict     = att_valid ? 'valid' : 'invalid';
     $(row).removeClass('bg-green bg-red').addClass(att_valid ? 'bg-green' : 'bg-red');
-    $('td', row).eq(6).html(formatLink('/' + coin + '/action/' + att_index, formatHash(request_id)));
+    $('td', row).eq(6).html(formatLinkHtml('/' + coin + '/action/' + att_index, formatHash(request_id)));
     // Both attests.request_status and attests.response_status are nullable
     // ENUMs with no default; each row fills only the one for its version, and
     // an unresolved row leaves even that one NULL.
@@ -293,11 +293,11 @@ function xcDatatableRenderPollRow(context){
     let winner_index  = data[9];
     let winner_label  = data[10];
     let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
-    $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(question) ? '-' : question);
-    $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + (poll_status || '-') + '</span>');
+    $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + escapeHtml(String(poll_status || '-')) + '</span>');
     $('td', row).eq(7).html(isNull(end_block) ? '-' : formatLink('/' + coin + '/block/' + end_block, numeral(end_block).format(fmtInteger)));
-    $('td', row).eq(8).html(isNull(binding) ? '-' : formatLink('/' + coin + '/contract/' + binding, '<span class="badge text-bg-danger">Binding</span>', 'Binding poll: finalization calls contract ' + binding));
+    $('td', row).eq(8).html(isNull(binding) ? '-' : formatLinkHtml('/' + coin + '/contract/' + binding, '<span class="badge text-bg-danger">Binding</span>', 'Binding poll: finalization calls contract ' + binding));
     $('td', row).eq(9).text(isNull(winner_index) ? '-' : (winner_index + (isNull(winner_label) ? '' : ': ' + winner_label)));
     $('td', row).eq(10).html(action_link);
 
@@ -311,9 +311,10 @@ function xcDatatableRenderVoteRow(context){
 
     let poll_index = data[4];
     let choice     = data[5];
-    let share      = data[6];
+    let choiceLabel = data[6];
+    let share      = data[7];
     $('td', row).eq(4).html(isNull(poll_index) ? '-' : formatLink('/' + coin + '/action/' + poll_index, poll_index));
-    $('td', row).eq(5).text(isNull(choice) ? '-' : choice);
+    $('td', row).eq(5).text(formatIndexedLabel(choice, choiceLabel));
     $('td', row).eq(6).text(isNull(share) ? '-' : share);
     $('td', row).eq(7).html(action_link);
 
@@ -334,12 +335,12 @@ function xcDatatableRenderBetFeedRow(context){
              : (feed_status=='cancelled' || feed_status=='expired') ? 'danger'
              : (feed_status=='resolved_void') ? 'secondary'
              : (feed_status=='closed') ? 'warning text-dark' : 'primary';
-    $('td', row).eq(4).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(label) ? '-' : label);
     $('td', row).eq(6).html('<span class="badge text-bg-' + fcls + '">' + escapeHtml(String(feed_status || '-')) + '</span>');
     $('td', row).eq(7).html(isNull(deadline) ? '-' : formatLivestamp(deadline));
     // The view button targets the MARKET page, not the raw action page.
-    $('td', row).eq(8).html(formatLink('/' + coin + '/bet_feed/' + data[9], '<i class="fa fa-eye"></i>', 'View market'));
+    $('td', row).eq(8).html(formatLinkHtml('/' + coin + '/bet_feed/' + data[9], '<i class="fa fa-eye"></i>', 'View market'));
 
 }
 xcDatatableRowHandlers.bet_feed = xcDatatableRenderBetFeedRow;
@@ -350,14 +351,15 @@ function xcDatatableRenderBetRow(context){
 
     let feed_index = data[4];
     let outcome    = data[5];
-    let token      = data[6];
-    let amount     = data[7];
-    let bet_status = data[8];
+    let outcomeLabel = data[6];
+    let token      = data[7];
+    let amount     = data[8];
+    let bet_status = data[9];
     let bcls = (bet_status=='won') ? 'success' : (bet_status=='lost') ? 'danger'
              : (bet_status=='refunded') ? 'secondary' : 'primary';
     $('td', row).eq(4).html(isNull(feed_index) ? '-' : formatLink('/' + coin + '/bet_feed/' + feed_index, feed_index));
-    $('td', row).eq(5).text(isNull(outcome) ? '-' : outcome);
-    $('td', row).eq(6).html(isNull(token) ? '-' : formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(5).text(formatIndexedLabel(outcome, outcomeLabel));
+    $('td', row).eq(6).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(7).html(formatAmount(amount));
     $('td', row).eq(8).html('<span class="badge text-bg-' + bcls + '">' + escapeHtml(String(bet_status || '-')) + '</span>');
     $('td', row).eq(9).html(action_link);
@@ -380,7 +382,7 @@ function xcDatatableRenderXcallRow(context){
     $('td', row).eq(4).text(isNull(target_chain) ? '-' : target_chain);
     $('td', row).eq(5).text(isNull(target_contract_index) ? '-' : target_contract_index);
     $('td', row).eq(6).text(isNull(method) ? '-' : method);
-    $('td', row).eq(7).html('<span class="badge text-bg-' + cls + '">' + (request_status || '-') + '</span>');
+    $('td', row).eq(7).html('<span class="badge text-bg-' + cls + '">' + escapeHtml(String(request_status || '-')) + '</span>');
     $('td', row).eq(8).html(action_link);
 
 }

@@ -39,6 +39,9 @@
 const { getLogger } = require('../../../observability');
 const log = getLogger();
 
+// How long a token description read for the /relay check is reused before it is read again.
+const TOKEN_DESCRIPTION_TTL_MS = 60 * 1000;
+
 class EntityLookupReaders {
     // Get the raw AES-256-GCM ciphertext bytes for a gated FILE by action_index.
     // Returns the result rows (0 or 1) so the caller can distinguish "no such gated
@@ -123,6 +126,7 @@ class EntityLookupReaders {
     }
 
     async getTokenInfo(config, tick) {
+        tick = await this.getCanonicalTick(config, tick) || tick;
         let query = `SELECT
                         t2.tick,
                         t1.supply,
@@ -142,6 +146,29 @@ class EntityLookupReaders {
         return null;
     }
 
+    // One token's description, or null when the chain has no token by that exact tick.
+    // The /relay endpoint reads it to confirm a requested URL is one this token names.
+    // Memoized briefly per coin: the relay is public, and an owner can reissue a
+    // description, so a long-lived entry would keep refusing the new URL.
+    async findTokenDescription(config, tick) {
+        if(!this.tokenDescriptionMemo) this.tokenDescriptionMemo = new Map();
+        let key = this.cacheKey(config.coin, String(tick));
+        let hit = this.cacheGet(this.tokenDescriptionMemo, key);
+        if(hit !== undefined && Date.now() - hit.at < TOKEN_DESCRIPTION_TTL_MS) return hit.description;
+        let query = `SELECT
+                        t1.description
+                    FROM
+                        tokens t1
+                        INNER JOIN index_tickers t2 ON (t2.id=t1.tick_id)
+                    WHERE
+                        t2.tick=?
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [String(tick)]);
+        let description = (results && results.length) ? results[0].description : null;
+        this.cacheSet(this.tokenDescriptionMemo, key, { description, at: Date.now() });
+        return description;
+    }
+
     // Market snapshot for the WebSocket market channel. Two things this query could not
     // do before: last_price / volume_24h / bid / ask are not columns of `markets` (the
     // stats are stored per side as tick1_*/tick2_*), so it raised 'Unknown column' and
@@ -153,6 +180,8 @@ class EntityLookupReaders {
     // LEFT JOIN + COALESCE for the same reason as the market readers: the native side
     // of a token/native pair has no index_tickers row (see src/db/readers/markets.js).
     async getMarketInfo(config, tick1, tick2) {
+        tick1 = await this.getCanonicalTick(config, tick1) || tick1;
+        tick2 = await this.getCanonicalTick(config, tick2) || tick2;
         let side1 = 'COALESCE(t1.tick, c1.coin)';
         let side2 = 'COALESCE(t2.tick, c2.coin)';
         let query = `SELECT

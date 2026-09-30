@@ -49,6 +49,8 @@ const { srcText } = require('../../../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+// The page loads network_coin.js ahead of every link builder (networkCoin).
+const NETWORK_COIN_SRC = require('../../../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
@@ -86,13 +88,14 @@ function installHelpers(dom) {
     dom.window.eval(JQUERY_SRC);
     dom.window.eval(`
         var XC = { coin: 'RBTC', query: 'a'.repeat(64), name: 'Bitcoin', network: 'regtest', pageInfo: {}, datatables: {} };
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatLivestamp(t){ return '<span class="livestamp">a while ago</span>'; }
         function updatePageInfo(){}
         function loadDatatablesData(){ window.__datatable = Array.prototype.slice.call(arguments); }
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(XCHAIN_SRC, 'isNull')}
-        ${extractFn(XCHAIN_SRC, 'siblingCoin')}
+        ${NETWORK_COIN_SRC}
     `);
     dom.window.eval(RENDER_SRC);
 }

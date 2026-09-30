@@ -54,7 +54,7 @@ function xcDatatableRenderCapabilitySlashEventRow(context){
     let submitter          = data[6];
     let slash_action_index = data[7];
     $('td', row).eq(3).html(formatHash(pubkey));
-    $('td', row).eq(4).html('<span class="badge text-bg-secondary">' + (capability || '-') + '</span>');
+    $('td', row).eq(4).html('<span class="badge text-bg-secondary">' + escapeHtml(String(capability || '-')) + '</span>');
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(6).html(isNull(submitter) ? '-' : formatLink('/' + coin + '/address/' + submitter, submitter));
     $('td', row).eq(7).html(formatLink('/' + coin + '/action/' + slash_action_index, 'view', null, true));
@@ -76,9 +76,9 @@ function xcDatatableRenderOraclePriceRow(context){
     $('td', row).eq(1).html(formatLivestamp(block_time));
     $('td', row).eq(2).text(isNull(source_chain) ? '-' : source_chain);
     $('td', row).eq(3).html(isNull(source_address) ? '-' : formatLink('/' + coin + '/address/' + source_address, source_address));
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(fiat) ? '-' : fiat);
-    $('td', row).eq(6).html(numeral(value).format(fmtCurrency));
+    $('td', row).eq(6).html(formatAmount(bcformat(value, 2)));
 
 }
 xcDatatableRowHandlers.oracle_price = xcDatatableRenderOraclePriceRow;
@@ -112,7 +112,7 @@ function xcDatatableRenderRewardRow(context){
     let reward_type = data[5];
     amount          = data[6];
     $('td', row).eq(4).html(formatHash(pubkey));
-    $('td', row).eq(5).html('<span class="badge text-bg-secondary">' + (reward_type || '-') + '</span>');
+    $('td', row).eq(5).html('<span class="badge text-bg-secondary">' + escapeHtml(String(reward_type || '-')) + '</span>');
     $('td', row).eq(6).html(formatAmount(amount));
 
 }
@@ -166,12 +166,12 @@ function xcDatatableRenderCrossChainMatchRow(context){
     $('td', row).eq(2).text(isNull(network) ? '-' : network);
     $('td', row).eq(3).html(isNull(match_id) ? '-' : formatHash(match_id));
     $('td', row).eq(4).text(isNull(a_chain) ? '-' : a_chain);
-    $('td', row).eq(5).html(isNull(a_tick) ? '-' : formatLink('/' + coin + '/token/' + a_tick, a_tick, a_tick));
+    $('td', row).eq(5).html(isNull(a_tick) ? '-' : formatLink(tokenUrl(coin, a_tick), a_tick, a_tick));
     $('td', row).eq(6).html(formatAmount(a_amount));
     $('td', row).eq(7).text(isNull(b_chain) ? '-' : b_chain);
-    $('td', row).eq(8).html(isNull(b_tick) ? '-' : formatLink('/' + coin + '/token/' + b_tick, b_tick, b_tick));
+    $('td', row).eq(8).html(isNull(b_tick) ? '-' : formatLink(tokenUrl(coin, b_tick), b_tick, b_tick));
     $('td', row).eq(9).html(formatAmount(b_amount));
-    $('td', row).eq(10).html('<span class="badge text-bg-secondary">' + (mstatus || '-') + '</span>');
+    $('td', row).eq(10).html('<span class="badge text-bg-secondary">' + escapeHtml(String(mstatus || '-')) + '</span>');
 
 }
 xcDatatableRowHandlers.cross_chain_match = xcDatatableRenderCrossChainMatchRow;
@@ -267,10 +267,10 @@ function xcDatatableRenderPriceSnapshotRow(context){
     $('td', row).eq(2).text(isNull(reference_block) ? '-' : numeral(reference_block).format(fmtInteger));
     $('td', row).eq(3).text(isNull(reference_chain) ? '-' : reference_chain);
     $('td', row).eq(4).text(isNull(coin_pair) ? '-' : coin_pair);
-    $('td', row).eq(5).text(isNull(price) ? '-' : numeral(price).format(fmtCurrency));
+    $('td', row).eq(5).text(isNull(price) ? '-' : formatAmount(bcformat(price, 2)));
     $('td', row).eq(6).text(isNull(validators) ? '-' : validators);
     $('td', row).eq(7).text(isNull(round) ? '-' : round);
-    $('td', row).eq(8).html('<span class="badge text-bg-secondary">' + (round_status || '-') + '</span>');
+    $('td', row).eq(8).html('<span class="badge text-bg-secondary">' + escapeHtml(String(round_status || '-')) + '</span>');
 
 }
 xcDatatableRowHandlers.price_snapshot = xcDatatableRenderPriceSnapshotRow;
@@ -312,12 +312,15 @@ function xcDatatableRenderReorgRow(context){
     let affected_chains = data[4];
     let validator_count = data[5];
     let reorg_status    = data[6];
-    let chains = [];
-    try { chains = JSON.parse(affected_chains) || []; } catch(e){ chains = []; }
+    let chains = [], chainsError = null;
+    if(!isNull(affected_chains)) try { chains = JSON.parse(affected_chains); if(!Array.isArray(chains)) chainsError = 'expected a JSON array'; }
+    catch(e){ chainsError = e && e.message ? e.message : 'could not parse JSON'; }
+    let chainsHtml = Array.isArray(chains) ? chains.map((chain, i) => typeof chain === 'string' && chain.length
+        ? escapeHtml(chain) : '<span class="text-danger">entry ' + (i + 1) + ': invalid chain name</span>').join(', ') : '';
     $('td', row).eq(1).html(isNull(reorg_timestamp) ? '-' : formatLivestamp(Math.floor(reorg_timestamp / 1000)));
     $('td', row).eq(2).html(isNull(reorg_height) ? '-' : formatLink('/' + coin + '/block/' + reorg_height, numeral(reorg_height).format(fmtInteger)));
     $('td', row).eq(3).html(isNull(reorg_id) ? '-' : formatHash(reorg_id, 24));
-    $('td', row).eq(4).text(chains.length ? chains.join(', ') : '-');
+    $('td', row).eq(4).html(chainsError ? '<span class="text-danger">Invalid affected_chains: ' + escapeHtml(chainsError) + '</span>' : (chainsHtml || '-'));
     $('td', row).eq(5).text(isNull(validator_count) ? '-' : validator_count);
     $('td', row).eq(6).html('<span class="badge text-bg-' + (reorg_status=='confirmed' ? 'success' : 'danger') + '">' + escapeHtml(reorg_status || '-') + '</span>');
 
@@ -368,7 +371,7 @@ function xcDatatableRenderContractDelegationRow(context){
     let deactivation    = data[8];
     $('td', row).eq(4).html(isNull(signing_pubkey) ? '-' : formatHash(signing_pubkey));
     $('td', row).eq(5).html(isNull(contract_index) ? '-' : formatLink('/' + coin + '/contract/' + contract_index, contract_index));
-    $('td', row).eq(6).html(isNull(tick) ? '-' : formatLink('/' + coin + '/token/' + tick, tick, tick));
+    $('td', row).eq(6).html(isNull(tick) ? '-' : formatLink(tokenUrl(coin, tick), tick, tick));
     $('td', row).eq(7).text(isNull(activation) ? '-' : numeral(activation).format(fmtInteger));
     $('td', row).eq(8).text(isNull(deactivation) ? '-' : numeral(deactivation).format(fmtInteger));
     $('td', row).eq(9).html(action_link);
@@ -386,7 +389,7 @@ function xcDatatableRenderVoteDelegationRow(context){
     let tick      = data[3];
     let delegator = data[4];
     let delegate  = data[5];
-    $('td', row).eq(3).html(isNull(tick) ? '-' : formatLink('/' + coin + '/token/' + tick, tick, tick));
+    $('td', row).eq(3).html(isNull(tick) ? '-' : formatLink(tokenUrl(coin, tick), tick, tick));
     $('td', row).eq(4).html(isNull(delegator) ? '-' : formatLink('/' + coin + '/address/' + delegator, delegator));
     $('td', row).eq(5).html(isNull(delegate) ? '-' : formatLink('/' + coin + '/address/' + delegate, delegate));
     $('td', row).eq(6).html(action_link);

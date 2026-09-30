@@ -293,9 +293,12 @@ class BetReaders {
                            timestamp: null, tx_hash: null, synthetic: true };
             let times  = await this.doQuery(config, `SELECT block_time FROM blocks WHERE block_index=? LIMIT 1`, [closedBlock]);
             if(times && times.length) closed.timestamp = times[0].block_time;
-            // Order by block, and place the synthetic latch AFTER any action-backed row
-            // in the same block: within a block, user txs process before the latch pass.
-            let at = rows.findIndex(r => r.block_index > closedBlock);
+            // Order by block, placing the synthetic latch after other same-block user
+            // actions (create/resolve/cancel process before the latch pass) but before
+            // a same-block 'expired' row: expiry is the one status that is causally
+            // downstream of the closed latch, since a feed can only expire once closed.
+            let at = rows.findIndex(r => r.block_index > closedBlock ||
+                                          (r.block_index === closedBlock && r.status === 'expired'));
             if(at === -1) rows.push(closed); else rows.splice(at, 0, closed);
         }
         return rows;
@@ -313,6 +316,7 @@ class BetReaders {
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
+                        LEFT  JOIN bet_feeds          f  ON (f.action_index=m.feed_action_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     bs ON (bs.id=m.bet_status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -325,6 +329,7 @@ class BetReaders {
                         a2.address as source,
                         m.feed_action_index,
                         m.outcome,
+                        f.outcomes,
                         pt.tick,
                         m.amount,
                         bs.status as bet_status,

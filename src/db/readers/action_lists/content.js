@@ -86,6 +86,22 @@ const GET_FILES_COUNT_SQL_2 = `SELECT
                             LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         WHERE `;
 
+const GET_FILES_GATE_COUNT_SQL = `SELECT
+                            count(*) as total
+                        FROM
+                            files m
+                            INNER JOIN gated_files        gf ON (gf.action_index=m.action_index)
+                            INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                            LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                            LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                            LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                            LEFT  JOIN index_mime_types   t3 ON (t3.id=m.type_id)
+                            LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
+                        WHERE `;
+
 const GET_FILES_QUERY_SQL_2 = `SELECT
                             a3.action,
                             m.action_index,
@@ -184,7 +200,7 @@ class ContentReaders {
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;
         } else {
-            count = GET_FILES_COUNT_SQL_2 + sql.where.data;
+            count = ((config.data.type=='gate') ? GET_FILES_GATE_COUNT_SQL : GET_FILES_COUNT_SQL_2) + sql.where.data;
             query = GET_FILES_QUERY_SQL_2 + sql.where.data + sql.where.offset +`
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;

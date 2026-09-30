@@ -128,6 +128,10 @@ function genericClause(db, config, sql){
         sql += ' AND a3.address=?';
     if(type=='source')
         sql += ' AND a2.address=?';
+    // getDelegations only: the delegations holding one signing pubkey (a3 joins
+    // index_pubkeys on m.signing_pubkey_id); the reader binds the key lowercased.
+    if(type=='pubkey' && method=='getDelegations')
+        sql += ' AND a3.pubkey=?';
     sql = dispenserLaneClause(db, config, sql);
     return entityClause(db, config, sql);
 }
@@ -178,6 +182,9 @@ function entityClause(db, config, sql){
             sql += ' AND t3.tick=?';
         }
     }
+    // Match the ticker that unlocks a gated FILE, independent of LINK mappings.
+    if(type=='gate' && method=='getFiles')
+        sql += ' AND gf.gate_ticker=?';
     // getFiles 'name' mode (spec explorer-coverage-completion M1.7):
     // discovery-by-filename. files.name is a plain VARCHAR column on the base
     // `files` table (not interned like tick/address), and only 'token' routes

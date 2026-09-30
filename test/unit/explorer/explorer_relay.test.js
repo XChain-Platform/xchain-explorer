@@ -65,13 +65,13 @@ describe('XChainExplorer#processRelayRequest', function () {
             get: sinon.stub().resolves({ data: payload })
         };
         const explorer = makeExplorer(axiosStub);
-        const req = makeRelayReq('https://example.com/token.json');
+        const req = makeRelayReq('https://ipfsc.crystalsuite.com/token.json');
         const res = mockRes();
 
         await explorer.processRelayRequest(req, res);
 
         expect(axiosStub.get.calledOnce).to.be.true;
-        expect(axiosStub.get.firstCall.args[0]).to.equal('https://example.com/token.json');
+        expect(axiosStub.get.firstCall.args[0]).to.equal('https://ipfsc.crystalsuite.com/token.json');
         expect(res._type).to.equal('json');
         // The body is re-serialized JSON text that still carries the payload fields.
         expect(res._body).to.include('XCHAIN');
@@ -84,7 +84,7 @@ describe('XChainExplorer#processRelayRequest', function () {
             get: sinon.stub().resolves({ data: fakeBuffer.buffer.slice(fakeBuffer.byteOffset, fakeBuffer.byteOffset + fakeBuffer.byteLength) })
         };
         const explorer = makeExplorer(axiosStub);
-        const req = makeRelayReq('https://example.com/logo.png');
+        const req = makeRelayReq('https://ipfsc.crystalsuite.com/logo.png');
         const res = mockRes();
 
         await explorer.processRelayRequest(req, res);
@@ -94,6 +94,38 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(axiosStub.get.firstCall.args[1]).to.have.property('responseType', 'arraybuffer');
         // Those bytes come back to the page as a non-empty base64 string.
         expect(res._body).to.be.a('string').and.have.length.above(0);
+    });
+});
+
+describe('XChainExplorer#processRelayRequest', function () {
+    it('fetches the extensionless IPFS and inscription URLs emitted by the token page', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { ok: true } }) };
+        const explorer = makeExplorer(axiosStub);
+        const urls = [
+            'https://ipfsc.crystalsuite.com/QmMetadata',
+            'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + 'ab'.repeat(32)
+        ];
+
+        for(const url of urls)
+            await explorer.processRelayRequest(makeRelayReq(url), mockRes());
+
+        expect(axiosStub.get.callCount).to.equal(2);
+        expect(axiosStub.get.firstCall.args[0]).to.equal(urls[0]);
+        expect(axiosStub.get.secondCall.args[0]).to.equal(urls[1]);
+    });
+});
+
+describe('XChainExplorer#processRelayRequest', function () {
+    it('refuses an arbitrary public host without making a request', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { relayed: true } }) };
+        const explorer = makeExplorer(axiosStub);
+        const res = mockRes();
+
+        await explorer.processRelayRequest(makeRelayReq('https://example.com/token.json'), res);
+
+        expect(res._status).to.equal(403);
+        expect(res._body).to.deep.equal({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
+        expect(axiosStub.get.called).to.be.false;
     });
 });
 
@@ -214,7 +246,7 @@ describe('XChainExplorer#processRelayRequest', function () {
             get: sinon.stub().rejects(new Error('ECONNREFUSED'))
         };
         const explorer = makeExplorer(axiosStub);
-        const req = makeRelayReq('https://example.com/token.json');
+        const req = makeRelayReq('https://arweave.net/token.json');
         const res = mockRes();
 
         await explorer.processRelayRequest(req, res);
@@ -226,7 +258,7 @@ describe('XChainExplorer#processRelayRequest', function () {
     it('returns 503 for an unsupported file extension (.html)', async function () {
         const axiosStub = { get: sinon.stub() };
         const explorer = makeExplorer(axiosStub);
-        const req = makeRelayReq('https://example.com/page.html');
+        const req = makeRelayReq('https://ipfsc.crystalsuite.com/page.html');
         const res = mockRes();
 
         await explorer.processRelayRequest(req, res);
@@ -236,5 +268,126 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(res._status).to.equal(503);
         expect(res._body).to.deep.equal({ error: 'service not available', code: 'SERVICE_UNAVAILABLE' });
     });
+});
 
+// A relay request that names the chain and token whose description points at the URL.
+function makeTokenRelayReq(url, coin, tick) {
+    const req = makeRelayReq(url);
+    if(coin !== undefined) req.query.coin = coin;
+    if(tick !== undefined) req.query.tick = tick;
+    return req;
+}
+
+// Give the explorer one TDOGE database whose tokens carry these descriptions.
+function withTokens(explorer, descriptions) {
+    explorer.db.pools = { TDOGE: {} };
+    explorer.db.findTokenDescription = sinon.stub().callsFake(async (config, tick) =>
+        (config.coin === 'TDOGE' && Object.prototype.hasOwnProperty.call(descriptions, tick)) ? descriptions[tick] : null);
+    return explorer;
+}
+
+const FAIRYWINK_URL = 'https://cryptowave.neocities.org/smokingfairywink.json';
+const DENIED        = { error: 'Destination not permitted', code: 'RELAY_DENIED' };
+
+describe('XChainExplorer#processRelayRequest token-referenced hosts', function () {
+    it('relays an ordinary host when the named token description points at that exact URL', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { name: 'FAIRYWINK' } }) };
+        const explorer = withTokens(makeExplorer(axiosStub), { FAIRYWINK: FAIRYWINK_URL });
+        const res = mockRes();
+
+        await explorer.processRelayRequest(makeTokenRelayReq(FAIRYWINK_URL, 'tdoge', 'FAIRYWINK'), res);
+
+        expect(axiosStub.get.calledOnce).to.be.true;
+        expect(axiosStub.get.firstCall.args[0]).to.equal(FAIRYWINK_URL);
+        // The token path keeps the same egress limits as the gateways.
+        const opts = axiosStub.get.firstCall.args[1];
+        expect(opts).to.include({ maxRedirects: 0, timeout: 5000, maxContentLength: 5 * 1024 * 1024 });
+        expect(opts.lookup).to.be.a('function');
+        expect(res._type).to.equal('json');
+        expect(res._body).to.include('FAIRYWINK');
+    });
+
+    it('relays the https form a plain http description is upgraded to', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { ok: true } }) };
+        const explorer = withTokens(makeExplorer(axiosStub), { STARE: 'http://ooakosimo.github.io/xmeta/stare.json;art' });
+
+        await explorer.processRelayRequest(makeTokenRelayReq('https://ooakosimo.github.io/xmeta/stare.json', 'TDOGE', 'STARE'), mockRes());
+
+        expect(axiosStub.get.calledOnce).to.be.true;
+    });
+
+    it('refuses the same URL under a tick whose description names a different URL', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { relayed: true } }) };
+        const explorer = withTokens(makeExplorer(axiosStub), {
+            FAIRYWINK: FAIRYWINK_URL,
+            OTHER:     'https://cryptowave.neocities.org/other.json'
+        });
+        const res = mockRes();
+
+        await explorer.processRelayRequest(makeTokenRelayReq(FAIRYWINK_URL, 'TDOGE', 'OTHER'), res);
+
+        expect(res._status).to.equal(403);
+        expect(res._body).to.deep.equal(DENIED);
+        expect(axiosStub.get.called).to.be.false;
+    });
+
+    it('refuses a private address even when a token description references it', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { leaked: true } }) };
+        const explorer = withTokens(makeExplorer(axiosStub), { EVIL: 'https://10.0.0.1/meta.json' });
+        const res = mockRes();
+
+        await explorer.processRelayRequest(makeTokenRelayReq('https://10.0.0.1/meta.json', 'TDOGE', 'EVIL'), res);
+
+        expect(res._status).to.equal(403);
+        expect(res._body).to.deep.equal(DENIED);
+        expect(axiosStub.get.called).to.be.false;
+        // The address gate refuses it before any token is read.
+        expect(explorer.db.findTokenDescription.called).to.be.false;
+    });
+});
+
+describe('XChainExplorer#processRelayRequest token reference refusals', function () {
+    it('relays a gateway host with no coin or tick and reads no token', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { ok: true } }) };
+        const explorer = withTokens(makeExplorer(axiosStub), {});
+
+        await explorer.processRelayRequest(makeRelayReq('https://arweave.net/abc123'), mockRes());
+
+        expect(axiosStub.get.calledOnce).to.be.true;
+        expect(explorer.db.findTokenDescription.called).to.be.false;
+    });
+
+    const refusals = [
+        ['no tick',                 ['TDOGE', undefined]],
+        ['an empty tick',           ['TDOGE', '']],
+        ['an unknown tick',         ['TDOGE', 'NOSUCHTOKEN']],
+        ['no coin',                 [undefined, 'FAIRYWINK']],
+        ['a chain with no database', ['TBTC', 'FAIRYWINK']],
+        ['a repeated tick',         ['TDOGE', ['FAIRYWINK', 'FAIRYWINK']]]
+    ];
+    for (const [label, [coin, tick]] of refusals) {
+        it(`refuses a non-gateway host with ${label}`, async function () {
+            const axiosStub = { get: sinon.stub().resolves({ data: { relayed: true } }) };
+            const explorer = withTokens(makeExplorer(axiosStub), { FAIRYWINK: FAIRYWINK_URL });
+            const res = mockRes();
+
+            await explorer.processRelayRequest(makeTokenRelayReq(FAIRYWINK_URL, coin, tick), res);
+
+            expect(res._status).to.equal(403);
+            expect(res._body).to.deep.equal(DENIED);
+            expect(axiosStub.get.called).to.be.false;
+        });
+    }
+
+    it('refuses when the token description cannot be read', async function () {
+        const axiosStub = { get: sinon.stub().resolves({ data: { relayed: true } }) };
+        const explorer = withTokens(makeExplorer(axiosStub), {});
+        explorer.db.findTokenDescription = sinon.stub().rejects(new Error('pool closed'));
+        const res = mockRes();
+
+        await explorer.processRelayRequest(makeTokenRelayReq(FAIRYWINK_URL, 'TDOGE', 'FAIRYWINK'), res);
+
+        expect(res._status).to.equal(403);
+        expect(axiosStub.get.called).to.be.false;
+    });
 });

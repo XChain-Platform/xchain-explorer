@@ -109,7 +109,8 @@ describe('XChainExplorer.processRequest – ownership row shape (action_index la
         const explorer = makeExplorer();
         const row      = parseBody(await handle(explorer, '/BTC/explorer/dispensers/addr1/address', dtQuery)).data[0];
         expect(row[row.length - 1]).to.equal(70, 'action_index is the last element (paging cursor)');
-        expect(row[row.length - 3]).to.equal(1,  'give_ownership sits immediately before status/action_index');
+        expect(row[row.length - 4]).to.equal(1,  'give_ownership sits before price_stale/status/action_index');
+        expect(row[row.length - 3]).to.equal(false, 'price_stale is the boolean before status/action_index');
     });
 
     it('getOrders: give/get_ownership sit before status/action_index', async function () {

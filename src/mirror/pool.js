@@ -40,7 +40,9 @@ class HubMirrorPool {
             // or decoder pools does not drag this one along, and vice versa.
             connectionLimit:  poolSizing.resolvePoolSize('hub-mirror'),
             insertIdAsNumber: true,
-            queryTimeout:     poolSizing.resolveQueryTimeout('hub-mirror')
+            queryTimeout:     poolSizing.resolveQueryTimeout('hub-mirror'),
+            // Session at +00:00 like the hub, so CURRENT_TIMESTAMP defaults land UTC-literal
+            timezone:         'Z'
         });
     }
 

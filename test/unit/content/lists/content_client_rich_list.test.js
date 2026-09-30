@@ -50,6 +50,8 @@ const XCHAIN_SRC = srcText('src/content/js/xchain.js')
 const RENDER_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/rich_list_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/rich_list.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
+const MATH_SRC   = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/math.min.js'), 'utf8');
+const BC_SRC     = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/xchain/network_status.js'), 'utf8');
 
 function extractFn(src, name) {
     const sig = 'function ' + name + '(';
@@ -69,13 +71,24 @@ function extractFn(src, name) {
 // the supply-mismatch comparison are both expressed through them.
 function installHelpers(dom) {
     dom.window.eval(JQUERY_SRC);
+    dom.window.eval(MATH_SRC);
     dom.window.eval(`
-        var XC = { coin: 'RDOGE', query: 'RARETOKEN', network: 'regtest', name: 'Dogecoin', pageInfo: {}, datatables: {} };
-        function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        var XC = { coin: 'RDOGE', query: 'RARETOKEN', network: 'regtest', name: 'Dogecoin', pageInfo: {}, datatables: {}, chains: {}, networks: {} };
+        function stripHtml(v){ return String(v); }
+        function getXChainParam(coin, type){ return String(coin).toUpperCase(); }
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
+        // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
+        function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
+        function formatLink(href, text){ return formatLinkHtml(href, text ? String(text).replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }) : text); }
         function updatePageInfo(){}
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(XCHAIN_SRC, 'isNull')}
         ${extractFn(XCHAIN_SRC, 'isNumeric')}
+        ${extractFn(XCHAIN_SRC, 'params_hasTextDetailQuery')}
+        ${extractFn(XCHAIN_SRC, 'setXChainParams')}
+        ${extractFn(XCHAIN_SRC, 'formatAmount')}
+        ${extractFn(BC_SRC, 'bcnum')}
+        ${extractFn(BC_SRC, 'bcformat')}
     `);
     dom.window.eval(RENDER_SRC);
 }
@@ -96,14 +109,16 @@ function paint(dom, html) {
     return dom.window.$;
 }
 
-function loadPage(routes) {
+function loadPage(routes, tick = 'RARETOKEN') {
     const bodyHtml = PAGE_HTML.slice(0, PAGE_HTML.indexOf('<script'));
     const scriptStart = PAGE_HTML.indexOf('$(document).ready(function() {');
     if (scriptStart < 0) throw new Error("rich_list.html's inline ready block was not found");
     const inline = PAGE_HTML.slice(scriptStart, PAGE_HTML.lastIndexOf('</script>'));
 
-    const dom = new JSDOM('<!DOCTYPE html><body>' + bodyHtml + '</body>', { runScripts: 'outside-only' });
+    const url = 'https://explorer.test/RDOGE/rich_list/' + encodeURIComponent(tick);
+    const dom = new JSDOM('<!DOCTYPE html><body>' + bodyHtml + '</body>', { runScripts: 'outside-only', url });
     installHelpers(dom);
+    dom.window.setXChainParams('RDOGE');
     dom.window.eval('jQuery.fn.ready = function(fn){ fn(jQuery); return this; };');
 
     const seen = [];
@@ -157,6 +172,13 @@ describe('rich list and supply stats (M5.2)', function () {
             expect($('.rich-list-ceiling-locked').length).to.equal(1);
         });
 
+        it('renders a zero maximum supply as no declared cap', function () {
+            const dom = renderDom();
+            const $ = paintRows(dom, dom.window.renderRichListSupply(
+                Object.assign({}, TRUNCATED, { max_supply: 0 })));
+            expect($('#out').text()).to.include('No cap declared');
+        });
+
         it('says the top-ten concentration was NOT MEASURED rather than showing zero', function () {
             const dom = renderDom();
             const $ = paintRows(dom, dom.window.renderRichListSupply(TRUNCATED));
@@ -171,24 +193,7 @@ describe('rich list and supply stats (M5.2)', function () {
             expect($('.rich-list-supply-mismatch').length).to.equal(1);
         });
 
-        it('shows no mismatch when the two figures differ only in trailing zeros', function () {
-            // '1000' and '1000.00000000' are the SAME number arriving from two
-            // VARCHAR columns; flagging that as ledger drift would cry wolf on
-            // every token and train readers to ignore the real warning.
-            const dom = renderDom();
-            const $ = paintRows(dom, dom.window.renderRichListSupply(
-                Object.assign({}, TRUNCATED, { held_total: '1000.00000000' })));
-            expect($('.rich-list-supply-mismatch').length).to.equal(0);
-        });
-
-        it('renders an unmeasurable largest-holder share as n/a, never as 0%', function () {
-            const dom = renderDom();
-            const $ = paintRows(dom, dom.window.renderRichListSupply(
-                Object.assign({}, TRUNCATED, { top_holder_percent: null })));
-            expect($('.rich-list-percent-unknown').length).to.be.greaterThan(0);
-        });
     });
-
 });
 
 describe('rich list and supply stats (M5.2)', function () {
@@ -200,6 +205,14 @@ describe('rich list and supply stats (M5.2)', function () {
             const $ = paint(dom, dom.window.renderRichListHolders(TRUNCATED));
             expect($('.rich-list-row').length).to.equal(3);
             expect($('.rich-list-row').first().attr('data-rank')).to.equal('1');
+        });
+
+        it('keeps every digit of a large holder balance', function () {
+            const dom = renderDom();
+            const $ = paint(dom, dom.window.renderRichListHolders(Object.assign({}, TRUNCATED, {
+                holders: [{ rank: 1, address: 'mWhale', amount: '9007199254740993', percent: '1' }]
+            })));
+            expect($('.rich-list-amount').text()).to.equal('9,007,199,254,740,993');
         });
 
         it('keeps a page-2 rank instead of renumbering from 1', function () {
@@ -251,6 +264,13 @@ describe('rich list and supply stats (M5.2)', function () {
             expect(seen).to.deep.equal(['/RDOGE/api/rich_list/RARETOKEN']);
         });
 
+        it('decodes a chain-valid fragment ticker before rebuilding rich-list URLs', function () {
+            const route = '/RDOGE/api/rich_list/A%23B';
+            const page = loadPage({ [route]: Object.assign({}, TRUNCATED, { tick: 'A#B' }) }, 'A#B');
+            expect(page.seen).to.deep.equal([route]);
+            expect(page.window.XC.pageInfo.canonical).to.equal('/RDOGE/rich_list/A%23B');
+        });
+
         it('renders supply, ranking and the coverage note together', function () {
             const { $ } = loadPage({ '/RDOGE/api/rich_list/RARETOKEN': TRUNCATED });
             expect($('#rich-list-supply tr').length).to.be.greaterThan(3);
@@ -275,5 +295,35 @@ describe('rich list and supply stats (M5.2)', function () {
             expect($('.rich-list-error').length).to.equal(1);
             expect($('.rich-list-error').text()).to.include('index unavailable');
         });
+    });
+});
+
+describe('rich list supply panel precision', function () {
+
+    it('shows no mismatch when the two figures differ only in trailing zeros', function () {
+        // '1000' and '1000.00000000' are the SAME number arriving from two
+        // VARCHAR columns; flagging that as ledger drift would cry wolf on
+        // every token and train readers to ignore the real warning.
+        const dom = renderDom();
+        const $ = paintRows(dom, dom.window.renderRichListSupply(
+            Object.assign({}, TRUNCATED, { held_total: '1000.00000000' })));
+        expect($('.rich-list-supply-mismatch').length).to.equal(0);
+    });
+
+    it('keeps supply digits above the safe integer boundary and exposes a one-unit mismatch', function () {
+        const dom = renderDom();
+        const $ = paintRows(dom, dom.window.renderRichListSupply(
+            Object.assign({}, TRUNCATED, {
+                supply: '9007199254740992', held_total: '9007199254740993'
+            })));
+        expect($('td').first().text()).to.equal('9,007,199,254,740,992');
+        expect($('.rich-list-supply-mismatch').text()).to.include('9,007,199,254,740,993');
+    });
+
+    it('renders an unmeasurable largest-holder share as n/a, never as 0%', function () {
+        const dom = renderDom();
+        const $ = paintRows(dom, dom.window.renderRichListSupply(
+            Object.assign({}, TRUNCATED, { top_holder_percent: null })));
+        expect($('.rich-list-percent-unknown').length).to.be.greaterThan(0);
     });
 });

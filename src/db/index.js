@@ -86,7 +86,6 @@ const { ACTION_TABLES, CURSOR_PAGED_METHODS } = require('./method_tables.js');
 // COALESCE(<actions alias>.source_id, t1.source_id); the fallback covers system/synthetic
 // actions (expiries, completion UNSTAKEs), which are created with no SOURCE at all.
 class Database {
-
     constructor(explorer){
         this.explorer   = explorer;
         this.configInfo = explorer.configInfo
@@ -95,9 +94,7 @@ class Database {
         this.configInfo.onConfigChanged(()=>{
             this.setupConnectionPools();
         })
-
         this.transactionConnection = null;
-
         // LRU caches for frequently-queried immutable lookups
         this._addressIdCache  = new Map();
         // Byte-exact address -> id resolutions (getExactAddressId). Kept apart from
@@ -107,6 +104,7 @@ class Database {
         // let whichever ran first answer for both.
         this._exactAddressIdCache = new Map();
         this._tickIdCache     = new Map();
+        this._tickNameCache   = new Map();
         this._actionDataCache = new Map();
         // Per-coin reorg generation counter mixed into the id/action cache keys
         // (M-3). The indexer reassigns ^id / action_index values on a reorg, so

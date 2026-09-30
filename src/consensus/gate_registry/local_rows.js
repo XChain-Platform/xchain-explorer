@@ -18,12 +18,25 @@
 
 'use strict';
 
+const { UNARMED } = require('./core.js');
+
 // Register the DOGE height where the current ANCHOR wire set begins. Mainnet
 // and testnet retain older anchor history, while regtest starts from genesis.
+// OWNER_WITHDRAW_OPT_IN mirrors the indexer's time-table row of the same name
+// (the ProtocolChanges time table no consumer twins): a contract whose DEPLOY
+// block time is at or after the instant may be withdrawn from by its owner only
+// when its meta declares ownerWithdraw: true. The regtest entry is the genesis
+// default; src/contract/owner_withdraw.js applies the venue's
+// OWNER_WITHDRAW_OPT_IN_REGTEST_TIME override the way the indexer does.
 function registerLocalRows(registry) {
     registry.addGate('anchor_activation.ANCHOR_ACTIVATION', 'height', {
         mainnet: 6360000,
         testnet: 67858600,
+        regtest: 0,
+    });
+    registry.addGate('owner_withdraw_opt_in.OWNER_WITHDRAW_OPT_IN', 'time', {
+        mainnet: UNARMED,
+        testnet: 1790492400,
         regtest: 0,
     });
 }

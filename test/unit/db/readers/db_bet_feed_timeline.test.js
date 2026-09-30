@@ -103,6 +103,20 @@ describe('BET feed status timeline @regression', function () {
         assert.strictEqual(expired.synthetic, false, 'BET_EXPIRE is action-backed, not synthesized');
     });
 
+    it('places the synthetic closed latch BEFORE an expired row in the SAME block', async function () {
+        const db  = makeDb([[
+            'bet_feed_statuses', [
+                { action_index: 1193, status: 'open',    block_index: 2255,       timestamp: 1785261617, tx_hash: 'a'.repeat(64) },
+                { action_index: 1196, status: 'expired', block_index: CLOSED_BLOCK, timestamp: 1785262295, tx_hash: null },
+            ]], CLOSED_TIME]);
+        const out = await db.getBetFeedTimeline(config, FEED, CLOSED_BLOCK);
+
+        assert.deepStrictEqual(out.map(r => r.status), ['open', 'closed', 'expired'],
+            'a same-block close and expiry must still read causally: closed before expired');
+        assert.strictEqual(out.find(r => r.status === 'closed').synthetic, true);
+        assert.strictEqual(out.find(r => r.status === 'expired').synthetic, false);
+    });
+
     it('still marks the latch synthetic and leaves action-backed rows alone', async function () {
         const db  = makeDb([STATUS_ROWS, CLOSED_TIME]);
         const out = await db.getBetFeedTimeline(config, FEED, CLOSED_BLOCK);
@@ -112,7 +126,9 @@ describe('BET feed status timeline @regression', function () {
         assert.strictEqual(closed.action_index, null);
         assert.strictEqual(Number(closed.timestamp), 1785262295, 'the latch timestamp is read from its block');
     });
+});
 
+describe('BET feed status timeline @regression', function () {
     // The mechanism, pinned so the two symptoms stay visibly connected. The splice
     // logic below was never wrong; it was fed a NULL. This reproduces the shape the
     // OLD query returned and shows it printing the impossible order, which is why the
@@ -127,9 +143,7 @@ describe('BET feed status timeline @regression', function () {
         assert.deepStrictEqual(out.map(r => r.status), ['open', 'expired', 'closed'],
             'a NULL block no longer reorders the latch, so this test has stopped describing the bug');
     });
-});
 
-describe('BET feed status timeline @regression', function () {
     // A market that never closed (cancelled while still open) has no latch to place.
     it('adds no latch when the feed never latched closed', async function () {
         const db  = makeDb([['bet_feed_statuses', [

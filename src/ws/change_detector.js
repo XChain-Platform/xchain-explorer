@@ -127,9 +127,10 @@ class ChangeDetector extends EventEmitter {
         // the emit in checkMempoolForCoin.
         this.mempoolState = {};
 
-        // Polling timer reference
-        this.timer   = null;
-        this.running = false;
+        // Polling timer reference, and the pass in flight (null when idle)
+        this.timer    = null;
+        this.running  = false;
+        this._polling = null;
     }
 
     // Begin the polling loop. Every coin gets a cursor seeded before the timer is
@@ -154,12 +155,15 @@ class ChangeDetector extends EventEmitter {
         log.info('CHANGE_DETECTOR_STARTED', { poll_interval_ms: this.pollInterval, coins: coins.join(', ') });
     }
 
+    // Stop polling. Returns the pass still in flight (or a resolved promise) so the
+    // shutdown drain waits for it before it closes the database pools.
     stop() {
         this.running = false;
         if (this.timer) {
             clearInterval(this.timer);
             this.timer = null;
         }
+        return this._polling || Promise.resolve();
     }
 
     // Is this coin's indexed tip too old for the live feed to present its rows as
@@ -179,13 +183,24 @@ class ChangeDetector extends EventEmitter {
         return !!(this.db && typeof this.db.staleFailClosed === 'function' && this.db.staleFailClosed());
     }
 
+    // Start one poll pass unless one is already running, in which case hand back that
+    // pass: an overrun pass would otherwise re-read cursors it has not yet advanced and
+    // emit every frame twice. The timer tick that finds a pass in flight is dropped.
+    poll() {
+        if (!this.running) return Promise.resolve();
+        if (this._polling) return this._polling;
+        this._polling = this.pollPass().finally(() => { this._polling = null; });
+        return this._polling;
+    }
+
     // One poll cycle over every tracked coin: staleness verdict first, then the
     // block and action cursors, then the mempool diff. Each coin's two passes are
     // caught separately so one chain's failure cannot stop the others.
-    async poll() {
-        if (!this.running) return;
-
+    async pollPass() {
         for (const coin of Object.keys(this.state)) {
+            // A stop() mid-pass finishes the current coin only; the pools are closing.
+            if (!this.running) break;
+
             // A FROZEN replica emits nothing here anyway (every emit below is
             // triggered by the tip advancing), but a replica REPLAYING history from
             // a snapshot, or catching up after a stall, does advance while its

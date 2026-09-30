@@ -136,8 +136,8 @@ class ChannelKeys {
         let key = coin + ':' + channel;
         if (entityKey) {
             if (entityKey.address)      key += ':' + entityKey.address;
-            else if (entityKey.tick)    key += ':' + entityKey.tick;
-            else if (entityKey.tick1)   key += ':' + entityKey.tick1 + ':' + entityKey.tick2;
+            else if (entityKey.tick)    key += ':' + encodeURIComponent(String(entityKey.tick));
+            else if (entityKey.tick1)   key += ':' + encodeURIComponent(String(entityKey.tick1)) + ':' + encodeURIComponent(String(entityKey.tick2));
             else if (entityKey.action_index !== undefined) key += ':' + entityKey.action_index;
             // call_id is tested LAST and on its own, not folded into the address
             // branch: an xcall subscription carries no address/tick/action_index, and
@@ -164,8 +164,8 @@ class ChannelKeys {
         let entityKey = null;
 
         if (channel === 'address' && parts.length > 2)   entityKey = { address: parts.slice(2).join(':') };
-        if (channel === 'token' && parts.length > 2)      entityKey = { tick: parts[2] };
-        if (channel === 'market' && parts.length > 3)     entityKey = { tick1: parts[2], tick2: parts[3] };
+        if (channel === 'token' && parts.length > 2)      entityKey = { tick: decodeURIComponent(parts[2]) };
+        if (channel === 'market' && parts.length > 3)     entityKey = { tick1: decodeURIComponent(parts[2]), tick2: decodeURIComponent(parts[3]) };
         // Keep the dispenser action_index as the canonical decimal STRING carried in the
         // channel key. Number() here diverged SUBSCRIPTION_LIST/UNSUBSCRIBED (number) from
         // SUBSCRIBED (client value) and lost precision above 2^53; the v2 wire contract is

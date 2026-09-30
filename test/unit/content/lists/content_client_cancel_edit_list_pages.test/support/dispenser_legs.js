@@ -49,8 +49,8 @@ const {
 // createdRow scratch variable. Behaviour must not change, so each leg is compared
 // byte-for-byte against the prior expression, same helpers, same realm.
 
-const DISPENSER_TOKEN  = [1, 3400, 1787938500, SRC_ADDR, 'RDOGE', 'CAMPD', '10', 'RDOGE', 'CAMPE', '5',    0, 1290];
-const DISPENSER_NATIVE = [1, 3400, 1787938500, SRC_ADDR, 'RDOGE', 'CAMPD', '10', 'RDOGE', null,    '1000', 0, 1290];
+const DISPENSER_TOKEN  = [1, 3400, 1787938500, SRC_ADDR, 'RDOGE', 'CAMPD', '10', 'RDOGE', 'CAMPE', '5',    0, false, 0, 1290];
+const DISPENSER_NATIVE = [1, 3400, 1787938500, SRC_ADDR, 'RDOGE', 'CAMPD', '10', 'RDOGE', null,    '1000', 0, false, 0, 1290];
 const DISPENSE_TOKEN   = [1, 3401, 1787938560, SRC_ADDR, 'RDOGE', 'CAMPD', '10', 'RDOGE', 'CAMPE', '5',    1, 1291];
 const DISPENSE_NATIVE  = [1, 3401, 1787938560, SRC_ADDR, 'RDOGE', 'CAMPD', '10', 'RDOGE', null,    '1000', 1, 1291];
 
@@ -92,6 +92,13 @@ describe('dispenser/dispense legs are values, not shared scratch state', functio
 });
 
 describe('dispenser/dispense legs are values, not shared scratch state', function () {
+
+    it('adds the stale-price warning to a dispenser cost cell only when flagged', function () {
+        const stale = DISPENSER_NATIVE.slice();
+        stale[11] = true;
+        expect(renderRow('dispenser', stale, 7).html[5]).to.include('Not selling: no price in the last 24 hours');
+        expect(renderRow('dispenser', DISPENSER_NATIVE, 7).html[5]).to.not.include('Not selling');
+    });
 
 // The give leg shares the cell above it and must be unaffected by the change.
     it('leaves the give leg unchanged for both a token and a native get leg', function () {

@@ -163,6 +163,7 @@ class StateTreeReaders {
     // NULL (tombstone) and no-row both return null, which the proof layer maps
     // to "zero locked", matching the reader's delete-on-zero rule.
     async getLockedAmountAtHeight(config, address, tick, blockIndex) {
+        tick = await this.getCanonicalTick(config, tick) || tick;
         let rows = await this.doQuery(config,
             `SELECT j.locked_amount FROM escrow_leaf_journal j
              INNER JOIN index_addresses a ON a.id = j.address_id
@@ -186,6 +187,7 @@ class StateTreeReaders {
     // resolved by canonical strings (never the mutable balances cache), matching
     // the indexer's stateCommitment.getNetBalance leaf source.
     async getNetBalance18(config, address, tick) {
+        tick = await this.getCanonicalTick(config, tick) || tick;
         let rows = await this.doQuery(config,
             `SELECT CAST(
                 (SELECT COALESCE(SUM(CAST(c.amount AS DECIMAL(60,18))),0) FROM credits c
@@ -211,6 +213,7 @@ class StateTreeReaders {
     // must serve the amount committed at cp.block_index, NOT the current tip, or
     // the SDK's amountLeaf(amount) check false-rejects with LEAF_AMOUNT_MISMATCH.
     async getNetBalance18AtHeight(config, address, tick, blockIndex) {
+        tick = await this.getCanonicalTick(config, tick) || tick;
         let rows = await this.doQuery(config,
             `SELECT CAST(
                 (SELECT COALESCE(SUM(CAST(c.amount AS DECIMAL(60,18))),0) FROM credits c

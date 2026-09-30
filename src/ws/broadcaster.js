@@ -36,6 +36,7 @@
  ********************************************************************/
 
 const { COIN_MAP } = require('./broadcaster/coin_map.js');
+const { actionChannelKeys } = require('./broadcaster/action_routes.js');
 
 // BigInt-safe JSON serializer (shared with WebSocketServer via serialize.js so the
 // two socket-send paths cannot drift). See serialize.js for the BigInt rationale.
@@ -197,7 +198,7 @@ class Broadcaster {
                 // what address-channel routing now reads.
                 status:       action.status        || null,
                 // Additive (spec M1.4): the recipients of this action, resolved by
-                // db.getActionsSince across the eight destination-bearing families.
+                // db.getActionsSince across the nine destination-bearing families.
                 // Same field name and semantics as the mempool frames, so a client
                 // reads one shape whether the tx is pending or confirmed.
                 //
@@ -215,20 +216,11 @@ class Broadcaster {
             }
         };
 
-        // The firehose first: a subscriber on the global 'actions' channel sees every
-        // action, whoever it involves. The per-address fan-out below is the narrow view.
-        this.broadcastToChannel(coin, 'actions', event, action);
-
-        // Also broadcast to the address channel of every party to the action. The
-        // `seen` set is what keeps a client subscribed to an address that is BOTH
-        // source and destination (a sweep back to yourself, a multi-output SEND with
-        // change) from receiving the same frame twice; it also absorbs a repeated
-        // destination should one ever survive the dedupe in db/index.js.
-        const seen = new Set();
-        for (const address of [action.source, ...event.data.destinations]) {
-            if (!address || seen.has(address)) continue;
-            seen.add(address);
-            this.broadcastToChannel(coin, 'address', event, action, address);
+        // The coin-wide actions channel first, then each distinct party's address channel
+        // (one frame for an address that is both source and destination). The catch-up
+        // replay routes by the same actionChannelKeys, so the two cannot drift apart.
+        for (const channelKey of actionChannelKeys(coin, action.source, event.data.destinations)) {
+            this.broadcastToChannelKey(channelKey, event, action);
         }
     }
 
@@ -331,10 +323,16 @@ class Broadcaster {
 
         if (updateEvent.channel === 'market') {
             // Market uses composite key
-            const channelKey = coin + ':market:' + updateEvent.data.tick1 + ':' + updateEvent.data.tick2;
+            const channelKey = this.wsServer.channelManager.buildChannelKey(coin, 'market', {
+                tick1: updateEvent.data.tick1,
+                tick2: updateEvent.data.tick2
+            });
             this.broadcastToChannelKey(channelKey, event, updateEvent);
         } else if (entityId !== null && entityId !== undefined) {
-            const channelKey = coin + ':' + updateEvent.channel + ':' + entityId;
+            let entityKey = { address: entityId };
+            if(updateEvent.channel === 'token') entityKey = { tick: entityId };
+            if(updateEvent.channel === 'dispenser') entityKey = { action_index: entityId };
+            const channelKey = this.wsServer.channelManager.buildChannelKey(coin, updateEvent.channel, entityKey);
             this.broadcastToChannelKey(channelKey, event, updateEvent);
         }
     }

@@ -63,3 +63,4 @@ require('./db_more_queries.test/support/action_data_protocol.js');
 require('./db_more_queries.test/support/action_data_extended.js');
 require('./db_more_queries.test/support/staking_and_cross_chain.js');
 require('./db_more_queries.test/support/hub_and_checkpoints.js');
+require('./db_more_queries.test/support/ticker_case.js');

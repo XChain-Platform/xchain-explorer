@@ -71,17 +71,17 @@ function asEsc(s){ return $('<div>').text(s == null ? '' : String(s)).html(); }
 
 function asBlock(b){
     if(isNull(b)) return '-';
-    return formatLink('/' + XC.coin + '/block/' + encodeURIComponent(b), asEsc(numeral(b).format('0,0')));
+    return formatLink('/' + XC.coin + '/block/' + encodeURIComponent(b), numeral(b).format('0,0'));
 }
 
 function asAction(i){
     if(isNull(i)) return '-';
-    return formatLink('/' + XC.coin + '/action/' + encodeURIComponent(i), asEsc(numeral(i).format('0,0')));
+    return formatLink('/' + XC.coin + '/action/' + encodeURIComponent(i), numeral(i).format('0,0'));
 }
 
 function asAddress(a){
     if(isNull(a)) return '-';
-    return formatLink('/' + XC.coin + '/address/' + encodeURIComponent(a), formatHash(a, 24));
+    return formatLinkHtml('/' + XC.coin + '/address/' + encodeURIComponent(a), formatHash(a, 24));
 }
 
 function asAmount(a){
@@ -226,7 +226,7 @@ function renderAddressStakingPositions(d){
                  +  '<td>' + (isNull(r.tick) ? '<span class="text-muted">-</span>' : asEsc(r.tick)) + '</td>'
                  +  '<td>' + (isNull(r.target_contract_index) ? '<span class="text-muted">-</span>'
                             : formatLink('/' + XC.coin + '/contract/' + encodeURIComponent(r.target_contract_index),
-                                         asEsc(r.target_contract_index))) + '</td>'
+                                         r.target_contract_index)) + '</td>'
                  +  '<td>' + asBlock(r.activation_block) + '</td>'
                  +  '<td>' + (ended ? asBlock(r.deactivation_block)
                                     : '<span class="badge text-bg-success">still staked</span>') + '</td>'
@@ -323,7 +323,7 @@ function renderAddressStakingContractSlashRows(rows){
              +  '<td>' + asAction(r.execution_index) + '</td>'
              +  '<td>' + (isNull(r.target_contract_index) ? '-' :
                           formatLink('/' + XC.coin + '/contract/' + encodeURIComponent(r.target_contract_index),
-                                     asEsc(r.target_contract_index))) + '</td>'
+                                     r.target_contract_index)) + '</td>'
              +  '<td class="font-monospace small">' + formatHash(r.slashed_pubkey, 20) + '</td>'
              +  '<td>' + asEsc(isNull(r.tick) ? '-' : r.tick) + '</td>'
              +  '<td>' + asAmount(r.amount) + '</td>'

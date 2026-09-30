@@ -40,6 +40,7 @@ after(async function () {
     await db.teardownDatabase();
 });
 
+// The full market list (/markets): every trading pair, wrapped with a total
 describe('GET /RBTC/api/markets', function () {
 
     it('lists all market pairs with total and data wrapper', async function () {
@@ -55,6 +56,8 @@ describe('GET /RBTC/api/markets', function () {
     it('each market item has tick1, tick2, and price fields', async function () {
         const res = await request.get('/RBTC/api/markets').expect(200);
 
+        // Each row must carry both tickers and both prices so a client can render a pair
+        // without a second lookup
         const item = res.body.data[0];
         expect(item).to.include.keys('tick1', 'tick2', 'tick1_price', 'tick2_price', 'id');
     });
@@ -66,6 +69,8 @@ describe('GET /RBTC/api/markets/XCHAIN', function () {
 
     it('returns both pairs since XCHAIN appears in each', async function () {
         const res = await request.get('/RBTC/api/markets/XCHAIN').expect(200);
+
+        // The seed has two pairs and XCHAIN is the first ticker in both, so both must return
 
         expect(res.body).to.have.property('data').that.is.an('array');
         expect(res.body.data.length).to.be.at.least(2);
@@ -110,6 +115,9 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook', function () {
     it('returns bids and asks arrays', async function () {
         const res = await request.get('/RBTC/api/market/XCHAIN/TOKENONE/orderbook').expect(200);
 
+        // Both sides must exist as arrays even when a side is empty, so clients never
+        // have to guard against a missing bids or asks key
+
         // getOrderbook returns { bids: [], asks: [] }; merged directly into json
         expect(res.body).to.have.property('bids').that.is.an('array');
         expect(res.body).to.have.property('asks').that.is.an('array');
@@ -117,24 +125,18 @@ describe('GET /RBTC/api/market/XCHAIN/TOKENONE/orderbook', function () {
 
 });
 
+// A pair that was never traded: the seed has no FAKE/PAIR market, so the lookup misses
 describe('GET /RBTC/api/market/FAKE/PAIR', function () {
 
-    it('returns an empty array for a nonexistent pair', async function () {
+    it('returns 404 NOT_FOUND for a nonexistent pair', async function () {
         const res = await request.get('/RBTC/api/market/FAKE/PAIR');
 
-        // Explorer returns 400 when data and total are both null/empty,
-        // or a 200 with empty array; accept either outcome
-        if (res.status === 200) {
-            // If it resolved to data, it should be empty
-            const body = res.body;
-            if (Array.isArray(body)) {
-                expect(body.length).to.equal(0);
-            } else if (body && body.data) {
-                expect(body.data.length).to.equal(0);
-            }
-        } else {
-            expect(res.status).to.be.oneOf([400, 404]);
-        }
+        // The old test accepted an empty 200 or a 400; a miss is now one exact status and
+        // one error code, so a client can tell a missing pair from a malformed request
+
+        // A single-record miss answers 404 like /api/token, never a 200 {}
+        expect(res.status).to.equal(404);
+        expect(res.body.code).to.equal('NOT_FOUND');
     });
 
 });

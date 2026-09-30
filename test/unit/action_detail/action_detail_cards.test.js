@@ -283,3 +283,88 @@ describe('action detail cards (M2.5)', function () {
         });
     });
 });
+
+// ATTEST, VOTE and BET split their key/value table into one <tbody> per sub-shape,
+// and the config lists every section's rows in markup order. The card must apply
+// that config per section, never only against the first <tbody>.
+
+// A realm that records every permuteRows call whose tbody row count differs from its
+// config, the case the registry warns about and leaves alone (the realm's registry
+// has no logger, so the mismatch is recorded here instead of passed on).
+function recordingRealm(){
+    const win = realm();
+    const mismatches = [];
+    const real = win.XCComponents.permuteRows;
+    win.XCComponents.permuteRows = function(tbody, config){
+        const n = tbody ? [...tbody.children].filter((c) => c.tagName === 'TR').length : -1;
+        if(n !== config.length){
+            mismatches.push(n + ' rows vs ' + config.length + ' entries');
+            return false;
+        }
+        return real(tbody, config);
+    };
+    return { win, mismatches };
+}
+
+// Each <tbody> of a table as its class and the label of every row, in order.
+function sections(table){
+    return [...table.tBodies].map((b) => ({
+        cls: b.className,
+        labels: [...b.rows].map((r) => r.cells.length ? r.cells[0].textContent.trim() : '')
+    }));
+}
+
+// Mount the attest card with a row config and return its table.
+function mountAttest(win, rows){
+    const table = win.document.querySelector('#info-attest tbody').parentNode;
+    const res = win.XCComponents.mount(win.document.getElementById('info-attest'), 'detail-card',
+        { type: 'attest', rows, reveal: true });
+    return { table, res };
+}
+
+describe('action detail cards (M2.5): multi-section cards', function () {
+
+    it('mounts every shipped block with its config and no row-count mismatch', function () {
+        const { win, mismatches } = recordingRealm();
+        const seen = [];
+        for(const type of Object.keys(blocks)){
+            const before = mismatches.length;
+            win.mountActionDetailCard(type);
+            if(mismatches.length > before) seen.push(type + ': ' + mismatches.slice(before).join(', '));
+        }
+        assert.deepEqual(seen, []);
+    });
+
+    it('leaves every section alone when the config does not cover the whole card', function () {
+        const { win, mismatches } = recordingRealm();
+        const rows = JSON.parse(JSON.stringify(cards.attest.rows)).slice(1);
+        rows[5].order = 0;
+        const html = win.document.querySelector('#info-attest table').innerHTML;
+        const { table } = mountAttest(win, rows);
+        assert.equal(table.innerHTML, html);
+        assert.equal(mismatches.length, 1);
+    });
+});
+
+describe('action detail cards (M2.5): multi-section cards', function () {
+
+    it('moves a row only within its own section and keeps every section intact', function () {
+        const { win, mismatches } = recordingRealm();
+        const rows = JSON.parse(JSON.stringify(cards.attest.rows));
+        const before = sections(win.document.querySelector('#info-attest tbody').parentNode);
+        const counts = before.map((b) => b.labels.length);
+        // Config index 6 sits in the second section (the request fields).
+        assert.ok(counts.length > 1 && counts[0] <= 6 && 6 < counts[0] + counts[1],
+            'attest no longer has index 6 in its second section: ' + counts.join('+'));
+        rows[6].order = 0;
+        const { table, res } = mountAttest(win, rows);
+        assert.equal(res.ok, true, res.errors.join('; '));
+        const after = sections(table);
+        assert.deepEqual(after.map((b) => b.cls), before.map((b) => b.cls));
+        assert.deepEqual(after[0], before[0]);
+        assert.equal(after[1].labels[0], before[1].labels[6 - counts[0]]);
+        assert.deepEqual([...after[1].labels].sort(), [...before[1].labels].sort());
+        for(let i = 2; i < before.length; i++) assert.deepEqual(after[i], before[i]);
+        assert.deepEqual(mismatches, []);
+    });
+});

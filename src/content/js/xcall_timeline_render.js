@@ -249,7 +249,7 @@ function renderXcallTimelineHeader(data){
     };
     var actionLink = function(v, onCoin){
         if(v === null || v === undefined || v === '') return '-';
-        return formatLink('/' + (onCoin || coin) + '/action/' + encodeURIComponent(v), esc(v));
+        return formatLink('/' + networkCoin(onCoin || coin) + '/action/' + encodeURIComponent(v), v);
     };
     var mono = function(v){
         if(v === null || v === undefined || v === '') return '-';
@@ -282,9 +282,9 @@ function renderXcallRequestRows(h){
     var actionLink = h.actionLink, mono = h.mono, row = h.row, rows = h.rows;
     var r = [];
     r.push(row('Source', (d.source === null || d.source === undefined || d.source === '')
-        ? '-' : formatLink('/' + coin + '/address/' + encodeURIComponent(d.source), esc(d.source))));
+        ? '-' : formatLink('/' + coin + '/address/' + encodeURIComponent(d.source), d.source)));
     r.push(row('Source Contract', (d.contract_index === null || d.contract_index === undefined || d.contract_index === '')
-        ? '-' : formatLink('/' + coin + '/contract/' + encodeURIComponent(d.contract_index), esc(d.contract_index))));
+        ? '-' : formatLink('/' + coin + '/contract/' + encodeURIComponent(d.contract_index), d.contract_index)));
     r.push(row('Target Chain',    (d.target_chain === null || d.target_chain === undefined || d.target_chain === '') ? '-' : esc(d.target_chain)));
     r.push(row('Target Contract', (d.target_contract_index === null || d.target_contract_index === undefined || d.target_contract_index === '') ? '-' : esc(d.target_contract_index)));
     r.push(row('Method',          (d.method === null || d.method === undefined || d.method === '') ? '-' : esc(d.method)));

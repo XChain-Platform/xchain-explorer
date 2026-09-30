@@ -66,13 +66,14 @@ const ROWS = [
         ACTION_HEAD + ' tick:s dividend_tick:s amount:s memo:s status:s ' + TX_TAIL],
     ['Dispenser', 'getDispensers', 'DISPENSER action data',
         ACTION_HEAD + ' address:s give_coin:s give_tick:s give_amount:s give_escrow:s give_ownership:i'
-            + ' get_coin:s get_tick:s get_amount:s oracle_address:s memo:s status:s ' + TX_TAIL
+            + ' get_coin:s get_tick:s get_amount:s fiat_code:s fiat_amount:s oracle_address:s memo:s status:s ' + TX_TAIL
             + ' escrow_remaining:s current_status:s',
         { give_escrow: 'Amount of GIVE_TICK escrowed when the dispenser was created',
           escrow_remaining: 'Amount of GIVE_TICK left in escrow now (create escrow + refills - payouts); '
             + '"0" once the dispenser is closed, cancelled or expired; null when it cannot be derived',
           current_status: 'The dispenser\'s lifecycle status from its latest status row; `status` is the validity of the creating action only',
-          oracle_address: 'The ORACLE_ADDRESS a Mode B dispenser prices against; null otherwise' }],
+          oracle_address: 'The ORACLE_ADDRESS a Mode B dispenser prices against; null otherwise' },
+        { price_stale: { type: 'boolean', description: 'True when an open fiat-priced dispenser has no settlement-usable price at the current indexed tip' } }],
     ['DispenserCancel', 'getDispenserCancels', 'DISPENSER_CANCEL action data',
         ACTION_HEAD + ' dispenser_action_index:d memo:s status:s ' + TX_TAIL],
     ['DispenserClose', 'getDispenserCloses', 'DISPENSER_CLOSE action data (system-injected, so no transaction fields)',
@@ -113,8 +114,11 @@ const ROWS = [
         ACTION_HEAD + ' destination:s tick:s amount:s memo:s status:s ' + TX_TAIL],
     ['Order', 'getOrders', 'ORDER action data',
         ACTION_HEAD + ' give_coin:s give_tick:s give_amount:s give_ownership:i get_coin:s get_tick:s get_amount:s'
-            + ' get_ownership:i get_address:s expiration:d allow_list:d block_list:d payout_legs:s memo:s status:s ' + TX_TAIL,
-        { payout_legs: 'JSON [{to,bps}] split of seller proceeds applied at match; null when none' }],
+            + ' get_ownership:i get_address:s expiration:d allow_list:d block_list:d payout_legs:s memo:s status:s'
+            + ' order_status:s give_remaining:s ' + TX_TAIL,
+        { payout_legs: 'JSON [{to,bps}] split of seller proceeds applied at match; null when none',
+            order_status: 'The order\'s lifecycle status from its latest status row; `status` is the validity of the creating action only',
+            give_remaining: 'give_amount less the valid matches filled against it; 0 when the creating action is not valid' }],
     ['OrderCancel', 'getOrderCancels', 'ORDER_CANCEL action data',
         ACTION_HEAD + ' order_action_index:d memo:s status:s ' + TX_TAIL],
     ['OrderEdit', 'getOrderEdits', 'ORDER_EDIT action data',
@@ -562,4 +566,4 @@ function responseSchema(method) {
     return null;
 }
 
-module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status'] }, responseSchema };
+module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status', 'price_stale'] }, responseSchema };

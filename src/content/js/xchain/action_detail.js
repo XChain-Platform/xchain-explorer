@@ -47,7 +47,7 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         // defaults described an action it never took.
         if(info.action_format==1){
             let verb = (info.unbind==1) ? 'Unbind' : 'Bind';
-            html += verb + ' ' + (info.action_class || '-');
+            html += verb + ' ' + escapeHtml(String(info.action_class || '-')); // on-chain field into .html()
             if(info.controller != null)
                 html += ' ' + formatLink('/' + coin + '/action/' + info.controller, info.controller);
         } else {
@@ -58,7 +58,7 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         }
     }
     if(action=='AIRDROP'){
-        html += info.amount + formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' to ';
+        html += info.amount + formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' to ';
         // Route the list reference as an ACTION, not a token: airdrops.list_action_index is the
         // index of the LIST action being paid out (indexer db.js createAirdrop), so a /token/ URL
         // searched for a token named after a number. showAirdropDetails already links
@@ -91,12 +91,12 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         }
     }
     if(action=='CALLBACK'){
-        html += formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick) + ' for ' ;
-        html += formatLinkAmount('/' + coin + '/token/' + info.callback_tick, info.callback_tick, info.callback_tick, info.callback_amount);
+        html += formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' for ' ;
+        html += formatLinkAmount(tokenUrl(coin, info.callback_tick), info.callback_tick, info.callback_tick, info.callback_amount);
     }
     if(action=='DIVIDEND'){
-        html += formatLinkAmount('/' + coin + '/token/' + info.dividend_tick, info.dividend_tick, info.dividend_tick, info.amount) + ' per ';
-        html += formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, 1)
+        html += formatLinkAmount(tokenUrl(coin, info.dividend_tick), info.dividend_tick, info.dividend_tick, info.amount) + ' per ';
+        html += formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, 1)
     }
     return html;
 }
@@ -112,24 +112,20 @@ function actionDetail_renderMarketActions(html, action, info, coin){
         // and label a remote native amount local. Fall back to it only where absent.
         let give_coin = info.give_coin || coin;
         let get_coin  = info.get_coin  || coin;
-        html  = formatLinkAmount('/' + give_coin + '/token/' + info.give_tick, info.give_tick, info.give_tick, info.give_amount) + ' for ';
-        if(isNull(info.get_tick)){
-            let cls = getNetworkIcon();
-            html += ' <i class="fa ' + cls + '"></i> ' + formatAmount(info.get_amount) + ' ' + get_coin ;
-        } else {
-            html  += formatLinkAmount('/' + get_coin + '/token/' + info.get_tick, info.get_tick, info.get_tick, info.get_amount);
-        }
+        html  = formatCoinLegAmount(coin, give_coin, info.give_tick, info.give_amount) + ' for ';
+        html += formatCoinLegAmount(coin, get_coin, info.get_tick, info.get_amount);
     }
+    // FILE type/name/title are on-chain free text and this summary reaches .html().
     if(action=='FILE')
-        html = info.type + ' - ' + info.name + ' - ' + info.title;
+        html = escapeHtml(info.type) + ' - ' + escapeHtml(info.name) + ' - ' + escapeHtml(info.title);
     if(action=='ISSUE')
-        html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
+        html = formatLink(tokenUrl(coin, info.tick), info.tick, info.tick);
     if(action=='LINK'){
         // Both link legs are ACTION indexes on their own chains (links.coin1_action_index /
         // coin2_action_index, indexer db.js createLink), not tickers, so /token/ opened a token
         // search for a number. showLinkDetails already uses /action/ for these two.
-        html += info.coin1 + ' action ' + formatLink('/' + info.coin1 + '/action/' + info.coin1_action_index, info.coin1_action_index) + ' to ';
-        html += info.coin2 + ' action ' + formatLink('/' + info.coin2 + '/action/' + info.coin2_action_index, info.coin2_action_index);
+        html += info.coin1 + ' action ' + formatLink('/' + networkCoin(info.coin1) + '/action/' + info.coin1_action_index, info.coin1_action_index) + ' to ';
+        html += info.coin2 + ' action ' + formatLink('/' + networkCoin(info.coin2) + '/action/' + info.coin2_action_index, info.coin2_action_index);
     }
     if(action=='LIST'){
         let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
@@ -158,15 +154,15 @@ function actionDetail_renderMessageActions(html, action, info, coin){
         // an 'Encryption key exchange'. A row missing action_format keeps the old
         // plaintext/encrypted fallback rather than defaulting into the key-exchange branch.
         if(!isNull(info.action_format) && [0,1].includes(Number(info.action_format))){
-            html = 'Encryption key exchange with ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
+            html = 'Encryption key exchange with ' + formatLink('/' + networkCoin(dest_coin) + '/address/' + info.destination, info.destination);
         } else if(info.plaintext_message){
-            html = info.plaintext_message;
+            html = escapeHtml(info.plaintext_message); // sender-chosen text, bound for .html()
         } else {
-            html = 'Encrypted message to ' + formatLink('/' + dest_coin + '/address/' + info.destination, info.destination);
+            html = 'Encrypted message to ' + formatLink('/' + networkCoin(dest_coin) + '/address/' + info.destination, info.destination);
         }
     }
     if(action=='MINT')
-        html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
+        html = formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
     if(action=='SEND'){
         // A SEND detail payload keeps tick/amount/destination per destination under
         // sends[]; the summary producers flatten sends[0], but tolerate the nested
@@ -176,14 +172,14 @@ function actionDetail_renderMessageActions(html, action, info, coin){
             let sameTick = sends.every((s) => s.tick == sends[0].tick);
             if(sameTick){
                 let total = sends.reduce((sum, s) => bcadd(sum, s.amount), '0');
-                html += formatLinkAmount('/' + coin + '/token/' + sends[0].tick, sends[0].tick, sends[0].tick, total) + ' to ';
+                html += formatLinkAmount(tokenUrl(coin, sends[0].tick), sends[0].tick, sends[0].tick, total) + ' to ';
             } else {
                 html += 'Multiple tokens to ';
             }
             html += sends.length + ' recipients';
         } else {
             let send = (sends && sends.length === 1) ? sends[0] : info;
-            html += formatLinkAmount('/' + coin + '/token/' + send.tick, send.tick, send.tick, send.amount) + ' to ';
+            html += formatLinkAmount(tokenUrl(coin, send.tick), send.tick, send.tick, send.amount) + ' to ';
             html += formatLink('/' + coin + '/address/' + send.destination, send.destination);
         }
     }
@@ -191,14 +187,18 @@ function actionDetail_renderMessageActions(html, action, info, coin){
         html += formatLink('/' + coin + '/address/' + info.source, info.source) + ' to ';
         html += formatLink('/' + coin + '/address/' + info.destination, info.destination);
     }
-    if(action=='SLEEP'){
-        if(info.type==1)
-            html = 'Address';
-        if(info.type==2)
-            html = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
-        html += ' until block ' + formatAmount(info.resume_block);
-    }
+    if(action=='SLEEP')
+        html = actionDetail_sleepSummary(info, coin);
     return html;
+}
+
+function actionDetail_sleepSummary(info, coin){
+    let subject = '';
+    if(info.type==1) subject = 'Address';
+    if(info.type==2) subject = formatLink(tokenUrl(coin, info.tick), info.tick, info.tick);
+    if(Number(info.resume_block) === -1) return subject + ' Indefinitely';
+    if(Number(info.resume_block) === 0) return subject + ' Immediately';
+    return subject + ' until block ' + formatAmount(info.resume_block);
 }
 
 function actionDetail_renderContractActions(html, action, info, coin){
@@ -206,7 +206,7 @@ function actionDetail_renderContractActions(html, action, info, coin){
     // Compact summaries for the staking / contract families. Field names
     // mirror each type's show*Details() renderer.
     if(action=='DESTROY')
-        html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
+        html = formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
     if(action=='STAKE'){
         html = formatAmount(info.amount);
         html += isNull(info.target_contract_index)
@@ -246,7 +246,7 @@ function actionDetail_renderContractActions(html, action, info, coin){
         html += formatLink('/' + coin + '/contract/' + info.contract_index, info.contract_index);
     }
     if(action=='DEPOSIT' || action=='WITHDRAW'){
-        html = formatLinkAmount('/' + coin + '/token/' + info.tick, info.tick, info.tick, info.amount);
+        html = formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
         html += (action=='DEPOSIT' ? ' into contract ' : ' out of contract ');
         html += formatLink('/' + coin + '/contract/' + info.contract_index, info.contract_index);
     }
@@ -286,7 +286,7 @@ function actionDetail_renderConsensusActions(html, action, info, coin){
                 html += ' (' + numeral(n).format('0,0') + ' round' + (n===1 ? '' : 's') + ')';
         } else if(!isNull(info.tick) || !isNull(info.fiat)){
             // A v1 user oracle: TOKEN/FIAT and the published value.
-            html  = formatLink('/' + coin + '/token/' + info.tick, info.tick, info.tick);
+            html  = formatLink(tokenUrl(coin, info.tick), info.tick, info.tick);
             html += '/' + escapeHtml(nullToBlank(info.fiat)) + ' = ' + formatAmount(info.value);
         } else if(!isNull(info.round_number)){
             html = 'Round ' + numeral(info.round_number).format('0,0');

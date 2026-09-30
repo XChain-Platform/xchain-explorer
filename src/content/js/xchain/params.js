@@ -16,10 +16,18 @@
  * Custom javascript for xchain explorer
  */
 
+// Encode data values as URL path segments while preserving explicit structure.
+function xcEncodePathSegments(value){
+    let parts = Array.isArray(value) ? value : [value];
+    return parts.map(function(part){
+        return encodeURIComponent(String(part));
+    }).join('/');
+}
+
 // Function to handle setting current COIN and QUERY values
 function setXChainParams(coin){
     // Strip any HTML content from the pathname and split it up into its various parts
-    let path = String(stripHtml(window.location.pathname)).split('/');
+    let path = String(stripHtml(window.location.pathname)).split('/').map(function(value){ try { return decodeURIComponent(value); } catch(_) { return value; }});
     // Set the coin based on passed coin or path
     if(isNull(coin)){
         let query = new URLSearchParams(window.location.search);
@@ -44,11 +52,11 @@ function setXChainParams(coin){
         // operator ADDRESS (db.getOracleStats binds it to a2.address, and db's id lookup
         // resolves type 'oracle' through index_addresses exactly like 'address').
         if((['block','action','contract','execution','checkpoint','poll','anchor','attestation','bet_feed'].includes(type) && isNumeric(query)) ||
-           // dispenser joins these two rather than the numeric branch: a dispenser
-           // page is keyed by the dispenser's operating GET_ADDRESS (the address
-           // buyers pay), which is how both the dispensers and dispenses feeds
-           // scope themselves with type 'address'.
+           // dispenser takes either key: its action_index (one dispenser, what it
+           // holds and its own fills) or its operating GET_ADDRESS (every dispenser
+           // buyers pay at that address, as the feeds scope type 'address').
            (['address','oracle','dispenser'].includes(type) && isCryptoAddress(query)) ||
+           (type=='dispenser' && isNumeric(query)) ||
            // A validator resolves by signing pubkey OR by staking address, and an xcall by
            // its 64-hex call_id, so neither can use the numeric check above.
            (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||
@@ -74,7 +82,7 @@ function setXChainParams(coin){
         // "undefined", which then flowed into the page title and an API request
         // for a nonexistent 'undefined' ticker. Keep the single tick here; the
         // market page resolves the counter via resolveMarketPair before use.
-        XC.query = isNull(path[4]) ? path[3] : path[3] + '/' + path[4];
+        XC.query = isNull(path[4]) ? path[3] : [path[3], path[4]];
     }
 }
 

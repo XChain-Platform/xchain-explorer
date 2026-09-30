@@ -1,0 +1,23 @@
+.xc-console-stats .xc-stat-tile {
+    background: linear-gradient(145deg, var(--xc-console-panel-raised), var(--xc-console-panel-bg));
+    border-color: var(--xc-console-border);
+    border-left: 3px solid var(--xc-console-accent);
+    box-shadow: var(--xc-console-shadow);
+    min-height: 5.2rem;
+}
+
+.xc-console-stats .xc-stat-tile-icon {
+    color: var(--xc-console-accent);
+}
+
+.xc-console-stats .xc-stat-tile-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.xc-console-stats .xc-stat-tile-value {
+    color: var(--xc-console-accent-strong);
+    font-size: 1.2rem;
+    font-variant-numeric: tabular-nums;
+}

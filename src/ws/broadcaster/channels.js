@@ -83,6 +83,14 @@ class ChannelFanout {
         removeOnceSubscriptions(this, channelManager, subscribers, clients, toRemove);
     }
 
+    // Spend one client's once subscription on a channel key after a frame was delivered
+    // outside the fan-out (the catch-up replay), with the same UNSUBSCRIBED frame.
+    spendOnceSubscription(clientId, channelKey) {
+        const channelManager = this.wsServer.channelManager;
+        removeOnceSubscriptions(this, channelManager, channelManager.getSubscribers(channelKey),
+            this.wsServer.getClients(), [{ clientId, channelKey }]);
+    }
+
     // Evaluate filter pipeline against an event
     passesFilter(filter, event, actionData) {
         // Types filter: check event type or action field

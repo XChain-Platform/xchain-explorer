@@ -318,7 +318,7 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
             async stakeWeights(cap) {
                 return (cap === CAP)
                     ? { capability: cap, block_index: S, count: VALS.length, source_count: 2, truncated: true, validators: JSON.parse(JSON.stringify(VALS)) }
-                    : { error: 'capability not configured' };
+                    : { error: 'capability not configured: ' + cap };
             }
         };
         const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
@@ -332,12 +332,55 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
             async stakeWeights(cap) {
                 return (cap === CAP)
                     ? { capability: cap, block_index: S, count: VALS.length, source_count: 2, truncated: false, validators: JSON.parse(JSON.stringify(VALS)) }
-                    : { error: 'capability not configured' };
+                    : { error: 'capability not configured: ' + cap };
             }
         };
         const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S, indexerConn);
         assert.ok(!r.error, 'no error: ' + r.error);
         assert.strictEqual(r.proof.capabilities[CAP].total, M.canonicalAmount('40'));
         assert.strictEqual(r.proof.stakes_root, stakesRoot);
+    });
+});
+
+describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
+    // The indexer answers every getstakeweightsbycapability failure as an in-band
+    // { error } result. Only "capability not configured" may skip a capability; any
+    // other answer refuses, so a lagging or broken indexer never yields a proof with
+    // a capability silently missing.
+    const OTHER = 'cross_chain';
+    function answering(forCap, forOther) {
+        return { async stakeWeights(cap) { return (cap === CAP) ? forCap : forOther; } };
+    }
+    const good = () => ({ capability: CAP, block_index: S, truncated: false, validators: JSON.parse(JSON.stringify(VALS)) });
+
+    for (const [label, answer] of [
+        ['block not yet indexed', { error: 'block_index ' + S + ' not yet indexed (latest: ' + (S - 1) + ')' }],
+        ['database not ready', { error: 'indexer database not ready' }],
+        ['stake lookup failed', { error: 'failed to look up stake weights' }],
+        ['a null result', null]
+    ]) {
+        it('refuses instead of skipping the capability on ' + label, async function () {
+            const { server } = makeValidatorSetServer();
+            const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+                answering(answer, { error: 'capability not configured: ' + OTHER }));
+            assert.ok(!r.proof, 'no proof may be authored without the stake set');
+            assert.strictEqual(r.error, 'INDEXER_STAKE_WEIGHTS_UNAVAILABLE:' + CAP);
+        });
+    }
+
+    it('refuses rather than returning a partial capabilities map when a second capability lags', async function () {
+        const { server } = makeValidatorSetServer();
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            answering(good(), { error: 'block_index ' + S + ' not yet indexed (latest: 1)' }));
+        assert.ok(!r.proof, 'a partial map is exactly the fail-open this guards');
+        assert.strictEqual(r.error, 'INDEXER_STAKE_WEIGHTS_UNAVAILABLE:' + OTHER);
+    });
+
+    it('skips only a capability the indexer reports as not configured', async function () {
+        const { server } = makeValidatorSetServer();
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            answering(good(), { error: 'capability not configured: ' + OTHER }));
+        assert.ok(!r.error, 'no error: ' + r.error);
+        assert.deepStrictEqual(Object.keys(r.proof.capabilities), [CAP]);
     });
 });

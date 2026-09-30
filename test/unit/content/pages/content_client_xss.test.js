@@ -41,7 +41,8 @@ const SRC_PATH = path.resolve(__dirname, '..', '..', '../../src/content/js/xchai
 // component milestone. Concatenated rather than switched, so this file keeps
 // naming ONE source for every helper it lifts.
 const SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8')
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters/protocol.js'), 'utf8');
 
 // Slice a top-level `function NAME(...){ ... }` out of the source by walking
 // braces from its opening `{` to the matching `}`. The three target functions
@@ -146,6 +147,7 @@ function renderBetDetails(data) {
     // own doing rather than a helper's.
     dom.window.XC = { coin: 'BTC' };
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
         function formatLivestamp(v){ return String(v); }
@@ -154,6 +156,7 @@ function renderBetDetails(data) {
         var numeral = function(){ return { format: function(){ return '0'; } }; };
     `);
     dom.window.eval(extractFn('isNull'));
+    dom.window.eval(extractFn('formatIndexedLabel'));
     dom.window.eval(extractFn('detailBetStake_renderFeed'));
     dom.window.eval(extractFn('detailBetStake_renderAction'));
     dom.window.eval(extractFn('showBetDetails'));
@@ -170,3 +173,6 @@ module.exports = { expect, SRC, extractFn, loadClientFns, inspect, PAYLOADS, ren
 
 require('./content_client_xss.test/support/core.js');
 require('./content_client_xss.test/support/rendering.js');
+require('./content_client_xss.test/support/stored_field_escape.js');
+require('./content_client_xss.test/support/media_scheme_guard.js');
+require('./content_client_xss.test/support/link_scheme_guard.js');

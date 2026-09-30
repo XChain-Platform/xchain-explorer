@@ -59,6 +59,7 @@ function usedNames(){
         .map(f => path.join(CONTENT, 'html', f));
     files.push(path.join(CONTENT, 'js', 'xchain.js'));
     files.push(path.join(CONTENT, 'js', 'xchain_ws.js'));
+    files.push(path.join(CONTENT, 'js', 'xchain_ws_catch_up.js'));
 
     const used = new Map();
     for(const file of files){

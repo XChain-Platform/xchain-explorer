@@ -1,0 +1,28 @@
+.xc-timeline-item {
+    display: flex;
+    gap: var(--xc-table-cell-padding);
+    position: relative;
+    padding-bottom: var(--xc-table-cell-padding);
+}
+
+.xc-timeline-marker {
+    background: var(--bs-secondary-bg);
+    border: var(--xc-table-border-width) solid var(--bs-border-color);
+    border-radius: var(--xc-radius-lg);
+    flex: 0 0 var(--xc-glyph-width);
+    height: var(--xc-glyph-height);
+}
+
+.xc-timeline-complete .xc-timeline-marker,
+.xc-timeline-success .xc-timeline-marker {
+    background: var(--xc-row-bg-success);
+}
+
+.xc-timeline-failed .xc-timeline-marker,
+.xc-timeline-error .xc-timeline-marker {
+    background: var(--xc-row-bg-danger);
+}
+
+.xc-timeline-body {
+    min-width: var(--xc-space-none);
+}

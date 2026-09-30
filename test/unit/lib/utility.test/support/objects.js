@@ -11,6 +11,7 @@
 // contact legal@dankest.llc.
 
 const { expect, sinon, proxyquire, Utility, log, makeUtil, makeStablePriceRows, stringifyBigInt, stringifyBigNumber, stringifySimpleValues, stringifyNestedBigNumber } = require('./helpers.js');
+const mathjs = require('mathjs');
 
 describe("Utility", function () {
     describe('priceSort()', function () {
@@ -34,6 +35,12 @@ describe("Utility", function () {
             const data = [{ price: 1 }, { price: 5 }, { price: 3 }];
             const sorted = u.priceSort(data, 'DESC');
             expect(sorted.map(d => d.price)).to.deep.equal([5, 3, 1]);
+        });
+
+        it('sorts bignumber prices by decimal value', function () {
+            const data = [{ price: mathjs.bignumber('2') }, { price: mathjs.bignumber('10') }];
+            u.priceSort(data, 'ASC');
+            expect(data.map(d => d.price.toString())).to.deep.equal(['2', '10']);
         });
 
         it('returns the same array reference (in-place sort)', function () {

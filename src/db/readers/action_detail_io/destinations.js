@@ -57,10 +57,14 @@ const log = getLogger();
 // reach the wire. That is why the lookup below collects a LIST per action rather
 // than a single value.
 //
-// These table/column names are compile-time literals interpolated as SQL
-// IDENTIFIERS (a placeholder cannot bind an identifier). No caller can reach them:
-// nothing outside this constant is ever spliced into the query, and every VALUE is
-// still bound with `?`.
+// `bridge_settlements` stores its recipient as an address STRING (`address`), not a
+// destination_id: a source-less XBRIDGE v2/v5 settle leg reaches its credited address
+// only through it, and `where` drops the kind='policy' rows, which credit nobody.
+//
+// These table/column names and the `where` fragment are compile-time literals
+// interpolated as SQL (a placeholder cannot bind an identifier). No caller can reach
+// them: nothing outside this constant is ever spliced into the query, and every
+// VALUE is still bound with `?`.
 const ACTION_DESTINATION_FAMILIES = [
     { table: 'sends',                   key: 'action_index'       },
     { table: 'sweeps',                  key: 'action_index'       },
@@ -69,7 +73,8 @@ const ACTION_DESTINATION_FAMILIES = [
     { table: 'messages',                key: 'action_index'       },
     { table: 'fees',                    key: 'action_index'       },
     { table: 'slash_events',            key: 'execution_index'    },
-    { table: 'capability_slash_events', key: 'slash_action_index' }
+    { table: 'capability_slash_events', key: 'slash_action_index' },
+    { table: 'bridge_settlements',      key: 'action_index', address: 'dest_address', where: "m.kind='transfer'" }
 ];
 
 class ActionDestinationReaders {
@@ -79,13 +84,13 @@ class ActionDestinationReaders {
     // routing branch has been permanently inert and the wallet's incoming-receipt
     // notification has never fired for anyone.
     //
-    // SHAPE: ONE round trip for the whole batch, a UNION ALL over the eight
+    // SHAPE: ONE round trip for the whole batch, a UNION ALL over the nine
     // destination-bearing families (ACTION_DESTINATION_FAMILIES) filtered by the
     // action_index values ACTUALLY FETCHED. This feed drives the 5s ChangeDetector
     // poll, so a per-row lookup would cost up to `limit` (100) round trips every
-    // five seconds per coin; a per-family lookup would cost eight. The IN list is
+    // five seconds per coin; a per-family lookup would cost nine. The IN list is
     // built from the fetched rows rather than from the cursor range, so a catch-up
-    // burst binds exactly as many parameters as it has actions (<= limit * 8), and
+    // burst binds exactly as many parameters as it has actions (<= limit * 9), and
     // an EMPTY batch issues no query at all.
     //
     // FAILURE MODE, deliberately soft: a failed lookup degrades every row to
@@ -135,10 +140,10 @@ class ActionDestinationReaders {
         } catch(e){
             // The union is all-or-nothing: one absent table (an older deployment
             // without capability_slash_events, say) loses the destinations of all
-            // eight families. Retry family by family so the rest still resolve, and
+            // nine families. Retry family by family so the rest still resolve, and
             // QUARANTINE only the ones that fail for a schema reason, so the steady
             // state on such a deployment is back to one query per poll rather than
-            // nine. A transient failure (connection lost) is deliberately NOT
+            // ten. A transient failure (connection lost) is deliberately NOT
             // quarantined: it would silence destinations permanently for a fault
             // that clears on its own.
             map.clear();
@@ -167,14 +172,27 @@ class ActionDestinationReaders {
         let parts = [];
         let args  = [];
         for(let family of families){
-            parts.push(`SELECT
+            // A family that stores the address string itself reads it directly; a NULL
+            // there is dropped by collectActionDestinations, as the INNER JOIN drops one here.
+            let where = family.where ? family.where + ' AND ' : '';
+            if(family.address){
+                parts.push(`SELECT
+                            m.${family.key} as action_index,
+                            m.${family.address} as destination
+                        FROM
+                            ${family.table} m
+                        WHERE
+                            ${where}m.${family.key} IN (${holes})`);
+            } else {
+                parts.push(`SELECT
                             m.${family.key} as action_index,
                             a1.address as destination
                         FROM
                             ${family.table} m
                             INNER JOIN index_addresses a1 ON (a1.id=m.destination_id)
                         WHERE
-                            m.${family.key} IN (${holes})`);
+                            ${where}m.${family.key} IN (${holes})`);
+            }
             // Bound as VALUES, and passed through as the driver gave them to us
             // (BIGINT reads back as a BigInt on this pool): re-stringifying them
             // would make MariaDB compare a quoted literal against a BIGINT column as

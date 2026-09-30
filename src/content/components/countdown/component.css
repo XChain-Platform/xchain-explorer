@@ -1,0 +1,10 @@
+.xc-countdown {
+    background: var(--bs-secondary-bg);
+    border: var(--xc-table-border-width) solid var(--bs-border-color);
+    border-radius: var(--xc-radius-lg);
+    padding: var(--xc-datatable-length-select-padding) var(--xc-table-cell-padding);
+}
+
+.xc-countdown-complete {
+    background: var(--xc-row-bg-success);
+}

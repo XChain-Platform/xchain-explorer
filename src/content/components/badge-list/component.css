@@ -1,0 +1,26 @@
+.xc-badge-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--xc-datatable-length-select-padding);
+}
+
+.xc-badge {
+    background: var(--bs-secondary-bg);
+    border: var(--xc-table-border-width) solid var(--bs-border-color);
+    border-radius: var(--xc-radius-lg);
+    padding: var(--xc-datatable-length-select-padding) var(--xc-table-cell-padding);
+}
+
+.xc-badge-active,
+.xc-badge-success {
+    background: var(--xc-row-bg-success);
+}
+
+.xc-badge-warning {
+    background: var(--xc-row-bg-warning);
+}
+
+.xc-badge-error,
+.xc-badge-danger {
+    background: var(--xc-row-bg-danger);
+}

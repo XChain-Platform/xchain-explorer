@@ -32,6 +32,7 @@
 
 const crypto  = require('crypto');
 const { extractMethods } = require('../../../contract/introspect.js');
+const { attachOwnerWithdraw, resolveContractNetwork } = require('../../../contract/owner_withdraw.js');
 
 // The columns and joins one contract's detail page reads. Hoisted out of the
 // reader so the read is legible as a shape rather than as mostly SQL; the caller
@@ -230,6 +231,9 @@ class ContractDetailReaders {
         let results = await this.doQuery(config, query, args);
         if(results && results.length){
             let row = results[0];
+            // owner_withdraw reads the raw meta_json, so it is derived before
+            // attachContractPermissions parses that column away.
+            attachOwnerWithdraw(row, await resolveContractNetwork(this, config));
             attachContractPermissions(this, row);
             attachContractCodeSurface(this, row);
 

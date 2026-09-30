@@ -32,12 +32,13 @@
 // The page loads browser_logger.js first; the unit suites require this file under Node.
 var XCLogger = (typeof XCLogger !== 'undefined' && XCLogger) ? XCLogger
     : ((typeof require === 'function') ? require('./browser_logger.js') : null);
-
+// Same arrangement for networkCoin: the page loads network_coin.js first.
+var networkCoin = (typeof networkCoin === 'function') ? networkCoin
+    : ((typeof require === 'function') ? require('./network_coin.js').networkCoin : null);
 // Determine if value is null or undefined or empty
 function isNull(value){
     return (value === null || value === undefined || value==='');
 }
-
 // Make a value safe to hand to jQuery's .text(). jQuery (1.10.2, the build this
 // app ships) does NOT treat an absent value as "no text": .text(null) stringifies
 // it and writes the literal four characters "null" into the element, and
@@ -50,7 +51,6 @@ function isNull(value){
 function nullToBlank(value){
     return isNull(value) ? '' : value;
 }
-
 // Function to remove HTML content from string
 // Escape user-controlled text for safe insertion via jQuery .html() / innerHTML.
 // The canonical five-entity replacement. Apply to ANY on-chain free-text field
@@ -62,7 +62,6 @@ function escapeHtml(s){
         return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
     });
 }
-
 // Bidi overrides (LRE/RLE/PDF/LRO/RLO, LRI/RLI/FSI/PDI, LRM/RLM), zero-width
 // characters (ZWSP/ZWNJ/ZWJ, word joiner, BOM) and C0/C1 controls. The same three
 // sets the wallet's textHardening.js and the SDK's decoder/hardening.js carry, and
@@ -73,7 +72,6 @@ var BIDI_CONTROLS    = /[\u202A-\u202E\u2066-\u2069\u200E\u200F]/g;
 var ZERO_WIDTH       = /[\u200B-\u200D\u2060\uFEFF]/g;
 var TEXT_CONTROLS    = /[\u0000-\u001F\u007F-\u009F]/g;
 var BIDI_PLACEHOLDER = '\u2426'; // SYMBOL FOR SUBSTITUTE FORM TWO
-
 // Neutralize on-chain free text for display. A bidi control becomes a VISIBLE
 // placeholder rather than vanishing: silently dropping it would let "evil<RLO>txt"
 // read clean, which is the attack. Zero-width characters are dropped, controls
@@ -118,12 +116,12 @@ function formatContractIdentity(coin, chain, contractIndex, metaName, metaVersio
     // way every contract cell did before the manifest: half a derived address
     // ("C::1421") would be a wrong address, and a reader cannot tell that from a
     // right one.
-    var address = isNull(chain)
-        ? escapeHtml(contractIndex)
-        : escapeHtml('C:' + chain + ':' + contractIndex);
+    var address = isNull(chain) // plain text: formatLink escapes the label
+        ? String(nullToBlank(contractIndex))
+        : 'C:' + chain + ':' + contractIndex;
     return formatContractName(metaName, metaVersion)
         + ' <span class="text-muted">·</span> '
-        + formatLink('/' + coin + '/contract/' + contractIndex, address);
+        + formatLink('/' + networkCoin(coin) + '/contract/' + contractIndex, address);
 }
 
 function stripHtml(html){
@@ -162,7 +160,6 @@ function formatAmount(amount=null){
         str[0] = str[0].replace(/(\d)(?=(\d{3})+$)/g, '$1,');
     return str.join('.');
 }
-
 // Return nice display string for token locks. Field order MUST match the
 // 7-element pipe-string XChainExplorer.js builds for getIssues/getTokens/
 // getProjectTokens rows: max_supply|mint|mint_supply|max_mint|description|
@@ -197,6 +194,16 @@ function getTokenIcon(token){
     return icon
 }
 
+// Return the token page URL for a tick. The tick is one path segment and is
+// percent-encoded for the same reason getTokenIcon encodes it: a tick carrying
+// '#', '%', '?' or '/' otherwise links to a truncated or unparseable page.
+// An absent tick has no destination. The coin maps onto the page's network first: a
+// bare 'DOGE' leg on a TDOGE page is /TDOGE/, never mainnet (network_coin.js).
+function tokenUrl(coin, tick){
+    if(isNull(tick)) return null;
+    return '/' + networkCoin(coin) + '/token/' + encodeURIComponent(String(tick));
+}
+
 // Handle getting the network icon using the coin name and network
 function getNetworkIcon(name=null, network=null){
     // Set defaults for name/network
@@ -206,8 +213,16 @@ function getNetworkIcon(name=null, network=null){
     return icon;
 }
 
-// Return nice display string for links
+// Return nice display string for links. The label is escaped here because most
+// labels are on-chain free text: a tick like "<TAMP0N>" otherwise parses as an
+// element and vanishes, and a crafted one injects markup. Pass markup to formatLinkHtml.
 function formatLink(url=null, text=null, icon=false, btn=false){
+    return formatLinkHtml(url, (text) ? escapeHtml(text) : text, icon, btn);
+}
+// The same link with a label that is ALREADY markup (a badge, an icon, formatHash
+// or highlightSearchTerm output). The caller owns escaping every on-chain value
+// inside that markup; nothing here escapes it again.
+function formatLinkHtml(url=null, text=null, icon=false, btn=false){
     var html = '',
         cls  = (btn) ? 'badge bg-success float-end text-decoration-none' : '',
         escapeLinkAttribute = function(value){
@@ -219,10 +234,8 @@ function formatLink(url=null, text=null, icon=false, btn=false){
                 return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
             });
         };
-    // A url whose last segment stringified a missing value is not a destination:
-    // render the label alone rather than a dead link. ORDER/SWAP/DISPENSER use an
-    // empty tick to mean the native coin, which built hrefs ending in /token/null.
-    if(/\/(null|undefined)$/.test(String(url)))
+    // Only same-origin relative paths and http(s) URLs are destinations.
+    if(!/^(\/[^\/\\]|https?:\/\/)/.test(String(url)))
         return (text) ? String(text) : '';
         html += '<a href="' + escapeLinkAttribute(url) + '" class="' + cls + '">';
     // The server 302s a missing icon to the default, but a request the server
@@ -237,7 +250,13 @@ function formatLink(url=null, text=null, icon=false, btn=false){
     html += '</a>'
     return html;
 }
-
+// Render a list action pointer, except for the edit sentinel that removes a list.
+function formatListReference(coin, actionIndex, isEdit=false, linkLabel=null){
+    if(actionIndex === 0 || actionIndex === '0')
+        return isEdit ? 'Removed' : 'None';
+    let label = isNull(linkLabel) ? formatAmount(actionIndex) : linkLabel;
+    return formatLink('/' + coin + '/action/' + actionIndex, label);
+}
 // Return a truncated hex string (hash / pubkey / request_id) with the full value as
 // a hover title, keeping long 64/128-hex identifiers readable in tables.
 
@@ -264,12 +283,17 @@ function formatLinkAmount(url=null, text=null, icon=false, amount=false){
     return html;
 }
 
+// A market leg's denomination: no tick means the chain's native coin, shown plainly.
+function formatCoinLegTicker(pageCoin, legCoin, legTick){
+    let coin = isNull(legCoin) ? pageCoin : legCoin;
+    if(isNull(legTick))
+        return isNull(coin) ? '-' : escapeHtml(String(coin));
+    return formatLink(tokenUrl(coin, legTick), legTick, legTick);
+}
+
 // Render one leg of a dispenser/order trade: an amount plus whatever it is
-// denominated in. A NATIVE-coin leg carries no tick at all (the tick column is
-// null), and handing that to formatLinkAmount builds a '/token/null' href -
-// formatLink strips such a link now, but the cell would still be labelled with a
-// token that does not exist. So an absent tick renders the coin name plainly, and
-// a leg carrying neither renders a dash rather than an empty cell.
+// denominated in. A native-coin leg carries no tick at all, so an absent tick
+// renders the coin name plainly and a leg carrying neither renders a dash.
 function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
     if(isNull(legTick)){
         let txt = isNull(amount) ? '' : formatAmount(amount);
@@ -277,8 +301,8 @@ function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
             txt += (txt ? ' ' : '') + escapeHtml(String(legCoin));
         return (txt==='') ? '-' : txt;
     }
-    let linkCoin = isNull(legCoin) ? pageCoin : legCoin;
-    return formatLinkAmount('/' + linkCoin + '/token/' + legTick, legTick, legTick, amount);
+    let coin = isNull(legCoin) ? pageCoin : legCoin;
+    return formatLinkAmount(tokenUrl(coin, legTick), legTick, legTick, amount);
 }
 
 // Render a DISPENSER / DISPENSE native-coin leg: network icon, amount, coin name.
@@ -312,7 +336,9 @@ var XCFormatters = {
     amount:       formatAmount,
     locks:        formatLocks,
     link:         formatLink,
+    linkHtml:     formatLinkHtml,
     linkAmount:   formatLinkAmount,
+    coinLegTicker: formatCoinLegTicker,
     coinLeg:      formatCoinLegAmount,
     nativeCoinLeg: formatNativeCoinLeg,
     hash:         formatHash,
@@ -355,10 +381,14 @@ if(typeof module !== 'undefined' && module.exports){
         formatLocks: formatLocks,
         isNftToken: isNftToken,
         getTokenIcon: getTokenIcon,
+        tokenUrl: tokenUrl,
         getNetworkIcon: getNetworkIcon,
         formatLink: formatLink,
+        formatListReference: formatListReference,
+        formatLinkHtml: formatLinkHtml,
         formatHash: formatHash,
         formatLinkAmount: formatLinkAmount,
+        formatCoinLegTicker: formatCoinLegTicker,
         formatCoinLegAmount: formatCoinLegAmount,
         formatNativeCoinLeg: formatNativeCoinLeg,
         ownershipBadge: ownershipBadge,

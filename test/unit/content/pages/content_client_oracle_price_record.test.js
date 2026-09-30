@@ -61,6 +61,7 @@ async function bootPage(apiResponse) {
     w.eval(JQUERY_SRC);
     w.eval(NUMERAL_SRC);
     w.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatLivestamp(t){ return '<span class="livestamp" data-t="' + t + '"></span>'; }
         function updatePageInfo(){}

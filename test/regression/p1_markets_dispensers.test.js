@@ -75,18 +75,10 @@ describe('@p1 @market Market specific pair regression', function () {
         expect(res.body).to.include.keys('tick1', 'tick2', 'tick1_price', 'id');
     });
 
-    it('nonexistent market pair returns error or empty', async function () {
+    it('nonexistent market pair returns 404 NOT_FOUND', async function () {
         const res = await request.get('/RBTC/api/market/FAKE/PAIR');
-        if (res.status === 200) {
-            const body = res.body;
-            if (Array.isArray(body)) {
-                expect(body.length).to.equal(0);
-            } else if (body && body.data) {
-                expect(body.data.length).to.equal(0);
-            }
-        } else {
-            expect(res.status).to.be.oneOf([400, 404]);
-        }
+        expect(res.status).to.equal(404);
+        expect(res.body.code).to.equal('NOT_FOUND');
     });
 });
 

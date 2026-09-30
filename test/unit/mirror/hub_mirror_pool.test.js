@@ -47,6 +47,12 @@ describe('HubMirrorPool', function () {
         expect(mariadb.createPool.firstCall.args[0].database).to.equal('XChain_Hub_Mirror');
     });
 
+    it('runs the mirror session at UTC like the hub it mirrors', function () {
+        const { HubMirrorPool, mariadb } = load();
+        new HubMirrorPool(CFG);
+        expect(mariadb.createPool.firstCall.args[0].timezone).to.equal('Z');
+    });
+
     it('doQuery releases the connection on success', async function () {
         const { HubMirrorPool, conn } = load();
         const rows = await new HubMirrorPool(CFG).doQuery('SELECT 1', []);

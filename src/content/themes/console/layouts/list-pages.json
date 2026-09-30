@@ -1,0 +1,55 @@
+{
+    "actions.html": {
+        "comment": "Actions",
+        "icon": "fa-bolt",
+        "heading": "All Actions",
+        "action": "action",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading action data...",
+        "columns": [
+            { "label": "#", "cls": "record", "order": 1 },
+            { "label": "Block", "cls": "block", "order": 2 },
+            { "label": "Time", "cls": "time", "order": 3 },
+            { "label": "Source", "cls": "", "hidden": true },
+            { "label": "Action", "cls": "asset-name", "order": 0 },
+            { "label": "", "cls": "view", "order": 4 }
+        ],
+        "pageInfo": {
+            "title": "All Actions",
+            "description": [
+                "Browse every action recorded on the XChain Platform on the ",
+                " (",
+                ") blockchain network - This page displays a raw list of every action type on the XChain platform"
+            ],
+            "canonical": "/actions"
+        }
+    },
+    "xcalls.html": {
+        "comment": "XCALL cross-chain calls",
+        "icon": "fa-link",
+        "heading": "Cross-Chain Calls",
+        "action": "xcall",
+        "tableClass": "table table-striped cell-border view-button table-hover table-condensed",
+        "loading": "Loading cross-chain call data...",
+        "columns": [
+            { "label": "#", "cls": "record", "order": 3 },
+            { "label": "Block", "cls": "block", "order": 4 },
+            { "label": "Time", "cls": "time", "order": 5 },
+            { "label": "Source Contract", "cls": "", "hidden": true },
+            { "label": "Target Chain", "cls": "", "order": 2 },
+            { "label": "Target Contract", "cls": "", "hidden": true },
+            { "label": "Method", "cls": "", "order": 1 },
+            { "label": "Status", "cls": "", "order": 0 },
+            { "label": "", "cls": "view", "order": 6 }
+        ],
+        "pageInfo": {
+            "title": "XCALL Cross-Chain Calls",
+            "description": [
+                "Cross-chain calls (XCALL) on the XChain Platform on the ",
+                " (",
+                ") blockchain network - contract-emitted calls dispatched to a target chain, with their execution outcome and callback delivery."
+            ],
+            "canonical": "/xcalls"
+        }
+    }
+}

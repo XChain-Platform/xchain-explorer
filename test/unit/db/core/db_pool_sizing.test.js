@@ -207,6 +207,17 @@ describe('explorer pool sizing is per dbType', function () {
         for (const cfg of decoder) expect(cfg.queryTimeout).to.equal(5000);
         for (const cfg of indexer) expect(cfg.queryTimeout).to.equal(30000);
     });
+
+    // Upstream timestamp columns are UTC-literal DATETIME, so every read session
+    // runs at +00:00 like the indexer and decoder writers.
+    it('pins every indexer and decoder pool session to UTC', async function () {
+        const db = freshDb();
+        await db.setupConnectionPools();
+        const { indexer, decoder } = limitsByKind();
+        expect(indexer.length).to.be.greaterThan(0);
+        expect(decoder.length).to.be.greaterThan(0);
+        for (const cfg of poolConfigs) expect(cfg.timezone, String(cfg.database)).to.equal('Z');
+    });
 });
 
 describe('explorer poolSizing resolver', function () {

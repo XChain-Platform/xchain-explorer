@@ -129,6 +129,14 @@ describe('method matching (api)', function () {
         expect(cfg.data.type).to.equal('token');
     });
 
+    it('/BTC/api/files/XCHAIN/gate routes to gated FILE discovery', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/files/XCHAIN/gate');
+        expect(cfg).to.not.be.null;
+        expect(cfg.data.method).to.equal('getFiles');
+        expect(cfg.data.search).to.equal('XCHAIN');
+        expect(cfg.data.type).to.equal('gate');
+    });
+
     it('/BTC/api/status → method=getStatus', async function () {
         const { cfg } = await request(explorer, '/BTC/api/status');
         expect(cfg).to.not.be.null;
@@ -203,4 +211,44 @@ describe('market routes', function () {
         expect(cfg.data.method).to.equal('getOrderbook');
     });
 
+});
+
+describe('percent-encoded path segments', function () {
+    it('keeps the chain-valid ticker null as a literal search key', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/token/null');
+        expect(cfg).to.not.be.null;
+        expect(cfg.data.method).to.equal('getToken');
+        expect(cfg.data.search).to.equal('null');
+    });
+
+    // req.path arrives still encoded. TDOGE issued "$$$$$$$$$$$78324%@##*(@#",
+    // which a client can only send encoded, and a lookup on the encoded form
+    // answered NOT_FOUND for a token that exists.
+    it('decodes the tick segment before it becomes the search key', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/token/%24%24%24%24%24%24%24%24%24%24%2478324%25%40%23%23*(%40%23');
+        expect(cfg).to.not.be.null;
+        expect(cfg.data.method).to.equal('getToken');
+        expect(cfg.data.search).to.equal('$$$$$$$$$$$78324%@##*(@#');
+    });
+
+    it('keeps an encoded slash inside its segment rather than splitting it', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/token/A%2FB');
+        expect(cfg).to.not.be.null;
+        expect(cfg.data.method).to.equal('getToken');
+        expect(cfg.data.search).to.equal('A/B');
+    });
+
+    it('decodes both ticks of a market pair', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/market/A%23B/C%25D');
+        expect(cfg).to.not.be.null;
+        expect(cfg.data.method).to.equal('getMarket');
+        expect(cfg.data.search).to.equal('A#B');
+        expect(cfg.data.search2).to.equal('C%D');
+    });
+
+    it('leaves a segment whose encoding does not parse as it came', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/token/BAD%ZZ');
+        expect(cfg).to.not.be.null;
+        expect(cfg.data.search).to.equal('BAD%ZZ');
+    });
 });

@@ -43,8 +43,11 @@
                 <div class="card-title mb-0 p-1 fw-bold">
                     <i class="fa fa-lg fa-list-check"></i> Capabilities
                 </div>
-                <div class="card-body p-2" id="validator-capabilities">
-                    <span class="text-muted">Loading capabilities...</span>
+                <div class="card-body p-2">
+                    <div id="validator-capability-badges" class="mb-2"></div>
+                    <div id="validator-capabilities">
+                        <span class="text-muted">Loading capabilities...</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -65,8 +68,12 @@
                 <div class="card-title mb-0 p-1 fw-bold">
                     <i class="fa fa-lg fa-lock"></i> Stake
                 </div>
-                <div class="card-body p-2" id="validator-stake">
-                    <span class="text-muted">Loading stake...</span>
+                <div class="card-body p-2">
+                    <div class="small text-muted mb-1">Next staking cooldown</div>
+                    <div id="validator-cooldown" class="mb-2"></div>
+                    <div id="validator-stake">
+                        <span class="text-muted">Loading stake...</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -133,6 +140,10 @@
     </div>
 </div>
 
+<script type="application/json" id="xc-mount-manifest">[
+    {"el":"validator-cooldown","component":"countdown","props":{"target":0,"current":0,"unit":"blocks","completeText":"Loading cooldowns..."}},
+    {"el":"validator-capability-badges","component":"badge-list","props":{"items":[],"emptyText":"Loading capabilities..."}}
+]</script>
 <script type="text/javascript" src="/js/validator_detail_render/state.js"></script>
 <script type="text/javascript" src="/js/validator_detail_render.js"></script>
 <script type="text/javascript">
@@ -148,6 +159,50 @@ $(document).ready(function() {
         ['#validator-capabilities', '#validator-registry', '#validator-stake', '#validator-rewards',
          '#validator-delegations', '#validator-slashes', '#validator-nodeproofs', '#validator-attestation']
             .forEach(function(sel){ $(sel).html('<span class="text-muted">-</span>'); });
+        if(typeof XCComponents !== 'undefined'){
+            XCComponents.mount('validator-capability-badges', 'badge-list', {
+                items: [], emptyText: 'No capabilities.'
+            });
+            XCComponents.mount('validator-cooldown', 'countdown', {
+                target: 0, current: 0, unit: 'blocks', completeText: 'No active cooldown'
+            });
+        }
+    };
+
+    let mountCapabilities = function(d){
+        if(typeof XCComponents === 'undefined') return;
+        let items = (Array.isArray(d.capabilities) ? d.capabilities : []).map(function(cap){
+            let active = Number(cap.enabled) === 1 && Number(cap.qualified) === 1;
+            let healthy = isNull(cap.self_test_ok) || Number(cap.self_test_ok) === 1;
+            return {
+                label: cap.capability,
+                state: active && healthy ? 'active' : (active ? 'warning' : 'danger')
+            };
+        });
+        XCComponents.mount('validator-capability-badges', 'badge-list', {
+            items: items, emptyText: 'No capabilities.'
+        });
+    };
+
+    let mountCooldown = function(d){
+        if(typeof XCComponents === 'undefined') return;
+        let current = isNull(d.chain_tip) ? NaN : Number(d.chain_tip);
+        if(!isFinite(current) && typeof XC !== 'undefined' && XC.status && XC.status.chain_tip)
+            current = Number(XC.status.chain_tip[XC.coin]);
+        if(!isFinite(current)) current = Number(d.block_index);
+        if(!isFinite(current)) current = 0;
+        let ends = (Array.isArray(d.unstakes) ? d.unstakes : [])
+            .map(function(row){ return Number(row.cooldown_end_block); })
+            .filter(function(end){ return isFinite(end); })
+            .sort(function(a, b){ return a - b; });
+        let target = ends.filter(function(end){ return end > current; })[0];
+        if(!isFinite(target)) target = ends.length ? ends[ends.length - 1] : current;
+        XCComponents.mount('validator-cooldown', 'countdown', {
+            target: target,
+            current: current,
+            unit: 'blocks',
+            completeText: ends.length ? 'Cooldown complete' : 'No active cooldown'
+        });
     };
 
     $('#validator-query').text(XC.query);
@@ -179,7 +234,9 @@ $(document).ready(function() {
 
         $('#validator-identity').html(renderValidatorIdentity(d));
         $('#validator-registry').html(renderValidatorRegistry(d));
+        mountCapabilities(d);
         $('#validator-capabilities').html(renderValidatorCapabilities(d));
+        mountCooldown(d);
         $('#validator-stake').html(renderValidatorStake(d));
         $('#validator-rewards').html(renderValidatorRewards(d));
         $('#validator-delegations').html(renderValidatorDelegations(d));

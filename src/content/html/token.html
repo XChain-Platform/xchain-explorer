@@ -90,18 +90,18 @@
                     <tbody>
                     <tr>
                         <th>Marketcap</th>
-                        <td>$<span id="market-marketcap-fiat">0.00</span></td>
-                        <td><span id="market-marketcap-coin">0.00000000</span> <span class="xchain-coin"></span></td>
+                        <td><span id="market-marketcap-fiat">$0.00</span></td>
+                        <td><span id="market-marketcap-coin">0.00000000</span></td>
                     </tr>
                     <tr>
-                        <th><span class="xchain-coin"></span> Price</th>
-                        <td>$<span id="market-price-fiat">0.00</span></td>
-                        <td><span id="market-price-coin">0.00000000</span> <span class="xchain-coin"></span></td>
+                        <th>Price</th>
+                        <td><span id="market-price-fiat">$0.00</span></td>
+                        <td><span id="market-price-coin">0.00000000</span></td>
                     </tr>
                     <tr>
-                        <th><span class="xchain-coin"></span> Floor</th>
-                        <td>$<span id="market-floor-fiat">0.00</span></td>
-                        <td><span id="market-floor-coin">0.00000000</span> <span class="xchain-coin"></span></td>
+                        <th>Floor</th>
+                        <td><span id="market-floor-fiat">$0.00</span></td>
+                        <td><span id="market-floor-coin">0.00000000</span></td>
                     </tr>
                     </tbody>
                     </table>
@@ -1132,9 +1132,19 @@
         let defaultIcon = '/icon/' + XC.chain + '/' + XC.network + '/' + XC.query + '.png';
         displayTokenIcon(defaultIcon);
 
+        function renderTokenNotFound(){
+            XC.tokenInfo = null;
+            $('#token-info').html('<div class="p-3 text-muted" id="token-not-found">No token is issued under this tick.</div>');
+            $('#token-market-info').html('<div class="p-3 text-muted">-</div>');
+            $('#data-panels').html('<div class="p-5 text-center text-muted">No token activity to show.</div>');
+            XC.pageInfo.title       = XC.query + ' Token Not Found';
+            XC.pageInfo.description = 'No token with tick ' + XC.query + ' was found on the XChain Platform';
+            updatePageInfo();
+        }
+
         // Request information on this token and update the header with this information
         loadApiData(XC.coin, 'token', XC.query, null, function(o){
-            if(o){
+            if(o && o.info){
 
                 // Setup short alias to action info object
                 XC.tokenInfo = o;
@@ -1146,11 +1156,15 @@
                 tick = (!isNull(o.info) && !isNull(o.info.tick)) ? o.info.tick : XC.query;
                 XC.pageInfo.title       = tick + ' Token Information';
                 XC.pageInfo.description = 'Learn about the ' + tick + ' token on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain Platform information for the ' + tick + ' token including airdrops, callbacks, destroys, dispensers, dispenses, dividends, files, history, issues, links, lists, mints, orders, sends, sleeps, swaps and additional information on this token including artwork like images, audio, video, and custom content associated with this token';
-                XC.pageInfo.canonical   = '/' + XC.coin + '/token/' + tick
+                XC.pageInfo.canonical   = tokenUrl(XC.coin, tick)
                 updatePageInfo();
 
+                setupActionListeners();
+                $('#tab-dropdown-info').click();
+            } else {
+                renderTokenNotFound();
             }
-        });
+        }, renderTokenNotFound);
 
         // Detect icon loading failures and walk a two-step fallback:
         //   <whatever-failed> -> /icon/<chain>/<network>/<query>.png (the
@@ -1169,12 +1183,6 @@
                 el.off('error');
             }
         });
-
-        // Setup listeners to load data panel when an action button is clicked
-        setupActionListeners();
-
-        // Activate the first tab by faking a click
-        $('#tab-dropdown-info').click();
 
     });
 </script>

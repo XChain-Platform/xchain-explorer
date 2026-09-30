@@ -140,13 +140,15 @@ function searchTestsTwo() {
         expect(data.data[0].meta_version).to.equal(null);
     });
 
-    it('leaves the four LIKE panels untouched', async function(){
+    it('uses bounded prefix matching for the four LIKE panels', async function(){
         const db = makeDb();
-        const queries = [];
-        sinon.stub(db, 'doQuery').callsFake(async (c, q) => { queries.push(q); return [{ count: 0 }]; });
+        const calls = [];
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { calls.push({ q, a }); return [{ count: 0 }]; });
         await db.getSearch(searchCfg('address'));
-        const likePanels = queries.filter((q) => /LIKE LOWER/.test(q));
+        const likePanels = calls.filter((call) => /LIKE \?/.test(call.q));
         expect(likePanels).to.have.lengthOf(4);
+        expect(likePanels.every((call) => call.q.includes('LIMIT 100'))).to.equal(true);
+        expect(likePanels.every((call) => call.a.every((arg) => arg === 'escrow%'))).to.equal(true);
     });
 
 }

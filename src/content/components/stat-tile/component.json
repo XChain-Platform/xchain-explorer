@@ -1,0 +1,24 @@
+{
+    "name": "stat-tile",
+    "description": "A compact headline statistic with an optional hint and icon.",
+    "props": {
+        "label": {
+            "type": "string",
+            "required": true,
+            "description": "Statistic label."
+        },
+        "value": {
+            "type": "string",
+            "required": true,
+            "description": "Already formatted statistic value."
+        },
+        "hint": {
+            "type": "string",
+            "description": "Supporting text below the value."
+        },
+        "icon": {
+            "type": "string",
+            "description": "Optional Font Awesome class."
+        }
+    }
+}

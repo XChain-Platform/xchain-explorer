@@ -67,6 +67,21 @@ describe('Broadcaster', function () {
             const msg = JSON.parse(client.ws.send.firstCall.args[0]);
             expect(msg.type).to.equal('MARKET_UPDATE');
         });
+
+        it('broadcasts a market update when the first ticker contains a colon', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['market'], { tick1: 'A:B', tick2: 'C' });
+
+            changeDetector.emit('entity_update', 'BTC', {
+                type: 'MARKET_UPDATE',
+                channel: 'market',
+                data: { tick1: 'A:B', tick2: 'C', last_price: '2' }
+            });
+
+            expect(client.ws.send.called).to.be.true;
+            expect(JSON.parse(client.ws.send.firstCall.args[0]).type).to.equal('MARKET_UPDATE');
+        });
     });
 });
 
@@ -117,6 +132,61 @@ describe('Broadcaster', function () {
             changeDetector.emit('entity_update', 'BTC', { type: 'ADDRESS_UPDATE', channel: 'address', data });
 
             expect(data).to.not.have.property('channel');
+        });
+    });
+});
+
+describe('Broadcaster', function () {
+    beforeEach(setupBroadcaster);
+
+    describe('entity update events from the real ChangeDetector emitter', function () {
+        const ChangeDetector = require('../../../../../src/ws/change_detector.js');
+
+        // A real detector over the harness's real ChannelManager, its entity_update
+        // events forwarded to the detector the Broadcaster listens on.
+        function realDetector(db) {
+            const det = new ChangeDetector({ db, channelManager: wsServer.channelManager, pollInterval: 1e9 });
+            det.on('entity_update', (coin, ev) => changeDetector.emit('entity_update', coin, ev));
+            return det;
+        }
+
+        it('delivers MARKET_UPDATE to a subscriber whose tick spelling differs from the canonical one', async function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['market'], { tick1: 'xcp', tick2: 'btc' });
+            const det = realDetector({ getMarketInfo: sinon.stub().resolves({ tick1: 'XCP', tick2: 'BTC', last_price: '1' }) });
+
+            await det.emitEntityUpdates('BTC', {}, { action: 'ORDER', action_index: 5 });
+
+            expect(client.ws.send.callCount).to.equal(1);
+            const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+            expect(msg.type).to.equal('MARKET_UPDATE');
+            expect(msg.data.tick1).to.equal('xcp');
+            expect(msg.data.last_price).to.equal('1');
+        });
+
+        it('does not route a canonical-tick MARKET_UPDATE to a lower-case subscriber (the routing the emitter must avoid)', function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['market'], { tick1: 'xcp', tick2: 'btc' });
+            changeDetector.emit('entity_update', 'BTC', {
+                type: 'MARKET_UPDATE', channel: 'market', data: { tick1: 'XCP', tick2: 'BTC' }
+            });
+            expect(client.ws.send.called).to.be.false;
+        });
+
+        it('delivers ADDRESS_UPDATE to a subscribed receiving address named only in destinations', async function () {
+            const client = createClient(1, 'BTC');
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['address'], { address: '1dest' });
+            const det = realDetector({ getAddressBalances: sinon.stub().resolves([{ tick: 'XCHAIN', amount: '3' }]) });
+
+            await det.emitEntityUpdates('BTC', {}, { action: 'SEND', source: '1src', destinations: ['1dest'], action_index: 6 });
+
+            expect(client.ws.send.callCount).to.equal(1);
+            const msg = JSON.parse(client.ws.send.firstCall.args[0]);
+            expect(msg.type).to.equal('ADDRESS_UPDATE');
+            expect(msg.data.address).to.equal('1dest');
         });
     });
 });

@@ -27,17 +27,33 @@
 const path      = require('path');
 const net       = require('net');
 const ssrfGuard = require('../http/ssrf_guard.js');
+// The token page's own description-to-URL rule, so the relay and the page can never
+// disagree about which URL a token references.
+const { tokenInfo_metadataUrl } = require('../content/js/xchain/token_info.js');
 
 // The entry file's own `axios` and `dns`, handed over at install time rather than
 // required here. The SSRF suites build the explorer through proxyquire with both
 // replaced in XChainExplorer.js's require map; a second require in this file would
 // resolve the real modules and let a guard test fetch the live network.
-let axios = null;
-let dns   = null;
+// `dns` is used only to build the shared DNS-rebind lookup from http/ssrf_guard.js.
+let axios      = null;
+let safeLookup = null;
+
+// The metadata gateways the token page constructs, relayed for any caller. Any other
+// public host is relayed only for the exact URL a named token's description points at.
+const RELAY_HOSTS = new Set([
+    'arweave.net',
+    'inscription-decoder.vercel.app',
+    'ipfsc.crystalsuite.com'
+]);
 
 function useHostBindings(host){
-    axios = host.axios;
-    dns   = host.dns;
+    // Refuse a missing dns binding before touching either binding: makeSafeLookup would
+    // silently fall back to the real dns module, the live-network leak noted above
+    if(!host.dns || typeof host.dns.lookup !== 'function')
+        throw new Error('relay: host dns binding is missing; refusing to fall back to the real dns module');
+    axios      = host.axios;
+    safeLookup = ssrfGuard.makeSafeLookup(host.dns);
 }
 
 class RelayEgress {
@@ -56,25 +72,14 @@ class RelayEgress {
     // (rather than re-resolving separately) means there is no gap between the
     // check and the connection, closing the DNS-name / DNS-rebinding bypass of
     // the literal hostname blocklist.
+    // Delegates to ssrf_guard.makeSafeLookup, so /relay and the IconDownloader share
+    // one DNS-rebind guard (all:true walk, fail-closed RELAY_DENIED) instead of two copies.
     ssrfSafeLookup(hostname, options, callback){
-        if(typeof options === 'function'){ callback = options; options = {}; }
-        dns.lookup(hostname, options, (err, address, family) => {
-            if(err) return callback(err);
-            let entries = Array.isArray(address) ? address : [{ address, family }];
-            for(let e of entries){
-                if(this.isPrivateAddress(e.address)){
-                    let denied = new Error('Destination resolves to a non-permitted address');
-                    denied.code = 'RELAY_DENIED';
-                    return callback(denied);
-                }
-            }
-            callback(null, address, family);
-        });
+        return safeLookup(hostname, options, callback);
     }
 
-    // RELAY request handler: fetches remote token content a page cannot fetch
-    // itself, because relaying keeps it on the explorer's own https and most .json
-    // hosts send no Access-Control-Allow-Origin, without which a browser refuses.
+    // Fetch token content through the bounded gateways the page constructs. Relaying
+    // keeps extensionless metadata same-origin without exposing general outbound HTTP.
     async processRelayRequest(req, res){
         // Nothing to relay without a url parameter.
         if(!this.util.isNull(req.query.url)){
@@ -82,11 +87,17 @@ class RelayEgress {
                 // Parse and validate the requested URL.
                 const parsed = new URL(req.query.url);
 
-                // Every destination check in one place, in its original order, so a
-                // refusal keeps the status and code it always had.
+                // Protocol, address range and port first, each refusal with its own
+                // status and code, before anything reads the database.
                 const refusal = this.relayDestinationRefusal(parsed);
                 if(refusal)
                     return res.status(refusal.status).json(refusal.body);
+
+                // Outside the fixed gateways, relay only a URL that a token on the named
+                // chain actually references, so this never serves as a general proxy.
+                if(!RELAY_HOSTS.has(parsed.hostname.toLowerCase()) &&
+                   !(await this.isTokenMetadataUrl(req.query.coin, req.query.tick, parsed)))
+                    return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
 
                 // Answered only for the content kinds a page can actually use; anything
                 // else falls through to the 503 below, exactly as before.
@@ -149,8 +160,37 @@ class RelayEgress {
         if(!['80', '443'].includes(port))
             return { status: 403, body: { error: 'Destination not permitted', code: 'RELAY_DENIED' } };
 
-        // Nothing refused it.
+        // Nothing refused it. Which public hosts may be fetched is decided after this
+        // gate, by RELAY_HOSTS or isTokenMetadataUrl.
         return null;
+    }
+
+    /**
+     * Does the token `tick` on chain `coin` reference exactly this URL? True only when
+     * its description derives, by the token page's own rule, to the same URL.
+     *
+     * @returns {boolean} false on any missing, unknown or unreadable input, never a throw
+     */
+    async isTokenMetadataUrl(coin, tick, parsed){
+        // Both identifiers must be single non-empty values; a repeated parameter arrives
+        // as an array.
+        if(typeof coin !== 'string' || typeof tick !== 'string' || !coin || !tick)
+            return false;
+        // Only a chain this explorer holds a database for has tokens to consult.
+        coin = coin.toUpperCase();
+        if(!this.db.pools || !Object.prototype.hasOwnProperty.call(this.db.pools, coin))
+            return false;
+        try {
+            const description = await this.db.findTokenDescription({ coin, data: {} }, tick);
+            if(this.util.isNull(description))
+                return false;
+            // An action: or ord: description derives through page-only helpers and never
+            // names a non-gateway host, so a throw there is simply no match.
+            const derived = tokenInfo_metadataUrl(String(description));
+            return Boolean(derived) && new URL(derived).href === parsed.href;
+        } catch(e) {
+            return false;
+        }
     }
 
     /**
@@ -169,9 +209,14 @@ class RelayEgress {
         const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
                        lookup: this.ssrfSafeLookup.bind(this) };
 
-        // JSON files, and arweave.net gateway URLs, which carry no .json extension.
-        const isArweave = /^arweave\.net$/i.test(parsed.hostname);
-        if(ext=='json' || isArweave){
+        // JSON files and the exact extensionless gateway forms the token page emits.
+        const hostname      = parsed.hostname.toLowerCase();
+        const isArweave     = hostname === 'arweave.net';
+        const isIpfs        = hostname === 'ipfsc.crystalsuite.com' && ext === '';
+        const isInscription = hostname === 'inscription-decoder.vercel.app' &&
+            parsed.pathname === '/api/image' && parsed.searchParams.get('type') === 'json' &&
+            /^[0-9a-f]{64}$/i.test(String(parsed.searchParams.get('tx') || ''));
+        if(ext=='json' || isArweave || isIpfs || isInscription){
             let response = await axios.get(parsed.href, opts);
             if(!this.util.isNull(response.data)){
                 res.type('json').send(this.util.jsonStringify(response.data));

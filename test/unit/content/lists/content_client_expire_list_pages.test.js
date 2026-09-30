@@ -139,6 +139,8 @@ function bootClient(){
     win.eval(fs.readFileSync(JQUERY, 'utf8'));
     win.jQuery.fn.ready = function(){ return this; };
     win.eval(CLIENT_SRC);
+    // Resolve XC from the URL as the page does, so a coin-built link knows its network.
+    win.setXChainParams();
     const captured = {};
     win.jQuery.fn.dataTable = function(config){ captured.config = config; return this; };
     win.jQuery.fn.DataTable = win.jQuery.fn.dataTable;
@@ -342,8 +344,11 @@ describe('Tier-4 expire/close list pages', function () {
             [1, 3505, 1787964043, 'mgUKnyQe27YhMdKtbwfGAfQqxT6X5uoNa5', 1309,
              'DOGE', 'CAMPD', '10', 'DOGE', 'CAMPE', '5', 'empty', 1, 1312], 9);
         expect(html[4]).to.include('/RDOGE/action/1309');
-        expect(html[5], 'give leg').to.include('/DOGE/token/CAMPD');
-        expect(html[6], 'get leg').to.include('/DOGE/token/CAMPE');
+        // The feed spells each leg's coin bare ('DOGE'); on an RDOGE page the link
+        // keeps the page's network, never the mainnet /DOGE/ namespace.
+        expect(html[5], 'give leg').to.include('href="/RDOGE/token/CAMPD"');
+        expect(html[6], 'get leg').to.include('href="/RDOGE/token/CAMPE"');
+        expect(html[5] + html[6], 'a leg linked into mainnet').to.not.include('href="/DOGE/');
     });
 
     // Frontier row 107: an absent tick means the leg is the NATIVE coin, and a link

@@ -101,7 +101,10 @@ function bridgeInvariantHandler(hubConnector, tickParam, error, nativeTickFor){
             if(!hubConnector)
                 return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
             const routeCoin = String((req.params && req.params.coin) || '').toUpperCase();
-            const chain = coins.ALLOWED_COINS.find(coin => routeCoin.endsWith(coin)) || routeCoin;
+            const chain = coins.ALLOWED_COINS.find(coin =>
+                routeCoin === coin || routeCoin === 'T' + coin || routeCoin === 'R' + coin);
+            if(!chain)
+                return error(res, 404, 'Unknown coin.', 'UNKNOWN_COIN');
             const nativeTick = nativeTickFor(tick, chain);
             try {
                 const result = await hubConnector.call({
@@ -230,8 +233,8 @@ function createJsonRpcController(getExplorer, requestGate){
         },
 
         // getrollcallsigners, getanchoraction, getanchorconfirmations, getarchiveanchor and
-        // getpricebatches, served off the routed coin's replica. The key gate that guards
-        // them is mounted in front of the router (src/http/api_boot/json_rpc.js).
+        // getpricebatches, served off the routed coin's replica, public like every other
+        // route and bounded by the same per-IP rate limit.
         ...buildFederationRpc(getExplorer, configInfo)
     }
 }
@@ -257,6 +260,29 @@ function startHttpListener(app){
     return httpServer;
 }
 
+function createApp(options = {}){
+    const appConfigInfo = options.configInfo || configInfo;
+    const hubEndpoints = Object.prototype.hasOwnProperty.call(options, 'hubEndpoints')
+        ? options.hubEndpoints : HUB_ENDPOINTS;
+    const app = options.app || express();
+
+    applySecurityHeaders(app, appConfigInfo, XChainExplorer);
+    applyCors(app, appConfigInfo);
+    const requestGate = applyRateLimits(app, appConfigInfo, isStaticAsset);
+    applyObservability(app, appConfigInfo);
+    applyProxyTrust(app);
+
+    let explorer = null;
+    const jsonRpcController = createJsonRpcController(() => explorer, requestGate);
+    mountBridgePanelRoutes(app, () => explorer,
+        hubEndpoints ? new xchainHubConnector(hubEndpoints) : null);
+
+    explorer = new XChainExplorer(app, appConfigInfo);
+    mountJsonRpc(app, appConfigInfo, jsonRpcController);
+
+    return { app, explorer };
+}
+
 // Brings the whole service up in order: consensus pin, config, guards, routes,
 // listeners, then the live feed.
 async function startApi(){
@@ -274,21 +300,8 @@ async function startApi(){
     let config = await configInfo.getConfig(HUB_ENDPOINTS);
 
     const app = express();
-
-    // The request stack, in mount order: security headers and the body ceiling,
-    // CORS, the two shedding guards, metrics, then the proxy-hop trust the
-    // per-IP guards key on.
-    applySecurityHeaders(app, configInfo, XChainExplorer);
-    applyCors(app, configInfo);
-    const requestGate = applyRateLimits(app, configInfo, isStaticAsset);
-    applyObservability(app, configInfo);
-    applyProxyTrust(app);
-
-    // Declared here so the ping closure can reference it after explorer is created.
-    let explorer = null;
-    const jsonRpcController = createJsonRpcController(() => explorer, requestGate);
-    // Before XChainExplorer, whose constructor mounts the GET 404 wildcard.
-    mountBridgePanelRoutes(app, () => explorer, HUB_ENDPOINTS ? new xchainHubConnector(HUB_ENDPOINTS) : null);
+    const built = createApp({ app, configInfo, hubEndpoints: HUB_ENDPOINTS });
+    const explorer = built.explorer;
 
     const httpServer = startHttpListener(app);
     // Secondary and optional. Both the drain and the WS upgrade below read
@@ -296,7 +309,6 @@ async function startApi(){
     // listener that never bound.
     startTlsListener(app, config, runtime, EXPLORER_API_PORT_HTTPS, log);
 
-    explorer = new XChainExplorer(app, configInfo);
     // Published before init(): init() is what builds the pools, and a signal landing
     // partway through it must still reach db.close() for whatever was built so far.
     runtime.explorer = explorer;
@@ -313,9 +325,6 @@ async function startApi(){
     // hub refresh entirely rather than tick a disabled hub.
     if(HUB_ENDPOINTS) configInfo.startSync(HUB_ENDPOINTS);
 
-    // Last, after every explorer route, so the dispatcher only ever sees what
-    // nothing else matched.
-    mountJsonRpc(app, configInfo, jsonRpcController);
     startWebsockets({ configInfo: configInfo, explorer: explorer, httpServer: httpServer,
                       httpsServer: runtime.httpsServer, runtime: runtime });
 }
@@ -367,9 +376,11 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
     process.on(sig, () => shutdown(sig));
 }
 
-module.exports = { createBridgePanelHandlers, mountBridgePanelRoutes };
+module.exports = { createApp, createBridgePanelHandlers, mountBridgePanelRoutes };
 
-startApi().catch(err => {
-    log.error('FATAL_STARTUP_ERROR', { err: err && err.message ? err.message : err, stack: err && err.stack });
-    process.exit(1);
-});
+if(!require.main || require.main === module || module.parent === require.main){
+    startApi().catch(err => {
+        log.error('FATAL_STARTUP_ERROR', { err: err && err.message ? err.message : err, stack: err && err.stack });
+        process.exit(1);
+    });
+}

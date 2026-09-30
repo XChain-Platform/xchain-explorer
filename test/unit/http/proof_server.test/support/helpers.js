@@ -153,7 +153,7 @@ function makeValidatorSetServer() {
         async getStateNode(config, h) { return built.nodes.get(h) || null; },
         async getMaxBlockIndex() { return S; }
     };
-    const indexerConn = { async stakeWeights(cap) { return (cap === CAP) ? { capability: cap, validators: VALS } : { error: 'capability not configured' }; } };
+    const indexerConn = { async stakeWeights(cap) { return (cap === CAP) ? { capability: cap, validators: VALS } : { error: 'capability not configured: ' + cap }; } };
     return { server: new ProofServer(db), stakesRoot, stateRoot, indexerConn };
 }
 

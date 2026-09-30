@@ -38,7 +38,7 @@ describe('response codes', function () {
     // The action route binds its path segment against a BIGINT column, so MariaDB
     // coerces '7junk' to 7 and answers 200 with action 7. The 400 must also survive
     // the empty-result branch further down, which would otherwise rewrite it to 404.
-    ['7junk', 'junk', '7.5', '-1', '0x7', '7%20'].forEach((bad) => {
+    ['7junk', 'junk', '7.5', '-1', '0x7', '7%20', '9007199254740992'].forEach((bad) => {
         it(`400s /BTC/api/action/${bad} instead of coercing it to a real action`, async function () {
             const { cfg, res } = await request(explorer, '/BTC/api/action/' + bad);
             expect(res._status).to.equal(400);

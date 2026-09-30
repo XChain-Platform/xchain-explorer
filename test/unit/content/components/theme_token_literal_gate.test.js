@@ -366,4 +366,6 @@ describe('theme parity probe (static contract)', () => {
 
 });
 
+require('../../../../tools/theme-parity/theme-lint-tests.js');
+
 require('./theme_token_literal_gate.test/support/bootstrap_surface_bridge.js');

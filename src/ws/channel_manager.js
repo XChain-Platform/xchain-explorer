@@ -136,8 +136,8 @@ class ChannelManager {
             if (key.startsWith(prefix)) {
                 const map = this.subscriptions.get(key);
                 if (map && map.size > 0) {
-                    const tick = key.substring(prefix.length);
-                    ticks.add(tick);
+                    const parsed = this.parseChannelKey(key);
+                    if(parsed.entityKey) ticks.add(parsed.entityKey.tick);
                 }
             }
         }
@@ -152,9 +152,8 @@ class ChannelManager {
             if (key.startsWith(prefix)) {
                 const map = this.subscriptions.get(key);
                 if (map && map.size > 0) {
-                    const pair = key.substring(prefix.length);
-                    const parts = pair.split(':');
-                    if (parts.length === 2) markets.push({ tick1: parts[0], tick2: parts[1] });
+                    const parsed = this.parseChannelKey(key);
+                    if(parsed.entityKey) markets.push(parsed.entityKey);
                 }
             }
         }

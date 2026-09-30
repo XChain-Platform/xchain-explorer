@@ -44,7 +44,7 @@ const ROUTES = [
     ['/{COIN}/api/dispenses/{QUERY}/{TYPE}', 'getDispenses', ['block', 'address', 'source', 'destination', 'token', 'dispenser'], 'Dispensers', 'Dispenses (vending events: coin in, tokens out)'],
     ['/{COIN}/api/fees/{QUERY}/{TYPE}', 'getFees', ['block', 'address', 'source', 'destination', 'token'], 'Action history', 'Protocol fee payments'],
     // 'name' (by-discovery-name lookup) added alongside block/address/token (M1.7).
-    ['/{COIN}/api/files/{QUERY}/{TYPE}', 'getFiles', ['block', 'address', 'token', 'name'], 'Files', 'FILE actions (on-chain files, incl. token-gated)'],
+    ['/{COIN}/api/files/{QUERY}/{TYPE}', 'getFiles', ['block', 'address', 'token', 'name', 'gate'], 'Files', 'FILE actions, including discovery by gate ticker'],
     ['/{COIN}/api/issues/{QUERY}/{TYPE}', 'getIssues', ['block', 'address', 'token'], 'Tokens', 'ISSUE actions (token issuances)'],
     ['/{COIN}/api/links/{QUERY}/{TYPE}', 'getLinks', ['block', 'address'], 'Action history', 'LINK actions'],
     ['/{COIN}/api/lists/{QUERY}/{TYPE}', 'getLists', ['block', 'address'], 'Action history', 'LIST actions'],
@@ -98,7 +98,7 @@ const ROUTES = [
     // neither of these could be assembled by a caller paging the plural routes.
     ['/{COIN}/api/validator/{QUERY}', 'getValidator', 'validator', 'Staking', 'One validator by signing pubkey or address: identity, capabilities, stake, delegation and rotation history, rewards and COLLECT trail, both slash families, NODEPROOF history, attestation quality'],
     ['/{COIN}/api/staking/{QUERY}', 'getAddressStaking', 'address', 'Staking', 'One address’s staking position: stakes, cooldowns measured against the indexer tip, rewards and COLLECT trail, and both slash families'],
-    ['/{COIN}/api/delegations/{QUERY}/{TYPE}', 'getDelegations', ['block', 'address', 'source'], 'Staking', 'Signing-key delegations'],
+    ['/{COIN}/api/delegations/{QUERY}/{TYPE}', 'getDelegations', ['block', 'address', 'source', 'pubkey'], 'Staking', 'Signing-key delegations; pubkey lists the delegations holding one signing key'],
     ['/{COIN}/api/rewards/{QUERY}/{TYPE}', 'getValidatorRewards', ['address', 'source'], 'Staking', 'Validator rewards (oracle/anchor/attestation)'],
     ['/{COIN}/api/full_node_verifications/{QUERY}/{TYPE}', 'getFullNodeVerifications', ['block', 'epoch', 'pubkey', 'address'], 'Staking', 'Full-node possession-proof verdicts (NODEPROOF v0), filtered'],
     ['/{COIN}/api/full_node_verifications', 'getFullNodeVerifications', null, 'Staking', 'Full-node possession-proof verdicts (NODEPROOF v0)'],
@@ -541,6 +541,7 @@ const QUERY_DESC = {
     search: 'free-text search term, minimum 3 characters (shorter terms return zero totals rather than erroring)',
     roster: 'project tick (returns that project\'s token roster)',
     name: 'FILE discovery name (by-name lookup); on /contracts: a word from a contract name or description',
+    gate: 'the token ticker required to unlock a gated FILE',
     broadcast: 'a BROADCAST message or memo (substring match)',
     transaction: 'a transaction hash (substring match)',
 };

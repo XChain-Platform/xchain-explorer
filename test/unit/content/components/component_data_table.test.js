@@ -292,6 +292,19 @@ describe('data-table: config-driven columns (M2.2)', function () {
             win.loadDatatablesData('RDOGE', 'send', null, null);
             assert.equal(captured.config.ajax.url, '/RDOGE/explorer/sends');
         });
+
+    });
+});
+
+describe('data-table: ticker URL segments', function () {
+    it('encodes raw ticker segments while preserving explicit market pairs', function () {
+        const { win } = boot();
+        assert.equal(
+            win.xcDatatableUrl('RDOGE', 'sends', 'send', 'A#B', 'token'),
+            '/RDOGE/explorer/sends/A%23B/token');
+        assert.equal(
+            win.xcDatatableUrl('RDOGE', 'market', 'market-history', ['SAFE', 'A#B'], 'history'),
+            '/RDOGE/explorer/market/SAFE/A%23B/history');
     });
 });
 

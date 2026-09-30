@@ -23,20 +23,20 @@ function updateMarketBasics(market){
         // unknown pair) is a resolution failure; say so instead of leaving
         // every panel on "Loading".
         if(!o || isNull(o.tick2)){
-            showMarketNotFound(String(market).split('/')[0]);
+            showMarketNotFound(Array.isArray(market) ? market[0] : String(market).split('/')[0]);
             return;
         }
         // Update page with token names
         $('.tick1-name').text(o.tick1);
         $('.tick2-name').text(o.tick2);
         // Update Market information header
-        $('#tokenIconLink1').attr('href','/' + XC.coin + '/token/' + o.tick1);
-        $('#tokenIconLink2').attr('href','/' + XC.coin + '/token/' + o.tick2);
+        $('#tokenIconLink1').attr('href',tokenUrl(XC.coin, o.tick1));
+        $('#tokenIconLink2').attr('href',tokenUrl(XC.coin, o.tick2));
         $('#tokenIcon1').attr('src', getTokenIcon(o.tick1));
         $('#tokenIcon2').attr('src', getTokenIcon(o.tick2));
-        $('#tokenLink1').attr('href', '/' + XC.coin + '/token/' + o.tick1);
-        $('#tokenLink2').attr('href', '/' + XC.coin + '/token/' + o.tick2);
-        $('#market-swap-button').attr('href', '/' + XC.coin + '/market/' + o.tick2 + '/' + o.tick1);
+        $('#tokenLink1').attr('href', tokenUrl(XC.coin, o.tick1));
+        $('#tokenLink2').attr('href', tokenUrl(XC.coin, o.tick2));
+        $('#market-swap-button').attr('href', '/' + XC.coin + '/market/' + encodeURIComponent(String(o.tick2)) + '/' + encodeURIComponent(String(o.tick1)));
         // Update Price information header
         $('#tick1-price').text(formatAmount(bcformat(o.tick1_price,8)));
         $('#tick1-24h-high').text(formatAmount(bcformat(o.tick1_24hr_high,8)));
@@ -44,6 +44,11 @@ function updateMarketBasics(market){
         $('#tick1-24h-price').text(formatAmount(bcformat(o.tick1_24hr_price,8)));
         $('#tick1-24h-change').text(formatAmount(bcformat(o.tick1_24hr_change,8)));
         $('#tick1-24h-volume').text(formatAmount(bcformat(o.tick1_24hr_volume,8)));
+    }, function(body, xhr){
+        // An unknown pair answers 404 NOT_FOUND, which skips the success handler
+        // above; render the same not-found state instead of leaving "Loading"
+        if((xhr && xhr.status == 404) || (body && body.code == 'NOT_FOUND'))
+            showMarketNotFound(Array.isArray(market) ? market[0] : String(market).split('/')[0]);
     });
 }
 
@@ -182,8 +187,8 @@ function marketUpdates_historyCandles(data){
     $.each(data,function(idx, item){
         if(item[0]==tstamp){
             close  = item[1];
-            if(item[1]>high) high = item[1];
-            if(item[1]<low)  low  = item[1];
+            if(bcnum(item[1]).gt(bcnum(high))) high = item[1];
+            if(bcnum(item[1]).lt(bcnum(low)))  low  = item[1];
             // Accumulate volume via bignumber to avoid IEEE-754 drift on
             // high-precision token amounts and overflow past MAX_SAFE_INTEGER
             // for large-supply 0-decimal tokens.
@@ -197,7 +202,7 @@ function marketUpdates_historyCandles(data){
             }
             // Update stats
             tstamp = item[0];
-            open   = close;
+            open   = item[1];
             high   = item[1];
             low    = item[1];
             close  = item[1];

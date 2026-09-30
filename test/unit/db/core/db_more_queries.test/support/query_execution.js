@@ -340,6 +340,22 @@ describe('Database#getHistoryData: additional branches', () => {
         expect(Number(total)).to.equal(5000);
     });
 
+    it('counts filtered history for a token literally named null', async () => {
+        const queries = [];
+        sinon.stub(db, 'getTickId').resolves(7);
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+            queries.push(q);
+            if(q && q.includes('count(DISTINCT')) return [{ count: 0 }];
+            return [];
+        });
+        sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
+        const config = makeActionConfig('getHistory', 'token');
+        config.data.search = 'null';
+        config.data.query  = { total: null };
+        await db.getHistoryData(config);
+        expect(queries[0]).to.include('count(DISTINCT');
+    });
+
     it('applies prev offset filter (lines 6000-6003)', async () => {
         let capturedWhere = null;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {

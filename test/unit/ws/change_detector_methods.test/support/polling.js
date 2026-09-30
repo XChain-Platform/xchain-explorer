@@ -267,3 +267,72 @@ describe('ChangeDetector', function () {
         });
     });
 });
+
+describe('ChangeDetector', function () {
+    afterEach(() => sinon.restore());
+
+    describe('poll() reentrancy', function () {
+        // A checkCoin that stays pending until release() is called.
+        function heldCheckCoin(det) {
+            let release;
+            const held = new Promise(r => { release = r; });
+            const stub = sinon.stub(det, 'checkCoin').callsFake(() => held);
+            sinon.stub(det, 'checkMempoolForCoin').resolves();
+            return { stub, release: () => release() };
+        }
+
+        it('hands back the pass in flight instead of starting a second one over the same cursors', async function () {
+            let det = mk();
+            det.running = true;
+            det.state = { BTC: {} };
+            const { stub, release } = heldCheckCoin(det);
+
+            const p1 = det.poll();
+            const p2 = det.poll();
+            await Promise.resolve();
+            expect(p1).to.equal(p2);
+            expect(stub.callCount).to.equal(1);
+
+            release();
+            await p1;
+            expect(det._polling).to.equal(null);
+            await det.poll();
+            expect(stub.callCount).to.equal(2);   // the guard clears once the pass ends
+        });
+
+        it('stop() returns the pass in flight so the shutdown drain can wait for it', async function () {
+            let det = mk();
+            det.running = true;
+            det.state = { BTC: {} };
+            const { release } = heldCheckCoin(det);
+
+            det.poll();
+            const stopped = det.stop();
+            const first = await Promise.race([stopped.then(() => 'settled'), Promise.resolve('pending')]);
+            expect(first).to.equal('pending');
+
+            release();
+            await stopped;
+            expect(det._polling).to.equal(null);
+        });
+
+        it('a stop() mid-pass skips the coins not yet started', async function () {
+            let det = mk();
+            det.running = true;
+            det.state = { BTC: {}, TBTC: {} };
+            const { stub, release } = heldCheckCoin(det);
+
+            const pass = det.poll();
+            await Promise.resolve();
+            det.stop();
+            release();
+            await pass;
+            expect(stub.args.map(a => a[0])).to.deep.equal(['BTC']);
+        });
+
+        it('stop() with nothing in flight resolves at once', async function () {
+            let det = mk();
+            await det.stop();
+        });
+    });
+});

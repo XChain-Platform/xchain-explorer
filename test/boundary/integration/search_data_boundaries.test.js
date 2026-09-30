@@ -252,11 +252,10 @@ describe('Boundary Integration: Market endpoints', function () {
         expect(res.status).to.equal(200);
     });
 
-    it('nonexistent market pair returns 200 without crashing', async function () {
+    it('nonexistent market pair returns 404 NOT_FOUND without crashing', async function () {
         const res = await request.get('/RBTC/api/market/FAKE1/FAKE2');
-        expect(res.status).to.equal(200);
-        // Market endpoint returns {runtime: '...'} for nonexistent pairs
-        // No data property is returned (boundary finding)
-        expect(res.body).to.be.an('object');
+        // A single-record miss answers 404 like every other single-record route
+        expect(res.status).to.equal(404);
+        expect(res.body.code).to.equal('NOT_FOUND');
     });
 });

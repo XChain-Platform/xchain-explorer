@@ -59,8 +59,11 @@
                 <div class="card-title mb-0 p-1 fw-bold">
                     <i class="fa fa-lg fa-timeline"></i> Lifecycle
                 </div>
-                <div class="card-body p-2" id="xcall-timeline">
-                    <span class="text-muted">Loading lifecycle...</span>
+                <div class="card-body p-2">
+                    <div id="xcall-lifecycle-overview" class="mb-3"></div>
+                    <div id="xcall-timeline">
+                        <span class="text-muted">Loading lifecycle...</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -68,6 +71,9 @@
     </div>
 </div>
 
+<script type="application/json" id="xc-mount-manifest">[
+    {"el":"xcall-lifecycle-overview","component":"timeline","props":{"items":[],"emptyText":"Loading lifecycle..."}}
+]</script>
 <script type="text/javascript" src="/js/xcall_timeline_render.js"></script>
 <script type="text/javascript">
 $(document).ready(function() {
@@ -79,6 +85,24 @@ $(document).ready(function() {
         // Label column width is a token (.xcall-header-label above), not an inline
         // literal: this page is the first built on the token layer.
         return '<tr><th class="text-muted fw-normal xcall-header-label">' + esc(label) + '</th><td>' + value + '</td></tr>';
+    };
+
+    let mountLifecycle = function(d){
+        if(typeof XCComponents === 'undefined') return;
+        let items = d ? buildXcallTimeline(d).map(function(phase){
+            let state = phase.state === 'done' ? 'complete'
+                : (phase.state === 'failed' || phase.state === 'expired' ? 'error' : phase.state);
+            return {
+                label: phase.label,
+                detail: phase.note || phase.state,
+                meta: isNull(phase.block) ? null : 'Block ' + numeral(phase.block).format('0,0'),
+                state: state
+            };
+        }) : [];
+        XCComponents.mount('xcall-lifecycle-overview', 'timeline', {
+            items: items,
+            emptyText: 'No lifecycle to show.'
+        });
     };
 
     $('#xcall-call-id').text(XC.query);
@@ -102,6 +126,7 @@ $(document).ready(function() {
             // call that exists but has no data yet, which is a different thing.
             $('#xcall-header').html('<tr><td class="text-muted">No cross-chain call is recorded with this call ID.</td></tr>');
             $('#xcall-timeline').html('<span class="text-muted">No lifecycle to show.</span>');
+            mountLifecycle(null);
             return;
         }
 
@@ -113,19 +138,21 @@ $(document).ready(function() {
         html += fieldRow('Call ID',      '<span class="font-monospace small">' + esc(d.call_id) + '</span>');
         html += fieldRow('Block',        isNull(d.block_index) ? '-' : formatLink('/' + XC.coin + '/block/' + d.block_index, numeral(d.block_index).format('0,0')));
         html += fieldRow('Time',         isNull(d.timestamp) ? '-' : formatLivestamp(d.timestamp));
-        html += fieldRow('Transaction',  isNull(d.tx_hash) ? '-' : formatLink('/' + XC.coin + '/transaction/' + d.tx_hash, formatHash(d.tx_hash, 32)));
+        html += fieldRow('Transaction',  isNull(d.tx_hash) ? '-' : formatLinkHtml('/' + XC.coin + '/transaction/' + d.tx_hash, formatHash(d.tx_hash, 32)));
         html += fieldRow('Route',        esc(XC.coin) + ' <i class="fa fa-arrow-right-long"></i> ' + (isNull(d.target_chain) ? '-' : esc(d.target_chain)));
         html += fieldRow('Method',       isNull(d.method) ? '-' : esc(d.method));
         $('#xcall-header').html(html);
 
         // Timeline derivation and render live in xcall_timeline_render.js so a test
         // can drive the real path with a stubbed response.
+        mountLifecycle(d);
         $('#xcall-timeline').html(renderXcallTimeline(d));
     }).fail(function(xhr){
         let body = (xhr && xhr.responseJSON) ? xhr.responseJSON : {};
         let msg  = body.error ? body.error : 'Could not load this cross-chain call';
         $('#xcall-header').html('<tr><td class="text-danger">' + esc(msg) + '</td></tr>');
         $('#xcall-timeline').html('<span class="text-muted">-</span>');
+        mountLifecycle(null);
     });
 
 });

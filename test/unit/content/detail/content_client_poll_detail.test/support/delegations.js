@@ -65,3 +65,18 @@ describe('poll.html detail page @regression', function () {
         });
     });
 });
+
+describe('poll.html ticker URLs', function () {
+    it('encodes a chain-valid fragment character in the delegation ticker', function () {
+        const poll = Object.assign({}, OPEN_POLL, { tick: 'A#B' });
+        const delegationUrl = '/RBTC/api/vote_delegations/A%23B/tick';
+        const page = loadPage({
+            [POLL_URL]: poll,
+            [RESULT_URL]: [],
+            [VOTES_URL]: [],
+            [delegationUrl]: []
+        });
+        expect(page.seen).to.include(delegationUrl);
+        expect(page.seen).to.not.include('/RBTC/api/vote_delegations/A#B/tick');
+    });
+});

@@ -90,9 +90,15 @@ function anchorNum(v){
     return (typeof numeral === 'function') ? numeral(v).format('0,0') : anchorEsc(v);
 }
 
-function anchorBlockLink(height){
+// A height links under the chain it belongs to (a bundle section's own chain, 'BTC'
+// for a snapshot block, which is always a Bitcoin height) at the page's network; no
+// chain means the page's own. A chain this instance does not serve stays plain text.
+function anchorBlockLink(height, chain){
     if(isNull(height)) return '-';
-    return formatLink('/' + anchorCoin() + '/block/' + height, anchorNum(height));
+    let coin  = networkCoin(isNull(chain) ? anchorCoin() : chain);
+    let avail = (typeof XC !== 'undefined' && XC && XC.status && XC.status.available) || null;
+    if(coin !== anchorCoin() && avail && !avail[coin]) return anchorNum(height);
+    return formatLink('/' + coin + '/block/' + height, anchorNum(height));
 }
 
 function anchorHash(v){
@@ -206,11 +212,11 @@ function anchorLocalSection(d){
  * The two heights
  * ------------------------------------------------------------------ */
 
-function anchorHeightRow(cls, label, height, badge, note){
+function anchorHeightRow(cls, label, height, badge, note, chain){
     return '<tr class="' + cls + '">'
         + '<th class="text-muted fw-normal" style="width:14rem;">'
         + '<span class="anchor-height-label">' + anchorEsc(label) + '</span></th>'
-        + '<td><span class="anchor-height-value">' + anchorBlockLink(height) + '</span>'
+        + '<td><span class="anchor-height-value">' + anchorBlockLink(height, chain) + '</span>'
         + ' <span class="badge text-bg-secondary anchor-height-badge">' + anchorEsc(badge) + '</span>'
         + anchorNote(note) + '</td></tr>';
 }
@@ -225,7 +231,7 @@ function anchorBundleHeightRow(d){
     let parts    = [];
     sections.forEach(function(s){
         parts.push('<span class="anchor-section-height">'
-            + anchorEsc(isNull(s.chain) ? '-' : s.chain) + ' ' + anchorBlockLink(s.block_index) + '</span>');
+            + anchorEsc(isNull(s.chain) ? '-' : s.chain) + ' ' + anchorBlockLink(s.block_index, s.chain) + '</span>');
     });
     return '<tr class="anchor-height-checkpointed">'
         + '<th class="text-muted fw-normal" style="width:14rem;">'
@@ -278,9 +284,9 @@ function anchorSectionRowsHtml(sections, row){
             + '<td class="anchor-section-index">' + anchorEsc(isNull(s.section_index) ? '-' : s.section_index) + '</td>'
             + '<td class="anchor-section-chain">' + anchorEsc(isNull(s.chain) ? '-' : s.chain)
             + (local ? ' <span class="badge text-bg-primary">this explorer</span>' : '') + '</td>'
-            + '<td class="anchor-section-block">' + anchorBlockLink(s.block_index) + '</td>'
+            + '<td class="anchor-section-block">' + anchorBlockLink(s.block_index, s.chain) + '</td>'
             + '<td class="anchor-section-seq">' + (isNull(s.checkpoint_seq) ? '-' : anchorEsc(s.checkpoint_seq)) + '</td>'
-            + '<td class="anchor-section-snapshot">' + anchorBlockLink(s.snapshot_block) + '</td>'
+            + '<td class="anchor-section-snapshot">' + anchorBlockLink(s.snapshot_block, 'BTC') + '</td>'
             + '<td class="anchor-section-state-root">' + anchorRootCell(s.state_root, s.state_root_version) + '</td>'
             + '<td class="anchor-section-merkle-root">' + anchorRootCell(s.block_merkle_root, s.block_merkle_version) + '</td>'
             + '<td><span class="anchor-section-sig-count">' + sigs.length + '</span></td>'

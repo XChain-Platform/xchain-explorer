@@ -60,6 +60,18 @@ describe('XCC tooltips', () => {
         expect(info.map(r => r[0])).to.not.include(9);
     });
 
+    it('aggregates exact raw chart values above the safe integer boundary', () => {
+        const prices = [
+            { x: 100, y: Number('1.00000001'), exactY: '1.00000001' }
+        ];
+        const volumes = [
+            { x: 100, y: Number('9007199254740993'), exactY: '9007199254740993' }
+        ];
+        expect(XCC.aggregateTrades(prices, volumes, 100)).to.deep.equal([
+            ['1.00000001', '9007199254740993', '9007199344812985.54740993']
+        ]);
+    });
+
     it('renders one price/volume pair per aggregated trade', () => {
         const html = XCC.lineTooltip({
             time: 100,
@@ -114,6 +126,23 @@ describe('XCC tooltips', () => {
         expect(html).to.include('<b>T1000</b>');
         expect(html).to.include('10.00000000');
         expect(html).to.include('0.50000000');
+    });
+
+    it('reads exact candle strings from projected Chart.js points', () => {
+        XCC.formatters.amount = v => String(v);
+        XCC.formatters.volume = v => String(v);
+        const cfg = XCC.candlestickConfig({
+            ohlc: [[1000, '90071992.54740993', '90071992.54740994', '9', '10']],
+            volume: [[1000, '9007199254740993']]
+        }, { tick1: 'BIG', tick2: 'USD' });
+        const candle = cfg.data.datasets[0].data[0];
+        const volume = cfg.data.datasets[1].data[0];
+        const html = cfg.xcTooltip([
+            { datasetIndex: 0, parsed: { x: 1000 }, raw: candle },
+            { datasetIndex: 1, parsed: { x: 1000 }, raw: volume }
+        ]);
+        expect(html).to.include('90071992.54740993');
+        expect(html).to.include('9007199254740993');
     });
 
     it('resolves the depth tooltip back to the correct side and sums', () => {

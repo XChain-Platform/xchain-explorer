@@ -23,14 +23,22 @@ const SUB = require('../../consensus/gates/state_subtree_gate.js');   // byte-id
 const swq = require('../../consensus/stake_weighted_quorum.js');
 
 // One capability's stake set at the checkpoint height, for validatorSetProof.
-// Answers { error } to refuse the whole request, null when the capability is not
-// configured on this indexer, and otherwise { set } with the source-deduped total
-// and every validator's weight proven against stakes_root.
+// Answers { error } to refuse the whole request, null ONLY when the indexer says the
+// capability is not configured on it, and otherwise { set } with the source-deduped
+// total and every validator's weight proven against stakes_root.
 async function capabilitySetProof(server, config, cp, tr, cap, indexerConn) {
     let res;
     try { res = await indexerConn.stakeWeights(cap, Number(cp.block_index)); }
     catch (e) { return { error: (e && e.code === 'INDEXER_AUTH_REQUIRED') ? 'INDEXER_AUTH_REQUIRED' : 'INDEXER_UNAVAILABLE' }; }
-    if (!res || res.error) return null;                                  // capability not configured here -> skip
+    // Refuse an empty answer: the indexer always returns an object for this method
+    if (!res || typeof res !== 'object') return { error: 'INDEXER_STAKE_WEIGHTS_UNAVAILABLE:' + cap };
+    // Skip only a capability the indexer says is not configured here; its other in-band
+    // errors (block not yet indexed, database not ready, lookup failed) refuse the request,
+    // so a lagging or broken indexer cannot yield a proof with that capability missing
+    if (res.error) {
+        if (String(res.error).startsWith('capability not configured')) return null;
+        return { error: 'INDEXER_STAKE_WEIGHTS_UNAVAILABLE:' + cap };
+    }
     // Fail CLOSED on a truncated stake snapshot, read off the RESULT ENVELOPE.
     // The indexer marks truncation in two places: a `truncated` property on the
     // validators array (db/index.js getStakeWeightsByCapability) and a `truncated` field

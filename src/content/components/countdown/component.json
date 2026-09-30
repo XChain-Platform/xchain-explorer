@@ -1,0 +1,26 @@
+{
+    "name": "countdown",
+    "description": "A block-based distance to a target height.",
+    "props": {
+        "target": {
+            "type": "number",
+            "required": true,
+            "description": "Target block height."
+        },
+        "current": {
+            "type": "number",
+            "required": true,
+            "description": "Current chain height."
+        },
+        "unit": {
+            "type": "string",
+            "default": "blocks",
+            "description": "Unit displayed after the remaining count."
+        },
+        "completeText": {
+            "type": "string",
+            "default": "Ready",
+            "description": "Text shown at or beyond the target."
+        }
+    }
+}

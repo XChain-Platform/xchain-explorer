@@ -230,6 +230,7 @@ describe('getStatus degrades a failed per-coin read to null', function () {
         sinon.stub(db, 'getMaxBlockIndex').rejects(new DbQueryError('outage'));
         sinon.stub(db, 'getMaxBlockTime').rejects(new DbQueryError('outage'));
         sinon.stub(db, 'getDecoderTip').resolves(null);
+        sinon.stub(db, 'getReplicaHaltStatus').resolves(null);
 
         const [data] = await db.getStatus(cfg());
         expect(data).to.have.property('last_block');

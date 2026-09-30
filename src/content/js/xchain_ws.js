@@ -28,14 +28,31 @@
 // test (test/unit/ws/schema_version_client.test.js) fails the build if they drift.
 var CLIENT_WS_SCHEMA_VERSION = 2;
 
-// Track latest action_index for catch-up on reconnect. WELCOME's and
-// CATCH_UP_COMPLETE's latest_action_index ride the same path, so the seed and
-// the running maximum cannot drift apart.
+// Track latest action_index for catch-up on reconnect. WELCOME only seeds an unset
+// cursor: its tip runs ahead of rows a reconnect replay has yet to deliver. While that
+// replay runs, frames are noted in _catchUp.maxSeen and applied once it closes.
 function xcWsTrackCursor(client, msg) {
-    if (msg.data) {
-        client._advanceCursor(msg.data.action_index);
-        client._advanceCursor(msg.data.latest_action_index);
+    if (!msg.data) return;
+    if (msg.type === 'WELCOME') {
+        if (client.lastActionIndex === null) client._advanceCursor(msg.data.latest_action_index);
+        return;
     }
+    if (client._catchUp) {
+        client._catchUp.maxSeen = xcWsMaxIndex(client._catchUp.maxSeen, msg.data.action_index);
+        client._catchUp.maxSeen = xcWsMaxIndex(client._catchUp.maxSeen, msg.data.latest_action_index);
+        return;
+    }
+    client._advanceCursor(msg.data.action_index);
+    client._advanceCursor(msg.data.latest_action_index);
+}
+
+// The larger of two action indexes, compared as BigInt and kept as the wire's decimal
+// string. A value that is not a non-negative integer literal is ignored (null included).
+function xcWsMaxIndex(current, raw) {
+    if (raw === null || raw === undefined) return current;
+    var val = String(raw);
+    if (!/^[0-9]+$/.test(val)) return current;
+    return (current === null || BigInt(val) > BigInt(current)) ? val : current;
 }
 
 // Envelope schema gate: the server stamps every frame with
@@ -72,6 +89,11 @@ function xcWsHandleSystemMessage(client, msg) {
     if (msg.type === 'CATCH_UP_COMPLETE') {
         client.catchingUp = false;
         XCLogger.log('[XChainWS] Catch-up complete:', msg.data.events_replayed, 'events replayed');
+    }
+
+    // A COMPLETE or an error carrying the pending catch-up's id moves the reconnect on.
+    if (client._catchUp && (msg.type === 'CATCH_UP_COMPLETE' || msg.type === 'error')) {
+        client._catchUpAnswered(msg);
     }
 }
 
@@ -119,6 +141,9 @@ var XChainWS = {
     intentionalClose:     false,
     serverInfo:           null,
     catchingUp:           false,
+    // The reconnect catch-up in progress, or null. It and the methods that drive it
+    // live in xchain_ws_catch_up.js, which the page loads right after this file.
+    _catchUp:             null,
     _schemaWarned:        false,
     handlers:             {},
 
@@ -241,6 +266,10 @@ var XChainWS = {
         XCLogger.log('[XChainWS] Disconnected (code:', event.code + ')');
         this._stopPing();
         this.ws = null;
+        // Drop an unfinished catch-up WITHOUT applying what it saw: the cursor still
+        // points before the gap, so the next reconnect replays it again from there.
+        if (this._catchUp && this._catchUp.timer) clearTimeout(this._catchUp.timer);
+        this._catchUp = null;
 
         if (!this.intentionalClose) {
             this._setStatus('reconnecting');
@@ -301,31 +330,11 @@ var XChainWS = {
     // string; nothing here converts to Number, and a value that is not a non-negative
     // integer literal is not a cursor and is ignored (this also absorbs null).
     _advanceCursor: function(raw) {
-        if (raw === null || raw === undefined) return;
-        var val = String(raw);
-        if (!/^[0-9]+$/.test(val)) return;
-        if (this.lastActionIndex === null || BigInt(val) > BigInt(this.lastActionIndex)) {
-            this.lastActionIndex = val;
-        }
+        this.lastActionIndex = xcWsMaxIndex(this.lastActionIndex, raw);
     },
 
-    // Resubscribe to all tracked subscriptions (after reconnect)
-    _resubscribe: function() {
-        if (this.subscriptions.length === 0) {
-            this._autoSubscribe();
-            return;
-        }
-        for (var i = 0; i < this.subscriptions.length; i++) {
-            var sub    = this.subscriptions[i];
-            var params = Object.assign({}, sub.params);
-            // Same gate as before the cursor became a string: a chain still at index 0
-            // gets no since_action_index.
-            if (this.lastActionIndex !== null && BigInt(this.lastActionIndex) > 0n) {
-                params.since_action_index = this.lastActionIndex;
-            }
-            this._send({ action: 'subscribe', channels: sub.channels, params: params });
-        }
-    },
+    // _resubscribe (after reconnect) is installed by xchain_ws_catch_up.js, which sends
+    // each subscription's catch-up one at a time.
 
     // Auto-subscribe to page-relevant channels
     _autoSubscribe: function() {

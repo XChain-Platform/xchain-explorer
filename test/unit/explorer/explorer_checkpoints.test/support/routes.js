@@ -143,6 +143,16 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body).to.include({ code: 'INVALID_BLOCK_INDEX' });
     });
 
+    it('400s a block_index above the safe integer boundary before the DB call', async function () {
+        const explorer = makeExplorer();
+        const res = mockRes();
+        await explorer.processCheckpointVerifyRequest(
+            req({ coin: 'BTC', blockIndex: '9007199254740992' }), res);
+        expect(res._status).to.equal(400);
+        expect(res._body).to.include({ code: 'INVALID_BLOCK_INDEX' });
+        expect(explorer.db.getCheckpointRows.called).to.equal(false);
+    });
+
     it('404s when no checkpoint exists at the height', async function () {
         const explorer = makeExplorer();
         explorer.db.getCheckpointRows.resolves([]);
@@ -166,6 +176,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body.is_weighted).to.equal(false);
         expect(res._body.quorum).to.equal(1);
         expect(res._body.valid_sigs).to.equal(1);
+        expect(res._body.valid_signers).to.deep.equal([PK('a')]);
         expect(res._body.verified).to.equal(true);
         expect(res._body.snapshot_available).to.equal(true);
         expect(res._body.validators).to.deep.equal([{ pubkey: PK('a'), weight: '5', source: 'src_a' }]);
@@ -285,6 +296,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         await explorer.processCheckpointVerifyRequest(req({ coin: 'BTC', blockIndex: '500' }), res);
         expect(res._body.quorum).to.equal(2);
         expect(res._body.valid_sigs).to.equal(2);              // b counted once, not dropped
+        expect(res._body.valid_signers).to.deep.equal([PK('a'), PK('b')]);
         expect(res._body.verified).to.equal(true);
     });
 

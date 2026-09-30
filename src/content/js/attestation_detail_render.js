@@ -81,7 +81,7 @@ function renderAttestationRequest(d){
     html += attFieldRow('Redundancy Required', isNull(r.redundancy) ? '<span class="text-muted">-</span>'
         : attEsc(r.redundancy) + ' <span class="small text-muted">validator signature(s) required by the request</span>');
     html += attFieldRow('Fee',            isNull(r.fee_amount) ? '<span class="text-muted">feeless</span>'
-        : attEsc(r.fee_amount) + (isNull(r.fee_tick) ? '' : ' ' + formatLink('/' + XC.coin + '/token/' + r.fee_tick, r.fee_tick)));
+        : attEsc(r.fee_amount) + (isNull(r.fee_tick) ? '' : ' ' + formatLink(tokenUrl(XC.coin, r.fee_tick), r.fee_tick)));
     html += attFieldRow('Gas Escrow',     attDash(r.gas_escrow));
     html += attFieldRow('Deadline Block', attBlockLink(r.deadline_block));
     html += attFieldRow('Requested In',   attBlockLink(r.block_index)

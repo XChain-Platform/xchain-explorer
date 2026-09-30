@@ -47,13 +47,13 @@ function attActionLink(i){
 // batch_action_index is the DOGE action_index of the ATTEST v5/v6 batch that carried
 // the response (attestation_responses.sql says so outright), never an action on the
 // page's own rail, so attActionLink's '/' + XC.coin pointed at whatever unrelated
-// action happens to hold that index here. siblingCoin resolves a declared base ticker
+// action happens to hold that index here. networkCoin resolves a declared base ticker
 // to this deployment's coin id at the PAGE's network tier, the rule the PRICE token
-// link and actionRefToRawPath already use; the tier regex is not restated here so the
+// link and actionRefToRawPath already use; the tier logic is not restated here so the
 // two cannot drift apart.
 function attBatchActionLink(i){
     if(isNull(i)) return '<span class="text-muted">-</span>';
-    return formatLink('/' + siblingCoin('DOGE') + '/action/' + i, numeral(i).format('0,0'));
+    return formatLink('/' + networkCoin('DOGE') + '/action/' + i, numeral(i).format('0,0'));
 }
 
 // The recorded request_status, or 'unknown' when no v0 row reached the client.

@@ -15,11 +15,7 @@
  * and returns a supertest agent for making HTTP requests.
  */
 
-const express        = require('express');
-const cors           = require('cors');
-const { testCorsOptions } = require('../../helpers/cors.js');
-const path           = require('path');
-const XChainExplorer = require('../../../src/XChainExplorer.js');
+const { createApp: createApiApp } = require('../../../src/api.js');
 const pre            = require('./fixture-preflight.js');
 const { envView }    = require('../../fixtures/mock-config.js');
 
@@ -110,12 +106,8 @@ async function createApp(dbPort) {
     // behavior, not replica freshness, which has its own unit coverage.
     process.env.EXPLORER_TIP_MAX_AGE_S = '0';
 
-    const app = express();
-    app.use(express.json());
-    app.use(cors(testCorsOptions()));
-
     const configInfo = createTestConfigInfo(dbPort);
-    const explorer = new XChainExplorer(app, configInfo);
+    const { app, explorer } = createApiApp({ configInfo, hubEndpoints: null });
     await explorer.init();
 
     cachedResult = { app, explorer, configInfo };

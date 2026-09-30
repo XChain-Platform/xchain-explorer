@@ -218,3 +218,23 @@ describe('formatAmount fed an absent amount', function () {
     });
 
 });
+
+describe('REORG affected chain findings', function () {
+
+    it('renders the parser reason instead of a dash for malformed affected_chains JSON', function () {
+        const cells = renderRow('reorg', [1, 1756200000000, 500, 'ab'.repeat(32), '{bad json', 3, 'confirmed', 42], 7);
+        expect(cells[4]).to.include('Invalid affected_chains:');
+        expect(cells[4]).to.not.equal('-');
+    });
+
+    it('renders the entry number and reason for an invalid affected_chains item', function () {
+        const cells = renderRow('reorg', [1, 1756200000000, 500, 'ab'.repeat(32), '["LTC",null]', 3, 'confirmed', 42], 7);
+        expect(cells[4]).to.equal('LTC, entry 2: invalid chain name');
+    });
+
+    it('escapes a stored affected chain before rendering the item', function () {
+        const chain = '<img src=x onerror=alert(1)>';
+        const cells = renderRow('reorg', [1, 1756200000000, 500, 'ab'.repeat(32), JSON.stringify([chain]), 3, 'confirmed', 42], 7);
+        expect(cells[4]).to.equal(chain);
+    });
+});

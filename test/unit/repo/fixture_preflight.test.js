@@ -138,7 +138,7 @@ describe('integration fixture preflight', function () {
     describe('the report', function () {
         it('names the port, the fixture file, and both ways out', function () {
             const msg = pre.collisionMessage("Access denied for user 'root'@'127.0.0.1'", []);
-            assert.match(msg, /3307/);
+            assert.match(msg, new RegExp(String(pre.FIXTURE_DB.port)));
             assert.match(msg, /PORT COLLISION/);
             assert.match(msg, /docker-compose\.test\.yml/);
             assert.match(msg, /stop whatever holds/);
@@ -169,12 +169,14 @@ describe('integration fixture preflight', function () {
 
     describe('describeHolders', function () {
         it('keeps only the lines that mention the fixture port', function () {
+            const port = String(pre.FIXTURE_DB.port);
+            const decoy = String(pre.FIXTURE_DB.port + 1);
             const runner = (cmd) => cmd === 'ss'
-                ? 'LISTEN 0 80 127.0.0.1:3306 0.0.0.0:*\nLISTEN 0 250 127.0.0.1:3307 0.0.0.0:* users:(("mariadbd",pid=1))\n'
+                ? `LISTEN 0 80 127.0.0.1:${decoy} 0.0.0.0:*\nLISTEN 0 250 127.0.0.1:${port} 0.0.0.0:* users:(("mariadbd",pid=1))\n`
                 : '';
             const holders = pre.describeHolders(runner);
             assert.strictEqual(holders.length, 1);
-            assert.match(holders[0], /^ss: LISTEN .*3307/);
+            assert.match(holders[0], new RegExp(`^ss: LISTEN .*${port}`));
         });
 
         it('survives a host where none of the probe commands exist', function () {
@@ -192,7 +194,7 @@ describe('integration fixture preflight', function () {
             const decorated = pre.decorateFixtureError(pooledAccessDenied(), []);
             assert.ok(decorated.fixtureCollision);
             assert.match(decorated.message, /PORT COLLISION/);
-            assert.match(decorated.message, /3307/);
+            assert.match(decorated.message, new RegExp(String(pre.FIXTURE_DB.port)));
             assert.match(decorated.message, /Access denied for user 'root'/);
         });
 

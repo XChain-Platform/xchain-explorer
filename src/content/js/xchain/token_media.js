@@ -123,29 +123,18 @@ function updateTokenSection(id){
     }
 }
 
-// Resolve a DECLARED base ticker (BTC/LTC/DOGE, as an on-chain payload carries it) to
-// this deployment's coin id for that chain, keeping the page's network tier: on RDOGE,
-// 'LTC' is RLTC and mainnet's prefix is '' by design. A record that declares no coin,
-// or one outside the three base chains, falls back to the page coin - which is the
-// same-chain assumption every caller of this rule already made explicitly.
-function siblingCoin(base){
-    // Same network tier as the current page: RBTC + DOGE -> RDOGE, etc.
-    var tier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '';
-    var m    = (typeof base === 'string') ? base.match(/^(BTC|LTC|DOGE)$/i) : null;
-    return m ? (tier + m[1].toUpperCase()) : XC.coin;
-}
-
 // Resolve an action reference ("action:<index>" same-chain, or
 // "action:<COIN>:<index>" sibling-chain (base ticker, network tier implied
 // by the page's chain, same convention as LINK COIN1/COIN2) to this
-// explorer's raw FILE path. Returns false for anything else.
+// explorer's raw FILE path. Returns false for anything else. networkCoin
+// (network_coin.js) keeps the page's network: on RDOGE, 'LTC' is RLTC.
 function actionRefToRawPath(ref){
     if(typeof ref !== 'string')
         return false;
     var m = ref.match(/^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i);
     if(!m)
         return false;
-    return '/' + siblingCoin(m[1]) + '/api/file/' + m[2] + '/raw';
+    return '/' + networkCoin(m[1] || XC.coin) + '/api/file/' + m[2] + '/raw';
 }
 
 // Resolve TIS `data_ref` entries across the media arrays. A data_ref of
@@ -214,4 +203,55 @@ function resolveArtworkTitle(topTitle, entries){
             return String(list[j].name);
     }
     return false;
+}
+
+// True when url is an http(s) string. video/audio are on-chain token metadata
+// (attacker-controlled) and the youtube/soundcloud branches below only test
+// for a substring, which a "javascript:...//youtube" value also matches; the
+// scheme check has to run before that test, not stand in for it.
+function isHttpUrl(url){
+    return typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
+}
+
+// Build and show the video element, gated to an http(s) source: escapeHtml
+// alone does not stop a javascript: URI, which does not need any of the five
+// characters it escapes, and the youtube test below is a bare substring match
+// that a "javascript:...//youtube" value also passes.
+function tokenContent_displayVideo(video){
+    $('#video-header').show();
+    var el  = $('#video-wrapper'),
+        arr = video.split('.'),
+        ext = arr[arr.length-1].toLowerCase();
+    if(!isHttpUrl(video)) return;
+    var html;
+    if(/youtube/.test(video)){
+        el   = $('#video-wrapper-youtube');
+        html = '<iframe src="' + escapeHtml(video) + '" frameborder="0" allowfullscreen class="embedded-video"></iframe>';
+    } else {
+        var type = '';
+        if(ext=='mp4') type = 'video/mp4';
+        if(ext=='wmv') type = 'video/x-ms-asf';
+        if(ext=='mov') type = 'video/quicktime'
+        // `video` is an on-chain media URL (attacker-controlled); escape it so it
+        // cannot break out of the src attribute. `type` is a fixed constant above.
+        html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + escapeHtml(video) + '"></video>';
+    }
+    el.html(html).show();
+}
+
+// Build and show the audio element, gated to an http(s) source (same reason
+// as tokenContent_displayVideo above).
+function tokenContent_displayAudio(audio){
+    $('#audio-header').show();
+    var el = $('#audio-wrapper');
+    if(!isHttpUrl(audio)) return;
+    var html;
+    if(/soundcloud/.test(audio)){
+        el = $('#audio-wrapper-soundcloud');
+        html = '<iframe src="https://w.soundcloud.com/player/?url=' + escapeHtml(audio) + '" frameborder="0" allowfullscreen class="soundcloud-audio"></iframe>';
+    } else {
+        // `audio` is an on-chain media URL (attacker-controlled); escape it.
+        html = '<audio src="' + escapeHtml(audio) + '" autoplay="true" controls loop preload></audio>';
+    }
+    el.html(html).show();
 }

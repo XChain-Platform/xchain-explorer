@@ -24,8 +24,8 @@ function xcDatatableRenderFeeRow(context){
     let type2  = data[6];
     // Fee payment method
     let txt = (type2==1) ? 'Destroy' : 'Donate';
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
-    $('td', row).eq(5).html(numeral(amount).format(fmtCoin));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
+    $('td', row).eq(5).html(formatAmount(bcformat(amount, 8)));
     $('td', row).eq(6).text(txt);
     $('td', row).eq(8).html(action_link);
 
@@ -79,8 +79,8 @@ function xcDatatableRenderIssueRow(context){
     let transfer = data[8];
     if(!isNull(transfer))
         $('td', row).eq(3).html(source_link + ' <i class="fa fa-arrow-right ps-1 pe-1" title="Token ownership transferred"></i> ' + formatLink('/' + coin + '/address/' + transfer, transfer));
-    $('td', row).eq(5).text(formatAmount(amount));
-    $('td', row).eq(6).text(formatAmount(amount2));
+    $('td', row).eq(5).text(formatZeroSentinel(amount, 'No cap declared'));
+    $('td', row).eq(6).text(formatZeroSentinel(amount2, 'No per-transaction cap'));
     $('td', row).eq(7).html(formatLocks(locks));
     $('td', row).eq(8).html(action_link);
 
@@ -96,8 +96,8 @@ function xcDatatableRenderLinkRow(context){
     let coin2       = data[6];
     let coin2_index = data[7];
     let memo        = data[8];
-    $('td', row).eq(4).html(formatLink('/' + coin1 + '/action/' + coin1_index, coin1 + '-' + coin1_index));
-    $('td', row).eq(5).html(formatLink('/' + coin2 + '/action/' + coin2_index, coin2 + '-' + coin2_index));
+    $('td', row).eq(4).html(formatLink('/' + networkCoin(coin1) + '/action/' + coin1_index, coin1 + '-' + coin1_index));
+    $('td', row).eq(5).html(formatLink('/' + networkCoin(coin2) + '/action/' + coin2_index, coin2 + '-' + coin2_index));
     // memo reaches the feed through a LEFT JOIN on index_memos, so it is
     // null for the (common) LINK that carries no memo.
     $('td', row).eq(6).text(nullToBlank(memo));
@@ -133,7 +133,7 @@ function xcDatatableRenderMarketRow(context){
 
     let tick1  = data[1],
         tick2  = data[2],
-        market = tick1 + '/' + tick2,
+        market = encodeURIComponent(String(tick1)) + '/' + encodeURIComponent(String(tick2)), // each tick is one free-text segment
         price  = data[3],
         ask    = data[4],
         bid    = data[5],
@@ -141,8 +141,8 @@ function xcDatatableRenderMarketRow(context){
         change = data[7];
     let html = '<img src="' + getTokenIcon(tick1) + '" class="icon-20">' +
                '<img src="' + getTokenIcon(tick2) + '" class="icon-20 ms-1 me-1">' +
-               tick1 + ' / ' + tick2;
-    $('td', row).eq(1).html(formatLink('/' + coin + '/market/' + market, html));
+               escapeHtml(tick1) + ' / ' + escapeHtml(tick2); // ticks are free text inside markup
+    $('td', row).eq(1).html(formatLinkHtml('/' + coin + '/market/' + market, html));
     $('td', row).eq(2).html(formatAmount(price));
     $('td', row).eq(3).html(formatAmount(ask));
     $('td', row).eq(4).html(formatAmount(bid));
@@ -172,7 +172,7 @@ function xcDatatableRenderMintRow(context){
     let token       = data[4];
     let amount      = data[5];
     let destination = data[6];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     // Write the cell either way: a MINT's DESTINATION is optional, and
     // skipping it leaves the raw feed value DataTables rendered, which
@@ -195,9 +195,9 @@ function xcDatatableRenderOrderRow(context){
     let amount2        = data[7];
     let give_ownership = data[8];
     let get_ownership  = data[9];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
-    $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
+    $('td', row).eq(6).html(formatLink(tokenUrl(coin, token2), token2, token2));
     $('td', row).eq(7).html((get_ownership == 1) ? ownershipBadge() : formatAmount(amount2));
     $('td', row).eq(8).html(action_link);
 
@@ -211,7 +211,7 @@ function xcDatatableRenderSendRow(context){
     let token       = data[4];
     let amount      = data[5];
     let destination = data[6];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html(formatAmount(amount));
     $('td', row).eq(6).html(formatLink('/' + coin + '/address/' + destination, destination));
     $('td', row).eq(7).html(action_link);
@@ -232,8 +232,8 @@ function xcDatatableRenderSleepRow(context){
     if(type2==2) txt='Token';
     $('td', row).eq(4).text(txt);
     if(token!='')
-        $('td', row).eq(5).html(formatLink('/' + coin + '/token/' + token, token, token));
-    $('td', row).eq(6).html(formatLink('/' + coin + '/block/' + block_index2, numeral(block_index2).format(fmtInteger)));
+        $('td', row).eq(5).html(formatLink(tokenUrl(coin, token), token, token));
+    $('td', row).eq(6).html(formatResumeBlock(coin, block_index2));
     $('td', row).eq(7).html(action_link);
 
 }
@@ -249,9 +249,9 @@ function xcDatatableRenderSwapRow(context){
     let amount2        = data[7];
     let give_ownership = data[8];
     let get_ownership  = data[9];
-    $('td', row).eq(4).html(formatLink('/' + coin + '/token/' + token, token, token));
+    $('td', row).eq(4).html(formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).html((give_ownership == 1) ? ownershipBadge() : formatAmount(amount));
-    $('td', row).eq(6).html(formatLink('/' + coin + '/token/' + token2, token2, token2));
+    $('td', row).eq(6).html(formatLink(tokenUrl(coin, token2), token2, token2));
     $('td', row).eq(7).html((get_ownership == 1) ? ownershipBadge() : formatAmount(amount2));
     $('td', row).eq(8).html(action_link);
 
@@ -288,13 +288,13 @@ function xcDatatableRenderTokenRow(context){
     let amount2 = data[5];
     let amount3 = data[6];
     let locks   = data[7];
-    let tickHtml = formatLink('/' + coin + '/token/' + token, token, token);
+    let tickHtml = formatLink(tokenUrl(coin, token), token, token);
     $('td', row).eq(3).html(tickHtml);
     $('td', row).eq(4).text(formatAmount(amount));
-    $('td', row).eq(5).text(formatAmount(amount2));
-    $('td', row).eq(6).text(formatAmount(amount3));
+    $('td', row).eq(5).text(formatZeroSentinel(amount2, 'No cap declared'));
+    $('td', row).eq(6).text(formatZeroSentinel(amount3, 'No per-transaction cap'));
     $('td', row).eq(7).html(formatLocks(locks));
-    $('td', row).eq(8).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+    $('td', row).eq(8).html(formatLink(tokenUrl(coin, token), 'view', null, true));
 
 }
 xcDatatableRowHandlers.token = xcDatatableRenderTokenRow;
@@ -308,13 +308,13 @@ function xcDatatableRenderProjectRow(context){
     let amount2 = data[5];
     let amount3 = data[6];
     let locks   = data[7];
-    let pTickHtml = formatLink('/' + coin + '/token/' + token, token, token);
+    let pTickHtml = formatLink(tokenUrl(coin, token), token, token);
     $('td', row).eq(3).html(pTickHtml);
     $('td', row).eq(4).text(formatAmount(amount));
-    $('td', row).eq(5).text(formatAmount(amount2));
-    $('td', row).eq(6).text(formatAmount(amount3));
+    $('td', row).eq(5).text(formatZeroSentinel(amount2, 'No cap declared'));
+    $('td', row).eq(6).text(formatZeroSentinel(amount3, 'No per-transaction cap'));
     $('td', row).eq(7).html(formatLocks(locks));
-    $('td', row).eq(8).html(formatLink('/' + coin + '/token/' + token, 'view', null, true));
+    $('td', row).eq(8).html(formatLink(tokenUrl(coin, token), 'view', null, true));
 
 }
 xcDatatableRowHandlers.project = xcDatatableRenderProjectRow;
@@ -342,9 +342,9 @@ function xcDatatableRenderOrderMatchRow(context){
     let get_coin   = data[6];
     let get_index  = data[7];
     let settlement = data[9];
-    $('td', row).eq(3).html(formatLink('/' + give_coin + '/action/' + give_index, give_coin + '-' + give_index));
+    $('td', row).eq(3).html(formatLink('/' + networkCoin(give_coin) + '/action/' + give_index, give_coin + '-' + give_index));
     $('td', row).eq(4).html(formatAmount(data[5]));
-    $('td', row).eq(5).html(formatLink('/' + get_coin + '/action/' + get_index, get_coin + '-' + get_index));
+    $('td', row).eq(5).html(formatLink('/' + networkCoin(get_coin) + '/action/' + get_index, get_coin + '-' + get_index));
     $('td', row).eq(6).html(formatAmount(data[8]));
     $('td', row).eq(7).text(isNull(settlement) ? '-' : settlement);
     $('td', row).eq(8).html(action_link);
@@ -361,8 +361,8 @@ function xcDatatableRenderSwapMatchRow(context){
     let give_index = data[4];
     let get_coin   = data[5];
     let get_index  = data[6];
-    $('td', row).eq(3).html(formatLink('/' + give_coin + '/action/' + give_index, give_coin + '-' + give_index));
-    $('td', row).eq(4).html(formatLink('/' + get_coin + '/action/' + get_index, get_coin + '-' + get_index));
+    $('td', row).eq(3).html(formatLink('/' + networkCoin(give_coin) + '/action/' + give_index, give_coin + '-' + give_index));
+    $('td', row).eq(4).html(formatLink('/' + networkCoin(get_coin) + '/action/' + get_index, get_coin + '-' + get_index));
     $('td', row).eq(5).html(action_link);
 
 }

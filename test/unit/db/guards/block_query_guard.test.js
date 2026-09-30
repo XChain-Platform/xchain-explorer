@@ -146,3 +146,25 @@ describe('XChainExplorer.processRequest – /api/block/{QUERY} malformed id', fu
     });
 
 });
+
+describe('XChainExplorer.processRequest /api/actions blockIndex guard', function () {
+    let explorer;
+
+    before(function () {
+        explorer = makeExplorer();
+    });
+
+    for(const bad of ['7junk', ['7', '8'], '9007199254740992']){
+        it(`400s malformed blockIndex ${JSON.stringify(bad)} before querying`, async function () {
+            const { res } = await request(explorer, '/BTC/api/actions', { blockIndex: bad });
+            expect(res._status).to.equal(400);
+            expect(JSON.parse(res._body).code).to.equal('INVALID_BLOCK_INDEX');
+            expect(queried, 'the DB was never queried').to.be.false;
+        });
+    }
+
+    it('still binds one safe blockIndex exactly', async function () {
+        await request(explorer, '/BTC/api/actions', { blockIndex: '7' });
+        expect(queried).to.equal(true);
+    });
+});

@@ -70,6 +70,7 @@ function render(data) {
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/moment.min.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC', network: 'testnet' };
     dom.window.eval(`
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text, label){ return '<a href="' + href + '">' + (label !== undefined ? label : text) + '</a>'; }
         function formatHash(h, len){ return String(h == null ? '' : h).substring(0, len); }
         function formatLivestamp(ts){ return '<span data-livestamp=' + ts + '></span>'; }

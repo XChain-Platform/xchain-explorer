@@ -321,37 +321,8 @@ function tokenContent_displayArtwork(image, audio, video){
                 el.attr('src', safeImage.replace(/[<>"']/g, ''));
             el.show();
         }
-        if(video){
-            $('#video-header').show();
-            var el  = $('#video-wrapper'),
-                arr = video.split('.'),
-                ext = arr[arr.length-1].toLowerCase();
-            if(/youtube/.test(video)){
-                el   = $('#video-wrapper-youtube'),
-                html = '<iframe src="' + escapeHtml(video) + '" frameborder="0" allowfullscreen class="embedded-video"></iframe>';
-            } else {
-                var type = '';
-                if(ext=='mp4') type = 'video/mp4';
-                if(ext=='wmv') type = 'video/x-ms-asf';
-                if(ext=='mov') type = 'video/quicktime'
-                // `video` is an on-chain media URL (attacker-controlled); escape it so it
-                // cannot break out of the src attribute. `type` is a fixed constant above.
-                html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + escapeHtml(video) + '"></video>';
-            }
-            el.html(html).show()
-        }
-        if(audio){
-            $('#audio-header').show();
-            var el = $('#audio-wrapper');
-            if(/soundcloud/.test(audio)){
-                el = $('#audio-wrapper-soundcloud');
-                html = '<iframe src="https://w.soundcloud.com/player/?url=' + escapeHtml(audio) + '" frameborder="0" allowfullscreen class="soundcloud-audio"></iframe>';
-            } else {
-                // `audio` is an on-chain media URL (attacker-controlled); escape it.
-                html = '<audio src="' + escapeHtml(audio) + '" autoplay="true" controls loop preload></audio>';
-            }
-            el.html(html).show();
-        }
+        if(video) tokenContent_displayVideo(video);
+        if(audio) tokenContent_displayAudio(audio);
         // Display the 'Digital Artwork' sections
         XC.tokenInfoFound = true;
         XC.someTokenInfoFound = true;

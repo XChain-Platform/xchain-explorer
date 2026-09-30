@@ -33,6 +33,26 @@
         : ((typeof require === 'function') ? require('../../js/components.js') : null);
     if(!REG) return;
 
+    // Permute a table split into <tbody> sections (ATTEST, VOTE and BET: one per sub-shape,
+    // shown and hidden by class) against consecutive slices of the flat config, so a row
+    // never leaves its section and `order` moves it only within that section.
+    function permuteSections(first, config){
+        var table  = first.parentNode;
+        var bodies = (table && table.tBodies) ? [].slice.call(table.tBodies) : [first];
+        var counts = bodies.map(function(b){
+            return [].filter.call(b.children, function(c){ return c.tagName === 'TR'; }).length;
+        });
+        // Check the whole card before touching a section; a mismatch keeps the single-tbody
+        // path, where permuteRows leaves a drifted table alone and warns
+        if(bodies.length < 2 || counts.reduce(function(t, n){ return t + n; }, 0) !== config.length)
+            return REG.permuteRows(first, config);
+        var at = 0;
+        return bodies.map(function(b, i){
+            at += counts[i];
+            return REG.permuteRows(b, config.slice(at - counts[i], at));
+        }).indexOf(true) !== -1;
+    }
+
     REG.register('detail-card', {
 
         props: {
@@ -48,8 +68,9 @@
     // hand-tuned markup, whose only benefit would be moving the same bytes.
         if(!el) throw new Error('no mount point');
             if(props.reveal !== false) el.classList.remove('d-none');
-            if(props.rows && props.rows.length)
-                REG.permuteRows(el.querySelector('tbody'), props.rows);
+            var first = el.querySelector('tbody');
+            if(first && props.rows && props.rows.length)
+                permuteSections(first, props.rows);
             return { type: props.type, rows: props.rows || [] };
         }
     });

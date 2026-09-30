@@ -50,7 +50,7 @@ $(document).ready(function() {
 
     XC.pageInfo.title       = XC.query + ' Rich List';
     XC.pageInfo.description = 'Largest holders and supply statistics for the token ' + XC.query + ' on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
-    XC.pageInfo.canonical   = '/' + XC.coin + '/rich_list/' + XC.query;
+    XC.pageInfo.canonical   = '/' + XC.coin + '/rich_list/' + encodeURIComponent(String(XC.query));
     updatePageInfo();
 
     $.getJSON('/' + XC.coin + '/api/rich_list/' + encodeURIComponent(XC.query), function(o){
@@ -68,7 +68,7 @@ $(document).ready(function() {
             $('#rich-list-holders').html('<span class="text-muted">No holders to show.</span>');
             return;
         }
-        $('#rich-list-tick').html(formatLink('/' + XC.coin + '/token/' + encodeURIComponent(String(d.tick)), $('<div>').text(d.tick).html()));
+        $('#rich-list-tick').html(formatLink(tokenUrl(XC.coin, d.tick), d.tick));
         $('#rich-list-supply').html(renderRichListSupply(d));
         $('#rich-list-holders').html(renderRichListHolders(d));
         $('#rich-list-coverage').html(renderRichListCoverage(d));

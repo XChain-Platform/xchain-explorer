@@ -219,14 +219,14 @@ function showAddressDetails(data){
         }
         $('#info-address .address-preference-row').addClass('d-none');
     } else {
-        let preference   = (data.fee_preference) ? (' - ' + XC.fee_preferences[data.fee_preference]) : '';
+        let preference   = XC.fee_preferences[data.fee_preference];
         let require_memo = (data.require_memo==1) ? 'true' : 'false';
         let dispenser    = (data.dispenser_preference) ? XC.dispenser_preferences[data.dispenser_preference] : 'Not set';
-        $('#info-address .address-fee-preference').text(data.fee_preference + preference);
+        $('#info-address .address-fee-preference').text(isNull(preference) ? '' : data.fee_preference + ' - ' + preference);
         $('#info-address .address-require-memo').text(require_memo);
         $('#info-address .address-dispenser-preference').text(dispenser);
         $('#info-address .address-controller-row').addClass('d-none');
         $('#info-address .address-preference-row').removeClass('d-none');
     }
-    $('#info-address .address-memo').text(data.memo);
+    $('#info-address .address-memo').text(nullToBlank(data.memo));
 }

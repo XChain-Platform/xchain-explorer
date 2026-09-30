@@ -103,6 +103,23 @@ describe("Utility", function () {
 
     });
 
+    describe('isSafeIntegerParam()', function () {
+        let u;
+        before(function () { u = makeUtil(); });
+
+        it('accepts non-negative integers through the safe boundary', function () {
+            expect(u.isSafeIntegerParam('0')).to.be.true;
+            expect(u.isSafeIntegerParam(String(Number.MAX_SAFE_INTEGER))).to.be.true;
+        });
+
+        it('rejects rounded, non-finite, malformed, and repeated identifiers', function () {
+            expect(u.isSafeIntegerParam('9007199254740992')).to.be.false;
+            expect(u.isSafeIntegerParam('9'.repeat(400))).to.be.false;
+            expect(u.isSafeIntegerParam('7junk')).to.be.false;
+            expect(u.isSafeIntegerParam(['7', '8'])).to.be.false;
+        });
+    });
+
     describe('bcnum()', function () {
 
         let u;

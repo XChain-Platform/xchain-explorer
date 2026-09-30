@@ -59,7 +59,7 @@ function jsFilesUnder(dir, prefix){
 const MIGRATED = [
     'isNull', 'nullToBlank', 'escapeHtml', 'stripHtml',
     'formatAmount', 'formatLocks', 'isNftToken', 'getTokenIcon', 'getNetworkIcon',
-    'formatLink', 'formatHash', 'formatLinkAmount', 'formatCoinLegAmount',
+    'formatLink', 'formatHash', 'formatLinkAmount', 'formatCoinLegTicker', 'formatCoinLegAmount',
     'formatNativeCoinLeg', 'ownershipBadge', 'formatLivestamp'
 ];
 
@@ -156,10 +156,10 @@ describe('formatters module (M2.1)', function () {
             assert.equal(F.formatAmount('1234567.89012345'), '1,234,567.89012345');
         });
 
-        it('formatLink renders the label alone rather than a dead /token/null href', function () {
-            // A native-coin leg carries no tick, which used to build /token/null.
-            assert.equal(F.formatLink('/RDOGE/token/null', 'DOGE'), 'DOGE');
-            assert.equal(F.formatLink('/RDOGE/token/undefined', 'DOGE'), 'DOGE');
+        it('formatLink distinguishes absent destinations from literal ticker names', function () {
+            assert.equal(F.formatLink(F.tokenUrl('RDOGE', null), 'DOGE'), 'DOGE');
+            assert.match(F.formatLink('/RDOGE/token/null', 'null'), /^<a href="\/RDOGE\/token\/null"/);
+            assert.match(F.formatLink('/RDOGE/token/undefined', 'undefined'), /^<a href="\/RDOGE\/token\/undefined"/);
             assert.match(F.formatLink('/RDOGE/token/XCHAIN', 'XCHAIN'), /^<a href="\/RDOGE\/token\/XCHAIN"/);
         });
 
@@ -197,6 +197,37 @@ describe('formatters module (M2.1)', function () {
             const evil = F.formatHash('<img src=x onerror=alert(1)>'.repeat(3), 10);
             assert.equal(evil.includes('<img'), false);
         });
+    });
+});
+
+describe('formatters module, token hrefs', function () {
+    // The href to a token page carries the tick as one path segment. TDOGE
+    // action 2693 issued "$$$$$$$$$$$78324%@##*(@#", and a raw join sent the
+    // browser to a URL cut at the '#' with a dangling '%@' that the server
+    // refused as 400 before any route ran.
+    it('tokenUrl percent-encodes the tick and returns no destination for absence', function () {
+        assert.equal(F.tokenUrl('TDOGE', 'XCHAIN'), '/TDOGE/token/XCHAIN');
+        assert.equal(F.tokenUrl('TDOGE', '$$$$$$$$$$$78324%@##*(@#'),
+            '/TDOGE/token/%24%24%24%24%24%24%24%24%24%24%2478324%25%40%23%23*(%40%23');
+        assert.equal(F.tokenUrl('TDOGE', 'A/B?c'), '/TDOGE/token/A%2FB%3Fc');
+        assert.equal(F.tokenUrl('TDOGE', null), null);
+        assert.equal(F.formatLink(F.tokenUrl('TDOGE', null), 'DOGE'), 'DOGE');
+    });
+
+    it('no client file joins a raw tick into a /token/ href any more', function () {
+        // Every token href goes through tokenUrl (or an explicit
+        // encodeURIComponent); a raw join is the 400 on a tick carrying # or %.
+        const HTML_DIR = path.join(ROOT, 'src', 'content', 'html');
+        const htmlFiles = fs.readdirSync(HTML_DIR).filter(f => f.endsWith('.html')).map(f => path.join('html', f));
+        const offenders = [];
+        for(const rel of jsFilesUnder(JS_DIR, 'js').concat(htmlFiles)){
+            const lines = fs.readFileSync(path.join(ROOT, 'src', 'content', rel), 'utf8').split('\n');
+            lines.forEach((line, i) => {
+                if(/\/token\/' *\+(?! *encodeURIComponent\()/.test(line))
+                    offenders.push(rel + ':' + (i + 1));
+            });
+        }
+        assert.deepEqual(offenders, []);
     });
 });
 

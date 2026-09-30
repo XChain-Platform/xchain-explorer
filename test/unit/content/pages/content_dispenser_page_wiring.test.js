@@ -94,6 +94,144 @@ describe('dispenser page wiring', () => {
 
 });
 
+describe('dispenser page modes', () => {
+
+    const dispenser = read('dispenser.html');
+
+    // Runs the page's inline <script> with the page globals stubbed, and reports
+    // which feeds and API reads it asked for, and which sections it showed.
+    function drive(query) {
+        const script = dispenser.split('<script type="text/javascript">\n')[1].split('</script>')[0];
+        let ready = null;
+        const feeds = [];
+        const reads = [];
+        const shown = [];
+        const hidden = [];
+        const el = (sel) => ({
+            html() { return this; }, text() { return this; },
+            show() { shown.push(sel); return this; }, hide() { hidden.push(sel); return this; },
+        });
+        const $ = (arg) => (typeof arg === 'object' && arg && arg.nodeType === 9)
+            ? { ready: (fn) => { ready = fn; } } : el(arg);
+        $.getJSON = (url) => { reads.push(url); return { fail() {} }; };
+        const stubs = {
+            $, document: { nodeType: 9 },
+            XC: { coin: 'TDOGE', query, name: 'Dogecoin', network: 'testnet', pageInfo: {} },
+            isNull: (v) => v === null || v === undefined || v === '',
+            isNumeric: (v) => /^[0-9]+$/.test(String(v)),
+            updatePageInfo() {}, formatLink: () => '', numeral: () => ({ format: () => '' }),
+            loadDatatablesData: (coin, action, q, type) => { feeds.push(action + ':' + type); },
+            renderDispenserDetail() {}, renderDispenserMessage() {},
+        };
+        // eslint-disable-next-line no-new-func
+        new Function(...Object.keys(stubs), script)(...Object.values(stubs));
+        ready();
+        return { feeds, reads, shown, hidden };
+    }
+
+    it('shows one dispenser for an action_index, reading its DISPENSER action and only its fills', () => {
+        // /TDOGE/dispenser/3048 is what every dispenser list row links to.
+        const r = drive('3048');
+        assert.deepStrictEqual(r.feeds, ['dispense:dispenser']);
+        assert.deepStrictEqual(r.reads, ['/TDOGE/api/action/3048']);
+        assert.ok(r.shown.includes('#dispenser-index-card'));
+        assert.ok(r.hidden.some((s) => s.includes('#dispenser-list-section')));
+    });
+
+    it('still shows every dispenser at an address, with both feeds and both counts', () => {
+        const addr = 'nqjVHBtKPPMb1TNfmnwx7kZ19G5NzG9rxy';
+        const r = drive(addr);
+        assert.deepStrictEqual(r.feeds, ['dispenser:address', 'dispense:address']);
+        assert.strictEqual(r.reads.length, 2);
+        assert.ok(!r.shown.includes('#dispenser-index-card'));
+    });
+
+    it('never redirects away from the dispenser page', () => {
+        assert.ok(!dispenser.includes('location.replace'), 'dispenser.html still redirects');
+    });
+
+});
+
+/*
+ * The one-dispenser card's rows, run against the real formatters so escaping
+ * and amount formatting are the shipped ones.
+ */
+describe('dispenser detail rows', () => {
+    const vm = require('vm');
+    const JS = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'js');
+    const ctx = vm.createContext({ XC: { coin: 'TDOGE', chain: 'dogecoin', network: 'testnet' }, BigInt });
+    for (const f of ['network_coin.js', 'formatters.js', 'dispenser_detail.js'])
+        vm.runInContext(fs.readFileSync(path.join(JS, f), 'utf8'), ctx, { filename: f });
+    // DISPENSER action 3048 on TDOGE, as /api/action/3048 returns it (trimmed).
+    const D3048 = {
+        action: 'DISPENSER', action_index: '3048', status: 'valid', block_index: '67933889', timestamp: '1790363081',
+        source: 'nmUN3SanVb323ZECB4fVWtrrWoCmxgmVoL', get_address: 'nqjVHBtKPPMb1TNfmnwx7kZ19G5NzG9rxy',
+        give_tick: 'S0UR-PATCH-K1DS', give_amount: '1', give_escrow: '85', give_ownership: 0,
+        get_coin: 'DOGE', get_tick: null, get_amount: '0.00001985', fiat_amount: null, fiat_code: null,
+        oracle_address: null, allow_list: null, block_list: null, expiration: '1798138987',
+        state: { give_remaining: '60', expiration: '1798138987', status: 'open' },
+    };
+    const rows = (d) => Object.fromEntries(vm.runInContext('dispenserDetailRows', ctx)('TDOGE', d));
+    it('says what is left: escrow remaining of escrowed, and whole fills that buys', () => {
+        const r = rows(D3048);
+        assert.match(r['Left in escrow'], /60 S0UR-PATCH-K1DS/);
+        assert.match(r['Left in escrow'], /of 85 escrowed/);
+        assert.strictEqual(r['Fills remaining'], '60');
+        assert.match(r['Status'], />open</);
+        assert.match(r['Price per fill'], /0\.00001985 DOGE/);
+        assert.match(r['Transaction'], /\/TDOGE\/action\/3048/);
+    });
+    it('counts fills exactly on decimal amounts', () => {
+        const fills = vm.runInContext('dispenserFillsLeft', ctx);
+        assert.strictEqual(fills('0.3', '0.1'), '3');
+        assert.strictEqual(fills('0.000000000000000003', '0.000000000000000001'), '3');
+        assert.strictEqual(fills('5', '2'), '2');
+        assert.strictEqual(fills(null, '1'), null);
+        assert.strictEqual(fills('5', '0'), null);
+    });
+    it('prices a fiat dispenser in fiat and names who prices it', () => {
+        const r = rows({ ...D3048, get_amount: '0', fiat_amount: '1.50', fiat_code: 'USD', oracle_address: 'nOracle' });
+        assert.match(r['Price per fill'], /1\.50 USD/);
+        assert.match(r['Price per fill'], /oracle-priced/);
+    });
+    it('warns when an open fiat dispenser has no usable recent price', () => {
+        const r = rows({ ...D3048, fiat_amount: '1.50', fiat_code: 'USD', price_stale: true });
+        assert.match(r['Status'], /Not selling: no price in the last 24 hours/);
+        assert.match(r['Status'], /cannot settle until its required price sources publish/);
+    });
+    it('leads with the consensus reason for an invalid dispenser', () => {
+        const r = rows({ ...D3048, status: 'invalid: insufficient funds' });
+        assert.match(r['Status'], /text-danger/);
+        assert.match(r['Status'], /insufficient funds/);
+    });
+    it('escapes on-chain text bound for the card', () => {
+        const r = rows({ ...D3048, fiat_amount: '1', fiat_code: '<img src=x>' });
+        assert.ok(!r['Price per fill'].includes('<img'), 'fiat code reached the card unescaped');
+    });
+    it('renders zero allow/block lists as None without action links', () => {
+        const r = rows({ ...D3048, allow_list: 940, block_list: 941,
+            state: { ...D3048.state, allow_list: 0, block_list: '0' } });
+        assert.strictEqual(r['Allow / block list'], 'None / None');
+        assert.ok(!r['Allow / block list'].includes('/action/0'));
+    });
+});
+
+/*
+ * The dispensers list's "view" link opens the dispenser's own page by
+ * action_index, which now answers it, rather than the action page.
+ */
+describe('dispenser list row view link', () => {
+
+    const ROWS = fs.readFileSync(path.join(__dirname, '..', '..', '..', '..',
+        'src', 'content', 'js', 'xchain', 'datatable', 'rows_actions_a.js'), 'utf8');
+
+    it('links the view cell to /dispenser/{action_index}', () => {
+        const fn = ROWS.split('function xcDatatableRenderDispenserRow(')[1].split('\n}\n')[0];
+        assert.ok(fn.includes("'/dispenser/' + action_index"), 'the dispenser row does not link its dispenser page');
+    });
+
+});
+
 /*
  * The betting market page's response envelope.
  *

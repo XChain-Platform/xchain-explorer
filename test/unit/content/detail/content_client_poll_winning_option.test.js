@@ -197,6 +197,7 @@ function voteDetail(data) {
     dom.window.XC = { coin: 'BTC' };
     dom.window.eval(`
         $.getJSON = function(){ return { done: function(){} }; };
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
         ${extractFn(CLIENT_SRC, 'isNull')}
@@ -218,6 +219,7 @@ function outcomeDom(poll) {
     dom.window.eval(JQUERY);
     dom.window.eval(`
         var XC = { coin: 'RBTC' };
+        function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         var numeral = function(n){ return { format: function(){ return String(n); } }; };
         ${extractFn(CLIENT_SRC, 'isNull')}

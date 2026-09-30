@@ -53,7 +53,7 @@ function detailBetStake_renderFeed(data, kind, esc, statusClass){
         $('#info-bet .bet-label').text(isNull(data.label) ? '-' : data.label);
         let outs = Array.isArray(data.outcome_labels) ? data.outcome_labels : [];
         $('#info-bet .bet-outcomes').html(outs.length ? outs.map((o, i) => i + ': ' + esc(o)).join('<br>') : '-');
-        $('#info-bet .bet-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-bet .bet-token').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
         // FEE is the ORACLE's percent cut of the pot, NOT the protocol's market
         // duration fee. Label it so the two are never confused (§10 naming pin).
         // Read it from the aliased column (bet_fee): db.js getActionData overwrites the
@@ -83,14 +83,21 @@ function detailBetStake_renderFeed(data, kind, esc, statusClass){
             let feed  = (res && res.data) ? (Array.isArray(res.data) ? res.data[0] : res.data) : null;
             let pools = (feed && Array.isArray(feed.pools)) ? feed.pools : [];
             if(!pools.length){ $('#info-bet .bet-pools').text('No open bets'); return; }
-            let total = pools.reduce((a, p) => a + Number(p.pool || 0), 0);
+            let total = pools.reduce(function(a, p){
+                return math.add(a, math.bignumber(p.pool || 0));
+            }, math.bignumber(0));
             let html  = '<table class="table table-sm mb-0"><thead><tr><th>Outcome</th><th>Pool</th><th>Bets</th><th>Implied</th></tr></thead><tbody>';
             pools.forEach(function(p){
                 let label = outs[p.outcome];
                 let name  = (label == null) ? String(p.outcome) : (p.outcome + ': ' + esc(label));
                 // Implied probability from the parimutuel split. Odds are NOT fixed at
                 // bet time; this is the split as it stands right now.
-                let pct   = total > 0 ? ((Number(p.pool || 0) / total) * 100).toFixed(1) + '%' : '-';
+                let pct = math.larger(total, math.bignumber(0))
+                    ? math.multiply(
+                        math.divide(math.bignumber(p.pool || 0), total),
+                        math.bignumber(100)
+                    ).toFixed(1) + '%'
+                    : '-';
                 html += '<tr><td>' + name + '</td><td>' + formatAmount(p.pool) + '</td><td>' + numeral(p.bet_count).format('0,0') + '</td><td>' + pct + '</td></tr>';
             });
             html += '</tbody></table><div class="small text-muted mt-1">Parimutuel: the split shown is current, not the odds locked at bet time.</div>';
@@ -103,7 +110,8 @@ function detailBetStake_renderAction(data, kind, esc, statusClass){
     // Render wager, cancellation, and resolution fields.
     if(kind=='bet'){
         $('#info-bet .bet-feed-ref').html(isNull(data.feed_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_ref, data.feed_ref));
-        $('#info-bet .bet-outcome').text(isNull(data.outcome) ? '-' : data.outcome);
+        let outcomeLabel = Array.isArray(data.outcome_labels) ? data.outcome_labels[data.outcome] : null;
+        $('#info-bet .bet-outcome').text(formatIndexedLabel(data.outcome, outcomeLabel));
         $('#info-bet .bet-amount').html(isNull(data.amount) ? '-' : formatAmount(data.amount));
         let bs   = data.bet_status;
         let bcls = (bs=='won') ? 'success' : (bs=='lost') ? 'danger' : (bs=='refunded') ? 'secondary' : 'primary';
@@ -124,8 +132,9 @@ function detailBetStake_renderAction(data, kind, esc, statusClass){
         // valid action is labelled a claim rather than presented as the winner.
         // The value is on-chain input, so it goes out escaped like the rest of the panel.
         let ro = data.resolve_outcome;
+        let resolveLabel = Array.isArray(data.outcome_labels) ? data.outcome_labels[ro] : null;
         $('#info-bet .bet-resolve-outcome').html(isNull(ro) ? '-'
-            : esc(ro) + (data.status == 'valid' ? '' : ' <span class="badge text-bg-warning text-dark">claimed - resolve ' + esc(isNull(data.status) ? 'not accepted' : data.status) + '</span>'));
+            : esc(formatIndexedLabel(ro, resolveLabel)) + (data.status == 'valid' ? '' : ' <span class="badge text-bg-warning text-dark">claimed - resolve ' + esc(isNull(data.status) ? 'not accepted' : data.status) + '</span>'));
     }
 }
 
@@ -135,7 +144,7 @@ function showBetExpireDetails(data){
     let esc = function(s){ return $('<div>').text(s == null ? '' : String(s)).html(); };
     $('#info-bet-expire .bet-expire-feed').html(isNull(data.feed_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_action_index, numeral(data.feed_action_index).format('0,0')));
     $('#info-bet-expire .bet-expire-label').text(isNull(data.label) ? '-' : data.label);
-    $('#info-bet-expire .bet-expire-token').html(isNull(data.tick) ? '-' : formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+    $('#info-bet-expire .bet-expire-token').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     $('#info-bet-expire .bet-expire-deadline').html(isNull(data.deadline) ? '-' : data.deadline + ' - ' + formatLivestamp(data.deadline) + ' (' + moment.unix(data.deadline).utcOffset(0).format() + ' GMT)');
     $('#info-bet-expire .bet-expire-refund-window').text(isNull(data.refund_window) ? '-' : numeral(data.refund_window).format('0,0') + ' seconds');
     $('#info-bet-expire .bet-expire-expire-at').html(isNull(data.expire_at) ? '-' : data.expire_at + ' - ' + formatLivestamp(data.expire_at) + ' (' + moment.unix(data.expire_at).utcOffset(0).format() + ' GMT)');
@@ -156,7 +165,7 @@ function showStakeDetails(data){
     $('#info-stake .stake-contract-row').toggleClass('d-none', !isContract);
     if(isContract){
         $('#info-stake .stake-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
-        $('#info-stake .stake-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-stake .stake-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     }
     if(!isNull(data.activation_block))
         $('#info-stake .stake-activation').html(formatLink('/' + XC.coin + '/block/' + data.activation_block, numeral(data.activation_block).format('0,0')));
@@ -189,7 +198,7 @@ function showUnstakeDetails(data){
     let hasTick = !isNull(data.tick);
     $('#info-unstake .unstake-token-row').toggleClass('d-none', !hasTick);
     if(hasTick)
-        $('#info-unstake .unstake-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-unstake .unstake-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
 }
 
 // Display DELEGATE action information (capability v0/v2 or contract-targeted v1/v3)
@@ -208,7 +217,7 @@ function showDelegateDetails(data){
     $('#info-delegate .delegate-contract-row').toggleClass('d-none', !isContract);
     if(isContract){
         $('#info-delegate .delegate-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));
-        $('#info-delegate .delegate-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
+        $('#info-delegate .delegate-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
     }
     if(!isNull(data.activation_block))
         $('#info-delegate .delegate-activation').html(formatLink('/' + XC.coin + '/block/' + data.activation_block, numeral(data.activation_block).format('0,0')));

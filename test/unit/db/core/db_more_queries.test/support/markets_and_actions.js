@@ -82,14 +82,39 @@ describe('Database#getMarket', () => {
         config.data.search2 = 'BTC';
         const result = await db.getMarket(config);
         expect(result).to.be.an('array').with.lengthOf(1);
+        expect(result[0]).to.include({ id: 1, tick1: 'XCHAIN', tick2: 'BTC' });
     });
 
-    it('returns [] when doQuery returns empty', async () => {
+    it('returns [null] when doQuery returns empty', async () => {
         sinon.stub(db, 'doQuery').resolves([]);
         const config = makeActionConfig('getMarket', null);
         config.data.search2 = 'BTC';
         const result = await db.getMarket(config);
-        expect(result).to.be.an('array').with.lengthOf(0);
+        expect(result).to.deep.equal([null]);
+    });
+
+    it('an unknown pair reaches getData as a null record, not a list query', async () => {
+        sinon.stub(db, 'doQuery').resolves([]);
+        sinon.stub(db, 'getQuery').callsFake((c) => db.getMarket(c));
+        const config = makeActionConfig('getMarket', null, { search: 'FAKE', search2: 'PAIR' });
+        config.type = 'api';
+        const [data, total] = await db.getData(config);
+        expect(data).to.equal(null);
+        expect(total).to.equal(null);
+    });
+
+    it('a null record answers 404 NOT_FOUND where the old false answered 200', () => {
+        const { applyFallbacks } = require('../../../../../../src/explorer/request/not_found.js');
+        const Utility = require('../../../../../../src/lib/utility.js');
+        const answer = (data) => {
+            const st = { cfg: { type: 'api', file: null, data: { method: 'getMarket' } }, validDataRequest: true,
+                         data, total: null, response: { code: 200, json: null } };
+            applyFallbacks({ util: new Utility() }, st);
+            return st.response;
+        };
+        expect(answer(null)).to.deep.include({ code: 404 });
+        expect(answer(null).json.code).to.equal('NOT_FOUND');
+        expect(answer(false).code).to.equal(200);
     });
 });
 

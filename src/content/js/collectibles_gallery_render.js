@@ -54,9 +54,9 @@ function collectibleEditionLabel(row){
     let supply = isNull(row.supply) ? null : String(row.supply);
     let max    = isNull(row.max_supply) ? null : String(row.max_supply);
     if(supply === null || !isNumeric(supply)) return null;
-    let minted = numeral(supply).format('0,0');
-    if(max === null || !isNumeric(max) || Number(max) <= 0) return minted;
-    return minted + ' of ' + numeral(max).format('0,0');
+    let minted = formatAmount(supply);
+    if(max === null || !isNumeric(max) || !bcnum(max).gt(0)) return minted;
+    return minted + ' of ' + formatAmount(max);
 }
 
 // One card. `description` is shown as TEXT even when it holds a TIS URL: the
@@ -65,7 +65,7 @@ function collectibleEditionLabel(row){
 function renderCollectibleCard(row){
     let tick  = collectibleEsc(row.tick);
     let icon  = getTokenIcon(row.tick);
-    let href  = '/' + XC.coin + '/token/' + encodeURIComponent(String(row.tick));
+    let href  = tokenUrl(XC.coin, row.tick);
     let edition = collectibleEditionLabel(row);
     let html = '<div class="col-6 col-md-4 col-lg-3 mb-3 collectible-card" data-tick="' + tick + '">'
              + '<div class="card h-100">'
@@ -86,7 +86,7 @@ function renderCollectibleCard(row){
               + collectibleEsc(row.description) + '</div>';
     if(!isNull(row.owner))
         html += '<div class="small text-muted text-truncate collectible-owner">'
-              + formatLink('/' + XC.coin + '/address/' + row.owner, collectibleEsc(row.owner)) + '</div>';
+              + formatLink('/' + XC.coin + '/address/' + row.owner, row.owner) + '</div>';
     html += '</div></div></div>';
     return html;
 }

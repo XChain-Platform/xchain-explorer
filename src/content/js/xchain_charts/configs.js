@@ -24,6 +24,13 @@ var xcChartsCandlestickTooltip = data.candlestickTooltip,
         xcChartsDepthTooltip = data.depthTooltip,
         xcChartsRangeWindow = data.rangeWindow;
 
+function xcChartsWithExact(point, exact){
+    for(var key in exact)
+        if(Object.prototype.hasOwnProperty.call(exact, key))
+            Object.defineProperty(point, key, { value: exact[key], enumerable: false });
+    return point;
+}
+
 function xcChartsTimeSeriesOptions(){
         return {
             responsive: true,
@@ -68,20 +75,28 @@ function xcChartsTimeSeriesOptions(){
     function xcChartsToXY(pairs){
         var out = [];
         for(var i = 0; i < (pairs || []).length; i++)
-            out.push({ x: Number(pairs[i][0]), y: Number(pairs[i][1]) });
+            out.push(xcChartsWithExact(
+                { x: Number(pairs[i][0]), y: Number(pairs[i][1]) },
+                { exactX: String(pairs[i][0]), exactY: String(pairs[i][1]) }
+            ));
         return out;
     }
 
     function xcChartsToOHLC(rows){
         var out = [];
         for(var i = 0; i < (rows || []).length; i++)
-            out.push({
+            out.push(xcChartsWithExact({
                 x: Number(rows[i][0]),
                 o: Number(rows[i][1]),
                 h: Number(rows[i][2]),
                 l: Number(rows[i][3]),
                 c: Number(rows[i][4])
-            });
+            }, {
+                exactO: String(rows[i][1]),
+                exactH: String(rows[i][2]),
+                exactL: String(rows[i][3]),
+                exactC: String(rows[i][4])
+            }));
         return out;
     }
 
@@ -122,12 +137,12 @@ function xcChartsTimeSeriesOptions(){
                 for(var i = 0; i < items.length; i++){
                     var raw = items[i].raw || {};
                     if(items[i].datasetIndex === 0){
-                        point.open  = raw.o;
-                        point.high  = raw.h;
-                        point.low   = raw.l;
-                        point.close = raw.c;
+                        point.open  = raw.exactO == null ? raw.o : raw.exactO;
+                        point.high  = raw.exactH == null ? raw.h : raw.exactH;
+                        point.low   = raw.exactL == null ? raw.l : raw.exactL;
+                        point.close = raw.exactC == null ? raw.c : raw.exactC;
                     } else {
-                        point.volume = raw.y;
+                        point.volume = raw.exactY == null ? raw.y : raw.exactY;
                     }
                 }
                 return xcChartsCandlestickTooltip(point);
@@ -177,32 +192,34 @@ function xcChartsTimeSeriesOptions(){
         };
     }
 
+    function xcChartsDepthSeries(rows, name, color, sideOf){
+        var out = [];
+        for(var i = 0; i < rows.length; i++){
+            var price = Number(rows[i][0]);
+            sideOf[price] = { side: name, sum1: rows[i][1], sum2: rows[i][2] };
+            out.push(xcChartsWithExact(
+                { x: price, y: Number(rows[i][1]) },
+                { exactX: String(rows[i][0]), exactY: String(rows[i][1]), side: name,
+                    sum1: String(rows[i][1]), sum2: String(rows[i][2]) }
+            ));
+        }
+        return {
+            label: name === 'asks' ? 'Asks' : 'Bids', data: out,
+            borderColor: color, backgroundColor: color + '40', borderWidth: 2,
+            fill: 'origin', pointRadius: 2, tension: 0
+        };
+    }
+
     // orders: { asks: [[price, cumVol, cumValue],..], bids: [...] }
     // Both sides arrive pre-accumulated and pre-sorted from xchain.js.
     function xcChartsDepthConfig(orders, opts){
         opts = opts || {};
         orders = orders || {};
         var sideOf = {};
-        function series(name, color){
-            var rows = orders[name] || [],
-                out  = [];
-            for(var i = 0; i < rows.length; i++){
-                var price = Number(rows[i][0]);
-                sideOf[price] = { side: name, sum1: rows[i][1], sum2: rows[i][2] };
-                out.push({ x: price, y: Number(rows[i][1]) });
-            }
-            return {
-                label: name === 'asks' ? 'Asks' : 'Bids',
-                data: out,
-                borderColor: color,
-                backgroundColor: color + '40',
-                borderWidth: 2,
-                fill: 'origin',
-                pointRadius: 2,
-                tension: 0
-            };
-        }
-        var datasets = [series('asks', '#a42015'), series('bids', '#339349')];
+        var datasets = [
+            xcChartsDepthSeries(orders.asks || [], 'asks', '#a42015', sideOf),
+            xcChartsDepthSeries(orders.bids || [], 'bids', '#339349', sideOf)
+        ];
         return {
             type: 'line',
             data: { datasets: datasets },
@@ -224,8 +241,9 @@ function xcChartsTimeSeriesOptions(){
             },
             xcTooltip: function(items){
                 if(!items.length) return '';
-                var price = items[0].parsed.x,
-                    meta  = sideOf[price] || { side: 'asks', sum1: 0, sum2: 0 };
+                var raw = items[0].raw || {},
+                    price = raw.exactX == null ? items[0].parsed.x : raw.exactX,
+                    meta = raw.side ? raw : (sideOf[items[0].parsed.x] || { side: 'asks', sum1: 0, sum2: 0 });
                 return xcChartsDepthTooltip({
                     price: price,
                     sum1:  meta.sum1,

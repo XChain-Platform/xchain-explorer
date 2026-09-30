@@ -90,6 +90,17 @@ describe('explorer bridge panels: token.html wiring degrades honestly @regressio
 });
 
 describe('explorer bridge panels: token.html wiring degrades honestly @regression', function () {
+    it('renders the origin badge from network-qualified served coins', function () {
+        for (const [page, origin] of [['TDOGE', 'TBTC'], ['RDOGE', 'RBTC']]) {
+            const w = makeWindow();
+            w.XC.coin = page;
+            w.XC.status.available = { [page]: {}, [origin]: {} };
+            drive(w, {});
+            w.loadBridgePanels('BTC.PEPE');
+            assert.equal(w.$('#token-bridge-origin a').attr('href'), '/' + origin + '/token/BTC.PEPE');
+        }
+    });
+
     it('asks for the inherited policy on a BRIDGED row only', function () {
         const bridged = makeWindow();
         const seenB   = drive(bridged, {});

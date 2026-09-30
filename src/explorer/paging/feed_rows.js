@@ -34,6 +34,21 @@
 
 'use strict';
 
+function parentLabel(index, encoded, separator){
+    if(index === null || index === undefined || encoded === null || encoded === undefined) return null;
+    let labels = encoded;
+    if(typeof labels == 'string'){
+        if(separator){
+            labels = labels.split(separator).map(label => label.trim());
+        } else {
+            try { labels = JSON.parse(labels); }
+            catch(_){ labels = null; }
+        }
+    }
+    return Array.isArray(labels) && labels[index] !== null && labels[index] !== undefined
+        ? String(labels[index]) : null;
+}
+
 function voteAndBetRows(info, c){
     let { count_reverse, status, method, util } = c;
     // VOTE poll list page. poll_status (lifecycle enum), end_block (close
@@ -68,7 +83,8 @@ function voteAndBetRows(info, c){
     // VOTE ballot list page. One row per (poll, voter, chosen option); the voter
     // is the source. action_index stays LAST (paging cursor; links the ballot action).
     if(method=='getVotes')
-        info = [count_reverse, info.block_index, info.timestamp, info.source, info.poll_index, info.choice, info.share, status, info.action_index];
+        info = [count_reverse, info.block_index, info.timestamp, info.source, info.poll_index, info.choice,
+            parentLabel(info.choice, info.poll_options), info.share, status, info.action_index];
     // VOTE v3 liquid-democracy delegations. The row IS already the live
     // delegation for its (tick, delegator): getVoteDelegations' correlated MAX
     // excludes every superseded, re-pointed or cleared row before this runs, so
@@ -89,7 +105,8 @@ function crossChainRows(info, c){
     let { count_reverse, status, method } = c;
     // BET wager list page. One row per placed bet; the bettor is the source.
     if(method=='getBets')
-        info = [count_reverse, info.block_index, info.timestamp, info.source, info.feed_action_index, info.outcome, info.tick, info.amount, info.bet_status, status, info.action_index];
+        info = [count_reverse, info.block_index, info.timestamp, info.source, info.feed_action_index, info.outcome,
+            parentLabel(info.outcome, info.outcomes, ','), info.tick, info.amount, info.bet_status, status, info.action_index];
     // XCALL cross-chain call list page (source request rows). action_index stays
     // LAST (the datatables client uses it as the paging offset cursor).
     if(method=='getXcalls')

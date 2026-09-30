@@ -36,9 +36,10 @@ function renderLinkedFiles(files, bodyId, cardId){
             // /:coin/api/file/:actionIndex/raw); there is no page-level /file/ route, and
             // linking one 404s with the HTML shell rather than the file.
             : '<a href="/' + XC.coin + '/api/file/' + idx + '/raw" target="_blank">raw bytes</a>';
-        // title/name/type are on-chain, author-controlled free text; escape all three.
+        // title/name/type are on-chain, author-controlled free text; escape all three
+        // (formatLink escapes the title).
         html += '<tr>'
-             +  '<td>' + formatLink('/' + XC.coin + '/action/' + idx, escapeHtml(nullToBlank(f.title))) + '</td>'
+             +  '<td>' + formatLink('/' + XC.coin + '/action/' + idx, nullToBlank(f.title)) + '</td>'
              +  '<td>' + escapeHtml(nullToBlank(f.name)) + '</td>'
              +  '<td>' + escapeHtml(nullToBlank(f.type)) + '</td>'
              +  '<td>' + numeral(Number(f.block_index)).format('0,0') + '</td>'
@@ -82,7 +83,7 @@ function renderOpenPolls(polls, bodyId, cardId){
         let closes   = formatLink('/' + XC.coin + '/block/' + Number(p.end_block), numeral(p.end_block).format('0,0'));
         let binding  = isNull(p.callback_contract_index)
             ? '<span class="badge text-bg-secondary">Advisory</span>'
-            : formatLink('/' + XC.coin + '/contract/' + Number(p.callback_contract_index),
+            : formatLinkHtml('/' + XC.coin + '/contract/' + Number(p.callback_contract_index),
                 '<span class="badge text-bg-danger">Binding</span>',
                 'Binding poll: finalization calls contract ' + Number(p.callback_contract_index));
         let view     = formatLink('/' + XC.coin + '/action/' + Number(p.action_index), 'view', null, true);
@@ -108,7 +109,7 @@ function tokenInfo_renderProjectBanners(o){
             let name = escapeHtml(p.project);
             projectBanners += '<div class="alert alert-success mb-1" role="alert">'
                  +  '<i class="fa fa-certificate pe-1"></i>This token is an official token in the '
-                 +  formatLink('/' + XC.coin + '/token/' + name, '<b>' + name + '</b>', p.project)
+                 +  formatLinkHtml(tokenUrl(XC.coin, p.project), '<b>' + name + '</b>', p.project)
                  +  ' project.'
                  +  '<a href="/' + XC.coin + '/action/' + Number(p.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
                  +  '</div>';
@@ -135,6 +136,52 @@ function tokenInfo_renderProjectBanners(o){
     }
 }
 
+// Render the token's current allow and block list action references.
+function tokenInfo_renderLists(lists){
+    let current = lists || {};
+    $('#allow-list').html(isNull(current.allow) ? 'None' : formatListReference(XC.coin, current.allow));
+    $('#block-list').html(isNull(current.block) ? 'None' : formatListReference(XC.coin, current.block));
+}
+
+// Format market numbers only when every input needed to derive them is present.
+function tokenInfo_multiplyMarketValues(valueA, valueB, decimals){
+    if(isNull(valueA) || isNull(valueB) || !isFinite(valueA) || !isFinite(valueB))
+        return null;
+    return bcmul(valueA, valueB, decimals);
+}
+
+// Keep the native coin unit in the same node as its amount so it appears once.
+function tokenInfo_formatMarketValue(value, decimals, coin){
+    if(isNull(value) || !isFinite(value))
+        return '-';
+    let formatted = formatAmount(bcformat(value, decimals));
+    return isNull(coin) ? formatted : formatted + ' ' + coin;
+}
+
+// Prefix available fiat values while leaving an unavailable value as a plain dash.
+function tokenInfo_formatFiatValue(value){
+    let formatted = tokenInfo_formatMarketValue(value, 2);
+    return formatted === '-' ? formatted : '$' + formatted;
+}
+
+// Render market values without turning absent API numbers into zeroes.
+function tokenInfo_renderMarket(o){
+    let coin = isNull(o.info.coin) ? '' : o.info.coin;
+    $('.xchain-coin').text(coin);
+
+    let priceFiat = tokenInfo_multiplyMarketValues(o.market.price, XC.coin_price, 2);
+    let floorFiat = tokenInfo_multiplyMarketValues(o.market.floor, XC.coin_price, 2);
+    let marketcap = tokenInfo_multiplyMarketValues(o.market.price, o.supply.current, 8);
+    let marketcapFiat = tokenInfo_multiplyMarketValues(marketcap, XC.coin_price, 2);
+
+    $('#market-price-coin').text(tokenInfo_formatMarketValue(o.market.price, 8, coin));
+    $('#market-price-fiat').text(tokenInfo_formatFiatValue(priceFiat));
+    $('#market-floor-coin').text(tokenInfo_formatMarketValue(o.market.floor, 8, coin));
+    $('#market-floor-fiat').text(tokenInfo_formatFiatValue(floorFiat));
+    $('#market-marketcap-coin').text(tokenInfo_formatMarketValue(marketcap, 8, coin));
+    $('#market-marketcap-fiat').text(tokenInfo_formatFiatValue(marketcapFiat));
+}
+
 // Render the token summary cards from one consistent snapshot.
 function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     // Controller bindings (protocol/controller-bound-tokens.md): guard contracts
@@ -150,28 +197,22 @@ function tokenInfo_renderSummary(o, desc, fmtCoin, fmtFiat){
     renderLinkedFiles(o.linked_files, 'token-linked-files-body', 'token-linked-files-card');
 
     $('#supply').text(formatAmount(o.supply.current));
-    $('#max-supply').text(formatAmount(o.supply.max));
-    $('#max-mint').text(formatAmount(o.mints.max));
+    $('#max-supply').text(formatZeroSentinel(o.supply.max, 'No cap declared'));
+    $('#max-mint').text(formatZeroSentinel(o.mints.max, 'No per-transaction cap'));
     $('#owner').html(formatLink('/' + XC.coin + '/address/' + o.info.owner, o.info.owner));
-    $('#token-description').text(desc);
+    $('#token-description').text(isNull(desc) ? 'No description' : desc);
+    tokenInfo_renderLists(o.lists);
 
     // Marketcap and Pricing Information
-    $('.xchain-coin').text(o.info.coin);
-    $('#market-price-coin').text(numeral(o.market.price).format(fmtCoin));
-    $('#market-price-fiat').text(numeral(bcmul(o.market.price, XC.coin_price, 2)).format(fmtFiat));
-    $('#market-floor-coin').text(numeral(o.market.floor).format(fmtCoin));
-    $('#market-floor-fiat').text(numeral(bcmul(o.market.floor, XC.coin_price, 2)).format(fmtFiat));
-    var mcap = bcmul(o.market.price, o.supply.current, 8);
-    $('#market-marketcap-coin').text(numeral(mcap).format(fmtCoin));
-    $('#market-marketcap-fiat').text(numeral(bcmul(mcap, XC.coin_price, 2)).format(fmtFiat));
+    tokenInfo_renderMarket(o);
 
     // Callback Token Information
     if(!isNull(o.callback.tick)){
-        $('#callback-tick').html(formatLink('/' + XC.coin + '/token/' + o.callback.tick, o.callback.tick));
+        $('#callback-tick').html(formatLink(tokenUrl(XC.coin, o.callback.tick), o.callback.tick));
         $('#callback-block').html(formatLink('/' + XC.coin + '/block/' + o.callback.block, numeral(o.callback.block).format('0,0')));
         if(o.callback.amount){
             $('#callback-amount').text(formatAmount(o.callback.amount));
-            $('#callback-price-coin').text(numeral(bcmul(o.callback.amount, o.callback.price, 8)).format(fmtCoin));
+            $('#callback-price-coin').text(formatAmount(bcmul(o.callback.amount, o.callback.price, 8)));
         }
     }
 
@@ -198,7 +239,7 @@ function showTokenInfo(){
         fmtFiat  = '0,0.00';
 
     // Basic Token Information
-    $('.xchain-tick').text(o.info.tick);
+    $('.xchain-tick').text(nullToBlank(o.info.tick));
 
     tokenInfo_renderProjectBanners(o);
 
@@ -206,13 +247,28 @@ function showTokenInfo(){
 
     let description = tokenInfo_prepareDescription(desc);
     let jsonUrl = tokenInfo_getJsonUrl(description);
-    tokenInfo_loadContent(jsonUrl);
+    tokenInfo_loadContent(jsonUrl, XC.coin, o.info.tick);
 }
 
-// Prepare description links and the patterns needed for content loading.
-function tokenInfo_prepareDescription(desc){
+// Derive the one metadata URL a token description points at, or false when it names
+// none. Pure, so the /relay endpoint runs this same rule to confirm that a URL it is
+// asked to fetch is one the named token really references.
+function tokenInfo_metadataUrl(desc){
+    return tokenInfo_getJsonUrl(tokenInfo_parseDescription(desc));
+}
+
+// Match a description that names a JSON document: ".json" ends it or precedes a
+// ';', '?' or '#'. The page, the /relay check and the server icon resolver all use
+// this one rule, so the listing icon and the rendered page pick the same source.
+function tokenInfo_jsonPattern(){
+    return /\.json($|;|\?|#)/i;
+}
+
+// Read a description into the patterns and ';'-separated parts the fetch rule uses.
+// Touches no page state, so the server can run it too.
+function tokenInfo_parseDescription(desc){
     // RegExp for pattern matching in description
-    let json    = /^(.*).json/i,
+    let json    = tokenInfo_jsonPattern(),
         http    = /^http:\/\//,
         https   = /^https:\/\//,
         ord     = /^ord:/i,
@@ -229,13 +285,24 @@ function tokenInfo_prepareDescription(desc){
     if(typeof desc === 'string')
         desc = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
 
+    // A description that starts with http or names a .json file is a link, and its
+    // first ';'-separated part is the URL itself.
+    var arr = (json.test(desc)||http.test(desc)||https.test(desc)) ? desc.split(';') : undefined;
+    return { desc: desc, json: json, ord: ord, ipfs: ipfs, ar: ar, arweave: arweave, act: act, arr: arr };
+}
+
+// Prepare description links and the patterns needed for content loading.
+function tokenInfo_prepareDescription(desc){
+    let info = tokenInfo_parseDescription(desc);
+    let arr  = info.arr;
+    desc     = info.desc;
+
     // If the file starts with http and end with JSON, then assume it is valid url and link it
-    if(json.test(desc)||http.test(desc)||https.test(desc)){
+    if(arr){
         // arr[0]/arr[1] are user-controlled description text. Escape both the
         // href (against attribute breakout) and the visible text (against tag
         // injection); getValidUrl already constrains the scheme.
-        var arr  = desc.split(';'),
-            html = '<a href="' + escapeHtml(getValidUrl(arr[0])) + '" target="_blank">' + escapeHtml(arr[0]) + '</a>';
+        var html = '<a href="' + escapeHtml(getValidUrl(arr[0])) + '" target="_blank">' + escapeHtml(arr[0]) + '</a>';
         if(arr[1])
             html += ';' + escapeHtml(arr[1]);
         $('#token-description').html(html);
@@ -245,16 +312,15 @@ function tokenInfo_prepareDescription(desc){
     // holds the token's information document (on its own chain for the
     // cross-chain form). Coin + index are regex-validated, so the href is
     // safe by construction.
-    if(act.test(desc)){
-        var actM    = desc.match(act),
-            actTier = (XC.coin.match(/^([TR])(BTC|LTC|DOGE)$/) || [])[1] || '',
-            actCoin = actM[1] ? (actTier + actM[1].toUpperCase()) : XC.coin;
+    if(info.act.test(desc)){
+        var actM    = desc.match(info.act),
+            actCoin = networkCoin(actM[1] || XC.coin);
         $('#token-description').html(
             '<a href="/' + actCoin + '/action/' + actM[2] + '" title="Token information stored on-chain (' + actCoin + ' FILE action ' + actM[2] + ')">'
             + escapeHtml(desc) + '</a>'
         );
     }
-    return { desc: desc, json: json, ord: ord, ipfs: ipfs, ar: ar, arweave: arweave, act: act, arr: arr };
+    return info;
 }
 
 // Resolve a supported description into its fetch target.
@@ -293,8 +359,18 @@ function tokenInfo_getJsonUrl(info){
     return jsonUrl;
 }
 
+// The same-origin relay address for a token's metadata. The relay fetches a host
+// outside its fixed gateways only for the URL this coin and tick's description names,
+// so both travel with it; each value is encoded so a query string inside the metadata
+// URL stays part of that URL instead of splitting into relay parameters.
+function tokenInfo_relayUrl(jsonUrl, coin, tick){
+    return '/relay?url=' + encodeURIComponent(jsonUrl)
+         + '&coin=' + encodeURIComponent(nullToBlank(coin))
+         + '&tick=' + encodeURIComponent(nullToBlank(tick));
+}
+
 // Load token content through the direct and relay fallbacks.
-function tokenInfo_loadContent(jsonUrl){
+function tokenInfo_loadContent(jsonUrl, coin, tick){
     // Handle trying to load any JSON content and show the token content
     if(jsonUrl){
         if(XC.debug)
@@ -306,11 +382,16 @@ function tokenInfo_loadContent(jsonUrl){
             if(XC.debug)
                 XCLogger.log('failed to get JSON... retrying using xchain-explorer relay')
             // Try to request the JSON through the xchain relay
-            $.getJSON( '/relay?url=' + jsonUrl, function(o){ 
+            $.getJSON( tokenInfo_relayUrl(jsonUrl, coin, tick), function(o){
                 showTokenContent(o);
             });
-        }); 
+        });
     } else {
         showTokenContent();
     }
 }
+
+// Node requires this file for the pure metadata-URL rule (the /relay check and the
+// unit suites); the browser keeps the globals above.
+if(typeof module !== 'undefined' && module.exports)
+    module.exports = { tokenInfo_metadataUrl: tokenInfo_metadataUrl, tokenInfo_jsonPattern: tokenInfo_jsonPattern };

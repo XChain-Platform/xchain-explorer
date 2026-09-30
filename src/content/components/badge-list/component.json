@@ -1,0 +1,16 @@
+{
+    "name": "badge-list",
+    "description": "A compact list of labelled capabilities or states.",
+    "props": {
+        "items": {
+            "type": "array",
+            "required": true,
+            "description": "Badges as strings or objects with label and state fields."
+        },
+        "emptyText": {
+            "type": "string",
+            "default": "None",
+            "description": "Text shown when the badge list is empty."
+        }
+    }
+}

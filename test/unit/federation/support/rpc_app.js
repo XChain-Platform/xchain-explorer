@@ -13,8 +13,8 @@
  **********************************************************************
  *
  * An express app wired the way src/api.js wires the JSON-RPC dispatcher: the real
- * mountJsonRpc boot step (batch cap, body default, federation key gate, router)
- * over a controller holding ping plus the real federation methods, with the
+ * mountJsonRpc boot step (batch cap, body default, router) over a controller
+ * holding ping plus the real federation methods, with the
  * explorer's database replaced by the scripted one. Requests go over a real
  * socket so the HTTP status and body are what a validator's client would see.
  *
@@ -35,15 +35,13 @@ const COIN_TABLES = {
 };
 
 /**
- * @param {{key?: string, db?: object|null, withFederation?: boolean}} opts `key` is the
- *   EXPLORER_FEDERATION_READ_KEY value ('' or absent = unset); `withFederation:false`
+ * @param {{db?: object|null, withFederation?: boolean}} opts `withFederation:false`
  *   builds the dispatcher as it was before the federation reads existed
  */
 function buildRpcApp(opts) {
     const o = opts || {};
     const configInfo = {
         env: {},
-        federationReadKey: () => o.key || '',
         getConfig: async () => COIN_TABLES
     };
     const explorer = { db: o.db || null };

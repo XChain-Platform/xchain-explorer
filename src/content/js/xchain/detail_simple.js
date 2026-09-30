@@ -45,14 +45,21 @@ function showBroadcastDetails(data){
     // NOT data.fee: the reserved data.fee slot is overwritten with the protocol-fee
     // record when one exists, so reading it here rendered '[object Object]'.
     let percent = (isNumeric(data.broadcast_fee)) ? (' <span class="badge text-bg-info text-white">' + bcmul(data.broadcast_fee, 100, 2) + '%</span>') : '';
-    $('#info-broadcast .broadcast-message').text(data.message);
+    let format = Number(data.action_format);
+    let fee = nullToBlank(data.broadcast_fee);
+    $('#info-broadcast .broadcast-message').text(nullToBlank(data.message));
     $('#info-broadcast .broadcast-value').text(formatAmount(data.value));
-    $('#info-broadcast .broadcast-fee').html(data.broadcast_fee + percent);
-    $('#info-broadcast .broadcast-memo').text(data.memo);
+    $('#info-broadcast .broadcast-fee').html(fee === '' ? '' : fee + percent);
+    $('#info-broadcast .broadcast-memo').text(nullToBlank(data.memo));
+    $('#info-broadcast .broadcast-message').closest('tr').toggleClass('d-none', ![0,1,2].includes(format));
+    $('#info-broadcast .broadcast-value').closest('tr').toggleClass('d-none', ![0,1,3].includes(format));
+    $('#info-broadcast .broadcast-fee').closest('tr').toggleClass('d-none', ![1,2].includes(format));
+    $('#info-broadcast .broadcast-memo').closest('tr').toggleClass('d-none', ![1,2,3].includes(format));
     // BROADCAST v3 references an earlier broadcast (its only meaningful payload);
     // link it and reveal the row, hidden for v0-v2 which have no reference.
-    if(data.broadcast_action_index != null){
-        $('#info-broadcast .broadcast-reference').html(formatLink('/' + XC.coin + '/action/' + data.broadcast_action_index, data.broadcast_action_index));
+    if(format === 3){
+        $('#info-broadcast .broadcast-reference').html(isNull(data.broadcast_action_index) ? '' :
+            formatLink('/' + XC.coin + '/action/' + data.broadcast_action_index, data.broadcast_action_index));
         $('#info-broadcast .broadcast-reference-row').removeClass('d-none');
     } else {
         $('#info-broadcast .broadcast-reference-row').addClass('d-none');
@@ -61,18 +68,18 @@ function showBroadcastDetails(data){
 
 // Display CALLBACK action information
 function showCallbackDetails(data){
-    $('#info-callback .callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    $('#info-callback .callback-callback-tick').html(formatLink('/' + XC.coin + '/token/' + data.callback_tick, data.callback_tick, data.callback_tick));
+    $('#info-callback .callback-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
+    $('#info-callback .callback-callback-tick').html(formatLink(tokenUrl(XC.coin, data.callback_tick), data.callback_tick, data.callback_tick));
     $('#info-callback .callback-amount').html(formatAmount(data.callback_amount));
-    $('#info-callback .callback-memo').text(data.memo);
+    $('#info-callback .callback-memo').text(nullToBlank(data.memo));
 }
 
 // Display DIVIDEND action information
 function showDividendDetails(data){
-    $('#info-dividend .dividend-tick').html(formatLink('/' + XC.coin + '/token/' + data.tick, data.tick, data.tick));
-    $('#info-dividend .dividend-dividend-tick').html(formatLink('/' + XC.coin + '/token/' + data.dividend_tick, data.dividend_tick, data.dividend_tick));
+    $('#info-dividend .dividend-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
+    $('#info-dividend .dividend-dividend-tick').html(formatLink(tokenUrl(XC.coin, data.dividend_tick), data.dividend_tick, data.dividend_tick));
     $('#info-dividend .dividend-amount').html(formatAmount(data.amount));
-    $('#info-dividend .dividend-memo').text(data.memo);
+    $('#info-dividend .dividend-memo').text(nullToBlank(data.memo));
 }
 
 // Display DESTROY action information
@@ -89,15 +96,15 @@ function showDispenserDetails(data){
     let isOwnershipDispenser = (Number(data.give_ownership || 0) == 1);
     $('#info-dispenser .dispenser-give-coin').text(data.give_coin);
     $('#info-dispenser .dispenser-give-tick').html(
-        formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick)
+        formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick)
         + (isOwnershipDispenser ? ' ' + ownershipBadge() : '')
     );
     $('#info-dispenser .dispenser-give-amount').html(isOwnershipDispenser ? ownershipBadge() : formatAmount(data.give_amount));
     $('#info-dispenser .dispenser-give-escrow').html(isOwnershipDispenser ? ownershipBadge() : formatAmount(data.give_escrow));
     $('#info-dispenser .dispenser-get-coin').text(data.get_coin);
-    $('#info-dispenser .dispenser-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
+    $('#info-dispenser .dispenser-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
     $('#info-dispenser .dispenser-get-amount').html(formatAmount(data.get_amount));
-    $('#info-dispenser .dispenser-get-address').html(formatLink('/' + data.get_coin  + '/address/' + data.get_address, data.get_address));
+    $('#info-dispenser .dispenser-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
     // Fiat/oracle-priced dispensers: fiat_amount is the operative price (Get Amount is not),
     // ignored when oracle_address is set. Only show these rows when the dispenser is
     // fiat/oracle-priced so plain crypto-priced dispensers are unchanged.
@@ -106,28 +113,28 @@ function showDispenserDetails(data){
     if(isFiatDispenser){
         $('#info-dispenser .dispenser-fiat-code').text(isNull(data.fiat_code) ? '-' : data.fiat_code);
         $('#info-dispenser .dispenser-fiat-amount').text(isNull(data.fiat_amount) ? '-' : data.fiat_amount);
-        $('#info-dispenser .dispenser-oracle-address').html(isNull(data.oracle_address) ? '-' : formatLink('/' + data.get_coin + '/address/' + data.oracle_address, data.oracle_address));
+        $('#info-dispenser .dispenser-oracle-address').html(isNull(data.oracle_address) ? '-' : formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.oracle_address, data.oracle_address));
     }
     if(data.expiration)
         $('#info-dispenser .dispenser-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-dispenser .dispenser-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-dispenser .dispenser-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
-    $('#info-dispenser .dispenser-memo').text(data.memo);
+    $('#info-dispenser .dispenser-allow-list').html(formatListReference(XC.coin, data.allow_list));
+    $('#info-dispenser .dispenser-block-list').html(formatListReference(XC.coin, data.block_list));
+    $('#info-dispenser .dispenser-memo').text(nullToBlank(data.memo));
     // Dispenser Status Details
     // getActionData deletes state.get_remaining for DISPENSER (only give_remaining is
     // meaningful), so the data layer never carries the field; do not read it here.
     $('#info-dispenser .dispenser-state-give-remaining').html(formatAmount(data.state.give_remaining));
     if(data.state.expiration)
         $('#info-dispenser .dispenser-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-dispenser .dispenser-state-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.state.allow_list, formatAmount(data.state.allow_list)));
-    $('#info-dispenser .dispenser-state-block-list').html(formatLink('/' + XC.coin + '/action/' + data.state.block_list, formatAmount(data.state.block_list)));
+    $('#info-dispenser .dispenser-state-allow-list').html(formatListReference(XC.coin, data.state.allow_list));
+    $('#info-dispenser .dispenser-state-block-list').html(formatListReference(XC.coin, data.state.block_list));
     $('#info-dispenser .dispenser-state').text(data.state.status);
 }
 
 // Display DISPENSER_CANCEL action information
 function showDispenserCancelDetails(data){
     $('#info-dispenser-cancel .dispenser-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
-    $('#info-dispenser-cancel .dispenser-cancel-memo').text(data.memo);
+    $('#info-dispenser-cancel .dispenser-cancel-memo').text(nullToBlank(data.memo));
 }
 
 // Display DISPENSER_CLOSE action information
@@ -141,9 +148,9 @@ function showDispenserEditDetails(data){
     $('#info-dispenser-edit .dispenser-edit-give-escrow').html(formatAmount(data.give_escrow));
     if(!isNull(data.expiration))
         $('#info-dispenser-edit .dispenser-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
-    $('#info-dispenser-edit .dispenser-edit-allow-list').html(formatLink('/' + XC.coin + '/action/' + data.allow_list, formatAmount(data.allow_list)));
-    $('#info-dispenser-edit .dispenser-edit-block-list').html(formatLink('/' + XC.coin + '/action/' + data.block_list, formatAmount(data.block_list)));
-    $('#info-dispenser-edit .dispenser-edit-memo').text(data.memo);
+    $('#info-dispenser-edit .dispenser-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
+    $('#info-dispenser-edit .dispenser-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
+    $('#info-dispenser-edit .dispenser-edit-memo').text(nullToBlank(data.memo));
 }
 
 // Display DISPENSER_EXPIRE action information
@@ -159,13 +166,13 @@ function showDispenserExpireDetails(data){
 // event" either way - see protocol/actions/dispenser.md.
 function showDispenseDetails(data){
     $('#info-dispense .dispense-give-coin').text(data.give_coin);
-    $('#info-dispense .dispense-give-tick').html(formatLink('/' + data.give_coin + '/token/' + data.give_tick, data.give_tick, data.give_tick));
+    $('#info-dispense .dispense-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
     $('#info-dispense .dispense-give-amount').html(formatAmount(data.give_amount));
     $('#info-dispense .dispense-get-coin').text(data.get_coin);
-    $('#info-dispense .dispense-get-tick').html(formatLink('/' + data.get_coin + '/token/' + data.get_tick, data.get_tick, data.get_tick));
+    $('#info-dispense .dispense-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
     $('#info-dispense .dispense-get-amount').html(formatAmount(data.get_amount));
-    $('#info-dispense .dispense-source').html(formatLink('/' + data.get_coin  + '/address/' + data.source, data.source));
-    $('#info-dispense .dispense-destination').html(formatLink('/' + data.get_coin  + '/address/' + data.destination, data.destination));
+    $('#info-dispense .dispense-source').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.source, data.source));
+    $('#info-dispense .dispense-destination').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.destination, data.destination));
 }
 
 // Display FILE action information
@@ -173,13 +180,13 @@ function showFileDetails(data){
     $('#info-file .file-name').text(data.name);
     $('#info-file .file-title').text(data.title);
     $('#info-file .file-type').text(data.type);
-    $('#info-file .file-memo').text(data.memo);
+    $('#info-file .file-memo').text(nullToBlank(data.memo));
     // Token-gated FILE: show the gate token, encryption method and key hash, plus
     // a link to the raw (still-encrypted) ciphertext endpoint. Holders decrypt
     // client-side after receiving the key via an ECIES MESSAGE.
     if(!isNull(data.gate_ticker)){
         let method = (data.encryption_method == 1) ? 'AES-256-GCM' : data.encryption_method;
-        $('#info-file .file-gate-ticker').html(formatLink('/' + XC.coin + '/token/' + data.gate_ticker, data.gate_ticker, data.gate_ticker));
+        $('#info-file .file-gate-ticker').html(formatLink(tokenUrl(XC.coin, data.gate_ticker), data.gate_ticker, data.gate_ticker));
         $('#info-file .file-encryption').text(method);
         $('#info-file .file-key-hash').html(formatHash(data.key_hash, 24));
         $('#info-file .file-raw').html(formatLink('/' + XC.coin + '/api/file/' + data.action_index + '/raw', 'download ciphertext'));
@@ -192,7 +199,7 @@ function showFileDetails(data){
         if(!isNull(data.gate_min_amount) && data.gate_min_amount !== ''){
             $('#info-file .file-gate-min-amount').html(
                 formatAmount(data.gate_min_amount) + ' ' +
-                formatLink('/' + XC.coin + '/token/' + data.gate_ticker, data.gate_ticker, data.gate_ticker));
+                formatLink(tokenUrl(XC.coin, data.gate_ticker), data.gate_ticker, data.gate_ticker));
             $('#info-file .file-threshold-row').removeClass('d-none');
         } else {
             $('#info-file .file-threshold-row').addClass('d-none');

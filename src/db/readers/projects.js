@@ -38,6 +38,8 @@
 
 'use strict';
 
+const { rosterTickIds, rosterTickMatches } = require('./project_roster_items.js');
+
 // Latest owner-valid roster LINK per project, newest link first.
 const LATEST_ROSTER_LINKS = `FROM (
                         SELECT
@@ -69,13 +71,17 @@ const ROSTER_SELECT = `SELECT
 // A module function rather than a method, like the resolved path below: a cut made
 // for length adds no name to Database.prototype.
 async function rostersByDirectMembership(db, config, tick, chain){
+    let matches = await rosterTickMatches(db, config, tick, chain);
     let query = ROSTER_SELECT + LATEST_ROSTER_LINKS + `
                         INNER JOIN list_items     li ON (li.action_index=lk.coin1_action_index)
-                        INNER JOIN index_tickers  t2 ON (t2.id=li.item_id AND t2.tick=?)
+                        INNER JOIN index_tickers  t2 ON (t2.id=li.item_id AND (
+                            t2.tick=? OR LOWER(t2.tick)=LOWER(?)` +
+                            (matches.length === 3 ? ` OR t2.tick=?` : ``) + `
+                        ))
                         INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
                     ORDER BY latest.link_action_index DESC
                     LIMIT 1000`;
-    let rows = await db.doQuery(config, query, [chain, chain, tick]);
+    let rows = await db.doQuery(config, query, [chain, chain, ...matches]);
     if(!rows || !rows.length) return [];
     return rows.map(r => ({
         project:                 r.project,
@@ -89,6 +95,7 @@ async function rostersByDirectMembership(db, config, tick, chain){
 // the linked list action only names the chain to follow. Every candidate roster is
 // resolved to its head first, and the tick is looked for in the heads.
 async function rostersByResolvedListHead(db, config, tick, chain){
+    let matches = await rosterTickMatches(db, config, tick, chain);
     let candidates = await db.doQuery(config, ROSTER_SELECT + LATEST_ROSTER_LINKS + `
                         INNER JOIN index_tickers  t1 ON (t1.id=latest.tick_id)
                     ORDER BY latest.link_action_index DESC
@@ -106,10 +113,13 @@ async function rostersByResolvedListHead(db, config, tick, chain){
                         li.action_index
                     FROM
                         list_items    li
-                        INNER JOIN index_tickers t2 ON (t2.id=li.item_id AND t2.tick=?)
+                        INNER JOIN index_tickers t2 ON (t2.id=li.item_id AND (
+                            t2.tick=? OR LOWER(t2.tick)=LOWER(?)` +
+                            (matches.length === 3 ? ` OR t2.tick=?` : ``) + `
+                        ))
                     WHERE
                         li.action_index IN (` + indexes.map(() => '?').join(',') + `)
-                    GROUP BY li.action_index`, [tick, ...indexes]);
+                    GROUP BY li.action_index`, [...matches, ...indexes]);
     let listing = {};
     for(let row of (members || [])) listing[String(Number(row['action_index']))] = true;
     return rosters.filter(r => listing[String(r.membership_action_index)] === true);
@@ -170,7 +180,12 @@ class ProjectReaders {
         };
         if(await this.isListEditResolutionActiveAtTip(config))
             info.membership_action_index = Number(await this.getListHeadIndex(config, info.roster_action_index));
-        let count = await this.doQuery(config, `SELECT count(*) AS total FROM list_items WHERE action_index=?`, [info.membership_action_index]);
+        let tickIds = await rosterTickIds(this, config, info.membership_action_index, chain);
+        Object.defineProperty(info, 'tick_ids', { value: tickIds });
+        let predicate = tickIds.length
+            ? `m.tick_id IN (` + tickIds.map(() => '?').join(',') + `)`
+            : `1=0`;
+        let count = await this.doQuery(config, `SELECT count(*) AS total FROM tokens m WHERE ` + predicate, tickIds);
         if(count && count.length)
             info.total = Number(count[0].total);
         return info;
@@ -283,6 +298,11 @@ class ProjectReaders {
         let tick = config.data.search;
         let info = await this.getProjectRosterInfo(config, tick);
         if(!info) return [null];
+        let chain = this.baseCoin ? this.baseCoin[config.coin] : null;
+        let tickIds = info.tick_ids || await rosterTickIds(this, config, info.membership_action_index, chain);
+        let predicate = tickIds.length
+            ? `m.tick_id IN (` + tickIds.map(() => '?').join(',') + `)`
+            : `1=0`;
         let query = `SELECT
                         t3.tick,
                         m.supply,
@@ -290,14 +310,13 @@ class ProjectReaders {
                         m.decimals,
                         m.lock_max_supply
                     FROM
-                        list_items li
-                        INNER JOIN tokens        m  ON (m.tick_id=li.item_id)
+                        tokens m
                         INNER JOIN index_tickers t3 ON (t3.id=m.tick_id)
                     WHERE
-                        li.action_index=?
+                        ` + predicate + `
                     ORDER BY t3.tick ASC
                     LIMIT 1000`;
-        let rows = await this.doQuery(config, query, [info.membership_action_index]);
+        let rows = await this.doQuery(config, query, tickIds);
         let data = {
             // Echo the tick exactly as it was looked up. Uppercasing it here while the
             // lookup stays case-sensitive means the value handed back does not resolve:
@@ -331,17 +350,21 @@ class ProjectReaders {
         let info = await this.getProjectRosterInfo(config, config.data.search);
         // No roster → empty datatable (object query short-circuits getData)
         if(!info) return [[], [], 0];
-        let args  = [info.membership_action_index];
+        let chain = this.baseCoin ? this.baseCoin[config.coin] : null;
+        let tickIds = info.tick_ids || await rosterTickIds(this, config, info.membership_action_index, chain);
+        let predicate = tickIds.length
+            ? `m.tick_id IN (` + tickIds.map(() => '?').join(',') + `)`
+            : `1=0`;
+        let args  = tickIds;
         let count = `SELECT
                         count(*) as total
                     FROM
                         tokens m
-                        INNER JOIN list_items         li ON (li.item_id=m.tick_id AND li.action_index=?)
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where.data;
+                    WHERE ` + predicate + ` AND ` + sql.where.data;
         let query = `SELECT
                         m.id,
                         t3.tick,
@@ -362,13 +385,12 @@ class ProjectReaders {
                         t1.tx_index
                     FROM
                         tokens m
-                        INNER JOIN list_items         li ON (li.item_id=m.tick_id AND li.action_index=?)
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                    WHERE ` + sql.where.data + sql.where.offset + `
+                    WHERE ` + predicate + ` AND ` + sql.where.data + sql.where.offset + `
                     ORDER BY t3.tick ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, args, count];

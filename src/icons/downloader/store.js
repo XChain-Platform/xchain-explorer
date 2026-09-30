@@ -137,34 +137,12 @@ async function markNoIcon(dl, conn, iconId, iconPath, descHash, deps){
 }
 
 /******************************************************************
- * Image conversion: write source bytes to a tmp file, run ImageMagick
- * convert to produce a NxN PNG at iconPath, return md5 of result.
+ * Run ImageMagick convert from srcArg into out; on failure remove both
+ * temp files and throw an error naming the cause.
  *****************************************************************/
-async function writeIcon(dl, bytes, iconPath, deps){
+async function runConvert(dl, deps, tmp, srcArg, out){
     const { fsp, execFileAsync } = deps;
-    const tmp = path.join(os.tmpdir(), 'iconw_' + process.pid + '_' + crypto.randomBytes(4).toString('hex'));
-    await fsp.writeFile(tmp, bytes);
-
-    let mime;
-    try { mime = await sniffMime(execFileAsync, tmp, dl.cfg.convertTimeoutMs); }
-    catch (e){
-        await safeUnlink(fsp, tmp);
-        throw new Error('mime sniff failed');
-    }
-    if(!ALLOWED_MIME.has(mime)){
-        await safeUnlink(fsp, tmp);
-        throw new Error(`unsupported mime '${mime}'`);
-    }
-
-    // GIF/WebP: pick the first frame so animated/multi-page sources don't break the resize
-    const needsFirstFrame = (mime === 'image/gif' || mime === 'image/webp');
-    const srcArg          = needsFirstFrame ? `${tmp}[0]` : tmp;
-    const size            = dl.cfg.iconSize;
-    // Convert into a same-directory temp and rename it over iconPath only once complete,
-    // so a failed or killed convert never replaces the served icon (png: pins the format).
-    const out = path.join(path.dirname(iconPath),
-        '.iconw_' + process.pid + '_' + crypto.randomBytes(4).toString('hex') + '.tmp');
-
+    const size = dl.cfg.iconSize;
     // -limit precedes the input on purpose: ImageMagick applies settings in
     // command-line order, so a limit placed after the filename does not bound
     // the read that allocates the pixel cache.
@@ -193,6 +171,37 @@ async function writeIcon(dl, bytes, iconPath, deps){
             ? `timed out after ${dl.cfg.convertTimeoutMs}ms`
             : (e.stderr || e.message || '')));
     }
+}
+
+/******************************************************************
+ * Image conversion: write source bytes to a tmp file, run ImageMagick
+ * convert to produce a NxN PNG at iconPath, return md5 of result.
+ *****************************************************************/
+async function writeIcon(dl, bytes, iconPath, deps){
+    const { fsp, execFileAsync } = deps;
+    const tmp = path.join(os.tmpdir(), 'iconw_' + process.pid + '_' + crypto.randomBytes(4).toString('hex'));
+    await fsp.writeFile(tmp, bytes);
+
+    let mime;
+    try { mime = await sniffMime(execFileAsync, tmp, dl.cfg.convertTimeoutMs); }
+    catch (e){
+        await safeUnlink(fsp, tmp);
+        throw new Error('mime sniff failed');
+    }
+    if(!ALLOWED_MIME.has(mime)){
+        await safeUnlink(fsp, tmp);
+        throw new Error(`unsupported mime '${mime}'`);
+    }
+
+    // GIF/WebP: pick the first frame so animated/multi-page sources don't break the resize
+    const needsFirstFrame = (mime === 'image/gif' || mime === 'image/webp');
+    const srcArg          = needsFirstFrame ? `${tmp}[0]` : tmp;
+    // Convert into a same-directory temp and rename it over iconPath only once complete,
+    // so a failed or killed convert never replaces the served icon (png: pins the format).
+    const out = path.join(path.dirname(iconPath),
+        '.iconw_' + process.pid + '_' + crypto.randomBytes(4).toString('hex') + '.tmp');
+
+    await runConvert(dl, deps, tmp, srcArg, out);
     await safeUnlink(fsp, tmp);
 
     try {

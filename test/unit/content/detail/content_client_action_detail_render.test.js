@@ -275,6 +275,12 @@ describe('action detail render: fields that reached the API with nowhere to go',
             expect(text(win, '#info-deploy .deploy-chunk')).to.equal('Code chunk 2 of 3');
         });
 
+    });
+});
+
+describe('action detail render: fields that reached the API with nowhere to go', function(){
+    describe('deferred chunked assembly', function(){
+
         it('points the assembler at the carrier the contract actually landed on', function(){
             const win = bootPage();
             win.showDeployDetails({
@@ -289,12 +295,6 @@ describe('action detail render: fields that reached the API with nowhere to go',
             // so the cell names it "Unnamed contract" beside the address it links.
             expect(text(win, '#info-deploy .deploy-contract')).to.equal('Unnamed contract · 1421');
         });
-
-    });
-});
-
-describe('action detail render: fields that reached the API with nowhere to go', function(){
-    describe('deferred chunked assembly', function(){
 
         it('states the status instead of a dead link while the group is incomplete', function(){
             const win = bootPage();

@@ -32,8 +32,7 @@ const { tokenInfo_jsonPattern } = require('../content/js/xchain/token_info.js');
 // descriptions and content/js/xchain/token_legacy.js rewrites ipfs:// image
 // entries against the SAME gateway, and a page pointed at a different one renders
 // an icon the downloader failed to fetch, or backs the icons row off to
-// permanently-failed while the page renders fine. Changing the gateway is a
-// three-file change: here, token_info.js and token_legacy.js.
+// permanently-failed while the page renders fine. Change all three files together.
 const IPFS_GATEWAY = 'https://ipfsc.crystalsuite.com/';
 
 // The `action:` on-chain TIS reference grammar, written once in a dialect both

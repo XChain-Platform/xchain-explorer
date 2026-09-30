@@ -186,7 +186,9 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         expect(Number(data.version)).to.equal(1);
         expect(data.callback_action_index).to.equal(56);
     });
+});
 
+describe('getActionData: transaction-less / row-less action rendering @regression', function() {
     it('ATTEST v2 expire tags version 2 from the action format (Expire badge, not Request v0)', async function() {
         const db = makeDb();
         db.doQuery = makeDoQuery({
@@ -199,9 +201,7 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         expect(Number(data.version)).to.equal(2);
         expect(data.signatures).to.be.an('array').that.is.empty;
     });
-});
 
-describe('getActionData: transaction-less / row-less action rendering @regression', function() {
     it('UNSTAKE v2 completion surfaces the returned credit as the amount', async function() {
         const db = makeDb();
         db.doQuery = makeDoQuery({

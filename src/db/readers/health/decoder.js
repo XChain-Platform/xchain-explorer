@@ -154,14 +154,16 @@ class HealthDecoderReaders {
                 total:         Number(r.total) || 0,
                 rows:          r.rows
             } : null;
-            this._mempoolApiCache[code] = { t: now, v };
+            this._mempoolApiCache[code] = { t: now, v, okAt: now };
             return v;
         } catch(e){
             log.warn('DECODER_MEMPOOL_UNAVAILABLE', { method: 'getDecoderMempoolSnapshot', code, err: e && e.message ? e.message : e });
-            // Serve the stale snapshot once more; refresh the clock so a dead
-            // decoder is retried once per TTL, not on every request.
-            this._mempoolApiCache[code] = { t: now, v: (hit && hit.v) || null };
-            return (hit && hit.v) || null;
+            // Serve the last good snapshot only within one extra TTL of its fetch, then null;
+            // refresh the clock so a dead decoder is retried once per TTL, not on every request.
+            const okAt = hit ? hit.okAt : undefined;
+            const v    = (hit && hit.v && (now - okAt) < 2 * ttl) ? hit.v : null;
+            this._mempoolApiCache[code] = { t: now, v, okAt };
+            return v;
         }
     }
 

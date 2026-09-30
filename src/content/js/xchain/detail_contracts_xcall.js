@@ -31,6 +31,8 @@ function showDeployDetails(data){
     let deployed = isNull(data.deployed_contract_index) ? null : data.deployed_contract_index;
     $('#info-deploy .deploy-contract-row').toggleClass('d-none', isChunk && deployed === null);
     $('#info-deploy .deploy-chunk-row').toggleClass('d-none', !isChunk);
+    // Only a carrier that completed its group names the assembler that asked for the contract.
+    $('#info-deploy .deploy-carrier-row').toggleClass('d-none', !(isChunk && deployed !== null));
     $('#info-deploy .deploy-code-hash').html(formatHash(data.code_hash, 32));
     // A DEPLOY runs the contract's constructor, and that gas is recorded on the
     // contract_executions row rather than as a protocol fee, so a deployer's
@@ -95,6 +97,12 @@ function detailContractsXcall_renderDeployChunk(data, deployed){
     if(deployed !== null){
         $('#info-deploy .deploy-contract').html(formatContractIdentity(XC.coin, XC.chain, deployed, data.contract_meta_name, data.contract_meta_version));
         $('#info-deploy .deploy-api-version').text(isNull(data.api_version) ? '-' : data.api_version);
+        // A null assembler here means its constructor record is gone, never an inline deploy.
+        if(isNull(data.assembler_action_index))
+            $('#info-deploy .deploy-assembler').text('Unknown');
+        else
+            $('#info-deploy .deploy-assembler').html(formatLink('/' + XC.coin + '/action/' + data.assembler_action_index, data.assembler_action_index));
+        $('#info-deploy .deploy-contract-status').text(isNull(data.contract_status) ? '-' : String(data.contract_status));
         $('#info-deploy .deploy-stakeable').html(carrierStakeable ? '<span class="badge text-bg-info text-white">Stakeable</span>' : 'No');
         if(carrierStakeable){
             $('#info-deploy .deploy-cooldown').text(numeral(data.cooldown_blocks).format('0,0') + ' blocks');

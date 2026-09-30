@@ -69,6 +69,9 @@ function makeDoQuery(opts) {
             return o.callbackByIndex ? [o.callbackByIndex] : [];
         if(q.includes('cross_chain_call_callbacks') && q.includes('call_id=?')) return [];
         if(q.includes('cross_chain_call_executions')) return [];
+        // XCALL v1 callback EXECUTE lookup off the request row
+        if(q.includes('FROM xcalls') && q.includes('call_id=? AND version=0'))
+            return o.callbackAction ? [o.callbackAction] : [];
         // ledger effects
         if(q.includes('credits c1')) return o.credits;
         if(q.includes('debits d1'))  return [];
@@ -167,6 +170,21 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         expect(data.call_id).to.equal('deadbeef');
         expect(data.callback_delivery).to.be.an('object');
         expect(data.callback_delivery.callback_result_status).to.equal('ok');
+        expect(data.callback_action_index).to.equal(null);
+    });
+
+    it('XCALL v1 result-marker links the callback EXECUTE recorded on the request row', async function() {
+        const db = makeDb();
+        db.doQuery = makeDoQuery({
+            type: 'XCALL',
+            fallbackRow: { action: 'XCALL', action_format: 1, action_index: 55, source: null,
+                           block_index: 800, timestamp: 1700000200, tx_hash: null, tx_index: null },
+            callbackByIndex: { call_id: 'deadbeef', result_status: 'ok', callback_block_index: 800 },
+            callbackAction: { callback_action_index: 56 }
+        });
+        const data = await db.getActionData(cfg(), 55);
+        expect(Number(data.version)).to.equal(1);
+        expect(data.callback_action_index).to.equal(56);
     });
 
     it('ATTEST v2 expire tags version 2 from the action format (Expire badge, not Request v0)', async function() {

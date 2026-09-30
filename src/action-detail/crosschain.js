@@ -23,6 +23,7 @@ const {
     XCALL_EXECUTION,
     XCALL_CALLBACK,
     XCALL_RESULT_DELIVERY,
+    XCALL_CALLBACK_ACTION,
     XEXEC_DETAIL
 } = require('../db/action_detail/crosschain_sql');
 
@@ -84,6 +85,9 @@ const XCALL = {
                     callback_result_status: cbv1[0].result_status,
                     callback_block_index:   cbv1[0].callback_block_index
                 };
+                // Link the callback EXECUTE this delivery injected; null when none was injected.
+                let req = await db.doQuery(config, XCALL_CALLBACK_ACTION, [cbv1[0].call_id]);
+                data['callback_action_index'] = (req && req.length) ? req[0].callback_action_index : null;
             }
         }
     },

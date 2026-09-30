@@ -63,9 +63,8 @@ const {
 
             await d.processToken(makeMockConn([]), flavor, makeRow());
 
-            // convert writes straight to iconPath, so a failed conversion can leave a
-            // truncated file on top of the previous good icon. That is the file this
-            // unlink removes.
+            // A failed conversion leaves the previous icon in place; an unusable stamp
+            // must not keep serving it, so this unlink removes it.
             expect(stubs.fspStub.unlink.callCount).to.equal(1);
             expect(stubs.fspStub.unlink.firstCall.args[0]).to.equal(iconPathFor(d, 'MYTOKEN'));
         });

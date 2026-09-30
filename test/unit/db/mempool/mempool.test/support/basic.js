@@ -207,6 +207,23 @@ describe("decoder mempool surface", () => {
             // once per TTL, not on every request.
             expect(db._mempoolApiCache.RBTC.t).to.be.greaterThan(0);
         });
+
+        it('stops serving the stale snapshot once a decoder outage outlasts one extra TTL', async () => {
+            const clock = sinon.useFakeTimers({ now: 1000000, toFake: ['Date'] });
+            try {
+                const db = mkApiDb([]);
+                const stub = sinon.stub(DecoderConnector.prototype, 'getmempool');
+                stub.onCall(0).resolves({ node_tx_count: 7, total: 2, rows: [API_ROW, API_ROW] });
+                stub.rejects(new Error('decoder down'));
+                expect(await db.getDecoderMempoolCount({ coin: 'RBTC' })).to.equal(2);
+                clock.tick(15001);
+                expect(await db.getDecoderMempoolCount({ coin: 'RBTC' })).to.equal(2);   // one extra TTL
+                clock.tick(15001);
+                expect(await db.getDecoderMempoolSnapshot({ coin: 'RBTC' })).to.equal(null);
+                expect(await db.getNodeMempoolCount({ coin: 'RBTC' })).to.equal(null);
+                expect(stub.callCount).to.equal(3);
+            } finally { clock.restore(); }
+        });
     });
 });
 

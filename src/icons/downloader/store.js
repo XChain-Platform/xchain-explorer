@@ -124,9 +124,8 @@ async function sweepOrphanIcons(dl, conn, flavor, deps){
  * state is terminal (discover only re-stales on a further description change),
  * so it never self-corrects.
  *
- * The stamp branches need it for a second reason: `convert` writes straight to
- * iconPath, so a conversion that fails or is SIGKILLed on the timeout can leave
- * a truncated file there, on top of whatever good icon it was replacing.
+ * The stamp branches rely on it too: a failed writeIcon leaves the previous file
+ * in place, and an unusable stamp must not keep serving that older icon.
  *
  * safeUnlink swallows ENOENT, so the common case (a token that never had an
  * icon) costs one failed unlink and no branch.
@@ -161,6 +160,10 @@ async function writeIcon(dl, bytes, iconPath, deps){
     const needsFirstFrame = (mime === 'image/gif' || mime === 'image/webp');
     const srcArg          = needsFirstFrame ? `${tmp}[0]` : tmp;
     const size            = dl.cfg.iconSize;
+    // Convert into a same-directory temp and rename it over iconPath only once complete,
+    // so a failed or killed convert never replaces the served icon (png: pins the format).
+    const out = path.join(path.dirname(iconPath),
+        '.iconw_' + process.pid + '_' + crypto.randomBytes(4).toString('hex') + '.tmp');
 
     // -limit precedes the input on purpose: ImageMagick applies settings in
     // command-line order, so a limit placed after the filename does not bound
@@ -172,7 +175,7 @@ async function writeIcon(dl, bytes, iconPath, deps){
         srcArg,
         '-resize', `${size}x${size}!`,
         '-format', 'png',
-        iconPath,
+        'png:' + out,
     ];
 
     try {
@@ -182,6 +185,7 @@ async function writeIcon(dl, bytes, iconPath, deps){
         });
     } catch (e){
         await safeUnlink(fsp, tmp);
+        await safeUnlink(fsp, out);
         // A timeout kill leaves stderr empty and the message unhelpful, so name
         // it: the row's last_error is the only place this is visible.
         const killed = (e.killed === true || e.signal === 'SIGKILL');
@@ -192,9 +196,12 @@ async function writeIcon(dl, bytes, iconPath, deps){
     await safeUnlink(fsp, tmp);
 
     try {
-        const buf = await fsp.readFile(iconPath);
+        const buf = await fsp.readFile(out);
+        if(!buf.length) throw new Error('empty convert output');
+        await fsp.rename(out, iconPath);
         return md5(buf);
     } catch (e){
+        await safeUnlink(fsp, out);
         return null;
     }
 }

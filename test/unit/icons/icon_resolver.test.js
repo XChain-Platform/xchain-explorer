@@ -58,6 +58,9 @@ describe('IconResolver.resolveDescriptionToSource', function(){
         ['https://j-dog.net/json/JDOG.json;abc123sha',                                          'json_url',     'JDOG.json'],
         ['https://i.imgur.com/yTS3gEv.png',                                                     'image_url',    'yTS3gEv.png'],
         ['https://example.com/foo.GIF?t=1',                                                     'image_url',    'foo.GIF'],
+        // SVG is refused by the image store, so a bare .svg resolves to no icon source.
+        ['https://example.com/logo.svg',                                                        null,           null],
+        ['https://example.com/logo.SVG?v=2;Title',                                              null,           null],
         ['',                                                                                    null,           null],
         ['just some random text',                                                               null,           null],
         [null,                                                                                  null,           null],

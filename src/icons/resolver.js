@@ -224,7 +224,8 @@ function jsonUrlSource(desc){
     return { scheme: 'json_url', url };
 }
 
-// 9. Bare image URL: recognized by extension on the path component
+// 9. Bare image URL: recognized by extension on the path component.
+// Leave svg out: writeIcon refuses SVG, so a bare .svg resolves to no icon rather than a fetch.
 function imageUrlSource(desc){
     if(!/^https?:\/\//i.test(desc)) return undefined;
     const url  = desc.split(';')[0];
@@ -233,7 +234,7 @@ function imageUrlSource(desc){
     })();
     const dot = path.lastIndexOf('.');
     const ext = dot >= 0 ? path.slice(dot + 1).toLowerCase() : '';
-    if(['png','jpg','jpeg','gif','webp','svg'].includes(ext)){
+    if(['png','jpg','jpeg','gif','webp'].includes(ext)){
         return { scheme: 'image_url', url };
     }
     return undefined;

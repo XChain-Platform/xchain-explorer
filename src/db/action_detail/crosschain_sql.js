@@ -96,6 +96,10 @@ const XCALL_CALLBACK = `SELECT result_status as callback_result_status, block_in
 const XCALL_RESULT_DELIVERY = `SELECT call_id, result_status, block_index as callback_block_index
                  FROM cross_chain_call_callbacks WHERE action_index=? LIMIT 1`;
 
+// Read the injected callback EXECUTE's action_index off the call's request row (version 0).
+const XCALL_CALLBACK_ACTION = `SELECT callback_action_index
+                 FROM xcalls WHERE call_id=? AND version=0 LIMIT 1`;
+
 // Read one XEXEC row; transaction-less, so blocks join off actions.block_index.
 const XEXEC_DETAIL = `SELECT
                     a4.action,
@@ -127,5 +131,6 @@ module.exports = {
     XCALL_EXECUTION,
     XCALL_CALLBACK,
     XCALL_RESULT_DELIVERY,
+    XCALL_CALLBACK_ACTION,
     XEXEC_DETAIL
 };

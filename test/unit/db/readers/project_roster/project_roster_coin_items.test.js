@@ -131,10 +131,18 @@ function reverseLookupTests(){
                 roster_action_index: 73,
                 membership_action_index: membership
             }]);
-            const matchCall = db.calls.find(entry => entry.sql.includes('LOWER(t2.tick)=LOWER(?)'));
-            expect(matchCall.args.slice(0, 5)).to.deep.equal(resolved
-                ? ['FOO', 'BTC:FOO', 'BTC:^5', 140]
-                : ['BTC', 'BTC', 'FOO', 'BTC:FOO', 'BTC:^5']);
+            const matchCalls = db.calls.filter(entry => entry.sql.includes('INNER JOIN index_tickers t2'));
+            expect(matchCalls.map(entry => entry.args)).to.deep.equal(resolved
+                ? [['FOO', 140], ['BTC:FOO', 140], ['BTC:^5', 140]]
+                : [['BTC', 'BTC', 'FOO'], ['BTC', 'BTC', 'BTC:FOO'], ['BTC', 'BTC', 'BTC:^5']]);
+        }
+    });
+
+    it('finds a project through an own-chain ticker id in both roster paths', async function () {
+        for(const resolved of [false, true]){
+            const db = makeDb({ items: [], tokens: [], reverseItem: 'BTC:^5', resolved });
+            const projects = await db.getTokenProjects({ coin: 'BTC' }, 'FOO');
+            expect(projects.map(row => row.project)).to.deep.equal(['PROJECTX']);
         }
     });
 }

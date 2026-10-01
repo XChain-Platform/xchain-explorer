@@ -31,6 +31,7 @@
 // The LIST_EDIT_RESOLUTION flag day is a registry row read by its literal key
 // (W5), per coin: the <COIN>:<network> slot wins over the bare network slot.
 const gateRegistry = require('../../../consensus/gate_registry');
+const { isMissingTableError } = require('../../schema_probe.js');
 const LIST_EDIT_RESOLUTION_KEY = 'list_edit_resolution_activation.LIST_EDIT_RESOLUTION_ACTIVATION';
 
 class ActionListMembershipReaders {
@@ -172,6 +173,45 @@ class ActionListMembershipReaders {
         return (key in heads) ? heads[key] : action_index;
     }
 
+    async getListOwnerAddresses(config, action_indexes){
+        let roots = await this.getListRootIndexes(config, action_indexes);
+        let distinct = [...new Set(Object.values(roots))];
+        if(distinct.length == 0) return {};
+        let marks = distinct.map(() => '?').join(',');
+        let creators = await this.doQuery(config, `SELECT
+                        l.action_index AS root,
+                        a2.address AS owner
+                    FROM
+                        lists l
+                        INNER JOIN actions a1 ON (a1.action_index=l.action_index)
+                        LEFT JOIN index_addresses a2 ON (a2.id=a1.source_id)
+                    WHERE l.action_index IN (` + marks + `)`, distinct);
+        let ownerByRoot = {};
+        for(let row of (creators || [])) ownerByRoot[String(Number(row.root))] = row.owner;
+        try {
+            let transfers = await this.doQuery(config, `SELECT
+                            t.list_action_index AS root,
+                            a1.address AS owner
+                        FROM
+                            list_transfers t
+                            INNER JOIN lists l ON (l.action_index=t.action_index)
+                            INNER JOIN actions transfer_action ON (transfer_action.action_index=t.action_index)
+                            INNER JOIN index_statuses s ON (s.id=l.status_id)
+                            LEFT JOIN index_addresses a1 ON (a1.id=t.destination_id)
+                        WHERE
+                            t.list_action_index IN (` + marks + `)
+                            AND transfer_action.action_format=3
+                            AND s.status='valid'
+                        ORDER BY t.action_index ASC`, distinct);
+            for(let row of (transfers || [])) ownerByRoot[String(Number(row.root))] = row.owner;
+        } catch(e){
+            if(!isMissingTableError(e)) throw e;
+        }
+        let owners = {};
+        for(let key in roots) owners[key] = ownerByRoot[String(roots[key])] || null;
+        return owners;
+    }
+
     // Is list-edit read resolution active for this coin at the CURRENT TIP?
     // Every display that resolves an edit chain asks this first, because
     // below the flag day consensus still reads the pinned create's rows and the
@@ -204,7 +244,9 @@ class ActionListMembershipReaders {
     // @param {type}          integer  list type (1 = tick, 2 = address)
     async getListCurrentMembership(config, action_index, type){
         let active = await this.isListEditResolutionActiveAtTip(config);
-        let state  = { edit_resolution_active: active, membership_action_index: Number(action_index), current_list: null };
+        let owners = await this.getListOwnerAddresses(config, [action_index]);
+        let state  = { edit_resolution_active: active, membership_action_index: Number(action_index), current_list: null,
+            owner: owners[String(Number(action_index))] || null };
         if(!active) return state;
         let head = await this.getListHeadIndex(config, action_index);
         state.membership_action_index = Number(head);

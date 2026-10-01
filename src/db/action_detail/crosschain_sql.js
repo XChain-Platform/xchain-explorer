@@ -97,8 +97,12 @@ const XCALL_RESULT_DELIVERY = `SELECT call_id, result_status, block_index as cal
                  FROM cross_chain_call_callbacks WHERE action_index=? LIMIT 1`;
 
 // Read the injected callback EXECUTE's action_index off the call's request row (version 0).
-const XCALL_CALLBACK_ACTION = `SELECT callback_action_index
-                 FROM xcalls WHERE call_id=? AND version=0 LIMIT 1`;
+const XCALL_CALLBACK_ACTION = `SELECT m.callback_action_index
+                 FROM xcalls m
+                 INNER JOIN index_statuses s ON (s.id=m.status_id)
+                 WHERE call_id=? AND version=0 AND s.status='valid'
+                 ORDER BY action_index DESC
+                 LIMIT 1`;
 
 // Read one XEXEC row; transaction-less, so blocks join off actions.block_index.
 const XEXEC_DETAIL = `SELECT

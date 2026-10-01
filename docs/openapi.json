@@ -1634,6 +1634,70 @@
         }
       }
     },
+    "/{COIN}/api/shared_lists": {
+      "get": {
+        "operationId": "shared_lists",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "Shared LIST directory",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SharedList"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/messages/{QUERY}/{TYPE}": {
       "get": {
         "operationId": "messages_query_type",
@@ -14312,6 +14376,66 @@
           "type": {
             "type": [
               "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SharedList": {
+        "type": "object",
+        "description": "A shared LIST available on this chain",
+        "properties": {
+          "home_chain": {
+            "type": "string"
+          },
+          "home_list_index": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "local_list_index": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "member_count": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seq": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "share_action_index": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "share_block": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "type": {
+            "type": [
+              "integer",
               "null"
             ]
           }

@@ -1094,6 +1094,10 @@
                 {
                     "label": "Membership Set By",
                     "cell": "list-membership-action-index"
+                },
+                {
+                    "label": "Mirror",
+                    "cell": "list-mirror-info"
                 }
             ]
         },

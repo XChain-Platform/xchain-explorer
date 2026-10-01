@@ -106,6 +106,9 @@ const ROWS = [
         ACTION_HEAD + ' coin1:s coin1_action_index:d coin2:s coin2_action_index:d memo:s status:s ' + TX_TAIL],
     ['List', 'getLists', 'LIST action data',
         ACTION_HEAD + ' type:s edit:s list_action_index:d memo:s status:s ' + TX_TAIL],
+    ['SharedList', 'getSharedLists', 'A shared LIST available on this chain',
+        'kind:S home_chain:S home_list_index:i local_list_index:i type:i owner:s member_count:i share_block:i'
+            + ' share_action_index:i seq:i'],
     ['Message', 'getMessages', 'MESSAGE action data',
         ACTION_HEAD + ' destination:s encryption_method:s encryption_key:s encrypted_message:s plaintext_message:s'
             + ' status:s coin:s ' + TX_TAIL,

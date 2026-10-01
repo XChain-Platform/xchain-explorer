@@ -38,4 +38,4 @@
 
 const { composeReaderParts } = require('../reader_parts.js');
 
-module.exports = composeReaderParts(require('./action_lists/dispensers.js'), require('./action_lists/orders.js'), require('./action_lists/swaps.js'), require('./action_lists/tokens.js'), require('./action_lists/transfers.js'), require('./action_lists/content.js'), require('./action_lists/coinpay.js'));
+module.exports = composeReaderParts(require('./action_lists/dispensers.js'), require('./action_lists/orders.js'), require('./action_lists/swaps.js'), require('./action_lists/tokens.js'), require('./action_lists/transfers.js'), require('./action_lists/content.js'), require('./action_lists/coinpay.js'), require('./action_lists/shared_lists.js'));

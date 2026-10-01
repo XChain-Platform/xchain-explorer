@@ -204,6 +204,12 @@ const MIRROR_MIGRATIONS = {
             { name: 'meta', charset: 'utf8mb4',
               ddl: 'MODIFY `meta` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' }
         ]
+    },
+    list_snapshots: {
+        columns: [
+            { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' }
+        ],
+        indexes: []
     }
 };
 

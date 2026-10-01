@@ -178,6 +178,7 @@ const LIST = {
     // invisible, a stale-cache failure repeated on a new field.
     async afterQueries({ db, config, action_index }, data) {
         data.state = await db.getListCurrentMembership(config, action_index, data.type);
+        data.state.share_mirror = await db.getListShareMirrorInfo(config, action_index);
     },
 };
 

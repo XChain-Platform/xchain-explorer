@@ -29,6 +29,7 @@
 const { expect } = require('chai');
 const WebSocketServer = require('../../../src/ws/websocket_server.js');
 const ChangeDetector  = require('../../../src/ws/change_detector.js');
+const Broadcaster     = require('../../../src/ws/broadcaster.js');
 
 // Collect every frame the server writes to this client.
 function makeClient(coin) {
@@ -62,6 +63,17 @@ function makeServer(stale, dbExtra) {
 }
 
 const typesOf = (frames, t) => frames.filter((f) => f.type === t);
+
+// Replay one row through the real fields projection and return its NEW_ACTION frames.
+async function replayWithFields(stale) {
+    const s = makeServer(stale, {
+        getActionsSince: async () => [{ action_index: 7n, action: 'SEND', block_index: 5 }]
+    });
+    s.broadcaster = { passesFilter: () => true, applyFieldsProjection: Broadcaster.prototype.applyFieldsProjection };
+    const { client, frames } = makeClient('BTC');
+    await s.handleCatchUp(client, '0', { fields: ['action_index'] }, 'req-1');
+    return typesOf(frames, 'NEW_ACTION');
+}
 
 describe('WS frozen-replica freshness gate', function () {
 
@@ -146,6 +158,19 @@ describe('WS frozen-replica freshness gate', function () {
             expect(complete).to.have.lengthOf(1);
             expect(complete[0].stale).to.equal(true);
             expect(typesOf(frames, 'error')).to.have.lengthOf(0);
+        });
+
+        it('keeps the stale marker on a replayed frame narrowed by a fields filter', async function () {
+            const frames = await replayWithFields(true);
+            expect(frames).to.have.lengthOf(1);
+            expect(frames[0].stale).to.equal(true);
+            expect(Object.keys(frames[0].data)).to.deep.equal(['action_index']);
+        });
+
+        it('adds no stale marker to a fields-filtered replay when the tip is fresh', async function () {
+            const frames = await replayWithFields(false);
+            expect(frames).to.have.lengthOf(1);
+            expect(frames[0]).to.not.have.property('stale');
         });
 
         it('refuses the replay with COIN_DATA_STALE under the fail-closed opt-in', async function () {

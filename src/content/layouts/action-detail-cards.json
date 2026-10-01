@@ -766,6 +766,14 @@
                     "cell": "deploy-contract"
                 },
                 {
+                    "label": "Assembled By",
+                    "cell": "deploy-assembler"
+                },
+                {
+                    "label": "Contract Status",
+                    "cell": "deploy-contract-status"
+                },
+                {
                     "label": "Code Hash",
                     "cell": "deploy-code-hash"
                 },
@@ -1086,6 +1094,10 @@
                 {
                     "label": "Membership Set By",
                     "cell": "list-membership-action-index"
+                },
+                {
+                    "label": "Mirror",
+                    "cell": "list-mirror-info"
                 }
             ]
         },

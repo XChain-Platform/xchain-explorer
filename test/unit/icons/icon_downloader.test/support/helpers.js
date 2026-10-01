@@ -85,6 +85,7 @@ function makeFilesystemStubs(opts) {
         writeFile: sinon.stub().resolves(),
         readFile:  sinon.stub().resolves(Buffer.from('PNGOUT')),
         unlink:    sinon.stub().resolves(),
+        rename:    sinon.stub().resolves(),
         // The orphan sweep reads the flavor's icon directory. Empty by default, so
         // the sweep short-circuits and every pre-existing processFlavor test keeps
         // its query call-order.

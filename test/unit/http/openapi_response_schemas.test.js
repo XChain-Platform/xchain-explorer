@@ -43,7 +43,7 @@ const Database = proxyquire('../../../src/db/index.js', {
 const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'docs', 'openapi.json'), 'utf8'));
 
 // Readers that compose their rows in JavaScript rather than returning query text.
-const COMPOSED = new Set(['getHistory', 'getMarkets', 'getMarketHistory', 'getMarketOrders']);
+const COMPOSED = new Set(['getHistory', 'getMarkets', 'getMarketHistory', 'getMarketOrders', 'getSharedLists']);
 
 // Typed 200 operations the spec publishes; a ratchet, raise it when a route gains a schema.
 const TYPED_200_FLOOR = 68;

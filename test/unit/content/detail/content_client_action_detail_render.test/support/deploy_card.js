@@ -77,7 +77,8 @@ describe('action detail render: fields that reached the API with nowhere to go',
             expect(win.mountActionDetailCard('deploy'), 'the card did not mount').to.equal(true);
             expect(rowCells(win)).to.deep.equal([
                 'deploy-chunk', 'deploy-code-part',
-                'deploy-contract', 'deploy-code-hash', 'deploy-api-version', 'deploy-stakeable',
+                'deploy-contract', 'deploy-assembler', 'deploy-contract-status',
+                'deploy-code-hash', 'deploy-api-version', 'deploy-stakeable',
                 'deploy-cooldown', 'deploy-slash', 'deploy-method', 'deploy-gas'
             ]);
             // Every row of a completing carrier's page is on screen: the slice it

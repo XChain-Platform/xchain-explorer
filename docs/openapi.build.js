@@ -48,6 +48,7 @@ const ROUTES = [
     ['/{COIN}/api/issues/{QUERY}/{TYPE}', 'getIssues', ['block', 'address', 'token'], 'Tokens', 'ISSUE actions (token issuances)'],
     ['/{COIN}/api/links/{QUERY}/{TYPE}', 'getLinks', ['block', 'address'], 'Action history', 'LINK actions'],
     ['/{COIN}/api/lists/{QUERY}/{TYPE}', 'getLists', ['block', 'address'], 'Action history', 'LIST actions'],
+    ['/{COIN}/api/shared_lists', 'getSharedLists', null, 'Action history', 'Shared LIST directory'],
     ['/{COIN}/api/messages/{QUERY}/{TYPE}', 'getMessages', ['block', 'address', 'source', 'destination'], 'Action history', 'MESSAGE actions (encrypted messaging)'],
     ['/{COIN}/api/mints/{QUERY}/{TYPE}', 'getMints', ['block', 'address', 'source', 'destination', 'token'], 'Tokens', 'MINT actions'],
     ['/{COIN}/api/orders/{QUERY}/{TYPE}', 'getOrders', ['block', 'address', 'token'], 'Markets', 'ORDER actions (DEX orders)'],

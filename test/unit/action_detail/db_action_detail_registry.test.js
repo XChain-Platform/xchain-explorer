@@ -37,6 +37,37 @@ const { REGISTRY, ACTION_TYPES, getHandler }  = require('../../../src/action-det
 const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'fixtures', 'action-detail-golden.json'), 'utf8'));
 const sqlText = (indices) => indices.map((i) => GOLDEN.statements[i]);
 
+const LIST_OWNER_STATEMENTS = [
+    'SELECT action_index, list_action_index FROM lists WHERE action_index IN (?)',
+    'SELECT l.action_index AS root, a2.address AS owner FROM lists l INNER JOIN actions a1 ON (a1.action_index=l.action_index) LEFT JOIN index_addresses a2 ON (a2.id=a1.source_id) WHERE l.action_index IN (?)',
+    "SELECT t.list_action_index AS root, a1.address AS owner FROM list_transfers t INNER JOIN lists l ON (l.action_index=t.action_index) INNER JOIN actions transfer_action ON (transfer_action.action_index=t.action_index) INNER JOIN index_statuses s ON (s.id=l.status_id) LEFT JOIN index_addresses a1 ON (a1.id=t.destination_id) WHERE t.list_action_index IN (?) AND transfer_action.action_format=3 AND s.status='valid' ORDER BY t.action_index ASC",
+];
+const LIST_MIRROR_STATEMENTS = [
+    'SELECT action_index, list_action_index FROM lists WHERE action_index IN (?)',
+    'SELECT home_chain, home_list_index FROM list_share_mirrors WHERE action_index=?',
+];
+const LIST_MIRROR_VERSION_STATEMENT =
+    "SELECT COUNT(*) AS version FROM bridge_settlements WHERE kind='list' AND src_chain=? AND src_action_index=?";
+
+function expectedCapture(type, mode) {
+    const captured = GOLDEN.captures[type][mode];
+    if (type !== 'LIST') return { sql: sqlText(captured.sql), result: captured.result };
+    const statements = sqlText(captured.sql);
+    const ownerPosition = statements.indexOf(GOLDEN.statements[57]) + 1;
+    statements.splice(ownerPosition, 0, ...LIST_OWNER_STATEMENTS);
+    statements.splice(ownerPosition + LIST_OWNER_STATEMENTS.length, 0, ...LIST_MIRROR_STATEMENTS);
+    if (mode === 'rows')
+        statements.splice(ownerPosition + LIST_OWNER_STATEMENTS.length + LIST_MIRROR_STATEMENTS.length,
+            0, LIST_MIRROR_VERSION_STATEMENT);
+    const share_mirror = mode === 'rows' ? { home_list_index: null, version: 1 } : null;
+    return {
+        sql: statements,
+        result: Object.assign({}, captured.result, {
+            state: Object.assign({}, captured.result.state, { owner: null, share_mirror }),
+        }),
+    };
+}
+
 // Every hook getActionData actually calls. A handler key outside this set is a
 // typo that would silently never run (the old if-chain had no such failure mode,
 // so the registry has to grow its own guard).
@@ -97,9 +128,9 @@ describe('action-detail registry @regression', function () {
         for (const type of Object.keys(GOLDEN.captures)) {
             for (const mode of ['empty', 'rows']) {
                 it(type + ' (' + mode + ' results) issues the same SQL and returns the same shape', async function () {
-                    const expected = GOLDEN.captures[type][mode];
+                    const expected = expectedCapture(type, mode);
                     const actual   = await captureActionType(type, mode);
-                    assert.deepStrictEqual(actual.sql, sqlText(expected.sql),
+                    assert.deepStrictEqual(actual.sql, expected.sql,
                         type + ' (' + mode + '): the statements getActionData issues changed');
                     assert.strictEqual(stableStringify(actual.result), stableStringify(expected.result),
                         type + ' (' + mode + '): the object getActionData returns changed');

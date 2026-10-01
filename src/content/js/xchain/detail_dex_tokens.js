@@ -113,6 +113,16 @@ function showListDetails(data){
     $('#info-list .list-membership-row').toggleClass('d-none', !edited);
     if(edited)
         $('#info-list .list-membership-action-index').html(formatLink('/' + XC.coin + '/action/' + head, formatAmount(head)));
+    let mirror = state.share_mirror;
+    let mirrorRow = $('#info-list .list-mirror-row');
+    let mirrorInfo = $('#info-list .list-mirror-info');
+    mirrorRow.toggleClass('d-none', !mirror).attr('aria-hidden', mirror ? 'false' : 'true');
+    if(mirror)
+        mirrorInfo.html('mirror of ' + $('<span>').text(mirror.home_chain).html() + ' list '
+            + formatLink('/' + networkCoin(mirror.home_chain) + '/action/' + mirror.home_list_index, formatAmount(mirror.home_list_index))
+            + ', version ' + $('<span>').text(mirror.version).html());
+    else
+        mirrorInfo.empty();
     $('#list-items-tab').html('<i class="fa fa-lg fa-list"></i> ' + (current ? 'Current List' : 'Full List'));
     showActionDatatable('list-items', current || data.list, list_type, false);
 

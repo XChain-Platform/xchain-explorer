@@ -839,6 +839,44 @@
                 }
             }
         },
+        "/{COIN}/api/shared_lists": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get the shared LIST directory",
+                "description": "Retrieves shared lists homed on this chain and shared-list mirrors available on this chain.",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/SharedList"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
         "/{COIN}/api/markets": {
             "get": {
                 "tags": ["Markets"],
@@ -3324,6 +3362,43 @@
                         }
                     }
                }]
+            },
+            "SharedList": {
+                "type": "object",
+                "description": "Shared LIST directory row",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "enum": ["home", "mirror"]
+                    },
+                    "home_chain": {
+                        "type": "string"
+                    },
+                    "home_list_index": {
+                        "type": "integer"
+                    },
+                    "local_list_index": {
+                        "type": "integer"
+                    },
+                    "type": {
+                        "type": "integer"
+                    },
+                    "owner": {
+                        "type": ["string", "null"]
+                    },
+                    "member_count": {
+                        "type": "integer"
+                    },
+                    "share_block": {
+                        "type": "integer"
+                    },
+                    "share_action_index": {
+                        "type": ["integer", "null"]
+                    },
+                    "seq": {
+                        "type": ["integer", "null"]
+                    }
+                }
             },
             "Market": {
                 "type": "object",

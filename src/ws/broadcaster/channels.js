@@ -138,6 +138,8 @@ class ChannelFanout {
         };
         if (event.id !== undefined) projected.id = event.id;
         if (event.catch_up)         projected.catch_up = true;
+        // Keep the stale-tip marker, so a filtered replay frame never reads as live.
+        if (event.stale)            projected.stale = true;
 
         for (const key of fields) {
             if (event.data[key] !== undefined) {

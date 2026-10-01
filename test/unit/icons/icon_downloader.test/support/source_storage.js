@@ -123,6 +123,7 @@ const {
             writeFile: sinon.stub().resolves(),
             readFile:  sinon.stub().resolves(Buffer.from('PNGOUT')),
             unlink:    sinon.stub().resolves(),
+            rename:    sinon.stub().resolves(),
         };
         Object.assign(fspStub, fspOverrides || {});
 
@@ -166,9 +167,13 @@ const {
             expect(execCmdText(convertCall)).to.include('64x64!');
             expect(execCmdText(convertCall)).to.include('-format png');
 
-            // The file read back is the CONVERTED one, not the temp file written above.
+            // Convert writes a PNG to a same-directory temp, which is read back and then
+            // renamed over iconPath, so the served file is never a partial write.
+            const out = convertCall.args[1][convertCall.args[1].length - 1];
+            expect(out).to.match(/^png:\/tmp\/icons\/BTC\/mainnet\/\.iconw_[0-9]+_[0-9a-f]{8}\.tmp$/);
             expect(fspStub.readFile.callCount).to.equal(1);
-            expect(fspStub.readFile.firstCall.args[0]).to.equal(iconPath);
+            expect(fspStub.readFile.firstCall.args[0]).to.equal(out.slice('png:'.length));
+            expect(fspStub.rename.firstCall.args).to.deep.equal([out.slice('png:'.length), iconPath]);
 
             // 32 hex characters: the md5 of the converted image, which is what identifies
             // the stored icon to everything downstream.
@@ -206,7 +211,7 @@ const {
         it('throws "convert failed" when ImageMagick exec errors', async function () {
             const convertErr = new Error('Magick failed');
             convertErr.stderr = 'convert: no decode delegate';
-            const { d } = makeWriteIconDownloader([
+            const { d, fspStub } = makeWriteIconDownloader([
                 ['--mime-type', { stdout: 'image/png\n', stderr: '' }],
                 ['-resize',     convertErr],
             ]);
@@ -217,10 +222,15 @@ const {
                 expect(e.message).to.include('convert failed');
                 expect(e.message).to.include('no decode delegate');
             }
+            // The served icon is left untouched and the partial temp output is removed.
+            expect(fspStub.rename.called).to.equal(false);
+            const unlinked = fspStub.unlink.getCalls().map(c => c.args[0]);
+            expect(unlinked).to.not.include('/tmp/out.png');
+            expect(unlinked.some(p => /^\/tmp\/\.iconw_[0-9]+_[0-9a-f]{8}\.tmp$/.test(p))).to.equal(true);
         });
 
-        it('returns null (not throws) when readFile of iconPath fails', async function () {
-            const { d } = makeWriteIconDownloader(
+        it('returns null (not throws) and keeps the served icon when the converted output cannot be read', async function () {
+            const { d, fspStub } = makeWriteIconDownloader(
                 [
                     ['--mime-type', { stdout: 'image/png\n', stderr: '' }],
                     ['-resize',     null],
@@ -233,6 +243,8 @@ const {
             );
             const result = await d.writeIcon(Buffer.from('PNGBYTES'), '/tmp/out.png');
             expect(result).to.equal(null);
+            expect(fspStub.rename.called).to.equal(false);
+            expect(fspStub.unlink.getCalls().map(c => c.args[0])).to.not.include('/tmp/out.png');
         });
 
     });
@@ -353,15 +365,16 @@ const {
         });
 
         it('spawns convert without a shell, so no argv element needs escaping', async function () {
-            const { d, execStub } = makeWriteIconDownloader();
-            await d.writeIcon(Buffer.from('PNGBYTES'), "/tmp/it's odd.png");
+            const { d, execStub, fspStub } = makeWriteIconDownloader();
+            await d.writeIcon(Buffer.from('PNGBYTES'), "/tmp/it's odd/x.png");
 
             const convertCall = execStub.getCalls().find(c => execCmdText(c).includes('-resize'));
             expect(convertCall.args[0]).to.equal('/usr/bin/convert');
             expect(convertCall.args[1]).to.be.an('array');
             // The path travels as one argv element, unquoted: there is no shell to
             // re-split it, which is what makes the removed shellEscape unnecessary.
-            expect(convertCall.args[1]).to.include("/tmp/it's odd.png");
+            expect(convertCall.args[1][convertCall.args[1].length - 1]).to.match(/^png:\/tmp\/it's odd\/\.iconw_/);
+            expect(fspStub.rename.firstCall.args[1]).to.equal("/tmp/it's odd/x.png");
         });
     });
 }

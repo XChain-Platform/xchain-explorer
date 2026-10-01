@@ -247,6 +247,20 @@ describe('action detail render: fields that reached the API with nowhere to go',
             expect(text(win, '#info-deploy .deploy-cooldown')).to.equal('144 blocks');
             expect(win.jQuery('#info-deploy .deploy-slash a').attr('href'))
                 .to.equal('/RDOGE/address/addr-slash');
+            expect(hidden(win, '#info-deploy .deploy-carrier-row'), 'the assembler rows are revealed').to.equal(false);
+            expect(win.jQuery('#info-deploy .deploy-assembler a').attr('href')).to.equal('/RDOGE/action/1419');
+            expect(text(win, '#info-deploy .deploy-contract-status')).to.equal('valid');
+        });
+
+        it('names a missing assembler record as Unknown on a completing carrier, never as a link', function(){
+            const win = bootPage();
+            win.showDeployDetails({
+                action_format: 4, action_index: 1421, code_hash: 'abc', chunk_index: 0,
+                total_chunks: 3, code_part: 'bW9k', deployed_contract_index: 1421,
+                api_version: 2, contract_status: 'valid', assembler_action_index: null
+            });
+            expect(text(win, '#info-deploy .deploy-assembler')).to.equal('Unknown');
+            expect(win.jQuery('#info-deploy .deploy-assembler a').length).to.equal(0);
         });
 
         it('leaves an ordinary carrier with its slice alone, and no dead contract link', function(){
@@ -256,9 +270,16 @@ describe('action detail render: fields that reached the API with nowhere to go',
                 total_chunks: 3, code_part: 'bW9k', deployed_contract_index: null
             });
             expect(hidden(win, '#info-deploy .deploy-contract-row')).to.equal(true);
+            expect(hidden(win, '#info-deploy .deploy-carrier-row')).to.equal(true);
             expect(hidden(win, '#info-deploy .deploy-staking-row')).to.equal(true);
             expect(text(win, '#info-deploy .deploy-chunk')).to.equal('Code chunk 2 of 3');
         });
+
+    });
+});
+
+describe('action detail render: fields that reached the API with nowhere to go', function(){
+    describe('deferred chunked assembly', function(){
 
         it('points the assembler at the carrier the contract actually landed on', function(){
             const win = bootPage();
@@ -269,16 +290,11 @@ describe('action detail render: fields that reached the API with nowhere to go',
             });
             expect(win.jQuery('#info-deploy .deploy-contract a').attr('href'))
                 .to.equal('/RDOGE/contract/1421');
+            expect(hidden(win, '#info-deploy .deploy-carrier-row'), 'an assembler page has no assembler row').to.equal(true);
             // A contract deployed before CONTRACT_META_REQUIRED declares no identity,
             // so the cell names it "Unnamed contract" beside the address it links.
             expect(text(win, '#info-deploy .deploy-contract')).to.equal('Unnamed contract · 1421');
         });
-
-    });
-});
-
-describe('action detail render: fields that reached the API with nowhere to go', function(){
-    describe('deferred chunked assembly', function(){
 
         it('states the status instead of a dead link while the group is incomplete', function(){
             const win = bootPage();

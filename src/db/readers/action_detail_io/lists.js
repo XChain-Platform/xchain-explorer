@@ -129,6 +129,33 @@ class ActionListMembershipReaders {
         return (key in roots) ? roots[key] : action_index;
     }
 
+    async getListShareMirrorInfo(config, action_index){
+        let root = await this.getListRootIndex(config, action_index);
+        try {
+            let rows = await this.doQuery(config, `SELECT
+                            home_chain,
+                            home_list_index
+                        FROM list_share_mirrors
+                        WHERE action_index=?`, [root]);
+            if(!rows || !rows.length) return null;
+            let home_chain      = rows[0].home_chain;
+            let home_list_index = Number(rows[0].home_list_index);
+            let versions = await this.doQuery(config, `SELECT COUNT(*) AS version
+                        FROM bridge_settlements
+                        WHERE kind='list'
+                            AND src_chain=?
+                            AND src_action_index=?`, [home_chain, home_list_index]);
+            return {
+                home_chain,
+                home_list_index,
+                version: Number(versions && versions[0] ? versions[0].version : 0)
+            };
+        } catch(e){
+            if(isMissingTableError(e)) return null;
+            throw e;
+        }
+    }
+
     // Resolve a SET of LIST references to the actions whose list_items rows ARE
     // those lists' CURRENT membership, in a bounded number of queries regardless
     // of set size. Mirrors the indexer's db.getListHeadIndex per list, including

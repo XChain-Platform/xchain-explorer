@@ -63,69 +63,75 @@ function makeReader(options){
     return reader;
 }
 
+async function readsHomeNames(){
+    const reader = makeReader({
+        home: [homeRow(101), homeRow(102), homeRow(103)],
+        metas: [
+            { root: 101, action_index: 101, name: 'Named home' },
+            { root: 102, action_index: 102, name: 'Original name' },
+            { root: 102, action_index: 120, name: 'Newest valid name' }
+        ]
+    });
+    const [rows] = await reader.getSharedLists(config);
+
+    expect(rows.map(row => row.name)).to.deep.equal([
+        'Named home', 'Newest valid name', null
+    ]);
+    const calls = reader.calls.filter(call => call.sql.includes('FROM list_metas m'));
+    expect(calls).to.have.length(1);
+    expect(calls[0].args).to.deep.equal([101, 102, 103]);
+    expect(calls[0].sql).to.include("s.status='valid'");
+    expect(calls[0].sql).to.include('ORDER BY m.action_index ASC');
+}
+
+async function ignoresInvalidRename(){
+    const reader = makeReader({
+        home: [homeRow(101)],
+        mirrors: [mirrorRow()],
+        metas: [
+            { root: 101, action_index: 101, name: 'Still valid' },
+            { root: 101, action_index: 130, name: 'Invalid rename', status: 'invalid' },
+            { root: 303, action_index: 303, name: 'Local mirror name' }
+        ]
+    });
+    const [rows] = await reader.getSharedLists(config);
+
+    expect(rows.map(row => row.name)).to.deep.equal(['Still valid', 'Local mirror name']);
+    const metaCall = reader.calls.find(call => call.sql.includes('FROM list_metas m'));
+    expect(metaCall.args).to.deep.equal([101, 303]);
+    expect(metaCall.args).not.to.include(202);
+}
+
+async function returnsNullWhenMetadataIsMissing(){
+    const reader = makeReader({
+        home: [homeRow(101)],
+        mirrors: [mirrorRow()],
+        metaError: missingTable()
+    });
+    const [rows] = await reader.getSharedLists(config);
+
+    expect(rows.map(row => row.name)).to.deep.equal([null, null]);
+}
+
+async function exposesMetadataQueryFailure(){
+    const reader = makeReader({
+        home: [homeRow(101)],
+        metaError: new Error('metadata read failed')
+    });
+
+    let error = null;
+    try {
+        await reader.getSharedLists(config);
+    } catch(e){
+        error = e;
+    }
+    expect(error).to.be.an('error').with.property('message', 'metadata read failed');
+}
+
 describe('shared-list names', function () {
-    it('reads home names in one batch and keeps the newest valid rename', async function () {
-        const reader = makeReader({
-            home: [homeRow(101), homeRow(102), homeRow(103)],
-            metas: [
-                { root: 101, action_index: 101, name: 'Named home' },
-                { root: 102, action_index: 102, name: 'Original name' },
-                { root: 102, action_index: 120, name: 'Newest valid name' }
-            ]
-        });
-        const [rows] = await reader.getSharedLists(config);
-
-        expect(rows.map(row => row.name)).to.deep.equal([
-            'Named home', 'Newest valid name', null
-        ]);
-        const calls = reader.calls.filter(call => call.sql.includes('FROM list_metas m'));
-        expect(calls).to.have.length(1);
-        expect(calls[0].args).to.deep.equal([101, 102, 103]);
-        expect(calls[0].sql).to.include("s.status='valid'");
-        expect(calls[0].sql).to.include('ORDER BY m.action_index ASC');
-    });
-
-    it('ignores an invalid rename and reads a mirror name from its local list', async function () {
-        const reader = makeReader({
-            home: [homeRow(101)],
-            mirrors: [mirrorRow()],
-            metas: [
-                { root: 101, action_index: 101, name: 'Still valid' },
-                { root: 101, action_index: 130, name: 'Invalid rename', status: 'invalid' },
-                { root: 303, action_index: 303, name: 'Local mirror name' }
-            ]
-        });
-        const [rows] = await reader.getSharedLists(config);
-
-        expect(rows.map(row => row.name)).to.deep.equal(['Still valid', 'Local mirror name']);
-        const metaCall = reader.calls.find(call => call.sql.includes('FROM list_metas m'));
-        expect(metaCall.args).to.deep.equal([101, 303]);
-        expect(metaCall.args).not.to.include(202);
-    });
-
-    it('returns null names when list_metas is missing', async function () {
-        const reader = makeReader({
-            home: [homeRow(101)],
-            mirrors: [mirrorRow()],
-            metaError: missingTable()
-        });
-        const [rows] = await reader.getSharedLists(config);
-
-        expect(rows.map(row => row.name)).to.deep.equal([null, null]);
-    });
-
-    it('does not hide another metadata query failure', async function () {
-        const reader = makeReader({
-            home: [homeRow(101)],
-            metaError: new Error('metadata read failed')
-        });
-
-        let error = null;
-        try {
-            await reader.getSharedLists(config);
-        } catch(e){
-            error = e;
-        }
-        expect(error).to.be.an('error').with.property('message', 'metadata read failed');
-    });
+    it('reads home names in one batch and keeps the newest valid rename', readsHomeNames);
+    it('ignores an invalid rename and reads a mirror name from its local list',
+        ignoresInvalidRename);
+    it('returns null names when list_metas is missing', returnsNullWhenMetadataIsMissing);
+    it('does not hide another metadata query failure', exposesMetadataQueryFailure);
 });

@@ -12,24 +12,26 @@
  *
  **********************************************************************
  *
- * XChain Explorer - transfer action list readers.
+ * XChain Explorer - transfer action list readers
+ *
+ * Provides one prototype part composed by src/db/readers/action_lists.js.
+ *
  ********************************************************************/
 
 'use strict';
 
-const { feeRows } = require('../../../action-detail/contracts.js');
-const { tablesPresent } = require('../../schema_probe.js');
-const { buildListsQuery } = require('../../method_tables.js');
-const contentReaders = require('./content.js');
-
+const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js');
 delete contentReaders.getLists;
-
-class TransferReaders {
-    async getLists(config){
-        return buildListsQuery(this, config, tablesPresent);
-    }
-
-    // Contract-emitted SENDs have no transaction, so blocks join through actions.
+class TransferReaders { async getLists(config){ return buildListsQuery(this, config, tablesPresent); }
+    // A contract-emitted SEND has no broadcast transaction behind it: the injected
+    // EXECUTE that ran it carries no TX_INDEX (xchain-indexer actions/xexec.js), and
+    // execute/index.js propagates that absence into every action the run emits, so the
+    // `actions` row lands with tx_index NULL while block_index is NOT NULL. Joining
+    // blocks THROUGH an INNER-joined transaction therefore did not degrade such a
+    // row, it deleted it from the feed AND from its total, silently, and the /sends
+    // route is what the SDK's x402 layer reads to confirm a payment. Blocks joins
+    // off a1.block_index (INNER, always present) and transactions degrades to LEFT,
+    // which is the shape the tx-less action feed and getUnstakes already use.
     async getSends(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];

@@ -12,7 +12,18 @@
  *
  **********************************************************************
  *
- * XChain Explorer - DELEGATE revoke parsing and LIST membership readers.
+ * XChain Explorer - DELEGATE revoke parsing and LIST membership
+ *
+ * The wire parse for a DELEGATE v2/v3 revoke target, the route code to
+ * coin/network split, and the LIST root, head and current-membership resolvers
+ * the action detail and list pages share.
+ *
+ * One part of src/db/readers/action_detail_io.js (the entry composes it through
+ * composeReaderParts). Authored as a class body whose prototype is exported,
+ * like every other family under src/db/: `this` is the Database instance at
+ * call time, and the methods reach Database.prototype non-enumerable, by
+ * descriptor.
+ *
  ********************************************************************/
 
 'use strict';
@@ -24,6 +35,10 @@ const { isMissingTableError } = require('../../schema_probe.js');
 const LIST_EDIT_RESOLUTION_KEY = 'list_edit_resolution_activation.LIST_EDIT_RESOLUTION_ACTIVATION';
 
 class ActionListMembershipReaders {
+    /******************************************************************
+     * Commonly used functions 
+     *****************************************************************/
+
     // Extract the revoke target of a DELEGATE v2/v3 from the transaction's decoded
     // action string. Returns { pubkey } for v2 (capability revoke) and
     // { pubkey, target, tick } for v3 (contract-targeted revoke), or null when the
@@ -263,20 +278,13 @@ class ActionListMembershipReaders {
     async getListMetaAction(config, action_index){
         try {
             let rows = await this.doQuery(config, `SELECT
-                            m.action_index,
-                            m.list_action_index,
-                            m.name,
-                            m.description,
-                            l.type,
-                            memo.memo,
-                            status.status
-                        FROM
-                            list_metas m
+                            m.action_index, m.list_action_index, m.name, m.description,
+                            l.type, memo.memo, status.status
+                        FROM list_metas m
                             LEFT JOIN lists l ON (l.action_index=m.list_action_index)
                             LEFT JOIN index_memos memo ON (memo.id=m.memo_id)
                             LEFT JOIN index_statuses status ON (status.id=m.status_id)
-                        WHERE m.action_index=?
-                        LIMIT 1`, [action_index]);
+                        WHERE m.action_index=? LIMIT 1`, [action_index]);
             return (rows && rows.length) ? rows[0] : null;
         } catch(e){
             if(isMissingTableError(e)) return null;
@@ -388,6 +396,4 @@ class ActionListMembershipReaders {
 module.exports = ActionListMembershipReaders.prototype;
 
 const listHandler = require('../../../action-detail').REGISTRY.LIST;
-listHandler.afterQueries = async function({ db, config, action_index }, data){
-    await db.attachListActionDetail(config, action_index, data);
-};
+listHandler.afterQueries = async function({ db, config, action_index }, data){ await db.attachListActionDetail(config, action_index, data); };

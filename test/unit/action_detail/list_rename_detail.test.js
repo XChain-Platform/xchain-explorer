@@ -79,6 +79,9 @@ describe('LIST format 5 action detail', function(){
         ]);
     });
 
+});
+
+describe('LIST format 5 detached reads', function(){
     it('keeps an invalid rename row detached from list root readers', async function(){
         const reader = listReader({
             action_index: 91,

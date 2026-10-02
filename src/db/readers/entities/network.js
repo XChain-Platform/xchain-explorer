@@ -166,13 +166,15 @@ async function readActionTotals(db, config, coin){
         if(!isMissingTableError(e)) throw e;
         supplemental = await db.doQuery(config, fnvSql);
     }
-    for(let row of (supplemental || [])){
-        let count = Number(row.count);
-        if(!Number.isFinite(count)) continue;
-        if(row.action === 'lists')
-            totals.lists = Number(totals.lists || 0) + count;
-        else
-            totals.full_node_verifications = count;
+    if(supplemental && supplemental.length){
+        for(let row of supplemental){
+            let count = Number(row.count);
+            if(!Number.isFinite(count)) continue;
+            if(row.action === 'lists')
+                totals.lists = Number(totals.lists || 0) + count;
+            else
+                totals.full_node_verifications = count;
+        }
     }
     return totals;
 }

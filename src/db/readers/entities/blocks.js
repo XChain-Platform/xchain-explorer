@@ -113,10 +113,12 @@ async function attachBlockActionCounts(db, config, rows){
     } catch(e){
         if(!isMissingTableError(e)) throw e;
     }
-    for(let row of (renameRows || [])){
-        let bIdx = Number(row.block_index);
-        if(blockMap[bIdx])
-            blockMap[bIdx].actions.lists = Number(blockMap[bIdx].actions.lists || 0) + Number(row.count);
+    if(renameRows && renameRows.length){
+        for(let row of renameRows){
+            let bIdx = Number(row.block_index);
+            if(blockMap[bIdx])
+                blockMap[bIdx].actions.lists = Number(blockMap[bIdx].actions.lists || 0) + Number(row.count);
+        }
     }
     return rows.map(r => blockMap[r.block_index]);
 }

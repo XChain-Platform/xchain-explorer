@@ -151,30 +151,32 @@ async function readActionTotals(db, config, coin){
         }
     }
     // Count one verification per action because the table fans out by validator.
-    const fnvSql = `SELECT 'full_node_verifications' as action,
-                        count(DISTINCT action_index) as count
-                    FROM full_node_verifications`;
-    let supplemental;
+    let fnvResult = await db.doQuery(config,
+        `SELECT 'full_node_verifications' as action,
+            count(DISTINCT action_index) as count
+        FROM full_node_verifications`);
+    let fnvRow = (fnvResult || []).find(row => row.action === 'full_node_verifications') || (fnvResult || [])[0];
+    if(fnvRow)
+        totals.full_node_verifications = Number(fnvRow.count);
+
+    // A format 5 LIST has no lists row. Count only those list_metas rows in a
+    // separate table query, so format 4 (which has both rows) stays counted once.
+    let renameResult;
     try {
-        supplemental = await db.doQuery(config, fnvSql + ` UNION ALL
-                    SELECT 'lists' as action,
+        renameResult = await db.doQuery(config, `SELECT 'lists' as action,
                         count(*) as count
                     FROM list_metas m
                         INNER JOIN actions a1 ON (a1.action_index=m.action_index)
                     WHERE a1.action_format = 5`);
     } catch(e){
         if(!isMissingTableError(e)) throw e;
-        supplemental = await db.doQuery(config, fnvSql);
+        renameResult = [];
     }
-    if(supplemental && supplemental.length){
-        for(let row of supplemental){
-            let count = Number(row.count);
-            if(!Number.isFinite(count)) continue;
-            if(row.action === 'lists')
-                totals.lists = Number(totals.lists || 0) + count;
-            else
-                totals.full_node_verifications = count;
-        }
+    if(renameResult && renameResult.length){
+        let renameRow = renameResult.find(row => row.action === 'lists') || renameResult[0];
+        let count = Number(renameRow.count);
+        if(Number.isFinite(count))
+            totals.lists = Number(totals.lists || 0) + count;
     }
     return totals;
 }

@@ -39,8 +39,9 @@ const config = {
     data: { sql: { apiOffset: 0, limit: 100 } }
 };
 
-function missingTable(){
-    let driver = new Error("Table 'indexer.list_share_mirrors' doesn't exist");
+function missingTable(table){
+    table = table || 'list_share_mirrors';
+    let driver = new Error("Table 'indexer." + table + "' doesn't exist");
     driver.code = 'ER_NO_SUCH_TABLE';
     driver.errno = 1146;
     let wrapped = new Error('database query failed');
@@ -87,6 +88,7 @@ function makeDb(options){
             if(options.mirrorError) throw new Error('mirror read failed');
             return db.mirrorFixture.prepare(query).all(...args);
         }
+        if(sql.includes('FROM list_metas m')) throw missingTable('list_metas');
         if(sql.includes('SELECT action_index, list_action_index FROM lists WHERE action_index IN'))
             return args.map(action_index => ({ action_index, list_action_index: null }));
         if(sql.includes('a2.address AS owner'))
@@ -104,6 +106,7 @@ const HOME = {
     home_list_index: 101,
     local_list_index: 101,
     type: 2,
+    name: null,
     owner: 'current-owner',
     member_count: 3,
     share_block: 700,
@@ -117,6 +120,7 @@ const MIRROR = {
     home_list_index: 202,
     local_list_index: 303,
     type: 2,
+    name: null,
     owner: null,
     member_count: 4,
     share_block: 800,

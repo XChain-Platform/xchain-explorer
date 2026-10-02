@@ -33,6 +33,55 @@ function getActionDetails(action, info){
     return html;
 }
 
+function attestBatchLabel(info){
+    if(!info || typeof info !== 'object') return null;
+
+    let version;
+    try {
+        version = Number(info.version);
+    } catch(error) {
+        return null;
+    }
+    if(version === 5){
+        const raw = [info.batch_window_start, info.batch_window_end, info.batch_row_count];
+        if(raw.some((value) => value === null || value === undefined || value === '')) return null;
+
+        let values;
+        try {
+            values = raw.map(Number);
+        } catch(error) {
+            return null;
+        }
+        if(values.some((value) => !Number.isFinite(value))) return null;
+
+        let start;
+        let end;
+        try {
+            start = new Date(values[0] * 1000).toISOString().slice(0, 16).replace('T', ' ');
+            end = new Date(values[1] * 1000).toISOString().slice(0, 16).replace('T', ' ');
+        } catch(error) {
+            return null;
+        }
+        return 'Batch ' + start + ' to ' + end + ' UTC (' + values[2] + ' response' + (values[2] === 1 ? '' : 's') + ')';
+    }
+
+    if(version === 6){
+        const raw = [info.batch_chunk_index, info.batch_total_chunks];
+        if(raw.some((value) => value === null || value === undefined || value === '')) return null;
+
+        let values;
+        try {
+            values = raw.map(Number);
+        } catch(error) {
+            return null;
+        }
+        if(values.some((value) => !Number.isFinite(value))) return null;
+        return 'Batch continuation (chunk ' + (values[0] + 1) + ' of ' + values[1] + ')';
+    }
+
+    return null;
+}
+
 // /api/action/{idx} is the aliasing reader for BROADCAST's fee: it and
 // detail_simple.js's showBroadcastDetails both read info.broadcast_fee,
 // never info.fee (see the BROADCAST branch below for why). The address

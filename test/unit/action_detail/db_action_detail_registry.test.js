@@ -42,6 +42,10 @@ const LIST_OWNER_STATEMENTS = [
     'SELECT l.action_index AS root, a2.address AS owner FROM lists l INNER JOIN actions a1 ON (a1.action_index=l.action_index) LEFT JOIN index_addresses a2 ON (a2.id=a1.source_id) WHERE l.action_index IN (?)',
     "SELECT t.list_action_index AS root, a1.address AS owner FROM list_transfers t INNER JOIN lists l ON (l.action_index=t.action_index) INNER JOIN actions transfer_action ON (transfer_action.action_index=t.action_index) INNER JOIN index_statuses s ON (s.id=l.status_id) LEFT JOIN index_addresses a1 ON (a1.id=t.destination_id) WHERE t.list_action_index IN (?) AND transfer_action.action_format=3 AND s.status='valid' ORDER BY t.action_index ASC",
 ];
+const LIST_META_STATEMENTS = [
+    'SELECT action_index, list_action_index FROM lists WHERE action_index IN (?)',
+    "SELECT m.list_action_index AS root, m.action_index, m.name, m.description FROM list_metas m INNER JOIN index_statuses s ON (s.id=m.status_id) WHERE m.list_action_index IN (?) AND s.status='valid' ORDER BY m.action_index ASC",
+];
 const LIST_MIRROR_STATEMENTS = [
     'SELECT action_index, list_action_index FROM lists WHERE action_index IN (?)',
     'SELECT home_chain, home_list_index FROM list_share_mirrors WHERE action_index=?',
@@ -53,7 +57,9 @@ function expectedCapture(type, mode) {
     const captured = GOLDEN.captures[type][mode];
     if (type !== 'LIST') return { sql: sqlText(captured.sql), result: captured.result };
     const statements = sqlText(captured.sql);
-    const ownerPosition = statements.indexOf(GOLDEN.statements[57]) + 1;
+    const gatePosition = statements.indexOf(GOLDEN.statements[57]);
+    statements.splice(gatePosition, 0, ...LIST_META_STATEMENTS);
+    const ownerPosition = gatePosition + LIST_META_STATEMENTS.length + 1;
     statements.splice(ownerPosition, 0, ...LIST_OWNER_STATEMENTS);
     statements.splice(ownerPosition + LIST_OWNER_STATEMENTS.length, 0, ...LIST_MIRROR_STATEMENTS);
     if (mode === 'rows')
@@ -63,6 +69,8 @@ function expectedCapture(type, mode) {
     return {
         sql: statements,
         result: Object.assign({}, captured.result, {
+            name: null,
+            description: null,
             state: Object.assign({}, captured.result.state, { owner: null, share_mirror }),
         }),
     };

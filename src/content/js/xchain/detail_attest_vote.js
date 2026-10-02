@@ -19,31 +19,32 @@
 // Display ATTEST action information (v0 request / v1 response / v5 batch head /
 // v6 batch continuation; `attests` table)
 function showAttestDetails(data){
-    let isResponse = (Number(data.version) === 1);
+    let version = Number(isNull(data.version) ? data.action_format : data.version);
+    let isResponse = (version === 1);
     // ATTEST v2 is the system-synthesized expire: it writes no attests row, so the
     // explorer resolves only baseline fields + version. Badge it as an Expire and
     // show neither the request nor the response sub-panels (their fields are absent).
-    let isExpire   = (Number(data.version) === 2);
+    let isExpire   = (version === 2);
     // v5 head / v6 continuation are batch rows: every v0/v1 request and response
     // column is NULL on them, so both of those sub-panels stay hidden and the batch
     // panel carries the window header and the chunk slot instead. Falling through to
     // the request branch renders a signed window as a table of dashes.
-    let isBatchHead = (Number(data.version) === 5);
-    let isBatch     = isBatchHead || (Number(data.version) === 6);
-    detailAttestVote_renderAttestIdentity(data, isResponse, isExpire, isBatchHead, isBatch);
+    let isBatchHead = (version === 5);
+    let isBatch     = isBatchHead || (version === 6);
+    detailAttestVote_renderAttestIdentity(data, version, isResponse, isExpire, isBatchHead, isBatch);
     detailAttestVote_renderAttestBatch(data, isBatch);
     detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatch);
     detailAttestVote_renderAttestResponse(data, isResponse);
 }
 
-function detailAttestVote_renderAttestIdentity(data, isResponse, isExpire, isBatchHead, isBatch){
+function detailAttestVote_renderAttestIdentity(data, version, isResponse, isExpire, isBatchHead, isBatch){
     // Render the attestation badge and shared identity fields.
     $('#info-attest .attest-type').html(
-        isResponse  ? '<span class="badge text-bg-primary">Response (v' + data.version + ')</span>' :
+        isResponse  ? '<span class="badge text-bg-primary">Response (v' + version + ')</span>' :
         isExpire    ? '<span class="badge text-bg-warning text-dark">Expire (v2)</span>' :
         isBatchHead ? '<span class="badge text-bg-info text-dark">Batch Head (v5)</span>' :
         isBatch     ? '<span class="badge text-bg-info text-dark">Batch Continuation (v6)</span>' :
-                      '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
+                      '<span class="badge text-bg-secondary">Request (v' + version + ')</span>');
     $('#info-attest .attest-id-label').text(isBatch ? 'Batch key' : 'Request ID');
     // On a batch row request_id holds the batch key, not a request id.
     //

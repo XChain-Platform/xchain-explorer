@@ -254,7 +254,7 @@ function xcDatatableRenderAttestationRow(context){
     if(summary.batch){
         $('td', row).eq(6).closest('table').find('thead th').eq(6).text('Attestation key');
         $('td', row).eq(6).html('<span class="small text-muted">Batch key</span> '
-            + formatLinkHtml('/' + coin + '/attestation/' + att_index, formatHash(summary.key)));
+            + formatLinkHtml('/' + coin + '/attestation/' + summary.key, formatHash(summary.key)));
     } else {
         $('td', row).eq(6).html(formatLinkHtml('/' + coin + '/action/' + att_index, formatHash(request_id)));
     }
@@ -266,7 +266,8 @@ function xcDatatableRenderAttestationRow(context){
         : nullToBlank((version == 0) ? request_status : response_status));
     $('td', row).eq(8).html('<span class="badge text-bg-' + (att_valid ? 'success' : 'danger')
         + ' attestation-action-status" data-action-status="' + att_verdict + '">' + att_verdict + '</span>');
-    $('td', row).eq(9).html(formatLink('/' + coin + (summary.batch ? '/attestation/' : '/action/') + att_index, 'view', null, true));
+    let detailTarget = summary.batch ? summary.key : att_index;
+    $('td', row).eq(9).html(formatLink('/' + coin + (summary.batch ? '/attestation/' : '/action/') + detailTarget, 'view', null, true));
 
 }
 xcDatatableRowHandlers.attestation = xcDatatableRenderAttestationRow;

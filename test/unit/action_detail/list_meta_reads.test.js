@@ -34,7 +34,7 @@ function makeReader(roots, result){
     return reader;
 }
 
-describe('LIST metadata reads', function () {
+describe('LIST metadata values', function () {
     it('returns the newest valid metadata for a named root', async function () {
         const reader = makeReader({ '41': 41 }, [
             { root: 41, action_index: 41, name: 'Validators', description: 'Approved operators' }
@@ -66,7 +66,9 @@ describe('LIST metadata reads', function () {
             '41': { name: 'New name', description: 'New description' }
         });
     });
+});
 
+describe('LIST metadata fallbacks and query', function () {
     it('returns null fields for a root with no metadata row', async function () {
         const reader = makeReader({ '41': 41, '90': 90 }, [
             { root: 41, action_index: 41, name: 'Named', description: null }

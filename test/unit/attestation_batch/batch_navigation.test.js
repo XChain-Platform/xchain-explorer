@@ -42,14 +42,14 @@ function attestPanel(){
     return ACTION_HTML.slice(start, end + 6);
 }
 
-function batchRow(){
+function batchRow(batchKey=BATCH_KEY){
     const row = Array(21).fill(null);
     row[4] = 5;
     row[5] = '';
-    row[6] = BATCH_KEY;
+    row[6] = batchKey;
     row[9] = 1;
     row[10] = 500;
-    row[14] = BATCH_KEY;
+    row[14] = batchKey;
     row[15] = Date.UTC(2026, 9, 2, 10, 0) / 1000;
     row[16] = Date.UTC(2026, 9, 2, 11, 0) / 1000;
     row[17] = 2;
@@ -84,5 +84,17 @@ describe('ATTEST batch navigation', function(){
         expect($('td', row).eq(6).find('a').attr('href')).to.equal(expected);
         expect($('td', row).eq(9).find('a').attr('href')).to.equal(expected);
         expect($(row).find('a[href="/RDOGE/attestation/500"]')).to.have.length(0);
+    });
+
+    it('encodes the batch key as one path segment in both list controls', function(){
+        const win = boot('<table><thead><tr>' + '<th></th>'.repeat(10)
+            + '</tr></thead><tbody><tr id="row">' + '<td></td>'.repeat(10) + '</tr></tbody></table>');
+        const $ = win.jQuery;
+        const row = $('#row')[0];
+        const batchKey = 'batch/key?#<unsafe>';
+        win.xcDatatableRenderAttestationRow({ row, data: batchRow(batchKey), coin: 'RDOGE' });
+        const expected = '/RDOGE/attestation/' + encodeURIComponent(batchKey);
+        expect($('td', row).eq(6).find('a').attr('href')).to.equal(expected);
+        expect($('td', row).eq(9).find('a').attr('href')).to.equal(expected);
     });
 });

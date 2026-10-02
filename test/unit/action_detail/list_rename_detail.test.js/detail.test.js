@@ -8,9 +8,9 @@
 'use strict';
 
 const assert = require('assert');
-const listReaders = require('../../../src/db/readers/action_detail_io/lists.js');
-const blockReaders = require('../../../src/db/readers/entities/blocks.js');
-const { ACTION_TABLES, buildListsQuery } = require('../../../src/db/method_tables.js');
+const listReaders = require('../../../../src/db/readers/action_detail_io/lists.js');
+const blockReaders = require('../../../../src/db/readers/entities/blocks.js');
+const { ACTION_TABLES, buildListsQuery } = require('../../../../src/db/method_tables.js');
 
 const config = { coin: 'BTC' };
 const util = {
@@ -80,7 +80,6 @@ describe('LIST format 5 action detail', function(){
     });
 
 });
-
 describe('LIST format 5 detached reads', function(){
     it('keeps an invalid rename row detached from list root readers', async function(){
         const reader = listReader({

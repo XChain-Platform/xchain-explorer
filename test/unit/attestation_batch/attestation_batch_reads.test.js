@@ -126,7 +126,9 @@ describe('ATTEST batch list reads', function(){
         expect(sql).to.not.include('batch_window_start');
         expect(sql).to.not.include('batch_action_index');
     });
+});
 
+describe('ATTEST batch list compatibility', function(){
     it('keeps a legacy lifecycle readable when the replica has no batch columns', async function(){
         const request = {
             action_index: 200, version: 0, request_id: REQUEST_A, provider_id: 'http_get',
@@ -180,7 +182,9 @@ describe('ATTEST batch lifecycle read', function(){
         expect(out.continuations).to.deep.equal([]);
         expect(out.duplicates).to.deep.equal([]);
     });
+});
 
+describe('ATTEST batch lifecycle compatibility', function(){
     it('resolves a v6 continuation lookup to its publisher head', async function(){
         const rows = batchRows(0).slice(0, 2);
         const db = makeDb((sql) => {

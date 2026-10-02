@@ -44,6 +44,7 @@ function detailAttestVote_renderAttestIdentity(data, isResponse, isExpire, isBat
         isBatchHead ? '<span class="badge text-bg-info text-dark">Batch Head (v5)</span>' :
         isBatch     ? '<span class="badge text-bg-info text-dark">Batch Continuation (v6)</span>' :
                       '<span class="badge text-bg-secondary">Request (v' + data.version + ')</span>');
+    $('#info-attest .attest-id-label').text(isBatch ? 'Batch key' : 'Request ID');
     // On a batch row request_id holds the batch key, not a request id.
     //
     // An EXPIRE names the request it retired and is the only page in the round with
@@ -125,6 +126,13 @@ function detailAttestVote_renderAttestResponse(data, isResponse){
     // Render fields carried by attestation responses.
     // Response-side fields
     $('#info-attest .attest-response-fields').toggleClass('d-none', !isResponse);
+    let archivedRow = $('#info-attest .attest-archived-row');
+    if(!archivedRow.length){
+        $('#info-attest .attest-response-fields').append(
+            '<tr class="attest-archived-row d-none"><th>Archived in batch</th><td class="attest-archived-batch"></td></tr>');
+        archivedRow = $('#info-attest .attest-archived-row');
+    }
+    archivedRow.addClass('d-none');
     if(isResponse){
         $('#info-attest .attest-response-status').text(data.response_status);
         $('#info-attest .attest-response-hash').html(formatHash(data.response_hash, 32));
@@ -140,6 +148,10 @@ function detailAttestVote_renderAttestResponse(data, isResponse){
         $('#info-attest .attest-signatures').html(html);
         if(!isNull(data.callback_execute_action_index))
             $('#info-attest .attest-callback-execute').html(formatLink('/' + XC.coin + '/action/' + data.callback_execute_action_index, data.callback_execute_action_index));
+        let archived = !isNull(data.batch_action_index);
+        archivedRow.toggleClass('d-none', !archived);
+        if(archived)
+            $('#info-attest .attest-archived-batch').html(formatLink('/' + networkCoin('DOGE') + '/action/' + data.batch_action_index, data.batch_action_index));
     }
 }
 

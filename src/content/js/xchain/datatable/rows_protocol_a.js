@@ -235,39 +235,38 @@ function xcDatatableRenderAttestationRow(context){
 
 // Attestation (ATTEST v0 request / v1 response from the `attests` table)
 //
-// TWO status fields ride this feed and they answer different questions.
-// Rendering only the attester's HTTP result, under a heading a reader uses
-// to ask whether the action COUNTED, shows an ATTEST the chain rejected as
-// `ok`. They get a column each: Response is the attester's result (or the
-// request's lifecycle state), Action Status is the chain's verdict on the
-// action itself.
-//
-// Both the verdict and the action index are read POSITIONALLY here rather
-// than through createdRow's generic data[length-1]/data[length-2] tail parse.
-// The getAttestations feed appends payload, callback_params_json and
-// fee_payer AFTER action_index, so on this page alone that parse reads
-// fee_payer as the action index and callback_params_json as the verdict.
+// The response state and action verdict are separate columns. The action index
+// and verdict are positional because this feed appends detail fields after them.
 
     let version         = data[4];
     let provider        = data[5];
     let request_id      = data[6];
     let request_status  = data[7];
     let response_status = data[8];
-    $('td', row).eq(4).html((version == 0) ? '<span class="badge text-bg-secondary">Request</span>' : '<span class="badge text-bg-primary">Response</span>');
+    let summary         = attestListSummary(data);
+    $('td', row).eq(4).html(summary.type);
     $('td', row).eq(5).text(provider);
     let att_status      = data[9];
     let att_index       = data[10];
     let att_valid       = (att_status==1);
     let att_verdict     = att_valid ? 'valid' : 'invalid';
     $(row).removeClass('bg-green bg-red').addClass(att_valid ? 'bg-green' : 'bg-red');
-    $('td', row).eq(6).html(formatLinkHtml('/' + coin + '/action/' + att_index, formatHash(request_id)));
+    if(summary.batch){
+        $('td', row).eq(6).closest('table').find('thead th').eq(6).text('Attestation key');
+        $('td', row).eq(6).html('<span class="small text-muted">Batch key</span> '
+            + formatLinkHtml('/' + coin + '/attestation/' + att_index, formatHash(summary.key)));
+    } else {
+        $('td', row).eq(6).html(formatLinkHtml('/' + coin + '/action/' + att_index, formatHash(request_id)));
+    }
     // Both attests.request_status and attests.response_status are nullable
     // ENUMs with no default; each row fills only the one for its version, and
     // an unresolved row leaves even that one NULL.
-    $('td', row).eq(7).text(nullToBlank((version == 0) ? request_status : response_status));
+    $('td', row).eq(7).text(summary.batch
+        ? (summary.label === null ? 'Batch continuation' : summary.label)
+        : nullToBlank((version == 0) ? request_status : response_status));
     $('td', row).eq(8).html('<span class="badge text-bg-' + (att_valid ? 'success' : 'danger')
         + ' attestation-action-status" data-action-status="' + att_verdict + '">' + att_verdict + '</span>');
-    $('td', row).eq(9).html(formatLink('/' + coin + '/action/' + att_index, 'view', null, true));
+    $('td', row).eq(9).html(formatLink('/' + coin + (summary.batch ? '/attestation/' : '/action/') + att_index, 'view', null, true));
 
 }
 xcDatatableRowHandlers.attestation = xcDatatableRenderAttestationRow;

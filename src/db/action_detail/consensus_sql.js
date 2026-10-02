@@ -118,6 +118,7 @@ const ATTEST_DETAIL = `SELECT
                     m.meta,
                     m.validator_signatures,
                     m.callback_execute_action_index,
+                    m.batch_action_index,
                     m.batch_window_start,
                     m.batch_window_end,
                     m.batch_row_count,

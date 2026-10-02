@@ -126,6 +126,10 @@ const ATTEST = {
             data['signatures'] = [];
         }
         delete data['validator_signatures'];
+        if(Number(data['version']) === 6){
+            data['chunk_index'] = data['batch_chunk_index'];
+            data['total_chunks'] = data['batch_total_chunks'];
+        }
         // ATTEST v2 (expire) is system-synthesized and writes no attests row
         // (it only flips the original v0 request's status), so the attests
         // branch returned nothing and the de-blank fallback populated only

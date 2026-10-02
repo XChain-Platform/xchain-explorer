@@ -150,7 +150,7 @@ function renderAttestationResponse(d){
         + (isNull(r.timestamp) ? '' : ' <span class="small text-muted">' + formatLivestamp(r.timestamp) + '</span>'));
     html += attFieldRow('Transaction',     isNull(r.tx_hash) ? '<span class="text-muted">-</span>'
         : formatLink('/' + XC.coin + '/transaction/' + r.tx_hash, r.tx_hash));
-    html += attFieldRow('On-chain Batch',  attResponseBatchCell(r));
+    html += attFieldRow('On-chain Batch', attResponseBatchCell(r));
     html += attFieldRow('Callback Execute', isNull(d.callback_execute_action_index)
         ? '<span class="text-muted">no callback execution recorded</span>'
         : attActionLink(d.callback_execute_action_index));

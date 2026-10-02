@@ -151,6 +151,8 @@ async function readActionTotals(db, config, coin){
         }
     }
     // Count one verification per action because the table fans out by validator.
+    // A format 5 LIST has no lists row, so its per-table count is appended to
+    // the same supplemental pass. Format 4 stays counted only by `lists`.
     const fnvSql = `SELECT 'full_node_verifications' as action,
                         count(DISTINCT action_index) as count
                     FROM full_node_verifications`;

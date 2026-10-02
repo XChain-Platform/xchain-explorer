@@ -34,6 +34,17 @@
 const { cursorField } = require('./offset_cursors.js');
 const { historyCursor, pagesOverBlocks, boundaryWhere,
     firstLastOffset, stopOffset } = require('./offset_boundaries.js');
+const { isMissingTableError } = require('../schema_probe.js');
+
+async function withListMetaFallback(ctx, read){
+    try {
+        return await read();
+    } catch(e){
+        if(!ctx.includeListMetaRenames || !isMissingTableError(e)) throw e;
+        ctx.includeListMetaRenames = false;
+        return read();
+    }
+}
 
 class QueryOffsets {
 
@@ -106,9 +117,10 @@ class QueryOffsets {
             return [];
         }
         let ctx = { method, type, action, table, where, whereArgs, hCursor, hSource, length,
-            pagesOverBlocks: pagesOverBlocks(table) };
+            pagesOverBlocks: pagesOverBlocks(table), includeListMetaRenames: method=='getLists' };
         if(['first','last'].includes(action))
-            offset1 = await firstLastOffset(this, config, ctx, offset1, offset);
+            offset1 = await withListMetaFallback(ctx,
+                () => firstLastOffset(this, config, ctx, offset1, offset));
         if(offset1){
             // Same predicate as the boundary query above, deliberately: this branch reads
             // offset1 as a BLOCK INDEX, and only the blocks query returns one.
@@ -119,7 +131,8 @@ class QueryOffsets {
                     offset2 = this.util.bcsub(this.util.bcsub(offset1,1),q.length);
                 }
             } else {
-                offset2 = await stopOffset(this, config, ctx, offset1);
+                offset2 = await withListMetaFallback(ctx,
+                    () => stopOffset(this, config, ctx, offset1));
             }
         }
         return [offset1, offset2];

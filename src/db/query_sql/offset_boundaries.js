@@ -196,7 +196,7 @@ function firstLastSql(ctx, order, limit){
         return firstLastHistorySql(hCursor, hSource, where, order, limit);
     if(method=='getFiles' && type=='token')
         return firstLastFilesSql(where, order, limit);
-    return firstLastActionsSql(table, where, order, limit);
+    return firstLastActionsSql(ctx, where, order, limit);
 }
 
 function firstLastBlocksSql(where, order, limit){
@@ -255,11 +255,23 @@ function firstLastFilesSql(where, order, limit){
                         LIMIT ` + limit;
 }
 
-function firstLastActionsSql(table, where, order, limit){
+function actionOffsetSource(ctx){
+    if(ctx.table !== 'lists' || !ctx.includeListMetaRenames)
+        return ctx.table + ` m`;
+    return `(SELECT l.action_index
+                                FROM lists l
+                            UNION ALL
+                            SELECT lm.action_index
+                                FROM list_metas lm
+                                    INNER JOIN actions la ON (la.action_index=lm.action_index)
+                                WHERE la.action_format = 5) m`;
+}
+
+function firstLastActionsSql(ctx, where, order, limit){
     return `SELECT
                             m.action_index as offset_index
                         FROM
-                            ` + table + ` m
+                            ` + actionOffsetSource(ctx) + `
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                             LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
@@ -342,7 +354,7 @@ function stopSql(ctx, where, order, limit){
     return `SELECT
                             m.action_index as offset_index
                         FROM
-                            ` + table + ` m
+                            ` + actionOffsetSource(ctx) + `
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                             INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)

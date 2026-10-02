@@ -392,8 +392,9 @@ class ActionListMembershipReaders {
         return state;
     }
 }
-
 module.exports = ActionListMembershipReaders.prototype;
-
-const listHandler = require('../../../action-detail').REGISTRY.LIST;
-listHandler.afterQueries = async function({ db, config, action_index }, data){ await db.attachListActionDetail(config, action_index, data); };
+const listHandler = require('../../../action-detail').REGISTRY.LIST, baseListAfterQueries = listHandler.afterQueries;
+listHandler.afterQueries = async function(ctx, data){
+    return (typeof ctx.db.attachListActionDetail === 'function')
+        ? ctx.db.attachListActionDetail(ctx.config, ctx.action_index, data) : baseListAfterQueries(ctx, data);
+};

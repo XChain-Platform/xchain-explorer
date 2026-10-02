@@ -73,7 +73,7 @@ function escapedListText(expr){
 }
 
 function listMetaSelect(hasMetas){
-    if(!hasMetas) return { joins: '', name: 'NULL', description: 'NULL' };
+    if(!hasMetas) return { joins: '', fields: '', name: 'NULL', description: 'NULL' };
     return {
         joins: `LEFT JOIN list_metas lm ON (lm.action_index=(
                     SELECT MAX(lm2.action_index)
@@ -82,6 +82,7 @@ function listMetaSelect(hasMetas){
                     WHERE lm2.list_action_index=COALESCE(m.list_action_index, m.action_index)
                         AND lms2.status='valid'
                 ))`,
+        fields: 'lm.name AS name, lm.description AS description,',
         name: 'lm.name',
         description: 'lm.description'
     };
@@ -116,8 +117,7 @@ async function buildListsQuery(db, config, tablesPresent){
                     ` + display.type + ` AS type,
                     ` + display.edit + ` AS edit,
                     m.list_action_index,
-                    ` + meta.name + ` AS name,
-                    ` + meta.description + ` AS description,
+                    ` + meta.fields + `
                     a2.address as source, b1.block_index, b1.block_time as timestamp,
                     t2.hash as tx_hash, t1.tx_index, m1.memo, s1.status
                 FROM ` + from + `

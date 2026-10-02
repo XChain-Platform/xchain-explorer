@@ -194,9 +194,13 @@ describe('LIST format 5 network totals', function(){
             calls.push(sql);
             if(sql.includes('information_schema.TABLES')) return [{ TABLE_NAME: 'lists' }];
             if(sql.includes("SELECT 'lists' AS t")) return [{ t: 'lists', c: 1 }];
+            if(sql.includes('list_metas'))
+                return [
+                    { action: 'full_node_verifications', count: 0 },
+                    { action: 'lists', count: 1 }
+                ];
             if(sql.includes('full_node_verifications'))
                 return [{ action: 'full_node_verifications', count: 0 }];
-            if(sql.includes('list_metas')) return [{ action: 'lists', count: 1 }];
             return [];
         };
 
@@ -205,7 +209,7 @@ describe('LIST format 5 network totals', function(){
         assert.deepStrictEqual(totals, { lists: 2, full_node_verifications: 0 });
         const renameQuery = calls.find(sql => sql.includes('list_metas'));
         assert.match(renameQuery, /action_format\s*=\s*5/);
-        assert.doesNotMatch(renameQuery, /UNION ALL/);
+        assert.match(renameQuery, /SELECT 'lists' as action[\s\S]*FROM list_metas/);
     });
 
     it('treats a missing metadata table as zero renames', async function(){
@@ -336,10 +340,10 @@ describe('LIST list-page metadata', function(){
         assert.doesNotMatch(count, /list_metas/);
     });
 
-    it('returns null metadata columns when list_metas is absent', async function(){
+    it('omits metadata columns when list_metas is absent', async function(){
         const [query] = await buildListsQuery({}, sqlConfig, async () => false);
-        assert.match(query, /NULL AS name/);
-        assert.match(query, /NULL AS description/);
+        assert.doesNotMatch(query, /\bAS name\b/);
+        assert.doesNotMatch(query, /\bAS description\b/);
         assert.doesNotMatch(query, /FROM list_metas/);
     });
 });

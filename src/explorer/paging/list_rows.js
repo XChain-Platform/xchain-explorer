@@ -223,7 +223,7 @@ function stakeLifecycleRows(info, c){
         info = [count_reverse, info.block_time, info.source_chain, info.source_address, info.tick, info.fiat, info.value, info.id];
     // Attestation list page
     if(method=='getAttestations')
-        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer];
+        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer, info.batch_key, info.batch_window_start, info.batch_window_end, info.batch_row_count, info.batch_action_index];
     // Per-validator per-provider ATTEST accountability counters
     // (indexer-owned, id-keyed: the surrogate id is the paging cursor and
     // stays LAST).

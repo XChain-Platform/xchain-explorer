@@ -58,6 +58,7 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
     'vote_kind',                                                                                                   // Governance
     'chain', 'network', 'checkpoint_seq', 'anchored_block_index',                                                  // Anchors
     'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count',                  // Prices
+    'batch_window_start', 'batch_window_end', 'batch_row_count', 'batch_action_index',                            // Attestations
     'leg_count', 'member_count', 'parent_batch_action_index'                                                       // Structure markers: multi-leg SEND/DESTROY, BATCH parent, BATCH member
 ]);
 

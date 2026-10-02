@@ -10,48 +10,69 @@
  * license (without AGPL source-disclosure terms) is available -
  * contact legal@dankest.llc.
  *
- **********************************************************************
- *
- * XChain Explorer - the ATTEST lifecycle and its expiry correlation
- *
- * One part of src/db/readers/xcall.js (the entry composes it through
- * composeReaderParts). The in-block correlation that links an ATTEST v2 expire
- * action to the v0 request it retired, the derived callback EXECUTE, the
- * composed ATTESTATION detail, and the two positional reads the WS
- * ChangeDetector owns.
- *
- * Authored as a class body whose prototype is exported, like every other
- * family under src/db/: `this` is the Database instance at call time, and the
- * methods reach Database.prototype non-enumerable, by descriptor.
- *
  ********************************************************************/
 
 'use strict';
 
-// QUERY names the round either by the 64-hex request_id every leg carries or by
-// the action_index of any ATTEST action in it; both forms reduce to the request_id
-// here, and null means a numeric QUERY named no round on this chain. `db` is the
-// Database instance the method runs on: these are plain functions, not methods, so
-// cutting the reader up adds no name to Database.prototype.
-async function resolveAttestationRequestId(db, config){
-    let search = config.data.search;
-    if(!db.util.isNumeric(search)) return String(search || '').toLowerCase();
-    let seed = await db.getAttestationByActionIndex(config, Number(search));
-    // A v2 expire has no attests row, so the point read answers nothing for it and
-    // the lifecycle page for the expire's own action_index rendered NOT FOUND. The
-    // in-block correlation resolves it to the request it retired.
-    if(!seed) seed = await db.seedAttestationFromExpireAction(config, Number(search));
-    if(!seed) return null;
-    return seed.request_id;
+const listReaders = require('./lists.js');
+const ATTEST_BATCH_COLUMNS = [
+    'batch_action_index', 'batch_window_start', 'batch_window_end', 'batch_row_count'
+];
+const ATTEST_BATCH_PROBE_TTL_MS = 60000;
+
+async function attestBatchColumnsPresent(db, config){
+    if(!db.attestBatchColumnMemo) db.attestBatchColumnMemo = {};
+    let memo = db.attestBatchColumnMemo[config.coin];
+    if(memo && (memo.present || Date.now() - memo.at < ATTEST_BATCH_PROBE_TTL_MS))
+        return memo.present;
+    try {
+        let placeholders = ATTEST_BATCH_COLUMNS.map(() => '?').join(',');
+        let rows = await db.doQuery(config,
+            `SELECT COLUMN_NAME
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='attests'
+               AND COLUMN_NAME IN (${placeholders})
+             LIMIT ${ATTEST_BATCH_COLUMNS.length}`, ATTEST_BATCH_COLUMNS);
+        let found = new Set((rows || []).map(r => String(r.COLUMN_NAME)));
+        let present = ATTEST_BATCH_COLUMNS.every(name => found.has(name));
+        db.attestBatchColumnMemo[config.coin] = { present, at: Date.now() };
+        return present;
+    } catch(_){
+        db.attestBatchColumnMemo[config.coin] = { present: false, at: Date.now() };
+        return false;
+    }
+}
+function batchProjection(withBatch){
+    if(!withBatch) return '';
+    return `,
+                CASE WHEN m.version IN (5, 6) THEN m.request_id ELSE NULL END as batch_key,
+                m.batch_window_start,
+                m.batch_window_end,
+                m.batch_row_count,
+                m.batch_action_index`;
 }
 
-// Every leg of one round in one bounded read, oldest first so the caller renders the
-// lifecycle in the order it happened. request_id+version is indexed.
-//
-// `blocks` resolves off the action's own block_index, not the transaction's: a
-// mirror-applied response has an action_index but no transaction row, and routing
-// through t1 left the timestamp NULL for it (attest-response-mirror spec section 4.4).
-async function readAttestationLegs(db, config, requestId, limit){
+const getAttestationsWithoutBatch = listReaders.getAttestations;
+listReaders.getAttestations = async function(config){
+    let withBatch = await attestBatchColumnsPresent(this, config);
+    let result = await getAttestationsWithoutBatch.call(this, config);
+    if(withBatch)
+        result[0] = result[0].replace('m.callback_params_json,',
+            'm.callback_params_json' + batchProjection(true) + ',');
+    return result;
+};
+async function resolveAttestationRequestId(db, config){
+    let search = config.data.search;
+    if(!db.util.isNumeric(search)) return {
+        requestId: String(search || '').toLowerCase(),
+        seed: null
+    };
+    let seed = await db.getAttestationByActionIndex(config, Number(search));
+    if(!seed) seed = await db.seedAttestationFromExpireAction(config, Number(search));
+    if(!seed) return null;
+    return { requestId: seed.request_id, seed };
+}
+async function readAttestationLegs(db, config, requestId, limit, withBatch){
     return await db.doQuery(config,
             `SELECT
                 a4.action,
@@ -81,8 +102,7 @@ async function readAttestationLegs(db, config, requestId, limit){
                 m.response_status,
                 m.meta,
                 m.validator_signatures,
-                m.callback_execute_action_index,
-                m.batch_action_index,
+                m.callback_execute_action_index` + batchProjection(withBatch) + `,
                 m.block_index,
                 b1.block_time as timestamp,
                 t2.hash as tx_hash,
@@ -103,21 +123,65 @@ async function readAttestationLegs(db, config, requestId, limit){
             ORDER BY m.version ASC, m.action_index ASC
             LIMIT ` + limit, [requestId]);
 }
-
-// The v0 REQUEST leg, with the two JSON columns a reader cannot use raw parsed.
+async function readBatchResponses(db, config, actionIndex, limit){
+    return await db.doQuery(config,
+        `SELECT
+            r.action_index,
+            r.version,
+            r.request_id,
+            q.action_index as request_action_index,
+            r.provider_id,
+            r.response_hash,
+            r.response_payload,
+            r.response_status,
+            r.meta,
+            r.validator_signatures,
+            r.callback_execute_action_index,
+            r.batch_action_index,
+            r.block_index,
+            s.status
+         FROM attests r
+         LEFT JOIN attests q ON (q.request_id=r.request_id AND q.version=0)
+         LEFT JOIN index_statuses s ON (s.id=r.status_id)
+         WHERE r.version=1 AND r.batch_action_index=?
+         ORDER BY r.action_index ASC
+         LIMIT ` + limit, [actionIndex]);
+}
+function batchLifecycle(db, rows, selected, responses){
+    let heads = rows.filter(r => Number(r.version) === 5);
+    let selectedRow = rows.find(r => Number(r.action_index) === Number(selected.action_index)) || selected;
+    let head = Number(selectedRow.version) === 5 ? selectedRow : heads.find(r => r.source === selectedRow.source);
+    if(!head) head = heads[0] || selected;
+    let source = head.source;
+    let continuations = rows.filter(r => Number(r.version) === 6 && r.source === source);
+    let duplicates = heads.filter(r => Number(r.action_index) !== Number(head.action_index)
+        && String(r.status) === 'valid').map(r => ({
+            action_index: r.action_index,
+            tx_hash:      r.tx_hash,
+            source:       r.source,
+            block_index:  r.block_index
+        }));
+    head.batch_key = head.request_id;
+    for(let row of continuations) row.batch_key = row.request_id;
+    for(let row of responses)
+        row.quorum_signatures = db.parseSignaturesArray(row.validator_signatures);
+    return {
+        batch: head,
+        continuations,
+        responses,
+        duplicates
+    };
+}
 function parseRequestLeg(db, rows){
     let request  = rows.find(r => Number(r.version) === 0) || null;
     if(request){
         try { request.callback_params = db.util.isNull(request.callback_params_json) ? null : JSON.parse(request.callback_params_json); }
         catch(e){ request.callback_params = request.callback_params_json; }
-        // The responsible set was PINNED as-of the request block; it is the electorate a
-        // reader checks the response signatures against, so it is parsed, not echoed raw.
         request.responsible_set = db.parseSignaturesArray(request.responsible_set_json);
     }
     return request;
 }
 
-// The v1 RESPONSE leg, carrying the quorum set that signed it.
 function parseResponseLeg(db, rows){
     let response = rows.find(r => Number(r.version) === 1) || null;
     if(response)
@@ -125,11 +189,6 @@ function parseResponseLeg(db, rows){
     return response;
 }
 
-// The stored callback link lives on the v1 RESPONSE row alone, so an EXPIRED
-// request - which has no v1 row at all - reported "no callback execution
-// recorded" while the injected expired-callback EXECUTE sat on chain a couple of
-// indexes away. Derive it for that case, and flag the derivation so the page can
-// say where the link came from instead of implying the indexer stamped it.
 async function resolveExpiryLinks(db, config, request, response, status){
     let callbackIndex   = (response) ? response.callback_execute_action_index : null;
     let callbackDerived = false;
@@ -144,11 +203,6 @@ async function resolveExpiryLinks(db, config, request, response, status){
     return { callbackIndex, callbackDerived, expireAction };
 }
 
-// Derived, because ATTEST v2 persists no ROW. It does mint an ACTION, and
-// expire_action_index names it (null when the block's expire actions and
-// expired requests do not line up). `expired` is the stored terminal state,
-// never a clock comparison against deadline_block: a request past its deadline
-// that the expiry sweep has not reached yet is still 'pending'.
 function expiryLeg(request, status, expireAction){
     return {
         request_status:      status,
@@ -159,9 +213,6 @@ function expiryLeg(request, status, expireAction){
     };
 }
 
-// The relay legs (ATTEST v3/v4) as the page reads them: this round's own
-// origin_chain/origin_action_index columns, never a second query for rows that are
-// by construction on ANOTHER chain's indexer DB.
 function relayLeg(db, request, response){
     return {
         is_relay:            !!(request && !db.util.isNull(request.origin_chain)),
@@ -172,27 +223,8 @@ function relayLeg(db, request, response){
 }
 
 class AttestationReaders {
-    // ATTEST v2 (expire) mints an action and writes NO ROW, so `attests` names neither
-    // side of the pair. The two are correlated POSITIONALLY WITHIN THE BLOCK, which is
-    // exact rather than a guess, because the indexer fixes both orders:
-    //   - the sweep selects what it expires in ONE deterministic order
-    //     (xchain-indexer db.getExpiredAttestationRequests: deadline_block ASC,
-    //     action_index ASC) and mints one v2 action per selected request in that loop,
-    //     so the v2 action indexes ascend in exactly that order;
-    //   - request_status 'expired' is written by that sweep and by NOTHING else (the
-    //     v1/v3/v4 response paths write only 'fulfilled' or 'errored'; a retryable
-    //     round leaves the request pending), so the two lists cover the same set.
-    // Equal length is therefore an INVARIANT, and it is checked rather than assumed:
-    // a block where the two disagree yields no link at all, because a rank correlation
-    // over unequal lists names the WRONG request, which is worse than naming none.
-    //
-    // The rank machinery is only load-bearing for a block that expired several requests
-    // at once; the common block carries one of each.
     async correlateAttestationExpiries(config, blockIndex){
         if(this.util.isNull(blockIndex)) return [];
-        // Bounded well above the indexer's per-block expiry cap
-        // (ATTEST_MAX_EXPIRIES_PER_BLOCK = 25) so a raised cap widens the read instead of
-        // silently truncating one list and disabling the correlation.
         let cap = 100;
         let acts = await this.doQuery(config,
             `SELECT
@@ -225,8 +257,6 @@ class AttestationReaders {
         }));
     }
 
-    // The v2 expire action that retired one v0 request row, or null when the block's
-    // two lists do not line up (see correlateAttestationExpiries).
     async resolveAttestationExpireAction(config, request){
         if(!request || String(request.request_status) !== 'expired') return null;
         let pairs = await this.correlateAttestationExpiries(config, request.resolved_block);
@@ -234,16 +264,12 @@ class AttestationReaders {
         return (hit) ? hit.expire_action_index : null;
     }
 
-    // The inverse read, for the ACTION page of a v2: the v0 request this expire retired.
     async resolveAttestationExpireRequest(config, expireActionIndex, blockIndex){
         let pairs = await this.correlateAttestationExpiries(config, blockIndex);
         let hit   = pairs.find(p => Number(p.expire_action_index) === Number(expireActionIndex));
         return (hit) ? hit.request : null;
     }
 
-    // Seed the lifecycle page from a v2 expire's own action_index. Reads the action's
-    // block (the expire writes no attests row, so there is nothing else to key on) and
-    // hands back the correlated v0 request row.
     async seedAttestationFromExpireAction(config, actionIndex){
         if(!this.util.isNumeric(actionIndex)) return null;
         let rows = await this.doQuery(config,
@@ -259,19 +285,6 @@ class AttestationReaders {
         return await this.resolveAttestationExpireRequest(config, Number(actionIndex), rows[0].block_index);
     }
 
-    // The system-injected callback EXECUTE for one request.
-    //
-    // attests.callback_execute_action_index is stamped on the v1 RESPONSE row only
-    // (xchain-indexer setAttestationResponseCallbackIndex ... WHERE version = 1), so an
-    // EXPIRED request has no stored link anywhere: the v2 sweep injects the expired
-    // callback (injectExpiredCallback) and there is no v1 row to stamp. The execution
-    // itself is unambiguous on its own columns: the injected EXECUTE calls the request's
-    // OWN contract and callback method with the request_id as its first positional
-    // parameter (INPUT_PARAMS is the '|'-joined argument list), and a request id is
-    // unique chain-wide, so this identifies exactly the callback for THIS request.
-    //
-    // The id is re-validated as 64 hex before it reaches the LIKE: a request_id is the
-    // only user-influenced part of the pattern and hex carries no % or _ wildcard.
     async deriveAttestationCallbackExecute(config, request){
         if(!request) return null;
         let requestId = String(request.request_id || '').toLowerCase();
@@ -287,31 +300,24 @@ class AttestationReaders {
         return (rows && rows.length) ? rows[0].action_index : null;
     }
 
-    // Composed ATTESTATION lifecycle (M4.3). QUERY is EITHER the 64-hex request_id (the
-    // correlation key every leg carries) or the action_index of any ATTEST action in the
-    // round. A numeric QUERY resolves through getAttestationByActionIndex, the positional-arg
-    // point read the WS ChangeDetector already owns: it is REUSED here rather than re-routed
-    // or reshaped, because the detector depends on its signature exactly as it stands.
-    //
-    // WHAT THE SCHEMA FORCED, and it contradicts the obvious reading of the lifecycle:
-    // ATTEST v2 (expire) writes NO ROW OF ITS OWN. It is system-synthesized, allocates an
-    // action_index with FORMAT 2, and then only FLIPS the v0 request row's request_status to
-    // 'expired' and stamps resolved_block (xchain-indexer attest/index.js parseExpire). So the
-    // expiry leg below is DERIVED from the request row, not selected from a v2 row. The
-    // expire ACTION does exist and has a working page, so it is resolved through the
-    // in-block correlation above and named here rather than declared unlinkable.
-    //
-    // Relay legs (ATTEST v3/v4) likewise write ordinary version 0 / version 1 rows carrying
-    // origin_chain + origin_action_index, so they arrive in the same request_id read; the
-    // relay block below names them rather than issuing a second query for rows that are by
-    // construction on ANOTHER chain's indexer DB.
     async getAttestation(config){
-        let limit     = this.detailLimit(config);
-        let requestId = await resolveAttestationRequestId(this, config);
-        if(!requestId) return [null];
+        let limit    = this.detailLimit(config);
+        let resolved = await resolveAttestationRequestId(this, config);
+        if(!resolved) return [null];
 
-        let rows = await readAttestationLegs(this, config, requestId, limit);
+        let withBatch = await attestBatchColumnsPresent(this, config);
+        let rows = await readAttestationLegs(this, config, resolved.requestId, limit, withBatch);
         if(!rows || !rows.length) return [null];
+
+        let selected = resolved.seed || rows[0];
+        if(withBatch && [5, 6].includes(Number(selected.version))){
+            let heads = rows.filter(r => Number(r.version) === 5);
+            let head = Number(selected.version) === 5 ? selected
+                : heads.find(r => r.source === selected.source) || heads[0] || selected;
+            let responses = Number(head.batch_row_count) === 0 ? []
+                : await readBatchResponses(this, config, head.action_index, limit);
+            return [batchLifecycle(this, rows, selected, responses || [])];
+        }
 
         let request  = parseRequestLeg(this, rows);
         let response = parseResponseLeg(this, rows);
@@ -320,7 +326,7 @@ class AttestationReaders {
 
         return [{
             query:      config.data.search,
-            request_id: requestId,
+            request_id: resolved.requestId,
             provider_id: rows[0].provider_id,
             legs:       rows,
             request:    request,
@@ -333,6 +339,7 @@ class AttestationReaders {
     }
 
     async getAttestationsSince(config, sinceBlockIndex, limit){
+        let withBatch = await attestBatchColumnsPresent(this, config);
         let query = `SELECT
                         m.action_index,
                         m.version,
@@ -343,7 +350,12 @@ class AttestationReaders {
                         m.response_status,
                         m.payload,
                         m.callback_params_json,
-                        a2.address as source,
+                        ` + (withBatch ? `CASE WHEN m.version IN (5, 6) THEN m.request_id ELSE NULL END as batch_key,
+                        m.batch_window_start,
+                        m.batch_window_end,
+                        m.batch_row_count,
+                        m.batch_action_index,
+                        ` : ``) + `a2.address as source,
                         fp.address as fee_payer,
                         m.block_index,
                         s1.status
@@ -363,12 +375,21 @@ class AttestationReaders {
     }
 
     async getAttestationByActionIndex(config, action_index){
+        let withBatch = await attestBatchColumnsPresent(this, config);
         let query = `SELECT
                         m.action_index, m.version, m.request_id, m.provider_id, m.contract_index,
                         m.request_status, m.response_status, m.payload, m.callback_params_json, m.block_index,
-                        fp.address as fee_payer
+                        fp.address as fee_payer` + batchProjection(withBatch) + `,
+                        a2.address as source, b1.block_time as timestamp, t2.hash as tx_hash,
+                        t1.tx_index, s1.status
                     FROM attests m
+                        LEFT JOIN actions a1 ON (a1.action_index=m.action_index)
+                        LEFT JOIN transactions t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT JOIN blocks b1 ON (b1.block_index=a1.block_index)
                         LEFT JOIN index_addresses fp ON (fp.id=m.fee_payer_id)
+                        LEFT JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                        LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+                        LEFT JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE m.action_index=?
                     LIMIT 1`;
         let results = await this.doQuery(config, query, [action_index]);

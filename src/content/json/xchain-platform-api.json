@@ -149,6 +149,93 @@
                 }
             }
         },
+        "/{COIN}/api/attestations": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get ATTEST actions",
+                "description": "Retrieves ATTEST requests, responses, batch heads, and batch continuations. Version 5 and 6 rows expose the batch key and window fields; version 1 responses may link to the batch that carried them.",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "type": "array",
+                                                "items": {
+                                                    "$ref": "#/components/schemas/AttestationRow"
+                                                }
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                    }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/attestation/{QUERY}": {
+            "get": {
+                "tags": ["Actions"],
+                "summary": "Get an ATTEST lifecycle or batch",
+                "description": "A version 0 or 1 query returns the request lifecycle. A version 5 or 6 query returns the batch head, its continuations, carried responses, and other valid heads for the same window.",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/QUERY",
+                    "description": "ATTEST action_index, request id, or batch key"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "type": "array",
+                                                "items": {
+                                                    "oneOf": [{
+                                                        "$ref": "#/components/schemas/AttestationLifecycle"
+                                                    },{
+                                                        "$ref": "#/components/schemas/AttestationBatchLifecycle"
+                                                    }]
+                                                }
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                    }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
         "/{COIN}/api/batches/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions"],
@@ -2636,6 +2723,163 @@
                         }
                     }
                }]
+            },
+            "AttestationRow": {
+                "type": "object",
+                "description": "An ATTEST request, response, batch head, or batch continuation. Batch fields are omitted when the connected replica predates batch storage.",
+                "properties": {
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "version": {
+                        "type": "integer",
+                        "description": "0 for a request, 1 for a response, 5 for a batch head, or 6 for a batch continuation"
+                    },
+                    "request_id": {
+                        "type": "string",
+                        "description": "Request correlation id for versions 0 and 1; the stored batch key for versions 5 and 6"
+                    },
+                    "batch_key": {
+                        "type": ["string", "null"],
+                        "description": "Batch identity for versions 5 and 6, equal to the stored request_id"
+                    },
+                    "batch_window_start": {
+                        "type": ["integer", "null"],
+                        "description": "UTC Unix timestamp at the start of the batch window"
+                    },
+                    "batch_window_end": {
+                        "type": ["integer", "null"],
+                        "description": "UTC Unix timestamp at the end of the batch window"
+                    },
+                    "batch_row_count": {
+                        "type": ["integer", "null"],
+                        "description": "Number of finalized responses carried by the batch"
+                    },
+                    "batch_action_index": {
+                        "type": ["integer", "null"],
+                        "description": "For a version 1 response, the ATTEST batch head that carried it"
+                    },
+                    "provider_id": {
+                        "type": ["string", "null"]
+                    },
+                    "request_status": {
+                        "type": ["string", "null"]
+                    },
+                    "response_status": {
+                        "type": ["string", "null"]
+                    },
+                    "source": {
+                        "type": ["string", "null"]
+                    },
+                    "block_index": {
+                        "type": "integer"
+                    },
+                    "tx_hash": {
+                        "type": ["string", "null"]
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                }
+            },
+            "AttestationLifecycle": {
+                "type": "object",
+                "description": "The unchanged version 0 and 1 request lifecycle shape",
+                "properties": {
+                    "request_id": {
+                        "type": "string"
+                    },
+                    "legs": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttestationRow"
+                        }
+                    },
+                    "request": {
+                        "$ref": "#/components/schemas/AttestationRow"
+                    },
+                    "response": {
+                        "oneOf": [{
+                            "$ref": "#/components/schemas/AttestationRow"
+                        },{
+                            "type": "null"
+                        }]
+                    },
+                    "expiry": {
+                        "type": "object"
+                    },
+                    "relay": {
+                        "type": "object"
+                    }
+                }
+            },
+            "AttestationBatchResponse": {
+                "type": "object",
+                "description": "A version 1 response carried by the batch",
+                "properties": {
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "request_id": {
+                        "type": "string"
+                    },
+                    "request_action_index": {
+                        "type": "integer",
+                        "description": "Action index of the version 0 request"
+                    },
+                    "batch_action_index": {
+                        "type": "integer"
+                    },
+                    "response_status": {
+                        "type": ["string", "null"]
+                    }
+                }
+            },
+            "AttestationBatchDuplicate": {
+                "type": "object",
+                "description": "Another valid version 5 head for the same window",
+                "properties": {
+                    "action_index": {
+                        "type": "integer"
+                    },
+                    "tx_hash": {
+                        "type": ["string", "null"]
+                    },
+                    "source": {
+                        "type": ["string", "null"]
+                    },
+                    "block_index": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "AttestationBatchLifecycle": {
+                "type": "object",
+                "description": "The version 5 or 6 batch detail shape",
+                "required": ["batch", "continuations", "responses", "duplicates"],
+                "properties": {
+                    "batch": {
+                        "$ref": "#/components/schemas/AttestationRow"
+                    },
+                    "continuations": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttestationRow"
+                        }
+                    },
+                    "responses": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttestationBatchResponse"
+                        }
+                    },
+                    "duplicates": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttestationBatchDuplicate"
+                        }
+                    }
+                }
             },
             "Balance": {
                 "type": "object",

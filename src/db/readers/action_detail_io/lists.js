@@ -239,6 +239,42 @@ class ActionListMembershipReaders {
         return owners;
     }
 
+    async getListMetas(config, action_indexes){
+        let roots = await this.getListRootIndexes(config, action_indexes);
+        let distinct = [...new Set(Object.values(roots))];
+        if(distinct.length == 0) return {};
+        let rows = [];
+        try {
+            rows = await this.doQuery(config, `SELECT
+                            m.list_action_index AS root,
+                            m.action_index,
+                            m.name,
+                            m.description
+                        FROM
+                            list_metas m
+                            INNER JOIN index_statuses s ON (s.id=m.status_id)
+                        WHERE
+                            m.list_action_index IN (` + distinct.map(() => '?').join(',') + `)
+                            AND s.status='valid'
+                        ORDER BY m.action_index ASC`, distinct);
+        } catch(e){
+            if(!isMissingTableError(e)) throw e;
+        }
+        let metaByRoot = {};
+        for(let row of (rows || [])){
+            metaByRoot[String(Number(row.root))] = {
+                name: row.name == null ? null : row.name,
+                description: row.description == null ? null : row.description
+            };
+        }
+        let metas = {};
+        for(let key in roots){
+            let meta = metaByRoot[String(roots[key])];
+            metas[key] = meta || { name: null, description: null };
+        }
+        return metas;
+    }
+
     // Is list-edit read resolution active for this coin at the CURRENT TIP?
     // Every display that resolves an edit chain asks this first, because
     // below the flag day consensus still reads the pinned create's rows and the

@@ -177,6 +177,14 @@ describe('hub-mirror-migrate', function () {
         expect(applied.some((ddl) => /bridge_transfers.*finalizing_view/.test(ddl))).to.equal(true);
         expect(applied.some((ddl) => /policy_snapshots.*push_generation/.test(ddl))).to.equal(true);
     });
+    it('adds the list name, description and meta hash to a legacy list_snapshots', async function () {
+        const db = fakeDb({ tables: ['list_snapshots'], columns: [], indexes: [] });
+        const applied = await ensureMirrorColumns(db, noLog);
+        const sql = applied.find((ddl) => /^ALTER TABLE `list_snapshots` /.test(ddl));
+        expect(sql).to.include('ADD COLUMN name VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL AFTER members_hash');
+        expect(sql).to.include('ADD COLUMN description VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL AFTER name');
+        expect(sql).to.include('ADD COLUMN meta_hash CHAR(64) NULL AFTER description');
+    });
     it('is a no-op on an up-to-date schema', async function () {
         const db = fakeDb({ columns: CURRENT_COLUMNS, indexes: CURRENT_INDEXES });
         const applied = await ensureMirrorColumns(db, noLog);

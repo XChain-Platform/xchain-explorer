@@ -52,7 +52,7 @@ function missingTableError(){
     return error;
 }
 
-describe('LIST rename counts', function(){
+describe('LIST rename count totals', function(){
     it('adds format 5 list_metas rows to each block lists count', async function(){
         const db = makeDb(call => {
             if(/count\(\*\) as total/.test(call.sql)) return [{ total: 3 }];
@@ -92,7 +92,9 @@ describe('LIST rename counts', function(){
         const totals = await db.getActionTotals(makeConfig());
         assert.deepStrictEqual(totals, { lists: 2, full_node_verifications: 0 });
     });
+});
 
+describe('LIST rename count errors and SQL', function(){
     it('treats a missing list_metas table as zero for blocks and totals', async function(){
         const blockDb = makeDb(call => {
             if(/count\(\*\) as total/.test(call.sql)) return [{ total: 1 }];

@@ -16540,7 +16540,7 @@
           },
           "indexer_wait_clears_at": {
             "type": "object",
-            "description": "ISO-8601 instant at which a 'future_block_wait' ends for that coin, i.e. when this host's clock reaches the next block's timestamp and the block becomes committable, keyed by coin ticker. null in every other state. Present so a client can render a countdown rather than leaving a confirmed-but-unindexed transaction looking lost. Only coins this instance measures appear here.",
+            "description": "ISO-8601 instant at which the current indexer wait may first clear, keyed by coin ticker. For 'future_block_wait', this is when this host's clock reaches the next block's timestamp and the block becomes committable. For 'behind' on a time-bounded indexer barrier, this is the indexer's own stallClearsAt while the indexer still reports that instant as ahead. null otherwise, including an ordinary slow indexer, a barrier keyed to height rather than time, and a barrier whose clear time has already passed. Present so a client can render a countdown rather than leaving a confirmed-but-unindexed transaction looking lost. Only coins this instance measures appear here.",
             "additionalProperties": {
               "type": [
                 "string",

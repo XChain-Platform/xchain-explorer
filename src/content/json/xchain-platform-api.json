@@ -3603,6 +3603,14 @@
                         },
                         "list_action_index": {
                             "type": "integer"
+                        },
+                        "name": {
+                            "type": ["string", "null"],
+                            "description": "Current name of the list"
+                        },
+                        "description": {
+                            "type": ["string", "null"],
+                            "description": "Current description of the list"
                         }
                     }
                }]
@@ -3626,6 +3634,10 @@
                     },
                     "type": {
                         "type": "integer"
+                    },
+                    "name": {
+                        "type": ["string", "null"],
+                        "description": "Current name of the shared list"
                     },
                     "owner": {
                         "type": ["string", "null"]

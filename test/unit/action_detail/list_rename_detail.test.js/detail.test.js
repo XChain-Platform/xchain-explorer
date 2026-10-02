@@ -11,6 +11,7 @@ const assert = require('assert');
 const listReaders = require('../../../../src/db/readers/action_detail_io/lists.js');
 const blockReaders = require('../../../../src/db/readers/entities/blocks.js');
 const networkReaders = require('../../../../src/db/readers/entities/network.js');
+const queryOffsets = require('../../../../src/db/query_sql/offsets.js');
 const { ACTION_TABLES, buildListsQuery } = require('../../../../src/db/method_tables.js');
 
 const config = { coin: 'BTC' };
@@ -225,6 +226,89 @@ describe('LIST format 5 network totals', function(){
         const totals = await reader.getActionTotals(config);
 
         assert.deepStrictEqual(totals, { lists: 1, full_node_verifications: 0 });
+    });
+});
+
+describe('LIST format 5 query offsets', function(){
+    function offsetReader(){
+        const reader = Object.create(queryOffsets);
+        reader.actionTables = ['lists'];
+        reader.cursorPagedMethods = [];
+        reader.util = {
+            isNull: util.isNull,
+            bcadd: (a, b) => Number(a) + Number(b)
+        };
+        return reader;
+    }
+
+    function offsetConfig(){
+        return {
+            coin: 'BTC',
+            data: {
+                method: 'getLists',
+                type: null,
+                query: { length: 10 },
+                offset: { action: 'first' }
+            }
+        };
+    }
+
+    it('counts lists rows and format 5 metadata rows when resolving boundaries', async function(){
+        const reader = offsetReader();
+        const calls = [];
+        reader.doQuery = async (cfg, sql) => {
+            calls.push(String(sql));
+            return calls.length === 1 ? [{ offset_index: 90 }] : [];
+        };
+
+        const [offset] = await reader.getQueryOffsets(offsetConfig(), false, 10);
+
+        assert.strictEqual(offset, 91);
+        assert.strictEqual(calls.length, 2);
+        for(const sql of calls){
+            assert.match(sql, /FROM lists l/);
+            assert.match(sql, /UNION ALL/);
+            assert.match(sql, /FROM list_metas lm/);
+            assert.match(sql, /INNER JOIN actions la ON \(la\.action_index=lm\.action_index\)/);
+            assert.match(sql, /la\.action_format\s*=\s*5/);
+        }
+    });
+});
+
+describe('LIST format 5 query offset fallback', function(){
+    it('retries against lists alone when list_metas is absent', async function(){
+        const reader = Object.create(queryOffsets);
+        reader.actionTables = ['lists'];
+        reader.cursorPagedMethods = [];
+        reader.util = {
+            isNull: util.isNull,
+            bcadd: (a, b) => Number(a) + Number(b)
+        };
+        const calls = [];
+        reader.doQuery = async (cfg, sql) => {
+            sql = String(sql);
+            calls.push(sql);
+            if(sql.includes('list_metas'))
+                throw Object.assign(new Error('missing'), { code: 'ER_NO_SUCH_TABLE' });
+            return calls.length === 2 ? [{ offset_index: 40 }] : [];
+        };
+        const renameConfig = {
+            coin: 'BTC',
+            data: {
+                method: 'getLists',
+                type: null,
+                query: { length: 10 },
+                offset: { action: 'first' }
+            }
+        };
+
+        const [offset] = await reader.getQueryOffsets(renameConfig, false, 10);
+
+        assert.strictEqual(offset, 41);
+        assert.strictEqual(calls.length, 3);
+        assert.match(calls[0], /list_metas/);
+        assert.doesNotMatch(calls[1], /list_metas/);
+        assert.doesNotMatch(calls[2], /list_metas/);
     });
 });
 

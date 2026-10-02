@@ -10,6 +10,7 @@
 const assert = require('assert');
 const listReaders = require('../../../../src/db/readers/action_detail_io/lists.js');
 const blockReaders = require('../../../../src/db/readers/entities/blocks.js');
+const networkReaders = require('../../../../src/db/readers/entities/network.js');
 const { ACTION_TABLES, buildListsQuery } = require('../../../../src/db/method_tables.js');
 
 const config = { coin: 'BTC' };
@@ -179,6 +180,54 @@ describe('LIST format 5 block totals', function(){
     });
 });
 
+describe('LIST format 5 network totals', function(){
+    it('counts one lists row and one format 5 metadata row as two actions', async function(){
+        const reader = Object.create(networkReaders);
+        reader.actionTables = ['lists'];
+        reader.configInfo = { env: {} };
+        reader.pools = { BTC: { config: { database: 'xchain_btc' } } };
+        reader._reorgGen = {};
+        const calls = [];
+        reader.doQuery = async (cfg, sql) => {
+            sql = String(sql);
+            calls.push(sql);
+            if(sql.includes('information_schema.TABLES')) return [{ TABLE_NAME: 'lists' }];
+            if(sql.includes("SELECT 'lists' AS t")) return [{ t: 'lists', c: 1 }];
+            if(sql.includes('full_node_verifications'))
+                return [{ action: 'full_node_verifications', count: 0 }];
+            if(sql.includes('list_metas')) return [{ action: 'lists', count: 1 }];
+            return [];
+        };
+
+        const totals = await reader.getActionTotals(config);
+
+        assert.deepStrictEqual(totals, { lists: 2, full_node_verifications: 0 });
+        const renameQuery = calls.find(sql => sql.includes('list_metas'));
+        assert.match(renameQuery, /action_format\s*=\s*5/);
+        assert.doesNotMatch(renameQuery, /UNION ALL/);
+    });
+
+    it('treats a missing metadata table as zero renames', async function(){
+        const reader = Object.create(networkReaders);
+        reader.actionTables = ['lists'];
+        reader.configInfo = { env: {} };
+        reader.pools = { BTC: { config: { database: 'xchain_btc' } } };
+        reader._reorgGen = {};
+        reader.doQuery = async (cfg, sql) => {
+            sql = String(sql);
+            if(sql.includes('information_schema.TABLES')) return [{ TABLE_NAME: 'lists' }];
+            if(sql.includes("SELECT 'lists' AS t")) return [{ t: 'lists', c: 1 }];
+            if(sql.includes('list_metas'))
+                throw Object.assign(new Error('missing'), { code: 'ER_NO_SUCH_TABLE' });
+            return [{ action: 'full_node_verifications', count: 0 }];
+        };
+
+        const totals = await reader.getActionTotals(config);
+
+        assert.deepStrictEqual(totals, { lists: 1, full_node_verifications: 0 });
+    });
+});
+
 describe('LIST list-page metadata', function(){
     const sqlConfig = {
         type: 'api',
@@ -193,11 +242,14 @@ describe('LIST list-page metadata', function(){
     });
 
     it('adds current name and description without listing format 5 rows', async function(){
-        const [query] = await buildListsQuery({}, sqlConfig, async () => true);
+        const [query, args, count] = await buildListsQuery({}, sqlConfig, async () => true);
         assert.match(query, /FROM lists m/);
         assert.match(query, /lm\.name AS name/);
         assert.match(query, /lm\.description AS description/);
         assert.doesNotMatch(query, /action_format\s*=\s*5/);
+        assert.strictEqual(args, null);
+        assert.match(count, /FROM lists m/);
+        assert.doesNotMatch(count, /list_metas/);
     });
 
     it('returns null metadata columns when list_metas is absent', async function(){

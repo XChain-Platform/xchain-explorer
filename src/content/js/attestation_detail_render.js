@@ -59,6 +59,15 @@ function renderAttestationLifecycle(d){
     return html;
 }
 
+function renderAttestationBatch(d){
+    let b = d && d.batch ? d.batch : null;
+    if(!b) return '<span class="text-muted attestation-no-batch">No batch was recorded.</span>';
+    return attBatchOverview(b)
+        + attBatchContinuations(Array.isArray(d.continuations) ? d.continuations : [])
+        + attBatchResponses(Array.isArray(d.responses) ? d.responses : [])
+        + attBatchDuplicates(Array.isArray(d.duplicates) ? d.duplicates : []);
+}
+
 // The v0 request: what was asked, of whom, on what terms.
 function renderAttestationRequest(d){
     let r = (d) ? d.request : null;
@@ -150,7 +159,7 @@ function renderAttestationResponse(d){
         + (isNull(r.timestamp) ? '' : ' <span class="small text-muted">' + formatLivestamp(r.timestamp) + '</span>'));
     html += attFieldRow('Transaction',     isNull(r.tx_hash) ? '<span class="text-muted">-</span>'
         : formatLink('/' + XC.coin + '/transaction/' + r.tx_hash, r.tx_hash));
-    html += attFieldRow('On-chain Batch', attResponseBatchCell(r));
+    html += attFieldRow('On-chain Batch',  attResponseBatchCell(r));
     html += attFieldRow('Callback Execute', isNull(d.callback_execute_action_index)
         ? '<span class="text-muted">no callback execution recorded</span>'
         : attActionLink(d.callback_execute_action_index));

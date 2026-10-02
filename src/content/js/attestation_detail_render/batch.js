@@ -79,12 +79,3 @@ function attBatchDuplicates(rows){
     });
     return html + '</ul>';
 }
-
-function renderAttestationBatch(d){
-    let b = d && d.batch ? d.batch : null;
-    if(!b) return '<span class="text-muted attestation-no-batch">No batch was recorded.</span>';
-    return attBatchOverview(b)
-        + attBatchContinuations(Array.isArray(d.continuations) ? d.continuations : [])
-        + attBatchResponses(Array.isArray(d.responses) ? d.responses : [])
-        + attBatchDuplicates(Array.isArray(d.duplicates) ? d.duplicates : []);
-}

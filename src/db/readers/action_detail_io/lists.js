@@ -12,18 +12,7 @@
  *
  **********************************************************************
  *
- * XChain Explorer - DELEGATE revoke parsing and LIST membership
- *
- * The wire parse for a DELEGATE v2/v3 revoke target, the route code to
- * coin/network split, and the LIST root, head and current-membership resolvers
- * the action detail and list pages share.
- *
- * One part of src/db/readers/action_detail_io.js (the entry composes it through
- * composeReaderParts). Authored as a class body whose prototype is exported,
- * like every other family under src/db/: `this` is the Database instance at
- * call time, and the methods reach Database.prototype non-enumerable, by
- * descriptor.
- *
+ * XChain Explorer - DELEGATE revoke parsing and LIST membership readers.
  ********************************************************************/
 
 'use strict';
@@ -35,10 +24,6 @@ const { isMissingTableError } = require('../../schema_probe.js');
 const LIST_EDIT_RESOLUTION_KEY = 'list_edit_resolution_activation.LIST_EDIT_RESOLUTION_ACTIVATION';
 
 class ActionListMembershipReaders {
-    /******************************************************************
-     * Commonly used functions 
-     *****************************************************************/
-
     // Extract the revoke target of a DELEGATE v2/v3 from the transaction's decoded
     // action string. Returns { pubkey } for v2 (capability revoke) and
     // { pubkey, target, tick } for v3 (contract-targeted revoke), or null when the
@@ -275,6 +260,74 @@ class ActionListMembershipReaders {
         return metas;
     }
 
+    async getListMetaAction(config, action_index){
+        try {
+            let rows = await this.doQuery(config, `SELECT
+                            m.action_index,
+                            m.list_action_index,
+                            m.name,
+                            m.description,
+                            l.type,
+                            memo.memo,
+                            status.status
+                        FROM
+                            list_metas m
+                            LEFT JOIN lists l ON (l.action_index=m.list_action_index)
+                            LEFT JOIN index_memos memo ON (memo.id=m.memo_id)
+                            LEFT JOIN index_statuses status ON (status.id=m.status_id)
+                        WHERE m.action_index=?
+                        LIMIT 1`, [action_index]);
+            return (rows && rows.length) ? rows[0] : null;
+        } catch(e){
+            if(isMissingTableError(e)) return null;
+            throw e;
+        }
+    }
+
+    async attachListActionDetail(config, action_index, data){
+        let reference = Number(action_index);
+        let format = this.util.isNull(data.action_format) ? null : Number(data.action_format);
+        if(format === 5){
+            let meta = await this.getListMetaAction(config, action_index);
+            data.list = [];
+            data.edits = [];
+            data.type = null;
+            data.edit = null;
+            data.list_action_index = null;
+            data.name = null;
+            data.description = null;
+            if(meta){
+                data.status = meta.status;
+                data.memo = meta.memo;
+                data.type = this.util.isNull(meta.type) ? null : Number(meta.type);
+                data.list_action_index = this.util.isNull(meta.list_action_index)
+                    ? null : Number(meta.list_action_index);
+                data.name = meta.name == null ? null : meta.name;
+                data.description = meta.description == null ? null : meta.description;
+                reference = data.list_action_index;
+            } else {
+                reference = null;
+            }
+        } else {
+            let metas = await this.getListMetas(config, [action_index]);
+            let meta = metas[String(Number(action_index))] || { name: null, description: null };
+            data.name = meta.name;
+            data.description = meta.description;
+        }
+        if(this.util.isNull(reference)){
+            data.state = {
+                edit_resolution_active: await this.isListEditResolutionActiveAtTip(config),
+                membership_action_index: null,
+                current_list: null,
+                owner: null,
+                share_mirror: null
+            };
+            return;
+        }
+        data.state = await this.getListCurrentMembership(config, reference, data.type);
+        data.state.share_mirror = await this.getListShareMirrorInfo(config, reference);
+    }
+
     // Is list-edit read resolution active for this coin at the CURRENT TIP?
     // Every display that resolves an edit chain asks this first, because
     // below the flag day consensus still reads the pinned create's rows and the
@@ -333,3 +386,8 @@ class ActionListMembershipReaders {
 }
 
 module.exports = ActionListMembershipReaders.prototype;
+
+const listHandler = require('../../../action-detail').REGISTRY.LIST;
+listHandler.afterQueries = async function({ db, config, action_index }, data){
+    await db.attachListActionDetail(config, action_index, data);
+};

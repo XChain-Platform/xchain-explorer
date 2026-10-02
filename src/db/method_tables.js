@@ -67,6 +67,67 @@ const ACTION_TABLES = [
     'sweeps'
 ];
 
+function escapedListText(expr){
+    return `REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(${expr}, ''),
+        '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), CHAR(34), '&quot;'), CHAR(39), '&#39;')`;
+}
+
+function listMetaSelect(hasMetas){
+    if(!hasMetas) return { joins: '', name: 'NULL', description: 'NULL' };
+    return {
+        joins: `LEFT JOIN list_metas lm ON (lm.action_index=(
+                    SELECT MAX(lm2.action_index)
+                    FROM list_metas lm2
+                        INNER JOIN index_statuses lms2 ON (lms2.id=lm2.status_id)
+                    WHERE lm2.list_action_index=COALESCE(m.list_action_index, m.action_index)
+                        AND lms2.status='valid'
+                ))`,
+        name: 'lm.name',
+        description: 'lm.description'
+    };
+}
+
+function listDisplaySelect(config, meta){
+    if(config.type !== 'explorer') return { type: 'm.type', edit: 'm.edit' };
+    return {
+        type: `CONCAT(CASE WHEN ${meta.name} IS NULL OR ${meta.name}=''
+                    THEN CONCAT('List #', m.action_index)
+                    ELSE ${escapedListText(meta.name)} END, ' (type ', m.type, ')')`,
+        edit: escapedListText(meta.description)
+    };
+}
+
+async function buildListsQuery(db, config, tablesPresent){
+    let sql = config.data.sql;
+    let meta = listMetaSelect(await tablesPresent(db, config, ['list_metas']));
+    let display = listDisplaySelect(config, meta);
+    let from = `lists m
+                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                    LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)`;
+    let count = `SELECT count(*) as total FROM ` + from + ` WHERE ` + sql.where.data;
+    let query = `SELECT
+                    a3.action, m.action_index, a1.action_format,
+                    ` + display.type + ` AS type,
+                    ` + display.edit + ` AS edit,
+                    m.list_action_index,
+                    ` + meta.name + ` AS name,
+                    ` + meta.description + ` AS description,
+                    a2.address as source, b1.block_index, b1.block_time as timestamp,
+                    t2.hash as tx_hash, t1.tx_index, m1.memo, s1.status
+                FROM ` + from + `
+                    ` + meta.joins + `
+                WHERE ` + sql.where.data + sql.where.offset + `
+                ORDER BY m.action_index ` + sql.order + `
+                LIMIT ` + sql.limit;
+    return [query, null, count];
+}
+
 // List views whose backing table name is NOT derivable from the method via
 // the get->lowercase mangle in getQueryOffsets (e.g. getAnchors -> anchor_actions,
 // getSlashEvents -> slash_events, the hub-mirrored governance/match tables). The
@@ -112,4 +173,4 @@ const CURSOR_PAGED_METHODS = [
     'getCollectibles'
 ];
 
-module.exports = { ACTION_TABLES, CURSOR_PAGED_METHODS };
+module.exports = { ACTION_TABLES, CURSOR_PAGED_METHODS, buildListsQuery };

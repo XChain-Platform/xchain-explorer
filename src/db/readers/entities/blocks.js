@@ -31,6 +31,7 @@
 'use strict';
 
 const { DbInputError } = require('../../shared.js');
+const { isMissingTableError } = require('../../schema_probe.js');
 
 // A block height is a non-negative integer and nothing else. parseInt/Number
 // cannot make this call: parseInt('9junk') is 9 and Number('') is 0, both of
@@ -94,6 +95,28 @@ async function attachBlockActionCounts(db, config, rows){
             if(blockMap[bIdx])
                 blockMap[bIdx].actions[row.action] = row.count;
         }
+    }
+    let renameRows = [];
+    try {
+        renameRows = await db.doQuery(config, `SELECT
+                            b1.block_index,
+                            count(*) as count
+                        FROM
+                            list_metas m
+                            INNER JOIN actions      a1 ON (a1.action_index=m.action_index)
+                            INNER JOIN transactions t1 ON (t1.tx_index=a1.tx_index)
+                            INNER JOIN blocks       b1 ON (b1.block_index=t1.block_index)
+                        WHERE
+                            a1.action_format = 5
+                            AND b1.block_index IN (` + blockIndexes.map(() => '?').join(',') + `)
+                        GROUP BY b1.block_index`, blockIndexes);
+    } catch(e){
+        if(!isMissingTableError(e)) throw e;
+    }
+    for(let row of (renameRows || [])){
+        let bIdx = Number(row.block_index);
+        if(blockMap[bIdx])
+            blockMap[bIdx].actions.lists = Number(blockMap[bIdx].actions.lists || 0) + Number(row.count);
     }
     return rows.map(r => blockMap[r.block_index]);
 }

@@ -1122,6 +1122,14 @@
                                 <td class="list-type"></td>
                             </tr>
                             <tr>
+                                <th>Name</th>
+                                <td class="list-name"></td>
+                            </tr>
+                            <tr>
+                                <th>Description</th>
+                                <td class="list-description"></td>
+                            </tr>
+                            <tr>
                                 <th>Edit Type</th>
                                 <td class="list-edit-type"></td>
                             </tr>
@@ -2148,6 +2156,10 @@ $(document).ready(function(){
             }
             XC.actionInfo = null2string(o);
             showActionDetails();
+            if(o.action === 'LIST'){
+                $('#info-list .list-name').text(isNull(o.name) ? '' : String(o.name));
+                $('#info-list .list-description').text(isNull(o.description) ? '' : String(o.description));
+            }
 
             // Update the page with SEO friendly info
             XC.pageInfo.title       =  o.action + ' Action Information';

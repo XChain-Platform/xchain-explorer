@@ -32,6 +32,7 @@
 'use strict';
 
 const coinsRegistry = require('../../../coins');
+const { isMissingTableError } = require('../../schema_probe.js');
 
 // The coin identity and network this request is for, read off the loaded explorer
 // config rather than off the route code alone, so a re-tune of a chain's name,
@@ -150,9 +151,29 @@ async function readActionTotals(db, config, coin){
         }
     }
     // Count one verification per action because the table fans out by validator.
-    let fnvResult = await db.doQuery(config, `SELECT count(DISTINCT action_index) as count FROM full_node_verifications`);
-    if(fnvResult && fnvResult.length)
-        totals['full_node_verifications'] = Number(fnvResult[0].count);
+    const fnvSql = `SELECT 'full_node_verifications' as action,
+                        count(DISTINCT action_index) as count
+                    FROM full_node_verifications`;
+    let supplemental;
+    try {
+        supplemental = await db.doQuery(config, fnvSql + ` UNION ALL
+                    SELECT 'lists' as action,
+                        count(*) as count
+                    FROM list_metas m
+                        INNER JOIN actions a1 ON (a1.action_index=m.action_index)
+                    WHERE a1.action_format = 5`);
+    } catch(e){
+        if(!isMissingTableError(e)) throw e;
+        supplemental = await db.doQuery(config, fnvSql);
+    }
+    for(let row of (supplemental || [])){
+        let count = Number(row.count);
+        if(!Number.isFinite(count)) continue;
+        if(row.action === 'lists')
+            totals.lists = Number(totals.lists || 0) + count;
+        else
+            totals.full_node_verifications = count;
+    }
     return totals;
 }
 

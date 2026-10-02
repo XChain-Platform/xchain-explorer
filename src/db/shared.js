@@ -223,28 +223,28 @@ function installAttestBatchListReader(listReaders){
 }
 
 async function readBatchResponses(db, config, actionIndex, limit){
-    return await db.doQuery(config,
+    let src = db.attestationResponseSource(config);
+    let rows = await db.doQuery(config,
         `SELECT
-            r.action_index,
-            r.version,
+            NULL as action_index,
+            1 as version,
             r.request_id,
-            q.action_index as request_action_index,
+            r.request_action_index,
             r.provider_id,
             r.response_hash,
             r.response_payload,
-            r.response_status,
+            r.status as response_status,
             r.meta,
-            r.validator_signatures,
-            r.callback_execute_action_index,
+            r.signatures as validator_signatures,
+            NULL as callback_execute_action_index,
             r.batch_action_index,
-            r.block_index,
-            s.status
-         FROM attests r
-         LEFT JOIN attests q ON (q.request_id=r.request_id AND q.version=0)
-         LEFT JOIN index_statuses s ON (s.id=r.status_id)
-         WHERE r.version=1 AND r.batch_action_index=?
-         ORDER BY r.action_index ASC
-         LIMIT ` + limit, [actionIndex]);
+            r.request_block_index as block_index,
+            'valid' as status
+         FROM ${src.table} r
+         WHERE r.network=? AND r.batch_action_index=?
+         ORDER BY r.request_block_index ASC, r.request_action_index ASC, r.effective_time ASC
+         LIMIT ` + limit, [src.network, actionIndex]);
+    return (rows || []).map(row => ({ ...row, coin: src.coin }));
 }
 
 function batchLifecycle(db, rows, selected, responses){

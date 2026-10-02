@@ -150,14 +150,46 @@ describe('ATTEST batch list compatibility', function(){
     });
 });
 
+describe('ATTEST batch cross-chain response read', function(){
+    it('reads carried responses from the network mirror instead of the DOGE attests table', async function(){
+        const db = makeDb((sql, args) => {
+            if(sql.includes('WHERE m.action_index=?')) return [batchRows()[0]];
+            if(sql.includes('WHERE m.request_id=?')) return batchRows();
+            if(sql.includes('attestation_responses')){
+                expect(args).to.deep.equal(['regtest', 500]);
+                return carriedResponses();
+            }
+            return [];
+        });
+        db.checkpointDb = {
+            DOGE: { name: 'XChain_Hub', chain: 'DOGE', network: 'regtest' }
+        };
+
+        const [out] = await db.getAttestation(config(500));
+
+        expect(out.responses.map(r => [r.request_id, r.request_action_index])).to.deep.equal([
+            [REQUEST_A, 200], [REQUEST_B, 201]
+        ]);
+        expect(out.responses.every(r => r.coin === 'RBTC')).to.equal(true);
+        const responseSql = db.doQuery.getCalls().map(c => String(c.args[1]))
+            .find(sql => sql.includes('batch_action_index=?'));
+        expect(responseSql).to.include('`XChain_Hub`.attestation_responses');
+        expect(responseSql).to.include('network=?');
+        expect(responseSql).to.not.include('FROM attests r');
+    });
+});
+
 describe('ATTEST batch lifecycle read', function(){
     it('returns a head, its continuation, two carried responses and one duplicate head', async function(){
         const db = makeDb((sql) => {
             if(sql.includes('WHERE m.action_index=?')) return [batchRows()[0]];
             if(sql.includes('WHERE m.request_id=?')) return batchRows();
-            if(sql.includes('WHERE r.version=1 AND r.batch_action_index=?')) return carriedResponses();
+            if(sql.includes('attestation_responses')) return carriedResponses();
             return [];
         });
+        db.checkpointDb = {
+            DOGE: { name: 'XChain_Hub', chain: 'DOGE', network: 'regtest' }
+        };
         const [out] = await db.getAttestation(config(500));
         expect(out.batch.action_index).to.equal(500);
         expect(out.batch.batch_key).to.equal(BATCH_KEY);
@@ -166,6 +198,7 @@ describe('ATTEST batch lifecycle read', function(){
             [REQUEST_A, 200], [REQUEST_B, 201]
         ]);
         expect(out.responses[0].quorum_signatures).to.deep.equal([{ pubkey: 'aa', sig: '11' }]);
+        expect(out.responses.every(r => r.coin === 'RBTC')).to.equal(true);
         expect(out.duplicates).to.deep.equal([{
             action_index: 510, tx_hash: '3'.repeat(64), source: 'publisher-b', block_index: 52
         }]);

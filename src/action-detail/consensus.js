@@ -18,6 +18,7 @@
 'use strict';
 
 const {
+    ANCHOR_BUNDLE_VERSIONS,
     ANCHOR_DETAIL,
     ANCHOR_SECTIONS,
     ATTEST_DETAIL,
@@ -60,8 +61,9 @@ const ANCHOR = {
         query2 = ANCHOR_SECTIONS;
         return { query, query2, query3 };
     },
-    // Attach the per-chain sections of a v0 bundle. Gated on version 0 exactly as
-    // db.getAnchor gates its own section read: every other version is a single
+    // Attach the per-chain sections of a v0 or v3 bundle. Gated on ANCHOR_BUNDLE_VERSIONS
+    // exactly as db.getAnchor gates its own section read, and a v3 archive row (chain
+    // NULL) is left out because this page lists chains only. Every other version is a single
     // checkpoint or an archive chunk, and presenting it as a one-section bundle would
     // invent a structure it does not have.
     //
@@ -73,9 +75,9 @@ const ANCHOR = {
         let sections = Array.isArray(results) ? results : [];
         data['sections']      = [];
         data['section_count'] = 1;
-        if(Number(data['version']) !== 0) return;
-        data['sections']      = sections;
-        data['section_count'] = sections.length || 1;
+        if(!ANCHOR_BUNDLE_VERSIONS.includes(Number(data['version']))) return;
+        data['sections']      = sections.filter(s => s.chain !== null && s.chain !== undefined);
+        data['section_count'] = data['sections'].length || 1;
         let blocks = sections
             .map(s => (s.snapshot_block === null || s.snapshot_block === undefined) ? null : Number(s.snapshot_block))
             .filter(v => v !== null && !Number.isNaN(v));

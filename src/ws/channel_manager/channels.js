@@ -70,6 +70,10 @@ const VALID_TYPES = new Set([
     // UNKNOWN is intentionally absent: it is the indexer's catch-all for input no
     // handler recognises, not an action family a client narrows to.
     'ADDRESS', 'BATCH', 'CROSS_SETTLE', 'XBRIDGE', 'XEXEC', 'VOTE', 'SLASH',
+    // Settlement anchor rows the indexer mints outside its dispatch switch (bridge
+    // policy apply, shared-list apply). They are real `actions` rows, so they reach
+    // the `actions` channel as NEW_ACTION under these names and must be filterable.
+    'XPOLICY', 'LIST_SHARE',
     // Lifecycle event types (emitted by ChangeDetector, not indexed directly).
     // Only names the producer actually emits belong here (ws/change_detector.js's
     // LIFECYCLE_MAP, NON_ACTION_LIFECYCLE_TYPES and INLINE_LIFECYCLE_TYPES): the

@@ -37,5 +37,14 @@ describe('anchor.html detail render @regression', function () {
             // the key set the gate switches on as well.
             expect(Object.keys(shipped).sort()).to.deep.equal(['mainnet', 'regtest', 'testnet']);
         });
+
+        it('the browser ANCHOR_FOLD_ACTIVATION equals the registry row the indexer gates v3 on', function () {
+            const canonical = require('../../../../../../src/consensus/gate_registry.js')
+                .copy('anchor_fold_activation.ANCHOR_FOLD_ACTIVATION');
+            const shipped   = domWithPage().window.ANCHOR_FOLD_ACTIVATION;
+            expect(shipped, 'the render script must declare ANCHOR_FOLD_ACTIVATION').to.be.an('object');
+            expect(shipped).to.deep.equal(canonical);
+            expect(Object.keys(shipped).sort()).to.deep.equal(['mainnet', 'regtest', 'testnet']);
+        });
     });
 });

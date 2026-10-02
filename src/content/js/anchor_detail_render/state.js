@@ -67,12 +67,15 @@
 // per-network checkpoint BUNDLE, root-bearing by construction, one section per
 // chain; v1 is the archive head, carrying both its own checkpoint fields and the
 // match archive, with a publisher-attestation tail that may legitimately be empty
-// (ATTEST_SIG_COUNT 0, D4); v2 is the archive continuation chunk. A row below
-// activation never reaches this table - see the ACTIVATION GATE note above.
+// (ATTEST_SIG_COUNT 0, D4); v2 is the archive continuation chunk; v3 is the folded
+// bundle (v0 sections plus one optional archive section), read from this table only
+// at or above ANCHOR_FOLD_ACTIVATION too. A row below activation never reaches this
+// table - see the ACTIVATION GATE note above.
 var ANCHOR_VERSION_TRAITS = {
     0: { label: 'Checkpoint bundle (one per network)',         checkpoint: true,  archive: false, roots: true,  publisher: true,  continuation: false, bundle: true  },
     1: { label: 'Archive head + publisher tail',               checkpoint: true,  archive: true,  roots: false, publisher: true,  continuation: false, bundle: false },
-    2: { label: 'Archive continuation chunk',                  checkpoint: false, archive: true,  roots: false, publisher: false, continuation: true,  bundle: false }
+    2: { label: 'Archive continuation chunk',                  checkpoint: false, archive: true,  roots: false, publisher: false, continuation: true,  bundle: false },
+    3: { label: 'Folded checkpoint + archive bundle',          checkpoint: true,  archive: true,  roots: true,  publisher: true,  continuation: false, bundle: true  }
 };
 
 // Page-local escape, matching the per-page pattern the other detail pages use.
@@ -133,6 +136,17 @@ function anchorStatusBadge(status){
     return '<span class="badge text-bg-' + tone + ' anchor-status-badge">' + anchorEsc(s) + '</span>';
 }
 
+// Mirror gate_registry reached(): ANCHOR_FOLD_ACTIVATION is active only when the
+// threshold and the anchor's own DOGE height are both finite and height >= threshold.
+// Fails CLOSED (an absent global, unknown network or UNPINNED null threshold is
+// inactive), the opposite polarity of the ANCHOR_ACTIVATION legacy check.
+function anchorFoldActive(net, doge){
+    let table = (typeof ANCHOR_FOLD_ACTIVATION === 'object' && ANCHOR_FOLD_ACTIVATION) ? ANCHOR_FOLD_ACTIVATION : null;
+    let threshold = (table && net !== null && Object.prototype.hasOwnProperty.call(table, net)) ? table[net] : null;
+    if(typeof threshold !== 'number' || !Number.isFinite(threshold)) return false;
+    return (doge !== null && Number.isFinite(doge) && doge >= threshold);
+}
+
 // Which payload legs this anchor carries. Known versions come from the traits
 // table; an unrecognized version falls back to the payload's own shape so a
 // future version renders what it actually has instead of nothing at all.
@@ -144,6 +158,10 @@ function anchorStatusBadge(status){
 // shape under a plausible-looking label (a legacy v1 "checkpoint + match
 // archive" would read as today's v1 "archive head"), so it renders through the
 // same known:false path an unrecognized version does, tagged legacy instead.
+//
+// v3 passes a second gate, ANCHOR_FOLD_ACTIVATION, the indexer's foldActive check:
+// below it the indexer stores 'invalid: VERSION (unknown)' and decodes the bytes
+// under the v1 layout, so the row renders known:false and tagged preFold.
 function anchorTraits(d){
     let row = d || {};
     let v   = isNull(row.version) ? null : Number(row.version);
@@ -153,8 +171,9 @@ function anchorTraits(d){
         ? ANCHOR_ACTIVATION[net] : null;
     let doge   = isNull(row.block_index_doge) ? null : Number(row.block_index_doge);
     let legacy = (cutoff !== null && doge !== null && doge < cutoff);
+    let preFold = (!legacy && v === 3 && !anchorFoldActive(net, doge));
 
-    let t = (!legacy && v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
+    let t = (!legacy && !preFold && v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
     if(t)
         return {
             known: true, version: v, label: t.label,
@@ -167,11 +186,13 @@ function anchorTraits(d){
         known: false,
         version: v,
         legacy: legacy,
+        preFold: preFold,
         // The row's OWN stored verdict, carried through verbatim rather than
         // guessed at: the Status field renders it separately too, but the
-        // legacy note names it inline so the "why" sits next to the label.
-        reason: legacy ? (isNull(row.status) ? null : String(row.status)) : null,
-        label: legacy ? 'Legacy (before activation)' : ((v === null) ? 'Anchor' : ('Unrecognized version v' + v)),
+        // legacy and preFold notes name it inline so the "why" sits next to the label.
+        reason: (legacy || preFold) ? (isNull(row.status) ? null : String(row.status)) : null,
+        label: legacy ? 'Legacy (before activation)'
+            : (preFold ? 'v3 before fold activation' : ((v === null) ? 'Anchor' : ('Unrecognized version v' + v))),
         checkpoint:   !isNull(row.checkpoint_seq),
         archive:      !isNull(row.match_batch_seq),
         roots:        (!isNull(row.state_root) || !isNull(row.block_merkle_root)),

@@ -44,6 +44,27 @@ describe('Broadcaster', function () {
             expect(msg.type).to.equal('NEW_BLOCK');
             expect(msg.data.block_index).to.equal(100);
         });
+
+        // getBlocksSince's COUNT(*) columns arrive as BigInt; zero, non-zero, Number and
+        // missing counts must all reach the wire as one JSON type.
+        it('sends NEW_BLOCK tx_count and action_count as decimal strings for every input', function () {
+            const cases = [
+                [{ tx_count: 5n, action_count: 2n }, '5', '2'],
+                [{ tx_count: 0n, action_count: 0n }, '0', '0'],
+                [{ tx_count: 5, action_count: 0 }, '5', '0'],
+                [{}, '0', '0']
+            ];
+            for (const [counts, tx, actions] of cases) {
+                setupBroadcaster();
+                const client = createClient(1, 'BTC');
+                wsServer.addClient(client);
+                wsServer.channelManager.subscribe(client, ['blocks']);
+                changeDetector.emit('block', 'BTC', Object.assign({ block_index: 100 }, counts));
+                const data = JSON.parse(client.ws.send.lastCall.args[0]).data;
+                expect([data.tx_count, data.action_count], JSON.stringify(counts, (k, v) =>
+                    typeof v === 'bigint' ? v + 'n' : v)).to.deep.equal([tx, actions]);
+            }
+        });
     });
 });
 

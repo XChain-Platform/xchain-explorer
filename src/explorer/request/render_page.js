@@ -37,9 +37,10 @@ const { versionAssetUrls } = require('../../render/asset_version.js');
 // Inject plain JSON because browser scripts cannot load the Node registry.
 // Escape less-than signs so a future string value cannot close the script tag.
 function injectAnchorActivation(html) {
-    const activation = gateRegistry.copy('anchor_activation.ANCHOR_ACTIVATION');
-    const json = JSON.stringify(activation).replace(/</g, '\\u003c');
-    return html.replace('{ANCHOR_ACTIVATION}', () => json);
+    const asJson = (key) => JSON.stringify(gateRegistry.copy(key)).replace(/</g, '\\u003c');
+    const json = asJson('anchor_activation.ANCHOR_ACTIVATION');
+    const fold = asJson('anchor_fold_activation.ANCHOR_FOLD_ACTIVATION');
+    return html.replace('{ANCHOR_ACTIVATION}', () => json).replace('{ANCHOR_FOLD_ACTIVATION}', () => fold);
 }
 
 /**

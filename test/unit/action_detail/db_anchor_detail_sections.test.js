@@ -135,3 +135,17 @@ describe('ANCHOR action detail sections @regression', function () {
         assert.strictEqual(data.snapshot_block, 900000);
     });
 });
+
+describe('ANCHOR action detail v3 fold sections @regression', function () {
+    // A v3 fold stores the v0 sections plus a trailing archive row whose chain is NULL;
+    // the chain list and count read the checkpoint sections only.
+    it('fans a v3 fold out into its chains, leaving the archive row out of the count', async function () {
+        const archive = { section_index: 3, chain: null, block_index: null, checkpoint_seq: null,
+            snapshot_block: 910000, status: 'valid' };
+        const db   = makeDb(3, SECTIONS.concat([archive]));
+        const data = await db.getActionData(config, ACTION);
+        assert.deepStrictEqual(data.sections.map((s) => s.chain), ['BTC', 'LTC', 'DOGE']);
+        assert.strictEqual(data.section_count, 3);
+        assert.strictEqual(data.snapshot_block, 910000);
+    });
+});

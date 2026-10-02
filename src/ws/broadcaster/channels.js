@@ -161,10 +161,11 @@ class ChannelFanout {
     }
 }
 
-// Counts a frame dropped for a backed-up subscriber and reports it, throttled per
-// client so the drop leaves a trace without flooding the log.
+// Counts a frame dropped for a backed-up subscriber, sheds the connection once, and
+// reports the skip throttled per client so the drop leaves a trace without flooding the log.
 function noteBackpressureSkip(broadcaster, client) {
     client.backpressureSkips = (client.backpressureSkips || 0) + 1;
+    shedBackedUpClient(broadcaster, client);
     const now = Date.now();
     if (now - (client.backpressureLoggedAt || 0) < BACKPRESSURE_LOG_WINDOW_MS) return;
     client.backpressureLoggedAt = now;
@@ -177,20 +178,39 @@ function noteBackpressureSkip(broadcaster, client) {
     });
 }
 
-// The filter step for one subscriber: backpressure, the filter pipeline, the
+// Close a client that just lost a frame with code 4008, once. Nothing after the
+// dropped frame reaches it, so its cursor stays before the gap and its reconnect
+// catch-up replays the frame; ws's own close timeout destroys a socket that never drains.
+function shedBackedUpClient(broadcaster, client) {
+    if (client.backpressureClosing) return;
+    client.backpressureClosing = true;
+    log.warn('WS_BACKPRESSURE_CLOSE', {
+        client:   client.id,
+        coin:     client.coin,
+        buffered: client.ws.bufferedAmount,
+        max:      broadcaster.maxBackpressure
+    });
+    try {
+        client.ws.close(4008, 'backpressure');
+    } catch (e) {
+        // Non-fatal: a socket that cannot close is already gone
+    }
+}
+
+// The filter step for one subscriber: the filter pipeline, backpressure, the
 // projection, then the stamped send. Answers false when the subscriber was
-// skipped or its send threw, which is what keeps a once subscription that was
-// never delivered from being removed; true otherwise, including a socket that
-// is not open (no send, but the once subscription still counts as spent).
+// filtered out, skipped, or its send threw, which is what keeps a once subscription
+// that was never delivered from being removed; true otherwise, including a socket
+// that is not open (no send, but the once subscription still counts as spent).
 function deliverToSubscriber(broadcaster, client, filter, event, actionData) {
-    // Backpressure check
+    // Filter pipeline (AND logic): all non-null filters must pass
+    if (!broadcaster.passesFilter(filter, event, actionData)) return false;
+
+    // Backpressure check, after the filter: only a frame the client wanted can shed it
     if (client.ws.bufferedAmount > broadcaster.maxBackpressure) {
         noteBackpressureSkip(broadcaster, client);
         return false;
     }
-
-    // Filter pipeline (AND logic): all non-null filters must pass
-    if (!broadcaster.passesFilter(filter, event, actionData)) return false;
 
     // Apply fields projection
     const msg = filter.fields ? broadcaster.applyFieldsProjection(event, filter.fields) : event;

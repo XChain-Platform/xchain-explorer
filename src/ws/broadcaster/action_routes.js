@@ -12,12 +12,15 @@
  *
  **********************************************************************
  *
- * XChain Explorer - Broadcaster, NEW_ACTION routing
+ * XChain Explorer - Broadcaster, NEW_ACTION and lifecycle routing
  *
- * The one rule for which channels a NEW_ACTION reaches. The live fan-out
- * (Broadcaster.onAction) and the catch-up replay (websocket_server/catch_up.js)
- * both read it, so a reconnecting client is replayed exactly the frames the
- * live feed would have sent it.
+ * The one rule for which channels a NEW_ACTION reaches, and the one rule for
+ * which channels a lifecycle event reaches. The live fan-out (Broadcaster
+ * onAction / onLifecycleEvent) and the catch-up replay
+ * (websocket_server/catch_up.js) both read them, so a reconnecting client is
+ * replayed the frames the live feed sent for each missed action row. Lifecycle
+ * events with no action row behind them (the detector's NON_ACTION_LIFECYCLE_TYPES)
+ * cannot be replayed, and CATCH_UP_COMPLETE names them in `not_replayed`.
  *
  ********************************************************************/
 
@@ -46,4 +49,19 @@ function carriesActions(coin, channelKeys) {
     return false;
 }
 
-module.exports = { actionChannelKeys, carriesActions };
+// The channel keys a lifecycle event goes to, in delivery order: the coin-wide actions
+// channel, then the dedicated channel it names (per entity when it carries an entity id,
+// else bare), then the address channel of every address its payload names.
+function lifecycleChannelKeys(broadcaster, coin, lifecycleEvent) {
+    const keys = [coin + ':actions'];
+    if (lifecycleEvent.channel) {
+        const entityId = broadcaster.lifecycleChannelEntityId(lifecycleEvent);
+        keys.push(coin + ':' + lifecycleEvent.channel + (entityId ? ':' + entityId : ''));
+    }
+    for (const address of broadcaster.extractAddresses(lifecycleEvent.data)) {
+        keys.push(coin + ':address:' + address);
+    }
+    return keys;
+}
+
+module.exports = { actionChannelKeys, carriesActions, lifecycleChannelKeys };

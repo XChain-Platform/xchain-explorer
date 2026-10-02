@@ -12,13 +12,11 @@
  *
  **********************************************************************/
 
-// ANCHOR_ACTIVATION is installed as a browser global by anchor.html before this
-// file loads. The server serializes the explorer-owned registry row into that
-// inline script because static browser code cannot require the Node registry.
+// ANCHOR_ACTIVATION and ANCHOR_FOLD_ACTIVATION are installed as browser globals by
+// anchor.html before this file loads. The server serializes the explorer-owned registry
+// rows into that inline script because static browser code cannot require the Node registry.
 
 function anchorRenderTraits(d){
-    ANCHOR_VERSION_TRAITS[3] = { label: 'Folded checkpoint + archive bundle', checkpoint: true, archive: true,
-        roots: true, publisher: true, continuation: false, bundle: true };
     let traits = anchorTraits(d);
     if(traits.known && traits.version === 3)
         traits.archive = (anchorArchiveRow(d) !== null);
@@ -82,6 +80,8 @@ function renderAnchorIdentity(d){
         + anchorEsc(t.label) + '</span>'
         + (t.known ? '' : anchorNote(t.legacy
             ? ('This ANCHOR was mined before the activation height for its network, so its version byte predates the current v0/v1/v2/v3 wire set and is not read against today\'s traits table. Stored status: '
+                + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
+            : t.preFold ? ('This ANCHOR carries version 3 but was mined before the fold activation height for its network, so the indexer does not accept it as a folded bundle. Stored status: '
                 + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
             : 'This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.')));
     if(verdicts){

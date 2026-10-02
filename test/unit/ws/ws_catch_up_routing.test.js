@@ -82,7 +82,8 @@ describe('catch-up replay routes like the live fan-out', function () {
         expect(frames(client, 'NEW_ACTION')).to.have.lengthOf(0);
         const complete = frames(client, 'CATCH_UP_COMPLETE');
         expect(complete).to.have.lengthOf(1);
-        expect(complete[0].data).to.deep.equal({ events_replayed: 0, latest_action_index: '0', truncated: false });
+        expect(complete[0].data).to.deep.equal({ events_replayed: 0, latest_action_index: '0', truncated: false,
+            not_replayed: ['BET_CLOSED', 'XCALL_COMPLETED', 'XCALL_EXPIRED'] });
         expect(complete[0].id).to.equal('r1');
         expect(db.getActionsSince.called).to.equal(false);
         expect(client.catchUpInProgress).to.equal(false);
@@ -144,6 +145,73 @@ describe('catch-up replay matches the live fan-out frame for frame', function ()
         expect(unsub).to.have.lengthOf(1);
         expect(unsub[0].data).to.deep.equal({ channel: 'address', address: 'X', reason: 'once' });
         expect(client.subscriptions.has('BTC:address:X')).to.equal(false);
+    });
+});
+
+// Rows that each derive lifecycle events: a coinpay ORDER_MATCH naming payer P, a
+// DISPENSE on dispenser 3, a BET on feed 4, and an ATTEST request.
+const LIFECYCLE_ROWS = [
+    { action_index: 5, action: 'ORDER_MATCH', block_index: 11, source: 'S', destinations: [] },
+    { action_index: 6, action: 'DISPENSE',    block_index: 11, source: 'P', destinations: [] },
+    { action_index: 7, action: 'BET',         block_index: 11, source: 'P', destinations: [], action_format: 2 },
+    { action_index: 8, action: 'ATTEST',      block_index: 11, source: 'P', destinations: [] }
+];
+
+function mkLifecycleDb() {
+    return mkDb({
+        getActionsSince:            sinon.stub().resolves(LIFECYCLE_ROWS),
+        getOrderMatchSettlement:    sinon.stub().resolves({ settlement_type: 'coinpay' }),
+        getCoinpayObligation:       sinon.stub().resolves({ obligation_action_index: 5, order_match_action_index: 5,
+            payer_address: 'P', payee_address: 'Q', coin_amount: '0.01000000', expiration: '100' }),
+        getDispenseDispenserIndex:  sinon.stub().resolves(3),
+        getBetActionFeedIndex:      sinon.stub().resolves(4),
+        getAttestationByActionIndex: sinon.stub().resolves({ action_index: 8, version: 0, request_id: 'q1', provider_id: 'p1' })
+    });
+}
+
+const sequence = (client) => client.ws.send.getCalls().map(c => JSON.parse(c.args[0]))
+    .filter(m => !['SUBSCRIBED', 'CATCH_UP_COMPLETE'].includes(m.type)).map(m => [m.type, m.data]);
+
+describe('catch-up replay rebuilds the lifecycle frames of each missed row', function () {
+    afterEach(() => sinon.restore());
+
+    it('replays the same lifecycle frames the live detector sends, on every channel', async function () {
+        const ChangeDetector = require('../../../src/ws/change_detector.js');
+        const db = mkLifecycleDb();
+        const detector = new ChangeDetector({ db });
+        const s = new WebSocketServer({ explorer: { db }, broadcaster: null });
+        s.broadcaster = new Broadcaster({ wsServer: s, changeDetector: detector });
+        const live = addClient(s, 1);
+        const replayed = addClient(s, 2);
+        const channels = ['actions', 'address', 'dispenser', 'attestation'];
+
+        subscribe(s, live, channels, { address: 'P', action_index: '3' }, 'l1');
+        for (const row of LIFECYCLE_ROWS) {
+            detector.emit('action', 'BTC', row);
+            await detector.emitLifecycleEvents('BTC', { coin: 'BTC' }, row);
+            await detector.emitAttestationEvents('BTC', { coin: 'BTC' }, row);
+        }
+        subscribe(s, replayed, channels, { address: 'P', action_index: '3', since_action_index: '4' }, 'r1');
+        await settle();
+
+        const liveSeq = sequence(live);
+        expect(liveSeq.map(f => f[0])).to.include.members(['COINPAY_REQUIRED', 'ORDER_MATCH', 'DISPENSE', 'BET', 'ATTESTATION_REQUEST']);
+        expect(sequence(replayed)).to.deep.equal(liveSeq);
+        const payerFrames = frames(replayed, 'COINPAY_REQUIRED').filter(m => m.catch_up);
+        expect(payerFrames.length, 'P must be replayed the COINPAY_REQUIRED that names it payer').to.be.at.least(1);
+        const complete = frames(replayed, 'CATCH_UP_COMPLETE')[0].data;
+        expect(complete.events_replayed).to.equal(liveSeq.length);
+        expect(complete.not_replayed).to.deep.equal(ChangeDetector.NON_ACTION_LIFECYCLE_TYPES);
+    });
+
+    it('lifecycle frames honour the types filter on replay as they do live', async function () {
+        const { s } = setup(mkLifecycleDb());
+        const client = addClient(s, 1);
+
+        subscribe(s, client, ['address'], { address: 'P', types: ['COINPAY_REQUIRED'], since_action_index: '4' }, 'r1');
+        await settle();
+
+        expect(sequence(client).map(f => f[0])).to.deep.equal(['COINPAY_REQUIRED']);
     });
 });
 

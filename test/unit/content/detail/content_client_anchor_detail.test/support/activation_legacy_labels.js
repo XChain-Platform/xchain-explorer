@@ -52,5 +52,20 @@ describe('anchor.html detail render @regression', function () {
             // unhidden - the legacy note explains it, it does not replace it.
             expect($('.anchor-status-badge').first().text()).to.equal('invalid: ANCHOR before activation');
         });
+
+        it('keeps a v3 row below ANCHOR_ACTIVATION on the Legacy label ahead of the fold gate', function () {
+            const $ = renderPage(Object.assign({}, LEGACY_TESTNET_BUNDLE, { version: 3 }));
+            expect($('.anchor-kind').text()).to.equal('Legacy (before activation)');
+            expect($('.anchor-field-value .anchor-note').first().text()).to.not.contain('fold activation');
+        });
+
+        it('[TRAP] a testnet v3 row past ANCHOR_ACTIVATION but below the UNARMED fold gate is never a folded bundle', function () {
+            const $ = renderPage(Object.assign({}, LEGACY_TESTNET_BUNDLE, {
+                version: 3, block_index_doge: 67858600, status: 'invalid: VERSION (unknown)'
+            }));
+            expect($('.anchor-kind').text()).to.equal('v3 before fold activation');
+            expect($('.anchor-field-value .anchor-note').first().text())
+                .to.contain('Stored status: invalid: VERSION (unknown)');
+        });
     });
 });

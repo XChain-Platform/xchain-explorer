@@ -3074,7 +3074,7 @@
                     },
                     "indexer_wait_clears_at": {
                         "type": "object",
-                        "description": "ISO-8601 instant at which the current indexer wait may first clear, keyed by coin ticker. For 'future_block_wait', this is when the host's clock reaches the next block's timestamp and the block becomes committable. For 'behind' on a time-bounded indexer barrier, this is the indexer's own stallClearsAt value. null when no bound is known, including an ordinary slow indexer and a barrier that depends on height rather than time. Present so a client can render a countdown rather than leaving a confirmed-but-unindexed transaction looking lost. Only coins this instance measures appear here.",
+                        "description": "ISO-8601 instant at which the current indexer wait may first clear, keyed by coin ticker. For 'future_block_wait', this is when the host's clock reaches the next block's timestamp and the block becomes committable. For 'behind' on a time-bounded indexer barrier, this is the indexer's own stallClearsAt value while the indexer still reports that instant as ahead. null when no bound is known, including an ordinary slow indexer, a barrier that depends on height rather than time, and a barrier whose clear time has already passed. Present so a client can render a countdown rather than leaving a confirmed-but-unindexed transaction looking lost. Only coins this instance measures appear here.",
                         "additionalProperties": {
                             "type": ["string", "null"]
                         }

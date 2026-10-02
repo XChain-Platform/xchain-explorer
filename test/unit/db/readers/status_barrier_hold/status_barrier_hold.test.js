@@ -55,11 +55,12 @@ describe('Database#getStatus oracle-sync barrier hold', () => {
 
     it('reads the barrier hold and reports behind with its clear instant', async () => {
         laggingWithAdmissibleNextBlock(12);
+        // The pairing the indexer's stallClassOf sends while the clear instant is ahead.
         const stallClearsAt = Date.now() + 120000;
         const post = sinon.stub(axios, 'post').resolves({
             data: { result: {
                 stallReason: 'oracle_sync_barrier',
-                stallClass: 'barrier_defer',
+                stallClass: 'future_block_wait',
                 stallClearsAt
             } }
         });
@@ -84,4 +85,20 @@ describe('Database#getStatus oracle-sync barrier hold', () => {
         expect(data.indexer_state['RBTC']).to.equal('behind');
         expect(data.indexer_wait_clears_at['RBTC']).to.equal(null);
     });
+
+    // Once the instant passes the indexer reclassifies the stall, and a past
+    // stallClearsAt is no clear time to publish.
+    for(const stallClass of ['barrier_defer', 'wedged']){
+        it(`publishes no clear instant for a ${stallClass} stall whose clear time has passed`, async () => {
+            laggingWithAdmissibleNextBlock(12);
+            sinon.stub(axios, 'post').resolves({
+                data: { result: { stallReason: 'oracle_sync_barrier', stallClass, stallClearsAt: Date.now() - 60000 } }
+            });
+
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+
+            expect(data.indexer_state['RBTC']).to.equal('behind');
+            expect(data.indexer_wait_clears_at['RBTC']).to.equal(null);
+        });
+    }
 });

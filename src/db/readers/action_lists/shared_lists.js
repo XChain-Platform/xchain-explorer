@@ -81,13 +81,36 @@ function numberOrNull(value){
     return (value === null || value === undefined) ? null : Number(value);
 }
 
-function normalizeRow(row, owner){
+async function readListNames(reader, config, actionIndexes){
+    let distinct = [...new Set(actionIndexes.map(Number).filter(Number.isFinite))];
+    let names = {};
+    for(let actionIndex of distinct) names[String(actionIndex)] = null;
+    if(!distinct.length) return names;
+    try {
+        let rows = await reader.doQuery(config, `SELECT
+                        m.list_action_index AS root,
+                        m.action_index,
+                        m.name
+                    FROM list_metas m
+                        INNER JOIN index_statuses s ON (s.id=m.status_id)
+                    WHERE m.list_action_index IN (` + distinct.map(() => '?').join(',') + `)
+                        AND s.status='valid'
+                    ORDER BY m.action_index ASC`, distinct);
+        for(let row of (rows || [])) names[String(Number(row.root))] = row.name;
+    } catch(e){
+        if(!isMissingTableError(e)) throw e;
+    }
+    return names;
+}
+
+function normalizeRow(row, owner, name){
     return {
         kind: row.kind,
         home_chain: row.home_chain,
         home_list_index: numberOrNull(row.home_list_index),
         local_list_index: numberOrNull(row.local_list_index),
         type: numberOrNull(row.type),
+        name: name === undefined ? null : name,
         owner: owner === undefined ? null : owner,
         member_count: numberOrNull(row.member_count),
         share_block: numberOrNull(row.share_block),
@@ -107,8 +130,12 @@ class SharedListReaders {
         }
         let roots = home.map(row => row.home_list_index);
         let owners = roots.length ? await this.getListOwnerAddresses(config, roots) : {};
-        let rows = home.map(row => normalizeRow(row, owners[String(Number(row.home_list_index))] || null));
-        rows.push(...mirrors.map(row => normalizeRow(row, null)));
+        let localIndexes = home.map(row => row.home_list_index)
+            .concat(mirrors.map(row => row.local_list_index));
+        let names = await readListNames(this, config, localIndexes);
+        let rows = home.map(row => normalizeRow(row, owners[String(Number(row.home_list_index))] || null,
+            names[String(Number(row.home_list_index))]));
+        rows.push(...mirrors.map(row => normalizeRow(row, null, names[String(Number(row.local_list_index))])));
         let sql = (config.data && config.data.sql) || {};
         let total = rows.length;
         let offset = Number(sql.apiOffset) || 0;

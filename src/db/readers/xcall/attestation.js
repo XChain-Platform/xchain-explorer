@@ -36,6 +36,9 @@ const {
 
 installAttestBatchListReader(listReaders);
 
+// Protocol-sized detail bounds, independent of the generic 100-row route cap.
+const ATTEST_BATCH_RESPONSE_LIMIT = 256, ATTEST_BATCH_LIFECYCLE_LIMIT = 513;
+
 // Every leg of one round in one bounded read, oldest first so the caller renders the
 // lifecycle in the order it happened. request_id+version is indexed.
 //
@@ -295,12 +298,12 @@ class AttestationReaders {
     // relay block below names them rather than issuing a second query for rows that are by
     // construction on ANOTHER chain's indexer DB.
     async getAttestation(config){
-        let limit    = this.detailLimit(config);
         let resolved = await resolveAttestationRequestId(this, config);
         if(!resolved) return [null];
 
         let withBatch = await attestBatchColumnsPresent(this, config);
-        let rows = await readAttestationLegs(this, config, resolved.requestId, limit, withBatch);
+        let rows = await readAttestationLegs(this, config, resolved.requestId,
+            ATTEST_BATCH_LIFECYCLE_LIMIT, withBatch);
         if(!rows || !rows.length) return [null];
 
         let selected = resolved.seed || rows[0];
@@ -309,7 +312,7 @@ class AttestationReaders {
             let head = Number(selected.version) === 5 ? selected
                 : heads.find(r => r.source === selected.source) || heads[0] || selected;
             let responses = Number(head.batch_row_count) === 0 ? []
-                : await readBatchResponses(this, config, head.action_index, limit);
+                : await readBatchResponses(this, config, head.action_index, ATTEST_BATCH_RESPONSE_LIMIT);
             return [batchLifecycle(this, rows, selected, responses || [])];
         }
 
@@ -349,6 +352,8 @@ class AttestationReaders {
                         m.batch_window_end,
                         m.batch_row_count,
                         m.batch_action_index,
+                        m.batch_chunk_index,
+                        m.batch_total_chunks,
                         ` : ``) + `a2.address as source,
                         fp.address as fee_payer,
                         m.block_index,

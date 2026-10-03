@@ -140,9 +140,12 @@ function anchorStatusBadge(status){
 // threshold and the anchor's own DOGE height are both finite and height >= threshold.
 // Fails CLOSED (an absent global, unknown network or UNPINNED null threshold is
 // inactive), the opposite polarity of the ANCHOR_ACTIVATION legacy check.
-function anchorFoldActive(net, doge){
+function anchorFoldActive(net, coin, doge){
     let table = (typeof ANCHOR_FOLD_ACTIVATION === 'object' && ANCHOR_FOLD_ACTIVATION) ? ANCHOR_FOLD_ACTIVATION : null;
-    let threshold = (table && net !== null && Object.prototype.hasOwnProperty.call(table, net)) ? table[net] : null;
+    let chainKey = (coin !== null && net !== null) ? String(coin) + ':' + net : null;
+    let threshold = (table && chainKey !== null && Object.prototype.hasOwnProperty.call(table, chainKey))
+        ? table[chainKey]
+        : ((table && net !== null && Object.prototype.hasOwnProperty.call(table, net)) ? table[net] : null);
     if(typeof threshold !== 'number' || !Number.isFinite(threshold)) return false;
     return (doge !== null && Number.isFinite(doge) && doge >= threshold);
 }
@@ -171,7 +174,8 @@ function anchorTraits(d){
         ? ANCHOR_ACTIVATION[net] : null;
     let doge   = isNull(row.block_index_doge) ? null : Number(row.block_index_doge);
     let legacy = (cutoff !== null && doge !== null && doge < cutoff);
-    let preFold = (!legacy && v === 3 && !anchorFoldActive(net, doge));
+    let coin = (typeof XC === 'object' && XC && !isNull(XC.chain)) ? String(XC.chain) : null;
+    let preFold = (!legacy && v === 3 && !anchorFoldActive(net, coin, doge));
 
     let t = (!legacy && !preFold && v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
     if(t)

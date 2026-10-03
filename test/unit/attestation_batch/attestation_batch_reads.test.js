@@ -26,7 +26,8 @@ const BATCH_KEY = 'a'.repeat(64);
 const REQUEST_A = 'b'.repeat(64);
 const REQUEST_B = 'c'.repeat(64);
 const COLUMNS = [
-    'batch_action_index', 'batch_window_start', 'batch_window_end', 'batch_row_count'
+    'batch_action_index', 'batch_window_start', 'batch_window_end', 'batch_row_count',
+    'batch_chunk_index', 'batch_total_chunks'
 ].map(COLUMN_NAME => ({ COLUMN_NAME }));
 
 function config(search, method = 'getAttestation'){
@@ -85,6 +86,32 @@ function carriedResponses(){
     }];
 }
 
+async function assertProtocolSizedBatch(size){
+    const chunks = [batchRows(size)[0]];
+    for(let i = 1; i < size; i++) chunks.push({
+        action: 'ATTEST', action_index: 500 + i, version: 6, request_id: BATCH_KEY,
+        batch_key: BATCH_KEY, batch_chunk_index: i, batch_total_chunks: size,
+        source: 'publisher-a', block_index: 50 + i, status: 'valid'
+    });
+    const responses = Array.from({ length: size }, (_, i) => ({
+        action_index: 1000 + i, version: 1, request_id: i.toString(16).padStart(64, '0'),
+        request_action_index: 700 + i, validator_signatures: '[]',
+        batch_action_index: 500, status: 'valid'
+    }));
+    const db = makeDb((sql) => {
+        const match = /LIMIT (\d+)/.exec(sql);
+        const limit = match ? Number(match[1]) : Infinity;
+        if(sql.includes('WHERE m.request_id=?')) return chunks.slice(0, limit);
+        if(sql.includes('WHERE r.version=1 AND r.batch_action_index=?')) return responses.slice(0, limit);
+        return [];
+    });
+    const capped = config(BATCH_KEY);
+    capped.data.sql.limit = 100;
+    const [out] = await db.getAttestation(capped);
+    expect(out.continuations, String(size)).to.have.lengthOf(size - 1);
+    expect(out.responses, String(size)).to.have.lengthOf(size);
+}
+
 describe('ATTEST batch list reads', function(){
     it('selects the batch key, window fields, row count and response batch link', async function(){
         const db = makeDb();
@@ -102,7 +129,8 @@ describe('ATTEST batch list reads', function(){
 
     [
         { version: 5, batch_key: BATCH_KEY, batch_window_start: 1, batch_window_end: 2, batch_row_count: 2 },
-        { version: 6, batch_key: BATCH_KEY, batch_window_start: null, batch_window_end: null, batch_row_count: null },
+        { version: 6, batch_key: BATCH_KEY, batch_window_start: null, batch_window_end: null,
+            batch_row_count: null, batch_chunk_index: 2, batch_total_chunks: 5 },
         { version: 0 },
         { version: 1, batch_action_index: 500 }
     ].forEach(function(fixture){
@@ -114,7 +142,8 @@ describe('ATTEST batch list reads', function(){
             }, fixture), { count_reverse: 1, status: 1, method: 'getAttestations' });
             expect(row.slice(14)).to.deep.equal([
                 fixture.batch_key, fixture.batch_window_start, fixture.batch_window_end,
-                fixture.batch_row_count, fixture.batch_action_index
+                fixture.batch_row_count, fixture.batch_action_index,
+                fixture.batch_chunk_index, fixture.batch_total_chunks
             ]);
         });
     });
@@ -169,6 +198,10 @@ describe('ATTEST batch lifecycle read', function(){
         expect(out.duplicates).to.deep.equal([{
             action_index: 510, tx_hash: '3'.repeat(64), source: 'publisher-b', block_index: 52
         }]);
+    });
+
+    it('returns protocol-sized chunks and responses at 100, 101 and 256 rows', async function(){
+        for(const size of [100, 101, 256]) await assertProtocolSizedBatch(size);
     });
 
     it('returns an empty response list for a row_count 0 batch without a response query', async function(){

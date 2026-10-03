@@ -173,7 +173,8 @@ async function resolveAttestationRequestId(db, config){
 }
 
 const ATTEST_BATCH_COLUMNS = [
-    'batch_action_index', 'batch_window_start', 'batch_window_end', 'batch_row_count'
+    'batch_action_index', 'batch_window_start', 'batch_window_end', 'batch_row_count',
+    'batch_chunk_index', 'batch_total_chunks'
 ];
 const ATTEST_BATCH_PROBE_TTL_MS = 60000;
 
@@ -207,7 +208,9 @@ function batchProjection(withBatch){
                 m.batch_window_start,
                 m.batch_window_end,
                 m.batch_row_count,
-                m.batch_action_index`;
+                m.batch_action_index,
+                m.batch_chunk_index,
+                m.batch_total_chunks`;
 }
 
 function installAttestBatchListReader(listReaders){

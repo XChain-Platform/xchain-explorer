@@ -42,7 +42,7 @@ function render(row, fold = { regtest: 0 }){
     dom.window.eval(`
         var ANCHOR_ACTIVATION = { regtest: 0 };
         ${fold === null ? '' : 'var ANCHOR_FOLD_ACTIVATION = ' + JSON.stringify(fold) + ';'}
-        var XC = { coin: 'RDOGE', network: 'regtest' };
+        var XC = { coin: 'RDOGE', chain: 'DOGE', network: 'regtest' };
         function isNull(v){ return v === null || v === undefined; }
         // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
         function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -148,6 +148,12 @@ describe('ANCHOR v3 fold activation gate', function(){
 
     it('a v3 row AT the fold height is recognized (>= is the boundary)', function(){
         expect(render(FOLDED, { regtest: 130 })('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+    });
+
+    it('prefers the action-chain fold height over the unarmed network fallback', function(){
+        const row = Object.assign({}, FOLDED, { network: 'testnet', block_index_doge: 500 });
+        const $ = render(row, { testnet: 9999999999, 'DOGE:testnet': 400 });
+        expect($('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
     });
 
     it('fails closed on an UNARMED, UNPINNED, unknown-network or undeclared fold gate', function(){

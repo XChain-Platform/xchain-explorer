@@ -150,6 +150,24 @@ describe('ANCHOR v3 fold activation gate', function(){
         expect(render(FOLDED, { regtest: 130 })('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
     });
 
+    it('uses the DOGE-qualified fold height before the bare network fallback', function(){
+        const table = {
+            testnet: 9999999999,
+            'BTC:testnet': 154939,
+            'LTC:testnet': 4905307,
+            'DOGE:testnet': 67960786
+        };
+        const at = Object.assign({}, FOLDED, { network: 'testnet', block_index_doge: 67960786 });
+        const before = Object.assign({}, PRE_FOLD, { network: 'testnet', block_index_doge: 67960785 });
+        expectPreFold(render(before, table));
+        expect(render(at, table)('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+    });
+
+    it('keeps the bare network fold height as a compatibility fallback', function(){
+        const at = Object.assign({}, FOLDED, { network: 'testnet', block_index_doge: 130 });
+        expect(render(at, { testnet: 130 })('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+    });
+
     it('fails closed on an UNARMED, UNPINNED, unknown-network or undeclared fold gate', function(){
         expectPreFold(render(FOLDED, { regtest: 9999999999 }));
         expectPreFold(render(FOLDED, { regtest: null }));

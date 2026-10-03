@@ -85,6 +85,30 @@ function carriedResponses(){
     }];
 }
 
+function carriedResponseRows(count){
+    return Array.from({ length: count }, (_, i) => ({
+        action_index: 300 + i, version: 1, request_id: i.toString(16).padStart(64, '0'),
+        request_action_index: 200 + i, response_status: 'ok', validator_signatures: '[]',
+        batch_action_index: 500, status: 'valid'
+    }));
+}
+
+function chunkRows(count){
+    return Array.from({ length: count }, (_, i) => ({
+        action: 'ATTEST', action_index: 500 + i, version: i === 0 ? 5 : 6,
+        request_id: BATCH_KEY, batch_key: BATCH_KEY,
+        batch_window_start: i === 0 ? 1700000000 : null,
+        batch_window_end: i === 0 ? 1700003600 : null,
+        batch_row_count: 0, source: 'publisher-a', block_index: 50 + i,
+        tx_hash: i.toString(16).padStart(64, '0'), status: 'valid'
+    }));
+}
+
+function applySqlLimit(sql, rows){
+    const match = sql.match(/ LIMIT (\d+)$/);
+    return rows.slice(0, match ? Number(match[1]) : rows.length);
+}
+
 describe('ATTEST batch list reads', function(){
     it('selects the batch key, window fields, row count and response batch link', async function(){
         const db = makeDb();
@@ -214,6 +238,38 @@ describe('ATTEST batch lifecycle read', function(){
         expect(out.responses).to.deep.equal([]);
         expect(out.continuations).to.deep.equal([]);
         expect(out.duplicates).to.deep.equal([]);
+    });
+});
+
+describe('ATTEST batch detail limits', function(){
+    [101, 256].forEach(function(count){
+        it('returns all ' + count + ' carried responses independently of the generic detail limit', async function(){
+            const responses = carriedResponseRows(count);
+            const db = makeDb((sql) => {
+                if(sql.includes('WHERE m.request_id=?')) return [batchRows(count)[0]];
+                if(sql.includes('attestation_responses')) return applySqlLimit(sql, responses);
+                return [];
+            });
+            db.checkpointDb = {
+                DOGE: { name: 'XChain_Hub', chain: 'DOGE', network: 'regtest' }
+            };
+            const cfg = config(BATCH_KEY);
+            cfg.data.sql.limit = 100;
+            const [out] = await db.getAttestation(cfg);
+            expect(out.responses).to.have.lengthOf(count);
+        });
+    });
+
+    it('returns all 174 legal batch chunk legs independently of the generic detail limit', async function(){
+        const rows = chunkRows(174);
+        const db = makeDb((sql) => {
+            if(sql.includes('WHERE m.request_id=?')) return applySqlLimit(sql, rows);
+            return [];
+        });
+        const cfg = config(BATCH_KEY);
+        cfg.data.sql.limit = 100;
+        const [out] = await db.getAttestation(cfg);
+        expect(out.continuations).to.have.lengthOf(173);
     });
 });
 

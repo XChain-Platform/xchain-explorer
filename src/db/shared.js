@@ -176,6 +176,10 @@ const ATTEST_BATCH_COLUMNS = [
     'batch_action_index', 'batch_window_start', 'batch_window_end', 'batch_row_count'
 ];
 const ATTEST_BATCH_PROBE_TTL_MS = 60000;
+// Keep batch-detail reads aligned with xchain-hub/src/lib/attest_batch_wire/constants.js:
+// 256 rows per batch and at most 174 chunks from the bounded encoder output.
+const ATTEST_BATCH_RESPONSE_LIMIT = 256;
+const ATTEST_BATCH_CHUNK_LIMIT = 174;
 
 async function attestBatchColumnsPresent(db, config){
     if(!db.attestBatchColumnMemo) db.attestBatchColumnMemo = {};
@@ -222,7 +226,7 @@ function installAttestBatchListReader(listReaders){
     };
 }
 
-async function readBatchResponses(db, config, actionIndex, limit){
+async function readBatchResponses(db, config, actionIndex){
     let src = db.attestationResponseSource(config);
     let rows = await db.doQuery(config,
         `SELECT
@@ -243,7 +247,7 @@ async function readBatchResponses(db, config, actionIndex, limit){
          FROM ${src.table} r
          WHERE r.network=? AND r.batch_action_index=?
          ORDER BY r.request_block_index ASC, r.request_action_index ASC, r.effective_time ASC
-         LIMIT ` + limit, [src.network, actionIndex]);
+         LIMIT ` + ATTEST_BATCH_RESPONSE_LIMIT, [src.network, actionIndex]);
     return (rows || []).map(row => ({ ...row, coin: src.coin }));
 }
 
@@ -271,5 +275,5 @@ function batchLifecycle(db, rows, selected, responses){
 module.exports = {
     ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS, DbQueryError, DbInputError, staleFailClosed,
     attestBatchColumnsPresent, batchProjection, installAttestBatchListReader,
-    readBatchResponses, batchLifecycle, resolveAttestationRequestId
+    readBatchResponses, batchLifecycle, resolveAttestationRequestId, ATTEST_BATCH_CHUNK_LIMIT
 };

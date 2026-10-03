@@ -40,9 +40,9 @@ describe('consensus gate registry anchor fold rows', function () {
             for (const key of KEYS) {
                 assert.deepStrictEqual(gateRegistry.get(key), {
                     mainnet: 9999999999,
-                    'BTC:testnet': 154939,
-                    'LTC:testnet': 4905307,
-                    'DOGE:testnet': 67960786,
+                    'BTC:testnet': 154971,
+                    'LTC:testnet': 4905844,
+                    'DOGE:testnet': 67961578,
                     testnet: 9999999999,
                     regtest: null,
                 });

@@ -72,6 +72,18 @@ describe('ATTEST batch detail card', function(){
         expect($('.attestation-batch-duplicate').text()).to.contain('publisher-b');
     });
 
+    it('links carried BTC lifecycle rows from a DOGE batch page to the network BTC explorer', function(){
+        const dom = renderDom();
+        dom.window.eval("XC.coin = 'RDOGE'");
+        const payload = batch();
+        payload.responses.forEach(row => { row.coin = 'RBTC'; });
+        const $ = paint(dom, dom.window.renderAttestationBatch(payload));
+
+        expect($('.attestation-batch-response a[href="/RBTC/attestation/' + REQUEST_A + '"]').length).to.equal(1);
+        expect($('.attestation-batch-response a[href="/RBTC/action/200"]').length).to.equal(1);
+        expect($('.attestation-batch-response a[href^="/RDOGE/"]').length).to.equal(0);
+    });
+
     it('switches the shipped detail page from request lifecycle cards to the batch card', function(){
         const payload = batch();
         const url = '/RBTC/api/attestation/' + BATCH_KEY;

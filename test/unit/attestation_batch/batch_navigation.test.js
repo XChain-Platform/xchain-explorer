@@ -14,6 +14,7 @@ const path = require('path');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 const { clientSource } = require('../../helpers/content-source.js');
+const { stakeLifecycleRows } = require('../../../src/explorer/paging/list_rows.js');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const JQUERY = fs.readFileSync(path.join(ROOT, 'src/content/js/jquery.min.js'), 'utf8');
@@ -42,20 +43,14 @@ function attestPanel(){
     return ACTION_HTML.slice(start, end + 6);
 }
 
-function batchRow(batchKey=BATCH_KEY){
-    const row = Array(21).fill(null);
-    row[4] = 5;
-    row[5] = '';
-    row[6] = batchKey;
-    row[9] = 1;
-    row[10] = 500;
-    row[14] = batchKey;
-    row[15] = Date.UTC(2026, 9, 2, 10, 0) / 1000;
-    row[16] = Date.UTC(2026, 9, 2, 11, 0) / 1000;
-    row[17] = 2;
-    row[19] = 0;
-    row[20] = 1;
-    return row;
+function batchRow(batchKey=BATCH_KEY, overrides={}){
+    return stakeLifecycleRows(Object.assign({
+        block_index: 10, timestamp: 20, source: 'publisher', version: 5,
+        provider_id: '', request_id: batchKey, action_index: 500,
+        batch_key: batchKey, batch_window_start: Date.UTC(2026, 9, 2, 10, 0) / 1000,
+        batch_window_end: Date.UTC(2026, 9, 2, 11, 0) / 1000, batch_row_count: 2,
+        batch_action_index: null, batch_chunk_index: 0, batch_total_chunks: 1
+    }, overrides), { count_reverse: 1, status: 1, method: 'getAttestations' });
 }
 
 describe('ATTEST batch navigation', function(){
@@ -96,5 +91,18 @@ describe('ATTEST batch navigation', function(){
         const expected = '/RDOGE/attestation/' + encodeURIComponent(batchKey);
         expect($('td', row).eq(6).find('a').attr('href')).to.equal(expected);
         expect($('td', row).eq(9).find('a').attr('href')).to.equal(expected);
+    });
+
+    it('labels a continuation from the server-shaped chunk counters', function(){
+        const win = boot('<table><thead><tr>' + '<th></th>'.repeat(10)
+            + '</tr></thead><tbody><tr id="row">' + '<td></td>'.repeat(10) + '</tr></tbody></table>');
+        const row = win.jQuery('#row')[0];
+        win.xcDatatableRenderAttestationRow({
+            row, coin: 'RDOGE', data: batchRow(BATCH_KEY, {
+                version: 6, batch_window_start: null, batch_window_end: null,
+                batch_row_count: null, batch_chunk_index: 2, batch_total_chunks: 5
+            })
+        });
+        expect(win.jQuery('td', row).eq(7).text()).to.equal('Batch continuation (chunk 3 of 5)');
     });
 });

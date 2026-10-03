@@ -31,7 +31,7 @@
 const listReaders = require('./lists.js');
 const {
     attestBatchColumnsPresent, batchProjection, installAttestBatchListReader,
-    readBatchResponses, batchLifecycle, resolveAttestationRequestId
+    readBatchResponses, batchLifecycle, resolveAttestationRequestId, ATTEST_BATCH_CHUNK_LIMIT
 } = require('../../shared.js');
 
 installAttestBatchListReader(listReaders);
@@ -295,21 +295,27 @@ class AttestationReaders {
     // relay block below names them rather than issuing a second query for rows that are by
     // construction on ANOTHER chain's indexer DB.
     async getAttestation(config){
-        let limit    = this.detailLimit(config);
+        let limit = this.detailLimit(config);
         let resolved = await resolveAttestationRequestId(this, config);
         if(!resolved) return [null];
 
         let withBatch = await attestBatchColumnsPresent(this, config);
-        let rows = await readAttestationLegs(this, config, resolved.requestId, limit, withBatch);
+        let batchSeed = withBatch && resolved.seed && [5, 6].includes(Number(resolved.seed.version));
+        let legLimit = batchSeed ? ATTEST_BATCH_CHUNK_LIMIT : limit;
+        let rows = await readAttestationLegs(this, config, resolved.requestId, legLimit, withBatch);
         if(!rows || !rows.length) return [null];
 
         let selected = resolved.seed || rows[0];
         if(withBatch && [5, 6].includes(Number(selected.version))){
+            if(legLimit !== ATTEST_BATCH_CHUNK_LIMIT){
+                rows = await readAttestationLegs(this, config, resolved.requestId, ATTEST_BATCH_CHUNK_LIMIT, withBatch);
+                selected = resolved.seed || rows[0];
+            }
             let heads = rows.filter(r => Number(r.version) === 5);
             let head = Number(selected.version) === 5 ? selected
                 : heads.find(r => r.source === selected.source) || heads[0] || selected;
             let responses = Number(head.batch_row_count) === 0 ? []
-                : await readBatchResponses(this, config, head.action_index, limit);
+                : await readBatchResponses(this, config, head.action_index);
             return [batchLifecycle(this, rows, selected, responses || [])];
         }
 
@@ -348,7 +354,7 @@ class AttestationReaders {
                         m.batch_window_start,
                         m.batch_window_end,
                         m.batch_row_count,
-                        m.batch_action_index,
+                        m.batch_action_index, m.batch_chunk_index, m.batch_total_chunks,
                         ` : ``) + `a2.address as source,
                         fp.address as fee_payer,
                         m.block_index,

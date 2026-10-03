@@ -20,9 +20,16 @@ function attBatchMinute(value){
     return '<span class="attestation-batch-time">' + attEsc(stamp) + '</span>';
 }
 
-function attRequestLink(requestId){
+function attRequestLink(requestId, coin){
     if(isNull(requestId)) return '<span class="text-muted">-</span>';
-    return formatLink('/' + XC.coin + '/attestation/' + encodeURIComponent(String(requestId)), requestId);
+    let lifecycleCoin = isNull(coin) ? networkCoin('BTC') : networkCoin(coin);
+    return formatLink('/' + lifecycleCoin + '/attestation/' + encodeURIComponent(String(requestId)), requestId);
+}
+
+function attRequestActionLink(actionIndex, coin){
+    if(isNull(actionIndex)) return '<span class="text-muted">-</span>';
+    let lifecycleCoin = isNull(coin) ? networkCoin('BTC') : networkCoin(coin);
+    return formatLink('/' + lifecycleCoin + '/action/' + actionIndex, numeral(actionIndex).format('0,0'));
 }
 
 function attBatchOverview(b){
@@ -57,8 +64,8 @@ function attBatchResponses(rows){
         return html + '<div class="text-muted small attestation-batch-responses-empty">No responses were carried.</div>';
     html += '<ul class="list-unstyled small mb-2 attestation-batch-responses">';
     rows.forEach(function(row){
-        html += '<li class="attestation-batch-response">' + attRequestLink(row.request_id)
-            + (isNull(row.request_action_index) ? '' : ' request action ' + attActionLink(row.request_action_index))
+        html += '<li class="attestation-batch-response">' + attRequestLink(row.request_id, row.coin)
+            + (isNull(row.request_action_index) ? '' : ' request action ' + attRequestActionLink(row.request_action_index, row.coin))
             + (isNull(row.response_status) ? '' : ' <span class="badge text-bg-secondary">' + attEsc(row.response_status) + '</span>')
             + '</li>';
     });

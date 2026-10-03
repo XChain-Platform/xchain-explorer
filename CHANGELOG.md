@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.21.3] - 2026-10-03
+
+### Added
+- Added selectable themes, reusable presentation components, and rich live-page components.
+- Added shared-list mirror support and list detail rendering.
+- Displayed list names and descriptions in list and action views.
+- Displayed each hourly attestation batch as one line.
+
+### Changed
+- Restored separate token activation sentinels for each testnet chain.
+- Armed testnet mirror admission producers at BTC 154234, LTC 4903068 and DOGE 67936053.
+- Armed testnet mirror admission consumers at BTC 154291, LTC 4903291 and DOGE 67936888.
+- Armed the testnet anchor attestation barrier at BTC 154291.
+- Armed testnet token bridges at BTC 154567, LTC 4903068 and DOGE 67951140.
+- Armed testnet token policy inheritance at BTC 154567, LTC 4903068 and DOGE 67951140.
+
+### Fixed
+- Used exact decimal arithmetic for amounts, supplies, prices, bet pools, and stakes.
+- Escaped on-chain text, validated request identifiers, and refused unsafe link schemes.
+
 ## [0.21.1] - 2026-10-01
 
 ### Added

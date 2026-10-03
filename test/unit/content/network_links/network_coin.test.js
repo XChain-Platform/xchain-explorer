@@ -137,9 +137,9 @@ function clientFiles(){
 const PATH_BUILD = /(?:'\/'|"\/')\s*\+\s*(.+?)\s*\+\s*'\/(?:token|action|address|block|contract|market|transaction|dispenser|checkpoint|anchor|execution|bet_feed|governance_votes|api|explorer)\b/g;
 // XC.coin is the page's own namespace, and `coin` / anchorCoin() are the page coin
 // by convention (the datatable context, getActionDetails, the renderers' locals).
-// actCoin is token_info.js's networkCoin result, spliced twice. Anything else has to
-// be a networkCoin(...) call.
-const PAGE_COIN = /^(XC\.coin|coin|anchorCoin\(\)|actCoin)$/;
+// actCoin and lifecycleCoin are networkCoin results reused in their renderers.
+// Anything else has to be a networkCoin(...) call.
+const PAGE_COIN = /^(XC\.coin|coin|anchorCoin\(\)|actCoin|lifecycleCoin)$/;
 const MAPPED    = /^(xbEsc\()?networkCoin\(/;
 
 describe('source guard: a coin-built path goes through networkCoin', function () {

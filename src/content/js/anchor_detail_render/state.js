@@ -136,16 +136,18 @@ function anchorStatusBadge(status){
     return '<span class="badge text-bg-' + tone + ' anchor-status-badge">' + anchorEsc(s) + '</span>';
 }
 
-// Mirror gate_registry reached(): ANCHOR_FOLD_ACTIVATION is active only when the
-// threshold and the anchor's own DOGE height are both finite and height >= threshold.
+// Mirror gate_registry reached(): prefer the DOGE-qualified threshold, retaining
+// the bare network key for old tables. Both threshold and DOGE height must be finite.
 // Fails CLOSED (an absent global, unknown network or UNPINNED null threshold is
 // inactive), the opposite polarity of the ANCHOR_ACTIVATION legacy check.
-function anchorFoldActive(net, coin, doge){
+function anchorFoldActive(net, doge){
     let table = (typeof ANCHOR_FOLD_ACTIVATION === 'object' && ANCHOR_FOLD_ACTIVATION) ? ANCHOR_FOLD_ACTIVATION : null;
-    let chainKey = (coin !== null && net !== null) ? String(coin) + ':' + net : null;
-    let threshold = (table && chainKey !== null && Object.prototype.hasOwnProperty.call(table, chainKey))
-        ? table[chainKey]
-        : ((table && net !== null && Object.prototype.hasOwnProperty.call(table, net)) ? table[net] : null);
+    let threshold = null;
+    if(table && net !== null){
+        let dogeKey = 'DOGE:' + net;
+        if(Object.prototype.hasOwnProperty.call(table, dogeKey)) threshold = table[dogeKey];
+        else if(Object.prototype.hasOwnProperty.call(table, net)) threshold = table[net];
+    }
     if(typeof threshold !== 'number' || !Number.isFinite(threshold)) return false;
     return (doge !== null && Number.isFinite(doge) && doge >= threshold);
 }
@@ -174,8 +176,7 @@ function anchorTraits(d){
         ? ANCHOR_ACTIVATION[net] : null;
     let doge   = isNull(row.block_index_doge) ? null : Number(row.block_index_doge);
     let legacy = (cutoff !== null && doge !== null && doge < cutoff);
-    let coin = (typeof XC === 'object' && XC && !isNull(XC.chain)) ? String(XC.chain) : null;
-    let preFold = (!legacy && v === 3 && !anchorFoldActive(net, coin, doge));
+    let preFold = (!legacy && v === 3 && !anchorFoldActive(net, doge));
 
     let t = (!legacy && !preFold && v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
     if(t)

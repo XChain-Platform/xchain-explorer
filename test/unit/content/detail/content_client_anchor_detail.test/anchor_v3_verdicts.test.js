@@ -42,7 +42,7 @@ function render(row, fold = { regtest: 0 }){
     dom.window.eval(`
         var ANCHOR_ACTIVATION = { regtest: 0 };
         ${fold === null ? '' : 'var ANCHOR_FOLD_ACTIVATION = ' + JSON.stringify(fold) + ';'}
-        var XC = { coin: 'RDOGE', chain: 'DOGE', network: 'regtest' };
+        var XC = { coin: 'RDOGE', network: 'regtest' };
         function isNull(v){ return v === null || v === undefined; }
         // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
         function formatLinkHtml(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
@@ -150,10 +150,22 @@ describe('ANCHOR v3 fold activation gate', function(){
         expect(render(FOLDED, { regtest: 130 })('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
     });
 
-    it('prefers the action-chain fold height over the unarmed network fallback', function(){
-        const row = Object.assign({}, FOLDED, { network: 'testnet', block_index_doge: 500 });
-        const $ = render(row, { testnet: 9999999999, 'DOGE:testnet': 400 });
-        expect($('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+    it('uses the DOGE-qualified fold height before the bare network fallback', function(){
+        const table = {
+            testnet: 9999999999,
+            'BTC:testnet': 154939,
+            'LTC:testnet': 4905307,
+            'DOGE:testnet': 67960786
+        };
+        const at = Object.assign({}, FOLDED, { network: 'testnet', block_index_doge: 67960786 });
+        const before = Object.assign({}, PRE_FOLD, { network: 'testnet', block_index_doge: 67960785 });
+        expectPreFold(render(before, table));
+        expect(render(at, table)('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+    });
+
+    it('keeps the bare network fold height as a compatibility fallback', function(){
+        const at = Object.assign({}, FOLDED, { network: 'testnet', block_index_doge: 130 });
+        expect(render(at, { testnet: 130 })('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
     });
 
     it('fails closed on an UNARMED, UNPINNED, unknown-network or undeclared fold gate', function(){

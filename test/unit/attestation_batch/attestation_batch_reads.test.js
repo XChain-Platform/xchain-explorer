@@ -86,30 +86,28 @@ function carriedResponses(){
     }];
 }
 
-async function assertProtocolSizedBatch(size){
-    const chunks = [batchRows(size)[0]];
-    for(let i = 1; i < size; i++) chunks.push({
-        action: 'ATTEST', action_index: 500 + i, version: 6, request_id: BATCH_KEY,
-        batch_key: BATCH_KEY, batch_chunk_index: i, batch_total_chunks: size,
-        source: 'publisher-a', block_index: 50 + i, status: 'valid'
-    });
-    const responses = Array.from({ length: size }, (_, i) => ({
-        action_index: 1000 + i, version: 1, request_id: i.toString(16).padStart(64, '0'),
-        request_action_index: 700 + i, validator_signatures: '[]',
+function carriedResponseRows(count){
+    return Array.from({ length: count }, (_, i) => ({
+        action_index: 300 + i, version: 1, request_id: i.toString(16).padStart(64, '0'),
+        request_action_index: 200 + i, response_status: 'ok', validator_signatures: '[]',
         batch_action_index: 500, status: 'valid'
     }));
-    const db = makeDb((sql) => {
-        const match = /LIMIT (\d+)/.exec(sql);
-        const limit = match ? Number(match[1]) : Infinity;
-        if(sql.includes('WHERE m.request_id=?')) return chunks.slice(0, limit);
-        if(sql.includes('WHERE r.version=1 AND r.batch_action_index=?')) return responses.slice(0, limit);
-        return [];
-    });
-    const capped = config(BATCH_KEY);
-    capped.data.sql.limit = 100;
-    const [out] = await db.getAttestation(capped);
-    expect(out.continuations, String(size)).to.have.lengthOf(size - 1);
-    expect(out.responses, String(size)).to.have.lengthOf(size);
+}
+
+function chunkRows(count){
+    return Array.from({ length: count }, (_, i) => ({
+        action: 'ATTEST', action_index: 500 + i, version: i === 0 ? 5 : 6,
+        request_id: BATCH_KEY, batch_key: BATCH_KEY,
+        batch_window_start: i === 0 ? 1700000000 : null,
+        batch_window_end: i === 0 ? 1700003600 : null,
+        batch_row_count: 0, source: 'publisher-a', block_index: 50 + i,
+        tx_hash: i.toString(16).padStart(64, '0'), status: 'valid'
+    }));
+}
+
+function applySqlLimit(sql, rows){
+    const match = sql.match(/ LIMIT (\d+)$/);
+    return rows.slice(0, match ? Number(match[1]) : rows.length);
 }
 
 describe('ATTEST batch list reads', function(){
@@ -179,14 +177,46 @@ describe('ATTEST batch list compatibility', function(){
     });
 });
 
+describe('ATTEST batch cross-chain response read', function(){
+    it('reads carried responses from the network mirror instead of the DOGE attests table', async function(){
+        const db = makeDb((sql, args) => {
+            if(sql.includes('WHERE m.action_index=?')) return [batchRows()[0]];
+            if(sql.includes('WHERE m.request_id=?')) return batchRows();
+            if(sql.includes('attestation_responses')){
+                expect(args).to.deep.equal(['regtest', 500]);
+                return carriedResponses();
+            }
+            return [];
+        });
+        db.checkpointDb = {
+            DOGE: { name: 'XChain_Hub', chain: 'DOGE', network: 'regtest' }
+        };
+
+        const [out] = await db.getAttestation(config(500));
+
+        expect(out.responses.map(r => [r.request_id, r.request_action_index])).to.deep.equal([
+            [REQUEST_A, 200], [REQUEST_B, 201]
+        ]);
+        expect(out.responses.every(r => r.coin === 'RBTC')).to.equal(true);
+        const responseSql = db.doQuery.getCalls().map(c => String(c.args[1]))
+            .find(sql => sql.includes('batch_action_index=?'));
+        expect(responseSql).to.include('`XChain_Hub`.attestation_responses');
+        expect(responseSql).to.include('network=?');
+        expect(responseSql).to.not.include('FROM attests r');
+    });
+});
+
 describe('ATTEST batch lifecycle read', function(){
     it('returns a head, its continuation, two carried responses and one duplicate head', async function(){
         const db = makeDb((sql) => {
             if(sql.includes('WHERE m.action_index=?')) return [batchRows()[0]];
             if(sql.includes('WHERE m.request_id=?')) return batchRows();
-            if(sql.includes('WHERE r.version=1 AND r.batch_action_index=?')) return carriedResponses();
+            if(sql.includes('attestation_responses')) return carriedResponses();
             return [];
         });
+        db.checkpointDb = {
+            DOGE: { name: 'XChain_Hub', chain: 'DOGE', network: 'regtest' }
+        };
         const [out] = await db.getAttestation(config(500));
         expect(out.batch.action_index).to.equal(500);
         expect(out.batch.batch_key).to.equal(BATCH_KEY);
@@ -195,13 +225,10 @@ describe('ATTEST batch lifecycle read', function(){
             [REQUEST_A, 200], [REQUEST_B, 201]
         ]);
         expect(out.responses[0].quorum_signatures).to.deep.equal([{ pubkey: 'aa', sig: '11' }]);
+        expect(out.responses.every(r => r.coin === 'RBTC')).to.equal(true);
         expect(out.duplicates).to.deep.equal([{
             action_index: 510, tx_hash: '3'.repeat(64), source: 'publisher-b', block_index: 52
         }]);
-    });
-
-    it('returns protocol-sized chunks and responses at 100, 101 and 256 rows', async function(){
-        for(const size of [100, 101, 256]) await assertProtocolSizedBatch(size);
     });
 
     it('returns an empty response list for a row_count 0 batch without a response query', async function(){
@@ -214,6 +241,38 @@ describe('ATTEST batch lifecycle read', function(){
         expect(out.responses).to.deep.equal([]);
         expect(out.continuations).to.deep.equal([]);
         expect(out.duplicates).to.deep.equal([]);
+    });
+});
+
+describe('ATTEST batch detail limits', function(){
+    [101, 256].forEach(function(count){
+        it('returns all ' + count + ' carried responses independently of the generic detail limit', async function(){
+            const responses = carriedResponseRows(count);
+            const db = makeDb((sql) => {
+                if(sql.includes('WHERE m.request_id=?')) return [batchRows(count)[0]];
+                if(sql.includes('attestation_responses')) return applySqlLimit(sql, responses);
+                return [];
+            });
+            db.checkpointDb = {
+                DOGE: { name: 'XChain_Hub', chain: 'DOGE', network: 'regtest' }
+            };
+            const cfg = config(BATCH_KEY);
+            cfg.data.sql.limit = 100;
+            const [out] = await db.getAttestation(cfg);
+            expect(out.responses).to.have.lengthOf(count);
+        });
+    });
+
+    it('returns all 174 legal batch chunk legs independently of the generic detail limit', async function(){
+        const rows = chunkRows(174);
+        const db = makeDb((sql) => {
+            if(sql.includes('WHERE m.request_id=?')) return applySqlLimit(sql, rows);
+            return [];
+        });
+        const cfg = config(BATCH_KEY);
+        cfg.data.sql.limit = 100;
+        const [out] = await db.getAttestation(cfg);
+        expect(out.continuations).to.have.lengthOf(173);
     });
 });
 

@@ -31,13 +31,10 @@
 const listReaders = require('./lists.js');
 const {
     attestBatchColumnsPresent, batchProjection, installAttestBatchListReader,
-    readBatchResponses, batchLifecycle, resolveAttestationRequestId
+    readBatchResponses, batchLifecycle, resolveAttestationRequestId, ATTEST_BATCH_CHUNK_LIMIT
 } = require('../../shared.js');
 
 installAttestBatchListReader(listReaders);
-
-// Protocol-sized detail bounds, independent of the generic 100-row route cap.
-const ATTEST_BATCH_RESPONSE_LIMIT = 256, ATTEST_BATCH_LIFECYCLE_LIMIT = 513;
 
 // Every leg of one round in one bounded read, oldest first so the caller renders the
 // lifecycle in the order it happened. request_id+version is indexed.
@@ -298,21 +295,27 @@ class AttestationReaders {
     // relay block below names them rather than issuing a second query for rows that are by
     // construction on ANOTHER chain's indexer DB.
     async getAttestation(config){
+        let limit = this.detailLimit(config);
         let resolved = await resolveAttestationRequestId(this, config);
         if(!resolved) return [null];
 
         let withBatch = await attestBatchColumnsPresent(this, config);
-        let rows = await readAttestationLegs(this, config, resolved.requestId,
-            ATTEST_BATCH_LIFECYCLE_LIMIT, withBatch);
+        let batchSeed = withBatch && resolved.seed && [5, 6].includes(Number(resolved.seed.version));
+        let legLimit = batchSeed ? ATTEST_BATCH_CHUNK_LIMIT : limit;
+        let rows = await readAttestationLegs(this, config, resolved.requestId, legLimit, withBatch);
         if(!rows || !rows.length) return [null];
 
         let selected = resolved.seed || rows[0];
         if(withBatch && [5, 6].includes(Number(selected.version))){
+            if(legLimit !== ATTEST_BATCH_CHUNK_LIMIT){
+                rows = await readAttestationLegs(this, config, resolved.requestId, ATTEST_BATCH_CHUNK_LIMIT, withBatch);
+                selected = resolved.seed || rows[0];
+            }
             let heads = rows.filter(r => Number(r.version) === 5);
             let head = Number(selected.version) === 5 ? selected
                 : heads.find(r => r.source === selected.source) || heads[0] || selected;
             let responses = Number(head.batch_row_count) === 0 ? []
-                : await readBatchResponses(this, config, head.action_index, ATTEST_BATCH_RESPONSE_LIMIT);
+                : await readBatchResponses(this, config, head.action_index);
             return [batchLifecycle(this, rows, selected, responses || [])];
         }
 

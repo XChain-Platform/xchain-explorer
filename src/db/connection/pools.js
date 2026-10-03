@@ -145,7 +145,8 @@ class DatabasePools {
         for(let key in this.pools){
             let kcfg = this.checkpointDb[key];
             if(!kcfg){ missing.push(key); continue; }
-            if(kcfg.selfSync && !resolveHubUrl(kcfg)) unwritable.push(key);
+            let hasHubSeeds = !this.util.isNull(kcfg.hubSeedUrls) && String(kcfg.hubSeedUrls).trim() !== '';
+            if(kcfg.selfSync && !resolveHubUrl(kcfg) && !hasHubSeeds) unwritable.push(key);
         }
         if(unwritable.length){
             let msg = 'Self-synced checkpoint schema has no hub endpoint for serving coin(s): ' +

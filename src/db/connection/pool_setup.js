@@ -221,6 +221,7 @@ function setCheckpointDb(db, kcfg, cfg, key, coin, net){
                 // (the HUB_API_URL env remains the fallback;
                 // see src/mirror/url.js).
                 hubUrl: db.util.isNull(kcfg.hub_url) ? '' : String(kcfg.hub_url),
+                hubSeedUrls: db.util.isNull(kcfg.hub_seed_urls) ? '' : String(kcfg.hub_seed_urls),
                 host: kHost, port: kPort, user: kcfg.user, pass: kcfg.pass
             };
     }

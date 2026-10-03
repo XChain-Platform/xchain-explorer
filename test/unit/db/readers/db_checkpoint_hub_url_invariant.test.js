@@ -20,7 +20,7 @@
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const Utility    = require('../../../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const { createConfigInfoStub, getFullConfig } = require('../../../fixtures/mock-config.js');
 const { resolveHubUrl }        = require('../../../../src/mirror/url.js');
 
 const Database = proxyquire('../../../../src/db/index.js', {
@@ -78,6 +78,10 @@ describe('checkpoint self_sync / hub-endpoint pairing', function () {
         it('treats a whitespace-only value as absent', function () {
             expect(resolveHubUrl({ hubUrl: '   ' })).to.equal('');
         });
+
+        it('does not resolve a seed list as a current hub URL', function () {
+            expect(resolveHubUrl({ hubSeedUrls: 'default' })).to.equal('');
+        });
     });
 
 });
@@ -100,10 +104,20 @@ describe('checkpoint self_sync / hub-endpoint pairing', function () {
     });
 
     describe('_assertCheckpointDbForServingCoins()', function () {
-        it('refuses to start when a serving coin self-syncs with no hub endpoint', function () {
+        it('refuses to start when a serving coin has neither seeds nor a hub endpoint', function () {
             const db = makeDb({ RBTC: SELF_SYNC() });
             expect(() => db.assertCheckpointDbForServingCoins()).to.throw(/no hub endpoint/i);
             expect(() => db.assertCheckpointDbForServingCoins()).to.throw(/RBTC/);
+        });
+
+        it('starts when only hub seeds ride in the checkpoint block', function () {
+            const db = makeDb({ RBTC: SELF_SYNC({ hubSeedUrls: 'default' }) });
+            expect(() => db.assertCheckpointDbForServingCoins()).to.not.throw();
+        });
+
+        it('refuses a whitespace-only hub seed list with no hub endpoint', function () {
+            const db = makeDb({ RBTC: SELF_SYNC({ hubSeedUrls: '   ' }) });
+            expect(() => db.assertCheckpointDbForServingCoins()).to.throw(/no hub endpoint/i);
         });
 
         it('starts when the hub URL rides in the checkpoint block', function () {
@@ -122,6 +136,19 @@ describe('checkpoint self_sync / hub-endpoint pairing', function () {
             expect(() => db.assertCheckpointDbForServingCoins()).to.not.throw();
         });
 
+    });
+
+});
+
+describe('checkpoint hub seed propagation', function () {
+
+    it('carries hub_seed_urls into the checkpoint target', async function () {
+        const config = getFullConfig();
+        config.BTC.mainnet.database.checkpoint.self_sync = true;
+        config.BTC.mainnet.database.checkpoint.hub_seed_urls = 'default';
+        const db = new Database({ configInfo: createConfigInfoStub(config), util });
+        await db.setupConnectionPools();
+        expect(db.checkpointDb.BTC.hubSeedUrls).to.equal('default');
     });
 
 });

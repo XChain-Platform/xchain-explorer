@@ -6,6 +6,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.21.3] - 2026-10-03
+
+### Added
+- Added selectable themes, reusable presentation components, and rich live-page components.
+- Added shared-list mirror support and list detail rendering.
+- Displayed list names and descriptions in list and action views.
+- Displayed each hourly attestation batch as one line.
+
+### Changed
+- Restored separate token activation sentinels for each testnet chain.
+- Armed ANCHOR_BUNDLE_ORDER_ACTIVATION on BTC:testnet at 155001.
+- Armed ANCHOR_BUNDLE_ORDER_ACTIVATION on LTC:testnet at 4906040.
+- Armed ANCHOR_BUNDLE_ORDER_ACTIVATION on DOGE:testnet at 67962387.
+- Armed PRICE_V1_CANONICAL_ACTIVATION on BTC:testnet at 1791061097.
+- Armed PRICE_V1_CANONICAL_ACTIVATION on LTC:testnet at 1791061097.
+- Armed PRICE_V1_CANONICAL_ACTIVATION on DOGE:testnet at 1791061097.
+- Armed STAKE_WEIGHT_COLLATION_ACTIVATION on BTC:testnet at 155001.
+- Armed STAKE_WEIGHT_COLLATION_ACTIVATION on LTC:testnet at 4906040.
+- Armed STAKE_WEIGHT_COLLATION_ACTIVATION on DOGE:testnet at 67962387.
+- Armed ANCHOR_FOLD_ACTIVATION on BTC:testnet at 155001.
+- Armed ANCHOR_FOLD_ACTIVATION on LTC:testnet at 4906040.
+- Armed ANCHOR_FOLD_ACTIVATION on DOGE:testnet at 67962387.
+- Armed ARCHIVE_SECTION_VERDICT_STATE_HASH_ACTIVATION on BTC:testnet at 155001.
+- Armed ARCHIVE_SECTION_VERDICT_STATE_HASH_ACTIVATION on LTC:testnet at 4906040.
+- Armed ARCHIVE_SECTION_VERDICT_STATE_HASH_ACTIVATION on DOGE:testnet at 67962387.
+- Armed LIST_META_ACTIVATION on BTC:testnet at 155001.
+- Armed LIST_META_ACTIVATION on LTC:testnet at 4906040.
+- Armed LIST_META_ACTIVATION on DOGE:testnet at 67962387.
+
+### Fixed
+- Used exact decimal arithmetic for amounts, supplies, prices, bet pools, and stakes.
+- Escaped on-chain text, validated request identifiers, and refused unsafe link schemes.
+
 ## [0.21.1] - 2026-10-01
 
 ### Added

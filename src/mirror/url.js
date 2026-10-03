@@ -48,4 +48,19 @@ function resolveHubUrl(target){
     return String(configEnv().HUB_API_URL || '').trim();
 }
 
-module.exports = { resolveHubUrl };
+function parseHubSeeds(value){
+    return [...new Set(String(value || '').split(',').map(seed => seed.trim()).filter(Boolean))];
+}
+
+function resolveHubSeeds(target){
+    let fromConfig = parseHubSeeds(target && target.hubSeedUrls);
+    return fromConfig.length ? fromConfig : parseHubSeeds(configEnv().HUB_SEED_URLS);
+}
+
+function resolveHubMode(target){
+    if(resolveHubSeeds(target).length) return 'seeds';
+    if(resolveHubUrl(target)) return 'pinned';
+    return 'none';
+}
+
+module.exports = { resolveHubUrl, resolveHubSeeds, resolveHubMode };

@@ -17,7 +17,7 @@ describe('consensus-bound registry rows', function () {
     it('resolves the anchor bundle order activation table', function () {
         assert.deepStrictEqual(
             gateRegistry.get('anchor_bundle_order_activation.ANCHOR_BUNDLE_ORDER_ACTIVATION'),
-            { mainnet: 9999999999, testnet: 9999999999, regtest: 0 }
+            { mainnet: 9999999999, 'BTC:testnet': 154939, 'LTC:testnet': 4905307, 'DOGE:testnet': 67960786, testnet: 9999999999, regtest: 0 }
         );
     });
 
@@ -69,7 +69,7 @@ describe('price scale registry rows', function () {
     it('pins the PRICE v1 canonical rows', function () {
         assert.deepStrictEqual(
             gateRegistry.get(`${prefix}PRICE_V1_CANONICAL_ACTIVATION`),
-            { mainnet: gateRegistry.UNARMED, testnet: gateRegistry.UNARMED, regtest: 0 }
+            { mainnet: gateRegistry.UNARMED, 'BTC:testnet': 1791019443, 'LTC:testnet': 1791019443, 'DOGE:testnet': 1791019443, testnet: gateRegistry.UNARMED, regtest: 0 }
         );
         assert.deepStrictEqual(
             gateRegistry.get(`${prefix}PRICE_V1_FEE_RE_CANONICAL`),

@@ -44,7 +44,8 @@ describe('anchor.html detail render @regression', function () {
             const shipped   = domWithPage().window.ANCHOR_FOLD_ACTIVATION;
             expect(shipped, 'the render script must declare ANCHOR_FOLD_ACTIVATION').to.be.an('object');
             expect(shipped).to.deep.equal(canonical);
-            expect(Object.keys(shipped).sort()).to.deep.equal(['mainnet', 'regtest', 'testnet']);
+            // v0.21.3 arms the fold per testnet chain beside the bare network keys.
+            expect(Object.keys(shipped).sort()).to.deep.equal(['BTC:testnet', 'DOGE:testnet', 'LTC:testnet', 'mainnet', 'regtest', 'testnet']);
         });
     });
 });

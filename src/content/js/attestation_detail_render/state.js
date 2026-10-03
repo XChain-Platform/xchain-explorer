@@ -139,7 +139,8 @@ function attestationStages(d){
 //     there is no batch to wait for and there never will be.
 function attResponseBatchCell(r){
     if(!isNull(r.batch_action_index))
-        return attBatchActionLink(r.batch_action_index);
+        return '<span class="attestation-batch-archived">Archived in batch</span> '
+             + attBatchActionLink(r.batch_action_index);
     if(isNull(r.tx_index))
         return '<span class="text-muted attestation-batch-pending">'
              + 'not yet carried by an on-chain batch</span>';

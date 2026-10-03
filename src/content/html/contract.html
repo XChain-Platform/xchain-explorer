@@ -121,6 +121,13 @@
                 <div class="collapse show" id="contract-write-body">
                     <div class="p-2">
                         <div class="text-muted small mb-2">Method descriptions and parameter names come from metadata declared by the contract author and are not verified against the code. Review the source above before signing anything.</div>
+                        <!-- A call carries no amount, and a contract only sees balances on
+                             its own chain. A tester funding a loan called fundLoan bare,
+                             holding the token on another chain, and nothing on this card
+                             said either; the reverted call was the first they learned. -->
+                        <div class="alert alert-info small py-1 px-2 mb-2" id="contract-write-funding-note">
+                            This contract runs on <span class="fw-bold contract-write-chain">this chain</span>. A call from this card sends no tokens. If a method needs payment, DEPOSIT the tokens into this contract on this same chain, in the same batch, before the call. Tokens held on another chain cannot pay it.
+                        </div>
                         <div id="contract-write-methods"></div>
                     </div>
                 </div>
@@ -523,6 +530,7 @@ $(document).ready(function() {
     // signing and broadcast happen entirely in the user's wallet.
     function buildWriteContractForms(methods, abi, walletUrl){
         let container = $('#contract-write-methods');
+        $('.contract-write-chain').text(XC.name + ' (' + XC.network + ')');
         let list      = (methods && methods.length) ? methods : [null];
 
         list.forEach(function(m){

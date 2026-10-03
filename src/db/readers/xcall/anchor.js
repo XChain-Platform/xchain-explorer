@@ -27,6 +27,8 @@
 
 'use strict';
 
+const { ANCHOR_BUNDLE_VERSIONS } = require('../../action_detail/consensus_sql');
+
 // The anchor spine: the one anchor_actions row the QUERY names, or null. `db` is the
 // Database instance getAnchor runs on, passed in because each section below is a plain
 // function rather than a method, so cutting the reader up adds no name to
@@ -93,7 +95,15 @@ function parseAnchorPayload(db, row){
     row.publisher_attestations = db.parseSignaturesArray(row.publisher_attestations);
 }
 
-// The bundle sections a v0 carries, and the bundle-level snapshot_block they fix.
+// Per-section columns; the archive ones let the renderer find a v3 archive row
+// (chain NULL, match_batch_seq set). archive_b64 itself is never selected.
+const SECTION_COLUMNS = `m.section_index, m.chain, m.network, m.block_index, m.block_hash,
+    m.ledger_hash, m.actions_hash, m.contract_hash, m.checkpoint_seq, m.snapshot_block,
+    m.state_root, m.state_root_version, m.block_merkle_root, m.block_merkle_version,
+    m.validator_signatures, m.match_batch_seq, m.match_count, m.batch_crc32,
+    m.total_chunks, m.chunk_index, CHAR_LENGTH(m.archive_b64) as archive_b64_length, s1.status`;
+
+// The bundle sections a v0 or v3 carries, and the bundle-level snapshot_block they fix.
 async function readAnchorSections(db, config, row, limit){
     // A v0 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
     // N sibling rows sharing one action_index at section_index 0..N-1. Each row holds
@@ -101,8 +111,9 @@ async function readAnchorSections(db, config, row, limit){
     // bundle-level fields (version, network, publisher, publisher_attestations, status,
     // txid, the DOGE block it landed in) are denormalized identically onto every row,
     // which is why the spine above can serve as the header no matter which section it
-    // matched. Archive rows (v1/v2) and every retired per-chain version stay at
-    // section_index 0, so they take no second query at all.
+    // matched. A v3 adds one trailing archive row (chain NULL) after its chain sections,
+    // which section_count does not count. Archive rows (v1/v2) and every retired
+    // per-chain version stay at section_index 0, so they take no second query at all.
     //
     // snapshot_block on the header is the BUNDLE's block, the MAX over the sections: a
     // chain that lagged rides at its own older SECTION_SNAPSHOT_BLOCK, but the election
@@ -110,25 +121,9 @@ async function readAnchorSections(db, config, row, limit){
     // block as the bundle's would look the electorate up at the wrong height.
     row.sections      = [];
     row.section_count = 1;
-    if(Number(row.version) === 0){
+    if(ANCHOR_BUNDLE_VERSIONS.includes(Number(row.version))){
         let sections = await db.doQuery(config,
-            `SELECT
-                    m.section_index,
-                    m.chain,
-                    m.network,
-                    m.block_index,
-                    m.block_hash,
-                    m.ledger_hash,
-                    m.actions_hash,
-                    m.contract_hash,
-                    m.checkpoint_seq,
-                    m.snapshot_block,
-                    m.state_root,
-                    m.state_root_version,
-                    m.block_merkle_root,
-                    m.block_merkle_version,
-                    m.validator_signatures,
-                    s1.status
+            `SELECT ${SECTION_COLUMNS}
                 FROM
                     anchor_actions m
                     LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
@@ -140,7 +135,7 @@ async function readAnchorSections(db, config, row, limit){
             return s;
         });
         if(row.sections.length){
-            row.section_count = row.sections.length;
+            row.section_count = row.sections.filter(s => !db.util.isNull(s.chain)).length || 1;
             let blocks = row.sections
                 .map(s => db.util.isNull(s.snapshot_block) ? null : Number(s.snapshot_block))
                 .filter(v => v !== null);
@@ -154,8 +149,11 @@ async function readAnchorSections(db, config, row, limit){
 async function readAnchorChunks(db, config, row, limit){
     // Continuation chunks (v2) share the archive batch id. Bounded: a large archive
     // splits into as many chunks as it needs, so this list has no natural ceiling.
+    // A v3 spine is a chain section, so its batch id rides the archive section row.
+    let archive = row.sections.find(s => db.util.isNull(s.chain) && !db.util.isNull(s.match_batch_seq));
+    let batchSeq = db.util.isNull(row.match_batch_seq) && archive ? archive.match_batch_seq : row.match_batch_seq;
     let chunks = [];
-    if(!db.util.isNull(row.match_batch_seq))
+    if(!db.util.isNull(batchSeq))
         chunks = await db.doQuery(config,
             `SELECT
                     m.action_index,
@@ -170,7 +168,7 @@ async function readAnchorChunks(db, config, row, limit){
                     LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
                 WHERE m.match_batch_seq=?
                 ORDER BY m.chunk_index ASC
-                LIMIT ` + limit, [row.match_batch_seq]) || [];
+                LIMIT ` + limit, [batchSeq]) || [];
     return chunks;
 }
 
@@ -230,11 +228,11 @@ async function readRewardTrail(db, config, row, src, limit){
     // txid this anchor landed in, OR on the table's own natural key minus publisher
     // (snapshot_block + the round this anchor closed: checkpoint_seq for a checkpoint
     // anchor, match_batch_seq for an archive one, the SNAPSHOT BLOCK itself for a v0
-    // bundle, whose single anchor_bundle reward is keyed round_reference =
+    // or v3 bundle, whose single anchor_bundle reward is keyed round_reference =
     // SNAPSHOT_BLOCK rather than to any one section's checkpoint_seq).
     let outerFilter = src.filter.replace(/\b(chain|network)\b/g, 'm.$1');
     let rounds = [row.checkpoint_seq, row.match_batch_seq,
-                  (Number(row.version) === 0) ? row.snapshot_block : null]
+                  ANCHOR_BUNDLE_VERSIONS.includes(Number(row.version)) ? row.snapshot_block : null]
         .filter(v => !db.util.isNull(v)).map(v => Number(v));
     let rewardWhere = 'm.doge_anchor_txid=?';
     let rewardArgs  = [...src.filterParams, row.tx_hash];

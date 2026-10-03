@@ -271,6 +271,14 @@ describe('contract identity: render-side hardening and the label', function(){
         it('hardens the description instead of writing the stored bytes straight out', function(){
             expect(PAGE).to.include('hardenText(o.meta_description, 512)');
         });
+
+        // A bare call reverted for a tester who could not tell it sent nothing
+        // and that their tokens sat on another chain; the card now says both.
+        it('tells a writer the chain and that a call sends no tokens', function(){
+            expect(PAGE).to.include('id="contract-write-funding-note"');
+            expect(PAGE).to.include('A call from this card sends no tokens.');
+            expect(PAGE).to.include("$('.contract-write-chain').text(XC.name + ' (' + XC.network + ')')");
+        });
     });
 
 });

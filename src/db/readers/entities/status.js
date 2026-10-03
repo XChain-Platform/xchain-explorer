@@ -76,8 +76,8 @@ function statusMeasurementFields(){
         // pause is consensus, not failure), 'behind' (the next block is
         // admissible now and still uncommitted, including while held on an
         // oracle-sync barrier or while the indexer is simply slow), or null
-        // when it cannot be determined. indexer_wait_clears_at is the known
-        // earliest clear instant for a future wait or time-bounded barrier.
+        // when it cannot be determined. indexer_wait_clears_at is the clear instant of a
+        // future wait, or of a 'behind' barrier the indexer still reports as ahead.
         indexer_state:               {},
         next_block_time:             {},
         next_block_future_seconds:   {},
@@ -166,7 +166,9 @@ async function readIndexerBarrierDeadline(coinConfigs, coin){
     try {
         let health = await new IndexerConnector(url).health();
         let clearsAt = health && Number(health.stallClearsAt);
-        if(!health || health.stallClass !== 'barrier_defer' || !Number.isFinite(clearsAt) || clearsAt <= 0)
+        // The indexer classes a stall future_block_wait while stallClearsAt is ahead and
+        // barrier_defer/wedged once it has passed, so only the first names a clear instant.
+        if(!health || health.stallClass !== 'future_block_wait' || !Number.isFinite(clearsAt) || clearsAt <= 0)
             return null;
         return new Date(clearsAt).toISOString();
     } catch(e){

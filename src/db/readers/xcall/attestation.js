@@ -28,22 +28,13 @@
 
 'use strict';
 
-// QUERY names the round either by the 64-hex request_id every leg carries or by
-// the action_index of any ATTEST action in it; both forms reduce to the request_id
-// here, and null means a numeric QUERY named no round on this chain. `db` is the
-// Database instance the method runs on: these are plain functions, not methods, so
-// cutting the reader up adds no name to Database.prototype.
-async function resolveAttestationRequestId(db, config){
-    let search = config.data.search;
-    if(!db.util.isNumeric(search)) return String(search || '').toLowerCase();
-    let seed = await db.getAttestationByActionIndex(config, Number(search));
-    // A v2 expire has no attests row, so the point read answers nothing for it and
-    // the lifecycle page for the expire's own action_index rendered NOT FOUND. The
-    // in-block correlation resolves it to the request it retired.
-    if(!seed) seed = await db.seedAttestationFromExpireAction(config, Number(search));
-    if(!seed) return null;
-    return seed.request_id;
-}
+const listReaders = require('./lists.js');
+const {
+    attestBatchColumnsPresent, batchProjection, installAttestBatchListReader,
+    readBatchResponses, batchLifecycle, resolveAttestationRequestId, ATTEST_BATCH_CHUNK_LIMIT
+} = require('../../shared.js');
+
+installAttestBatchListReader(listReaders);
 
 // Every leg of one round in one bounded read, oldest first so the caller renders the
 // lifecycle in the order it happened. request_id+version is indexed.
@@ -51,7 +42,7 @@ async function resolveAttestationRequestId(db, config){
 // `blocks` resolves off the action's own block_index, not the transaction's: a
 // mirror-applied response has an action_index but no transaction row, and routing
 // through t1 left the timestamp NULL for it (attest-response-mirror spec section 4.4).
-async function readAttestationLegs(db, config, requestId, limit){
+async function readAttestationLegs(db, config, requestId, limit, withBatch){
     return await db.doQuery(config,
             `SELECT
                 a4.action,
@@ -81,8 +72,7 @@ async function readAttestationLegs(db, config, requestId, limit){
                 m.response_status,
                 m.meta,
                 m.validator_signatures,
-                m.callback_execute_action_index,
-                m.batch_action_index,
+                m.callback_execute_action_index` + batchProjection(withBatch) + `,
                 m.block_index,
                 b1.block_time as timestamp,
                 t2.hash as tx_hash,
@@ -103,7 +93,6 @@ async function readAttestationLegs(db, config, requestId, limit){
             ORDER BY m.version ASC, m.action_index ASC
             LIMIT ` + limit, [requestId]);
 }
-
 // The v0 REQUEST leg, with the two JSON columns a reader cannot use raw parsed.
 function parseRequestLeg(db, rows){
     let request  = rows.find(r => Number(r.version) === 0) || null;
@@ -306,12 +295,29 @@ class AttestationReaders {
     // relay block below names them rather than issuing a second query for rows that are by
     // construction on ANOTHER chain's indexer DB.
     async getAttestation(config){
-        let limit     = this.detailLimit(config);
-        let requestId = await resolveAttestationRequestId(this, config);
-        if(!requestId) return [null];
+        let limit = this.detailLimit(config);
+        let resolved = await resolveAttestationRequestId(this, config);
+        if(!resolved) return [null];
 
-        let rows = await readAttestationLegs(this, config, requestId, limit);
+        let withBatch = await attestBatchColumnsPresent(this, config);
+        let batchSeed = withBatch && resolved.seed && [5, 6].includes(Number(resolved.seed.version));
+        let legLimit = batchSeed ? ATTEST_BATCH_CHUNK_LIMIT : limit;
+        let rows = await readAttestationLegs(this, config, resolved.requestId, legLimit, withBatch);
         if(!rows || !rows.length) return [null];
+
+        let selected = resolved.seed || rows[0];
+        if(withBatch && [5, 6].includes(Number(selected.version))){
+            if(legLimit !== ATTEST_BATCH_CHUNK_LIMIT){
+                rows = await readAttestationLegs(this, config, resolved.requestId, ATTEST_BATCH_CHUNK_LIMIT, withBatch);
+                selected = resolved.seed || rows[0];
+            }
+            let heads = rows.filter(r => Number(r.version) === 5);
+            let head = Number(selected.version) === 5 ? selected
+                : heads.find(r => r.source === selected.source) || heads[0] || selected;
+            let responses = Number(head.batch_row_count) === 0 ? []
+                : await readBatchResponses(this, config, head.action_index);
+            return [batchLifecycle(this, rows, selected, responses || [])];
+        }
 
         let request  = parseRequestLeg(this, rows);
         let response = parseResponseLeg(this, rows);
@@ -320,7 +326,7 @@ class AttestationReaders {
 
         return [{
             query:      config.data.search,
-            request_id: requestId,
+            request_id: resolved.requestId,
             provider_id: rows[0].provider_id,
             legs:       rows,
             request:    request,
@@ -333,6 +339,7 @@ class AttestationReaders {
     }
 
     async getAttestationsSince(config, sinceBlockIndex, limit){
+        let withBatch = await attestBatchColumnsPresent(this, config);
         let query = `SELECT
                         m.action_index,
                         m.version,
@@ -343,7 +350,12 @@ class AttestationReaders {
                         m.response_status,
                         m.payload,
                         m.callback_params_json,
-                        a2.address as source,
+                        ` + (withBatch ? `CASE WHEN m.version IN (5, 6) THEN m.request_id ELSE NULL END as batch_key,
+                        m.batch_window_start,
+                        m.batch_window_end,
+                        m.batch_row_count,
+                        m.batch_action_index, m.batch_chunk_index, m.batch_total_chunks,
+                        ` : ``) + `a2.address as source,
                         fp.address as fee_payer,
                         m.block_index,
                         s1.status
@@ -363,12 +375,21 @@ class AttestationReaders {
     }
 
     async getAttestationByActionIndex(config, action_index){
+        let withBatch = await attestBatchColumnsPresent(this, config);
         let query = `SELECT
                         m.action_index, m.version, m.request_id, m.provider_id, m.contract_index,
                         m.request_status, m.response_status, m.payload, m.callback_params_json, m.block_index,
-                        fp.address as fee_payer
+                        fp.address as fee_payer` + batchProjection(withBatch) + `,
+                        a2.address as source, b1.block_time as timestamp, t2.hash as tx_hash,
+                        t1.tx_index, s1.status
                     FROM attests m
+                        LEFT JOIN actions a1 ON (a1.action_index=m.action_index)
+                        LEFT JOIN transactions t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT JOIN blocks b1 ON (b1.block_index=a1.block_index)
                         LEFT JOIN index_addresses fp ON (fp.id=m.fee_payer_id)
+                        LEFT JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                        LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+                        LEFT JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     WHERE m.action_index=?
                     LIMIT 1`;
         let results = await this.doQuery(config, query, [action_index]);

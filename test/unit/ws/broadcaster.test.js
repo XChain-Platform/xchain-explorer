@@ -23,14 +23,16 @@ const ChannelManager = require('../../../src/ws/channel_manager.js');
 const Broadcaster    = require('../../../src/ws/broadcaster.js');
 
 // A socket the broadcaster will actually send on: OPEN, and with nothing queued,
-// because the backpressure gate silently skips any client whose buffered bytes sit
-// above the cap.
+// because the backpressure gate skips and closes any client whose buffered bytes sit
+// above the cap. close() moves it to CLOSING, as ws does.
 function createMockWs() {
-    return {
+    const ws = {
         readyState:     1, // OPEN
         bufferedAmount: 0,
         send:           sinon.stub()
     };
+    ws.close = sinon.spy(() => { ws.readyState = 2; });
+    return ws;
 }
 
 // A connected client the way the server tracks one. Its coin is half of every channel

@@ -26,13 +26,15 @@
 
 const { sinon, eq, swq } = require('./explorer_checkpoints.test/support/helpers.js');
 
-beforeEach(function () {
-    // Default: legacy count quorum, no EQUIV header. Individual tests override.
-    sinon.stub(eq,  'isEquivHeaderActive').returns(false);
-    sinon.stub(swq, 'isStakeWeightedQuorumActive').returns(false);
-});
-afterEach(function () { sinon.restore(); });
+describe('explorer checkpoints', function () {
+    beforeEach(function () {
+        // Default: legacy count quorum, no EQUIV header. Individual tests override.
+        sinon.stub(eq,  'isEquivHeaderActive').returns(false);
+        sinon.stub(swq, 'isStakeWeightedQuorumActive').returns(false);
+    });
+    afterEach(function () { sinon.restore(); });
 
-require('./explorer_checkpoints.test/support/routes.js');
-require('./explorer_checkpoints.test/support/parity.js');
-require('./explorer_checkpoints.test/support/database.js');
+    require('./explorer_checkpoints.test/support/routes.js');
+    require('./explorer_checkpoints.test/support/parity.js');
+    require('./explorer_checkpoints.test/support/database.js');
+});

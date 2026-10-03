@@ -67,8 +67,8 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
         const welcome = JSON.parse(client.ws.send.firstCall.args[0]);
         expect(welcome.type).to.equal('WELCOME');
         // Set-equality: no extras, no omissions (this is the regression guard --
-        // a WELCOME types list that under-advertises the ten lifecycle
-        // event types, e.g. ORDER_COMPLETED, DISPENSER_CANCELLED, fails here).
+        // a WELCOME types list that under-advertises a lifecycle event type,
+        // e.g. COINPAY_REQUIRED or BET_CLOSED, fails here).
         expect(new Set(welcome.data.types)).to.deep.equal(ChannelManager.VALID_TYPES);
     });
 

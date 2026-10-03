@@ -44,7 +44,7 @@ describe('hub-mirror list share vendored contract @regression', function () {
         assert.ok(CROSS_CHAIN_TABLES.includes('list_snapshots'));
     });
 
-    it('vendors HUB_SCHEMA_VERSION 8', function () {
-        assert.equal(HUB_SCHEMA_VERSION, 8);
+    it('vendors HUB_SCHEMA_VERSION 9', function () {
+        assert.equal(HUB_SCHEMA_VERSION, 9);
     });
 });

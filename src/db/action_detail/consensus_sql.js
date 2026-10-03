@@ -64,6 +64,11 @@ const ANCHOR_DETAIL = `SELECT
                 ORDER BY m.section_index ASC
                 LIMIT 1`;
 
+// Wire versions stored as a section BUNDLE: v0, and v3 (the v0 sections plus one
+// optional trailing archive row, chain NULL, at section_index N). Every section read
+// that fans an anchor out by action_index gates on this one list.
+const ANCHOR_BUNDLE_VERSIONS = [0, 3];
+
 // A v0 ANCHOR is a BUNDLE: anchor_actions is keyed (action_index, section_index),
 // one row per checkpointed chain, each with its own chain, block_index,
 // checkpoint_seq, roots and signature list. The bundle-level fields (version,
@@ -113,6 +118,7 @@ const ATTEST_DETAIL = `SELECT
                     m.meta,
                     m.validator_signatures,
                     m.callback_execute_action_index,
+                    m.batch_action_index,
                     m.batch_window_start,
                     m.batch_window_end,
                     m.batch_row_count,
@@ -270,6 +276,7 @@ const ROLLCALL_SIGNERS = `SELECT
              ORDER BY m.pubkey ASC`;
 
 module.exports = {
+    ANCHOR_BUNDLE_VERSIONS,
     ANCHOR_DETAIL,
     ANCHOR_SECTIONS,
     ATTEST_DETAIL,

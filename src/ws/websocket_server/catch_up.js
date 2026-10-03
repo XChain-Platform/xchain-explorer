@@ -16,8 +16,9 @@
  *
  * A subscribe carrying since_action_index replays the actions the client
  * missed. The replay runs in three steps: the cursor and in-progress guard,
- * the stale and depth gates, then the replayed NEW_ACTION frames closed by
- * one CATCH_UP_COMPLETE.
+ * the stale and depth gates, then the replayed frames (each missed row's
+ * NEW_ACTION and the lifecycle events the live detector derives from that row)
+ * closed by one CATCH_UP_COMPLETE.
  *
  * The db reads stay awaited in sequence in runCatchUp, so a replay yields to the
  * event loop at the same points it always did and its frames interleave with a
@@ -39,9 +40,12 @@
 const { getLogger } = require('../../observability');
 const log = getLogger();
 
-// The live NEW_ACTION routing rule, shared so a replay reaches exactly the channels
-// the live fan-out would have.
-const { actionChannelKeys, carriesActions } = require('../broadcaster/action_routes.js');
+// The live NEW_ACTION and lifecycle routing rules, shared so a replay reaches exactly
+// the channels the live fan-out would have.
+const { actionChannelKeys, carriesActions, lifecycleChannelKeys } = require('../broadcaster/action_routes.js');
+
+// The live detector, whose own lifecycle emitters rebuild a missed row's lifecycle events.
+const ChangeDetector = require('../change_detector.js');
 
 // The replay cursor as a BigInt, or null once an INVALID_PARAMS frame has been sent
 // for a malformed cursor.
@@ -63,14 +67,14 @@ function catchUpCursor(server, client, sinceActionIndex, requestId) {
     return BigInt(sinceActionIndex);
 }
 
-// Where one replayed row goes for this request, each target carrying the filter to
-// apply: the request's keys the row routes to, each with the client's CURRENT filter,
-// so a key unsubscribed or spent by a once frame meanwhile gets nothing.
-function replayTargets(server, client, action, filter, channelKeys) {
-    // No keys (a direct caller): the row goes once under `filter`, the coin-wide view.
+// Where one replayed frame goes for this request, each target carrying the filter to
+// apply: the request's keys among the frame's live route keys, each with the client's
+// CURRENT filter, so a key unsubscribed or spent by a once frame meanwhile gets nothing.
+function replayTargets(server, client, routeKeys, filter, channelKeys) {
+    // No keys (a direct caller): the frame goes once under `filter`, the coin-wide view.
     if (!channelKeys) return [{ key: null, filter }];
     const targets = [];
-    for (const key of actionChannelKeys(client.coin, action.source, action.destinations)) {
+    for (const key of routeKeys) {
         if (!channelKeys.has(key)) continue;
         const held = server.channelManager.getSubscribers(key).get(client.id);
         if (held) targets.push({ key, filter: held });
@@ -78,50 +82,87 @@ function replayTargets(server, client, action, filter, channelKeys) {
     return targets;
 }
 
-// Sends one NEW_ACTION frame per replayed action per subscribed channel it routes to
-// (as the live fan-out does), and returns how many were sent.
-function replayActions(server, client, actions, info, filter, tipStale, channelKeys) {
+// The envelope of one replayed frame: the live envelope plus the catch_up flag, and the
+// stale marker when the replay is bounded by a tip that is behind.
+function replayEnvelope(type, info, tipStale, data) {
+    return {
+        type,
+        chain:     info.chain,
+        network:   info.network,
+        timestamp: Date.now(),
+        catch_up:  true,
+        ...(tipStale ? { stale: true } : {}),
+        data
+    };
+}
+
+// The NEW_ACTION payload for one replayed row, the same shape the live onAction sends.
+function newActionData(action) {
+    return {
+        action_index: action.action_index,
+        action:       action.action       || null,
+        tx_hash:      action.tx_hash      || null,
+        block_index:  action.block_index   || null,
+        source:       action.source        || null,
+        status:       action.status        || null,
+        // Additive (spec M1.4), and it MUST be copied here. These
+        // rows come from the same getActionsSince the live feed
+        // uses, so the destinations are already on them; omitting
+        // the field would hand a reconnecting client a narrower
+        // NEW_ACTION than the live channel sends, which is the
+        // live-versus-replay shape divergence the retired singular
+        // `destination` was removed to prevent (see Broadcaster
+        // onAction). Same array-or-empty guarantee as live.
+        destinations: Array.isArray(action.destinations) ? action.destinations : []
+    };
+}
+
+// The lifecycle events the live detector derives from one action row, built by its own
+// emitters against a collecting receiver, so a replayed frame is the frame live sent.
+async function rowLifecycleEvents(db, coin, action) {
+    const events = [];
+    const receiver = {
+        db,
+        constructor: ChangeDetector,
+        emit: (name, eventCoin, event) => { if (name === 'lifecycle_event') events.push(event); }
+    };
+    await ChangeDetector.prototype.emitLifecycleEvents.call(receiver, coin, { coin }, action);
+    await ChangeDetector.prototype.emitAttestationEvents.call(receiver, coin, { coin }, action);
+    return events;
+}
+
+// Send one replayed frame to every target whose filter it passes and return how many
+// went. Same filter pipeline and fields projection as the live Broadcaster path, so a
+// reconnecting client never sees a wider or unprojected shape than live.
+function sendToTargets(server, client, event, actionData, targets) {
+    let sent = 0;
+    for (const target of targets) {
+        if (!server.broadcaster.passesFilter(target.filter, event, actionData)) continue;
+        const msg = target.filter.fields ? server.broadcaster.applyFieldsProjection(event, target.filter.fields) : event;
+        server.send(client, msg);
+        sent++;
+        // A once subscription is spent by a replayed frame exactly as by a live one.
+        if (target.key && target.filter.once) server.broadcaster.spendOnceSubscription(client.id, target.key);
+    }
+    return sent;
+}
+
+// Replays each missed row in live order: its NEW_ACTION, then each lifecycle event the
+// live detector derives from it, each to every subscribed channel it routes to. Returns
+// how many frames were sent.
+async function replayActions(server, client, actions, info, filter, tipStale, channelKeys) {
     let eventsReplayed = 0;
     for (const action of actions) {
-        // Build catch-up event with catch_up flag
-        const event = {
-            type:      'NEW_ACTION',
-            chain:     info.chain,
-            network:   info.network,
-            timestamp: Date.now(),
-            catch_up:  true,
-            ...(tipStale ? { stale: true } : {}),
-            data: {
-                action_index: action.action_index,
-                action:       action.action       || null,
-                tx_hash:      action.tx_hash      || null,
-                block_index:  action.block_index   || null,
-                source:       action.source        || null,
-                status:       action.status        || null,
-                // Additive (spec M1.4), and it MUST be copied here. These
-                // rows come from the same getActionsSince the live feed
-                // uses, so the destinations are already on them; omitting
-                // the field would hand a reconnecting client a narrower
-                // NEW_ACTION than the live channel sends, which is the
-                // live-versus-replay shape divergence the retired singular
-                // `destination` was removed to prevent (see Broadcaster
-                // onAction). Same array-or-empty guarantee as live.
-                destinations: Array.isArray(action.destinations) ? action.destinations : []
-            }
-        };
+        const event = replayEnvelope('NEW_ACTION', info, tipStale, newActionData(action));
+        const routes = actionChannelKeys(client.coin, action.source, action.destinations);
+        eventsReplayed += sendToTargets(server, client, event, action,
+            replayTargets(server, client, routes, filter, channelKeys));
 
-        // Apply the same filter pipeline (types/statuses/ticks) and fields
-        // projection the live Broadcaster path applies, so a reconnecting
-        // client can't see a wider or unprojected shape during catch-up
-        // than it would on the live channel.
-        for (const target of replayTargets(server, client, action, filter, channelKeys)) {
-            if (!server.broadcaster.passesFilter(target.filter, event, action)) continue;
-            const msg = target.filter.fields ? server.broadcaster.applyFieldsProjection(event, target.filter.fields) : event;
-
-            server.send(client, msg);
-            eventsReplayed++;
-            // A once subscription is spent by a replayed frame exactly as by a live one.
-            if (target.key && target.filter.once) server.broadcaster.spendOnceSubscription(client.id, target.key);
+        for (const lifecycleEvent of await rowLifecycleEvents(server.explorer.db, client.coin, action)) {
+            const frame = replayEnvelope(lifecycleEvent.type, info, tipStale, lifecycleEvent.data);
+            const keys  = lifecycleChannelKeys(server.broadcaster, client.coin, lifecycleEvent);
+            eventsReplayed += sendToTargets(server, client, frame, lifecycleEvent,
+                replayTargets(server, client, keys, filter, channelKeys));
         }
     }
     return eventsReplayed;
@@ -147,7 +188,10 @@ function catchUpComplete(info, actions, sinceBig, replay, requestId) {
         data: {
             events_replayed:    replay.eventsReplayed,
             latest_action_index: latestIdx,
-            truncated:          replay.truncated
+            truncated:          replay.truncated,
+            // Additive: the lifecycle types live sends with no action row behind them,
+            // which no replay can rebuild, so a client backfills them over REST.
+            not_replayed:       ChangeDetector.NON_ACTION_LIFECYCLE_TYPES.slice()
         }
     };
     if (requestId !== undefined) complete.id = requestId;
@@ -162,8 +206,8 @@ class WebSocketCatchUp {
         const sinceBig = catchUpCursor(this, client, sinceActionIndex, requestId);
         if (sinceBig === null) return;
 
-        // A request whose channels never carry NEW_ACTION (blocks, network, entities) has
-        // nothing to replay: close it at once, with no DB read and no latch taken.
+        // A request with no actions or address channel gets no replay: the actions channel
+        // carries every lifecycle frame an entity channel does. Close it at once, unlatched.
         const keys = channelKeys ? new Set(channelKeys) : null;
         if (keys && !carriesActions(client.coin, keys)) {
             this.send(client, catchUpComplete(this.getCoinInfo(client.coin), [], sinceBig,
@@ -231,7 +275,7 @@ async function runCatchUp(server, client, sinceBig, filter, requestId, keys) {
     const actions   = await db.getActionsSince(config, sinceBig, server.catchUpMaxEvents);
     const info      = server.getCoinInfo(client.coin);
     const truncated = actions.length >= server.catchUpMaxEvents;
-    const eventsReplayed = replayActions(server, client, actions, info, filter, tipStale, keys);
+    const eventsReplayed = await replayActions(server, client, actions, info, filter, tipStale, keys);
     server.send(client, catchUpComplete(info, actions, sinceBig, { eventsReplayed, truncated, tipStale }, requestId));
 }
 

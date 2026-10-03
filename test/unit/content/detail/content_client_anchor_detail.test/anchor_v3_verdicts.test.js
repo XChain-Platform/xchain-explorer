@@ -26,7 +26,9 @@ const RENDER_SRC = srcText('src/content/js/anchor_detail_render.js');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '../../../../../src/content/js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '../../../../../src/content/js/numeral.js'), 'utf8');
 
-function render(row){
+// fold is the ANCHOR_FOLD_ACTIVATION table the page receives; null leaves the
+// global undeclared, the shape a page served without the injection would have.
+function render(row, fold = { regtest: 0 }){
     const ids = [
         'anchor-heading', 'anchor-identity', 'anchor-heights', 'anchor-checkpoint-payload',
         'anchor-sections', 'anchor-archive-payload', 'anchor-covering-checkpoint',
@@ -39,6 +41,7 @@ function render(row){
     dom.window.eval(NUMERAL_SRC);
     dom.window.eval(`
         var ANCHOR_ACTIVATION = { regtest: 0 };
+        ${fold === null ? '' : 'var ANCHOR_FOLD_ACTIVATION = ' + JSON.stringify(fold) + ';'}
         var XC = { coin: 'RDOGE', network: 'regtest' };
         function isNull(v){ return v === null || v === undefined; }
         // The real pair: formatLink escapes its label, formatLinkHtml takes markup as-is.
@@ -126,5 +129,50 @@ describe('ANCHOR v3 folded verdict render', function(){
         expect($('.anchor-checkpoint-verdict .anchor-status-badge').text()).to.equal('valid');
         expect($('.anchor-archive-verdict .anchor-status-badge').text()).to.equal('invalid_archive');
         expect($('#anchor-archive-payload .anchor-batch-seq').text()).to.contain('27');
+    });
+});
+
+describe('ANCHOR v3 fold activation gate', function(){
+    const PRE_FOLD = Object.assign({}, FOLDED, { status: 'invalid: VERSION (unknown)', sections: [] });
+
+    function expectPreFold($){
+        expect($('.anchor-kind').text()).to.equal('v3 before fold activation');
+        expect($('body').text()).not.to.contain('Folded checkpoint + archive bundle');
+    }
+
+    it('[TRAP] a v3 row below its network fold height is not rendered as a folded bundle', function(){
+        const $ = render(PRE_FOLD, { regtest: 131 });
+        expectPreFold($);
+        expect($('#anchor-identity .anchor-note').text()).to.contain('Stored status: invalid: VERSION (unknown).');
+    });
+
+    it('a v3 row AT the fold height is recognized (>= is the boundary)', function(){
+        expect(render(FOLDED, { regtest: 130 })('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+    });
+
+    it('uses the DOGE-qualified fold height before the bare network fallback', function(){
+        const table = {
+            testnet: 9999999999,
+            'BTC:testnet': 155001,
+            'LTC:testnet': 4906040,
+            'DOGE:testnet': 67962387
+        };
+        const at = Object.assign({}, FOLDED, { network: 'testnet', block_index_doge: 67962387 });
+        const before = Object.assign({}, PRE_FOLD, { network: 'testnet', block_index_doge: 67962386 });
+        expectPreFold(render(before, table));
+        expect(render(at, table)('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+    });
+
+    it('keeps the bare network fold height as a compatibility fallback', function(){
+        const at = Object.assign({}, FOLDED, { network: 'testnet', block_index_doge: 130 });
+        expect(render(at, { testnet: 130 })('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+    });
+
+    it('fails closed on an UNARMED, UNPINNED, unknown-network or undeclared fold gate', function(){
+        expectPreFold(render(FOLDED, { regtest: 9999999999 }));
+        expectPreFold(render(FOLDED, { regtest: null }));
+        expectPreFold(render(FOLDED, { mainnet: 0 }));
+        expectPreFold(render(FOLDED, null));
+        expectPreFold(render(Object.assign({}, FOLDED, { block_index_doge: null }), { regtest: 0 }));
     });
 });

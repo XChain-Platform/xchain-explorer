@@ -20,9 +20,9 @@
 
 'use strict';
 
-const { feeRows } = require('../../../action-detail/contracts.js');
-
-class TransferReaders {
+const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js');
+delete contentReaders.getLists;
+class TransferReaders { async getLists(config){ return buildListsQuery(this, config, tablesPresent); }
     // A contract-emitted SEND has no broadcast transaction behind it: the injected
     // EXECUTE that ran it carries no TX_INDEX (xchain-indexer actions/xexec.js), and
     // execute/index.js propagates that absence into every action the run emits, so the

@@ -36,7 +36,7 @@
  ********************************************************************/
 
 const { COIN_MAP } = require('./broadcaster/coin_map.js');
-const { actionChannelKeys } = require('./broadcaster/action_routes.js');
+const { actionChannelKeys, lifecycleChannelKeys } = require('./broadcaster/action_routes.js');
 
 // BigInt-safe JSON serializer (shared with WebSocketServer via serialize.js so the
 // two socket-send paths cannot drift). See serialize.js for the BigInt rationale.
@@ -121,8 +121,10 @@ class Broadcaster {
                 block_index:  block.block_index,
                 block_hash:   block.block_hash   || null,
                 block_time:   block.block_time    || null,
-                tx_count:     block.tx_count      || 0,
-                action_count: block.action_count  || 0
+                // COUNT(*) arrives as BigInt and a falsy 0n must not become the
+                // Number 0: one decimal-string type for every count, per schema v2.
+                tx_count:     String(block.tx_count     ?? 0),
+                action_count: String(block.action_count ?? 0)
             }
         };
 
@@ -237,28 +239,11 @@ class Broadcaster {
             data:      lifecycleEvent.data
         };
 
-        // Lifecycle events ride the global 'actions' channel too, so a client watching
-        // that one stream sees the derived transitions beside the raw actions.
-        this.broadcastToChannel(coin, 'actions', event, lifecycleEvent);
-
-        // If the lifecycle event names a dedicated channel (e.g. 'attestation'),
-        // also broadcast there so clients can subscribe to just that stream.
-        // Entity channels (dispenser) are keyed per-entity, so route to the
-        // specific entity's channel key rather than the bare channel (which has
-        // no subscribers): a dispenser subscription is coin:dispenser:<index>.
-        if (lifecycleEvent.channel) {
-            const entityId = this.lifecycleChannelEntityId(lifecycleEvent);
-            if (entityId !== null && entityId !== undefined) {
-                this.broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent, entityId);
-            } else {
-                this.broadcastToChannel(coin, lifecycleEvent.channel, event, lifecycleEvent);
-            }
-        }
-
-        // Broadcast to relevant address channels
-        const addresses = this.extractAddresses(lifecycleEvent.data);
-        for (const addr of addresses) {
-            this.broadcastToChannel(coin, 'address', event, lifecycleEvent, addr);
+        // The global 'actions' channel, the dedicated channel the event names (per entity
+        // when it is an entity channel such as coin:dispenser:<index>), then each address
+        // it names. The catch-up replay routes by the same lifecycleChannelKeys.
+        for (const channelKey of lifecycleChannelKeys(this, coin, lifecycleEvent)) {
+            this.broadcastToChannelKey(channelKey, event, lifecycleEvent);
         }
     }
 

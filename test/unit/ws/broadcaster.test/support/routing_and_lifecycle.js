@@ -133,6 +133,50 @@ describe('Broadcaster', function () {
                 warn.restore();
             }
         });
+
+        // A dropped frame must never become a silent gap: the client is shed with 4008
+        // exactly once, so it reconnects and replays from a cursor still before the drop.
+        it('closes a backed-up client with 4008 once and sends it nothing after', function () {
+            const ws = createMockWs();
+            const client = createClient(1, 'BTC', ws);
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['actions']);
+            wsServer.channelManager.subscribe(client, ['address'], { address: '1abc' });
+
+            ws.bufferedAmount = 100000;
+            changeDetector.emit('action', 'BTC', { action_index: 501, action: 'SEND', source: '1abc' });
+            ws.bufferedAmount = 0;
+            changeDetector.emit('action', 'BTC', { action_index: 502, action: 'SEND', source: '1abc' });
+
+            expect(ws.close.callCount).to.equal(1);
+            expect(ws.close.firstCall.args).to.deep.equal([4008, 'backpressure']);
+            expect(ws.send.callCount, 'a frame after the drop would move the cursor past it').to.equal(0);
+        });
+
+        it('a frame the client filters out neither counts as a skip nor closes it', function () {
+            const ws = createMockWs();
+            ws.bufferedAmount = 100000;
+            const client = createClient(1, 'BTC', ws);
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['actions'], { types: ['ORDER'] });
+
+            changeDetector.emit('action', 'BTC', { action_index: 501, action: 'SEND', source: '1abc' });
+
+            expect(ws.close.callCount).to.equal(0);
+            expect(client.backpressureSkips || 0).to.equal(0);
+        });
+
+        it('leaves a client under the threshold open', function () {
+            const ws = createMockWs();
+            const client = createClient(1, 'BTC', ws);
+            wsServer.addClient(client);
+            wsServer.channelManager.subscribe(client, ['actions']);
+
+            changeDetector.emit('action', 'BTC', { action_index: 501, action: 'SEND', source: '1abc' });
+
+            expect(ws.close.callCount).to.equal(0);
+            expect(ws.send.callCount).to.equal(1);
+        });
     });
 });
 

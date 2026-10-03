@@ -39,8 +39,9 @@ const config = {
     data: { sql: { apiOffset: 0, limit: 100 } }
 };
 
-function missingTable(){
-    let driver = new Error("Table 'indexer.list_share_mirrors' doesn't exist");
+function missingTable(table){
+    table = table || 'list_share_mirrors';
+    let driver = new Error("Table 'indexer." + table + "' doesn't exist");
     driver.code = 'ER_NO_SUCH_TABLE';
     driver.errno = 1146;
     let wrapped = new Error('database query failed');
@@ -87,6 +88,10 @@ function makeDb(options){
             if(options.mirrorError) throw new Error('mirror read failed');
             return db.mirrorFixture.prepare(query).all(...args);
         }
+        if(sql.includes('FROM list_metas m')){
+            if(options.metas) return options.metas;
+            throw missingTable('list_metas');
+        }
         if(sql.includes('SELECT action_index, list_action_index FROM lists WHERE action_index IN'))
             return args.map(action_index => ({ action_index, list_action_index: null }));
         if(sql.includes('a2.address AS owner'))
@@ -104,6 +109,7 @@ const HOME = {
     home_list_index: 101,
     local_list_index: 101,
     type: 2,
+    name: null,
     owner: 'current-owner',
     member_count: 3,
     share_block: 700,
@@ -117,12 +123,26 @@ const MIRROR = {
     home_list_index: 202,
     local_list_index: 303,
     type: 2,
+    name: null,
     owner: null,
     member_count: 4,
     share_block: 800,
     share_action_index: null,
     seq: 9
 };
+
+async function returnsNewestNames(){
+    const db = makeDb({ metas: [
+        { root: 101, action_index: 101, name: 'Original home' },
+        { root: 101, action_index: 120, name: 'Renamed home' },
+        { root: 303, action_index: 303, name: 'Mirror name' }
+    ] });
+    const [rows] = await db.getSharedLists(config);
+    expect(rows.map(row => row.name)).to.deep.equal(['Renamed home', 'Mirror name']);
+    const metaCall = db.calls.find(call => call.sql.includes('FROM list_metas m'));
+    expect(metaCall.args).to.deep.equal([101, 303]);
+    expect(metaCall.sql).to.include("s.status='valid'");
+}
 
 describe('shared-list explorer route', function () {
     it('registers the no-query route against the composed reader', function () {
@@ -163,6 +183,8 @@ describe('shared-list explorer route', function () {
         expect(args).to.equal(null);
         expect(total).to.equal(1);
     });
+
+    it('returns the newest valid name for each local shared list', returnsNewestNames);
 
     it('does not hide a mirror query failure that is not a missing table', async function () {
         let error = null;

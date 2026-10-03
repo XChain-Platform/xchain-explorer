@@ -295,4 +295,82 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts)', fun
             'add them to VALID_TYPES in src/ws/channel_manager/channels.js')
             .to.deep.equal([]);
     });
+
+    // Anchor rows the indexer mints with createActionIndex outside its dispatch switch
+    // (xchain-indexer bridge_settle/policy.js and list_share_settle/record.js). The
+    // manifest check above cannot see them, so a new anchor name is added here.
+    const SETTLEMENT_ANCHOR_ACTIONS = ['XPOLICY', 'LIST_SHARE'];
+
+    it('every settlement anchor action the indexer mints is accepted by the types filter', function () {
+        const manifest = require('../../../../fixtures/action-manifest.json');
+        const dispatched = SETTLEMENT_ANCHOR_ACTIONS.filter((t) =>
+            manifest.actions[t] && manifest.actions[t].indexerHandled === true);
+        expect(dispatched, 'a dispatched action belongs to the manifest check, not this list')
+            .to.deep.equal([]);
+        const rejected = SETTLEMENT_ANCHOR_ACTIONS.filter((t) => !ChannelManager.VALID_TYPES.has(t));
+        expect(rejected, `settlement anchor actions the subscribe filter rejects: ${rejected.join(', ')}`)
+            .to.deep.equal([]);
+    });
+
+    it('subscribes to the actions channel narrowed to a settlement anchor name', function () {
+        const client = createClient(1);
+        const result = new ChannelManager({ maxSubscriptions: 25 })
+            .subscribe(client, ['actions'], { types: SETTLEMENT_ANCHOR_ACTIONS });
+        expect(result.success, JSON.stringify(result.error || null)).to.be.true;
+    });
+});
+
+// The published wire contract (xchain-documentation components/explorer/websocket.md) is
+// what raw-WebSocket clients copy names from, so it must list exactly what this server
+// accepts. Skips on a bare clone; throws under XCHAIN_REQUIRE_SIBLINGS=1.
+describe('websocket.md wire contract matches ChannelManager (api-contracts)', function () {
+    const fs   = require('fs');
+    const path = require('path');
+    const DOCS_DIR = process.env.XCHAIN_DOCS_DIR ||
+        path.join(__dirname, '..', '..', '..', '..', '..', '..', 'xchain-documentation');
+    const PAGE = path.join(DOCS_DIR, 'components', 'explorer', 'websocket.md');
+    let page = null;
+
+    before(function () {
+        if (!fs.existsSync(PAGE)) {
+            if (process.env.XCHAIN_REQUIRE_SIBLINGS === '1')
+                throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but the websocket wire contract is missing at ' + PAGE);
+            this.skip();
+        }
+        page = fs.readFileSync(PAGE, 'utf8');
+    });
+
+    // The body of one section, up to the next heading or horizontal rule.
+    function section(heading) {
+        const start = page.indexOf('\n' + heading + '\n');
+        expect(start, `websocket.md lost its "${heading}" section`).to.be.at.least(0);
+        const rest = page.slice(start + heading.length + 2);
+        const end  = rest.search(/\n(#{1,6} |---\n)/);
+        return end < 0 ? rest : rest.slice(0, end);
+    }
+
+    it('the types-filter table lists exactly the names VALID_TYPES accepts', function () {
+        const rows  = section('## Supported Action Types for `types` Filter').split('\n')
+            .filter((l) => /^\|(?!-)/.test(l)).slice(1);
+        const names = rows.flatMap((r) => (r.split('|')[2] || '').match(/`[A-Z_]+`/g) || [])
+            .map((t) => t.slice(1, -1));
+        expect(names.length, 'read no names from the types-filter table').to.be.greaterThan(0);
+        const dupes    = names.filter((n, i) => names.indexOf(n) !== i);
+        const phantoms = names.filter((n) => !ChannelManager.VALID_TYPES.has(n));
+        const missing  = [...ChannelManager.VALID_TYPES].filter((n) => !names.includes(n));
+        expect({ dupes, phantoms, missing }, 'websocket.md types table vs VALID_TYPES')
+            .to.deep.equal({ dupes: [], phantoms: [], missing: [] });
+    });
+
+    it('the WELCOME example lists every channel and the entity table keys every entity channel', function () {
+        const welcome  = section('### WELCOME Message').match(/"channels":\s*\[([^\]]*)\]/);
+        expect(welcome, 'WELCOME example has no channels array').to.not.equal(null);
+        const channels = (welcome[1].match(/"([a-z_]+)"/g) || []).map((c) => c.slice(1, -1));
+        expect(new Set(channels), 'WELCOME example channels').to.deep.equal(ChannelManager.VALID_CHANNELS);
+        const subscribe = section('### subscribe');
+        const entity    = subscribe.slice(subscribe.indexOf('**Entity params'));
+        const keyed     = (entity.match(/^\| `([a-z_]+)` \|/gm) || []).map((r) => r.slice(3, -3));
+        const unkeyed   = [...ChannelManager.ENTITY_CHANNELS].filter((c) => !keyed.includes(c));
+        expect(unkeyed, 'entity channels with no row in the Entity params table').to.deep.equal([]);
+    });
 });

@@ -33,6 +33,77 @@ function getActionDetails(action, info){
     return html;
 }
 
+function attestBatchLabel(info){
+    if(!info || typeof info !== 'object') return null;
+
+    let version;
+    try {
+        version = Number(info.version === null || info.version === undefined || info.version === ''
+            ? info.action_format : info.version);
+    } catch(error) {
+        return null;
+    }
+    if(version === 5){
+        const raw = [info.batch_window_start, info.batch_window_end, info.batch_row_count];
+        if(raw.some((value) => value === null || value === undefined || value === '')) return null;
+
+        let values;
+        try {
+            values = raw.map(Number);
+        } catch(error) {
+            return null;
+        }
+        if(values.some((value) => !Number.isFinite(value))) return null;
+
+        let start;
+        let end;
+        try {
+            start = new Date(values[0] * 1000).toISOString().slice(0, 16).replace('T', ' ');
+            end = new Date(values[1] * 1000).toISOString().slice(0, 16).replace('T', ' ');
+        } catch(error) {
+            return null;
+        }
+        return 'Batch ' + start + ' to ' + end + ' UTC (' + values[2] + ' response' + (values[2] === 1 ? '' : 's') + ')';
+    }
+
+    if(version === 6){
+        const raw = [
+            info.batch_chunk_index === undefined ? info.chunk_index : info.batch_chunk_index,
+            info.batch_total_chunks === undefined ? info.total_chunks : info.batch_total_chunks
+        ];
+        if(raw.some((value) => value === null || value === undefined || value === '')) return null;
+
+        let values;
+        try {
+            values = raw.map(Number);
+        } catch(error) {
+            return null;
+        }
+        if(values.some((value) => !Number.isFinite(value))) return null;
+        return 'Batch continuation (chunk ' + (values[0] + 1) + ' of ' + values[1] + ')';
+    }
+
+    return null;
+}
+
+function attestListSummary(data){
+    let version = Number(data[4]);
+    let batch = [5, 6].includes(version);
+    let type = version === 5
+        ? '<span class="badge text-bg-info text-dark">Batch head</span>'
+        : version === 6
+            ? '<span class="badge text-bg-info text-dark">Batch continuation</span>'
+            : version === 0
+                ? '<span class="badge text-bg-secondary">Request</span>'
+                : '<span class="badge text-bg-primary">Response</span>';
+    let label = attestBatchLabel({
+        version: version,
+        batch_window_start: data[15], batch_window_end: data[16], batch_row_count: data[17],
+        batch_chunk_index: data[19], batch_total_chunks: data[20]
+    });
+    return { batch: batch, key: data[14], label: label, type: type };
+}
+
 // /api/action/{idx} is the aliasing reader for BROADCAST's fee: it and
 // detail_simple.js's showBroadcastDetails both read info.broadcast_fee,
 // never info.fee (see the BROADCAST branch below for why). The address
@@ -293,6 +364,11 @@ function actionDetail_renderConsensusActions(html, action, info, coin){
             if(!isNull(info.pair_count))
                 html += ' (' + numeral(info.pair_count).format('0,0') + ' pairs)';
         }
+    }
+    if(action=='ATTEST'){
+        let batchLabel = attestBatchLabel(info);
+        if(batchLabel !== null)
+            html = escapeHtml(batchLabel);
     }
     // Never render a blank Details cell: any type without an explicit summary
     // above (BATCH, XCALL, XEXEC, CROSS_SETTLE, NODEPROOF, ATTEST, COINPAY,

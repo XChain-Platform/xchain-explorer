@@ -58,6 +58,7 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
     'vote_kind',                                                                                                   // Governance
     'chain', 'network', 'checkpoint_seq', 'anchored_block_index',                                                  // Anchors
     'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count',                  // Prices
+    'batch_window_start', 'batch_window_end', 'batch_row_count', 'batch_action_index',                            // Attestations
     'leg_count', 'member_count', 'parent_batch_action_index'                                                       // Structure markers: multi-leg SEND/DESTROY, BATCH parent, BATCH member
 ]);
 
@@ -151,4 +152,131 @@ function staleFailClosed(configInfo) {
     return configInfo.env.EXPLORER_STALE_FAIL_CLOSED === '1';
 }
 
-module.exports = { ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS, DbQueryError, DbInputError, staleFailClosed };
+// QUERY names the round either by the 64-hex request_id every leg carries or by
+// the action_index of any ATTEST action in it; both forms reduce to the request_id
+// here, and null means a numeric QUERY named no round on this chain. `db` is the
+// Database instance the method runs on: these are plain functions, not methods, so
+// cutting the reader up adds no name to Database.prototype.
+async function resolveAttestationRequestId(db, config){
+    let search = config.data.search;
+    if(!db.util.isNumeric(search)) return {
+        requestId: String(search || '').toLowerCase(),
+        seed: null
+    };
+    let seed = await db.getAttestationByActionIndex(config, Number(search));
+    // A v2 expire has no attests row, so the point read answers nothing for it and
+    // the lifecycle page for the expire's own action_index rendered NOT FOUND. The
+    // in-block correlation resolves it to the request it retired.
+    if(!seed) seed = await db.seedAttestationFromExpireAction(config, Number(search));
+    if(!seed) return null;
+    return { requestId: seed.request_id, seed };
+}
+
+const ATTEST_BATCH_COLUMNS = [
+    'batch_action_index', 'batch_window_start', 'batch_window_end', 'batch_row_count',
+    'batch_chunk_index', 'batch_total_chunks'
+];
+const ATTEST_BATCH_PROBE_TTL_MS = 60000;
+// Keep batch-detail reads aligned with xchain-hub/src/lib/attest_batch_wire/constants.js:
+// 256 rows per batch and at most 174 chunks from the bounded encoder output.
+const ATTEST_BATCH_RESPONSE_LIMIT = 256;
+const ATTEST_BATCH_CHUNK_LIMIT = 174;
+
+async function attestBatchColumnsPresent(db, config){
+    if(!db.attestBatchColumnMemo) db.attestBatchColumnMemo = {};
+    let memo = db.attestBatchColumnMemo[config.coin];
+    if(memo && (memo.present || Date.now() - memo.at < ATTEST_BATCH_PROBE_TTL_MS))
+        return memo.present;
+    try {
+        let placeholders = ATTEST_BATCH_COLUMNS.map(() => '?').join(',');
+        let rows = await db.doQuery(config,
+            `SELECT COLUMN_NAME
+             FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='attests'
+               AND COLUMN_NAME IN (${placeholders})
+             LIMIT ${ATTEST_BATCH_COLUMNS.length}`, ATTEST_BATCH_COLUMNS);
+        let found = new Set((rows || []).map(r => String(r.COLUMN_NAME)));
+        let present = ATTEST_BATCH_COLUMNS.every(name => found.has(name));
+        db.attestBatchColumnMemo[config.coin] = { present, at: Date.now() };
+        return present;
+    } catch(_){
+        db.attestBatchColumnMemo[config.coin] = { present: false, at: Date.now() };
+        return false;
+    }
+}
+
+function batchProjection(withBatch){
+    if(!withBatch) return '';
+    return `,
+                CASE WHEN m.version IN (5, 6) THEN m.request_id ELSE NULL END as batch_key,
+                m.batch_window_start,
+                m.batch_window_end,
+                m.batch_row_count,
+                m.batch_action_index,
+                m.batch_chunk_index,
+                m.batch_total_chunks`;
+}
+
+function installAttestBatchListReader(listReaders){
+    const getAttestationsWithoutBatch = listReaders.getAttestations;
+    listReaders.getAttestations = async function(config){
+        let withBatch = await attestBatchColumnsPresent(this, config);
+        let result = await getAttestationsWithoutBatch.call(this, config);
+        if(withBatch)
+            result[0] = result[0].replace('m.callback_params_json,',
+                'm.callback_params_json' + batchProjection(true) + ',');
+        return result;
+    };
+}
+
+async function readBatchResponses(db, config, actionIndex){
+    let src = db.attestationResponseSource(config);
+    let rows = await db.doQuery(config,
+        `SELECT
+            NULL as action_index,
+            1 as version,
+            r.request_id,
+            r.request_action_index,
+            r.provider_id,
+            r.response_hash,
+            r.response_payload,
+            r.status as response_status,
+            r.meta,
+            r.signatures as validator_signatures,
+            NULL as callback_execute_action_index,
+            r.batch_action_index,
+            r.request_block_index as block_index,
+            'valid' as status
+         FROM ${src.table} r
+         WHERE r.network=? AND r.batch_action_index=?
+         ORDER BY r.request_block_index ASC, r.request_action_index ASC, r.effective_time ASC
+         LIMIT ` + ATTEST_BATCH_RESPONSE_LIMIT, [src.network, actionIndex]);
+    return (rows || []).map(row => ({ ...row, coin: src.coin }));
+}
+
+function batchLifecycle(db, rows, selected, responses){
+    let heads = rows.filter(r => Number(r.version) === 5);
+    let selectedRow = rows.find(r => Number(r.action_index) === Number(selected.action_index)) || selected;
+    let head = Number(selectedRow.version) === 5 ? selectedRow : heads.find(r => r.source === selectedRow.source);
+    if(!head) head = heads[0] || selected;
+    let source = head.source;
+    let continuations = rows.filter(r => Number(r.version) === 6 && r.source === source);
+    let duplicates = heads.filter(r => Number(r.action_index) !== Number(head.action_index)
+        && String(r.status) === 'valid').map(r => ({
+            action_index: r.action_index,
+            tx_hash:      r.tx_hash,
+            source:       r.source,
+            block_index:  r.block_index
+        }));
+    head.batch_key = head.request_id;
+    for(let row of continuations) row.batch_key = row.request_id;
+    for(let row of responses)
+        row.quorum_signatures = db.parseSignaturesArray(row.validator_signatures);
+    return { batch: head, continuations, responses, duplicates };
+}
+
+module.exports = {
+    ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS, DbQueryError, DbInputError, staleFailClosed,
+    attestBatchColumnsPresent, batchProjection, installAttestBatchListReader,
+    readBatchResponses, batchLifecycle, resolveAttestationRequestId, ATTEST_BATCH_CHUNK_LIMIT
+};

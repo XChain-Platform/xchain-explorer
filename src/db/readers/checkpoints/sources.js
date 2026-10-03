@@ -91,6 +91,21 @@ class CheckpointSourceReaders {
             'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
+    // Hub mirror source for batch-carried ATTEST responses.
+    attestationResponseSource(config){
+        let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
+        if(src && /^[A-Za-z0-9_$]+$/.test(src.name)){
+            let prefixes = { mainnet: '', testnet: 'T', regtest: 'R' };
+            if(Object.prototype.hasOwnProperty.call(prefixes, src.network))
+                return {
+                    table: '`' + src.name + '`.attestation_responses',
+                    network: src.network,
+                    coin: prefixes[src.network] + 'BTC'
+                };
+        }
+        throw new Error('No co-located attestation response mirror configured for coin ' + config.coin);
+    }
+
     // Resolve an ORACLE hub-mirror table for a coin (price_snapshots, oracle_prices),
     // mirroring matchSource: same hub-mirror-only, FAIL LOUD rule. A serving node's
     // local copy is an empty bootstrap table the live stream never fills. Neither

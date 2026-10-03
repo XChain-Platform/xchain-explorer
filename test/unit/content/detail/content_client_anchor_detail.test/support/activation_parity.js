@@ -37,5 +37,15 @@ describe('anchor.html detail render @regression', function () {
             // the key set the gate switches on as well.
             expect(Object.keys(shipped).sort()).to.deep.equal(['mainnet', 'regtest', 'testnet']);
         });
+
+        it('the browser ANCHOR_FOLD_ACTIVATION equals the registry row the indexer gates v3 on', function () {
+            const canonical = require('../../../../../../src/consensus/gate_registry.js')
+                .copy('anchor_fold_activation.ANCHOR_FOLD_ACTIVATION');
+            const shipped   = domWithPage().window.ANCHOR_FOLD_ACTIVATION;
+            expect(shipped, 'the render script must declare ANCHOR_FOLD_ACTIVATION').to.be.an('object');
+            expect(shipped).to.deep.equal(canonical);
+            // v0.21.3 arms the fold per testnet chain beside the bare network keys.
+            expect(Object.keys(shipped).sort()).to.deep.equal(['BTC:testnet', 'DOGE:testnet', 'LTC:testnet', 'mainnet', 'regtest', 'testnet']);
+        });
     });
 });

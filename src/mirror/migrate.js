@@ -207,7 +207,10 @@ const MIRROR_MIGRATIONS = {
     },
     list_snapshots: {
         columns: [
-            { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' }
+            { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'name', ddl: 'ADD COLUMN name VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL AFTER members_hash' },
+            { name: 'description', ddl: 'ADD COLUMN description VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL AFTER name' },
+            { name: 'meta_hash', ddl: 'ADD COLUMN meta_hash CHAR(64) NULL AFTER description' }
         ],
         indexes: []
     }

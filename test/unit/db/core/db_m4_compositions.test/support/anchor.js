@@ -319,8 +319,62 @@ describe('Database#getAnchor (M4 composed anchor detail)', () => {
 
 });
 
+// A v3 fold is the v0 bundle plus one trailing archive row (chain NULL, batch fields
+// set) at section_index N, and its reward is the same anchor_bundle round.
+const FOLD_ARCHIVE = { section_index: 3, chain: null, network: 'regtest', block_index: null,
+    checkpoint_seq: null, snapshot_block: 112, match_batch_seq: 27, match_count: 5,
+    batch_crc32: 'deadbeef', total_chunks: 2, chunk_index: 0, archive_b64_length: 4096,
+    validator_signatures: '[]', status: 'valid' };
+
+function foldDb(sections){
+    const db = bundleDb();
+    stubQueries(db, [
+        ['FROM anchor_actions m INNER JOIN actions', [Object.assign({}, HEADER, { version: 3 })]],
+        ['WHERE m.action_index=? ORDER BY m.section_index ASC', sections],
+        ['WHERE m.match_batch_seq=? ORDER BY m.chunk_index ASC', [{ action_index: 1100, version: 3, chunk_index: 0 }]],
+        ['`XChain_Hub`.anchor_reward_attestations m', [{ id: 9, reward_type: 'anchor_bundle' }]]
+    ]);
+    return db;
+}
+
+function foldComposition() {
+    it('fans a v3 fold out into its chain sections plus the archive row, counting chains only', async () => {
+        const db = foldDb(SECTIONS.concat([FOLD_ARCHIVE]));
+        const [data] = await db.getAnchor(bundleConfig());
+        expect(data.sections.map(s => s.chain)).to.deep.equal(['BTC', 'DOGE', 'LTC', null]);
+        expect(data.section_count).to.equal(3);
+        expect(data.snapshot_block).to.equal(112);
+        expect(data.local_section_index).to.equal(1);
+        const sections = findQuery(db, 'WHERE m.action_index=? ORDER BY m.section_index ASC');
+        expect(sections.query).to.include('m.match_batch_seq').and.to.include('CHAR_LENGTH(m.archive_b64)');
+        expect(sections.query).to.not.match(/m\.archive_b64,/);
+    });
+
+    it('keys the v3 chunk list on the archive section batch id, the spine carrying none', async () => {
+        const db = foldDb(SECTIONS.concat([FOLD_ARCHIVE]));
+        const [data] = await db.getAnchor(bundleConfig());
+        expect(findQuery(db, 'WHERE m.match_batch_seq=? ORDER BY m.chunk_index ASC').args).to.deep.equal([27]);
+        expect(data.chunks).to.have.length(1);
+    });
+
+    it('correlates the v3 anchor_bundle reward on the SNAPSHOT BLOCK round', async () => {
+        const db = foldDb(SECTIONS);
+        await db.getAnchor(bundleConfig());
+        expect(findQuery(db, '`XChain_Hub`.anchor_reward_attestations m').args.slice(3)).to.deep.equal([112, 110, 112]);
+        expect(captured(db).some(q => q.query.includes('m.match_batch_seq=?'))).to.equal(false);
+    });
+
+    it('keeps a single-row v3 (pre-fold or legacy) as one section with no chunk read', async () => {
+        const db = foldDb([SECTIONS[0]]);
+        const [data] = await db.getAnchor(bundleConfig());
+        expect(data.sections).to.have.length(1);
+        expect(data.section_count).to.equal(1);
+    });
+}
+
 describe('Database#getAnchor (M4 composed anchor detail)', () => {
     describe('v0 bundle composition', bundleComposition1);
     describe('v0 bundle composition', bundleComposition2);
+    describe('v3 fold composition', foldComposition);
 
 });

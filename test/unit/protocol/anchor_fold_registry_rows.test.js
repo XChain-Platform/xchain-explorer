@@ -35,11 +35,14 @@ describe('consensus gate registry anchor fold rows', function () {
         assert.ok(present.length === 0 || present.length === 2);
     });
 
-    it('ships both activation maps inert on every network', function () {
+    it('ships both activation maps inert on mainnet and armed at the v0.21.3 testnet heights', function () {
         withEnv(undefined, () => {
             for (const key of KEYS) {
                 assert.deepStrictEqual(gateRegistry.get(key), {
                     mainnet: 9999999999,
+                    'BTC:testnet': 155001,
+                    'LTC:testnet': 4906040,
+                    'DOGE:testnet': 67962387,
                     testnet: 9999999999,
                     regtest: null,
                 });

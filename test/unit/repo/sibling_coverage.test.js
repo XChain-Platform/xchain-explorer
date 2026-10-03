@@ -71,7 +71,7 @@ const SIBLINGS = [
       guards: 'decoder schema conformance and the mempool decode twin' },
     { repo: 'xchain-documentation', envs: ['XCHAIN_DOCS_DIR'],
       marker: 'protocol',
-      guards: 'action-manifest, consensus-primitive and vm-query constant conformance' },
+      guards: 'action-manifest, consensus-primitive and vm-query constant conformance, and the websocket.md wire contract' },
     { repo: 'xchain-encoder', envs: ['XCHAIN_ENCODER_DIR'],
       marker: 'src',
       guards: 'compression-parameter twin parity' },

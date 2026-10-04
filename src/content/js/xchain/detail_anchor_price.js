@@ -134,7 +134,7 @@ function showPriceDetails(data){
         $('#info-price .price-signers').html(sigs.map((s) => formatHash(s.pubkey, 24)).join('<br>'));
     $('#info-price .price-validation-status').text(isNull(data.validation_status) ? '-' : data.validation_status);
     $('#info-price .price-memo').text(isNull(data.memo) ? '-' : data.memo);
-    showPriceRounds(rounds);
+    showPriceRounds(rounds, data.rounds_unparseable);
 }
 
 // Render a PRICE batch's decoded round bodies: one table per round, listing every
@@ -145,9 +145,14 @@ function showPriceDetails(data){
 // pair that fails the network's pair pattern and a price that is not decimal digits),
 // but this renderer also runs against a v1 oracle row and any future carrier, so it
 // does not lean on that.
-function showPriceRounds(rounds){
+function showPriceRounds(rounds, unparseable){
     let block = $('#info-price .price-rounds-block');
-    block.toggleClass('d-none', rounds.length === 0);
+    block.toggleClass('d-none', rounds.length === 0 && !unparseable);
+    if(unparseable){
+        $('#info-price .price-rounds-summary').text('');
+        $('#info-price .price-rounds').html('<span class="text-danger">Invalid rounds JSON</span>');
+        return;
+    }
     if(rounds.length === 0){
         $('#info-price .price-rounds').empty();
         $('#info-price .price-rounds-summary').text('');

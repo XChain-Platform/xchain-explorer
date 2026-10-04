@@ -4,36 +4,40 @@ const assert = require('assert');
 
 const { flattenHubConfig } = require('../../../src/config/apply_hub_values.js');
 
-function flatten(hub, config){
-    return flattenHubConfig(hub, config, new Set(), { warn(){} });
-}
-
 describe('config/apply_hub_values', function(){
-    it('lets hub values overwrite owned keys and preserves other keys', function(){
-        const config = { BTC: 'Bitcoin' };
+    it('overwrites generated keys while preserving unowned values', function(){
+        const config = { BTC: 'Bitcoin', applicationMode: 'unchanged' };
+        const configBefore = structuredClone(config);
+        const custom = { enabled: true };
         const hub = {
             bitcoin: {
                 mainnet: {
                     coin: 'hub-coin',
                     network: 'hub-network',
-                    custom: { enabled: true }
+                    custom
                 }
             }
         };
 
-        assert.deepStrictEqual(flatten(hub, config), [{
+        const result = flattenHubConfig(hub, config, new Set(), { warn(){} });
+
+        assert.deepStrictEqual(result, [{
             coin: 'hub-coin',
             network: 'hub-network',
             custom: { enabled: true }
         }]);
+        assert.strictEqual(result[0].custom, custom);
+        assert.deepStrictEqual(config, configBefore);
     });
 
     it('leaves the config unchanged when the hub payload is absent or empty', function(){
         for(const hub of [undefined, null, {}]){
-            const config = { BTC: 'Bitcoin', LTC: 'Litecoin' };
+            const config = { BTC: 'Bitcoin', applicationMode: 'unchanged' };
             const before = structuredClone(config);
 
-            assert.deepStrictEqual(flatten(hub, config), []);
+            const result = flattenHubConfig(hub, config, new Set(), { warn(){} });
+
+            assert.deepStrictEqual(result, []);
             assert.deepStrictEqual(config, before);
         }
     });
@@ -49,7 +53,7 @@ describe('config/apply_hub_values', function(){
         };
         const before = structuredClone(hub);
 
-        flatten(hub, { BTC: 'Bitcoin' });
+        flattenHubConfig(hub, { BTC: 'Bitcoin' }, new Set(), { warn(){} });
 
         assert.deepStrictEqual(hub, before);
     });

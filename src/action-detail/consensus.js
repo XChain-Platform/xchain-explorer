@@ -218,7 +218,7 @@ const PRICE = {
         }
         if(data['sigs_json']){
             try { data['signatures'] = JSON.parse(data['sigs_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'sigs_json', action_index, err: _.message }); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'sigs_json', action_index, err: _.message }); data['signatures'] = []; data['signatures_unparseable'] = true; }
         }
         if(data['rounds_json']){
             try { data['rounds'] = JSON.parse(data['rounds_json']); }

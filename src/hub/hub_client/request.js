@@ -135,57 +135,88 @@ function attachResponseHandlers(res, req, resolve, reject){
     });
 }
 
+function createSettlementLatch(settleResolve, settleReject){
+    // Route every exit through one latch because a hub that dies mid-body can
+    // fire several terminal events, and a deadline can race them all. Settling
+    // each event directly would try to settle the promise more than once.
+
+    // Keep response classification centralized in its `end` handler while the
+    // settlement guard stays reusable across every terminal event.
+    let settled = false;
+    function resolve(value){
+        if(settled) return;
+        settled = true;
+        settleResolve(value);
+    }
+    function reject(err){
+        if(settled) return;
+        settled = true;
+        settleReject(err);
+    }
+    return { resolve, reject };
+}
+
+function readHubTarget(targetUrl){
+    let parsed = url.parse(targetUrl);
+    let isHttps = parsed.protocol === 'https:';
+    return { parsed, isHttps, lib: isHttps ? https : http };
+}
+
+function encodeHubRequest(method, params){
+    return JSON.stringify({
+        jsonrpc: '2.0',
+        id:      Date.now(),
+        method:  method,
+        params:  params
+    });
+}
+
+function createRequestOptions(target, body, apiKey){
+    let headers = {
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(body)
+    };
+    if(apiKey) headers['x-api-key'] = apiKey;
+    return {
+        hostname: target.parsed.hostname,
+        port:     target.parsed.port || (target.isHttps ? 443 : 80),
+        path:     target.parsed.pathname || '/',
+        method:   'POST',
+        headers:  headers,
+        timeout:  5000
+    };
+}
+
+function openHubRequest(lib, opts, resolve, reject){
+    let req = lib.request(opts, (res) => attachResponseHandlers(res, req, resolve, reject));
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => { req.destroy(new Error('Request timeout')); });
+    return req;
+}
+
+function armCallDeadline(req, reject, callDeadlineMs){
+    // Arm a wall-clock ceiling because the idle-socket timer cannot bound a
+    // drip-fed body. Leave it unref'd so it cannot hold the process open, then
+    // clear it on request teardown so a settled call drops the timer.
+    let deadlineTimer = setTimeout(() => {
+        req.destroy();
+        reject(new Error('hub call exceeded its ' + callDeadlineMs + 'ms deadline'));
+    }, callDeadlineMs);
+    if(deadlineTimer.unref) deadlineTimer.unref();
+    req.once('close', () => clearTimeout(deadlineTimer));
+}
+
 // Make a JSON-RPC 2.0 request to the hub over http/https and settle with the parsed
 // result. This owns the transport mechanics only; HubClient.call supplies the URL,
 // key and deadline.
 function sendHubRequest(targetUrl, method, params, apiKey, callDeadlineMs){
     return new Promise((settleResolve, settleReject) => {
-        // Every exit runs through one latch, and the local `resolve`/`reject` below
-        // ARE that latch: a hub that dies mid-body can fire several of the terminal
-        // events, and a deadline abort races them all, so a direct settle would be a
-        // double-settle. Shadowing the executor's own names keeps the classification
-        // logic in the 'end' handler unchanged rather than restating it.
-        let settled = false;
-        let resolve = (v) => { if(!settled){ settled = true; settleResolve(v); } };
-        let reject  = (e) => { if(!settled){ settled = true; settleReject(e); } };
-        let parsed = url.parse(targetUrl);
-        let isHttps = parsed.protocol === 'https:';
-        let lib = isHttps ? https : http;
-
-        let body = JSON.stringify({
-            jsonrpc: '2.0',
-            id:      Date.now(),
-            method:  method,
-            params:  params
-        });
-
-        let headers = {
-            'Content-Type':   'application/json',
-            'Content-Length': Buffer.byteLength(body)
-        };
-        if(apiKey) headers['x-api-key'] = apiKey;
-
-        let opts = {
-            hostname: parsed.hostname,
-            port:     parsed.port || (isHttps ? 443 : 80),
-            path:     parsed.pathname || '/',
-            method:   'POST',
-            headers:  headers,
-            timeout:  5000
-        };
-
-        let req = lib.request(opts, (res) => attachResponseHandlers(res, req, resolve, reject));
-        req.on('error', (err) => reject(err));
-        req.on('timeout', () => { req.destroy(new Error('Request timeout')); });
-        // The idle-socket timer above cannot bound a drip-fed body, so arm the
-        // wall-clock ceiling beside it. Unref'd so it never holds the process open,
-        // and cleared on the request's own teardown so a settled call drops it.
-        let deadlineTimer = setTimeout(() => {
-            req.destroy();
-            reject(new Error('hub call exceeded its ' + callDeadlineMs + 'ms deadline'));
-        }, callDeadlineMs);
-        if(deadlineTimer.unref) deadlineTimer.unref();
-        req.once('close', () => clearTimeout(deadlineTimer));
+        let { resolve, reject } = createSettlementLatch(settleResolve, settleReject);
+        let target = readHubTarget(targetUrl);
+        let body = encodeHubRequest(method, params);
+        let opts = createRequestOptions(target, body, apiKey);
+        let req = openHubRequest(target.lib, opts, resolve, reject);
+        armCallDeadline(req, reject, callDeadlineMs);
         req.write(body);
         req.end();
     });

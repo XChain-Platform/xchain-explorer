@@ -129,17 +129,8 @@ const DEPOSIT_WITHDRAW = {
     },
 };
 
-module.exports = {
-    DEPLOY,
-    EXECUTE,
-    // One handler, two action names: DEPOSIT and WITHDRAW share a row shape.
-    DEPOSIT:  DEPOSIT_WITHDRAW,
-    WITHDRAW: DEPOSIT_WITHDRAW
-};
-
-Object.defineProperty(module.exports, 'feeRows', {
-    value: function feeRows(){
-        return `(SELECT
+function persistedFeeRows(){
+    return `(SELECT
                         m.action_index,
                         m.tick_id,
                         m.amount,
@@ -157,7 +148,11 @@ Object.defineProperty(module.exports, 'feeRows', {
                         m.fee_version,
                         NULL as source_id
                     FROM
-                        fees m
+                        fees m`;
+}
+
+function inferredContractFeeRows(){
+    return `
                     UNION ALL
                     SELECT
                         ce.action_index,
@@ -192,5 +187,18 @@ Object.defineProperty(module.exports, 'feeRows', {
                         )
                     GROUP BY
                         ce.action_index, ce.gas_used, ce.status_id, ce.caller_id)`;
+}
+
+module.exports = {
+    DEPLOY,
+    EXECUTE,
+    // One handler, two action names: DEPOSIT and WITHDRAW share a row shape.
+    DEPOSIT:  DEPOSIT_WITHDRAW,
+    WITHDRAW: DEPOSIT_WITHDRAW
+};
+
+Object.defineProperty(module.exports, 'feeRows', {
+    value: function feeRows(){
+        return persistedFeeRows() + inferredContractFeeRows();
     }
 });

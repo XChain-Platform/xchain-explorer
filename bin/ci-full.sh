@@ -202,6 +202,9 @@ fi
 if [ "${CI_TIER:-full}" = "fast" ]; then
   run_tier "fast-tier selector self-test" ./node_modules/.bin/mocha --no-config --timeout 20000 --exit bin/test/ci_fast_select.test.js
 fi
+run_tier "fuzz (test:fuzz)" npm run test:fuzz
+run_tier "smoke unit (test:smoke:unit)" npm run test:smoke:unit
+run_tier "P0 regression unit (test:regression:p0:unit)" npm run test:regression:p0:unit
 
 # --- job: perf (needs: ci) -------------------------------------------------
 run_tier "db fixture for perf (mariadb on 3307)" db_fixture_reset

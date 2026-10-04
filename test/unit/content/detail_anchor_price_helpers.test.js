@@ -121,7 +121,9 @@ describe('PRICE detail helpers', function(){
         assert.strictEqual(cell('#info-price .price-window-row').classes.has('d-none'), true);
         assert.strictEqual(cell('#info-price .price-pairs').text, '3');
     });
+});
 
+describe('PRICE signature helper', function(){
     it('renders signature count and signer hashes', function(){
         const { context, cell } = helperHarness('showPriceSignatures');
         context.showPriceSignatures({ sig_count: null }, [

@@ -205,7 +205,9 @@ function detailAttestVote_renderPollSummary(data){
         $('#info-vote .vote-token').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
         $('#info-vote .vote-question').text(isNull(data.question) ? '-' : data.question);
         let opts = Array.isArray(data.options) ? data.options : [];
-        $('#info-vote .vote-options').html(opts.length ? opts.map((o, i) => i + ': ' + $('<div>').text(o).html()).join('<br>') : '-');
+        $('#info-vote .vote-options').html(data.options_unparseable ?
+            '<span class="text-danger">Malformed options JSON</span>' :
+            (opts.length ? opts.map((o, i) => i + ': ' + $('<div>').text(o).html()).join('<br>') : '-'));
         $('#info-vote .vote-tally-mode').text(isNull(data.tally_mode) ? '-' : data.tally_mode);
         $('#info-vote .vote-weight-mode').text(isNull(data.weight_mode) ? '-' : data.weight_mode);
         $('#info-vote .vote-max-selections').text(isNull(data.max_selections) ? '-' : data.max_selections);

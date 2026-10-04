@@ -138,10 +138,16 @@ function showPriceDetails(data){
     // sig_count is NULL on a batch row, but sigs_json holds the signature set that
     // covers the whole window, so fall back to its length rather than to a dash.
     let sigCount = isNull(data.sig_count) ? (sigs.length || null) : Number(data.sig_count);
-    $('#info-price .price-sig-count').text(isNull(sigCount) ? '-' : numeral(sigCount).format('0,0'));
-    $('#info-price .price-signers-row').toggleClass('d-none', sigs.length === 0);
-    if(sigs.length)
-        $('#info-price .price-signers').html(sigs.map((s) => formatHash(s.pubkey, 24)).join('<br>'));
+    if(data.signatures_unparseable){
+        let invalid = '<span class="text-danger">unparseable</span>';
+        $('#info-price .price-sig-count, #info-price .price-signers').html(invalid);
+        $('#info-price .price-signers-row').removeClass('d-none');
+    } else {
+        $('#info-price .price-sig-count').text(isNull(sigCount) ? '-' : numeral(sigCount).format('0,0'));
+        $('#info-price .price-signers-row').toggleClass('d-none', sigs.length === 0);
+        if(sigs.length)
+            $('#info-price .price-signers').html(sigs.map((s) => formatHash(s.pubkey, 24)).join('<br>'));
+    }
     $('#info-price .price-validation-status').text(isNull(data.validation_status) ? '-' : data.validation_status);
     $('#info-price .price-memo').text(isNull(data.memo) ? '-' : data.memo);
     showPriceRounds(rounds, data.rounds_unparseable);

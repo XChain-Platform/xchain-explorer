@@ -67,6 +67,50 @@ async function resolveCoinIdentity(db, config){
     return { coinName, coinTick, reqNetwork };
 }
 
+function buildNetworkState(block, blockTime, unconfirmed, unconfirmedNode){
+    // Network information: block/time are the real indexer tip for this coin.
+    return {
+        block : block,
+        time  : blockTime,
+        // Real mempool size: count of unconfirmed XChain-carrying txs for
+        // this coin (0 if neither the decoder API nor DB is reachable).
+        unconfirmed: unconfirmed,
+        // The coin node's TOTAL mempool tx count (XChain or not), from
+        // the decoder API. null when no decoder API resolves for this
+        // coin (a DB-only deployment cannot know it); clients hide it.
+        unconfirmed_node: unconfirmedNode,
+    };
+}
+
+function buildCoinState(coinName, coinTick, coinPriceUsd){
+    // Read coin identity from the per-coin chain config.
+    // Use live USD prices for mainnet coins and $0.00 for testnet/regtest,
+    // where no market price exists.
+
+    // Keep price.btc at 1.0 until a coin/BTC cross is available.
+    return {
+        name: coinName,
+        symbol: coinTick,
+        price: {
+            btc: '1.00000000',
+            usd: coinPriceUsd != null ? coinPriceUsd : '0.00'
+        }
+    };
+}
+
+function buildXchainState(){
+    // XChain token info: price is a PLACEHOLDER pending XCHAIN issuance + a
+    // market (it must be DEX-derived, not an external feed).
+    return {
+        name: 'XChain',
+        symbol: 'XCHAIN',
+        price: {
+            btc: '0.00000000',
+            usd: '0.00'
+        }
+    };
+}
+
 // The /api/network response body, assembled from values their own readers already
 // produced. Kept apart from those reads so the shape this endpoint promises is one
 // legible object rather than a tail on a sequence of awaits.
@@ -75,44 +119,13 @@ function buildNetworkSummary(config, reqNetwork, parts){
     return {
         // Per-action-type record counts (real; populated below).
         totals : {},
-        // Network information: block/time are the real indexer tip for this coin.
-        network: {
-            block : block,
-            time  : blockTime,
-            // Real mempool size: count of unconfirmed XChain-carrying txs for
-            // this coin (0 if neither the decoder API nor DB is reachable).
-            unconfirmed: unconfirmed,
-            // The coin node's TOTAL mempool tx count (XChain or not), from
-            // the decoder API. null when no decoder API resolves for this
-            // coin (a DB-only deployment cannot know it); clients hide it.
-            unconfirmed_node: unconfirmedNode,
-        },
+        network: buildNetworkState(block, blockTime, unconfirmed, unconfirmedNode),
         // Suggested fee tiers (sat/vByte) from this coin's encoder, which reads
         // the node's estimatesmartfee. Falls back to {1,2,3} when no encoder is
         // configured (ENCODER_URL) or it's unreachable. See getFeeEstimate().
         fee: fee,
-        // Coin identity is REAL (from the per-coin chain config). usd price is
-        // REAL for mainnet coins (from the xchain-hub oracle); testnet/regtest
-        // keep the $0.00 placeholder (no market). price.btc stays the identity
-        // 1.0 (coin priced in itself); a coin/BTC cross is future work.
-        coin: {
-            name: coinName,
-            symbol: coinTick,
-            price: {
-                btc: '1.00000000',
-                usd: coinPriceUsd != null ? coinPriceUsd : '0.00'
-            }
-        },
-        // XChain token info: price is a PLACEHOLDER pending XCHAIN issuance + a
-        // market (it must be DEX-derived, not an external feed).
-        xchain: {
-            name: 'XChain',
-            symbol: 'XCHAIN',
-            price: {
-                btc: '0.00000000',
-                usd: '0.00'
-            }
-        },
+        coin: buildCoinState(coinName, coinTick, coinPriceUsd),
+        xchain: buildXchainState(),
         // Same-chain finality guidance (display/UX only). The indexer processes
         // actions at the chain tip, so this is a recommended "treat a receipt as
         // final after N confirmations" value per chain, not a gate. Sourced from

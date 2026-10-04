@@ -13,10 +13,8 @@
 const { expect } = require('chai');
 const { buildHubSelector } = require('../../../src/mirror/hub_selection.js');
 
-describe('hub mirror selector builder', function () {
-
+function isolateHubEnvironment(){
     let savedEnv;
-
     beforeEach(function () {
         savedEnv = {
             seeds: process.env.HUB_SEED_URLS,
@@ -32,6 +30,11 @@ describe('hub mirror selector builder', function () {
         if(savedEnv.url === undefined) delete process.env.HUB_API_URL;
         else process.env.HUB_API_URL = savedEnv.url;
     });
+}
+
+describe('hub mirror selector network defaults', function () {
+
+    isolateHubEnvironment();
 
     it('expands the default testnet seeds', function () {
         let selector = buildHubSelector({ network: 'testnet', hubSeedUrls: 'default' });
@@ -60,6 +63,11 @@ describe('hub mirror selector builder', function () {
         expect(() => buildHubSelector({ network: 'regtest', hubSeedUrls: 'default' }))
             .to.throw('HUB_SEED_URLS default is unavailable for network "regtest"');
     });
+});
+
+describe('hub mirror selector modes', function () {
+
+    isolateHubEnvironment();
 
     it('prefers config seeds over environment seeds and a hub URL', function () {
         process.env.HUB_SEED_URLS = 'http://env-hub:10000';
@@ -97,6 +105,11 @@ describe('hub mirror selector builder', function () {
     it('returns null when neither seeds nor a hub URL are available', function () {
         expect(buildHubSelector({ network: 'testnet' })).to.equal(null);
     });
+});
+
+describe('hub mirror selector randomness', function () {
+
+    isolateHubEnvironment();
 
     it('passes the injected randomInt to the selector shuffle', function () {
         let calls = [];

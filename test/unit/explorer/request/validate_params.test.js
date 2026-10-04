@@ -20,7 +20,7 @@ function makeHarness(method, type, search, gate = { blocked: false }){
     return { explorer, st, mirrorGateCalls: () => mirrorGateCalls };
 }
 
-describe('validateParams', function () {
+describe('validateParams integer searches', function () {
     it('rejects an unsafe action index', function () {
         const { explorer, st } = makeHarness('getAction', 'action_index', '7junk');
 
@@ -54,7 +54,9 @@ describe('validateParams', function () {
         for(const { explorer, st } of cases)
             expect(validateParams(explorer, st)).to.be.false;
     });
+});
 
+describe('validateParams mirror and token searches', function () {
     it('settles a cross-chain request when its mirror is blocked', function () {
         const gate = { blocked: true };
         const { explorer, st, mirrorGateCalls } =

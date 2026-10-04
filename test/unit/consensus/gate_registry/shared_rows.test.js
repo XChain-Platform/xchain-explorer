@@ -49,6 +49,15 @@ describe('shared gate row exports', function () {
 });
 
 describe('shared gate row registration', function () {
+    it('rejects a malformed row in addGate', function () {
+        const registry = core.createRegistry();
+
+        assert.throws(
+            () => registry.addGate('malformed.ROW', 'height', { regtest: 'not-a-height' }),
+            /must be a finite number or UNPINNED/
+        );
+    });
+
     it('rejects a malformed row queued with addGate', function () {
         const { addGate, registerRows } = freshSharedRows();
 

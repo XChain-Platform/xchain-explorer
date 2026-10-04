@@ -88,9 +88,10 @@ function firstAnchorIdentity(rows){
     return (rows && rows.length) ? rows[0] : null;
 }
 
-// The anchor spine: the one anchor_actions row the QUERY names, or null. `db` is the
-// Database instance getAnchor runs on, passed in because each section below is a plain
-// function rather than a method, so cutting the reader up adds no name to
+// Read the one anchor_actions row named by the query, or null. `db` is the
+// Database instance on which getAnchor runs.
+
+// Keep each section as a plain function so splitting the reader adds no name to
 // Database.prototype.
 async function readAnchorIdentity(db, config){
     let { predicate, key } = anchorIdentityLookup(db, config);

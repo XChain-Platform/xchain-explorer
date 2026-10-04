@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-04
+
+### Added
+- Added HUB_SEED_URLS resolution and per-chain hub selectors for explorer mirrors.
+
+### Changed
+- Accepted hub seed lists from checkpoints while retaining pinned hub compatibility.
+- Updated the vendored mirror client for content-keyed drains, failover moves, and admission barriers.
+- Armed ORACLE_ROUND_TIME_ACTIVATION on BTC:testnet at 155158.
+- Armed ORACLE_ROUND_TIME_ACTIVATION on LTC:testnet at 4907593.
+- Armed ORACLE_ROUND_TIME_ACTIVATION on DOGE:testnet at 67966647.
+
 ## [0.21.3] - 2026-10-03
 
 ### Added

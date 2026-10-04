@@ -101,8 +101,7 @@ function voteAndBetRows(info, c){
     return info;
 }
 
-function crossChainRows(info, c){
-    let { count_reverse, status, method } = c;
+function betAndRequestRows(info, count_reverse, status, method){
     // BET wager list page. One row per placed bet; the bettor is the source.
     if(method=='getBets')
         info = [count_reverse, info.block_index, info.timestamp, info.source, info.feed_action_index, info.outcome,
@@ -119,6 +118,10 @@ function crossChainRows(info, c){
     // word, not 0/1); the render badges it instead.
     if(method=='getCrossChainMatches')
         info = [count_reverse, info.snapshot_block, info.network, info.match_id, info.a_chain, info.a_tick, info.a_amount, info.b_chain, info.b_tick, info.b_amount, info.status, info.id];
+    return info;
+}
+
+function checkpointRows(info, count_reverse, method){
     // Quorum-signed state checkpoints (hub-mirrored). No action row and no
     // 0/1 status, so block_index doubles as the paging cursor (LAST) and the
     // client renders this action in its no-color list. signer_count is the
@@ -134,6 +137,10 @@ function crossChainRows(info, c){
     // m.block_index doubles as the paging cursor (LAST), same as getCheckpoints.
     if(method=='getCommitments')
         info = [count_reverse, info.block_index, info.balances_root, info.stakes_root, info.state_root, info.block_merkle_root, info.contract_state_root, info.checkpoint_seq, info.checkpoint_signer_count, info.anchor_action_index, info.anchor_version, info.block_index];
+    return info;
+}
+
+function attestationAndCapabilityRows(info, count_reverse, method){
     // Quorum-attested ANCHOR publisher rewards (hub-mirrored, id-keyed,
     // never routed through HubOperationalCache; see checkpointSource).
     // id is the paging cursor (LAST).
@@ -153,6 +160,13 @@ function crossChainRows(info, c){
     if(method=='getCapabilitySnapshots')
         info = [count_reverse, info.created_at, info.snapshot_block, info.capability, info.signing_pubkey, info.amount, info.source, info.id];
     return info;
+}
+
+function crossChainRows(info, c){
+    let { count_reverse, status, method } = c;
+    info = betAndRequestRows(info, count_reverse, status, method);
+    info = checkpointRows(info, count_reverse, method);
+    return attestationAndCapabilityRows(info, count_reverse, method);
 }
 
 function mirrorAndExpiryRows(info, c){

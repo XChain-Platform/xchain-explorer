@@ -17,8 +17,6 @@
  */
 
 function showAnchorPublisherDetails(data){
-    // The v4/v5/v6 publisher receives the reward; attestations are the on-wire RAW
-    // XANCPUB quorum shown for provenance. Both are NULL before v4, hiding this row.
     let pubSigs = Array.isArray(data.publisher_attestations) ? data.publisher_attestations : [];
     let invalidPubSigs = !!data.publisher_attestations_unparseable;
     let hasPublisher = !isNull(data.publisher) || pubSigs.length > 0 || invalidPubSigs;
@@ -36,7 +34,6 @@ function showAnchorPublisherDetails(data){
         }
     }
 }
-
 // Display ANCHOR action information (DOGE checkpoint: v0 checkpoint, v1 +archive, v2 continuation chunk)
 function showAnchorDetails(data){
     $('#info-anchor .anchor-version').text(isNull(data.version) ? '-' : ('v' + data.version));
@@ -81,7 +78,7 @@ function showAnchorDetails(data){
         $('#info-anchor .anchor-state-root').html(isNull(data.state_root) ? '-' : formatHash(data.state_root, 32));
         $('#info-anchor .anchor-block-merkle-root').html(isNull(data.block_merkle_root) ? '-' : formatHash(data.block_merkle_root, 32));
     }
-    showAnchorPublisherDetails(data);
+    if(typeof showAnchorPublisherDetails === 'function') showAnchorPublisherDetails(data);
 }
 
 // Display PRICE action information (v0 validator COIN/FIAT snapshot, v0 validator

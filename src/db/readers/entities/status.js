@@ -35,11 +35,8 @@ const DecoderConnector = require('../../../connectors/decoder.js');
 const IndexerConnector = require('../../../connectors/indexer.js');
 const { staleFailClosed } = require('../../shared.js');
 
-// The per-coin measurement maps a /status report carries, each empty until the loop
-// below fills it. Split from the header fields only because the two together run
-// past the length a function should have; the comments are the contract for what
-// each map means, so they stay with the field they describe.
-function statusMeasurementFields(){
+// Tracks the decoder tip and the indexer's distance from it for every coin.
+function decoderMeasurementFields(){
     return {
         // Decoder-tip reference and indexer lag per coin. decoder_tip is the
         // decoder's highest *processed* block; decoder_lag_blocks is
@@ -54,7 +51,13 @@ function statusMeasurementFields(){
         // Both fields are null for a coin when the decoder tip is
         // unavailable; last_block/last_block_time are unaffected.
         decoder_tip:        {},
-        decoder_lag_blocks: {},
+        decoder_lag_blocks: {}
+    };
+}
+
+// Tracks each indexed tip's age and forward clock skew for every coin.
+function tipTimeMeasurementFields(){
+    return {
         // Wall-clock age of each measured coin's newest indexed block, and whether
         // that age has passed the coin's max tip age. Unlike decoder_lag_blocks these
         // see a JOINT indexer+decoder freeze, because they are measured against the
@@ -66,7 +69,13 @@ function statusMeasurementFields(){
         // tip would be indistinguishable from a block mined this second, and
         // that skew is the thing an operator has to fix. null when block_time
         // is missing or unreadable, the same as tip_age_seconds.
-        tip_future_seconds: {},
+        tip_future_seconds: {}
+    };
+}
+
+// Tracks why the indexer is waiting and when that wait is expected to clear.
+function indexerWaitMeasurementFields(){
+    return {
         // Why the indexer trails, for consumers that must tell a consensus wait
         // apart from a wedge. tip_future_seconds cannot answer this: it measures
         // the block already committed, which is always past-dated, so it reads 0
@@ -82,7 +91,13 @@ function statusMeasurementFields(){
         next_block_time:             {},
         next_block_future_seconds:   {},
         indexer_wait_clears_at:      {},
-        stale:           {},
+        stale:                       {}
+    };
+}
+
+// Tracks active consensus-divergence halts for every replica.
+function replicaHaltMeasurementFields(){
+    return {
         // Durable consensus-divergence halt xchain-sync records into the indexer
         // or decoder replica DB (sync_halt, cleared_at IS NULL = active).
         // A halted replica applies no further blocks but keeps reporting a
@@ -94,6 +109,15 @@ function statusMeasurementFields(){
         // collapse to false, since a consumer reads false as healthy.
         replica_halted:  {}
     };
+}
+
+// Builds the per-coin maps that the status loop fills without exposing helpers.
+function statusMeasurementFields(){
+    return Object.assign({},
+        decoderMeasurementFields(),
+        tipTimeMeasurementFields(),
+        indexerWaitMeasurementFields(),
+        replicaHaltMeasurementFields());
 }
 
 // The /status report before any coin has been measured. A module function rather

@@ -162,11 +162,12 @@ const BET_EXPIRE = {
     },
 };
 
-function parseVoteOptions(raw, field, action_index){
+function parseVoteOptions(raw, field, action_index, data){
     if(!raw) return [];
     try { return JSON.parse(raw); }
     catch(error){
         log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field, action_index, err: error.message });
+        if(data) data['options_unparseable'] = true;
         return [];
     }
 }
@@ -192,7 +193,7 @@ const VOTE = {
         if(!db.util.isNull(data['poll_status'])){
             data['vote_kind'] = 'poll';
             // options is a JSON array of labels; callback_params a JSON array of dev params.
-            data['options'] = parseVoteOptions(data['options'], 'options', action_index);
+            data['options'] = parseVoteOptions(data['options'], 'options', action_index, data);
             if(data['callback_params']){
                 try { data['callback_params'] = JSON.parse(data['callback_params']); }
                 catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'VOTE', field: 'callback_params', action_index, err: _.message }); }

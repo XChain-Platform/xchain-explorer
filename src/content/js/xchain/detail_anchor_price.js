@@ -38,12 +38,8 @@ function showAnchorDetails(data){
     $('#info-anchor .anchor-chain').text(isNull(data.chain) ? '-' : data.chain);
     $('#info-anchor .anchor-network').text(isNull(data.network) ? '-' : data.network);
     $('#info-anchor .anchor-checkpoint-seq').text(isNull(data.checkpoint_seq) ? '-' : numeral(data.checkpoint_seq).format('0,0'));
-    // SNAPSHOT_BLOCK is a BITCOIN height carried on the wire (xchain-indexer
-    // actions/anchor/index.js: the oracle_publish capability snapshot it names is BTC-keyed),
-    // while ANCHOR is only valid on DOGE. Linking it into the page coin therefore
-    // resolved a DOGE block of the same number, an unrelated block. Route it through
-    // the shared BTC-height renderer, which links the tier-matched BTC chain when this
-    // instance serves it and otherwise prints the bare height.
+    // SNAPSHOT_BLOCK is a BTC height while ANCHOR only lands on DOGE. Use the shared
+    // renderer to link the matching BTC tier, or show a bare height if it is absent.
     $('#info-anchor .anchor-snapshot-block').html(formatPriceAnchorHeight(data.snapshot_block));
     $('#info-anchor .anchor-block-hash').html(isNull(data.block_hash) ? '-' : formatHash(data.block_hash, 32));
     $('#info-anchor .anchor-ledger-hash').html(isNull(data.ledger_hash) ? '-' : formatHash(data.ledger_hash, 32));
@@ -60,17 +56,23 @@ function showAnchorDetails(data){
         $('#info-anchor .anchor-state-root').html(isNull(data.state_root) ? '-' : formatHash(data.state_root, 32));
         $('#info-anchor .anchor-block-merkle-root').html(isNull(data.block_merkle_root) ? '-' : formatHash(data.block_merkle_root, 32));
     }
-    // Publisher-attestation tail (v4/v5/v6 reward-derivation anchors; both NULL for
-    // v0-v3, so the row stays hidden). publisher is the elected pubkey credited the
-    // reward; publisher_attestations is the RAW XANCPUB quorum ([{pubkey,sig}]) carried
-    // on the wire - shown for provenance, consumers re-verify against their own set.
+    // The v4/v5/v6 publisher receives the reward; attestations are the on-wire RAW
+    // XANCPUB quorum shown for provenance. Both are NULL before v4, hiding this row.
     let pubSigs = Array.isArray(data.publisher_attestations) ? data.publisher_attestations : [];
-    let hasPublisher = !isNull(data.publisher) || pubSigs.length > 0;
+    let invalidPubSigs = !!data.publisher_attestations_unparseable;
+    let hasPublisher = !isNull(data.publisher) || pubSigs.length > 0 || invalidPubSigs;
     $('#info-anchor .anchor-publisher-row').toggleClass('d-none', !hasPublisher);
     if(hasPublisher){
         $('#info-anchor .anchor-publisher').html(isNull(data.publisher) ? '-' : formatHash(data.publisher, 32));
-        $('#info-anchor .anchor-publisher-attestation-count').text(pubSigs.length);
-        $('#info-anchor .anchor-publisher-attestations').html(pubSigs.length ? pubSigs.map(s => formatHash(s.pubkey, 24)).join('<br>') : '-');
+        let countCell = $('#info-anchor .anchor-publisher-attestation-count').toggleClass('text-danger', invalidPubSigs);
+        let signersCell = $('#info-anchor .anchor-publisher-attestations').toggleClass('text-danger', invalidPubSigs);
+        if(invalidPubSigs){
+            countCell.text('invalid JSON');
+            signersCell.text('Invalid publisher_attestations: could not parse JSON');
+        } else {
+            countCell.text(pubSigs.length);
+            signersCell.html(pubSigs.length ? pubSigs.map(s => formatHash(s.pubkey, 24)).join('<br>') : '-');
+        }
     }
 }
 

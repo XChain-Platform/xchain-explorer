@@ -123,7 +123,7 @@ class CheckpointProofs {
         // appends the root suffix only when all four are present, so such a row would
         // otherwise verify against the LEGACY rootless preimage.
         let commitmentMissing = isCheckpointCommitmentActive(cp.snapshot_block, cp.network)
-            && (cp.state_root == null || cp.block_merkle_root == null
+            && (!cp.state_root || !cp.block_merkle_root
                 || cp.state_root_version == null || cp.block_merkle_version == null);
 
         let verified = !commitmentMissing && (isWeighted

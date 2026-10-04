@@ -46,58 +46,71 @@ function channelsError(channels) {
     return null;
 }
 
-// Validates the filter params in the order the checks always ran and returns
-// { error } for the first refusal, or { filter } shared by every subscription
-// the request names.
-function buildFilter(channels, params) {
+function buildTypesFilter(params) {
     // Validate types filter
-    let typesFilter = null;
-    if (params.types) {
-        if (!Array.isArray(params.types)) {
-            return { error: { code: 'INVALID_TYPE', message: 'types must be an array' } };
-        }
-        for (const t of params.types) {
-            if (!VALID_TYPES.has(t)) {
-                return { error: { code: 'INVALID_TYPE', message: `Unknown action type: ${t}` } };
-            }
-        }
-        typesFilter = new Set(params.types);
+    if (!params.types) return { filter: null };
+    if (!Array.isArray(params.types)) {
+        return { error: { code: 'INVALID_TYPE', message: 'types must be an array' } };
     }
+    for (const t of params.types) {
+        if (!VALID_TYPES.has(t)) {
+            return { error: { code: 'INVALID_TYPE', message: `Unknown action type: ${t}` } };
+        }
+    }
+    return { filter: new Set(params.types) };
+}
 
+function buildStatusesFilter(params) {
     // Validate statuses filter
-    let statusesFilter = null;
-    if (params.statuses) {
-        if (!Array.isArray(params.statuses)) {
-            return { error: { code: 'INVALID_ACTION', message: 'statuses must be an array' } };
-        }
-        statusesFilter = new Set(params.statuses);
+    if (!params.statuses) return { filter: null };
+    if (!Array.isArray(params.statuses)) {
+        return { error: { code: 'INVALID_ACTION', message: 'statuses must be an array' } };
     }
+    return { filter: new Set(params.statuses) };
+}
 
+function buildTicksFilter(channels, params) {
     // Validate ticks filter (for global actions channel)
-    let ticksFilter = null;
     if (params.ticks && Array.isArray(params.ticks) && channels.includes('actions')) {
-        ticksFilter = new Set(params.ticks);
+        return new Set(params.ticks);
     }
+    return null;
+}
 
+function buildFieldsFilter(params) {
     // Validate fields filter. Mirrors the types/statuses guard: without it a
     // non-iterable `fields` (e.g. {"fields":1} or {"fields":{}}) reaches
     // `new Set(params.fields)` below and throws a synchronous TypeError out of
     // the ws message handler, which no uncaughtException handler catches -
     // an unauthenticated single-frame process kill / crash loop.
-    let fieldsFilter = null;
-    if (params.fields) {
-        if (!Array.isArray(params.fields) || params.fields.some(f => typeof f !== 'string')) {
-            return { error: { code: 'INVALID_PARAMS', message: 'fields must be an array of strings' } };
-        }
-        fieldsFilter = new Set(params.fields);
+    if (!params.fields) return { filter: null };
+    if (!Array.isArray(params.fields) || params.fields.some(f => typeof f !== 'string')) {
+        return { error: { code: 'INVALID_PARAMS', message: 'fields must be an array of strings' } };
     }
+    return { filter: new Set(params.fields) };
+}
+
+// Validates the filter params in the order the checks always ran and returns
+// { error } for the first refusal, or { filter } shared by every subscription
+// the request names.
+function buildFilter(channels, params) {
+    const types = buildTypesFilter(params);
+    if (types.error) return types;
+
+    const statuses = buildStatusesFilter(params);
+    if (statuses.error) return statuses;
+
+    const ticks = buildTicksFilter(channels, params);
+
+    const fields = buildFieldsFilter(params);
+    if (fields.error) return fields;
 
     // Build filter object
     const filter = {
-        types:              typesFilter,
-        statuses:           statusesFilter,
-        ticks:              ticksFilter,
-        fields:             fieldsFilter,
+        types:              types.filter,
+        statuses:           statuses.filter,
+        ticks,
+        fields:             fields.filter,
         once:               !!params.once,
         snapshot:           !!params.snapshot,
         since_action_index: params.since_action_index || null

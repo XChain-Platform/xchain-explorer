@@ -57,6 +57,7 @@ function renderPriceDetails(data) {
         function formatHash(value){ return String(value); }
         function showPriceRounds(){}
     `);
+    dom.window.eval(extractFn('showPricePairCount'));
     dom.window.eval(extractFn('showPriceDetails'));
     dom.window.showPriceDetails(data);
     return dom.window.$('#info-price .price-pairs');

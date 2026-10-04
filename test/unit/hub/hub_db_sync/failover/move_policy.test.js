@@ -63,7 +63,9 @@ describe('createMovePolicy', function () {
         assert.strictEqual(policy.status().failureStreak, 0);
         assert.strictEqual(policy.onConnectFailure(2), 'retry');
     });
+});
 
+describe('createMovePolicy stalls', function () {
     it('exits, moves, or holds stalled connections based on candidates and dwell', function () {
         let clock = 7000;
         const policy = createMovePolicy({ now: () => clock });
@@ -76,7 +78,9 @@ describe('createMovePolicy', function () {
         clock += 120000;
         assert.strictEqual(policy.onStall(2), 'move');
     });
+});
 
+describe('createMovePolicy options and status', function () {
     it('falls back from invalid reconnect attempt options', function () {
         for (const reconnectAttempts of [0, -1, 1.5, '3']) {
             const policy = createMovePolicy({ reconnectAttempts });

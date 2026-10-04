@@ -121,7 +121,7 @@ const ATTEST = {
     async afterMain({ db, config, action_index }, data) {
         if(data['validator_signatures']){
             try { data['signatures'] = JSON.parse(data['validator_signatures']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ATTEST', field: 'validator_signatures', action_index, err: _.message }); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ATTEST', field: 'validator_signatures', action_index, err: _.message }); data['signatures'] = []; data['signatures_unparseable'] = true; }
         } else {
             data['signatures'] = [];
         }

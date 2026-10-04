@@ -101,6 +101,30 @@ async function historyTotalCount(db, config, cursor, source, where, args){
 }
 
 function historyPageQuery(sql, cursor, source, where){
+    // Derive the parent because batches stores no parent column and each
+    // sub-command is stored as its own root action.
+
+    // Match parents and children by their shared transaction index and output;
+    // identify the parent through its action index in batches.
+
+    // Keep this lookup as a correlated scalar subquery in the select list;
+    // a FROM join can duplicate actions that share one transaction output.
+
+    // Return one scalar for each outer row so DISTINCT can preserve the feed's
+    // one-row-per-action cardinality.
+
+    // Exclude the outer action so the parent batch row does not select itself
+    // and therefore reports a null parent index.
+
+    // Leave ordinary actions with no batch sibling at a null parent index.
+
+    // Use the actions key to find the candidate batch action for the outer
+    // row's transaction output.
+
+    // Narrow the candidate scan through the actions transaction index before
+    // checking the batches unique action index.
+
+    // Bound the correlated lookup work by the requested page size.
     return `SELECT
                         DISTINCT(` + cursor + `) as action_index,
                         a2.action,
@@ -139,26 +163,6 @@ function historyRows(results){
 
 // One page of the feed, rows in cursor order.
 async function historyPageRows(db, config, sql, cursor, source, where, args){
-    // parent_batch_action_index (spec explorer-coverage-completion M1.6):
-    // the indexer stores no parent column (batches is (action_index, status_id);
-    // every sub-command is its own root action), so parenthood is DERIVED here.
-    // A parent and its children share (tx_index, tx_vout) on `actions`; the parent
-    // is whichever of those rows also has an `actions.action_index` present in
-    // `batches`. This MUST stay a correlated scalar subquery in the select list,
-    // never a FROM-clause join: the outer query is SELECT DISTINCT over the whole
-    // row, and a join that multi-matches (one BATCH parent joined against N
-    // children sharing its tx_vout) would re-materialize duplicate action_index
-    // rows past the DISTINCT. A subquery returns exactly one scalar per outer row
-    // and does not change row cardinality, so DISTINCT still collapses correctly.
-    // `apx.action_index!=a1.action_index` is what makes the parent BATCH row's own
-    // value NULL (it would otherwise find itself); every non-batch row also comes
-    // back NULL because no sibling row in `batches` exists at all. EXPLAIN shape:
-    // apx is looked up via actions' own PK/unique index on action_index bounded by
-    // the outer row's tx_index/tx_vout (actions carries a plain index on tx_index,
-    // narrowing the scan to the handful of rows sharing one tx output), then
-    // filtered through batches' UNIQUE KEY on action_index (an eq_ref, not a scan);
-    // the whole subquery runs once per returned row, so cost scales with page size
-    // (sql.limit), not table size.
     let query = historyPageQuery(sql, cursor, source, where);
     let results = await db.doQuery(config, query, args);
     return historyRows(results);

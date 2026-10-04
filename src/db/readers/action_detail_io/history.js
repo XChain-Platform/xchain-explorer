@@ -100,39 +100,10 @@ async function historyTotalCount(db, config, cursor, source, where, args){
     return total;
 }
 
-function historyPageQuery(sql, cursor, source, where){
-    // Derive the parent because batches stores no parent column and each
-    // sub-command is stored as its own root action.
-
-    // Match parents and children by their shared transaction index and output;
-    // identify the parent through its action index in batches.
-
-    // Keep this lookup as a correlated scalar subquery in the select list;
-    // a FROM join can duplicate actions that share one transaction output.
-
-    // Return one scalar for each outer row so DISTINCT can preserve the feed's
-    // one-row-per-action cardinality.
-
-    // Exclude the outer action so the parent batch row does not select itself
-    // and therefore reports a null parent index.
-
-    // Leave ordinary actions with no batch sibling at a null parent index.
-
-    // Use the actions key to find the candidate batch action for the outer
-    // row's transaction output.
-
-    // Narrow the candidate scan through the actions transaction index before
-    // checking the batches unique action index.
-
-    // Bound the correlated lookup work by the requested page size.
-    return `SELECT
-                        DISTINCT(` + cursor + `) as action_index,
-                        a2.action,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        (
+function historyParentBatchIndexSql(){
+    // Parenthood is derived because batches stores no parent column. The scalar
+    // lookup preserves one feed row per action, unlike a join that can duplicate it.
+    return `(
                             SELECT bpx.action_index
                             FROM actions apx
                             INNER JOIN batches bpx ON (bpx.action_index=apx.action_index)
@@ -140,7 +111,18 @@ function historyPageQuery(sql, cursor, source, where){
                                 AND apx.tx_vout=a1.tx_vout
                                 AND apx.action_index!=a1.action_index
                             LIMIT 1
-                        ) as parent_batch_action_index
+                        )`;
+}
+
+function historyPageQuery(sql, cursor, source, where){
+    return `SELECT
+                        DISTINCT(` + cursor + `) as action_index,
+                        a2.action,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        ` + historyParentBatchIndexSql() + ` as parent_batch_action_index
                     FROM
                         ` + source + `
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)

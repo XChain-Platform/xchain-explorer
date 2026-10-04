@@ -144,9 +144,15 @@ function detailAttestVote_renderAttestResponse(data, isResponse){
         $('#info-attest .attest-response-payload').text(isNull(data.response_payload) ? '-' : String(data.response_payload));
         $('#info-attest .attest-meta').text(isNull(data.meta) ? '-' : data.meta);
         let sigs = Array.isArray(data.signatures) ? data.signatures : [];
-        $('#info-attest .attest-sig-count').text(sigs.length);
-        let html = sigs.length ? sigs.map(s => formatHash(s.pubkey, 24)).join('<br>') : '-';
-        $('#info-attest .attest-signatures').html(html);
+        if(data.signatures_unparseable){
+            let invalid = '<span class="text-danger">unparseable</span>';
+            $('#info-attest .attest-sig-count').html(invalid);
+            $('#info-attest .attest-signatures').html(invalid);
+        } else {
+            $('#info-attest .attest-sig-count').text(sigs.length);
+            let html = sigs.length ? sigs.map(s => formatHash(s.pubkey, 24)).join('<br>') : '-';
+            $('#info-attest .attest-signatures').html(html);
+        }
         if(!isNull(data.callback_execute_action_index))
             $('#info-attest .attest-callback-execute').html(formatLink('/' + XC.coin + '/action/' + data.callback_execute_action_index, data.callback_execute_action_index));
         let archived = !isNull(data.batch_action_index);

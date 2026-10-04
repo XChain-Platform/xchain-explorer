@@ -91,7 +91,7 @@ const ANCHOR = {
     afterMain({ action_index }, data) {
         if(data['publisher_attestations']){
             try { data['publisher_attestations'] = JSON.parse(data['publisher_attestations']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ANCHOR', field: 'publisher_attestations', action_index, err: _.message }); data['publisher_attestations'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ANCHOR', field: 'publisher_attestations', action_index, err: _.message }); data['publisher_attestations_unparseable'] = true; data['publisher_attestations'] = []; }
         } else {
             data['publisher_attestations'] = [];
         }

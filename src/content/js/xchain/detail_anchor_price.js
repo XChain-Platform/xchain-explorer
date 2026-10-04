@@ -117,14 +117,18 @@ function showPriceDetails(data){
     // Pair count: a batch stores none (its rounds each carry their own set), so count
     // the pairs of its first round rather than showing a dash. Every round in a batch
     // is one publisher's full snapshot, so the first round's width describes the batch.
-    let pairText = '-';
-    if(!isNull(data.pairs))
-        pairText = String(data.pairs.length);
-    else if(!isNull(data.pair_count))
-        pairText = String(data.pair_count);
-    else if(rounds.length && Array.isArray(rounds[0].pairs))
-        pairText = rounds[0].pairs.length + ' per round';
-    $('#info-price .price-pairs').text(pairText);
+    if(data.pairs_unparseable){
+        $('#info-price .price-pairs').html('<span class="text-danger">unparseable</span>');
+    } else {
+        let pairText = '-';
+        if(!isNull(data.pairs))
+            pairText = String(data.pairs.length);
+        else if(!isNull(data.pair_count))
+            pairText = String(data.pair_count);
+        else if(rounds.length && Array.isArray(rounds[0].pairs))
+            pairText = rounds[0].pairs.length + ' per round';
+        $('#info-price .price-pairs').text(pairText);
+    }
     // sig_count is NULL on a batch row, but sigs_json holds the signature set that
     // covers the whole window, so fall back to its length rather than to a dash.
     let sigCount = isNull(data.sig_count) ? (sigs.length || null) : Number(data.sig_count);

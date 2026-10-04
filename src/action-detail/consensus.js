@@ -222,7 +222,7 @@ const PRICE = {
         }
         if(data['rounds_json']){
             try { data['rounds'] = JSON.parse(data['rounds_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'rounds_json', action_index, err: _.message }); data['rounds'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'rounds_json', action_index, err: _.message }); data['rounds'] = []; data['rounds_unparseable'] = true; }
         }
         delete data['pairs_json'];
         delete data['sigs_json'];

@@ -25,14 +25,14 @@
  * schema named by database.checkpoint on the indexer pool; this manager is
  * only the writer that populates it.
  *
- * Opt-in per coin/network via database.checkpoint.self_sync = true, plus a hub
- * REST base URL (database.checkpoint.hub_url, else the HUB_API_URL env; see
- * mirror/url.js) and HUB_API_KEY when the hub gates its feed. With no
+ * Opt-in per coin/network via database.checkpoint.self_sync = true, plus hub
+ * seeds or a pinned REST base URL (see mirror/url.js) and HUB_API_KEY when the
+ * hub gates its feed. With no
  * self_sync flags set this manager is a no-op and deployments that point
  * database.checkpoint at an externally-maintained hub schema behave exactly
  * as before.
  *
- * A self_sync target with NO hub URL is a misconfiguration, not a mode: the
+ * A self_sync target with NO hub endpoint is a misconfiguration, not a mode: the
  * mirror schema has no writer, so every hub-mirrored read serves whatever rows
  * it last held, indefinitely. db/index.js refuses to start on that pairing; when the
  * operator downgrades that to a warning (ALLOW_NO_COLOCATED_HUB_DB=1) the
@@ -52,7 +52,7 @@
 const HubDbSync     = require('../hub/hub_db_sync.js');
 const HubMirrorPool = require('./pool.js');
 const { ensureMirrorColumns } = require('./migrate.js');
-const { resolveHubUrl }       = require('./url.js');
+const { buildHubSelector }    = require('./hub_selection.js');
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
 const { getLogger } = require('../observability');
@@ -87,11 +87,11 @@ async function startMirrorInstance(inst, t, key){
         // another network keeps those rows, and because the apply is id-parity
         // INSERT IGNORE they sit on the ids the real rows need, so the mirror
         // can never refill itself.
-        // hubUrl is passed explicitly rather than left to HubDbSync's own
-        // process.env.HUB_API_URL fallback: the endpoint this manager
-        // validated at start() must be the endpoint the client uses, or the
-        // gate above certifies one URL while the writer follows another.
-        inst.sync = new HubDbSync(inst.pool, { coin: t.chain, network: t.network, hubUrl: inst.hubUrl });
+        // Keep the initial address and selector aligned for every client.
+        inst.sync = new HubDbSync(inst.pool, {
+            coin: t.chain, network: t.network,
+            hubUrl: inst.hubUrl, selector: inst.selector
+        });
         // start() rejects when the hub is unreachable at boot; the client
         // keeps reconnecting/re-bootstrapping on its own after that, and the
         // staleness surface reports bootstrapDrained=false meanwhile.
@@ -144,20 +144,23 @@ class HubMirrorSyncManager {
                 inst.coins.push(coinKey);
                 continue;
             }
-            let hubUrl = resolveHubUrl(t);
-            if(!hubUrl){
+            let selector = buildHubSelector(t);
+            if(!selector){
                 // Registered, not skipped: an unconfigured instance is what makes
                 // managesCoin() true for this coin, which is what makes the gate in
                 // XChainExplorer.mirrorGate() refuse the consensus routes instead of
                 // serving a mirror nothing writes. Reached only when the operator
                 // downgraded the db/index.js startup refusal with ALLOW_NO_COLOCATED_HUB_DB=1.
                 inst = { target: t, coins: [coinKey], pool: null, sync: null,
-                         hubUrl: '', unconfigured: true, warnedAt: 0 };
+                         hubUrl: '', selector: null, unconfigured: true, warnedAt: 0 };
                 this.instances.set(key, inst);
                 this.warnUnconfigured(inst);
                 continue;
             }
-            inst = { target: t, coins: [coinKey], pool: null, sync: null, hubUrl, unconfigured: false };
+            inst = {
+                target: t, coins: [coinKey], pool: null, sync: null,
+                hubUrl: selector.current(), selector, unconfigured: false
+            };
             this.instances.set(key, inst);
             await startMirrorInstance(inst, t, key);
         }
@@ -183,9 +186,10 @@ class HubMirrorSyncManager {
         log.error('HUB_MIRROR_HUB_URL_MISSING', {
             coins: inst.coins.join(','), schema: inst.target.name,
             detail: 'database.checkpoint.self_sync is set but no hub endpoint is configured (neither ' +
-                'database.checkpoint.hub_url nor HUB_API_URL); the mirror schema has NO writer, so its ' +
+                'database.checkpoint.hub_seed_urls, HUB_SEED_URLS, database.checkpoint.hub_url nor ' +
+                'HUB_API_URL); the mirror schema has NO writer, so its ' +
                 'hub-mirrored tables are frozen at whatever they last held. Consensus routes for these coins ' +
-                'fail closed until this is fixed: set the hub URL, or drop self_sync and point ' +
+                'fail closed until this is fixed: set hub seeds or a hub URL, or drop self_sync and point ' +
                 'database.checkpoint at an externally-maintained hub schema.'
         });
     }

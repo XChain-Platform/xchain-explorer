@@ -28,8 +28,7 @@ function stubBroadcaster(entityId, addresses) {
     };
 }
 
-describe('broadcaster action routes', () => {
-
+function testActionChannelKeys() {
     describe('actionChannelKeys', () => {
 
         it('starts with actions and orders each distinct party source first', () => {
@@ -64,7 +63,9 @@ describe('broadcaster action routes', () => {
         });
 
     });
+}
 
+function testCarriesActions() {
     describe('carriesActions', () => {
 
         it('accepts the coin actions channel', () => {
@@ -85,7 +86,9 @@ describe('broadcaster action routes', () => {
         });
 
     });
+}
 
+function testLifecycleChannelKeys() {
     describe('lifecycleChannelKeys', () => {
 
         it('adds an entity-specific channel and every extracted address', () => {
@@ -125,5 +128,10 @@ describe('broadcaster action routes', () => {
         });
 
     });
+}
 
+describe('broadcaster action routes', () => {
+    testActionChannelKeys();
+    testCarriesActions();
+    testLifecycleChannelKeys();
 });

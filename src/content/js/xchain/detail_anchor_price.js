@@ -90,61 +90,50 @@ function showAnchorDetails(data){
 // below that is keyed on them falls back to the batch's own fields rather than
 // rendering a dash over data the action plainly carries.
 function showPriceDetails(data){
-    let rounds = Array.isArray(data.rounds) ? data.rounds : [];
-    let sigs   = Array.isArray(data.signatures) ? data.signatures : [];
-    $('#info-price .price-version').html(Number(data.version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
-    $('#info-price .price-coin').text(isNull(data.coin) ? '-' : data.coin);
-    // A PRICE v1 declares the CHAIN of the token it prices (V1_COIN, any supported
-    // coin) independently of the chain it was published on, and it is mirrored
-    // cross-chain, so a DOGE-published price can name an LTC token. Namespacing the
-    // link by the page coin opened a different chain's token page - or nothing at all.
-    // Link the declared coin instead; tokenUrl keeps the page's network tier.
-    $('#info-price .price-ticker').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(data.coin, data.tick), data.tick, data.tick));
-    $('#info-price .price-fiat').text(isNull(data.fiat) ? '-' : data.fiat);
-    $('#info-price .price-value').text(isNull(data.value) ? '-' : data.value);
-    // PRICE v1 carries the oracle's usage FEE as a decimal fraction (0.01 being 1%)
-    // plus an optional MEMO, both selected by the detail query. The raw decimal leads
-    // because it is the wire value a DISPENSER's required oracle-fee output is computed
-    // from; the percent rides along for readability. v0 snapshots carry neither.
-    $('#info-price .price-oracle-fee').text(isNull(data.oracle_fee) ? '-'
-        : data.oracle_fee + ' (' + numeral(Number(data.oracle_fee) * 100).format('0,0.[000000]') + '%)');
-    $('#info-price .price-round').text(isNull(data.round_number) ? '-' : numeral(data.round_number).format('0,0'));
-    // Round window: the batch's declared FIRST_ROUND..LAST_ROUND and how many rounds
-    // it actually carries. Row stays hidden on a single-round v0 row and a v1 oracle,
-    // where both bounds are NULL.
-    let hasWindow = !isNull(data.batch_first_round) && !isNull(data.batch_last_round);
-    $('#info-price .price-window-row').toggleClass('d-none', !hasWindow);
-    if(hasWindow){
-        let count = isNull(data.round_count) ? rounds.length : Number(data.round_count);
-        $('#info-price .price-window').text(
-            numeral(data.batch_first_round).format('0,0') + ' - ' + numeral(data.batch_last_round).format('0,0') +
-            ' (' + numeral(count).format('0,0') + ' round' + (count===1 ? '' : 's') + ')');
+    function showPriceFields(price){
+        $('#info-price .price-version').html(Number(price.version)===0 ? '<span class="badge text-bg-secondary">Validator (v0)</span>' : '<span class="badge text-bg-primary">User (v1)</span>');
+        $('#info-price .price-coin').text(isNull(price.coin) ? '-' : price.coin);
+        $('#info-price .price-ticker').html(isNull(price.tick) ? '-' : formatLink(tokenUrl(price.coin, price.tick), price.tick, price.tick));
+        $('#info-price .price-fiat').text(isNull(price.fiat) ? '-' : price.fiat);
+        $('#info-price .price-value').text(isNull(price.value) ? '-' : price.value);
+        $('#info-price .price-oracle-fee').text(isNull(price.oracle_fee) ? '-'
+            : price.oracle_fee + ' (' + numeral(Number(price.oracle_fee) * 100).format('0,0.[000000]') + '%)');
+        $('#info-price .price-round').text(isNull(price.round_number) ? '-' : numeral(price.round_number).format('0,0'));
     }
-    $('#info-price .price-round-timestamp').text(isNull(data.round_timestamp) ? '-' : data.round_timestamp);
-    // Pair count: a batch stores none (its rounds each carry their own set), so count
-    // the pairs of its first round rather than showing a dash. Every round in a batch
-    // is one publisher's full snapshot, so the first round's width describes the batch.
-    let pairText = '-';
-    if(!isNull(data.pairs))
-        pairText = String(data.pairs.length);
-    else if(!isNull(data.pair_count))
-        pairText = String(data.pair_count);
-    else if(rounds.length && Array.isArray(rounds[0].pairs))
-        pairText = rounds[0].pairs.length + ' per round';
-    $('#info-price .price-pairs').text(pairText);
-    // sig_count is NULL on a batch row, but sigs_json holds the signature set that
-    // covers the whole window, so fall back to its length rather than to a dash.
-    let sigCount = isNull(data.sig_count) ? (sigs.length || null) : Number(data.sig_count);
-    if(data.signatures_unparseable){
-        let invalid = '<span class="text-danger">unparseable</span>';
-        $('#info-price .price-sig-count, #info-price .price-signers').html(invalid);
-        $('#info-price .price-signers-row').removeClass('d-none');
-    } else {
+    function showPriceBatch(price, rounds){
+        let hasWindow = !isNull(price.batch_first_round) && !isNull(price.batch_last_round);
+        $('#info-price .price-window-row').toggleClass('d-none', !hasWindow);
+        if(hasWindow){
+            let count = isNull(price.round_count) ? rounds.length : Number(price.round_count);
+            $('#info-price .price-window').text(
+                numeral(price.batch_first_round).format('0,0') + ' - ' + numeral(price.batch_last_round).format('0,0') +
+                ' (' + numeral(count).format('0,0') + ' round' + (count===1 ? '' : 's') + ')');
+        }
+        $('#info-price .price-round-timestamp').text(isNull(price.round_timestamp) ? '-' : price.round_timestamp);
+        let pairText = '-';
+        if(!isNull(price.pairs)) pairText = String(price.pairs.length);
+        else if(!isNull(price.pair_count)) pairText = String(price.pair_count);
+        else if(rounds.length && Array.isArray(rounds[0].pairs)) pairText = rounds[0].pairs.length + ' per round';
+        $('#info-price .price-pairs').text(pairText);
+    }
+    function showPriceSignatures(price, sigs){
+        let sigCount = isNull(price.sig_count) ? (sigs.length || null) : Number(price.sig_count);
+        if(price.signatures_unparseable){
+            let invalid = '<span class="text-danger">unparseable</span>';
+            $('#info-price .price-sig-count, #info-price .price-signers').html(invalid);
+            $('#info-price .price-signers-row').removeClass('d-none');
+            return;
+        }
         $('#info-price .price-sig-count').text(isNull(sigCount) ? '-' : numeral(sigCount).format('0,0'));
         $('#info-price .price-signers-row').toggleClass('d-none', sigs.length === 0);
         if(sigs.length)
             $('#info-price .price-signers').html(sigs.map((s) => formatHash(s.pubkey, 24)).join('<br>'));
     }
+    let rounds = Array.isArray(data.rounds) ? data.rounds : [];
+    let sigs = Array.isArray(data.signatures) ? data.signatures : [];
+    showPriceFields(data);
+    showPriceBatch(data, rounds);
+    showPriceSignatures(data, sigs);
     $('#info-price .price-validation-status').text(isNull(data.validation_status) ? '-' : data.validation_status);
     $('#info-price .price-memo').text(isNull(data.memo) ? '-' : data.memo);
     showPriceRounds(rounds, data.rounds_unparseable);

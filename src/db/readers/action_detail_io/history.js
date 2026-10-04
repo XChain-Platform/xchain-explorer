@@ -100,37 +100,10 @@ async function historyTotalCount(db, config, cursor, source, where, args){
     return total;
 }
 
-// One page of the feed, rows in cursor order.
-async function historyPageRows(db, config, sql, cursor, source, where, args){
-    // parent_batch_action_index (spec explorer-coverage-completion M1.6):
-    // the indexer stores no parent column (batches is (action_index, status_id);
-    // every sub-command is its own root action), so parenthood is DERIVED here.
-    // A parent and its children share (tx_index, tx_vout) on `actions`; the parent
-    // is whichever of those rows also has an `actions.action_index` present in
-    // `batches`. This MUST stay a correlated scalar subquery in the select list,
-    // never a FROM-clause join: the outer query is SELECT DISTINCT over the whole
-    // row, and a join that multi-matches (one BATCH parent joined against N
-    // children sharing its tx_vout) would re-materialize duplicate action_index
-    // rows past the DISTINCT. A subquery returns exactly one scalar per outer row
-    // and does not change row cardinality, so DISTINCT still collapses correctly.
-    // `apx.action_index!=a1.action_index` is what makes the parent BATCH row's own
-    // value NULL (it would otherwise find itself); every non-batch row also comes
-    // back NULL because no sibling row in `batches` exists at all. EXPLAIN shape:
-    // apx is looked up via actions' own PK/unique index on action_index bounded by
-    // the outer row's tx_index/tx_vout (actions carries a plain index on tx_index,
-    // narrowing the scan to the handful of rows sharing one tx output), then
-    // filtered through batches' UNIQUE KEY on action_index (an eq_ref, not a scan);
-    // the whole subquery runs once per returned row, so cost scales with page size
-    // (sql.limit), not table size.
-    let history = [];
-    let query = `SELECT
-                        DISTINCT(` + cursor + `) as action_index,
-                        a2.action,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        (
+function historyParentBatchIndexSql(){
+    // Parenthood is derived because batches stores no parent column. The scalar
+    // lookup preserves one feed row per action, unlike a join that can duplicate it.
+    return `(
                             SELECT bpx.action_index
                             FROM actions apx
                             INNER JOIN batches bpx ON (bpx.action_index=apx.action_index)
@@ -138,7 +111,18 @@ async function historyPageRows(db, config, sql, cursor, source, where, args){
                                 AND apx.tx_vout=a1.tx_vout
                                 AND apx.action_index!=a1.action_index
                             LIMIT 1
-                        ) as parent_batch_action_index
+                        )`;
+}
+
+function historyPageQuery(sql, cursor, source, where){
+    return `SELECT
+                        DISTINCT(` + cursor + `) as action_index,
+                        a2.action,
+                        b1.block_index,
+                        b1.block_time as timestamp,
+                        t2.hash as tx_hash,
+                        t1.tx_index,
+                        ` + historyParentBatchIndexSql() + ` as parent_batch_action_index
                     FROM
                         ` + source + `
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
@@ -148,12 +132,22 @@ async function historyPageRows(db, config, sql, cursor, source, where, args){
                     WHERE ` + where + `
                     ORDER BY ` + cursor + ` ` + sql.order + `
                     LIMIT ` + sql.limit;
-    let results = await db.doQuery(config, query, args);
+}
+
+function historyRows(results){
+    let history = [];
     if(results && results.length){
         for(let row of results)
             history.push(row);
     }
     return history;
+}
+
+// One page of the feed, rows in cursor order.
+async function historyPageRows(db, config, sql, cursor, source, where, args){
+    let query = historyPageQuery(sql, cursor, source, where);
+    let results = await db.doQuery(config, query, args);
+    return historyRows(results);
 }
 
 class ActionHistoryReaders {

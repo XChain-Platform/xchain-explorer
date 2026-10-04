@@ -38,7 +38,12 @@ const SYNC_SCRIPT = path.join(CANON_SRC, '..', 'bin', 'sync-hub-mirror-client.sh
 // this repo's src/ and fail at require on boot. The sync script's HUB_FILES= and
 // DEP_FILES= lines are pinned against these lists below, so a module added to one side
 // and not the other fails here rather than on boot.
-const HUB_FILES = ['hub_db_sync.js', 'hub_schema_version.js'];
+const HUB_FILES = [
+    'hub_client/hub_list.js',
+    'hub_client/hub_list_refresh.js',
+    'hub_db_sync.js',
+    'hub_schema_version.js',
+];
 // The name a case title spells for a file, where it differs from the file's own name. The
 // schema-version constant took its snake_case name after the explorer's live identity pin
 // (bin/pins/at1-explorer-identity.json) froze this suite's title set under the hyphenated

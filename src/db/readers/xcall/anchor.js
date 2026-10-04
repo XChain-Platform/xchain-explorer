@@ -29,17 +29,16 @@
 
 const { ANCHOR_BUNDLE_VERSIONS } = require('../../action_detail/consensus_sql');
 
-// The anchor spine: the one anchor_actions row the QUERY names, or null. `db` is the
-// Database instance getAnchor runs on, passed in because each section below is a plain
-// function rather than a method, so cutting the reader up adds no name to
-// Database.prototype.
-async function readAnchorIdentity(db, config){
+function anchorIdentityLookup(db, config){
     let search = config.data.search;
     let numeric   = db.util.isNumeric(search);
     let predicate = numeric ? 'm.action_index=?' : 't2.hash=?';
     let key       = numeric ? Number(search) : String(search || '').toLowerCase();
-    let rows = await db.doQuery(config,
-        `SELECT
+    return { predicate, key };
+}
+
+function anchorIdentityQuery(predicate){
+    return `SELECT
                 a4.action,
                 m.action_index,
                 m.section_index,
@@ -82,8 +81,21 @@ async function readAnchorIdentity(db, config){
                 LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
             WHERE ` + predicate + `
             ORDER BY m.action_index DESC, m.section_index ASC
-            LIMIT 1`, [key]);
+            LIMIT 1`;
+}
+
+function firstAnchorIdentity(rows){
     return (rows && rows.length) ? rows[0] : null;
+}
+
+// The anchor spine: the one anchor_actions row the QUERY names, or null. `db` is the
+// Database instance getAnchor runs on, passed in because each section below is a plain
+// function rather than a method, so cutting the reader up adds no name to
+// Database.prototype.
+async function readAnchorIdentity(db, config){
+    let { predicate, key } = anchorIdentityLookup(db, config);
+    let rows = await db.doQuery(config, anchorIdentityQuery(predicate), [key]);
+    return firstAnchorIdentity(rows);
 }
 
 // The signature payload, parsed onto the spine row.

@@ -48,7 +48,7 @@ async function readThrough(db, config, compute) {
     return [data, total];
 }
 
-describe('data cache', function(){
+describe('data cache reads', function(){
     beforeEach(function(){
         sinon.useFakeTimers({ now: 1000, toFake: ['Date'] });
     });
@@ -83,6 +83,16 @@ describe('data cache', function(){
 
         assert.deepStrictEqual(result, [[{ tick: 'AAA' }], 1]);
         assert.strictEqual(compute.callCount, 1);
+    });
+});
+
+describe('data cache isolation', function(){
+    beforeEach(function(){
+        sinon.useFakeTimers({ now: 1000, toFake: ['Date'] });
+    });
+
+    afterEach(function(){
+        sinon.restore();
     });
 
     it('recomputes an entry past the TTL', async function(){

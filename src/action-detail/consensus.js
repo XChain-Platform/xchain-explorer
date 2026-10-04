@@ -121,7 +121,7 @@ const ATTEST = {
     async afterMain({ db, config, action_index }, data) {
         if(data['validator_signatures']){
             try { data['signatures'] = JSON.parse(data['validator_signatures']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ATTEST', field: 'validator_signatures', action_index, err: _.message }); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ATTEST', field: 'validator_signatures', action_index, err: _.message }); data['signatures'] = []; data['signatures_unparseable'] = true; }
         } else {
             data['signatures'] = [];
         }
@@ -214,7 +214,7 @@ const PRICE = {
     afterMain({ action_index }, data) {
         if(data['pairs_json']){
             try { data['pairs'] = JSON.parse(data['pairs_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'pairs_json', action_index, err: _.message }); data['pairs'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'pairs_json', action_index, err: _.message }); data['pairs'] = []; data['pairs_unparseable'] = true; }
         }
         if(data['sigs_json']){
             try { data['signatures'] = JSON.parse(data['sigs_json']); }

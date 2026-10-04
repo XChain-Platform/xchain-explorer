@@ -91,7 +91,7 @@ const ANCHOR = {
     afterMain({ action_index }, data) {
         if(data['publisher_attestations']){
             try { data['publisher_attestations'] = JSON.parse(data['publisher_attestations']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ANCHOR', field: 'publisher_attestations', action_index, err: _.message }); data['publisher_attestations'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ANCHOR', field: 'publisher_attestations', action_index, err: _.message }); data['publisher_attestations_unparseable'] = true; data['publisher_attestations'] = []; }
         } else {
             data['publisher_attestations'] = [];
         }
@@ -214,15 +214,15 @@ const PRICE = {
     afterMain({ action_index }, data) {
         if(data['pairs_json']){
             try { data['pairs'] = JSON.parse(data['pairs_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'pairs_json', action_index, err: _.message }); data['pairs'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'pairs_json', action_index, err: _.message }); data['pairs'] = []; data['pairs_unparseable'] = true; }
         }
         if(data['sigs_json']){
             try { data['signatures'] = JSON.parse(data['sigs_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'sigs_json', action_index, err: _.message }); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'sigs_json', action_index, err: _.message }); data['signatures'] = []; data['signatures_unparseable'] = true; }
         }
         if(data['rounds_json']){
             try { data['rounds'] = JSON.parse(data['rounds_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'rounds_json', action_index, err: _.message }); data['rounds'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'rounds_json', action_index, err: _.message }); data['rounds'] = []; data['rounds_unparseable'] = true; }
         }
         delete data['pairs_json'];
         delete data['sigs_json'];

@@ -62,6 +62,7 @@ function render(data) {
         ${extractFn('escapeHtml')}
     `);
     dom.window.eval(extractFn('formatPriceAnchorHeight'));
+    dom.window.eval(extractFn('showAnchorPublisherDetails'));
     dom.window.eval(extractFn('showAnchorDetails'));
     dom.window.showAnchorDetails(Object.assign({
         sections: [], version: 4, chain: 'BTC', network: 'mainnet',

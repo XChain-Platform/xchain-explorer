@@ -211,24 +211,16 @@ describe('SM-04: SSL certificates are accessible', function () {
         expect(config).to.have.property('getConfig').that.is.a('function');
     });
 
-    it('config.js throws when SSL cert files are missing', function () {
+    it('config.js loads without SSL when certificate files are missing', async function () {
         const missingFsStub = {
             readFileSync: sinon.stub().throws(new Error('ENOENT: no such file')),
             existsSync:   sinon.stub().returns(true)
         };
 
-        try {
-            proxyquire('../../../src/config.js', {
-                'fs':                   missingFsStub,
-                'path':                 path,
-                './lib/utility.js':         MockUtility,
-                './connectors/hub': MockHubConnector,
-                './config.json':        validFileConfig
-            });
-            expect.fail('Expected an error to be thrown');
-        } catch (err) {
-            expect(err.message).to.include('ENOENT');
-        }
+        const config = loadConfig({ 'fs': missingFsStub });
+        const result = await config.getConfig(null, false);
+
+        expect(result.API.ssl).to.equal(null);
     });
 
 });

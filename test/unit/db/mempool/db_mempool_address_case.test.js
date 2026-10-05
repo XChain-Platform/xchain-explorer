@@ -38,6 +38,7 @@ const sinon      = require('sinon');
 const { expect } = require('chai');
 const Database   = require('../../../../src/db/index.js');
 const Utility    = require('../../../../src/lib/utility.js');
+const { siblingCheckout, skipOrFail } = require('../../../helpers/sibling_checkout.js');
 
 const INDEXER_SQL = path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-indexer', 'src', 'sql', 'index_addresses.sql');
 
@@ -74,7 +75,9 @@ const cfg = (search, type) => ({ coin: 'RDOGE', data: { search, type } });
 function loadAddressSchema() {
     // Skip only in a standalone explorer checkout without the sibling
     // indexer; the platform monorepo and bin/ci-all.sh have it.
-    if (!fs.existsSync(INDEXER_SQL)) this.skip();
+    const verdict = siblingCheckout(__dirname, INDEXER_SQL);
+    if (!verdict.usable)
+        return skipOrFail(this, verdict, 'the real indexer address-DDL guard');
     let DatabaseSync;
     try { ({ DatabaseSync } = require('node:sqlite')); }
     catch (e) { this.skip(); }

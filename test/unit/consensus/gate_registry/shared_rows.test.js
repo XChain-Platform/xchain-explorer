@@ -17,7 +17,7 @@ const SHARED_ROWS_PATH = require.resolve('../../../../src/consensus/gate_registr
 const PART_PATHS = [1, 2, 3, 4, 5].map((part) => require.resolve(
     '../../../../src/consensus/gate_registry/shared_rows_' + part + '.js'
 ));
-const EXPECTED_ROW_COUNT = 106;
+const EXPECTED_ROW_COUNT = 107;
 
 function freshSharedRows() {
     delete require.cache[SHARED_ROWS_PATH];

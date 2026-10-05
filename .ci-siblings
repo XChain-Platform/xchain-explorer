@@ -1,4 +1,6 @@
 # Repos the explorer suite needs checked out BESIDE it on the CI venue.
+# This allowlist contains only checkouts read by cross-repo guards. Runtime-only
+# dependencies such as xchain-sync stay out so CI_COMPANIONS cannot pin them.
 #
 # Declaring a sibling here is what makes its cross-repo guards actually run. An
 # UNdeclared sibling is not a neutral omission: every guard written against it

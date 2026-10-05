@@ -224,14 +224,8 @@ describe('SPV Stage A: contractStateProof @regression', function () {
     });
 });
 
-// Strongest available check short of a live venue: the server's actual response
-// is fed to the SDK's client-side verifier, so the two independent
-// implementations of "what does this proof mean" have to agree. Skipped rather
-// than failed when the sibling repo is absent (standalone checkout).
-// The SDK's layout pass moved src/light.js to src/protocol/light_client.js,
-// so a sibling checkout sits on one side of that move or the other. Pinning
-// one spelling leaves `light` null against the other side, which skips every
-// assertion below while the suite still reports green.
+// Feed the actual server response to the SDK verifier and support both module
+// locations across its layout change. A standalone checkout uses the sibling gate.
 let light = null;
 let SDK_VERDICT = siblingCheckout(__dirname, '../../../../xchain-sdk');
 if (SDK_VERDICT.usable) {

@@ -22,10 +22,11 @@
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
+const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
 
 const LOCAL_SRC  = path.join(__dirname, '..', '../../src');
 const CANON_SRC  = path.join(__dirname, '..', '../../../xchain-indexer/src');
-const CANON_PRESENT = fs.existsSync(path.join(CANON_SRC, 'hub', 'hub_db_sync.js'));
+const CANON_VERDICT = siblingCheckout(__dirname, path.join(CANON_SRC, 'hub', 'hub_db_sync.js'));
 
 const SQL_DIR    = path.join(LOCAL_SRC, 'sql', 'hub-mirror');
 const SYNC_SCRIPT = path.join(CANON_SRC, '..', 'bin', 'sync-hub-mirror-client.sh');
@@ -142,7 +143,10 @@ function scriptHubDirs(){ return scriptFileList('HUB_DIRS'); }
 const TWIN_FILES = ['consensus/gates/state_subtree_gate.js', 'consensus/equivocation_header.js', 'consensus/stake_weighted_quorum.js'];
 
 describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
-    before(function(){ if(!CANON_PRESENT) this.skip(); });
+    before(function(){
+        if(!CANON_VERDICT.usable)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical hub-mirror client guard');
+    });
 
     [['hub', HUB_FILES], ['', DEP_FILES]].forEach(function(pair){
         const sub = pair[0], names = pair[1];
@@ -168,7 +172,10 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
 });
 
 describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
-    before(function(){ if(!CANON_PRESENT) this.skip(); });
+    before(function(){
+        if(!CANON_VERDICT.usable)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical hub-mirror sync-list guard');
+    });
 
     it('the HUB_FILES list matches the sync script HUB_FILES list', function(){
         assert.deepStrictEqual([...HUB_FILES].sort(), scriptHubFiles(),
@@ -215,7 +222,10 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
 });
 
 describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
-    before(function(){ if(!CANON_PRESENT) this.skip(); });
+    before(function(){
+        if(!CANON_VERDICT.usable)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical hub-mirror SQL guard');
+    });
 
     SQL_FILES.forEach(function(f){
         it('sql/hub-mirror/' + f + ' is byte-identical to xchain-indexer/src/sql', function(){

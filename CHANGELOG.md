@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.22.4] - 2026-10-05
+
+### Changed
+- Synced the hub mirror copies of the bridge policy, oracle match call, price landing and lifecycle code with the indexer.
+- Synced the gate registry shared rows with the indexer copy.
+
 ## [0.22.0] - 2026-10-04
 
 ### Added

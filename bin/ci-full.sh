@@ -99,6 +99,7 @@ ci_tier_deferred() {
 # >>> ci-tier timer (generated block; re-run the tier wirer to update) >>>
 run_tier() {
   ci_tier_deferred "$1" && return 0  # ci-tier guard (generated)
+  if [ "${CI_TIER:-full}" = "fast" ] && [ -n "${FAILED:-}" ]; then echo; echo "ci:full ===== $1 NOT RUN (a push stops at its first red tier, its verdict already red; the full sweep runs it) ====="; return 0; fi  # ci-tier stop (generated)
   local name="$1"; shift
   local __ci_tier_t0=$SECONDS
   echo; echo "ci:full ===== $name ====="
@@ -202,6 +203,9 @@ fi
 if [ "${CI_TIER:-full}" = "fast" ]; then
   run_tier "fast-tier selector self-test" ./node_modules/.bin/mocha --no-config --timeout 20000 --exit bin/test/ci_fast_select.test.js
 fi
+run_tier "fuzz (test:fuzz)" npm run test:fuzz
+run_tier "smoke unit (test:smoke:unit)" npm run test:smoke:unit
+run_tier "P0 regression unit (test:regression:p0:unit)" npm run test:regression:p0:unit
 
 # --- job: perf (needs: ci) -------------------------------------------------
 run_tier "db fixture for perf (mariadb on 3307)" db_fixture_reset

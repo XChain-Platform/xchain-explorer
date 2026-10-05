@@ -29,6 +29,17 @@ const {
 
 let db, config, now;
 
+beforeEach(function(){
+    db = { doQuery: sinon.stub() };
+    config = { coin: 'BTC' };
+    now = 1000;
+    sinon.stub(Date, 'now').callsFake(() => now);
+});
+
+afterEach(function(){
+    sinon.restore();
+});
+
 function tableRows(...names){
     return names.map(TABLE_NAME => ({ TABLE_NAME }));
 }
@@ -38,17 +49,6 @@ function columnRows(...names){
 }
 
 describe('schema table probes', function(){
-    beforeEach(function(){
-        db = { doQuery: sinon.stub() };
-        config = { coin: 'BTC' };
-        now = 1000;
-        sinon.stub(Date, 'now').callsFake(() => now);
-    });
-
-    afterEach(function(){
-        sinon.restore();
-    });
-
     it('exports the schema probe TTL', function(){
         expect(SCHEMA_PROBE_TTL_MS).to.equal(60000);
     });
@@ -85,7 +85,9 @@ describe('schema table probes', function(){
         expect(await tablesPresent(db, config, ['a', 'b'])).to.equal(true);
         expect(db.doQuery.callCount).to.equal(2);
     });
+});
 
+describe('schema table probe isolation', function(){
     it('returns true without caching when the table query rejects', async function(){
         db.doQuery.onFirstCall().rejects(new Error('unavailable'));
         db.doQuery.onSecondCall().resolves(tableRows('a', 'b'));
@@ -113,17 +115,6 @@ describe('schema table probes', function(){
 });
 
 describe('schema column probes', function(){
-    beforeEach(function(){
-        db = { doQuery: sinon.stub() };
-        config = { coin: 'BTC' };
-        now = 1000;
-        sinon.stub(Date, 'now').callsFake(() => now);
-    });
-
-    afterEach(function(){
-        sinon.restore();
-    });
-
     it('queries for every column and reports whether all were found', async function(){
         db.doQuery.onFirstCall().resolves(columnRows('x'));
         db.doQuery.onSecondCall().resolves(columnRows('x', 'y'));
@@ -156,7 +147,9 @@ describe('schema column probes', function(){
         expect(await columnsPresent(db, config, 't', ['x', 'y'])).to.equal(true);
         expect(db.doQuery.callCount).to.equal(2);
     });
+});
 
+describe('schema column probe isolation', function(){
     it('returns true without caching when the column query rejects', async function(){
         db.doQuery.onFirstCall().rejects(new Error('unavailable'));
         db.doQuery.onSecondCall().resolves(columnRows('x', 'y'));

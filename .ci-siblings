@@ -1,5 +1,4 @@
 # Repos the explorer suite needs checked out BESIDE it on the CI venue.
-# This allowlist contains the checkouts needed by cross-repo guards and twins.
 #
 # Declaring a sibling here is what makes its cross-repo guards actually run. An
 # UNdeclared sibling is not a neutral omission: every guard written against it

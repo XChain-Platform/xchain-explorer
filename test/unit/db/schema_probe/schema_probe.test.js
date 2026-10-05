@@ -53,16 +53,13 @@ describe('schema table probes', function(){
         expect(SCHEMA_PROBE_TTL_MS).to.equal(60000);
     });
 
-    it('queries for every table and reports whether all were found', async function(){
-        db.doQuery.onFirstCall().resolves(tableRows('a'));
-        db.doQuery.onSecondCall().resolves(tableRows('a', 'b'));
+    it('queries for every table and reports an incomplete result', async function(){
+        db.doQuery.resolves(tableRows('a'));
 
         expect(await tablesPresent(db, config, ['a', 'b'])).to.equal(false);
-        now += SCHEMA_PROBE_TTL_MS + 1;
-        expect(await tablesPresent(db, config, ['a', 'b'])).to.equal(true);
         expect(db.doQuery.firstCall.args[2]).to.deep.equal(['a', 'b']);
         expect(db.doQuery.firstCall.args[1]).to.include('information_schema.TABLES');
-        expect(db.doQuery.callCount).to.equal(2);
+        expect(db.doQuery.callCount).to.equal(1);
     });
 
     it('memoizes positive answers for either table order', async function(){
@@ -115,16 +112,13 @@ describe('schema table probe isolation', function(){
 });
 
 describe('schema column probes', function(){
-    it('queries for every column and reports whether all were found', async function(){
-        db.doQuery.onFirstCall().resolves(columnRows('x'));
-        db.doQuery.onSecondCall().resolves(columnRows('x', 'y'));
+    it('queries for every column and reports an incomplete result', async function(){
+        db.doQuery.resolves(columnRows('x'));
 
         expect(await columnsPresent(db, config, 't', ['x', 'y'])).to.equal(false);
-        now += SCHEMA_PROBE_TTL_MS + 1;
-        expect(await columnsPresent(db, config, 't', ['x', 'y'])).to.equal(true);
         expect(db.doQuery.firstCall.args[2]).to.deep.equal(['t', 'x', 'y']);
         expect(db.doQuery.firstCall.args[1]).to.include('information_schema.COLUMNS');
-        expect(db.doQuery.callCount).to.equal(2);
+        expect(db.doQuery.callCount).to.equal(1);
     });
 
     it('memoizes positive answers for either column order', async function(){

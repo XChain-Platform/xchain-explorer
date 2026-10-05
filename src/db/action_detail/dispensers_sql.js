@@ -321,6 +321,7 @@ const DISPENSE_QUERY = `SELECT
                 a4.action,
                 m.action_index,
                 a1.action_format, 
+                m.dispenser_action_index,
                 a2.address as source,
                 a3.address as destination,
                 c1.coin as give_coin,
@@ -353,14 +354,6 @@ const DISPENSE_QUERY = `SELECT
                 m.action_index=?
             LIMIT 1`;
 
-const DISPENSE_DISPENSER_QUERY = `SELECT
-                m.dispenser_action_index
-            FROM
-                dispenses m
-            WHERE
-                m.action_index=?
-            LIMIT 1`;
-
 module.exports = {
     COINPAY_QUERY,
     COINPAY_EXPIRE_QUERY,
@@ -370,6 +363,5 @@ module.exports = {
     DISPENSER_CLOSE_QUERY,
     DISPENSER_EDIT_QUERY,
     DISPENSER_EXPIRE_QUERY,
-    DISPENSE_QUERY,
-    DISPENSE_DISPENSER_QUERY
+    DISPENSE_QUERY
 };

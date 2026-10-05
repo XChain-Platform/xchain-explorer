@@ -16,11 +16,11 @@
 
 const assert     = require('assert');
 const proxyquire = require('proxyquire');
-const Utility    = require('../../../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const Utility    = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
 
-const Database = proxyquire('../../../../src/db/index.js', {
-    './connection.js': proxyquire('../../../../src/db/connection.js', {
+const Database = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', {
         mariadb: { createPool: () => ({}) }
     })
 });
@@ -38,24 +38,26 @@ describe('DISPENSE action detail dispenser pointer', function () {
             const statement = String(sql);
             if(statement.includes('FROM\n                dispenses m')) {
                 dispenseQueries.push({ statement, args });
-                if(statement.includes('INNER JOIN dispensers')) return [{
+                const row = {
                     action: 'DISPENSE',
                     action_index: 480,
                     status: 'valid'
-                }];
-                return [{ dispenser_action_index: 479 }];
+                };
+                if(statement.split(/\bFROM\b/)[0].includes('m.dispenser_action_index'))
+                    row.dispenser_action_index = 479;
+                return [row];
             }
             return [];
         };
 
         const data = await db.getActionData({ coin: 'RDOGE', data: {} }, 480);
 
-        assert.strictEqual(dispenseQueries.length, 2);
+        assert.strictEqual(dispenseQueries.length, 1);
         assert.ok(dispenseQueries[0].statement.includes('INNER JOIN dispensers'));
-        assert.ok(dispenseQueries[1].statement
+        assert.ok(dispenseQueries[0].statement
             .split(/\bFROM\b/)[0]
             .includes('m.dispenser_action_index'));
-        assert.deepStrictEqual(dispenseQueries.map(({ args }) => args), [[480], [480]]);
+        assert.deepStrictEqual(dispenseQueries[0].args, [480]);
         assert.strictEqual(data.dispenser_action_index, 479);
     });
 });

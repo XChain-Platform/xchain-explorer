@@ -123,13 +123,6 @@ const DISPENSE = {
         query = sql.DISPENSE_QUERY;
         return { query, query2, query3 };
     },
-    async afterMain({ db, config, action_index }, data) {
-        if(data.action !== 'DISPENSE') return;
-        const results = await db.doQuery(config, sql.DISPENSE_DISPENSER_QUERY, [action_index]);
-        data.dispenser_action_index = (results && results.length)
-            ? results[0].dispenser_action_index
-            : null;
-    },
 };
 
 module.exports = {

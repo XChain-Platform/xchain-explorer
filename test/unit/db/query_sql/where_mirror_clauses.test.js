@@ -31,10 +31,6 @@ const EXPECTED_METHODS = [
     'getAnchorRewardAttestations', 'getCommitments', 'getXcall'
 ];
 
-const TYPE_FILTERED_METHODS = EXPECTED_METHODS.filter(
-    method => method !== 'getXcall'
-);
-
 const TYPE_CASES = {
     getSlashEvents: [
         ['block', ' AND m.block_index=?'],
@@ -78,15 +74,8 @@ describe('MIRROR_CLAUSE_BUILDERS', function(){
         });
     }
 
-    it('preserves SQL for unknown types in type-filtered builders', function(){
-        for (const method of TYPE_FILTERED_METHODS)
+    it('preserves SQL for unknown types in every builder', function(){
+        for (const method of EXPECTED_METHODS)
             assert.strictEqual(build(method, 'unknown'), 'WHERE anchor');
-    });
-
-    it('always appends the call ID predicate for getXcall', function(){
-        assert.strictEqual(
-            build('getXcall', 'unknown'),
-            'WHERE anchor AND m.call_id=?'
-        );
     });
 });

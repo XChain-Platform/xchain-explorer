@@ -26,7 +26,7 @@ const Database = proxyquire('../../../src/db/index.js', {
 });
 
 describe('DISPENSE action detail dispenser pointer', function () {
-    it('returns the dispenser action index that served the dispense', async function () {
+    it('returns dispenser 479 for DISPENSE action 480', async function () {
         const configInfo = createConfigInfoStub();
         const db = new Database({ configInfo, util: new Utility(configInfo) });
         const dispenseQueries = [];

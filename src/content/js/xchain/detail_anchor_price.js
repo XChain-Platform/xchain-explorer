@@ -101,6 +101,16 @@ function showPriceDetails(data){
         $('#info-price .price-round').text(isNull(price.round_number) ? '-' : numeral(price.round_number).format('0,0'));
     }
     function showPriceBatch(price, rounds){
+        function showPricePairCount(price, rounds){
+            if(price.pairs_unparseable){
+                return $('#info-price .price-pairs').html('<span class="text-danger">unparseable</span>');
+            }
+            let pairText = '-';
+            if(!isNull(price.pairs)) pairText = String(price.pairs.length);
+            else if(!isNull(price.pair_count)) pairText = String(price.pair_count);
+            else if(rounds.length && Array.isArray(rounds[0].pairs)) pairText = rounds[0].pairs.length + ' per round';
+            $('#info-price .price-pairs').text(pairText);
+        }
         let hasWindow = !isNull(price.batch_first_round) && !isNull(price.batch_last_round);
         $('#info-price .price-window-row').toggleClass('d-none', !hasWindow);
         if(hasWindow){
@@ -110,11 +120,7 @@ function showPriceDetails(data){
                 ' (' + numeral(count).format('0,0') + ' round' + (count===1 ? '' : 's') + ')');
         }
         $('#info-price .price-round-timestamp').text(isNull(price.round_timestamp) ? '-' : price.round_timestamp);
-        let pairText = '-';
-        if(!isNull(price.pairs)) pairText = String(price.pairs.length);
-        else if(!isNull(price.pair_count)) pairText = String(price.pair_count);
-        else if(rounds.length && Array.isArray(rounds[0].pairs)) pairText = rounds[0].pairs.length + ' per round';
-        $('#info-price .price-pairs').text(pairText);
+        showPricePairCount(price, rounds);
     }
     function showPriceSignatures(price, sigs){
         let sigCount = isNull(price.sig_count) ? (sigs.length || null) : Number(price.sig_count);

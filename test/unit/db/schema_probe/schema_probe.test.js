@@ -57,6 +57,7 @@ describe('schema table probes', function(){
         db.doQuery.resolves(tableRows('a'));
 
         expect(await tablesPresent(db, config, ['a', 'b'])).to.equal(false);
+        expect(db.doQuery.firstCall.args[0]).to.equal(config);
         expect(db.doQuery.firstCall.args[2]).to.deep.equal(['a', 'b']);
         expect(db.doQuery.firstCall.args[1]).to.include('information_schema.TABLES');
         expect(db.doQuery.callCount).to.equal(1);
@@ -116,6 +117,7 @@ describe('schema column probes', function(){
         db.doQuery.resolves(columnRows('x'));
 
         expect(await columnsPresent(db, config, 't', ['x', 'y'])).to.equal(false);
+        expect(db.doQuery.firstCall.args[0]).to.equal(config);
         expect(db.doQuery.firstCall.args[2]).to.deep.equal(['t', 'x', 'y']);
         expect(db.doQuery.firstCall.args[1]).to.include('information_schema.COLUMNS');
         expect(db.doQuery.callCount).to.equal(1);

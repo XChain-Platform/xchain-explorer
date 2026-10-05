@@ -31,6 +31,7 @@ const assert = require('assert');
 const M      = require('../../../src/consensus/merkle.js');
 const SUB    = require('../../../src/consensus/gates/state_subtree_gate.js');
 const ProofServer = require('../../../src/http/proof_server.js');
+const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
 
 const EMPTY_ROOT = M.toHex(M.EMPTY_SMT_ROOT);
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
@@ -191,15 +192,20 @@ describe('SPV Stage B: lockedBalanceProof @regression', function () {
 // one spelling leaves `light` null against the other side, which skips every
 // assertion below while the suite still reports green.
 let light = null, sdkSub = null;
-for (const spec of ['../../../../xchain-sdk/src/protocol/light_client.js',
-                    '../../../../xchain-sdk/src/light.js']) {
-    try { light = require(spec); break; }
-    catch (e) {
-        // Only an unresolvable module falls through: to the next spelling, or
-        // to the skip below in a standalone checkout with no sibling SDK. A
-        // verifier that is present and throws while loading is a real error.
-        if (e.code !== 'MODULE_NOT_FOUND') throw e;
+let SDK_VERDICT = siblingCheckout(__dirname, '../../../../xchain-sdk');
+if (SDK_VERDICT.usable) {
+    for (const spec of ['../../../../xchain-sdk/src/protocol/light_client.js',
+                        '../../../../xchain-sdk/src/light.js']) {
+        try { light = require(spec); break; }
+        catch (e) {
+            // Only an unresolvable module falls through: to the next spelling, or
+            // to the skip below in a standalone checkout with no sibling SDK. A
+            // verifier that is present and throws while loading is a real error.
+            if (e.code !== 'MODULE_NOT_FOUND') throw e;
+        }
     }
+    if (!light)
+        SDK_VERDICT = { usable: false, reason: 'SDK verifier module absent under ' + SDK_VERDICT.path };
 }
 // The subtree gate sits at the same W5 tail in every repo, so it keeps its single
 // spelling; it is still gated on `light` so the pair is armed or absent together.
@@ -210,7 +216,11 @@ if (light) {
         SDK_HAD_KEY = Object.prototype.hasOwnProperty.call(sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION, ARM_KEY);
         SDK_PRIOR   = sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY];
     }
-    catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; light = null; }
+    catch (e) {
+        if (e.code !== 'MODULE_NOT_FOUND') throw e;
+        light = null;
+        SDK_VERDICT = { usable: false, reason: 'SDK subtree gate module absent under ' + SDK_VERDICT.path };
+    }
 }
 
 function armSdk() { sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = 0; }
@@ -224,7 +234,7 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     afterEach(disarmProofSuites);
 
     it('a membership proof verifies and yields the locked amount', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK locked-balance verifier guard');
         armExplorer(); armSdk();
         const { server, stateRoot } = makeVenue();
         const r = await server.lockedBalanceProof({ coin: COIN }, CHAIN, NET, ADDR, TICK, HEIGHT);
@@ -235,7 +245,7 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     });
 
     it('a non-inclusion proof verifies as zero locked', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK locked-balance verifier guard');
         armExplorer(); armSdk();
         const { server, stateRoot } = makeVenue();
         const r = await server.lockedBalanceProof({ coin: COIN }, CHAIN, NET, '1NothingLocked', TICK, HEIGHT);
@@ -245,7 +255,7 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     });
 
     it('DEFENSE IN DEPTH: a client whose own map is inert refuses whatever the server served', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK locked-balance verifier guard');
         // Server armed, client NOT: the two carriers are separate module
         // instances, which is precisely the deployment skew (or hostile server)
         // this vector models. The client must refuse on ITS liveness knowledge.
@@ -272,7 +282,7 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     // (bin/verify-armed-locked-balance-proof.js), pinned here because this is the
     // repo where the server and the SDK verifier actually meet.
     it('a MID-CHAIN arming needs the trusted height; the served label alone is refused', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK locked-balance verifier guard');
         armExplorer();
         sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = HEIGHT;
         const { server, stateRoot } = makeVenue();
@@ -302,7 +312,7 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     // state_tree_roots row that also supplies state_root. It must gate exactly as
     // the Number does, or that harness refuses a chain where nothing is wrong.
     it('a BigInt trusted height gates identically to the Number', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK locked-balance verifier guard');
         armExplorer();
         sdkSub.ESCROW_LOCKED_LEAF_ACTIVATION[ARM_KEY] = HEIGHT;
         const { server, stateRoot } = makeVenue();
@@ -319,7 +329,7 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     afterEach(disarmProofSuites);
 
     it('the two balances_root leaf domains cannot answer for each other', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK locked-balance verifier guard');
         armExplorer(); armSdk();
         const { server, stateRoot } = makeVenue();
         const locked = await server.lockedBalanceProof({ coin: COIN }, CHAIN, NET, ADDR, TICK, HEIGHT);
@@ -332,7 +342,7 @@ describe('SPV Stage B: lockedBalanceProof through the real SDK verifier @regress
     });
 
     it('a tampered amount fails: the leaf binds the served amount to the root', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK locked-balance verifier guard');
         armExplorer(); armSdk();
         const { server, stateRoot } = makeVenue();
         const r = await server.lockedBalanceProof({ coin: COIN }, CHAIN, NET, ADDR, TICK, HEIGHT);

@@ -108,6 +108,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check VM bundle
+        run: npm run check:vm
+
       - name: Run integration suite
         run: npm run test:integration
 
@@ -283,6 +286,9 @@ jobs:
 
       - name: Install dependencies
         run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Check VM bundle
+        run: npm run check:vm
 
       - name: Coverage thresholds (c8 --check-coverage)
         run: npm run coverage:check

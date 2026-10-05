@@ -321,6 +321,7 @@ const DISPENSE_QUERY = `SELECT
                 a4.action,
                 m.action_index,
                 a1.action_format, 
+                m.dispenser_action_index,
                 a2.address as source,
                 a3.address as destination,
                 c1.coin as give_coin,

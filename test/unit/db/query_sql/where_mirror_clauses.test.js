@@ -54,6 +54,10 @@ const TYPE_CASES = {
     ]
 };
 
+const UNKNOWN_TYPE_SQL = {
+    getXcall: 'WHERE anchor AND m.call_id=?'
+};
+
 function build(method, type, sql = 'WHERE anchor') {
     return MIRROR_CLAUSE_BUILDERS[method](null, { data: { type } }, sql);
 }
@@ -71,8 +75,14 @@ describe('MIRROR_CLAUSE_BUILDERS', function(){
         it(`${method} appends only the fragment selected by type`, function(){
             for (const [type, fragment] of cases)
                 assert.strictEqual(build(method, type), `WHERE anchor${fragment}`);
-
-            assert.strictEqual(build(method, 'unknown'), 'WHERE anchor');
         });
     }
+
+    it('handles an unknown type for every mirror query builder', function(){
+        for (const method of EXPECTED_METHODS) {
+            const expected = UNKNOWN_TYPE_SQL[method] || 'WHERE anchor';
+
+            assert.strictEqual(build(method, 'unknown'), expected);
+        }
+    });
 });

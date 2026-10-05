@@ -53,8 +53,8 @@ function run(spec, env){
     const ctx = makeHost(env);
     const built = limiters[spec.build](ctx.host);
     const limiter = spec.pick ? built[spec.pick] : built;
-    const call = ctx.limitedHandler.getCalls().map(c => c.args[0]).find(a => a.name === spec.name);
-    return { ...ctx, built, limiter, handlerInput: call };
+    const matching = ctx.limitedHandler.getCalls().map(c => c.args[0]).filter(a => a.name === spec.name);
+    return { ...ctx, built, limiter, handlerInput: matching[0], handlerCallCount: matching.length };
 }
 
 describe('explorer mount limiters', function(){
@@ -80,6 +80,12 @@ describe('explorer mount limiters', function(){
                     limit: spec.limit, message: { error: spec.error, code: 'RATE_LIMITED' }
                 });
                 expect(limiter.options.limit).to.equal(spec.limit);
+            });
+
+            it('calls limitedHandler exactly once for its name', function(){
+                const r = run(spec, {});
+                expect(r.handlerCallCount).to.equal(1);
+                expect(r.limitedHandler.callCount).to.equal(r.rateLimit.callCount);
             });
 
             it('takes the limit from its env knob when positive', function(){

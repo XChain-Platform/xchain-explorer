@@ -78,16 +78,28 @@ describe('action page: null system-action origin fields', function(){
         expect(text(win, '#tx-data')).to.equal('-');
     });
 
-    it('does not relabel a zero-index action that still carries source data', function(){
+    it('requires every origin field to be explicitly null', function(){
+        const falseyNonNull = [undefined, '', 0, false];
+        for(const field of ['status', 'source', 'tx_hash', 'tx_data']){
+            for(const value of falseyNonNull){
+                const win = bootSystemAction();
+                win.XC.actionInfo = systemAction();
+                win.XC.actionInfo[field] = value;
+                win.showTransactionDetails();
+                expect(text(win, '#source'), field + '=' + String(value)).to.equal('-');
+                expect(text(win, '#tx-index'), field + '=' + String(value)).to.equal('-');
+            }
+        }
+    });
+
+    it('uses the four origin fields instead of transaction index as the discriminator', function(){
         const win = bootSystemAction();
         win.XC.actionInfo = systemAction();
-        win.XC.actionInfo.tx_index = 0;
-        win.XC.actionInfo.source = null;
-        win.XC.actionInfo.tx_hash = 'abc123';
+        win.XC.actionInfo.tx_index = '1121';
         win.showTransactionDetails();
-        expect(text(win, '#action-status')).to.equal('-');
-        expect(text(win, '#source')).to.equal('-');
-        expect(text(win, '#tx-index')).to.equal('-');
+        expect(text(win, '#action-status')).to.equal('Protocol-generated action');
+        expect(text(win, '#source')).to.equal('Protocol-generated');
+        expect(text(win, '#tx-index')).to.equal('Not applicable, no source transaction');
     });
 
     it('does not relabel a transaction page', function(){

@@ -20,7 +20,11 @@
 function showTransactionDetails(){
     // Setup short alias to action info object
     let o = (XC.actionInfo) ? XC.actionInfo : XC.transactionInfo;
-    let noSourceTx      = Boolean(XC.actionInfo) && !o.tx_index && !o.status && !o.source && !o.tx_hash && !o.tx_data;
+    let noSourceTx      = Boolean(XC.actionInfo)
+        && o.status === null
+        && o.source === null
+        && o.tx_hash === null
+        && o.tx_data === null;
     let SYSTEM_ACTION   = 'Protocol-generated action';
     let NOT_APPLICABLE  = 'Not applicable, no source transaction';
     // Update page with basic transaction details

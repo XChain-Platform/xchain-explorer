@@ -81,24 +81,6 @@ function showAnchorDetails(data){
     if(typeof showAnchorPublisherDetails === 'function') showAnchorPublisherDetails(data);
 }
 
-// Pair count: a batch stores none (its rounds each carry their own set), so count
-// the pairs of its first round rather than showing a dash. Every round in a batch
-// is one publisher's full snapshot, so the first round's width describes the batch.
-function showPricePairCount(data, rounds){
-    if(data.pairs_unparseable){
-        $('#info-price .price-pairs').html('<span class="text-danger">unparseable</span>');
-        return;
-    }
-    let pairText = '-';
-    if(!isNull(data.pairs))
-        pairText = String(data.pairs.length);
-    else if(!isNull(data.pair_count))
-        pairText = String(data.pair_count);
-    else if(rounds.length && Array.isArray(rounds[0].pairs))
-        pairText = rounds[0].pairs.length + ' per round';
-    $('#info-price .price-pairs').text(pairText);
-}
-
 // Display PRICE action information (v0 validator COIN/FIAT snapshot, v0 validator
 // BATCH of rounds, v1 user TOKEN/FIAT oracle).
 //
@@ -119,6 +101,16 @@ function showPriceDetails(data){
         $('#info-price .price-round').text(isNull(price.round_number) ? '-' : numeral(price.round_number).format('0,0'));
     }
     function showPriceBatch(price, rounds){
+        function showPricePairCount(price, rounds){
+            if(price.pairs_unparseable){
+                return $('#info-price .price-pairs').html('<span class="text-danger">unparseable</span>');
+            }
+            let pairText = '-';
+            if(!isNull(price.pairs)) pairText = String(price.pairs.length);
+            else if(!isNull(price.pair_count)) pairText = String(price.pair_count);
+            else if(rounds.length && Array.isArray(rounds[0].pairs)) pairText = rounds[0].pairs.length + ' per round';
+            $('#info-price .price-pairs').text(pairText);
+        }
         let hasWindow = !isNull(price.batch_first_round) && !isNull(price.batch_last_round);
         $('#info-price .price-window-row').toggleClass('d-none', !hasWindow);
         if(hasWindow){

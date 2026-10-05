@@ -17,6 +17,7 @@
 const assert     = require('assert');
 const proxyquire = require('proxyquire');
 const Utility    = require('../../../../src/lib/utility.js');
+const dispensers = require('../../../../src/action-detail/dispensers.js');
 const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 
 const Database = proxyquire('../../../../src/db/index.js', {
@@ -51,8 +52,10 @@ describe('DISPENSE action detail dispenser pointer', function () {
         };
 
         const data = await db.getActionData({ coin: 'RDOGE', data: {} }, 480);
+        const handlerQuery = dispensers.DISPENSE.queries().query;
 
         assert.strictEqual(dispenseQueries.length, 1);
+        assert.strictEqual(handlerQuery, dispenseQueries[0].statement);
         assert.ok(dispenseQueries[0].statement.includes('INNER JOIN dispensers'));
         assert.ok(dispenseQueries[0].statement
             .split(/\bFROM\b/)[0]

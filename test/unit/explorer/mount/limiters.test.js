@@ -57,52 +57,58 @@ function run(spec, env){
     return { ...ctx, built, limiter, handlerInput: matching[0], handlerCallCount: matching.length };
 }
 
-describe('explorer mount limiters', function(){
-    SPECS.forEach(spec => {
-        describe(spec.label, function(){
-            it('returns the rateLimit marker for its own call', function(){
-                const r = run(spec, {});
-                expect(r.limiter).to.be.an('object');
-                expect(r.calls).to.include(r.limiter);
-                expect(r.limiter.options.handler).to.deep.equal({ handlerFor: spec.name });
-            });
-
-            it('passes the window, header flags and handler to rateLimit', function(){
-                const { limiter } = run(spec, {});
-                expect(limiter.options).to.include({ windowMs: 60000, standardHeaders: true, legacyHeaders: false });
-                expect(limiter.options.handler).to.deep.equal({ handlerFor: spec.name });
-            });
-
-            it('hands limitedHandler the policy with the default limit', function(){
-                const { handlerInput, limiter } = run(spec, {});
-                expect(handlerInput).to.deep.equal({
-                    service: 'Explorer', name: spec.name, envVar: spec.envVar, windowMs: 60000,
-                    limit: spec.limit, message: { error: spec.error, code: 'RATE_LIMITED' }
-                });
-                expect(limiter.options.limit).to.equal(spec.limit);
-            });
-
-            it('calls limitedHandler exactly once for its name', function(){
-                const r = run(spec, {});
-                expect(r.handlerCallCount).to.equal(1);
-                expect(r.limitedHandler.callCount).to.equal(r.rateLimit.callCount);
-            });
-
-            it('takes the limit from its env knob when positive', function(){
-                const { handlerInput, limiter } = run(spec, { [spec.envVar]: '7' });
-                expect(limiter.options.limit).to.equal(7);
-                expect(handlerInput.limit).to.equal(7);
-            });
-
-            [['0', '0'], ['abc', 'abc'], ['empty', '']].forEach(([title, value]) => {
-                it(`falls back to the default for ${title}`, function(){
-                    const { handlerInput, limiter } = run(spec, { [spec.envVar]: value });
-                    expect(limiter.options.limit).to.equal(spec.limit);
-                    expect(handlerInput.limit).to.equal(spec.limit);
-                });
-            });
+function addFallbackTests(spec){
+    [['0', '0'], ['abc', 'abc'], ['empty', '']].forEach(([title, value]) => {
+        it(`falls back to the default for ${title}`, function(){
+            const { handlerInput, limiter } = run(spec, { [spec.envVar]: value });
+            expect(limiter.options.limit).to.equal(spec.limit);
+            expect(handlerInput.limit).to.equal(spec.limit);
         });
     });
+}
+
+function addLimiterTests(spec){
+    describe(spec.label, function(){
+        it('returns the rateLimit marker for its own call', function(){
+            const r = run(spec, {});
+            expect(r.limiter).to.be.an('object');
+            expect(r.calls).to.include(r.limiter);
+            expect(r.limiter.options.handler).to.deep.equal({ handlerFor: spec.name });
+        });
+
+        it('passes the window, header flags and handler to rateLimit', function(){
+            const { limiter } = run(spec, {});
+            expect(limiter.options).to.include({ windowMs: 60000, standardHeaders: true, legacyHeaders: false });
+            expect(limiter.options.handler).to.deep.equal({ handlerFor: spec.name });
+        });
+
+        it('hands limitedHandler the policy with the default limit', function(){
+            const { handlerInput, limiter } = run(spec, {});
+            expect(handlerInput).to.deep.equal({
+                service: 'Explorer', name: spec.name, envVar: spec.envVar, windowMs: 60000,
+                limit: spec.limit, message: { error: spec.error, code: 'RATE_LIMITED' }
+            });
+            expect(limiter.options.limit).to.equal(spec.limit);
+        });
+
+        it('calls limitedHandler exactly once for its name', function(){
+            const r = run(spec, {});
+            expect(r.handlerCallCount).to.equal(1);
+            expect(r.limitedHandler.callCount).to.equal(r.rateLimit.callCount);
+        });
+
+        it('takes the limit from its env knob when positive', function(){
+            const { handlerInput, limiter } = run(spec, { [spec.envVar]: '7' });
+            expect(limiter.options.limit).to.equal(7);
+            expect(handlerInput.limit).to.equal(7);
+        });
+
+        addFallbackTests(spec);
+    });
+}
+
+describe('explorer mount limiters', function(){
+    SPECS.forEach(addLimiterTests);
 
     it('returns both checkpoint limiters under their names', function(){
         const { built } = run(SPECS[3], {});

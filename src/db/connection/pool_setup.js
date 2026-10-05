@@ -106,43 +106,49 @@ function setNetworkPools(db, mariadb, info, coin, net){
     }
 }
 
-// The indexer pool for one key: reuse a pool another key already opened on the
-// same server, credentials and database, otherwise open a new one.
-function setIndexerPool(db, mariadb, cfg, key){
-    let pool = false;
-    db.pools[key] = {
-        "config": {
-            host:     cfg.db_host,
-            port:     cfg.db_port,
-            user:     cfg.user,
-            password: cfg.pass,
-            database: cfg.name,
-            // Connection options. The indexer default of 10
-            // matches xchain-indexer, xchain-decoder, and
-            // xchain-hub; the previous 25 pushed total demand
-            // past MariaDB's default max_connections=151 once
-            // 3+ coins were active. Sized per dbType via
-            // DB_POOL_SIZE_INDEXER (see src/mirror/pool_sizing.js), since
-            // the indexer and decoder pools carry very
-            // different loads.
-            connectionLimit:  poolSizing.resolvePoolSize('indexer'),
-            //connectTimeout: 0,
-            insertIdAsNumber: true,
-            queryTimeout:     poolSizing.resolveQueryTimeout('indexer'),
-            // Run the session at +00:00 like the indexer and decoder writers, so
-            // UNIX_TIMESTAMP() and NOW() agree with their UTC-literal DATETIME columns
-            timezone:         'Z'
-        }
+// Build the connection options for one indexer database.
+function indexerPoolConfig(cfg){
+    return {
+        host:     cfg.db_host,
+        port:     cfg.db_port,
+        user:     cfg.user,
+        password: cfg.pass,
+        database: cfg.name,
+        // Connection options. The indexer default of 10
+        // matches xchain-indexer, xchain-decoder, and
+        // xchain-hub; the previous 25 pushed total demand
+
+        // past MariaDB's default max_connections=151 once
+        // 3+ coins were active. Sized per dbType via
+        // DB_POOL_SIZE_INDEXER (see src/mirror/pool_sizing.js), since
+
+        // the indexer and decoder pools carry very
+        // different loads.
+        connectionLimit:  poolSizing.resolvePoolSize('indexer'),
+        //connectTimeout: 0,
+        insertIdAsNumber: true,
+        queryTimeout:     poolSizing.resolveQueryTimeout('indexer'),
+        // Run the session at +00:00 like the indexer and decoder writers, so
+        // UNIX_TIMESTAMP() and NOW() agree with their UTC-literal DATETIME columns
+        timezone:         'Z'
     };
+}
+
+// Find the last reusable pool, matching the original map traversal behavior.
+function existingIndexerPool(db, cfg){
+    let pool = false;
     // Reuse an existing pool ONLY when it targets the SAME database too.
     // A MariaDB pool is bound to one default database (`database:` above)
     // and the explorer issues unqualified queries (e.g. `FROM blocks`)
+
     // that run against it. The old code shared a pool across entries with
     // the same host/port/user/pass but DIFFERENT databases, so when every
     // coin used one MariaDB user (e.g. the single-server NO_HUB deployment
+
     // reading synced DBs) all 9 collapsed onto the first pool and every
     // coin served the first database's data (BTC). Including the database
     // name keeps per-DB pools correct; 9 coin/networks is <=90 connections,
+
     // under MariaDB's default max_connections=151. (Uses the normalized
     // db_host/db_port so config.json and hub-config both match.)
     for(let existingKey in db.pools){
@@ -155,6 +161,14 @@ function setIndexerPool(db, mariadb, cfg, key){
             !db.util.isNull(data.pool) )
             pool = data.pool;
     }
+    return pool;
+}
+
+// The indexer pool for one key: reuse a pool another key already opened on the
+// same server, credentials and database, otherwise open a new one.
+function setIndexerPool(db, mariadb, cfg, key){
+    db.pools[key] = { "config": indexerPoolConfig(cfg) };
+    let pool = existingIndexerPool(db, cfg);
     if(!pool)
         pool = mariadb.createPool(db.pools[key].config);
 

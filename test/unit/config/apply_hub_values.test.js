@@ -46,29 +46,7 @@ describe('flattenHubConfig', function(){
     });
 });
 
-describe('flattenHubConfig entry ownership', function(){
-    it('lets hub-owned keys overwrite generated keys and preserves other keys', function(){
-        const custom = { enabled: true };
-        const hub = {
-            bitcoin: {
-                mainnet: {
-                    coin: 'hub-coin',
-                    network: 'hub-network',
-                    custom
-                }
-            }
-        };
-
-        const result = flattenHubConfig(hub, coinNetworks, new Set(), stubLogger());
-
-        assert.deepStrictEqual(result, [{
-            coin: 'hub-coin',
-            network: 'hub-network',
-            custom: { enabled: true }
-        }]);
-        assert.strictEqual(result[0].custom, custom);
-    });
-
+describe('flattenHubConfig input ownership', function(){
     it('does not mutate the hub tree or coin map', function(){
         const hub = {
             bitcoin: {

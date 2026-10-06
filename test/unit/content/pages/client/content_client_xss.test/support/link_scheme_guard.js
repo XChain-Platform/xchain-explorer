@@ -27,8 +27,8 @@ const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const CONTENT    = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'src', 'content');
-const CLIENT_SRC = require('../../../../../helpers/content-source.js').clientSource();
+const CONTENT    = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', '..', 'src', 'content');
+const CLIENT_SRC = require('../../../../../../helpers/content-source.js').clientSource();
 const JQUERY     = path.join(CONTENT, 'js', 'jquery.min.js');
 const ACTION     = path.join(CONTENT, 'html', 'action.html');
 

@@ -162,8 +162,10 @@ class ActionSummaryReaders {
         // projected no field at all and rendered as a bare name. leg_count and
         // member_count let a list row mark itself without carrying the legs (the
         // disclosure fetches the action). Both are absent, not 0 or 1, when there
-        // is nothing to mark, so single sends keep their exact prior shape.
-        let legs = (info.action=='SEND') ? info.sends : (info.action=='DESTROY') ? info.destroys : null;
+        // is nothing to mark, so single sends keep their exact prior shape. A
+        // multi-leg AIRDROP (formats 1-3, one airdrops[] row per leg) is marked the same way.
+        let legs = (info.action=='SEND') ? info.sends : (info.action=='DESTROY') ? info.destroys
+                 : (info.action=='AIRDROP') ? info.airdrops : null;
         if(Array.isArray(legs) && legs.length > 1){
             if(!details) details = {};
             details.leg_count = legs.length;

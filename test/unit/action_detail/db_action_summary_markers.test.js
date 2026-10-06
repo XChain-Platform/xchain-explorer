@@ -89,6 +89,29 @@ describe('action summary structure markers: projectActionSummary', function () {
 
 });
 
+describe('action summary structure markers: multi-leg AIRDROP', function () {
+    it('a multi-leg airdrop carries leg_count from airdrops[]', function () {
+        const out = makeDb().projectActionSummary({
+            action: 'AIRDROP', status: 'valid', tick: 'P00P', amount: '1', list_action_index: 7,
+            airdrops: [
+                { tick: 'P00P', amount: '1', list_action_index: 7, status: 'valid' },
+                { tick: 'B00B', amount: '2', list_action_index: 7, status: 'valid' },
+                { tick: 'C00C', amount: '3', list_action_index: 8, status: 'invalid' },
+            ]
+        });
+        expect(out.details.leg_count).to.equal(3);
+        expect(out.details.tick).to.equal('P00P');
+    });
+
+    it('a single-leg airdrop has no leg_count', function () {
+        const out = makeDb().projectActionSummary({
+            action: 'AIRDROP', status: 'valid', tick: 'P00P', amount: '1', list_action_index: 7,
+            airdrops: [{ tick: 'P00P', amount: '1', list_action_index: 7, status: 'valid' }]
+        });
+        expect(out.details).to.not.have.property('leg_count');
+    });
+});
+
 describe('action summary structure markers: the prior shape', function () {
     it('a field-less action still projects details false', function () {
         const out = makeDb().projectActionSummary({ action: 'ANCHOR', status: 'valid' });

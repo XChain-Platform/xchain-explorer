@@ -118,9 +118,42 @@ function buildFilter(channels, params) {
     return { filter };
 }
 
+// Resolves every entry a request names, in request order, without saving any of
+// them: { error } for the first channel whose entity keys do not resolve, else
+// { entries } of { channel, entityKey } (entityKey null for a global channel).
+function resolveEntries(manager, channels, params) {
+    const entries = [];
+    for (const channel of channels) {
+        // Global channel (no entity key)
+        if (GLOBAL_CHANNELS.has(channel)) {
+            entries.push({ channel, entityKey: null });
+            continue;
+        }
+        // Entity channel: resolve entity key(s) from params
+        const entityKeys = manager.resolveEntityKeys(channel, params);
+        if (entityKeys.error) return { error: entityKeys.error };
+        for (const entityKey of entityKeys.keys) entries.push({ channel, entityKey });
+    }
+    return { entries };
+}
+
+// Refuses a batch whose NEW keys would carry the client past the limit. A key
+// the client already holds, or one repeated in the batch, counts once, which is
+// the answer the per-entry check in addSubscription gives when entries save one by one.
+function limitError(manager, client, entries) {
+    const newKeys = new Set();
+    for (const { channel, entityKey } of entries) {
+        const channelKey = manager.buildChannelKey(client.coin, channel, entityKey);
+        if (!client.subscriptions.has(channelKey)) newKeys.add(channelKey);
+    }
+    if (client.subscriptions.size + newKeys.size <= manager.maxSubscriptions) return null;
+    return { code: 'SUBSCRIPTION_LIMIT', message: `Maximum ${manager.maxSubscriptions} subscriptions exceeded` };
+}
+
 class ChannelSubscriptions {
 
-    // Subscribe a client to one or more channels
+    // Subscribe a client to one or more channels, all or nothing: every entry resolves and
+    // the whole batch passes the limit before any is saved, so a refusal leaves nothing behind.
     // Returns { success: true, subscribed: [...] } or { success: false, error: { code, message } }
     subscribe(client, channels, params) {
         params = params || {};
@@ -133,25 +166,19 @@ class ChannelSubscriptions {
         const filter = built.filter;
 
         // Resolve entity keys for batch and single subscriptions
+        const resolved = resolveEntries(this, channels, params);
+        if (resolved.error) return { success: false, error: resolved.error };
+
+        // Check the limit for the whole batch before saving any of it
+        const overLimit = limitError(this, client, resolved.entries);
+        if (overLimit) return { success: false, error: overLimit };
+
         const subscribed = [];
-
-        for (const channel of channels) {
-            if (GLOBAL_CHANNELS.has(channel)) {
-                // Global channel (no entity key)
-                const result = this.addSubscription(client, channel, null, filter);
-                if (result.error) return { success: false, error: result.error };
-                subscribed.push({ channel });
-            } else {
-                // Entity channel: resolve entity key(s) from params
-                const entityKeys = this.resolveEntityKeys(channel, params);
-                if (entityKeys.error) return { success: false, error: entityKeys.error };
-
-                for (const entityKey of entityKeys.keys) {
-                    const result = this.addSubscription(client, channel, entityKey, filter);
-                    if (result.error) return { success: false, error: result.error };
-                    subscribed.push({ channel, ...entityKey });
-                }
-            }
+        for (const { channel, entityKey } of resolved.entries) {
+            // addSubscription keeps its own limit check as a backstop; the batch check above already passed
+            const result = this.addSubscription(client, channel, entityKey, filter);
+            if (result.error) return { success: false, error: result.error };
+            subscribed.push(entityKey ? { channel, ...entityKey } : { channel });
         }
 
         return { success: true, subscribed, filter };

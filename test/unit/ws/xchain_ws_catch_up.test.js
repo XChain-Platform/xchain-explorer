@@ -206,3 +206,46 @@ describe('xchain_ws.js reconnect catch-up: backstops', function () {
         expect(ws._catchUp).to.equal(null);
     });
 });
+
+describe('xchain_ws.js reconnect catch-up: which frames move the cursor', function () {
+
+    // Frames whose data.action_index names an entity (a dispenser, a bet feed, an
+    // xcall's origin) rather than an action row this client has received.
+    const ENTITY_FRAMES = [
+        { type: 'SUBSCRIBED',       data: { channel: 'dispenser', action_index: '900000' } },
+        { type: 'UNSUBSCRIBED',     data: { channel: 'bet_feed', action_index: '900000' } },
+        { type: 'SNAPSHOT',         data: { channel: 'dispenser', action_index: '900000' } },
+        { type: 'DISPENSER_UPDATE', data: { channel: 'dispenser', action_index: '900000' } },
+        { type: 'BET_CLOSED',       data: { action_index: '900000' } },
+        { type: 'XCALL_COMPLETED',  data: { action_index: '900000' } }
+    ];
+
+    it('an idle client ignores entity ids and still advances on NEW_ACTION', function () {
+        const ws = loadClient();
+        ws.lastActionIndex = '500';
+        for (const frame of ENTITY_FRAMES) recv(ws, frame);
+        expect(ws.lastActionIndex).to.equal('500');
+        recv(ws, { type: 'NEW_ACTION', data: { action_index: '510' } });
+        expect(ws.lastActionIndex).to.equal('510');
+    });
+
+    it('an entity id seen during a replay is not applied when the replay closes', function () {
+        const ws = loadClient();
+        reconnectWith(ws, '500', [{ channels: ['actions'], params: {} }]);
+        const id = catchUps(ws)[0].id;
+        for (const frame of ENTITY_FRAMES) recv(ws, frame);
+        recv(ws, complete(id, '600'));
+        expect(ws.lastActionIndex).to.equal('600');
+
+        ws.sent = [];
+        ws._resubscribe();
+        expect(catchUps(ws)[0].params.since_action_index).to.equal('600');
+    });
+
+    it('a CATCH_UP_COMPLETE outside a replay still advances the cursor', function () {
+        const ws = loadClient();
+        ws.lastActionIndex = '500';
+        recv(ws, complete('late', '640'));
+        expect(ws.lastActionIndex).to.equal('640');
+    });
+});

@@ -11,83 +11,14 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Boundary integration test helper. Boots the explorer against test MariaDB.
- * Reuses the same pattern as the base integration test app-setup.
+ * Boundary integration test helper. The boundary suite boots the same app
+ * against the same fixture database as the base integration suite, so it
+ * uses that suite's helper rather than a copy of it. The copy this replaces
+ * had drifted: it hardcoded the container fixture's credentials and lacked
+ * the co-located hub DB and tip-age escapes, so explorer.init() refused to
+ * start once ci-full ran this tier.
  */
 
-const express        = require('express');
-const cors           = require('cors');
-const { testCorsOptions } = require('../../../helpers/cors.js');
-const XChainExplorer = require('../../../../src/XChainExplorer.js');
-const { envView }    = require('../../../fixtures/mock-config.js');
+'use strict';
 
-function createTestConfigInfo(dbPort) {
-    const port = dbPort || 3307;
-    let configCache = null;
-    const listeners = [];
-
-    return {
-        getConfig: async function () {
-            if (configCache) return configCache;
-
-            const coinFile = require('../../../../src/coin-config/BTC.js');
-            const coinConfig = coinFile.getConfig('regtest');
-
-            const config = {};
-            config['COIN_NETWORKS'] = { BTC: 'Bitcoin', LTC: 'Litecoin', DOGE: 'Dogecoin' };
-            config['COIN_PREFIXES'] = { mainnet: '', testnet: 'T', regtest: 'R' };
-            config['COIN_SUPPORTED'] = {};
-            for (const coin in config['COIN_NETWORKS']) {
-                for (const network in config['COIN_PREFIXES']) {
-                    const prefix = config['COIN_PREFIXES'][network];
-                    const code = prefix + coin;
-                    config['COIN_SUPPORTED'][code] = config['COIN_NETWORKS'][coin] + ' (' + network + ')';
-                }
-            }
-            config['COIN_AVAILABLE'] = { RBTC: 'BTC (regtest)' };
-            config['DISPENSER_LIST_DELAY'] = 3600;
-            config['API'] = {
-                host: '127.0.0.1', user: false, pass: false,
-                ssl: { key: 'mock', cert: 'mock', ca: 'mock' },
-                port: { http: 0, https: 0 }
-            };
-            config['BTC'] = {
-                chain: coinConfig.chain,
-                regtest: {
-                    database: {
-                        indexer: { db_host: '127.0.0.1', db_port: port, user: 'root', pass: 'testpass', name: 'XChain_BTC_Regtest_Indexer' },
-                        decoder: { db_host: '127.0.0.1', db_port: port, user: 'root', pass: 'testpass', name: 'XChain_BTC_Regtest_Decoder' }
-                    },
-                    address: coinConfig.address
-                }
-            };
-            configCache = config;
-            return config;
-        },
-        onConfigChanged: function (cb) { listeners.push(cb); },
-        triggerConfigChanged: function () { listeners.forEach(cb => cb()); },
-        // The live process.env view src/config.js exports; the readers under
-        // src/db/ read every environment variable through it.
-        env: envView,
-        _clearCache: function () { configCache = null; }
-    };
-}
-
-let cachedResult = null;
-
-async function createApp(dbPort) {
-    if (cachedResult) return cachedResult;
-
-    const app = express();
-    app.use(express.json());
-    app.use(cors(testCorsOptions()));
-
-    const configInfo = createTestConfigInfo(dbPort);
-    const explorer = new XChainExplorer(app, configInfo);
-    await explorer.init();
-
-    cachedResult = { app, explorer, configInfo };
-    return cachedResult;
-}
-
-module.exports = { createApp, createTestConfigInfo };
+module.exports = require('../../../integration/helpers/app-setup.js');

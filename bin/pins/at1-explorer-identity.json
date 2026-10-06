@@ -10,8 +10,8 @@
     },
     {
       "path": "src/consensus/gates/mirror_admission_gate.js",
-      "bytes": 22400,
-      "sha256": "58f1daae0aec5530440fa268ca8c5040acfc6e10f6be91efbcce43b944225f6a"
+      "bytes": 18057,
+      "sha256": "ac2e4f881f1cbe40888efebfc0ee553cd2115aadb178b988bf7715d728a01430"
     },
     {
       "path": "src/consensus/gates/price_batching_floor_gate.js",

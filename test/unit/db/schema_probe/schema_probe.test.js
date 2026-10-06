@@ -29,16 +29,18 @@ const {
 
 let db, config, now;
 
-beforeEach(function(){
-    db = { doQuery: sinon.stub() };
-    config = { coin: 'BTC' };
-    now = 1000;
-    sinon.stub(Date, 'now').callsFake(() => now);
-});
+function useProbeFixture(){
+    beforeEach(function(){
+        db = { doQuery: sinon.stub() };
+        config = { coin: 'BTC' };
+        now = 1000;
+        sinon.stub(Date, 'now').callsFake(() => now);
+    });
 
-afterEach(function(){
-    sinon.restore();
-});
+    afterEach(function(){
+        sinon.restore();
+    });
+}
 
 function tableRows(...names){
     return names.map(TABLE_NAME => ({ TABLE_NAME }));
@@ -49,6 +51,8 @@ function columnRows(...names){
 }
 
 describe('schema table probes', function(){
+    useProbeFixture();
+
     it('exports the schema probe TTL', function(){
         expect(SCHEMA_PROBE_TTL_MS).to.equal(60000);
     });
@@ -86,6 +90,8 @@ describe('schema table probes', function(){
 });
 
 describe('schema table probe isolation', function(){
+    useProbeFixture();
+
     it('returns true without caching when the table query rejects', async function(){
         db.doQuery.onFirstCall().rejects(new Error('unavailable'));
         db.doQuery.onSecondCall().resolves(tableRows('a', 'b'));
@@ -113,6 +119,8 @@ describe('schema table probe isolation', function(){
 });
 
 describe('schema column probes', function(){
+    useProbeFixture();
+
     it('queries for every column and reports an incomplete result', async function(){
         db.doQuery.resolves(columnRows('x'));
 
@@ -146,6 +154,8 @@ describe('schema column probes', function(){
 });
 
 describe('schema column probe isolation', function(){
+    useProbeFixture();
+
     it('returns true without caching when the column query rejects', async function(){
         db.doQuery.onFirstCall().rejects(new Error('unavailable'));
         db.doQuery.onSecondCall().resolves(columnRows('x', 'y'));

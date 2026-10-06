@@ -71,7 +71,13 @@ export default {
       // sandbox, so the sibling xchain-indexer checkout it needs is never there.
       // Unrelated to which files are mutated; every mutate target hits this the
       // same way, not only the newly-added src/db/** ones.
-      'test/unit/mirror/hub_mirror_bridge_tables.test.js'
+      'test/unit/mirror/hub_mirror_bridge_tables.test.js',
+      // Resolves the sibling xchain-hub checkout relative to its own test file,
+      // which lands on Stryker's `.stryker-tmp/sandbox-*` directory when mocha
+      // runs from the sandbox, where the sibling is absent and
+      // XCHAIN_REQUIRE_SIBLINGS=1 turns that into a failure in the dry run.
+      // Unrelated to which files are mutated.
+      'test/unit/config/coins_conformance.test.js'
     ]
   },
   reporters: ['html', 'json', 'clear-text', 'progress'],

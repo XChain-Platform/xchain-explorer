@@ -22,12 +22,16 @@ const {
     ANCHOR_DETAIL,
     ANCHOR_SECTIONS,
     ATTEST_DETAIL,
+    ATTEST_DETAIL_PRE_BATCH,
     NODEPROOF_DETAIL,
     NODEPROOF_VERIFICATIONS,
     PRICE_DETAIL,
     ROLLCALL_DETAIL,
+    ROLLCALL_GATES,
     ROLLCALL_SIGNERS
 } = require('../db/action_detail/consensus_sql');
+const { attestBatchColumnsPresent } = require('../db/shared.js');
+const { columnsPresent, setColumnsAbsent, isUnknownColumnError } = require('../db/schema_probe.js');
 
 // One logger for the whole service, cached at require time per the
 // observability contract: getLogger() returns a lazy singleton that resolves to
@@ -109,11 +113,15 @@ const ATTEST = {
     // holds the batch key there and provider_id is the empty string. batch_chunk_b64
     // is omitted for the same reason ANCHOR omits archive_b64 above: it is large and
     // only the reassembler reads it.
-    queries() {
+    //
+    // Ask the schema first: a replica may lack the additive batch columns, and one
+    // missing column fails the whole statement (1054) with no recovery on this path.
+    // The probe answers false when unsure; its six columns share one ALTER with the rest.
+    async queries({ db, config }) {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        query = ATTEST_DETAIL;
+        query = (await attestBatchColumnsPresent(db, config)) ? ATTEST_DETAIL : ATTEST_DETAIL_PRE_BATCH;
         return { query, query2, query3 };
     },
     // Expand the inlined validator-signature JSON on ATTEST responses into
@@ -230,6 +238,22 @@ const PRICE = {
     },
 };
 
+// Read the GATES a ROLLCALL action carried, or null on a replica that has not taken
+// the rollcall_signers.gates migration yet, which reads exactly like a v0 row.
+async function readRollcallGates(db, config, action_index){
+    const columns = ['gates'];
+    if(!(await columnsPresent(db, config, 'rollcall_signers', columns))) return null;
+    try {
+        const rows = await db.doQuery(config, ROLLCALL_GATES, [action_index]);
+        return (rows && rows.length) ? rows[0].gates : null;
+    } catch(e) {
+        // The net under a probe that answered wrong: record the real shape, read no gates.
+        if(!isUnknownColumnError(e)) throw e;
+        setColumnsAbsent(db, config, 'rollcall_signers', columns);
+        return null;
+    }
+}
+
 const ROLLCALL = {
     // ROLLCALL action (liveness roll call, DOGE-only, validator-broadcast).
     // Wire: ROLLCALL|0|EPOCH_HEIGHT|LEDGER_HASH|PUBLISHER|SIG_COUNT|PUBKEY_i|SIG_i...
@@ -268,7 +292,8 @@ const ROLLCALL = {
         // '<module>.<EXPORT>' consensus-gate keys, `rollcall_signers.gates`); NULL
         // on every v0 row, so the client badges v0 without a gates list and v1 as
         // 'ROLLCALL v1' with the parsed list (action_format already selected above).
-        data['gates'] = data['gates'] ? data['gates'].split(',') : [];
+        let gates = await readRollcallGates(db, config, action_index);
+        data['gates'] = gates ? gates.split(',') : [];
     },
 };
 

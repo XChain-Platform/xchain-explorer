@@ -51,3 +51,12 @@ describe('staking action-detail SQL', function() {
         });
     }
 });
+
+describe('SLASH detail status', function() {
+    it('selects a status derived from the slash event row, so the page never shows a bare dash', function() {
+        const flat = stakingSql.SLASH_DETAIL.replace(/\s+/g, ' ');
+        // The indexer writes capability_slash_events for a valid proof and only for one.
+        expect(flat).to.include("CASE WHEN m.slash_action_index IS NULL THEN 'invalid' ELSE 'valid' END as status");
+        expect(flat).to.include('LEFT JOIN capability_slash_events m ON (m.slash_action_index=a1.action_index)');
+    });
+});

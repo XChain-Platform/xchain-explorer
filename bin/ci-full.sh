@@ -81,6 +81,8 @@ CI_TIER_FULL_ONLY=(
   "db fixture for perf (mariadb on 3307)"
   "perf (test:performance)"
   "coverage ratchet (coverage:check)"
+  "chaos (test:chaos)"
+  "mutation (test:mutation)"
 )
 DEFERRED=""
 ci_tier_deferred() {
@@ -218,6 +220,10 @@ db_tier "perf (test:performance)" npm run test:performance
 run_tier "db fixture for integration (mariadb on 3307)" db_fixture_reset
 db_tier "integration (test:integration)" npm run test:integration
 
+run_tier "db fixture for e2e and boundary (mariadb on 3307)" db_fixture_reset
+db_tier "e2e (test:e2e)" npm run test:e2e
+db_tier "boundary integration (test:boundary:integration)" npm run test:boundary:integration
+
 # --- job: conformance (needs: ci) ------------------------------------------
 # Loads the REAL indexer, hub and decoder DDL from the sibling checkouts (the
 # suite resolves them as ../xchain-*/src/sql, which is why the layout above is
@@ -228,6 +234,19 @@ db_tier "conformance: schema canary (test:conformance)" npm run test:conformance
 
 npm run test:integration:down >/dev/null 2>&1
 echo "ci:full: db fixture torn down (no DB tiers remain)"
+
+# --- chaos and mutation tiers -----------------------------------------------
+# Chaos brings up its own compose fixture; mutation is the long Stryker run.
+# Both are full-sweep tiers.
+chaos_tier() {
+  npm run test:chaos:down >/dev/null 2>&1
+  npm run test:chaos:up || { npm run test:chaos:down >/dev/null 2>&1; return 1; }
+  npm run test:chaos; local rc=$?
+  npm run test:chaos:down >/dev/null 2>&1
+  return $rc
+}
+run_tier "chaos (test:chaos)" chaos_tier
+run_tier "mutation (test:mutation)" npm run test:mutation
 
 # --- job: drift-guards -----------------------------------------------------
 # Run FROM the parent so the sync scripts see the canonical + vendored pair the

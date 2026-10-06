@@ -59,10 +59,12 @@ function limitedHandler({ service, name, envVar, limit, windowMs, message, log =
         const at = now();
         if(lastLineAt !== null && at - lastLineAt < windowMs) return;
 
+        // Read the span before lastLineAt moves; afterwards it would be zero.
+        const spanSeconds = lastLineAt === null ? windowSeconds : Math.round((at - lastLineAt) / 1000);
         lastLineAt = at;
         log(service + ' rate limit [' + name + ']: ' + refusedSinceLine +
             ' request' + (refusedSinceLine === 1 ? '' : 's') +
-            ' refused in the last ' + windowSeconds + ' s' +
+            ' refused in the last ' + spanSeconds + ' s' +
             ' (limit ' + limit + '/' + windowSeconds + ' s); raise ' + envVar +
             ' if this is legitimate traffic');
         refusedSinceLine = 0;

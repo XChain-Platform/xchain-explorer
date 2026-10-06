@@ -150,6 +150,33 @@ describe('xchain_ws.js reconnect catch-up: cursor, continuation and refusal', fu
     });
 });
 
+describe('xchain_ws.js reconnect catch-up: not_replayed', function () {
+
+    it('dispatches the types CATCH_UP_COMPLETE says were not replayed', function () {
+        const ws = loadClient();
+        const events = [];
+        ws.on('not_replayed', (m) => events.push(m.data));
+        reconnectWith(ws, '500', [{ channels: ['actions'], params: {} }]);
+        const id = catchUps(ws)[0].id;
+        recv(ws, complete(id, '600', { not_replayed: ['BET_CLOSED', 'XCALL_EXPIRED'] }));
+
+        expect(events).to.have.lengthOf(1);
+        expect(events[0].types).to.deep.equal(['BET_CLOSED', 'XCALL_EXPIRED']);
+        expect(events[0].channels).to.deep.equal(['actions']);
+        expect(events[0].since_action_index).to.equal('500');
+    });
+
+    it('dispatches nothing when the list is absent or empty', function () {
+        const ws = loadClient();
+        const events = [];
+        ws.on('not_replayed', (m) => events.push(m.data));
+        reconnectWith(ws, '500', [{ channels: ['actions'], params: {} }, { channels: ['address'], params: { address: 'X' } }]);
+        recv(ws, complete(catchUps(ws)[0].id, '600'));
+        recv(ws, complete(catchUps(ws)[1].id, '600', { not_replayed: [] }));
+        expect(events).to.have.lengthOf(0);
+    });
+});
+
 describe('xchain_ws.js reconnect catch-up: backstops', function () {
 
     it('ignores an error frame that answers some other request', function () {

@@ -2,6 +2,7 @@
   "tool": "explorer-identity",
   "format": 1,
   "repo": "xchain-explorer",
+  "rev": "139b68ac0063f858a6dcfa500d7d6adbdbcc4028",
   "twins": [
     {
       "path": "src/consensus/equivocation_header.js",

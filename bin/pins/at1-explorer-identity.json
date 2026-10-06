@@ -2174,8 +2174,8 @@
     },
     {
       "path": "test/fixtures/template-baseline.html",
-      "bytes": 36083,
-      "sha256": "82fa298762cedcba419575d04a4d6fef27c80074c53630bbbe4f6bdde3c5c0e8"
+      "bytes": 36118,
+      "sha256": "efff021c8c33603a9cda9ff1dd2c8e2de2f8f2b6577601e9ec832c1775b61b4d"
     }
   ],
   "coverage": {

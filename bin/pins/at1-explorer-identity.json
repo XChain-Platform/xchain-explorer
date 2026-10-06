@@ -30,8 +30,8 @@
     },
     {
       "path": "src/consensus/stake_weighted_quorum.js",
-      "bytes": 10294,
-      "sha256": "946191601217a7b2ac0e6c50d37eb6a111ba30544680aeff434f52b9f5c2d661"
+      "bytes": 10899,
+      "sha256": "2546f8976b7dbc85e63e3011d2cb5ac94bac54e74c471bd4d8019c7522a3d5f7"
     }
   ],
   "routes": {
@@ -2164,8 +2164,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/action-detail-golden.json",
-      "bytes": 384425,
-      "sha256": "71352993a44243873cb9b6a02b5a1e2e5e0ce5c4331d60e0fddd5f92f2493751"
+      "bytes": 384769,
+      "sha256": "160d8523d30f5df54cfe33ce9a5d16c2a14e03ef74826aba41b080ab5a56f272"
     },
     {
       "path": "test/fixtures/list-page-baseline.json",
@@ -2531,6 +2531,17 @@
         "client: action proof button is gated on the block being checkpointed removes the button on an uncheckpointed block and says why, spending no proof request",
         "client: action proof button is gated on the block being checkpointed wires nothing at all when the action carries no index or no block"
       ],
+      "04e363c7b9745766": [
+        "broadcaster action routes actionChannelKeys skips falsy parties",
+        "broadcaster action routes actionChannelKeys starts with actions and orders each distinct party source first",
+        "broadcaster action routes actionChannelKeys treats non-array destinations as empty",
+        "broadcaster action routes carriesActions accepts any address channel for the coin",
+        "broadcaster action routes carriesActions accepts the coin actions channel",
+        "broadcaster action routes carriesActions rejects another coin and unrelated channels",
+        "broadcaster action routes lifecycleChannelKeys adds an entity-specific channel and every extracted address",
+        "broadcaster action routes lifecycleChannelKeys adds no lifecycle channel when the event has none",
+        "broadcaster action routes lifecycleChannelKeys uses the bare lifecycle channel when the entity id is falsy"
+      ],
       "04f2b2ff93543f66": [
         "contract-introspect ABI extraction defaults omitted params to an empty array and omitted view to absent",
         "contract-introspect ABI extraction drops only the malformed method entry, keeping the rest",
@@ -2595,6 +2606,16 @@
         "dispenser/dispense legs are values, not shared scratch state renders a NATIVE-coin get leg byte-identically to the pre-refactor expression",
         "dispenser/dispense legs are values, not shared scratch state renders a TOKEN get leg byte-identically to the pre-refactor expression"
       ],
+      "060f67fd0ddd33fb": [
+        "validateParams integer searches allows safe action and checkpoint indexes",
+        "validateParams integer searches rejects an unsafe action index",
+        "validateParams integer searches rejects an unsafe checkpoint block index",
+        "validateParams mirror and token searches allows a cross-chain request when its mirror is available",
+        "validateParams mirror and token searches allows long token searches and address searches",
+        "validateParams mirror and token searches does not check the mirror for another method",
+        "validateParams mirror and token searches settles a cross-chain request when its mirror is blocked",
+        "validateParams mirror and token searches settles short token and subtoken searches with an empty result"
+      ],
       "065249d6e3f55eba": [
         "Database#getData result cache caps the cache size and evicts the oldest entry",
         "Database#getData result cache does not collide across explorer cursor offsets",
@@ -2613,6 +2634,10 @@
         "hub-mirror list share vendored contract @regression ensureTables creates list_snapshots from the vendored directory",
         "hub-mirror list share vendored contract @regression includes list_snapshots in CROSS_CHAIN_TABLES",
         "hub-mirror list share vendored contract @regression vendors HUB_SCHEMA_VERSION 9"
+      ],
+      "079f3b47f967927a": [
+        "broadcaster coin map contains exactly the supported coin keys",
+        "broadcaster coin map maps each coin key to its chain and network"
       ],
       "09a5bd038de2012d": [
         "SPV Stage A: contract-state request validation @regression accepts an ordinary key and reaches the proof server",
@@ -2680,6 +2705,24 @@
         "Boundary: Relay SSRF Protection tests localhost with port",
         "Boundary: Relay SSRF Protection tests octal IP 0177.0.0.1 (=127.0.0.1)"
       ],
+      "0b3be6c9eb3a77e0": [
+        "xchain_ws.js reconnect catch-up: backstops a disconnect mid catch-up keeps the cursor before the gap, so the next reconnect replays it",
+        "xchain_ws.js reconnect catch-up: backstops does not re-arm a once subscription its replay already spent",
+        "xchain_ws.js reconnect catch-up: backstops ignores an error frame that answers some other request",
+        "xchain_ws.js reconnect catch-up: backstops stops continuing after the round cap and reports the gap",
+        "xchain_ws.js reconnect catch-up: backstops treats an unanswered catch-up as refused when the backstop timer fires",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal continues a truncated replay from where the server stopped",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal holds the cursor against live frames until every replay closes, then applies the highest seen",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal reports a refused catch-up to the page and moves on to the next subscription",
+        "xchain_ws.js reconnect catch-up: load order and sequencing WELCOME does not move a cursor that is already set",
+        "xchain_ws.js reconnect catch-up: load order and sequencing sends one catch-up at a time, each from the reconnect-time cursor, and none for blocks/network",
+        "xchain_ws.js reconnect catch-up: load order and sequencing the page shell loads xchain_ws_catch_up.js right after xchain_ws.js",
+        "xchain_ws.js reconnect catch-up: not_replayed dispatches nothing when the list is absent or empty",
+        "xchain_ws.js reconnect catch-up: not_replayed dispatches the types CATCH_UP_COMPLETE says were not replayed",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor a CATCH_UP_COMPLETE outside a replay still advances the cursor",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor an entity id seen during a replay is not applied when the replay closes",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor an idle client ignores entity ids and still advances on NEW_ACTION"
+      ],
       "0b4078b9c7064f8e": [
         "ADDRESS list row whose action carries no preferences shows a dash, not a fabricated default, when the fields are absent",
         "ADDRESS list row whose action carries no preferences still renders real v0 preferences",
@@ -2698,6 +2741,13 @@
         "list-page cells fed a null feed column shows a valid verdict for an ATTEST the chain accepted",
         "list-page cells fed a null feed column shows the chain verdict beside the attester result for a REJECTED ATTEST",
         "list-page cells fed a null feed column still renders a BROADCAST message that IS present"
+      ],
+      "0bd5def166a58612": [
+        "PRICE detail helpers keeps explicit pair data ahead of batch fallbacks",
+        "PRICE detail helpers renders batch window and pair width fallbacks",
+        "PRICE detail helpers renders the scalar PRICE fields without changing their display forms",
+        "PRICE signature helper marks unparseable signatures and reveals the signer row",
+        "PRICE signature helper renders signature count and signer hashes"
       ],
       "0bfb8b4bc19093b0": [
         "Database#getQueryWhereSql for getVoteDelegations (type in {tick, delegator, delegate, block}) an unrecognized type adds no extra clause (falls through cleanly)",
@@ -2763,6 +2813,10 @@
         "expire-feed COUNT queries count the same set as their list queries getSwapExpires count and list agree on every lifecycle table they join",
         "expire-feed COUNT queries count the same set as their list queries getSwapExpires joins swaps in BOTH its count and its list query",
         "expire-feed COUNT queries count the same set as their list queries no expire getter joins orders against a non-order action index"
+      ],
+      "0fb440fe8ab93be0": [
+        "loadData logs a rejected read and writes the database error response",
+        "loadData stores the database rows and passes the resolved request config"
       ],
       "101400b180cea9b2": [
         "consensus-primitive conformance: activation predicate vectors @regression every group this repo runs is a non-empty list",
@@ -2907,6 +2961,11 @@
         "XBRIDGE action detail handler @regression reports a user leg with no local settlement as PENDING, not as a blank",
         "XBRIDGE action detail handler @regression resolves an injected leg from bridge_settlements keyed on its OWN action_index"
       ],
+      "147bd2f32571f82b": [
+        "ATTEST validator signatures parsing defaults absent validator signatures without the unparseable flag",
+        "ATTEST validator signatures parsing keeps valid validator signatures without the unparseable flag",
+        "ATTEST validator signatures parsing marks malformed validator signatures as unparseable"
+      ],
       "153997be300f8ebd": [
         "address.html staking panel @regression BTC-only sections are empty BY PROTOCOL on other chains a contract-stake section on DOGE is NOT labelled BTC-only",
         "address.html staking panel @regression BTC-only sections are empty BY PROTOCOL on other chains never dresses the BTC-only empty state as a fault",
@@ -2953,20 +3012,144 @@
         "token page: files LINKed to the token reveals the card and renders the linked file",
         "token page: files LINKed to the token stays hidden for a token with no linked file"
       ],
+      "160055208e367383": [
+        "SM-01: Config loads successfully API object contains host, port, and ssl keys",
+        "SM-01: Config loads successfully COIN_AVAILABLE includes the configured coin/network",
+        "SM-01: Config loads successfully COIN_NETWORKS contains BTC, LTC, DOGE",
+        "SM-01: Config loads successfully COIN_SUPPORTED contains all 9 coin/network combinations",
+        "SM-01: Config loads successfully coin-specific config contains chain and network database info",
+        "SM-01: Config loads successfully returns a config object with all required top-level keys",
+        "SM-02: Config rejects no valid configuration throws \"No valid configuration\" when config.json is missing and NODE_CONFIG is unset",
+        "SM-03: Config skips a coin with a missing config file skips a non-existent coin instead of throwing, so startup survives",
+        "SM-04: SSL certificates are accessible config.js loads when SSL files are present (stubbed)",
+        "SM-04: SSL certificates are accessible config.js loads without SSL when certificate files are missing"
+      ],
+      "164464e8e311a31e": [
+        "offset_cursors CURSOR_BY_METHOD has 24 own keys",
+        "offset_cursors DEFAULT_CURSOR is m.action_index",
+        "offset_cursors ID_KEYED_METHODS has 19 entries with no duplicates",
+        "offset_cursors ID_KEYED_METHODS resolves every entry to m.id",
+        "offset_cursors fallback to DEFAULT_CURSOR applies to an unlisted method and an undefined method",
+        "offset_cursors fallback to DEFAULT_CURSOR does not return inherited prototype values",
+        "offset_cursors maps the explicitly keyed methods to their own columns"
+      ],
       "16f3537ce7a3151f": [
         "SM-05: Server binding and JSON-RPC ping GET / returns an HTML response (home page route)",
         "SM-05: Server binding and JSON-RPC ping JSON-RPC ping returns { status: \"success\" }",
         "SM-05: Server binding and JSON-RPC ping JSON-RPC with unknown method returns an error response",
         "prefers exported CI database settings and falls back to the venue file"
       ],
+      "1747eb98d7356dc2": [
+        "contract action-detail SQL builds the deposits detail query",
+        "contract action-detail SQL builds the withdrawals detail query",
+        "contract action-detail SQL changes only the custody table between deposit and withdrawal queries",
+        "contract action-detail SQL exports a single-row ACTION_FORMAT_PROBE query",
+        "contract action-detail SQL exports a single-row DEPLOY_ASSEMBLER query",
+        "contract action-detail SQL exports a single-row DEPLOY_CARRIER_CONTRACT query",
+        "contract action-detail SQL exports a single-row DEPLOY_CHUNK_DETAIL query",
+        "contract action-detail SQL exports a single-row DEPLOY_CONTRACT_DETAIL query",
+        "contract action-detail SQL exports a single-row EXECUTE_DETAIL query",
+        "contract action-detail SQL exports the ordered EXECUTE_EMISSIONS query without a row limit"
+      ],
+      "180445d38720eaff": [
+        "schema column probe isolation does not answer a table probe from a column memo",
+        "schema column probe isolation keeps column memos separate for each coin",
+        "schema column probe isolation lets an absent marker bypass the column query",
+        "schema column probe isolation returns true without caching when the column query rejects",
+        "schema column probes memoizes negative answers only inside the TTL",
+        "schema column probes memoizes positive answers for either column order",
+        "schema column probes queries for every column and reports an incomplete result",
+        "schema probe errors recognizes missing table errors directly and through a cause",
+        "schema probe errors recognizes unknown column errors directly and through a cause",
+        "schema probe errors rejects values that are not missing table errors",
+        "schema probe errors rejects values that are not unknown column errors",
+        "schema table probe isolation keeps table memos separate for each coin",
+        "schema table probe isolation lets an absent marker bypass the table query",
+        "schema table probe isolation returns true without caching when the table query rejects",
+        "schema table probes exports the schema probe TTL",
+        "schema table probes memoizes negative answers only inside the TTL",
+        "schema table probes memoizes positive answers for either table order",
+        "schema table probes queries for every table and reports an incomplete result"
+      ],
       "189c6500824d84b9": [
         "XCALL result delivery request lookup links the newest valid request when a later invalid request reuses the call id"
+      ],
+      "19290a524bdda045": [
+        "Broadcaster NETWORK_STATS after a rollback a burst after a rollback still collapses to one frame for its newest block",
+        "Broadcaster NETWORK_STATS after a rollback a deep rollback keeps emitting stats for the re-indexed heights",
+        "Broadcaster NETWORK_STATS after a rollback a same-height replacement block still emits its own frame",
+        "Broadcaster action events: filter pipeline broadcasts NEW_ACTION to actions subscribers",
+        "Broadcaster action events: filter pipeline fields projection strips payload to requested keys",
+        "Broadcaster action events: filter pipeline omits the destination field from NEW_ACTION (honesty contract)",
+        "Broadcaster action events: filter pipeline statuses filter blocks non-matching status",
+        "Broadcaster action events: filter pipeline types filter blocks non-matching action",
+        "Broadcaster action events: filter pipeline types filter passes matching action",
+        "Broadcaster address channel routing broadcasts to subscribed address when source matches",
+        "Broadcaster address channel routing does not broadcast to unsubscribed address",
+        "Broadcaster backpressure a frame the client filters out neither counts as a skip nor closes it",
+        "Broadcaster backpressure closes a backed-up client with 4008 once and sends it nothing after",
+        "Broadcaster backpressure counts every skipped frame and logs the skip at most once per window",
+        "Broadcaster backpressure leaves a client under the threshold open",
+        "Broadcaster backpressure skips client when bufferedAmount exceeds threshold",
+        "Broadcaster block events NETWORK_STATS frames stay in block order when DB reads resolve out of order (catch-up burst)",
+        "Broadcaster block events a catch-up burst collapses to a single getMaxActionIndex read (newest height only)",
+        "Broadcaster block events a rejected stats emission does not poison the chain for later blocks",
+        "Broadcaster block events also broadcasts NETWORK_STATS to network subscribers",
+        "Broadcaster block events broadcasts NEW_BLOCK to blocks subscribers",
+        "Broadcaster block events does not send to clients on different coin",
+        "Broadcaster block events sends NEW_BLOCK tx_count and action_count as decimal strings for every input",
+        "Broadcaster block events sequential blocks each emit a NETWORK_STATS frame in ascending height order",
+        "Broadcaster block events stamps every outbound frame with the envelope schema_version",
+        "Broadcaster block events the schema_version stamp survives a fields projection",
+        "Broadcaster entity update events broadcasts ADDRESS_UPDATE to address subscribers",
+        "Broadcaster entity update events broadcasts MARKET_UPDATE to market subscribers",
+        "Broadcaster entity update events broadcasts a market update when the first ticker contains a colon",
+        "Broadcaster entity update events does not mutate the emitted event when stamping the channel",
+        "Broadcaster entity update events from the real ChangeDetector emitter delivers ADDRESS_UPDATE to a subscribed receiving address named only in destinations",
+        "Broadcaster entity update events from the real ChangeDetector emitter delivers MARKET_UPDATE to a subscriber whose tick spelling differs from the canonical one",
+        "Broadcaster entity update events from the real ChangeDetector emitter does not route a canonical-tick MARKET_UPDATE to a lower-case subscriber (the routing the emitter must avoid)",
+        "Broadcaster entity update events stamps data.channel on every live entity frame, matching the SNAPSHOT discriminator",
+        "Broadcaster lifecycle events broadcasts COINPAY_REQUIRED to address subscribers",
+        "Broadcaster lifecycle events broadcasts lifecycle event to actions subscribers",
+        "Broadcaster lifecycle events does not deliver a bet_feed event to a subscriber watching a different market",
+        "Broadcaster lifecycle events does not deliver a dispenser lifecycle event to a non-matching dispenser subscriber",
+        "Broadcaster lifecycle events routes BET_EXPIRED (the system refund pass) to the bet_feed channel",
+        "Broadcaster lifecycle events routes DISPENSE to the dispenser channel keyed on the parent dispenser",
+        "Broadcaster lifecycle events routes DISPENSER_CLOSED / DISPENSER_EXPIRED to the dispenser channel",
+        "Broadcaster lifecycle events routes a placed BET to the bet_feed channel keyed on the parent market",
+        "Broadcaster once auto-unsubscribe removes subscription after first matching event and sends UNSUBSCRIBED"
       ],
       "1943a08ef9875b52": [
         "db.getHistoryData: parent_batch_action_index (M1.6) a BATCH child row carries the parent action_index; the parent BATCH row itself carries null",
         "db.getHistoryData: parent_batch_action_index (M1.6) a non-batch row carries null for parent_batch_action_index",
         "db.getHistoryData: parent_batch_action_index (M1.6) the COUNT query does NOT carry the subquery (spec: LIST query only)",
         "db.getHistoryData: parent_batch_action_index (M1.6) the LIST query carries the correlated subquery, aliased parent_batch_action_index"
+      ],
+      "196430b0fe0480dd": [
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/price_batching_floor_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list_refresh.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/list_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
       ],
       "19763ddde29bfb7f": [
         "chunked DEPLOY: which action deployed the contract the action cache refuses a pending response a pending response stays absent from the LRU, so the next read resolves it",
@@ -3045,6 +3228,11 @@
         "Broadcaster mempool destination fan-out (M1.1) survives a db-layer id lookup failure by falling back to literal matching",
         "Broadcaster mempool destination fan-out (M1.1) the GLOBAL mempool frame carries first_seen and NOT destinations (I-43)",
         "Broadcaster mempool destination fan-out (M1.1) the global MEMPOOL_REMOVED frame carries source and NOT destinations"
+      ],
+      "1cb89d4d95eada37": [
+        "ANCHOR publisher attestations parsing marks malformed JSON as unparseable before normalizing it",
+        "ANCHOR publisher attestations parsing normalizes absent and null attestations without a flag",
+        "ANCHOR publisher attestations parsing preserves a valid publisher attestation array without a flag"
       ],
       "1d614256799a055f": [
         "getDelegations type=pubkey binds the key lowercased in both the row and the count query",
@@ -3836,6 +4024,15 @@
         "Security: sanitizeInt defense-in-depth returns parsed integer for valid numeric string",
         "Security: sanitizeInt defense-in-depth uses custom default value"
       ],
+      "23218d3f38f6d825": [
+        "PRICE detail rounds parse failure keeps ordinary rows with no rounds hidden",
+        "PRICE detail rounds parse failure renders populated rounds unchanged when the parse flag is absent",
+        "PRICE detail rounds parse failure shows an error marker and clears a prior rounds summary"
+      ],
+      "23809e480c3c6ebd": [
+        "sendResponse applies freshness headers and metadata from the request state",
+        "sendResponse writes the JSON response and records its cost once"
+      ],
       "23c6716810b12da0": [
         "Action detail supplements (sibling-table wire fields) @regression DEPLOY constructor gas (v0-v3, and a carrier that completed a group) a v4 carrier that COMPLETED the group gets the constructor gas",
         "Action detail supplements (sibling-table wire fields) @regression DEPLOY constructor gas (v0-v3, and a carrier that completed a group) a v4 carrier with NO contract row of its own gets no gas supplement",
@@ -4002,17 +4199,6 @@
         "checkpoint self_sync / hub-endpoint pairing resolveHubUrl() prefers the config-borne hub_url over the env",
         "checkpoint self_sync / hub-endpoint pairing resolveHubUrl() treats a whitespace-only value as absent"
       ],
-      "29b6122ccd892ee2": [
-        "structure markers client: actionDetail_renderDisclosure falls back to a plain sentence for a payload with nothing to expand",
-        "structure markers client: actionDetail_renderDisclosure lists batch members through the shared summary renderer, reading summary never details",
-        "structure markers client: actionDetail_renderDisclosure lists every leg of a multi-send with the memo escaped",
-        "structure markers client: getActionDetails a BATCH parent shows its member count as a toggle",
-        "structure markers client: getActionDetails a details value of false renders the summary without throwing",
-        "structure markers client: getActionDetails a member row links its parent batch",
-        "structure markers client: getActionDetails a multi-destroy row says legs, not recipients",
-        "structure markers client: getActionDetails a multi-send row gets a recipients toggle after its leg-0 summary",
-        "structure markers client: getActionDetails a plain send row carries no marker at all"
-      ],
       "2b7e2b712e3099ff": [
         "checkpoint.html signer list: renderCheckpointSigners @regression escapes a stored pubkey before rendering the signer item",
         "checkpoint.html signer list: renderCheckpointSigners @regression renders the entry number and missing field for each invalid signature item",
@@ -4064,12 +4250,27 @@
         "HubOperationalCache: a concurrent -32601 does not hijack another call _call keeps each invocation's answer on its own sink while the instance field churns",
         "HubOperationalCache: a concurrent -32601 does not hijack another call the unreachable-method call still serves its within-ceiling stale rows"
       ],
+      "2e37a415a4011e31": [
+        "mirror row upsert SQL builds an insert-ignore statement with regenerated placeholders",
+        "mirror row upsert SQL delegates status-bearing price snapshots to the shared builder",
+        "mirror row upsert SQL gates mutable-table upserts on their marker columns",
+        "mirror row upsert SQL updates oracle content before its generation and never updates its key"
+      ],
       "2f3b9347d1a904c1": [
         "Fuzz: Utility BC math addition & multiplication are commutative across 2000 random pairs",
         "Fuzz: Utility BC math bcformat always yields a well-formed fixed-decimal string across 2000 values",
         "Fuzz: Utility BC math comparison helpers obey trichotomy + reflexivity across 2000 pairs",
         "Fuzz: Utility BC math sub-1e-12 values compare exactly (epsilon-bug guard) across 2000 values",
         "Fuzz: Utility BC math subtraction self-cancels and add/sub round-trips across 2000 values"
+      ],
+      "2f8d8d22edffca97": [
+        "ATTEST detail across the batch-column migration @regression a history list with an ATTEST row resolves on a pre-batch replica",
+        "ATTEST detail across the batch-column migration @regression a pre-batch replica renders, names no batch column and keeps the keys as null",
+        "ATTEST detail across the batch-column migration @regression a probe that errors takes the safe pre-batch read",
+        "ATTEST detail across the batch-column migration @regression an upgraded replica reads every batch column",
+        "ROLLCALL detail across the gates migration @regression a replica without the column renders with no gates and never names it",
+        "ROLLCALL detail across the gates migration @regression an upgraded replica reads and splits the gates",
+        "ROLLCALL detail across the gates migration @regression recovers from the 1054 a stale positive memo earns, then stops paying it"
       ],
       "302896c799e03ce8": [
         "getToken failures that are not a missing column propagates a genuine query failure instead of answering a degraded body",
@@ -4088,6 +4289,11 @@
         "getToken when the schema probe is wrong falls back to the full projection when information_schema itself refuses",
         "getToken when the schema probe is wrong recovers from the 1054 a stale positive memo earns, and records the real shape",
         "getToken when the schema probe is wrong still answers a token when the probe fails against a pre-bridge replica"
+      ],
+      "3194bd7c48354635": [
+        "PRICE action detail pairs parsing does not mark a valid pairs array as unparseable",
+        "PRICE action detail pairs parsing leaves pairs undefined when pairs JSON is absent",
+        "PRICE action detail pairs parsing marks malformed pairs JSON as unparseable"
       ],
       "31b4e41f89cb9ae0": [
         "data-table: config-driven columns (M2.2) a theme resequencing or dropping a column does not permute a row twice when the table is redrawn",
@@ -4177,6 +4383,75 @@
         "LIST list-page metadata keeps list_metas outside the generic action table registry",
         "LIST list-page metadata omits metadata columns when list_metas is absent"
       ],
+      "36a8962bc0ef6ca8": [
+        "explorer mount limiters action-proof calls limitedHandler exactly once for its name",
+        "explorer mount limiters action-proof falls back to the default for 0",
+        "explorer mount limiters action-proof falls back to the default for abc",
+        "explorer mount limiters action-proof falls back to the default for empty",
+        "explorer mount limiters action-proof hands limitedHandler the policy with the default limit",
+        "explorer mount limiters action-proof passes the window, header flags and handler to rateLimit",
+        "explorer mount limiters action-proof returns the rateLimit marker for its own call",
+        "explorer mount limiters action-proof takes the limit from its env knob when positive",
+        "explorer mount limiters batch calls limitedHandler exactly once for its name",
+        "explorer mount limiters batch falls back to the default for 0",
+        "explorer mount limiters batch falls back to the default for abc",
+        "explorer mount limiters batch falls back to the default for empty",
+        "explorer mount limiters batch hands limitedHandler the policy with the default limit",
+        "explorer mount limiters batch passes the window, header flags and handler to rateLimit",
+        "explorer mount limiters batch returns the rateLimit marker for its own call",
+        "explorer mount limiters batch takes the limit from its env knob when positive",
+        "explorer mount limiters checkpoint-list calls limitedHandler exactly once for its name",
+        "explorer mount limiters checkpoint-list falls back to the default for 0",
+        "explorer mount limiters checkpoint-list falls back to the default for abc",
+        "explorer mount limiters checkpoint-list falls back to the default for empty",
+        "explorer mount limiters checkpoint-list hands limitedHandler the policy with the default limit",
+        "explorer mount limiters checkpoint-list passes the window, header flags and handler to rateLimit",
+        "explorer mount limiters checkpoint-list returns the rateLimit marker for its own call",
+        "explorer mount limiters checkpoint-list takes the limit from its env knob when positive",
+        "explorer mount limiters checkpoint-verify calls limitedHandler exactly once for its name",
+        "explorer mount limiters checkpoint-verify falls back to the default for 0",
+        "explorer mount limiters checkpoint-verify falls back to the default for abc",
+        "explorer mount limiters checkpoint-verify falls back to the default for empty",
+        "explorer mount limiters checkpoint-verify hands limitedHandler the policy with the default limit",
+        "explorer mount limiters checkpoint-verify passes the window, header flags and handler to rateLimit",
+        "explorer mount limiters checkpoint-verify returns the rateLimit marker for its own call",
+        "explorer mount limiters checkpoint-verify takes the limit from its env knob when positive",
+        "explorer mount limiters does not let one limiter env knob move another",
+        "explorer mount limiters fee-quote calls limitedHandler exactly once for its name",
+        "explorer mount limiters fee-quote falls back to the default for 0",
+        "explorer mount limiters fee-quote falls back to the default for abc",
+        "explorer mount limiters fee-quote falls back to the default for empty",
+        "explorer mount limiters fee-quote hands limitedHandler the policy with the default limit",
+        "explorer mount limiters fee-quote passes the window, header flags and handler to rateLimit",
+        "explorer mount limiters fee-quote returns the rateLimit marker for its own call",
+        "explorer mount limiters fee-quote takes the limit from its env knob when positive",
+        "explorer mount limiters preflight-post calls limitedHandler exactly once for its name",
+        "explorer mount limiters preflight-post falls back to the default for 0",
+        "explorer mount limiters preflight-post falls back to the default for abc",
+        "explorer mount limiters preflight-post falls back to the default for empty",
+        "explorer mount limiters preflight-post hands limitedHandler the policy with the default limit",
+        "explorer mount limiters preflight-post passes the window, header flags and handler to rateLimit",
+        "explorer mount limiters preflight-post returns the rateLimit marker for its own call",
+        "explorer mount limiters preflight-post takes the limit from its env knob when positive",
+        "explorer mount limiters returns both checkpoint limiters under their names",
+        "explorer mount limiters returns both proof limiters under their names",
+        "explorer mount limiters validator-set-proof calls limitedHandler exactly once for its name",
+        "explorer mount limiters validator-set-proof falls back to the default for 0",
+        "explorer mount limiters validator-set-proof falls back to the default for abc",
+        "explorer mount limiters validator-set-proof falls back to the default for empty",
+        "explorer mount limiters validator-set-proof hands limitedHandler the policy with the default limit",
+        "explorer mount limiters validator-set-proof passes the window, header flags and handler to rateLimit",
+        "explorer mount limiters validator-set-proof returns the rateLimit marker for its own call",
+        "explorer mount limiters validator-set-proof takes the limit from its env knob when positive",
+        "explorer mount limiters vm-query calls limitedHandler exactly once for its name",
+        "explorer mount limiters vm-query falls back to the default for 0",
+        "explorer mount limiters vm-query falls back to the default for abc",
+        "explorer mount limiters vm-query falls back to the default for empty",
+        "explorer mount limiters vm-query hands limitedHandler the policy with the default limit",
+        "explorer mount limiters vm-query passes the window, header flags and handler to rateLimit",
+        "explorer mount limiters vm-query returns the rateLimit marker for its own call",
+        "explorer mount limiters vm-query takes the limit from its env knob when positive"
+      ],
       "381a93ad4ecc32fc": [
         "db.getHistoryData: the all-activity feed is not gated on mappings_actions [REGRESSION] the first-page boundary for a block feed is computed over `actions`",
         "db.getHistoryData: the all-activity feed is not gated on mappings_actions [REGRESSION] the first-page boundary for the recent feed is computed over `actions`",
@@ -4245,6 +4520,29 @@
         "PRICE detail render: validator batch rounds states an anchor height as plain text when this instance does not serve that BTC network",
         "PRICE detail render: validator batch rounds summarizes the batch by round and price count"
       ],
+      "39b81da21d0230a3": [
+        "price batch parameter validation clamps oversized limits and rejects invalid limits",
+        "price batch parameter validation normalizes string rounds and default limits",
+        "price batch parameter validation rejects invalid round bounds",
+        "price batch response mapping maps absent latest block indexes to null",
+        "price batch response mapping maps non-array rows to an untruncated empty list",
+        "price batch response mapping maps numeric fields and reports a full page as truncated"
+      ],
+      "39d38d610943e3e4": [
+        "config validation describeHubResponse describes a null response as an unreachable hub returning nothing",
+        "config validation describeHubResponse describes a populated response as reachable and non-empty",
+        "config validation describeHubResponse describes an empty response as a reachable hub returning nothing",
+        "config validation requireUsableConfig does nothing for a non-null response",
+        "config validation requireUsableConfig reports the validation error for a null response"
+      ],
+      "39f71c373a99b732": [
+        "applyMirrorWrite falls back to doQuery and passes query arguments through",
+        "applyMirrorWrite prefers doQueryStrict and passes query arguments through",
+        "coerceMirrorValue does not coerce other column types or unparseable dates",
+        "coerceMirrorValue formats zoned and zone-less timestamps as UTC SQL datetimes",
+        "coerceMirrorValue returns non-strings and non-ISO strings unchanged",
+        "priceUpsertSql builds finalized-only updates for a tuple per row without id"
+      ],
       "3a23bc4c98e3e8d5": [
         "client: market page counter-tick resolution a 404 NOT_FOUND for an unknown pair renders the visible not-found state",
         "client: market page counter-tick resolution a market that does not resolve renders the visible not-found state",
@@ -4260,6 +4558,20 @@
         "client: market page counter-tick resolution reports failure when no market exists for the tick",
         "client: market page counter-tick resolution resolves a missing counter-tick from the market list for the tick",
         "client: market page counter-tick resolution resolves the counter regardless of pair orientation in the list"
+      ],
+      "3afc43217b5456a4": [
+        "database type normalization defaults missing and empty values to indexer",
+        "database type normalization preserves dashes",
+        "database type normalization trims and lowercases the type",
+        "query timeout resolution applies the flat timeout to every database type",
+        "query timeout resolution falls back when a timeout is not positive",
+        "query timeout resolution falls through a blank scoped timeout to the flat timeout",
+        "query timeout resolution ignores a scoped timeout for another database type",
+        "query timeout resolution maps dashes to underscores in scoped timeout names",
+        "query timeout resolution matches scoped timeout names case-insensitively",
+        "query timeout resolution parses a timeout with a unit suffix",
+        "query timeout resolution prefers a scoped timeout over the flat timeout",
+        "query timeout resolution uses 30000 by default"
       ],
       "3c960c0bf29273dc": [
         "action-detail queries never select into a reserved payload slot @regression every selected column that shadows a generic slot is aliased"
@@ -4326,6 +4638,12 @@
         "@p2 @consistency Transaction-Send cross-reference regression transaction actions array includes all actions in that tx",
         "@p2 @icon Icon endpoint regression nonexistent icon redirects to default"
       ],
+      "3eae330fe921766d": [
+        "data cache isolation keeps values for different keys separate",
+        "data cache isolation recomputes an entry past the TTL",
+        "data cache reads computes and stores a cache miss",
+        "data cache reads uses a hit inside the TTL without recomputing"
+      ],
       "3f072b9064f7b674": [
         "LIST metadata fallbacks and query queries valid list_metas rows in ascending action order",
         "LIST metadata fallbacks and query rethrows query errors unrelated to a missing table",
@@ -4389,6 +4707,26 @@
         "detail pages with nonexistent entities token.html replaces placeholders with an explicit not-found state",
         "detail pages with nonexistent entities transaction.html maps null success bodies and HTTP failures to that state",
         "detail pages with nonexistent entities transaction.html replaces placeholders with an explicit not-found state"
+      ],
+      "406672eca6160342": [
+        "genericClause address and block lanes appends the destination and source address predicates",
+        "genericClause address and block lanes uses both action addresses for methods with two address roles",
+        "genericClause address and block lanes uses the direct coinpay block column and the default block join",
+        "genericClause address and block lanes uses the method-specific or default address aliases",
+        "genericClause entity lanes limits the gate predicate to files",
+        "genericClause entity lanes returns incoming SQL unchanged for an unknown type",
+        "genericClause entity lanes uses target contract indexes for contract relationship methods",
+        "genericClause entity lanes uses the file-specific and default token predicates",
+        "genericClause entity lanes uses the method-specific name predicates",
+        "genericClause entity lanes uses the remaining method-specific contract predicates",
+        "genericClause scoped lanes limits the dispenser predicate to dispenses",
+        "genericClause scoped lanes limits the oracle predicate to dispensers",
+        "genericClause scoped lanes limits the pubkey predicate to delegations"
+      ],
+      "43df4aacd6f52c4b": [
+        "PRICE signature detail rendering keeps the explicit batch signature count unchanged",
+        "PRICE signature detail rendering marks malformed signatures and keeps the signers row visible",
+        "PRICE signature detail rendering renders a populated signature array unchanged"
       ],
       "442821ec9fe9713e": [
         "poll winning option @regression action page: the VOTE poll panel dashes a poll with no recorded outcome",
@@ -4611,6 +4949,11 @@
         "Security: Input Validation: Type confusion handles page as negative number",
         "Security: Input Validation: Type confusion handles sortorder as array"
       ],
+      "4bc0a52021c64770": [
+        "VOTE poll option parsing leaves absent options empty and unmarked",
+        "VOTE poll option parsing leaves valid options unmarked",
+        "VOTE poll option parsing marks malformed options as unparseable"
+      ],
       "4c2d12b5f57c138f": [
         "API docs page spec URL answers the legacy /json/xchain-platform-api.json URL with the same bytes",
         "API docs page spec URL points Swagger UI at /openapi.json",
@@ -4623,19 +4966,6 @@
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v2 revoke nested in a BATCH still extracts the DELEGATE segment",
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v2 revoke renders pubkey even when the parent row is not found (reorg-dropped)",
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v3 contract-revoke: resolves pubkey + target_contract_index + tick from wire and parent row"
-      ],
-      "4e3712a2822f20bd": [
-        "xchain_ws.js reconnect catch-up: backstops a disconnect mid catch-up keeps the cursor before the gap, so the next reconnect replays it",
-        "xchain_ws.js reconnect catch-up: backstops does not re-arm a once subscription its replay already spent",
-        "xchain_ws.js reconnect catch-up: backstops ignores an error frame that answers some other request",
-        "xchain_ws.js reconnect catch-up: backstops stops continuing after the round cap and reports the gap",
-        "xchain_ws.js reconnect catch-up: backstops treats an unanswered catch-up as refused when the backstop timer fires",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal continues a truncated replay from where the server stopped",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal holds the cursor against live frames until every replay closes, then applies the highest seen",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal reports a refused catch-up to the page and moves on to the next subscription",
-        "xchain_ws.js reconnect catch-up: load order and sequencing WELCOME does not move a cursor that is already set",
-        "xchain_ws.js reconnect catch-up: load order and sequencing sends one catch-up at a time, each from the reconnect-time cursor, and none for blocks/network",
-        "xchain_ws.js reconnect catch-up: load order and sequencing the page shell loads xchain_ws_catch_up.js right after xchain_ws.js"
       ],
       "504acc675f2cc440": [
         "Bootstrap surface bridge (row 22a) actually MOVES the surface in the demo skin, which is what row 22a was for",
@@ -4691,11 +5021,23 @@
         "catch-up replay routes like the live fan-out an actions subscribe still replays every action",
         "catch-up replay routes like the live fan-out an address subscribe replays only the actions naming that address, once each"
       ],
+      "52cee9075ef1810a": [
+        "migrate-hub-mirror CLI prints usage and exits successfully for --help",
+        "migrate-hub-mirror CLI rejects unknown arguments",
+        "migrate-hub-mirror CLI requires a schema when only a user is given",
+        "migrate-hub-mirror CLI requires a user and schema when no arguments are given",
+        "migrate-hub-mirror CLI requires the database password after required arguments"
+      ],
       "54a8fb5c0bb49270": [
         "Oracle track record covers PRICE v1 publishers @regression a node with no co-located hub DB answers price:null (unknown), and the betting record still answers",
         "Oracle track record covers PRICE v1 publishers @regression an address that never published gets the zero record, not null",
         "Oracle track record covers PRICE v1 publishers @regression reads the hub-mirror table and binds the publisher address",
         "Oracle track record covers PRICE v1 publishers @regression reports the publisher's rounds per pair, with counts and the publish window"
+      ],
+      "55b980748b629a02": [
+        "shared action-detail SQL builds a grouped ledger effects query for every action index",
+        "shared action-detail SQL builds a single-action ledger effects query",
+        "shared action-detail SQL defines the action baseline lookup"
       ],
       "56b1210bf8d08dd8": [
         "protocol/constants exposes the fiat allow-list with USD present and no duplicates",
@@ -4740,6 +5082,15 @@
         "XChainExplorer#processRelayRequest token-referenced hosts relays an ordinary host when the named token description points at that exact URL",
         "XChainExplorer#processRelayRequest token-referenced hosts relays the https form a plain http description is upgraded to"
       ],
+      "5778b0be08bc8353": [
+        "WebSocket WELCOME coin map loading gets resolved coin info and falls back for unknown codes",
+        "WebSocket WELCOME coin map loading loads the coin map lazily only once",
+        "WebSocket WELCOME coin map loading returns null when loading leaves the coin map unavailable",
+        "WebSocket WELCOME coin map loading uses a preset coin map without loading a replacement",
+        "WebSocket WELCOME supported coin resolution does not resolve unknown or lowercase coin codes",
+        "WebSocket WELCOME supported coin resolution loads exactly the nine supported coin codes",
+        "WebSocket WELCOME supported coin resolution resolves supported coin codes to chain and network"
+      ],
       "5789ac155009ed3f": [
         "ANCHOR v3 fold activation gate [TRAP] a v3 row below its network fold height is not rendered as a folded bundle",
         "ANCHOR v3 fold activation gate a v3 row AT the fold height is recognized (>= is the boundary)",
@@ -4771,6 +5122,12 @@
         "JSON-RPC body guard (Express 5 / body-parser 2.x regression) src/api.js wires the guard before the jsonRouter mount",
         "JSON-RPC body guard (Express 5 / body-parser 2.x regression) still serves a valid JSON-RPC POST WITH the guard"
       ],
+      "58a411cd17b08a73": [
+        "hub selector always chooses a single configured hub",
+        "hub selector chooses several hubs deterministically for one seed",
+        "hub selector represents an empty hub list with no current selection",
+        "hub selector skips a failed hub until the candidate cycle re-admits it"
+      ],
       "58be6774fc3e1fc6": [
         "SM-11: GET /RBTC/api/sends/{block}/block response is JSON with correct content type",
         "SM-11: GET /RBTC/api/sends/{block}/block returns 200 with total and data keys",
@@ -4778,6 +5135,33 @@
         "SM-16: GET /RBTC/api/markets response is JSON",
         "SM-16: GET /RBTC/api/markets returns 200 with total and data keys",
         "prefers exported CI database settings and falls back to the venue file"
+      ],
+      "59f7c444d240b0d2": [
+        "hub sync move reset allocates a new drain position map on every call",
+        "hub sync move reset resets move state without changing unrelated fields"
+      ],
+      "5a5f9e6c89a28113": [
+        "action-index entity-key resolution refuses noncanonical indexes for bet_feed",
+        "action-index entity-key resolution refuses noncanonical indexes for dispenser",
+        "action-index entity-key resolution resolves index lists and a singular zero for bet_feed",
+        "action-index entity-key resolution resolves index lists and a singular zero for dispenser",
+        "address and token entity-key resolution refuses address params with neither supported field",
+        "address and token entity-key resolution refuses token params with neither supported field",
+        "address and token entity-key resolution resolves address arrays and singular addresses",
+        "address and token entity-key resolution resolves token arrays and singular ticks",
+        "call-id and invalid entity-key resolution normalizes a 64-hex call id to lower case",
+        "call-id and invalid entity-key resolution refuses a 63-character call id",
+        "call-id and invalid entity-key resolution refuses an empty resolved address list",
+        "call-id and invalid entity-key resolution refuses unknown entity channels",
+        "channel key building builds a key from a subscription object",
+        "channel key building builds each supported entity-key shape",
+        "channel key building builds global keys when the entity key is absent or unrecognized",
+        "channel key parsing parses a two-part key with no entity key",
+        "channel key parsing round-trips action indexes and call ids",
+        "channel key parsing round-trips address, token, and market keys",
+        "market entity-key resolution keeps only two-element pairs",
+        "market entity-key resolution refuses market params with neither supported shape",
+        "market entity-key resolution resolves a singular tick pair"
       ],
       "5ac1aafe09d22c2e": [
         "composed page, end to end (M2) is still a faithful copy of the shipped html branch",
@@ -4897,12 +5281,25 @@
         "capability_snapshots.html page fragment sets pageInfo.title/description/canonical and calls updatePageInfo()",
         "capability_snapshots.html page fragment the loading row colspan equals the <th> count (7)"
       ],
+      "6040916952368853": [
+        "ATTEST response signature detail rendering keeps the empty signature fallback unchanged",
+        "ATTEST response signature detail rendering marks malformed signatures in both signature cells",
+        "ATTEST response signature detail rendering renders a populated signature array unchanged"
+      ],
       "604a229cef54f8d7": [
         "checkReorgAndInvalidate against the REAL indexer DDL does not invalidate on a clean append",
         "checkReorgAndInvalidate against the REAL indexer DDL invalidates when the block at a seen height is replaced (hash changed)",
         "checkReorgAndInvalidate against the REAL indexer DDL invalidates when the tip rewinds",
         "checkReorgAndInvalidate against the REAL indexer DDL runs the tip poll against the real schema without a bad-column error",
         "checkReorgAndInvalidate against the REAL indexer DDL stays quiet across polls when ledger hashing is off (NULL ledger_hash_id)"
+      ],
+      "60c0064eeeceb96e": [
+        "channel manager channel and type names holds exactly the entity channels",
+        "channel manager channel and type names holds exactly the global channels",
+        "channel manager channel and type names holds exactly the valid type names",
+        "channel manager channel and type names includes every core action type",
+        "channel manager channel and type names keeps channel groups disjoint and exposes exactly their union",
+        "channel manager channel and type names uses unique non-empty upper-case type names made of letters and underscores"
       ],
       "612f83af8994b9ac": [
         "transaction page: an empty action list renders instead of throwing [REGRESSION] showActionDatatable clears the placeholder row when there are no actions",
@@ -4913,30 +5310,6 @@
         "transaction route: a 64-hex hash is never mistaken for a transaction index [REGRESSION] an all-decimal 64-character hash resolves as a hash, not an index",
         "transaction route: a 64-hex hash is never mistaken for a transaction index a short numeric query still resolves as a transaction index",
         "transaction route: a 64-hex hash is never mistaken for a transaction index an ordinary hex hash still resolves as a hash"
-      ],
-      "626dd5840f32c621": [
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/price_batching_floor_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/list_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
       ],
       "6307b90aeac02140": [
         "Boundary: isInteger() Number(\"-1\") passes isInteger",
@@ -5005,6 +5378,15 @@
         "HubDbSync price-sync barrier (explorer vendored copy) waitForPriceSyncHeight rejects on timeout when the mirror stays behind",
         "HubDbSync price-sync barrier (explorer vendored copy) waitForPriceSyncHeight resolves immediately when already caught up",
         "HubDbSync price-sync barrier (explorer vendored copy) waitForPriceSyncHeight resolves once a later sync raises the height"
+      ],
+      "6427b7bf2f94fa4d": [
+        "reader part composition composes every prototype into a new plain object",
+        "reader part composition copies methods from every source and skips constructors",
+        "reader part composition preserves getter and class method descriptors",
+        "reader part composition rejects a name already defined on the target",
+        "reader part composition rejects a name defined by two sources",
+        "reader part composition rejects duplicate names while composing",
+        "reader part composition returns an empty object when no prototypes are provided"
       ],
       "64c0eb7e9adb1a1a": [
         "client: the LIST page shows current membership [REGRESSION] renders the edit head's membership, not the create snapshot",
@@ -5404,6 +5786,19 @@
         "ANCHOR action detail: section count and elision label snapshot block namespace renders a dash for an anchor carrying no snapshot block",
         "ANCHOR action detail: section count and elision label snapshot block namespace the shipped markup labels the row as a BTC height"
       ],
+      "70378df04cfded7b": [
+        "structure markers client: actionDetail_renderDisclosure falls back to a plain sentence for a payload with nothing to expand",
+        "structure markers client: actionDetail_renderDisclosure lists batch members through the shared summary renderer, reading summary never details",
+        "structure markers client: actionDetail_renderDisclosure lists every leg of a multi-leg airdrop, linking the list as an action, memo escaped",
+        "structure markers client: actionDetail_renderDisclosure lists every leg of a multi-send with the memo escaped",
+        "structure markers client: getActionDetails a BATCH parent shows its member count as a toggle",
+        "structure markers client: getActionDetails a details value of false renders the summary without throwing",
+        "structure markers client: getActionDetails a member row links its parent batch",
+        "structure markers client: getActionDetails a multi-destroy row says legs, not recipients",
+        "structure markers client: getActionDetails a multi-leg airdrop row gets a legs toggle after its one-leg summary",
+        "structure markers client: getActionDetails a multi-send row gets a recipients toggle after its leg-0 summary",
+        "structure markers client: getActionDetails a plain send row carries no marker at all"
+      ],
       "7138f42fd5de3a0b": [
         "processFeeQuoteRequest busy-retry a transport failure is still a 502, now flagged retryable",
         "processFeeQuoteRequest busy-retry a valid quote is returned on the first hop",
@@ -5412,6 +5807,11 @@
         "processFeeQuoteRequest busy-retry input validation still runs before any hop",
         "processFeeQuoteRequest busy-retry never re-asks a real verdict: one hop, answered verbatim",
         "processFeeQuoteRequest busy-retry retries past a busy answer and returns the quote the wallet was blocked on"
+      ],
+      "71e51d6b88fd1922": [
+        "ATTEST v5 batch head rendering keeps request and response legs unchanged",
+        "ATTEST v5 batch head rendering labels v5 and v6 legs as batch legs carrying the batch key",
+        "ATTEST v5 batch head rendering marks an ATTEST v5 summary with its batch key and leaves other actions alone"
       ],
       "722aed88dddbe226": [
         "rich list and supply stats (M5.2) holder ranking escapes a hostile address instead of executing it",
@@ -5538,48 +5938,6 @@
         "E2E-18: Amount decimal places match token config 8-decimal token amounts have 8 decimal places",
         "E2E-18: Amount decimal places match token config different decimal tokens on same address maintain their precision"
       ],
-      "76807ed1adcd5878": [
-        "Broadcaster action events: filter pipeline broadcasts NEW_ACTION to actions subscribers",
-        "Broadcaster action events: filter pipeline fields projection strips payload to requested keys",
-        "Broadcaster action events: filter pipeline omits the destination field from NEW_ACTION (honesty contract)",
-        "Broadcaster action events: filter pipeline statuses filter blocks non-matching status",
-        "Broadcaster action events: filter pipeline types filter blocks non-matching action",
-        "Broadcaster action events: filter pipeline types filter passes matching action",
-        "Broadcaster address channel routing broadcasts to subscribed address when source matches",
-        "Broadcaster address channel routing does not broadcast to unsubscribed address",
-        "Broadcaster backpressure a frame the client filters out neither counts as a skip nor closes it",
-        "Broadcaster backpressure closes a backed-up client with 4008 once and sends it nothing after",
-        "Broadcaster backpressure counts every skipped frame and logs the skip at most once per window",
-        "Broadcaster backpressure leaves a client under the threshold open",
-        "Broadcaster backpressure skips client when bufferedAmount exceeds threshold",
-        "Broadcaster block events NETWORK_STATS frames stay in block order when DB reads resolve out of order (catch-up burst)",
-        "Broadcaster block events a catch-up burst collapses to a single getMaxActionIndex read (newest height only)",
-        "Broadcaster block events a rejected stats emission does not poison the chain for later blocks",
-        "Broadcaster block events also broadcasts NETWORK_STATS to network subscribers",
-        "Broadcaster block events broadcasts NEW_BLOCK to blocks subscribers",
-        "Broadcaster block events does not send to clients on different coin",
-        "Broadcaster block events sends NEW_BLOCK tx_count and action_count as decimal strings for every input",
-        "Broadcaster block events sequential blocks each emit a NETWORK_STATS frame in ascending height order",
-        "Broadcaster block events stamps every outbound frame with the envelope schema_version",
-        "Broadcaster block events the schema_version stamp survives a fields projection",
-        "Broadcaster entity update events broadcasts ADDRESS_UPDATE to address subscribers",
-        "Broadcaster entity update events broadcasts MARKET_UPDATE to market subscribers",
-        "Broadcaster entity update events broadcasts a market update when the first ticker contains a colon",
-        "Broadcaster entity update events does not mutate the emitted event when stamping the channel",
-        "Broadcaster entity update events from the real ChangeDetector emitter delivers ADDRESS_UPDATE to a subscribed receiving address named only in destinations",
-        "Broadcaster entity update events from the real ChangeDetector emitter delivers MARKET_UPDATE to a subscriber whose tick spelling differs from the canonical one",
-        "Broadcaster entity update events from the real ChangeDetector emitter does not route a canonical-tick MARKET_UPDATE to a lower-case subscriber (the routing the emitter must avoid)",
-        "Broadcaster entity update events stamps data.channel on every live entity frame, matching the SNAPSHOT discriminator",
-        "Broadcaster lifecycle events broadcasts COINPAY_REQUIRED to address subscribers",
-        "Broadcaster lifecycle events broadcasts lifecycle event to actions subscribers",
-        "Broadcaster lifecycle events does not deliver a bet_feed event to a subscriber watching a different market",
-        "Broadcaster lifecycle events does not deliver a dispenser lifecycle event to a non-matching dispenser subscriber",
-        "Broadcaster lifecycle events routes BET_EXPIRED (the system refund pass) to the bet_feed channel",
-        "Broadcaster lifecycle events routes DISPENSE to the dispenser channel keyed on the parent dispenser",
-        "Broadcaster lifecycle events routes DISPENSER_CLOSED / DISPENSER_EXPIRED to the dispenser channel",
-        "Broadcaster lifecycle events routes a placed BET to the bet_feed channel keyed on the parent market",
-        "Broadcaster once auto-unsubscribe removes subscription after first matching event and sends UNSUBSCRIBED"
-      ],
       "77bf9501ade114ae": [
         "search result cells fed a null column blanks a null at the helper itself, for every result type at once",
         "search result cells fed a null column confirms String(null) is the word \"null\"",
@@ -5589,12 +5947,87 @@
         "search result cells fed a null column renders an EMPTY Message cell for a BROADCAST v3 result",
         "search result cells fed a null column still highlights a matching term in a value that IS present"
       ],
+      "791740e761364f23": [
+        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) every action the indexer dispatches is accepted by the types filter",
+        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) every lifecycle entry in VALID_TYPES is actually emitted by ChangeDetector",
+        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) every settlement anchor action the indexer mints is accepted by the types filter",
+        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) every type ChangeDetector emits is accepted by the types filter",
+        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) subscribes to the actions channel narrowed to a settlement anchor name",
+        "ChannelManager a refused subscribe batch saves nothing a global channel ahead of an unresolvable entity channel is not saved",
+        "ChannelManager a refused subscribe batch saves nothing a refused batch leaves the filter of a key already held untouched",
+        "ChannelManager a refused subscribe batch saves nothing an address batch that crosses the limit saves none of its addresses",
+        "ChannelManager listSubscriptions returns action_index as a string for dispenser subscriptions, matching subscribe()",
+        "ChannelManager listSubscriptions returns all subscriptions with filters",
+        "ChannelManager listSubscriptions returns empty array for client with no subscriptions",
+        "ChannelManager removeClient cleans up channel maps when last subscriber leaves",
+        "ChannelManager removeClient removes all subscriptions for a client",
+        "ChannelManager subscribe \u2013 batch subscribes to multiple addresses",
+        "ChannelManager subscribe \u2013 batch subscribes to multiple dispensers",
+        "ChannelManager subscribe \u2013 batch subscribes to multiple market pairs",
+        "ChannelManager subscribe \u2013 entity channels rejects a noncanonical entry anywhere in an action_indexes batch (bet_feed too)",
+        "ChannelManager subscribe \u2013 entity channels rejects address channel without address param",
+        "ChannelManager subscribe \u2013 entity channels rejects market channel without both ticks",
+        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \" 7\"",
+        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"\"",
+        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"-1\"",
+        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"007\"",
+        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"0x7\"",
+        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"1e3\"",
+        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"7.5\"",
+        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"7junk\"",
+        "ChannelManager subscribe \u2013 entity channels round-trips chain-valid colons in token and market ticker keys",
+        "ChannelManager subscribe \u2013 entity channels still accepts canonical indexes as number or string, including 0",
+        "ChannelManager subscribe \u2013 entity channels subscribes to address channel",
+        "ChannelManager subscribe \u2013 entity channels subscribes to dispenser channel",
+        "ChannelManager subscribe \u2013 entity channels subscribes to market channel",
+        "ChannelManager subscribe \u2013 entity channels subscribes to token channel",
+        "ChannelManager subscribe \u2013 filters accepts a valid string fields array",
+        "ChannelManager subscribe \u2013 filters accepts the federation / cross-chain / oracle action types (PRICE, ANCHOR, XCALL, NODEPROOF)",
+        "ChannelManager subscribe \u2013 filters null filters when omitted",
+        "ChannelManager subscribe \u2013 filters omits statuses from the subscription list (no-op filter, matching SUBSCRIBED)",
+        "ChannelManager subscribe \u2013 filters omits ticks from the subscription list (no-op filter, matching SUBSCRIBED)",
+        "ChannelManager subscribe \u2013 filters rejects a fields array with non-string members",
+        "ChannelManager subscribe \u2013 filters rejects a non-array fields filter instead of throwing (crash-DoS guard)",
+        "ChannelManager subscribe \u2013 filters rejects invalid types",
+        "ChannelManager subscribe \u2013 filters still rejects CONTROLLER (a field on ISSUE/ADDRESS, not an action type)",
+        "ChannelManager subscribe \u2013 filters stores once flag",
+        "ChannelManager subscribe \u2013 filters stores types filter",
+        "ChannelManager subscribe \u2013 global channels rejects empty channels array",
+        "ChannelManager subscribe \u2013 global channels rejects invalid channel name",
+        "ChannelManager subscribe \u2013 global channels rejects non-array channels",
+        "ChannelManager subscribe \u2013 global channels subscribes to blocks channel",
+        "ChannelManager subscribe \u2013 global channels subscribes to multiple global channels",
+        "ChannelManager subscriber queries getSubscribedAddresses returns subscribed addresses",
+        "ChannelManager subscriber queries getSubscribedDispensers returns subscribed dispensers",
+        "ChannelManager subscriber queries getSubscribedMarkets returns subscribed pairs",
+        "ChannelManager subscriber queries getSubscribedTicks returns subscribed ticks",
+        "ChannelManager subscriber queries hasSubscribers returns false when not subscribed",
+        "ChannelManager subscriber queries hasSubscribers returns true when subscribed",
+        "ChannelManager subscription limits allows re-subscribing to same channel (idempotent)",
+        "ChannelManager subscription limits enforces max subscriptions",
+        "ChannelManager the batch limit counts each new key once a batch that exactly fills the limit succeeds",
+        "ChannelManager the batch limit counts each new key once held and repeated keys in one batch do not count against the limit twice",
+        "ChannelManager unsubscribe no-op for channel not subscribed to",
+        "ChannelManager unsubscribe removes a global subscription",
+        "ChannelManager unsubscribe removes an entity subscription",
+        "ChannelManager unsubscribe reports each requested channel independently across a mixed batch",
+        "ChannelManager unsubscribe returns the unsubscribed entity channel with its entity identifier",
+        "ChannelManager unsubscribe returns the unsubscribed global channel, naming it and honoured=true",
+        "ChannelManager unsubscribe returns was_subscribed:false for a channel the client never held, still naming it",
+        "websocket.md wire contract matches ChannelManager (api-contracts) the WELCOME example lists every channel and the entity table keys every entity channel",
+        "websocket.md wire contract matches ChannelManager (api-contracts) the types-filter table lists exactly the names VALID_TYPES accepts"
+      ],
       "793e6681c7c1eb6f": [
         "/{COIN}/api/network response contract a nulled network.block fails the contract",
         "/{COIN}/api/network response contract a renamed network.block fails the contract instead of passing silently",
         "/{COIN}/api/network response contract the operation is typed, not left on the property-less ObjectResponse",
         "/{COIN}/api/network response contract the schema constrains the fields the dashboard monitor actually reads",
         "/{COIN}/api/network response contract the shipped producer output validates against the published schema"
+      ],
+      "7bd17086578cb485": [
+        "parseDeclaredIndexes ignores comments and unsupported index declarations",
+        "parseDeclaredIndexes normalizes inline key declarations",
+        "parseDeclaredIndexes scopes standalone indexes and removes duplicate names"
       ],
       "7c9836278ad0ead1": [
         "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet promotes key to most-recent (LRU behavior)",
@@ -5636,22 +6069,28 @@
         "XChainExplorer#ssrfSafeLookup shared guard delegates to ssrf_guard.makeSafeLookup built from the host dns binding",
         "XChainExplorer#ssrfSafeLookup shared guard refuses to install without a dns binding instead of falling back to the real module"
       ],
-      "7e49136bf0f8260c": [
-        "SM-01: Config loads successfully API object contains host, port, and ssl keys",
-        "SM-01: Config loads successfully COIN_AVAILABLE includes the configured coin/network",
-        "SM-01: Config loads successfully COIN_NETWORKS contains BTC, LTC, DOGE",
-        "SM-01: Config loads successfully COIN_SUPPORTED contains all 9 coin/network combinations",
-        "SM-01: Config loads successfully coin-specific config contains chain and network database info",
-        "SM-01: Config loads successfully returns a config object with all required top-level keys",
-        "SM-02: Config rejects no valid configuration throws \"No valid configuration\" when config.json is missing and NODE_CONFIG is unset",
-        "SM-03: Config skips a coin with a missing config file skips a non-existent coin instead of throwing, so startup survives",
-        "SM-04: SSL certificates are accessible config.js loads when SSL files are present (stubbed)",
-        "SM-04: SSL certificates are accessible config.js throws when SSL cert files are missing"
+      "7e2cef27cb90df9e": [
+        "parseDeclaredColumns ignores comments and rejects SQL without declared columns",
+        "parseDeclaredColumns returns column metadata in source order",
+        "parseDeclaredColumns skips table-level keys, indexes, checks, and constraints"
+      ],
+      "7f03de1313abae49": [
+        "shared gate row exports exports the core sentinels and REGTEST_ARMING rules",
+        "shared gate row registration registers every shared row once and rejects a second registration",
+        "shared gate row registration rejects a malformed row queued with addGate",
+        "shared gate row regtest arming arms only the listed regtest entry from the rule environment"
       ],
       "7f1852df66cbd145": [
         "client: shared-list mirror detail clears mirror provenance when a later render is local",
         "client: shared-list mirror detail keeps the mirror row hidden for a local list",
         "client: shared-list mirror detail shows the home list line and links it on the home chain"
+      ],
+      "808199788faa2378": [
+        "parseHubList drops unsupported URL shapes",
+        "parseHubList returns an empty list for invalid containers",
+        "parseHubList returns unique HTTP origins in input order",
+        "parseHubList skips invalid hub entries",
+        "parseHubList trims surrounding API URL whitespace"
       ],
       "81a740106ba2f03f": [
         "validator.html detail page @regression an empty / never-active validator reports no active stake without claiming the record is missing",
@@ -5975,6 +6414,10 @@
         "versionAssetUrls stamps a static-mount script and stylesheet with a content version",
         "versionAssetUrls versions every script and stylesheet the shipped template loads from a mount"
       ],
+      "88979ff09b9cd523": [
+        "newRequestState builds the initial request state with an isolated response",
+        "newRequestState creates independent request configuration trees"
+      ],
       "897c3ea1f7482d23": [
         "XChainExplorer.processRequest \u2013 API response shape always includes a runtime field in the JSON response",
         "XChainExplorer.processRequest \u2013 API response shape returns total and data array when getData resolves with numeric total",
@@ -6027,6 +6470,16 @@
         "abi-core parseAbi returns null for a function-export contract (no property surface)",
         "abi-core parseAbi returns null when there is no abi block at all",
         "abi-core parseAbi returns null when version or methods is missing / non-literal"
+      ],
+      "8ab100867f39117b": [
+        "createMovePolicy keeps retrying when there is only one candidate",
+        "createMovePolicy moves after the configured failure streak when alternatives exist",
+        "createMovePolicy options and status falls back from invalid dwell options and honours zero",
+        "createMovePolicy options and status falls back from invalid reconnect attempt options",
+        "createMovePolicy options and status reports initial and moved status",
+        "createMovePolicy resets failures on a move and enforces the reconnect dwell",
+        "createMovePolicy resets the failure streak after connecting",
+        "createMovePolicy stalls exits, moves, or holds stalled connections based on candidates and dwell"
       ],
       "8ab52715f3b3229c": [
         "fixture SQL splitter keeps a DELIMITER-quoted procedure body whole",
@@ -6213,6 +6666,10 @@
         "dispenser page wiring keeps both tables column-aligned with the list pages they inherit handlers from",
         "dispenser page wiring renders no fabricated balances, prices or token names",
         "dispenser page wiring renders the address it was asked about"
+      ],
+      "8f07c8b4794b7a91": [
+        "BET websocket frame keys emits exactly the seven documented data keys on a BET",
+        "BET websocket frame keys keeps all seven keys when the parent lookup fails and the format is absent"
       ],
       "90f28c79a79c81e7": [
         "market charts draw under a CSP without unsafe-eval a fragment that regains a script is still injected without evaluating it",
@@ -6615,6 +7072,21 @@
         "db.mempoolRowMatchesAddress (shared REST/WS matcher) matches the row source",
         "db.mempoolRowMatchesAddress (shared REST/WS matcher) returns false for a null row, a null address, or an empty address"
       ],
+      "95dc2310ac8c4d0e": [
+        "action summary structure markers: getActionSummaryData member rows a history row with a derived BATCH parent carries it inside details",
+        "action summary structure markers: getActionSummaryData member rows a member with no summary field still gets a details object for the mark",
+        "action summary structure markers: getActionSummaryData member rows a row with a null parent keeps details false, the shape every other list relies on",
+        "action summary structure markers: getActionSummaryData member rows a transaction row that never derived a parent is untouched",
+        "action summary structure markers: multi-leg AIRDROP a multi-leg airdrop carries leg_count from airdrops[]",
+        "action summary structure markers: multi-leg AIRDROP a single-leg airdrop has no leg_count",
+        "action summary structure markers: projectActionSummary a BATCH parent carries member_count even though it projects no other field",
+        "action summary structure markers: projectActionSummary a lone destroy has no leg_count",
+        "action summary structure markers: projectActionSummary a multi-destroy carries leg_count from destroys[]",
+        "action summary structure markers: projectActionSummary a multi-send carries leg_count beside its leg-0 fields",
+        "action summary structure markers: projectActionSummary a single send has no leg_count value, not 1",
+        "action summary structure markers: the prior shape a field-less action still projects details false",
+        "action summary structure markers: the prior shape the three marker names are in ACTION_SUMMARY_FIELDS, so the renderer contract knows them"
+      ],
       "9799067d395e6260": [
         "Database#getReorgs (M3.5 dual-path data leg) RPC-first via HubOperationalCache maps type=block to the reorg_height param and leaves status undefined",
         "Database#getReorgs (M3.5 dual-path data leg) RPC-first via HubOperationalCache maps type=status to the status param and leaves reorg_height undefined",
@@ -6729,6 +7201,11 @@
         "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist does NOT treat in-flight states as terminal",
         "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist treats complete, cancelled and expired as terminal",
         "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes both legs on every terminal status"
+      ],
+      "9b45bf5097d8d5fc": [
+        "hub DB sync live row events applies a cross-chain match anchor event through the mirror writer",
+        "hub DB sync live row events refuses an event from a different hub schema version",
+        "hub DB sync pending price events stops at the cap and forces a failed flush"
       ],
       "9c5dfd7e2915588a": [
         "@p0 @core Address API regression GET /RBTC/api/address/{addr}: returns address summary",
@@ -6998,6 +7475,10 @@
         "getEmissions row-mapping contract (for the proposed getPagingDataResults branch) the LAST element is always the paging cursor (m.id), never the nullable action_index",
         "getEmissions row-mapping contract (for the proposed getPagingDataResults branch) the SECOND-TO-LAST element is the borrowed EXECUTE status, consumed by createdRow"
       ],
+      "a05a6d826b3012f3": [
+        "XBRIDGE SQL constants exports table names that are safe plain identifiers",
+        "XBRIDGE SQL constants keeps each query tied to its table and uses only question-mark binding"
+      ],
       "a0b4923aa7e3f06a": [
         "Platform switcher: vendored copy vs published matches the list published at xchain.io"
       ],
@@ -7052,18 +7533,13 @@
         "owner_withdraw: the contract responses resolveContractNetwork serves null when the route code resolves to nothing or throws",
         "owner_withdraw: the contract responses the getContracts post-pass sets owner_withdraw on every row before meta_json is parsed away"
       ],
-      "a3be619e41ce7040": [
-        "action summary structure markers: getActionSummaryData member rows a history row with a derived BATCH parent carries it inside details",
-        "action summary structure markers: getActionSummaryData member rows a member with no summary field still gets a details object for the mark",
-        "action summary structure markers: getActionSummaryData member rows a row with a null parent keeps details false, the shape every other list relies on",
-        "action summary structure markers: getActionSummaryData member rows a transaction row that never derived a parent is untouched",
-        "action summary structure markers: projectActionSummary a BATCH parent carries member_count even though it projects no other field",
-        "action summary structure markers: projectActionSummary a lone destroy has no leg_count",
-        "action summary structure markers: projectActionSummary a multi-destroy carries leg_count from destroys[]",
-        "action summary structure markers: projectActionSummary a multi-send carries leg_count beside its leg-0 fields",
-        "action summary structure markers: projectActionSummary a single send has no leg_count value, not 1",
-        "action summary structure markers: the prior shape a field-less action still projects details false",
-        "action summary structure markers: the prior shape the three marker names are in ACTION_SUMMARY_FIELDS, so the renderer contract knows them"
+      "a3d5244af17f4b8c": [
+        "flattenHubConfig input ownership does not mutate the hub tree or coin map",
+        "flattenHubConfig returns one entry per known coin and network with every service",
+        "flattenHubConfig warnings skips an unknown coin and warns only once across calls",
+        "hubFallbackOutcome cold start returns an empty config and clears the timestamp without any cache",
+        "hubFallbackOutcome cold start returns the disk copy when no in-memory config exists",
+        "hubFallbackOutcome serves an in-memory config without loading disk"
       ],
       "a3e6fc175e9ddb18": [
         "token page bridge route coverage fails the lifecycle audit when an unanswered bridge call is put back directly",
@@ -7148,6 +7624,10 @@
         "db.getActionsSince destinations: XBRIDGE settle legs a deployment without bridge_settlements quarantines only that family",
         "db.getActionsSince destinations: XBRIDGE settle legs attaches the credited address to a source-less XBRIDGE settle action",
         "db.getActionsSince destinations: XBRIDGE settle legs consults bridge_settlements, reading dest_address directly and only for kind=transfer rows"
+      ],
+      "a76ec0bdf3924d67": [
+        "local gate registry rows refuses to register any local row twice",
+        "local gate registry rows registers every local row once with complete network tables"
       ],
       "a7e05ea9685321ec": [
         "SM-05: Server binding and JSON-RPC ping GET / returns an HTML response (home page route)",
@@ -7372,17 +7852,25 @@
         "single-record api endpoints pins the two names that drifted",
         "single-record api endpoints resolves the irregular names loadDatatablesData knows to registered /api routes"
       ],
+      "b3ec2f54fe0c224b": [
+        "ACTION_CLAUSE_BUILDERS builds each getHistory lane from the correct anchor",
+        "ACTION_CLAUSE_BUILDERS exports exactly the eight action clause builders",
+        "market action clause builders appends the four-placeholder pair predicate for getMarket",
+        "market action clause builders appends the two-placeholder getMarkets predicate only for tokens",
+        "market action clause builders getMarketHistory adds its optional two-address predicate",
+        "market action clause builders getMarketOrders adds an optional single-address predicate",
+        "market action clause builders getOrderbook adds an optional single-address predicate",
+        "market action clause builders uses one shared builder for all market order methods",
+        "token action clause builders getCollectibles always filters collectibles and supports block and address",
+        "token action clause builders getTokens appends the ticker search for token and subtoken types",
+        "token action clause builders getTokens delegates every other type to genericClause"
+      ],
       "b486e2f3f5015801": [
         "db.js composes its extracted reader families declares no method name twice across db.js and the modules",
         "db.js composes its extracted reader families has extracted at least one family (the decomposition has not been reverted)",
         "db.js composes its extracted reader families reaches every extracted method on Database.prototype",
         "db.js composes its extracted reader families spot-checks one method from each family, since a family could be empty",
         "db.js composes its extracted reader families wires every module file into the composition"
-      ],
-      "b5afe2325c212f86": [
-        "sibling gate policy allows standalone skips but rejects guarded pending tests in strict mode",
-        "sibling gate policy catalogs all fifteen centrally enforced sibling-gated suites",
-        "sibling gate policy keeps the vm-query sibling checks strict-aware at their source"
       ],
       "b5e4f4287a73a292": [
         "client: dispenser detail route parameters never leaves the query null, which is what emptied the feeds",
@@ -7449,6 +7937,23 @@
         "SM-15: 404 and error handling GET /RBTC/nonexistent-route does not crash the server",
         "SM-15: 404 and error handling GET /completely/invalid/deep/path does not crash"
       ],
+      "b7cd67cd8e0417f3": [
+        "sibling gate policy allows standalone skips but rejects guarded pending tests in strict mode",
+        "sibling gate policy catalogs all fifteen sibling-gated suites",
+        "sibling gate policy keeps the vm-query sibling checks strict-aware at their source",
+        "sibling gate policy requires only the seven targeted sibling-gated suites"
+      ],
+      "ba686bb3d8e86c4a": [
+        "QueryWhereClauses routes a known action method to its clause builder",
+        "QueryWhereClauses routes an unknown method through the generic clause"
+      ],
+      "babed36c332da317": [
+        "action page: null system-action origin fields does not relabel a transaction page",
+        "action page: null system-action origin fields does not relabel an ordinary action with a transaction",
+        "action page: null system-action origin fields replaces all four ambiguous dashes with origin information",
+        "action page: null system-action origin fields requires every origin field to be explicitly null",
+        "action page: null system-action origin fields uses the four origin fields instead of transaction index as the discriminator"
+      ],
       "bb6a67736df088ef": [
         "graceful shutdown closeServer drops idle keep-alive sockets that would otherwise hold close() open",
         "graceful shutdown closeServer resolves on a missing server rather than hanging the drain",
@@ -7491,6 +7996,13 @@
         "ACTION manifest conformance: explorer explorerRender set @regression every explorerRender action has a showActionDetails dispatch branch in xchain.js",
         "ACTION manifest conformance: explorer explorerRender set @regression every render-dispatch branch has a matching info-* panel (no dangling dispatch)",
         "ACTION manifest conformance: explorer explorerRender set @regression getActionData branches exactly equal the manifest explorerRender slice"
+      ],
+      "bdab718683313f36": [
+        "resolve_coins base tables builds fresh base coin and network tables",
+        "resolve_coins explorer section adds the explorer-wide configuration sections",
+        "resolve_coins fallback and missing handling uses legacy service keys and skips a missing coin configuration",
+        "resolve_coins preferred service resolution resolves a coin using the preferred service keys",
+        "resolve_coins repeated networks keeps the first entry for a repeated coin and network"
       ],
       "c02294c909b16034": [
         "explorer ping empty-pool guard no longer guards the SELECT 1 behind a truthy-coin branch",
@@ -7782,6 +8294,16 @@
         "shared-list names reads home names in one batch and keeps the newest valid rename",
         "shared-list names returns null names when list_metas is missing"
       ],
+      "c40dac72e51909f3": [
+        "SLASH detail status selects a status derived from the slash event row, so the page never shows a bare dash",
+        "staking action-detail SQL exports a valid COLLECT_DETAIL query",
+        "staking action-detail SQL exports a valid DELEGATE_CAPABILITY_REVOKE_PARENT query",
+        "staking action-detail SQL exports a valid DELEGATE_CONTRACT_REVOKE_PARENT query",
+        "staking action-detail SQL exports a valid DELEGATE_DETAIL query",
+        "staking action-detail SQL exports a valid SLASH_DETAIL query",
+        "staking action-detail SQL exports a valid STAKE_DETAIL query",
+        "staking action-detail SQL exports a valid UNSTAKE_DETAIL query"
+      ],
       "c4be9953af5078b6": [
         "Security: batch endpoints: the knob is pinnable and pinned (row 51, D69) explains in the drop-in what the pin bounds",
         "Security: batch endpoints: the knob is pinnable and pinned (row 51, D69) pins the knob in deploy/rate-limits.conf at the source default",
@@ -7899,12 +8421,43 @@
         "poll.html detail page @regression tally [open] shows a provisional BALLOT count, never a weight",
         "poll.html ticker URLs encodes a chain-valid fragment character in the delegation ticker"
       ],
+      "c93c871601430058": [
+        "PRICE signature JSON parsing does not mark valid signature JSON as unparseable",
+        "PRICE signature JSON parsing leaves signatures absent when signature JSON is absent",
+        "PRICE signature JSON parsing marks malformed signature JSON as unparseable"
+      ],
+      "c95c9f03a953fc82": [
+        "VOTE_CLAUSE_BUILDERS exports exactly the vote and bet query builders",
+        "VOTE_CLAUSE_BUILDERS getBetFeed appends its identifier fragment for every type",
+        "VOTE_CLAUSE_BUILDERS getBetFeeds appends only the fragment selected by type",
+        "VOTE_CLAUSE_BUILDERS getBets appends only the fragment selected by type",
+        "VOTE_CLAUSE_BUILDERS getPoll appends its identifier fragment for every type",
+        "VOTE_CLAUSE_BUILDERS getPollResults appends its identifier fragment for every type",
+        "VOTE_CLAUSE_BUILDERS getPolls appends only the fragment selected by type",
+        "VOTE_CLAUSE_BUILDERS getVoteDelegations appends only the fragment selected by type",
+        "VOTE_CLAUSE_BUILDERS getVotes appends only the fragment selected by type"
+      ],
+      "c963715ecba4937c": [
+        "rosterTickIds deduplicates resolved ids while counting every roster row",
+        "rosterTickIds drops a ticker lookup that resolves to null",
+        "rosterTickIds falls back to ticker lookup for a malformed reference",
+        "rosterTickIds keeps bare and other-chain items on their own ids",
+        "rosterTickIds keeps only existing numeric ticker references",
+        "rosterTickIds resolves an own-chain ticker with a case-insensitive prefix",
+        "rosterTickIds returns an empty array with a non-enumerable zero item count"
+      ],
       "c9647c420a36d7aa": [
         "LIST rename count errors and SQL queries list_metas by action_format outside the block action UNION",
         "LIST rename count errors and SQL rethrows non-missing-table failures",
         "LIST rename count errors and SQL treats a missing list_metas table as zero for blocks and totals",
         "LIST rename count totals adds format 5 list_metas rows to each block lists count",
         "LIST rename count totals adds the all-time format 5 count to network totals"
+      ],
+      "c9e17cfa67eaf47c": [
+        "order action-detail SQL defines SELECT statements with the expected bindings",
+        "order action-detail SQL exports exactly the documented statements",
+        "order action-detail SQL leaves list statements unlimited",
+        "order action-detail SQL limits detail statements to one row"
       ],
       "ca8fa416b5e8a763": [
         "observability/installObservability buckets an unmatched path by first segment so URLs cannot explode cardinality",
@@ -7981,6 +8534,11 @@
         "vendored regtest_env twin reads the scratch variable when set and 0 when unset",
         "vendored regtest_env twin still exports regtestHeight"
       ],
+      "cbdd7ea0c7618b4b": [
+        "rate limit line span reports the real gap since the previous line, not zero",
+        "rate limit line span reports the window on the first line",
+        "rate limit line span suppresses inside the window and counts the suppressed refusals"
+      ],
       "cd6a31d8029c0060": [
         "ATTEST batch cross-chain response read reads carried responses from the network mirror instead of the DOGE attests table",
         "ATTEST batch detail limits returns all 101 carried responses independently of the generic detail limit",
@@ -8003,6 +8561,14 @@
         "UNSTAKE detail: ROLLCALL eviction label @regression does NOT read as an eviction when a format-3 UNSTAKE is invalid (a user-broadcast forgery the indexer rejected)",
         "UNSTAKE detail: ROLLCALL eviction label @regression does not badge a valid UNSTAKE v2 cooldown-completion (action_format 2)",
         "UNSTAKE detail: ROLLCALL eviction label @regression does not badge an ordinary valid capability unstake (action_format 0)"
+      ],
+      "ce2d973c24c13ecf": [
+        "PRICE action detail rounds JSON leaves absent rounds JSON and the marker undefined",
+        "PRICE action detail rounds JSON leaves valid round bodies unmarked",
+        "PRICE action detail rounds JSON marks malformed rounds JSON as unparseable"
+      ],
+      "ce6fead93e1597e8": [
+        "DISPENSE action detail dispenser pointer returns dispenser 479 for DISPENSE action 480"
       ],
       "ceeb3b770bc5d73b": [
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path fetches each distinct action_index exactly once",
@@ -8187,6 +8753,11 @@
         "reorg cache invalidation getActionData re-resolves after a reorg does not serve the pre-reorg cached action under the same index",
         "reorg cache invalidation getAddressId re-resolves after a reorg serves the cache until a reorg, then re-queries the DB"
       ],
+      "d7e0718516e9b2fd": [
+        "ANCHOR publisher attestations client rendering keeps the populated count and signer list unchanged",
+        "ANCHOR publisher attestations client rendering renders a legitimately empty tail as a dash without an error marker",
+        "ANCHOR publisher attestations client rendering shows malformed publisher attestations as an error"
+      ],
       "d838170ee467d7e4": [
         "isPreflightPostRequest exempts POST /{coin}/api/preflight",
         "isPreflightPostRequest exempts nothing else: not the GET, not another route, not a prefix match",
@@ -8225,6 +8796,11 @@
         "processPreflightRequest: the POST transport 400 rather than crashing when a POST carries no parsed body at all",
         "processPreflightRequest: the POST transport applies the same feeMode validation as the GET",
         "processPreflightRequest: the POST transport reads the body and ignores the query string on a POST"
+      ],
+      "d85df9e505425c70": [
+        "cross-chain action-detail SQL defines each statement as one unstacked SELECT",
+        "cross-chain action-detail SQL exports the documented statements as non-empty strings",
+        "cross-chain action-detail SQL reads the documented table with the expected bindings"
       ],
       "d8d1e52267ea606f": [
         "cross-repo sibling coverage (what this run could NOT verify) declares every sibling it lists in .ci-siblings, so the venue ships them",
@@ -8435,6 +9011,12 @@
         "coin-built links on a TLTC page stay on testnet bridge origin badge",
         "coin-built links on a TLTC page stay on testnet dispenser card price"
       ],
+      "dbbbe200376c26b1": [
+        "bet_latches does not re-fire a latch after its cursor has advanced",
+        "bet_latches emits the closed transition when a bet reaches the latched state",
+        "bet_latches starts a missing latch cursor from zero",
+        "bet_latches uses the last fetched index while a cursor has backlog"
+      ],
       "dc20841654fa8096": [
         "config COIN_SUPPORTED contains all 9 coin/network combinations",
         "config COIN_SUPPORTED has exactly 9 entries",
@@ -8601,6 +9183,11 @@
         "WS frozen-replica freshness gate gate probe fails open for a db double that has no isCoinTipStale, never throwing in a send path",
         "WS frozen-replica freshness gate gate probe fails open rather than propagating a gate read error"
       ],
+      "e15543bef86f9e1b": [
+        "VOTE poll options parsing marker distinguishes malformed options JSON from an empty options list",
+        "VOTE poll options parsing marker keeps dashing a genuinely empty options list",
+        "VOTE poll options parsing marker keeps rendering a normal populated options list"
+      ],
       "e47fb8abb8b74e70": [
         "attestBatchLabel keeps both UTC dates when the window crosses midnight",
         "attestBatchLabel labels continuation chunks from their zero-based slot",
@@ -8608,6 +9195,20 @@
         "attestBatchLabel normalizes numeric strings before building the label",
         "attestBatchLabel returns null for v0 and v1 attestation rows",
         "attestBatchLabel returns null when a required field is missing or non-numeric"
+      ],
+      "e4faf7500d32e0cb": [
+        "foreignNetworkRowNames reads bounded natural names and removes empty values",
+        "foreignNetworkRowNames returns no names when the bounded read fails",
+        "localMaxId queries the scoped maximum and converts it to a number",
+        "localMaxId returns zero for an empty result or a query failure",
+        "mirrorNetworkScope returns null when local column discovery fails",
+        "mirrorNetworkScope returns null when the consumer has not declared a usable network",
+        "mirrorNetworkScope returns null when the primed local schema lacks the network column",
+        "mirrorNetworkScope returns the declared network when the primed local schema has the column",
+        "purgeForeignNetworkRows deletes foreign rows, names them, and returns the affected count",
+        "purgeForeignNetworkRows returns zero when the delete has no usable affected-row count",
+        "refuseForeignNetworkRow counts foreign rows and reports no more than the name limit",
+        "refuseForeignNetworkRow does not refuse unscoped, same-network, or unnamed rows"
       ],
       "e55afde36345b87b": [
         "component registry and runtime (M2.1) load-order contract with xchain.js components.js does NOT mount on jQuery ready",
@@ -8752,71 +9353,6 @@
         "Tier-4 expire/close list pages renders the two DISPENSER_CLOSE reasons distinguishably, and a dash for none",
         "Tier-4 expire/close list pages shows a dash, not a blank, in every optional cell of an all-null row"
       ],
-      "e85a69cc70abd713": [
-        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) every action the indexer dispatches is accepted by the types filter",
-        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) every lifecycle entry in VALID_TYPES is actually emitted by ChangeDetector",
-        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) every settlement anchor action the indexer mints is accepted by the types filter",
-        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) every type ChangeDetector emits is accepted by the types filter",
-        "ChannelManager VALID_TYPES lifecycle conformance (api-contracts) subscribes to the actions channel narrowed to a settlement anchor name",
-        "ChannelManager listSubscriptions returns action_index as a string for dispenser subscriptions, matching subscribe()",
-        "ChannelManager listSubscriptions returns all subscriptions with filters",
-        "ChannelManager listSubscriptions returns empty array for client with no subscriptions",
-        "ChannelManager removeClient cleans up channel maps when last subscriber leaves",
-        "ChannelManager removeClient removes all subscriptions for a client",
-        "ChannelManager subscribe \u2013 batch subscribes to multiple addresses",
-        "ChannelManager subscribe \u2013 batch subscribes to multiple dispensers",
-        "ChannelManager subscribe \u2013 batch subscribes to multiple market pairs",
-        "ChannelManager subscribe \u2013 entity channels rejects a noncanonical entry anywhere in an action_indexes batch (bet_feed too)",
-        "ChannelManager subscribe \u2013 entity channels rejects address channel without address param",
-        "ChannelManager subscribe \u2013 entity channels rejects market channel without both ticks",
-        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \" 7\"",
-        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"\"",
-        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"-1\"",
-        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"007\"",
-        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"0x7\"",
-        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"1e3\"",
-        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"7.5\"",
-        "ChannelManager subscribe \u2013 entity channels rejects noncanonical dispenser action_index \"7junk\"",
-        "ChannelManager subscribe \u2013 entity channels round-trips chain-valid colons in token and market ticker keys",
-        "ChannelManager subscribe \u2013 entity channels still accepts canonical indexes as number or string, including 0",
-        "ChannelManager subscribe \u2013 entity channels subscribes to address channel",
-        "ChannelManager subscribe \u2013 entity channels subscribes to dispenser channel",
-        "ChannelManager subscribe \u2013 entity channels subscribes to market channel",
-        "ChannelManager subscribe \u2013 entity channels subscribes to token channel",
-        "ChannelManager subscribe \u2013 filters accepts a valid string fields array",
-        "ChannelManager subscribe \u2013 filters accepts the federation / cross-chain / oracle action types (PRICE, ANCHOR, XCALL, NODEPROOF)",
-        "ChannelManager subscribe \u2013 filters null filters when omitted",
-        "ChannelManager subscribe \u2013 filters omits statuses from the subscription list (no-op filter, matching SUBSCRIBED)",
-        "ChannelManager subscribe \u2013 filters omits ticks from the subscription list (no-op filter, matching SUBSCRIBED)",
-        "ChannelManager subscribe \u2013 filters rejects a fields array with non-string members",
-        "ChannelManager subscribe \u2013 filters rejects a non-array fields filter instead of throwing (crash-DoS guard)",
-        "ChannelManager subscribe \u2013 filters rejects invalid types",
-        "ChannelManager subscribe \u2013 filters still rejects CONTROLLER (a field on ISSUE/ADDRESS, not an action type)",
-        "ChannelManager subscribe \u2013 filters stores once flag",
-        "ChannelManager subscribe \u2013 filters stores types filter",
-        "ChannelManager subscribe \u2013 global channels rejects empty channels array",
-        "ChannelManager subscribe \u2013 global channels rejects invalid channel name",
-        "ChannelManager subscribe \u2013 global channels rejects non-array channels",
-        "ChannelManager subscribe \u2013 global channels subscribes to blocks channel",
-        "ChannelManager subscribe \u2013 global channels subscribes to multiple global channels",
-        "ChannelManager subscriber queries getSubscribedAddresses returns subscribed addresses",
-        "ChannelManager subscriber queries getSubscribedDispensers returns subscribed dispensers",
-        "ChannelManager subscriber queries getSubscribedMarkets returns subscribed pairs",
-        "ChannelManager subscriber queries getSubscribedTicks returns subscribed ticks",
-        "ChannelManager subscriber queries hasSubscribers returns false when not subscribed",
-        "ChannelManager subscriber queries hasSubscribers returns true when subscribed",
-        "ChannelManager subscription limits allows re-subscribing to same channel (idempotent)",
-        "ChannelManager subscription limits enforces max subscriptions",
-        "ChannelManager unsubscribe no-op for channel not subscribed to",
-        "ChannelManager unsubscribe removes a global subscription",
-        "ChannelManager unsubscribe removes an entity subscription",
-        "ChannelManager unsubscribe reports each requested channel independently across a mixed batch",
-        "ChannelManager unsubscribe returns the unsubscribed entity channel with its entity identifier",
-        "ChannelManager unsubscribe returns the unsubscribed global channel, naming it and honoured=true",
-        "ChannelManager unsubscribe returns was_subscribed:false for a channel the client never held, still naming it",
-        "websocket.md wire contract matches ChannelManager (api-contracts) the WELCOME example lists every channel and the entity table keys every entity channel",
-        "websocket.md wire contract matches ChannelManager (api-contracts) the types-filter table lists exactly the names VALID_TYPES accepts"
-      ],
       "ea1730e95b9cac39": [
         "Boundary: getPagingDataResults (API mode) a high page does not re-slice: API mode ignores page (SQL OFFSET already paged)",
         "Boundary: getPagingDataResults (API mode) getBalances default limit is 500",
@@ -8887,6 +9423,11 @@
         "federation reads: routing and log helpers reads a refusal or an uncut roll-call window as undecided",
         "federation reads: routing and log helpers splits a path code into pool key, base coin and network"
       ],
+      "eed4fc76083c6fc6": [
+        "PRICE detail render: malformed pairs JSON keeps the per-round fallback for a batch row",
+        "PRICE detail render: malformed pairs JSON renders the length of a normal pairs array unchanged",
+        "PRICE detail render: malformed pairs JSON shows an error marker instead of the pair_count fallback"
+      ],
       "f000a301c73e1daf": [
         "@p0 @core error logging regression logError throws via throwError (debug mode)",
         "@p0 @core error logging regression throwError throws an Error with the provided message",
@@ -8932,6 +9473,11 @@
         "@p0 @core sanitizeInt regression returns default for undefined",
         "@p0 @core sanitizeInt regression returns false as default when specified",
         "@p0 @core sanitizeInt regression truncates injection payload to leading number"
+      ],
+      "f03ba5cec7f4f595": [
+        "swap action-detail SQL defines each statement as a valid SELECT with one binding",
+        "swap action-detail SQL exports exactly the documented statements",
+        "swap action-detail SQL limits detail reads but leaves the edits list unlimited"
       ],
       "f0b26372a9bde02a": [
         "XBRIDGE detail on a replica WITHOUT it (no bridge migration) @regression OMITS every bridge key rather than nulling it",
@@ -9066,6 +9612,30 @@
         "hub-mirror bridge tables: vendoring seam @regression names both tables in the sync script SQL_FILES list",
         "hub-mirror bridge tables: vendoring seam @regression vendors a copy of each that is BYTE-identical to the indexer original"
       ],
+      "f9199ddce914d40b": [
+        "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY query",
+        "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY2 query",
+        "miscellaneous action-detail SQL exports a valid BATCH_QUERY query",
+        "miscellaneous action-detail SQL exports a valid BATCH_QUERY2 query",
+        "miscellaneous action-detail SQL exports a valid BROADCAST_QUERY query",
+        "miscellaneous action-detail SQL exports a valid CALLBACK_QUERY query",
+        "miscellaneous action-detail SQL exports a valid FILE_QUERY query",
+        "miscellaneous action-detail SQL exports a valid LIST_QUERY query",
+        "miscellaneous action-detail SQL exports a valid LIST_QUERY2 query",
+        "miscellaneous action-detail SQL exports a valid LIST_QUERY3 query",
+        "miscellaneous action-detail SQL exports a valid MESSAGE_QUERY query",
+        "miscellaneous action-detail SQL exports a valid SLEEP_QUERY query",
+        "miscellaneous action-detail SQL exports a valid UNKNOWN_QUERY query",
+        "miscellaneous action-detail SQL exports exactly the expected queries"
+      ],
+      "fa8a6b93a504df6a": [
+        "MIRROR_CLAUSE_BUILDERS always appends the call ID predicate for getXcall",
+        "MIRROR_CLAUSE_BUILDERS exports exactly the mirror query builders as functions",
+        "MIRROR_CLAUSE_BUILDERS getCapabilitySlashEvents appends only the fragment selected by type",
+        "MIRROR_CLAUSE_BUILDERS getFullNodeVerifications appends only the fragment selected by type",
+        "MIRROR_CLAUSE_BUILDERS getSlashEvents appends only the fragment selected by type",
+        "MIRROR_CLAUSE_BUILDERS preserves SQL for unknown types in type-filtered builders"
+      ],
       "fb661a3bc9b784fa": [
         "federation reads: public an unknown method still answers -32601, exactly as before the federation reads",
         "federation reads: public ping needs nothing",
@@ -9187,8 +9757,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 271,
-        "titleCount": 5320,
+        "fileCount": 337,
+        "titleCount": 5758,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -9202,7 +9772,7 @@
           "test/unit/action_detail/db_action_detail_registry.test.js": "1f1916b92369ae39",
           "test/unit/action_detail/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",
           "test/unit/action_detail/db_action_detail_supplements.test.js": "23c6716810b12da0",
-          "test/unit/action_detail/db_action_summary_markers.test.js": "a3be619e41ce7040",
+          "test/unit/action_detail/db_action_summary_markers.test.js": "95dc2310ac8c4d0e",
           "test/unit/action_detail/db_action_tx_less_render.test.js": "a59eb5c50dbf65ee",
           "test/unit/action_detail/db_address_controller_detail.test.js": "8b28aa7c6664d19d",
           "test/unit/action_detail/db_anchor_detail_sections.test.js": "d97fdb567bcef2d2",
@@ -9211,23 +9781,38 @@
           "test/unit/action_detail/db_destroy_detail.test.js": "957edf88f1536ca9",
           "test/unit/action_detail/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/db_history_unmapped_actions.test.js": "381a93ad4ecc32fc",
+          "test/unit/action_detail/dispense/db_dispense_dispenser_pointer.test.js": "ce6fead93e1597e8",
           "test/unit/action_detail/list_rename_detail.test.js/detail.test.js": "349dd4854289106e",
           "test/unit/action_detail/lists/list_meta_reads.test.js": "3f072b9064f7b674",
+          "test/unit/action_detail/schema_skew/consensus_schema_skew.test.js": "2f8d8d22edffca97",
+          "test/unit/action_detail/unparseable/consensus_anchor_publisher_attestations_unparseable.test.js": "1cb89d4d95eada37",
+          "test/unit/action_detail/unparseable/consensus_attest_signatures_unparseable.test.js": "147bd2f32571f82b",
+          "test/unit/action_detail/unparseable/consensus_price_pairs_unparseable.test.js": "3194bd7c48354635",
+          "test/unit/action_detail/unparseable/consensus_price_rounds_unparseable.test.js": "ce2d973c24c13ecf",
+          "test/unit/action_detail/unparseable/consensus_price_signatures_unparseable.test.js": "c93c871601430058",
+          "test/unit/action_detail/unparseable/governance_vote_options_unparseable.test.js": "4bc0a52021c64770",
           "test/unit/attestation_batch/attest_batch_label_fn.test.js": "e47fb8abb8b74e70",
           "test/unit/attestation_batch/attestation_batch_reads.test.js": "cd6a31d8029c0060",
           "test/unit/attestation_batch/batch_detail.test.js": "46ec96024c764ef0",
           "test/unit/attestation_batch/batch_label.test.js": "267f400f05cb517b",
           "test/unit/attestation_batch/batch_navigation.test.js": "2c5840bdd78f0c3f",
+          "test/unit/bin/migrate_hub_mirror.test.js": "52cee9075ef1810a",
+          "test/unit/config/apply_hub_values.test.js": "a3d5244af17f4b8c",
           "test/unit/config/coins_conformance.test.js": "2442df610ebb6911",
           "test/unit/config/config.test.js": "dc20841654fa8096",
           "test/unit/config/configs.test.js": "2c505230efcc2b48",
           "test/unit/config/consensus_pin_boot.test.js": "116141af1654c3e7",
+          "test/unit/config/resolve_coins.test.js": "bdab718683313f36",
+          "test/unit/config/validate.test.js": "39d38d610943e3e4",
           "test/unit/connectors/hub_connector.test.js": "dc67240bee778f9f",
           "test/unit/connectors/hub_consensus_hash.test.js": "acafd7633f12616b",
           "test/unit/connectors/x_chain_decoder_connector.test.js": "2709cccf5e791788",
           "test/unit/connectors/x_chain_indexer_connector.test.js": "92aeb23d16a697b8",
           "test/unit/consensus/consensus_bound_rows.test.js": "1ae10423826a1c02",
+          "test/unit/consensus/gate_registry/local_rows.test.js": "a76ec0bdf3924d67",
+          "test/unit/consensus/gate_registry/shared_rows.test.js": "7f03de1313abae49",
           "test/unit/consensus/regtest_env_twin.test.js": "cbad35bf1daff99f",
+          "test/unit/content/attest_v5_batch_head_render.test.js": "71e51d6b88fd1922",
           "test/unit/content/components/component_data_table.test.js": "31b4e41f89cb9ae0",
           "test/unit/content/components/component_formatters.test.js": "87aaa500e73ed3e4",
           "test/unit/content/components/component_formatters_link_escape.test.js": "02da01994399dab2",
@@ -9239,6 +9824,7 @@
           "test/unit/content/components/theme_parity_probe.test.js": "6a21f2fe0b811153",
           "test/unit/content/components/theme_token_literal_gate.test.js": "504acc675f2cc440",
           "test/unit/content/detail/content_client_action_detail_render.test.js": "df3aaf71a908f5de",
+          "test/unit/content/detail/content_client_action_detail_render.test/system_action_origin.test.js": "babed36c332da317",
           "test/unit/content/detail/content_client_action_proof_gating.test.js": "03b500abda6fe6ea",
           "test/unit/content/detail/content_client_address_staking.test.js": "153997be300f8ebd",
           "test/unit/content/detail/content_client_anchor_detail.test.js": "957e9864bf16b178",
@@ -9262,8 +9848,15 @@
           "test/unit/content/detail/content_client_xcall_detail.test.js": "d6f98299865b36eb",
           "test/unit/content/detail/content_client_xcall_timeline.test.js": "669707a963fc5cf4",
           "test/unit/content/detail/protocol_sentinels/content_client_protocol_sentinels.test.js": "852e82ad8bc84098",
+          "test/unit/content/detail/unparseable/content_client_anchor_publisher_attestations_unparseable.test.js": "d7e0718516e9b2fd",
+          "test/unit/content/detail/unparseable/content_client_attest_signatures_unparseable.test.js": "6040916952368853",
+          "test/unit/content/detail/unparseable/content_client_price_pairs_unparseable.test.js": "eed4fc76083c6fc6",
+          "test/unit/content/detail/unparseable/content_client_price_rounds_unparseable.test.js": "23218d3f38f6d825",
+          "test/unit/content/detail/unparseable/content_client_price_signatures_unparseable.test.js": "43df4aacd6f52c4b",
+          "test/unit/content/detail/unparseable/content_client_vote_options_unparseable.test.js": "e15543bef86f9e1b",
+          "test/unit/content/detail_anchor_price_helpers.test.js": "0bd5def166a58612",
           "test/unit/content/lists/content_client_action_datatable.test.js": "2cf498add519da25",
-          "test/unit/content/lists/content_client_action_markers.test.js": "29b6122ccd892ee2",
+          "test/unit/content/lists/content_client_action_markers.test.js": "70378df04cfded7b",
           "test/unit/content/lists/content_client_artwork_title.test.js": "b307d5969c0cb116",
           "test/unit/content/lists/content_client_cancel_edit_list_pages.test.js": "0581987f35af229d",
           "test/unit/content/lists/content_client_collectibles_gallery.test.js": "fe1d2bee2fe9022b",
@@ -9308,9 +9901,17 @@
           "test/unit/contract/abi_core.test.js": "8a672ba9f91488b8",
           "test/unit/contract/contract_introspect.test.js": "04f2b2ff93543f66",
           "test/unit/contract/owner_withdraw.test.js": "a2c823d5852437ae",
-          "test/unit/contract/sibling_gate_policy.test.js": "b5afe2325c212f86",
+          "test/unit/contract/sibling_gate_policy.test.js": "b7cd67cd8e0417f3",
           "test/unit/contract/vendor_vm_check_guard.test.js": "73c1eb15d626ba50",
           "test/unit/contract/vm_query.test.js": "ad8a262995e981db",
+          "test/unit/db/action_detail/contracts_sql.test.js": "1747eb98d7356dc2",
+          "test/unit/db/action_detail/crosschain_sql.test.js": "d85df9e505425c70",
+          "test/unit/db/action_detail/misc_sql.test.js": "f9199ddce914d40b",
+          "test/unit/db/action_detail/orders_sql.test.js": "c9e17cfa67eaf47c",
+          "test/unit/db/action_detail/shared_sql.test.js": "55b980748b629a02",
+          "test/unit/db/action_detail/staking_sql.test.js": "c40dac72e51909f3",
+          "test/unit/db/action_detail/swaps_sql.test.js": "f03ba5cec7f4f595",
+          "test/unit/db/action_detail/xbridge_sql.test.js": "a05a6d826b3012f3",
           "test/unit/db/core/db_action_queries.test.js": "c138d444e7fb0a0e",
           "test/unit/db/core/db_blocks_paging.test.js": "b12a894f829e191b",
           "test/unit/db/core/db_connection.test.js": "7c9836278ad0ead1",
@@ -9337,8 +9938,16 @@
           "test/unit/db/mempool/db_mempool_address_refs.test.js": "959cfcc187d82f85",
           "test/unit/db/mempool/db_mempool_listall_paging.test.js": "21dd83888010e79b",
           "test/unit/db/mempool/mempool.test.js": "8bc5ff64b8859343",
+          "test/unit/db/query_sql/data_cache.test.js": "3eae330fe921766d",
           "test/unit/db/query_sql/delegations_pubkey_lane.test.js": "1d614256799a055f",
+          "test/unit/db/query_sql/offset_cursors.test.js": "164464e8e311a31e",
+          "test/unit/db/query_sql/where_action_clauses_builders.test.js": "b3ec2f54fe0c224b",
+          "test/unit/db/query_sql/where_action_clauses_generic.test.js": "406672eca6160342",
           "test/unit/db/query_sql/where_anchors.test.js": "1d8184e028d7d9ff",
+          "test/unit/db/query_sql/where_clauses.test.js": "ba686bb3d8e86c4a",
+          "test/unit/db/query_sql/where_mirror_clauses.test.js": "fa8a6b93a504df6a",
+          "test/unit/db/query_sql/where_vote_clauses.test.js": "c95c9f03a953fc82",
+          "test/unit/db/reader_parts.test.js": "6427b7bf2f94fa4d",
           "test/unit/db/readers/actions/db_action_destinations.test.js": "a6f97ca7e360ce20",
           "test/unit/db/readers/actions/db_action_source_attribution.test.js": "38cd5b889e0e9bc9",
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "f1d7e9184af6e62f",
@@ -9363,8 +9972,10 @@
           "test/unit/db/readers/oracle/db_oracle_fees.test.js": "848ec7b4eb6a7563",
           "test/unit/db/readers/oracle/db_oracle_price_record.test.js": "54a8fb5c0bb49270",
           "test/unit/db/readers/project_roster/project_roster_coin_items.test.js": "94de69b5f5aa2e24",
+          "test/unit/db/readers/project_roster/project_roster_items.test.js": "c963715ecba4937c",
           "test/unit/db/readers/search/search_fulltext_index_missing.test.js": "0da8be62489dd14a",
           "test/unit/db/readers/status_barrier_hold/status_barrier_hold.test.js": "13ef9434f1e196bb",
+          "test/unit/db/schema_probe/schema_probe.test.js": "180445d38720eaff",
           "test/unit/explorer/batch_routes.test.js": "344069c0b87f2769",
           "test/unit/explorer/explorer_anchor_reward_attestations.test.js": "68e21b0f2e984921",
           "test/unit/explorer/explorer_attest_validator_stats.test.js": "67c45fd621dd71eb",
@@ -9385,12 +9996,18 @@
           "test/unit/explorer/explorer_routing.test.js": "b20c3bc50029c798",
           "test/unit/explorer/explorer_slash_proposals.test.js": "9faae2fa2817f069",
           "test/unit/explorer/explorer_vote_delegations.test.js": "0bfb8b4bc19093b0",
+          "test/unit/explorer/mount/limiters.test.js": "36a8962bc0ef6ca8",
           "test/unit/explorer/relay/explorer_relay_shared_lookup.test.js": "7cec30338161fbc6",
+          "test/unit/explorer/request/load_data.test.js": "0fb440fe8ab93be0",
+          "test/unit/explorer/request/send_response.test.js": "23809e480c3c6ebd",
+          "test/unit/explorer/request/state.test.js": "88979ff09b9cd523",
+          "test/unit/explorer/request/validate_params.test.js": "060f67fd0ddd33fb",
           "test/unit/explorer/shared_lists/shared_lists_names.test.js": "c23f1c94403319c0",
           "test/unit/explorer/shared_lists/shared_lists_route.test.js": "10fec7dab7a3ec46",
           "test/unit/federation/federation_coin_routing.test.js": "ede31e64f456f593",
           "test/unit/federation/federation_indexer_parity.test.js": "85db586275864405",
           "test/unit/federation/federation_public_reads.test.js": "fb661a3bc9b784fa",
+          "test/unit/federation/price_batches.test.js": "39b81da21d0230a3",
           "test/unit/http/compression.test.js": "24c2ed622aad4c9d",
           "test/unit/http/contract_state_proof.test.js": "09a5bd038de2012d",
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
@@ -9403,9 +10020,20 @@
           "test/unit/http/openapi_response_schemas.test.js": "b5f08dd1ca564cd2",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
           "test/unit/http/proof_server.test.js": "8e7e6d505972ac60",
+          "test/unit/http/rate_limit_log_span.test.js": "cbdd7ea0c7618b4b",
           "test/unit/http/shutdown.test.js": "bb6a67736df088ef",
           "test/unit/http/static_mounts.test.js": "3f4206ff6e22e166",
           "test/unit/http/swagger_docs_spec_url.test.js": "4c2d12b5f57c138f",
+          "test/unit/hub/hub_client/hub_list.test.js": "808199788faa2378",
+          "test/unit/hub/hub_db_sync/ensure_tables_columns.test.js": "7e2cef27cb90df9e",
+          "test/unit/hub/hub_db_sync/ensure_tables_indexes.test.js": "7bd17086578cb485",
+          "test/unit/hub/hub_db_sync/failover/move_policy.test.js": "8ab100867f39117b",
+          "test/unit/hub/hub_db_sync/failover/move_reset.test.js": "59f7c444d240b0d2",
+          "test/unit/hub/hub_db_sync/hub_selector.test.js": "58a411cd17b08a73",
+          "test/unit/hub/hub_db_sync/live_events.test.js": "9b45bf5097d8d5fc",
+          "test/unit/hub/hub_db_sync/mirror_scope.test.js": "e4faf7500d32e0cb",
+          "test/unit/hub/hub_db_sync/mirror_write.test.js": "39f71c373a99b732",
+          "test/unit/hub/hub_db_sync/row_upserts.test.js": "2e37a415a4011e31",
           "test/unit/icons/fontawesome_icons.test.js": "bca6ff21bfcd9c1a",
           "test/unit/icons/icon_downloader.test.js": "9db11f0a952f80a4",
           "test/unit/icons/icon_resolver.test.js": "6699e0378f101c45",
@@ -9414,7 +10042,7 @@
           "test/unit/mirror/hub_db_sync.test.js": "634a78dff95f2041",
           "test/unit/mirror/hub_mirror_bridge_tables.test.js": "f810364013622757",
           "test/unit/mirror/hub_mirror_charset_widen.test.js": "d531308aad6a4cd7",
-          "test/unit/mirror/hub_mirror_client_conformance.test.js": "626dd5840f32c621",
+          "test/unit/mirror/hub_mirror_client_conformance.test.js": "196430b0fe0480dd",
           "test/unit/mirror/hub_mirror_list_share.test.js": "07691b9d5c88c526",
           "test/unit/mirror/hub_mirror_migrate.test.js": "9134d4bfe85fbeaa",
           "test/unit/mirror/hub_mirror_migrate_datetime.test.js": "9eedd185a4bd63fa",
@@ -9426,6 +10054,7 @@
           "test/unit/mirror/hub_operational_cache.test.js": "3f4281c653fea27e",
           "test/unit/mirror/hub_operational_cache_concurrency.test.js": "2da46dea864bcc52",
           "test/unit/mirror/hub_schema_version.test.js": "4b606736679855fe",
+          "test/unit/mirror/pool_sizing/query_timeout.test.js": "3afc43217b5456a4",
           "test/unit/mirror/validators_hub_registry.test.js": "6ba3113e0aba826f",
           "test/unit/precision/client_decimal_precision.test.js": "8741b491d3481283",
           "test/unit/protocol/anchor_fold_registry_rows.test.js": "c203dbd76d223930",
@@ -9444,23 +10073,30 @@
           "test/unit/security/configuration/bundled_sibling_snapshot.test.js": "13dfdbaefb6250f2",
           "test/unit/security/configuration/dependency_advisories.test.js": "5cc2b8143bdd5808",
           "test/unit/theme/theme_resolution.test.js": "9ee09614469dece3",
-          "test/unit/ws/broadcaster.test.js": "76807ed1adcd5878",
+          "test/unit/ws/bet_frame_keys.test.js": "8f07c8b4794b7a91",
+          "test/unit/ws/broadcaster.test.js": "19290a524bdda045",
+          "test/unit/ws/broadcaster/action_routes.test.js": "04e363c7b9745766",
+          "test/unit/ws/broadcaster/coin_map.test.js": "079f3b47f967927a",
           "test/unit/ws/broadcaster_action_destinations.test.js": "5e1c022af4360e26",
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
           "test/unit/ws/broadcaster_mempool_fanout.test.js": "1c31b3f297b71629",
           "test/unit/ws/broadcaster_mempool_types_filter.test.js": "5b1ab7ada43c315b",
           "test/unit/ws/broadcaster_stale_marker.test.js": "e74a3fb230017c50",
           "test/unit/ws/change_detector.test.js": "266e2b5772181edf",
+          "test/unit/ws/change_detector/bet_latches.test.js": "dbbbe200376c26b1",
           "test/unit/ws/change_detector_mempool_map.test.js": "11daa587b9651a21",
           "test/unit/ws/change_detector_methods.test.js": "4464a0e6aa5098b3",
           "test/unit/ws/change_detector_xcall_phase.test.js": "6bf0c415bd850314",
-          "test/unit/ws/channel_manager.test.js": "e85a69cc70abd713",
+          "test/unit/ws/channel_keys/channel_keys.test.js": "5a5f9e6c89a28113",
+          "test/unit/ws/channel_manager.test.js": "791740e761364f23",
+          "test/unit/ws/channel_manager/channels.test.js": "60c0064eeeceb96e",
           "test/unit/ws/schema_version_client.test.js": "9268dad3a4993a0e",
           "test/unit/ws/serialize.test.js": "ddb2427d6ae835b0",
           "test/unit/ws/websocket_server.test.js": "72bad211f8b61896",
+          "test/unit/ws/websocket_welcome/coin_resolution.test.js": "5778b0be08bc8353",
           "test/unit/ws/ws_catch_up_routing.test.js": "51d78e2c590acac2",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "e056b7a20580db3d",
-          "test/unit/ws/xchain_ws_catch_up.test.js": "4e3712a2822f20bd"
+          "test/unit/ws/xchain_ws_catch_up.test.js": "0b3be6c9eb3a77e0"
         }
       },
       "test:boundary": {
@@ -9739,7 +10375,7 @@
           "test/smoke/connected/db_connectivity.test.js": "0cf00288b7efda19",
           "test/smoke/connected/platform_links_drift.test.js": "a0b4923aa7e3f06a",
           "test/smoke/connected/static_and_html.test.js": "b7a79eca06a4325a",
-          "test/smoke/unit/config.test.js": "7e49136bf0f8260c",
+          "test/smoke/unit/config.test.js": "160055208e367383",
           "test/smoke/unit/server_binding.test.js": "a7e05ea9685321ec"
         }
       },
@@ -9758,7 +10394,7 @@
         "fileCount": 2,
         "titleCount": 14,
         "files": {
-          "test/smoke/unit/config.test.js": "7e49136bf0f8260c",
+          "test/smoke/unit/config.test.js": "160055208e367383",
           "test/smoke/unit/server_binding.test.js": "16f3537ce7a3151f"
         }
       },
@@ -9770,10 +10406,11 @@
         }
       },
       "test:ws": {
-        "fileCount": 17,
-        "titleCount": 342,
+        "fileCount": 18,
+        "titleCount": 357,
         "files": {
-          "test/unit/ws/broadcaster.test.js": "76807ed1adcd5878",
+          "test/unit/ws/bet_frame_keys.test.js": "8f07c8b4794b7a91",
+          "test/unit/ws/broadcaster.test.js": "19290a524bdda045",
           "test/unit/ws/broadcaster_action_destinations.test.js": "5e1c022af4360e26",
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
           "test/unit/ws/broadcaster_mempool_fanout.test.js": "1c31b3f297b71629",
@@ -9783,13 +10420,13 @@
           "test/unit/ws/change_detector_mempool_map.test.js": "11daa587b9651a21",
           "test/unit/ws/change_detector_methods.test.js": "4464a0e6aa5098b3",
           "test/unit/ws/change_detector_xcall_phase.test.js": "6bf0c415bd850314",
-          "test/unit/ws/channel_manager.test.js": "e85a69cc70abd713",
+          "test/unit/ws/channel_manager.test.js": "791740e761364f23",
           "test/unit/ws/schema_version_client.test.js": "9268dad3a4993a0e",
           "test/unit/ws/serialize.test.js": "ddb2427d6ae835b0",
           "test/unit/ws/websocket_server.test.js": "72bad211f8b61896",
           "test/unit/ws/ws_catch_up_routing.test.js": "51d78e2c590acac2",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "e056b7a20580db3d",
-          "test/unit/ws/xchain_ws_catch_up.test.js": "4e3712a2822f20bd"
+          "test/unit/ws/xchain_ws_catch_up.test.js": "0b3be6c9eb3a77e0"
         }
       },
       "vendor:vm": {

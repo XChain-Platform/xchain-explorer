@@ -89,7 +89,15 @@ export default {
       'test/unit/db/core/db_reorg_real_ddl.test.js',
       'test/unit/db/mempool/db_mempool_address_case.test.js',
       'test/unit/http/contract_state_proof.test.js',
-      'test/unit/http/locked_balance_proof.test.js'
+      'test/unit/http/locked_balance_proof.test.js',
+      // Further specs that need a sibling checkout, some only through a
+      // support/ helper: explorer_checkpoints.test/support/parity.js loads
+      // xchain-sdk/src/checkpoint.js, which the sandbox lacks.
+      'test/unit/explorer/explorer_checkpoints.test.js',
+      'test/unit/contract/contract_introspect.test.js',
+      'test/unit/http/proof_server.test.js',
+      'test/unit/ws/schema_version_client.test.js',
+      'test/unit/repo/sibling_coverage.test.js'
     ]
   },
   reporters: ['html', 'json', 'clear-text', 'progress'],

@@ -18,7 +18,7 @@
  * Runs the shipped functions sliced out of the page-loaded client parts.
  */
 'use strict';
-const { srcText } = require('../../../helpers/source_text');
+const { srcText } = require('../../../../helpers/source_text');
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
@@ -50,8 +50,8 @@ const RENDERERS = [
 
 function makeWindow() {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'src', 'content', 'js', 'network_coin.js'), 'utf8'));
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', 'src', 'content', 'js', 'formatters.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'src', 'content', 'js', 'network_coin.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '..', '..', 'src', 'content', 'js', 'formatters.js'), 'utf8'));
     dom.window.eval(`
         function formatAmount(v){ return String(v); }
         function bcadd(a, b){ return String(Number(a) + Number(b)); }

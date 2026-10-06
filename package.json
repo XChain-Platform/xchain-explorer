@@ -25,6 +25,11 @@
   "optionalDependencies": {
     "xchain-vm": "file:./xchain-vm"
   },
+  "mocha": {
+    "ignore": [
+      "**/*.test/support/**"
+    ]
+  },
   "scripts": {
     "api": "node ./src/api.js",
     "vendor:vm": "bash bin/vendor-vm.sh",

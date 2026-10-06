@@ -290,5 +290,11 @@ jobs:
       - name: Check VM bundle
         run: npm run check:vm
 
+      # Re-derives the explorer identity (twins, routes, fixtures, suite titles,
+      # coverage floors, prototype surface) and fails on any drift from the
+      # committed pin. Runs here because it needs the declared siblings.
+      - name: Explorer identity pin
+        run: npm run identity:check
+
       - name: Coverage thresholds (c8 --check-coverage)
         run: npm run coverage:check

@@ -23,8 +23,8 @@
 
 const { expect } = require('chai');
 const supertest  = require('supertest');
-const db         = require('./helpers/db-setup');
-const { createApp } = require('./helpers/app-setup');
+const db         = require('../helpers/db-setup');
+const { createApp } = require('../helpers/app-setup');
 
 let request, app, explorer, configInfo;
 

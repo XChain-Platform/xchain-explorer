@@ -2,6 +2,7 @@
   "tool": "explorer-identity",
   "format": 1,
   "repo": "xchain-explorer",
+  "rev": "139b68ac0063f858a6dcfa500d7d6adbdbcc4028",
   "twins": [
     {
       "path": "src/consensus/equivocation_header.js",
@@ -30,8 +31,8 @@
     },
     {
       "path": "src/consensus/stake_weighted_quorum.js",
-      "bytes": 10294,
-      "sha256": "946191601217a7b2ac0e6c50d37eb6a111ba30544680aeff434f52b9f5c2d661"
+      "bytes": 10899,
+      "sha256": "2546f8976b7dbc85e63e3011d2cb5ac94bac54e74c471bd4d8019c7522a3d5f7"
     }
   ],
   "routes": {

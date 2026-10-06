@@ -28,8 +28,8 @@
 
 const { expect }    = require('chai');
 const supertest     = require('supertest');
-const db            = require('./helpers/db-setup');
-const { createApp } = require('./helpers/app-setup');
+const db            = require('../helpers/db-setup');
+const { createApp } = require('../helpers/app-setup');
 
 let request;
 let envBackup;
@@ -51,7 +51,7 @@ async function teardownContractEndpoints() {
     if (envBackup === undefined) delete process.env.EXPLORER_VM_QUERY_ENABLED;
     else process.env.EXPLORER_VM_QUERY_ENABLED = envBackup;
     // Tear down the VM subprocess so mocha can exit cleanly.
-    try { await require('../../src/contract/vm_query.js').shutdown(); } catch (e) { /* vm never loaded */ }
+    try { await require('../../../src/contract/vm_query.js').shutdown(); } catch (e) { /* vm never loaded */ }
     await db.teardownDatabase();
 }
 

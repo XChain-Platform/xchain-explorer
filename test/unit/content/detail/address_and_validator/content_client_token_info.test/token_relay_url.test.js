@@ -12,7 +12,7 @@
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
-const SOURCE = require('../../../../helpers/content-source.js');
+const SOURCE = require('../../../../../helpers/content-source.js');
 // The copy the /relay endpoint loads: the same file, required through Node.
 const { tokenInfo_metadataUrl } = require(SOURCE.JS_DIR + '/xchain/token_info.js');
 

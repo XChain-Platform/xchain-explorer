@@ -29,7 +29,7 @@ describe('anchor.html detail render @regression', function () {
     describe('ANCHOR_ACTIVATION twin parity (client literal vs. the module)', function () {
 
         it('the browser copy equals src/protocol/constants.js exactly', function () {
-            const canonical = require('../../../../../../src/protocol/constants.js').ANCHOR_ACTIVATION;
+            const canonical = require('../../../../../../../src/protocol/constants.js').ANCHOR_ACTIVATION;
             const shipped   = domWithPage().window.ANCHOR_ACTIVATION;
             expect(shipped, 'the render script must declare ANCHOR_ACTIVATION').to.be.an('object');
             expect(shipped).to.deep.equal(canonical);
@@ -39,7 +39,7 @@ describe('anchor.html detail render @regression', function () {
         });
 
         it('the browser ANCHOR_FOLD_ACTIVATION equals the registry row the indexer gates v3 on', function () {
-            const canonical = require('../../../../../../src/consensus/gate_registry.js')
+            const canonical = require('../../../../../../../src/consensus/gate_registry.js')
                 .copy('anchor_fold_activation.ANCHOR_FOLD_ACTIVATION');
             const shipped   = domWithPage().window.ANCHOR_FOLD_ACTIVATION;
             expect(shipped, 'the render script must declare ANCHOR_FOLD_ACTIVATION').to.be.an('object');

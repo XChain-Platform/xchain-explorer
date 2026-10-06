@@ -77,7 +77,19 @@ export default {
       // runs from the sandbox, where the sibling is absent and
       // XCHAIN_REQUIRE_SIBLINGS=1 turns that into a failure in the dry run.
       // Unrelated to which files are mutated.
-      'test/unit/config/coins_conformance.test.js'
+      'test/unit/config/coins_conformance.test.js',
+      // Every remaining unit test that resolves a sibling checkout through
+      // test/helpers/sibling_checkout.js. Each one reaches its sibling relative
+      // to its own file, which lands inside `.stryker-tmp/sandbox-*` where no
+      // sibling exists, so under XCHAIN_REQUIRE_SIBLINGS=1 the dry run fails.
+      // vm_query.test.js is listed instead of its support/consensus.js, which
+      // is a required helper and not a spec file: that helper needs the
+      // xchain-documentation protocol constants for the size-cap parity check.
+      'test/unit/contract/vm_query.test.js',
+      'test/unit/db/core/db_reorg_real_ddl.test.js',
+      'test/unit/db/mempool/db_mempool_address_case.test.js',
+      'test/unit/http/contract_state_proof.test.js',
+      'test/unit/http/locked_balance_proof.test.js'
     ]
   },
   reporters: ['html', 'json', 'clear-text', 'progress'],

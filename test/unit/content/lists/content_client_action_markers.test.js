@@ -45,7 +45,7 @@ const RENDERERS = [
     'actionDetail_renderBasicActions', 'actionDetail_renderMarketActions', 'actionDetail_renderMessageActions',
     'actionDetail_renderContractActions', 'actionDetail_renderConsensusActions',
     'actionDetail_renderStructureMarkers', 'actionDetail_disclosureToggle',
-    'actionDetail_renderDisclosure', 'actionDetail_statusClass',
+    'actionDetail_renderDisclosure', 'actionDetail_renderAirdropLegs', 'actionDetail_statusClass',
 ];
 
 function makeWindow() {
@@ -76,6 +76,13 @@ describe('structure markers client: getActionDetails', function () {
         const html = w.getActionDetails('DESTROY', { tick: 'P00P', amount: '1', leg_count: 2, action_index: '2062' });
         expect(html).to.include('2 legs');
         expect(html).to.not.include('recipients');
+    });
+
+    it('a multi-leg airdrop row gets a legs toggle after its one-leg summary', function () {
+        const w = makeWindow();
+        const html = w.getActionDetails('AIRDROP', { tick: 'P00P', amount: '1', list_action_index: 7, leg_count: 3, action_index: '2070' });
+        expect(html).to.include('3 legs');
+        expect(html).to.include('data-action-index="2070"');
     });
 
     it('a BATCH parent shows its member count as a toggle', function () {
@@ -123,6 +130,26 @@ describe('structure markers client: actionDetail_renderDisclosure', function () 
         expect(html).to.not.include('<script>');
         expect(html).to.include('bg-green');
         expect(html).to.include('bg-red');
+    });
+
+    it('lists every leg of a multi-leg airdrop, linking the list as an action, memo escaped', function () {
+        const w = makeWindow();
+        const html = w.actionDetail_renderDisclosure({
+            action: 'AIRDROP',
+            airdrops: [
+                { tick: 'P00P', amount: '1', list_action_index: 7, memo: '<script>x</script>', status: 'valid' },
+                { tick: 'B00B', amount: '2', list_action_index: 8, memo: '', status: 'invalid' },
+            ]
+        });
+        expect(html).to.include('P00P');
+        expect(html).to.include('B00B');
+        expect(html).to.include('/TDOGE/action/7');
+        expect(html).to.include('/TDOGE/action/8');
+        expect(html).to.include('&lt;script&gt;');
+        expect(html).to.not.include('<script>');
+        expect(html).to.include('bg-green');
+        expect(html).to.include('bg-red');
+        expect(html).to.not.include('Nothing to expand');
     });
 
     it('lists batch members through the shared summary renderer, reading summary never details', function () {

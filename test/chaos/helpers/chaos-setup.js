@@ -43,6 +43,7 @@ const DB_PORT = fixturePorts.port('XCHAIN_EXPLORER_CHAOS_DB_PORT');
 let server      = null;
 let serverUrl   = null;
 let cachedSetup = null;
+let relayCount = 0;
 
 // -------------------------------------------------------------------------
 // Server lifecycle
@@ -86,6 +87,9 @@ async function bootServer(opts = {}) {
 
     await new Promise((resolve, reject) => {
         server = http.createServer(app);
+        server.prependListener('request', (req) => {
+            if (req.url.startsWith('/relay')) relayCount++;
+        });
         server.listen(0, '127.0.0.1', (err) => {
             if (err) return reject(err);
             const { port } = server.address();
@@ -113,6 +117,10 @@ function getServerUrl() {
 
 function getServer() {
     return server;
+}
+
+function getRelayCount() {
+    return relayCount;
 }
 
 // -------------------------------------------------------------------------
@@ -301,6 +309,7 @@ module.exports = {
     stopServer,
     getServerUrl,
     getServer,
+    getRelayCount,
     seedDatabase,
     runAutocannon,
     httpGet,

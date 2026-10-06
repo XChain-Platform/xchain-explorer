@@ -18,3 +18,4 @@
 
 require('./channel_manager.test/support/subscriptions.js');
 require('./channel_manager.test/support/management.js');
+require('./channel_manager.test/support/atomic_batches.js');

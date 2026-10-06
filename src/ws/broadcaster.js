@@ -61,11 +61,11 @@ class Broadcaster {
         // so a catch-up burst (up to fetchLimit blocks in one poll tick) would issue
         // concurrent reads whose completion order is not the dispatch order - a
         // subscriber could see block_height move backwards. Serialize the frames
-        // per coin (_statsTails) and skip heights already superseded by a newer
-        // queued block (_newestBlock), which also collapses a burst into a single
-        // DB read for the newest height.
+        // per coin (_statsTails) and skip a block superseded by one queued after it
+        // (_queuedBlock), collapsing a burst into one DB read. Queued later, not
+        // higher: a highest-height mark would silence the channel after a rollback.
         this._statsTails  = new Map(); // coin -> promise tail
-        this._newestBlock = new Map(); // coin -> highest block_index seen
+        this._queuedBlock = new Map(); // coin -> block most recently queued for a stats frame
 
         // MEMPOOL_ACTION / MEMPOOL_REMOVED ordering state, same problem and same
         // shape as _statsTails above: both mempool handlers now await a DB-backed
@@ -134,8 +134,7 @@ class Broadcaster {
 
         // Queue the NETWORK_STATS frame on the per-coin serial chain. The final
         // catch keeps a failed emission from poisoning the chain for later blocks.
-        if ((this._newestBlock.get(coin) || 0) < block.block_index)
-            this._newestBlock.set(coin, block.block_index);
+        this._queuedBlock.set(coin, block);
         const tail = this._statsTails.get(coin) || Promise.resolve();
         this._statsTails.set(coin, tail.then(() => this.emitNetworkStats(coin, info, block)).catch(() => {}));
     }
@@ -145,16 +144,18 @@ class Broadcaster {
     // WebSocketServer.sendSnapshots and the documented contract), not the
     // per-block action count, or a subscriber that seeds a counter from the
     // snapshot sees it collapse on the next live frame. Runs only on the
-    // per-coin serial chain; a height superseded by a newer queued block is
+    // per-coin serial chain; a block superseded by one queued after it is
     // skipped (its frame would be stale on arrival, and skipping collapses a
     // burst into one DB read).
     async emitNetworkStats(coin, info, block) {
-        if ((this._newestBlock.get(coin) || 0) > block.block_index) return;
-        let totalActions = block.action_count || 0;
+        if (this._queuedBlock.get(coin) !== block) return;
+        let totalActions;
         try {
             totalActions = (await this.wsServer.explorer.db.getMaxActionIndex({ coin })) || 0;
         } catch (e) {
-            // Non-fatal: fall back to the per-block count rather than drop the frame
+            // Non-fatal: skip the frame, since no other number may stand in for the
+            // cumulative total, and the next block whose read succeeds sends a correct one
+            return;
         }
         const stats = {
             type:      'NETWORK_STATS',

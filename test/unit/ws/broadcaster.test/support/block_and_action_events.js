@@ -108,6 +108,8 @@ describe('Broadcaster', function () {
             const client = createClient(1, 'BTC');
             wsServer.addClient(client);
             wsServer.channelManager.subscribe(client, ['network']);
+            // A stats frame needs a good cumulative read; a failed one sends nothing.
+            wsServer.explorer = { db: { getMaxActionIndex: sinon.stub().resolves(9) } };
 
             changeDetector.emit('block', 'BTC', {
                 block_index: 100, block_hash: 'abc', block_time: 1234, tx_count: 5, action_count: 2
@@ -217,13 +219,18 @@ describe('Broadcaster', function () {
             await broadcaster._statsTails.get('BTC');
             changeDetector.emit('block', 'BTC', { block_index: 101, action_count: 4 });
             await broadcaster._statsTails.get('BTC');
+            // The DB recovers: the next block's frame goes out with the cumulative total.
+            wsServer.explorer.db.getMaxActionIndex = sinon.stub().resolves(4567);
+            changeDetector.emit('block', 'BTC', { block_index: 102, action_count: 5 });
+            await broadcaster._statsTails.get('BTC');
 
-            // DB failing falls back to the per-block count; both frames still emit.
+            // A failed read skips its frame rather than send the per-block count as
+            // total_actions, which a client seeded from SNAPSHOT reads as a collapse.
             const stats = client.ws.send.getCalls()
                 .map(c => JSON.parse(c.args[0]))
                 .filter(m => m.type === 'NETWORK_STATS');
-            expect(stats.map(m => m.data.block_height)).to.deep.equal(['100', '101']);
-            expect(stats.map(m => m.data.total_actions)).to.deep.equal(['3', '4']);
+            expect(stats.map(m => m.data.block_height)).to.deep.equal(['102']);
+            expect(stats.map(m => m.data.total_actions)).to.deep.equal(['4567']);
         });
     });
 });

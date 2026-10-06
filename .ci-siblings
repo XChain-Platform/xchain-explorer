@@ -29,3 +29,5 @@ xchain-documentation
 xchain-encoder
 # Vendored coins-registry byte-identity: BTC/LTC/DOGE/index/consensus_pin.
 xchain-hub
+# Shared gate_registry twin rows.
+xchain-sync

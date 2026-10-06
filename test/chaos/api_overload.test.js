@@ -18,6 +18,7 @@ const cors           = require('cors');
 const { testCorsOptions } = require('../helpers/cors.js');
 const rateLimit      = require('express-rate-limit');
 const { createTestConfigInfo } = require('../integration/helpers/app-setup');
+const { applyChaosBootEnv } = require('./helpers/chaos-setup');
 const XChainExplorer = require('../../src/XChainExplorer.js');
 const staticMounts   = require('../../src/http/static_mounts.js');
 const autocannon     = require('autocannon');
@@ -61,6 +62,7 @@ async function bootRateLimitedServer() {
 
     const configInfo = createTestConfigInfo(DB_PORT);
     const explorer   = new XChainExplorer(app, configInfo);
+    applyChaosBootEnv();
     await explorer.init();
 
     await new Promise((resolve, reject) => {

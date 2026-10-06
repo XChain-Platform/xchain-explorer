@@ -27,7 +27,7 @@
 
 const assert = require('node:assert/strict');
 
-const { REGISTRY, ACTION_TYPES, getHandler } = require('../../../src/action-detail');
+const { REGISTRY, ACTION_TYPES, getHandler } = require('../../../../src/action-detail');
 
 // Minimal ctx over a replica that HAS the settle table: the handler asks the schema
 // for bridge_settlements before reading it, so the double answers that probe the way

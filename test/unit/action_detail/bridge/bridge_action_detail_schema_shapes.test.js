@@ -29,9 +29,9 @@
 
 const assert = require('node:assert/strict');
 
-const { REGISTRY }     = require('../../../src/action-detail');
-const { DbQueryError } = require('../../../src/db/shared.js');
-const { SCHEMA_PROBE_TTL_MS } = require('../../../src/db/schema_probe.js');
+const { REGISTRY }     = require('../../../../src/action-detail');
+const { DbQueryError } = require('../../../../src/db/shared.js');
+const { SCHEMA_PROBE_TTL_MS } = require('../../../../src/db/schema_probe.js');
 
 const SETTLE_ROW = { transfer_id: 'e'.repeat(64), kind: 'transfer', block_index: 77,
                      src_chain: 'BTC', src_action_index: 42, dest_chain: 'DOGE',

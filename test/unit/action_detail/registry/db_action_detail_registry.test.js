@@ -31,10 +31,10 @@
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
-const { captureActionType, stableStringify } = require('../../fixtures/action-detail-capture.js');
-const { REGISTRY, ACTION_TYPES, getHandler }  = require('../../../src/action-detail');
+const { captureActionType, stableStringify } = require('../../../fixtures/action-detail-capture.js');
+const { REGISTRY, ACTION_TYPES, getHandler }  = require('../../../../src/action-detail');
 
-const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'fixtures', 'action-detail-golden.json'), 'utf8'));
+const GOLDEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'fixtures', 'action-detail-golden.json'), 'utf8'));
 const sqlText = (indices) => indices.map((i) => GOLDEN.statements[i]);
 
 const LIST_OWNER_STATEMENTS = [
@@ -154,7 +154,7 @@ describe('action-detail registry @regression', function () {
 // moved to src/db/readers/action_detail_io.js with proposal B stage 4; the
 // pin follows the method rather than the file, because reading db.js after
 // the carve would find no marker and the assertion below is what catches that.
-const ACTION_DETAIL_IO = ['..', '..', 'src', 'db', 'readers', 'action_detail_io.js'];
+const ACTION_DETAIL_IO = ['..', '..', '..', 'src', 'db', 'readers', 'action_detail_io.js'];
 
 describe('action-detail registry @regression', function () {
     this.timeout(20000);

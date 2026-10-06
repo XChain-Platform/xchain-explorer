@@ -18,7 +18,7 @@
 
 'use strict';
 
-const { srcText } = require('../../../helpers/source_text');
+const { srcText } = require('../../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
@@ -26,7 +26,7 @@ const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 
 const SRC = srcText('src/content/js/xchain.js');
-const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
+const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/html/action.html'), 'utf8');
 
 function extractFn(name) {
     const sig = 'function ' + name + '(';
@@ -53,7 +53,7 @@ function panelHtml() {
 function renderListDetails(data) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + panelHtml() + '</body>',
         { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
     dom.window.XC = { coin: 'BTC', list_types: { 2: 'Address' }, list_edit_types: { 0: 'None' } };
     dom.window.eval(`
         function networkCoin(coin){ return String(coin).toLowerCase(); }

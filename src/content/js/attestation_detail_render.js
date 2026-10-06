@@ -317,16 +317,22 @@ function renderAttestationLegs(d){
 
     legs.forEach(function(leg){
         let v = Number(leg.version);
-        let legName = (v === 0) ? 'Request (v0)' : ((v === 1) ? 'Response (v1)' : ('version ' + leg.version));
+        let isBatchLeg = (v === 5 || v === 6);
+        let legName = (v === 0) ? 'Request (v0)' : (v === 1) ? 'Response (v1)'
+            : (v === 5) ? 'Batch head (v5)' : (v === 6) ? 'Batch continuation (v6)' : ('version ' + leg.version);
         let isRelayLeg = !isNull(leg.origin_chain) || !isNull(leg.origin_action_index);
-        let state = (v === 0) ? leg.request_status : leg.response_status;
+        let state = isBatchLeg ? null : (v === 0) ? leg.request_status : leg.response_status;
 
-        html += '<tr class="attestation-leg' + (isRelayLeg ? ' attestation-leg-relay' : '') + '"'
+        html += '<tr class="attestation-leg' + (isRelayLeg ? ' attestation-leg-relay' : '') + (isBatchLeg ? ' attestation-leg-batch' : '') + '"'
              + ' data-version="' + attEsc(leg.version) + '"'
              + ' data-relay-leg="' + (isRelayLeg ? 'true' : 'false') + '">';
         html += '<td>' + attActionLink(leg.action_index) + '</td>';
         html += '<td>' + attEsc(legName)
              + (isNull(leg.action_format) ? '' : ' <span class="small text-muted">format ' + attEsc(leg.action_format) + '</span>')
+             + (isBatchLeg && !isNull(leg.request_id)
+                ? '<div class="small text-muted attestation-leg-batch-key">Batch key <span class="font-monospace text-break">'
+                  + attEsc(isNull(leg.batch_key) ? leg.request_id : leg.batch_key) + '</span></div>'
+                : '')
              + '</td>';
         html += '<td>' + attBlockLink(leg.block_index) + '</td>';
         html += '<td>' + (isNull(leg.timestamp) ? '<span class="text-muted">-</span>' : formatLivestamp(leg.timestamp)) + '</td>';

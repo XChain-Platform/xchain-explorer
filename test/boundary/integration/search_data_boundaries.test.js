@@ -172,13 +172,14 @@ describe('Boundary Integration: Block and action boundaries', function () {
 
     it('block_index=0 (nonexistent) returns empty or error', async function () {
         const res = await request.get('/RBTC/api/block/0');
-        // May return 200 with empty data, or 400 if block 0 is invalid
-        expect(res.status).to.be.oneOf([200, 400]);
+        // A block the index does not hold is a single-record miss: 404, the
+        // answer api_single_item.test.js pins for /api/block/999999.
+        expect(res.status).to.equal(404);
     });
 
     it('block_index=999999 (far beyond) returns empty or error', async function () {
         const res = await request.get('/RBTC/api/block/999999');
-        expect(res.status).to.be.oneOf([200, 400]);
+        expect(res.status).to.equal(404);
     });
 
     it('negative block_index returns gracefully', async function () {

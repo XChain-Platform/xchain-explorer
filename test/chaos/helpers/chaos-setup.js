@@ -48,6 +48,13 @@ let cachedSetup = null;
 // Server lifecycle
 // -------------------------------------------------------------------------
 
+// Same bypasses createApp takes: the chaos fixture has no checkpoint schema, and
+// its seeded blocks carry fixed past timestamps that the tip-age gate would read as stale.
+function applyChaosBootEnv() {
+    process.env.ALLOW_NO_COLOCATED_HUB_DB = '1';
+    process.env.EXPLORER_TIP_MAX_AGE_S = '0';
+}
+
 /**
  * Boot an Express app with the explorer attached.
  * Optionally applies rate limiting to match production config.
@@ -74,6 +81,7 @@ async function bootServer(opts = {}) {
 
     const configInfo = createTestConfigInfo(DB_PORT);
     const explorer   = new XChainExplorer(app, configInfo);
+    applyChaosBootEnv();
     await explorer.init();
 
     await new Promise((resolve, reject) => {
@@ -288,6 +296,7 @@ async function waitForRecovery(urlPath, timeoutMs = 30000) {
 }
 
 module.exports = {
+    applyChaosBootEnv,
     bootServer,
     stopServer,
     getServerUrl,

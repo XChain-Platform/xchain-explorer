@@ -19,7 +19,7 @@ const path = require('path');
 const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
-const content = path.resolve(__dirname, '..', '..', '..', '../../src/content');
+const content = path.resolve(__dirname, '..', '..', '..', '..', '../../src/content');
 
 function bootSystemAction(){
     const markup = fs.readFileSync(path.join(content, 'html', 'action.html'), 'utf8');
@@ -36,7 +36,7 @@ function bootSystemAction(){
     win.jQuery.fn.dataTable = function(){ return this; };
     win.jQuery.fn.dataTable.ext = { errMode: null };
     win.jQuery.fn.DataTable = win.jQuery.fn.dataTable;
-    win.eval(require('../../../../helpers/content-source.js').clientSource());
+    win.eval(require('../../../../../helpers/content-source.js').clientSource());
     win.XC = { coin: 'RDOGE' };
     return win;
 }

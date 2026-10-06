@@ -26,13 +26,13 @@
 
 'use strict';
 
-const { srcText } = require('../../../helpers/source_text');
+const { srcText } = require('../../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 // The page loads network_coin.js ahead of every link builder (networkCoin).
-const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
+const NETWORK_COIN_SRC = require('../../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
 
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
@@ -40,8 +40,8 @@ const { expect } = require('chai');
 // component milestone. Concatenated rather than switched, so this file keeps
 // naming ONE source for every helper it lifts.
 const SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
-const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/js/formatters.js'), 'utf8');
+const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/html/action.html'), 'utf8');
 
 function extractFn(name) {
     const sig = 'function ' + name + '(';
@@ -68,8 +68,8 @@ function panelHtml() {
 function renderXcallDetails(data) {
     const dom = new JSDOM('<!DOCTYPE html><body>' + panelHtml() + '</body>',
         { runScripts: 'outside-only' });
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
-    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
+    dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/js/numeral.js'), 'utf8'));
 
     dom.window.XC = { coin: 'BTC' };
     dom.window.eval(NETWORK_COIN_SRC);

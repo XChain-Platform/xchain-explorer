@@ -2,7 +2,6 @@
   "tool": "explorer-identity",
   "format": 1,
   "repo": "xchain-explorer",
-  "rev": "139b68ac0063f858a6dcfa500d7d6adbdbcc4028",
   "twins": [
     {
       "path": "src/consensus/equivocation_header.js",
@@ -2706,6 +2705,24 @@
         "Boundary: Relay SSRF Protection tests localhost with port",
         "Boundary: Relay SSRF Protection tests octal IP 0177.0.0.1 (=127.0.0.1)"
       ],
+      "0b3be6c9eb3a77e0": [
+        "xchain_ws.js reconnect catch-up: backstops a disconnect mid catch-up keeps the cursor before the gap, so the next reconnect replays it",
+        "xchain_ws.js reconnect catch-up: backstops does not re-arm a once subscription its replay already spent",
+        "xchain_ws.js reconnect catch-up: backstops ignores an error frame that answers some other request",
+        "xchain_ws.js reconnect catch-up: backstops stops continuing after the round cap and reports the gap",
+        "xchain_ws.js reconnect catch-up: backstops treats an unanswered catch-up as refused when the backstop timer fires",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal continues a truncated replay from where the server stopped",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal holds the cursor against live frames until every replay closes, then applies the highest seen",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal reports a refused catch-up to the page and moves on to the next subscription",
+        "xchain_ws.js reconnect catch-up: load order and sequencing WELCOME does not move a cursor that is already set",
+        "xchain_ws.js reconnect catch-up: load order and sequencing sends one catch-up at a time, each from the reconnect-time cursor, and none for blocks/network",
+        "xchain_ws.js reconnect catch-up: load order and sequencing the page shell loads xchain_ws_catch_up.js right after xchain_ws.js",
+        "xchain_ws.js reconnect catch-up: not_replayed dispatches nothing when the list is absent or empty",
+        "xchain_ws.js reconnect catch-up: not_replayed dispatches the types CATCH_UP_COMPLETE says were not replayed",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor a CATCH_UP_COMPLETE outside a replay still advances the cursor",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor an entity id seen during a replay is not applied when the replay closes",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor an idle client ignores entity ids and still advances on NEW_ACTION"
+      ],
       "0b4078b9c7064f8e": [
         "ADDRESS list row whose action carries no preferences shows a dash, not a fabricated default, when the fields are absent",
         "ADDRESS list row whose action carries no preferences still renders real v0 preferences",
@@ -4706,22 +4723,6 @@
         "genericClause scoped lanes limits the oracle predicate to dispensers",
         "genericClause scoped lanes limits the pubkey predicate to delegations"
       ],
-      "42e73e1e402b5635": [
-        "xchain_ws.js reconnect catch-up: backstops a disconnect mid catch-up keeps the cursor before the gap, so the next reconnect replays it",
-        "xchain_ws.js reconnect catch-up: backstops does not re-arm a once subscription its replay already spent",
-        "xchain_ws.js reconnect catch-up: backstops ignores an error frame that answers some other request",
-        "xchain_ws.js reconnect catch-up: backstops stops continuing after the round cap and reports the gap",
-        "xchain_ws.js reconnect catch-up: backstops treats an unanswered catch-up as refused when the backstop timer fires",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal continues a truncated replay from where the server stopped",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal holds the cursor against live frames until every replay closes, then applies the highest seen",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal reports a refused catch-up to the page and moves on to the next subscription",
-        "xchain_ws.js reconnect catch-up: load order and sequencing WELCOME does not move a cursor that is already set",
-        "xchain_ws.js reconnect catch-up: load order and sequencing sends one catch-up at a time, each from the reconnect-time cursor, and none for blocks/network",
-        "xchain_ws.js reconnect catch-up: load order and sequencing the page shell loads xchain_ws_catch_up.js right after xchain_ws.js",
-        "xchain_ws.js reconnect catch-up: which frames move the cursor a CATCH_UP_COMPLETE outside a replay still advances the cursor",
-        "xchain_ws.js reconnect catch-up: which frames move the cursor an entity id seen during a replay is not applied when the replay closes",
-        "xchain_ws.js reconnect catch-up: which frames move the cursor an idle client ignores entity ids and still advances on NEW_ACTION"
-      ],
       "43df4aacd6f52c4b": [
         "PRICE signature detail rendering keeps the explicit batch signature count unchanged",
         "PRICE signature detail rendering marks malformed signatures and keeps the signers row visible",
@@ -5807,6 +5808,11 @@
         "processFeeQuoteRequest busy-retry never re-asks a real verdict: one hop, answered verbatim",
         "processFeeQuoteRequest busy-retry retries past a busy answer and returns the quote the wallet was blocked on"
       ],
+      "71e51d6b88fd1922": [
+        "ATTEST v5 batch head rendering keeps request and response legs unchanged",
+        "ATTEST v5 batch head rendering labels v5 and v6 legs as batch legs carrying the batch key",
+        "ATTEST v5 batch head rendering marks an ATTEST v5 summary with its batch key and leaves other actions alone"
+      ],
       "722aed88dddbe226": [
         "rich list and supply stats (M5.2) holder ranking escapes a hostile address instead of executing it",
         "rich list and supply stats (M5.2) holder ranking keeps a page-2 rank instead of renumbering from 1",
@@ -6660,6 +6666,10 @@
         "dispenser page wiring keeps both tables column-aligned with the list pages they inherit handlers from",
         "dispenser page wiring renders no fabricated balances, prices or token names",
         "dispenser page wiring renders the address it was asked about"
+      ],
+      "8f07c8b4794b7a91": [
+        "BET websocket frame keys emits exactly the seven documented data keys on a BET",
+        "BET websocket frame keys keeps all seven keys when the parent lookup fails and the format is absent"
       ],
       "90f28c79a79c81e7": [
         "market charts draw under a CSP without unsafe-eval a fragment that regains a script is still injected without evaluating it",
@@ -8524,6 +8534,11 @@
         "vendored regtest_env twin reads the scratch variable when set and 0 when unset",
         "vendored regtest_env twin still exports regtestHeight"
       ],
+      "cbdd7ea0c7618b4b": [
+        "rate limit line span reports the real gap since the previous line, not zero",
+        "rate limit line span reports the window on the first line",
+        "rate limit line span suppresses inside the window and counts the suppressed refusals"
+      ],
       "cd6a31d8029c0060": [
         "ATTEST batch cross-chain response read reads carried responses from the network mirror instead of the DOGE attests table",
         "ATTEST batch detail limits returns all 101 carried responses independently of the generic detail limit",
@@ -9742,8 +9757,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 334,
-        "titleCount": 5748,
+        "fileCount": 337,
+        "titleCount": 5758,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -9797,6 +9812,7 @@
           "test/unit/consensus/gate_registry/local_rows.test.js": "a76ec0bdf3924d67",
           "test/unit/consensus/gate_registry/shared_rows.test.js": "7f03de1313abae49",
           "test/unit/consensus/regtest_env_twin.test.js": "cbad35bf1daff99f",
+          "test/unit/content/attest_v5_batch_head_render.test.js": "71e51d6b88fd1922",
           "test/unit/content/components/component_data_table.test.js": "31b4e41f89cb9ae0",
           "test/unit/content/components/component_formatters.test.js": "87aaa500e73ed3e4",
           "test/unit/content/components/component_formatters_link_escape.test.js": "02da01994399dab2",
@@ -9807,30 +9823,30 @@
           "test/unit/content/components/content_charts_render.test.js": "ad08471c2f023941",
           "test/unit/content/components/theme_parity_probe.test.js": "6a21f2fe0b811153",
           "test/unit/content/components/theme_token_literal_gate.test.js": "504acc675f2cc440",
-          "test/unit/content/detail/content_client_action_detail_render.test.js": "df3aaf71a908f5de",
-          "test/unit/content/detail/content_client_action_detail_render.test/system_action_origin.test.js": "babed36c332da317",
-          "test/unit/content/detail/content_client_action_proof_gating.test.js": "03b500abda6fe6ea",
-          "test/unit/content/detail/content_client_address_staking.test.js": "153997be300f8ebd",
-          "test/unit/content/detail/content_client_anchor_detail.test.js": "957e9864bf16b178",
-          "test/unit/content/detail/content_client_anchor_detail.test/anchor_v3_verdicts.test.js": "5789ac155009ed3f",
-          "test/unit/content/detail/content_client_anchor_sections_row.test.js": "6ec62f07f4cf0059",
+          "test/unit/content/detail/action/content_client_action_detail_render.test.js": "df3aaf71a908f5de",
+          "test/unit/content/detail/action/content_client_action_detail_render.test/system_action_origin.test.js": "babed36c332da317",
+          "test/unit/content/detail/action/content_client_action_proof_gating.test.js": "03b500abda6fe6ea",
+          "test/unit/content/detail/address_and_validator/content_client_address_staking.test.js": "153997be300f8ebd",
+          "test/unit/content/detail/address_and_validator/content_client_token_info.test/token_null_market.test.js": "a4a4ffcd25aa1936",
+          "test/unit/content/detail/address_and_validator/content_client_token_info.test/token_relay_url.test.js": "fc89e8bc836833ec",
+          "test/unit/content/detail/address_and_validator/content_client_validator_detail.test.js": "81a740106ba2f03f",
+          "test/unit/content/detail/anchor/content_client_anchor_detail.test.js": "957e9864bf16b178",
+          "test/unit/content/detail/anchor/content_client_anchor_detail.test/anchor_v3_verdicts.test.js": "5789ac155009ed3f",
+          "test/unit/content/detail/anchor/content_client_anchor_sections_row.test.js": "6ec62f07f4cf0059",
+          "test/unit/content/detail/bridge_and_xcall/content_client_bridge_panels.test.js": "3cf5c25cd4305965",
+          "test/unit/content/detail/bridge_and_xcall/content_client_cross_chain_coin.test.js": "6e9c8e77bb62623e",
+          "test/unit/content/detail/bridge_and_xcall/content_client_xcall_detail.test.js": "d6f98299865b36eb",
+          "test/unit/content/detail/bridge_and_xcall/content_client_xcall_timeline.test.js": "669707a963fc5cf4",
           "test/unit/content/detail/content_client_attest_batch_detail.test.js": "27c4f5aecc2fdf18",
           "test/unit/content/detail/content_client_attestation_detail.test.js": "49ffb797a253373a",
           "test/unit/content/detail/content_client_bet_detail.test.js": "6963aa4e97ce82a5",
-          "test/unit/content/detail/content_client_bridge_panels.test.js": "3cf5c25cd4305965",
           "test/unit/content/detail/content_client_contract_meta_render.test.js": "f2490f990e502273",
-          "test/unit/content/detail/content_client_cross_chain_coin.test.js": "6e9c8e77bb62623e",
           "test/unit/content/detail/content_client_emission_provenance.test.js": "dca56f3433db9448",
           "test/unit/content/detail/content_client_entity_not_found.test.js": "3fe2198241ca51fc",
-          "test/unit/content/detail/content_client_poll_detail.test.js": "c8abd7dec6ab652e",
-          "test/unit/content/detail/content_client_poll_winning_option.test.js": "442821ec9fe9713e",
           "test/unit/content/detail/content_client_price_detail.test.js": "39701c08849b2ca3",
           "test/unit/content/detail/content_client_rollcall_gates.test.js": "65cbd0477fb22600",
-          "test/unit/content/detail/content_client_token_info.test/token_null_market.test.js": "a4a4ffcd25aa1936",
-          "test/unit/content/detail/content_client_token_info.test/token_relay_url.test.js": "fc89e8bc836833ec",
-          "test/unit/content/detail/content_client_validator_detail.test.js": "81a740106ba2f03f",
-          "test/unit/content/detail/content_client_xcall_detail.test.js": "d6f98299865b36eb",
-          "test/unit/content/detail/content_client_xcall_timeline.test.js": "669707a963fc5cf4",
+          "test/unit/content/detail/poll/content_client_poll_detail.test.js": "c8abd7dec6ab652e",
+          "test/unit/content/detail/poll/content_client_poll_winning_option.test.js": "442821ec9fe9713e",
           "test/unit/content/detail/protocol_sentinels/content_client_protocol_sentinels.test.js": "852e82ad8bc84098",
           "test/unit/content/detail/unparseable/content_client_anchor_publisher_attestations_unparseable.test.js": "d7e0718516e9b2fd",
           "test/unit/content/detail/unparseable/content_client_attest_signatures_unparseable.test.js": "6040916952368853",
@@ -10004,6 +10020,7 @@
           "test/unit/http/openapi_response_schemas.test.js": "b5f08dd1ca564cd2",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
           "test/unit/http/proof_server.test.js": "8e7e6d505972ac60",
+          "test/unit/http/rate_limit_log_span.test.js": "cbdd7ea0c7618b4b",
           "test/unit/http/shutdown.test.js": "bb6a67736df088ef",
           "test/unit/http/static_mounts.test.js": "3f4206ff6e22e166",
           "test/unit/http/swagger_docs_spec_url.test.js": "4c2d12b5f57c138f",
@@ -10056,6 +10073,7 @@
           "test/unit/security/configuration/bundled_sibling_snapshot.test.js": "13dfdbaefb6250f2",
           "test/unit/security/configuration/dependency_advisories.test.js": "5cc2b8143bdd5808",
           "test/unit/theme/theme_resolution.test.js": "9ee09614469dece3",
+          "test/unit/ws/bet_frame_keys.test.js": "8f07c8b4794b7a91",
           "test/unit/ws/broadcaster.test.js": "19290a524bdda045",
           "test/unit/ws/broadcaster/action_routes.test.js": "04e363c7b9745766",
           "test/unit/ws/broadcaster/coin_map.test.js": "079f3b47f967927a",
@@ -10078,7 +10096,7 @@
           "test/unit/ws/websocket_welcome/coin_resolution.test.js": "5778b0be08bc8353",
           "test/unit/ws/ws_catch_up_routing.test.js": "51d78e2c590acac2",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "e056b7a20580db3d",
-          "test/unit/ws/xchain_ws_catch_up.test.js": "42e73e1e402b5635"
+          "test/unit/ws/xchain_ws_catch_up.test.js": "0b3be6c9eb3a77e0"
         }
       },
       "test:boundary": {
@@ -10388,9 +10406,10 @@
         }
       },
       "test:ws": {
-        "fileCount": 17,
-        "titleCount": 353,
+        "fileCount": 18,
+        "titleCount": 357,
         "files": {
+          "test/unit/ws/bet_frame_keys.test.js": "8f07c8b4794b7a91",
           "test/unit/ws/broadcaster.test.js": "19290a524bdda045",
           "test/unit/ws/broadcaster_action_destinations.test.js": "5e1c022af4360e26",
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
@@ -10407,7 +10426,7 @@
           "test/unit/ws/websocket_server.test.js": "72bad211f8b61896",
           "test/unit/ws/ws_catch_up_routing.test.js": "51d78e2c590acac2",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "e056b7a20580db3d",
-          "test/unit/ws/xchain_ws_catch_up.test.js": "42e73e1e402b5635"
+          "test/unit/ws/xchain_ws_catch_up.test.js": "0b3be6c9eb3a77e0"
         }
       },
       "vendor:vm": {

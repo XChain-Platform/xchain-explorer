@@ -44,15 +44,15 @@
 
 'use strict';
 
-const { srcText } = require('../../../helpers/source_text');
+const { srcText } = require('../../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
 // The page loads network_coin.js ahead of every link builder (networkCoin).
-const NETWORK_COIN_SRC = require('../../../helpers/content-source.js').networkCoinSource();
+const NETWORK_COIN_SRC = require('../../../../helpers/content-source.js').networkCoinSource();
 const { expect } = require('chai');
-const { injectAnchorActivation } = require('../../../../src/explorer/request/render_page.js');
+const { injectAnchorActivation } = require('../../../../../src/explorer/request/render_page.js');
 
 // formatters.js is read alongside xchain.js because the cell-rendering helpers
 // (isNull, escapeHtml, formatAmount, formatHash, formatLivestamp) moved there
@@ -60,13 +60,13 @@ const { injectAnchorActivation } = require('../../../../src/explorer/request/ren
 // keeps naming ONE source for every helper it lifts and does not have to know
 // which of the two a given function ended up in.
 const XCHAIN_SRC = srcText('src/content/js/xchain.js')
-    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
+    + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/js/formatters.js'), 'utf8');
 const RENDER_SRC = srcText('src/content/js/anchor_detail_render.js');
 const PAGE_HTML  = injectAnchorActivation(
-    fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/anchor.html'), 'utf8')
+    fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/html/anchor.html'), 'utf8')
 );
-const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
-const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/numeral.js'), 'utf8');
+const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/js/jquery.min.js'), 'utf8');
+const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/js/numeral.js'), 'utf8');
 
 // Lift the server-injected browser global from the rendered page so the JSDOM
 // harness runs the same value that reaches a real anchor detail page.

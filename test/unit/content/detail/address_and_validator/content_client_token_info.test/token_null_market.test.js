@@ -12,7 +12,7 @@
 const fs = require('fs');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
-const SOURCE = require('../../../../helpers/content-source.js');
+const SOURCE = require('../../../../../helpers/content-source.js');
 
 const PAGE_HTML = fs.readFileSync(SOURCE.HTML_DIR + '/token.html', 'utf8');
 const TOKEN_INFO_SRC = fs.readFileSync(SOURCE.JS_DIR + '/xchain/token_info.js', 'utf8');

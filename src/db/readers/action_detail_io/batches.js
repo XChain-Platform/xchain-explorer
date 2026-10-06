@@ -174,6 +174,13 @@ class ActionSummaryReaders {
             if(!details) details = {};
             details.member_count = info.actions.length;
         }
+        // An ATTEST v5 head or v6 chunk keeps its batch key in request_id and has no
+        // request of its own, so the summary names it a batch key rather than
+        // leaving a reader to take it for a request id.
+        if(info.action=='ATTEST' && [5, 6].includes(Number(info.action_format)) && !this.util.isNull(info.request_id)){
+            if(!details) details = {};
+            details.batch_key = info.request_id;
+        }
         return { details, status };
     }
 

@@ -32,7 +32,7 @@ const http       = require('http');
 const {
     bootServer,
     stopServer,
-    getServer,
+    getRelayCount,
     getServerUrl,
     httpGet,
     concurrentRequests,
@@ -104,20 +104,15 @@ async function startRelayRequests() {
     // even though the relay requests are blocking their own async chains.
     const relayPath  = `/relay?url=${TIMEOUT_URL}`;
 
-    // Count relay requests as the server receives them, so the head-start
-    // below waits on the real condition ("all 10 are in flight") instead of
-    // a fixed pause that a loaded venue can outrun.
-    const server = getServer();
-    let relayArrivals = 0;
-    const countRelay = (req) => { if (req.url.startsWith('/relay')) relayArrivals++; };
-    server.on('request', countRelay);
+    // Wait on the server's own relay arrival count so the head-start ends when
+    // all 10 are in flight, not after a fixed pause a loaded venue can outrun.
+    const before = getRelayCount();
 
     // Kick off relay requests in the background. Don't await yet.
     const relayPromise = concurrentRequests(relayPath, 10, { timeout: 12000 });
 
-    const allInFlight = await waitUntil(() => relayArrivals >= 10,
+    const allInFlight = await waitUntil(() => getRelayCount() - before >= 10,
         { timeout: 10000, interval: 20 });
-    server.removeListener('request', countRelay);
     return { relayPromise, allInFlight };
 }
 

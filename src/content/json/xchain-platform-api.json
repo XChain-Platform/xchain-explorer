@@ -420,6 +420,46 @@
                 }
             }
         },
+        "/{COIN}/api/dispensers": {
+            "get": {
+                "tags": ["Actions", "Dispensers"],
+                "summary": "Get DISPENSER actions",
+                "description": "Retrieves DISPENSER action information without a search filter",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Dispenser"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
         "/{COIN}/api/dispensers/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions", "Dispensers"],
@@ -1360,6 +1400,46 @@
                 }
             }
         },
+        "/{COIN}/api/orders": {
+            "get": {
+                "tags": ["Actions", "Orders"],
+                "summary": "Get ORDER actions",
+                "description": "Retrieves ORDER action information without a search filter",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Order"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
         "/{COIN}/api/orders/{QUERY}/{TYPE}": {
             "get": {
                 "tags": ["Actions", "Orders"],
@@ -1665,6 +1745,46 @@
                                         "properties": {
                                             "data": {
                                                 "$ref": "#/components/schemas/Sleep"
+                                            }
+                                        }
+                                    },{
+                                        "$ref": "#/components/schemas/ApiResponse"
+                                   }]
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+        "/{COIN}/api/swaps": {
+            "get": {
+                "tags": ["Actions", "Swaps"],
+                "summary": "Get SWAP actions",
+                "description": "Retrieves SWAP action information without a search filter",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [{
+                                        "type": "object",
+                                        "properties": {
+                                            "data": {
+                                                "$ref": "#/components/schemas/Swap"
                                             }
                                         }
                                     },{
@@ -2377,6 +2497,37 @@
                 },{
                     "$ref": "#/components/parameters/QUERY-TOKEN",
                     "description": "String to search for (token)"
+                }],
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Token"
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "service unavailable"
+                    }
+                }
+            }
+        },
+         "/{COIN}/api/tokens": {
+            "get": {
+                "tags": ["General"],
+                "summary": "Get token list",
+                "description": "Retrieves token information without a search filter",
+                "parameters": [{
+                    "$ref": "#/components/parameters/COIN"
+                },{
+                    "$ref": "#/components/parameters/limit"
+                },{
+                    "$ref": "#/components/parameters/page"
+                },{
+                    "$ref": "#/components/parameters/sortorder"
                 }],
                 "responses": {
                     "200": {

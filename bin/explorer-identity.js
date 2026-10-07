@@ -156,16 +156,9 @@ function digestFile(rel) {
 }
 
 /**
- * The platform's explorer route parser, found by walking UP from this repo.
- *
- * From the real checkout it is the sibling `../claude/bin/lib/explorer-routes.js`,
- * but every lane of this pass runs in tmp/<purpose>/<repo>, where that sibling is
- * two directories further up and only the xchain-* siblings are symlinked in. A
- * hard-coded '../claude' therefore misses in exactly the tree the pin is taken
- * in, so the ascent is the resolution rule and the sibling is just its first hit.
- * A standalone repository checkout has no platform tree at all, in which case
- * comparison can still check every repository-owned section by carrying the
- * route section forward from the pin. Fresh pin generation remains strict.
+ * Find the platform's explorer route parser by walking up from this repository.
+ * It can be absent in a standalone checkout, where comparison reuses the pinned
+ * route section while fresh pin generation remains strict.
  */
 function resolveRoutesLib() {
     const rel = path.join('claude', 'bin', 'lib', 'explorer-routes.js');
@@ -218,8 +211,8 @@ function routeIdentity(opts) {
         const fallback = options.fallback;
         if (!fallback || typeof fallback.digest_sha256 !== 'string'
             || !fallback.counts || !fallback.tables) {
-            throw new Error('explorer-identity: claude/bin/lib/explorer-routes.js not found above '
-                + `${REPO_ROOT}; only --compare can reuse a complete pinned route section`);
+            throw new Error('explorer-identity: platform route parser unavailable; '
+                + 'only --compare can reuse a complete pinned route section');
         }
         return JSON.parse(JSON.stringify(fallback));
     }

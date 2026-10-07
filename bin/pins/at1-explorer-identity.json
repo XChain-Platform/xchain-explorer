@@ -2534,6 +2534,11 @@
       "not_a_test_script": 11
     },
     "title_sets": {
+      "00a1da571ab37b99": [
+        "channel manager type names against the action manifest does not exempt a name that already has a manifest entry",
+        "channel manager type names against the action manifest gives every admitted action name a manifest entry",
+        "channel manager type names against the action manifest keeps the exemption list to names the validator really admits"
+      ],
       "02da01994399dab2": [
         "markup labels still render as markup through formatLinkHtml keeps a badge label as an element",
         "markup labels still render as markup through formatLinkHtml keeps the search highlight on a token hit while escaping the tick",
@@ -9879,8 +9884,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 341,
-        "titleCount": 5848,
+        "fileCount": 342,
+        "titleCount": 5851,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10216,6 +10221,7 @@
           "test/unit/ws/channel_keys/channel_keys.test.js": "5a5f9e6c89a28113",
           "test/unit/ws/channel_manager.test.js": "791740e761364f23",
           "test/unit/ws/channel_manager/channels.test.js": "60c0064eeeceb96e",
+          "test/unit/ws/channel_manager/channels_manifest_guard.test.js": "00a1da571ab37b99",
           "test/unit/ws/schema_version_client.test.js": "9268dad3a4993a0e",
           "test/unit/ws/serialize.test.js": "ddb2427d6ae835b0",
           "test/unit/ws/websocket_server.test.js": "1c6f03a739b5d961",

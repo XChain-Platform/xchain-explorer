@@ -33,6 +33,7 @@
 const assert = require('assert');
 const fs     = require('fs');
 const path   = require('path');
+const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
 
 const swq   = require('../../../src/consensus/stake_weighted_quorum.js');
 const equiv = require('../../../src/consensus/equivocation_header.js');
@@ -42,18 +43,18 @@ const LOCAL_DIR = path.join(__dirname, '..', '..', '..', 'src');
 // sets XCHAIN_DOCS_DIR to wherever it checked the sibling out, because actions/checkout
 // cannot write a path above the job workspace (the dev/bin/ci-all.sh sibling layout is
 // one level above each repo). Fall back to that sibling layout for local + dev runs.
-// When neither resolves (standalone deploy), the guards below skip rather than fail.
+// When neither resolves (standalone deploy), the identity guard skips unless the
+// run declared sibling coverage mandatory with XCHAIN_REQUIRE_SIBLINGS=1.
 const DOCS_DIR  = process.env.XCHAIN_DOCS_DIR || path.join(__dirname, '..', '..', '..', '..', 'xchain-documentation');
 const CANON_DIR = path.join(DOCS_DIR, 'protocol', 'reference-impl');
 const VEC_DIR   = path.join(DOCS_DIR, 'protocol', 'test-vectors');
 const FALLBACK_VEC_DIR = path.join(__dirname, '..', '..', 'fixtures', 'consensus');
 const ACTIVE_VEC_DIR = fs.existsSync(VEC_DIR) ? VEC_DIR : FALLBACK_VEC_DIR;
+const CANON_VERDICT = siblingCheckout(__dirname, CANON_DIR);
 
 const quorumVec     = require(path.join(ACTIVE_VEC_DIR, 'stake_weighted_quorum.json'));
 const equivVec      = require(path.join(ACTIVE_VEC_DIR, 'equivocation_header.json'));
 const activationVec = require(path.join(ACTIVE_VEC_DIR, 'activation_predicates.json'));
-
-const CANON_PRESENT = fs.existsSync(CANON_DIR);
 
 // Every copy now shares ONE signature: meetsStakeThreshold(validators, signers),
 // and every copy exports totalStake(). No per-repo adapter remains.
@@ -135,7 +136,10 @@ describe('consensus-primitive conformance: activation predicate vectors @regress
 });
 
 describe('consensus-primitive conformance: byte-identity to canonical source @regression', function(){
-    before(function(){ if(!CANON_PRESENT){ if(process.env.XCHAIN_REQUIRE_SIBLINGS==='1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but canonical reference-impl dir not found at ' + CANON_DIR); this.skip(); } });
+    before(function(){
+        if(!CANON_VERDICT.usable)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical consensus-primitive identity guard');
+    });
 
     // The two carriers sit under consensus/ on both sides since W5 (the same tail in
     // every repo), so the compare is a raw byte compare of src/consensus/<f> against

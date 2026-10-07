@@ -224,11 +224,6 @@ const XBRIDGE = {
     },
 };
 
-// The settlement-anchor actions are minted by the indexer, never broadcast: an XPOLICY
-// leg set or a shared-list apply records its idempotency row in bridge_settlements
-// keyed by the anchor's own action_index, with the hub snapshot id in transfer_id. The
-// signed snapshot itself is read from the mirror table by that id. Either table may be
-// absent on a replica without the mirrors, in which case the key is omitted, not nulled.
 function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
     return {
         queries() {

@@ -5067,6 +5067,13 @@
         "Broadcaster mempool frames under a types filter still gives an unfiltered subscriber both frames",
         "Broadcaster mempool frames under a types filter withholds a nameless removal from a types-filtered subscriber, not from an unfiltered one"
       ],
+      "5c020c0fd5865d97": [
+        "contract permissions_error getContract flags unreadable permissions JSON",
+        "contract permissions_error getContract serves a parsed array with permissions_error false",
+        "contract permissions_error getContract serves an absent manifest as null with permissions_error false",
+        "contract permissions_error getContractManifest flags unreadable permissions JSON",
+        "contract permissions_error getContractManifest leaves permissions_error off a readable manifest"
+      ],
       "5cc2b8143bdd5808": [
         "Security: remediated dependency advisories @regression @tier4 ADV-10: the installed mariadb reports a patched runtime version",
         "Security: remediated dependency advisories @regression @tier4 ADV-1: package.json pins axios at or above 1.18.0",
@@ -9868,8 +9875,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 342,
-        "titleCount": 5855,
+        "fileCount": 343,
+        "titleCount": 5860,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10023,6 +10030,7 @@
           "test/unit/db/action_detail/staking_sql.test.js": "c40dac72e51909f3",
           "test/unit/db/action_detail/swaps_sql.test.js": "f03ba5cec7f4f595",
           "test/unit/db/action_detail/xbridge_sql.test.js": "a05a6d826b3012f3",
+          "test/unit/db/contract_permissions_error.test.js": "5c020c0fd5865d97",
           "test/unit/db/core/db_action_queries.test.js": "c138d444e7fb0a0e",
           "test/unit/db/core/db_blocks_paging.test.js": "b12a894f829e191b",
           "test/unit/db/core/db_connection.test.js": "7c9836278ad0ead1",

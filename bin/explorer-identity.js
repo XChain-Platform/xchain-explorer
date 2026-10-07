@@ -155,11 +155,6 @@ function digestFile(rel) {
     return { path: rel, bytes: buf.length, sha256: sha256(buf) };
 }
 
-/**
- * Find the platform's explorer route parser by walking up from this repository.
- * It can be absent in a standalone checkout, where comparison reuses the pinned
- * route section while fresh pin generation remains strict.
- */
 function resolveRoutesLib() {
     const rel = path.join('claude', 'bin', 'lib', 'explorer-routes.js');
     let dir = path.dirname(REPO_ROOT);

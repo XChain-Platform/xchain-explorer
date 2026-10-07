@@ -20,7 +20,7 @@
  * to getData(), letting each test inspect what processRequest() built from the URL.
  */
 
-const { makeExplorer, state } = require('./explorer_routing.test/support/helpers.js');
+const { expect, makeExplorer, request, state } = require('./explorer_routing.test/support/helpers.js');
 
 describe('XChainExplorer.processRequest – routing', function () {
 
@@ -32,4 +32,23 @@ describe('XChainExplorer.processRequest – routing', function () {
     require('./explorer_routing.test/support/responses.js');
     require('./explorer_routing.test/support/freshness.js');
     require('./explorer_routing.test/support/remaining.js');
+
+    describe('bare list-all api routes', function () {
+        for (const [name, method] of [['tokens', 'getTokens'], ['orders', 'getOrders'], ['swaps', 'getSwaps'], ['dispensers', 'getDispensers']]) {
+            it('/BTC/api/' + name + ' resolves to ' + method + ' with no search term', async function () {
+                const { cfg } = await request(state.explorer, '/BTC/api/' + name);
+                expect(cfg).to.not.be.null;
+                expect(cfg.type).to.equal('api');
+                expect(cfg.data.method).to.equal(method);
+                expect(cfg.data.search).to.equal(undefined);
+            });
+
+            it('/BTC/api/' + name + '/1/block still resolves to ' + method + ' with its filter', async function () {
+                const { cfg } = await request(state.explorer, '/BTC/api/' + name + '/1/block');
+                expect(cfg.data.method).to.equal(method);
+                expect(cfg.data.search).to.equal('1');
+                expect(cfg.data.type).to.equal('block');
+            });
+        }
+    });
 });

@@ -116,7 +116,8 @@ const ATTEST = {
     //
     // Ask the schema first: a replica may lack the additive batch columns, and one
     // missing column fails the whole statement (1054) with no recovery on this path.
-    // The probe answers false when unsure; its six columns share one ALTER with the rest.
+    // A confirmed absence is cached and re-probed; a failed probe degrades only this
+    // request, uncached and logged. Its six columns share one ALTER with the rest.
     async queries({ db, config }) {
         let query  = null;
         let query2 = null;

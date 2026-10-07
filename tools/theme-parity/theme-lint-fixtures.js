@@ -46,4 +46,42 @@ function withFixtureThemeChain(fn) {
   }
 }
 
-module.exports = { WIDGET_REGISTRY, withFixtureThemeChain };
+// A child theme whose tokens.css @imports override sheets, the way console does. The
+// imported sheets carry two token typos (one through a nested import) and the tokens.css
+// carries one import of a missing file and one that climbs out of the theme directory.
+function withFixtureImportingTheme(fn) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'theme-lint-'));
+  const base = path.join(directory, 'base');
+  const child = path.join(directory, 'child');
+  const sheetDir = path.join(child, 'components', 'x');
+  fs.mkdirSync(base);
+  fs.writeFileSync(path.join(base, 'theme.json'), '{"name":"base"}');
+  fs.writeFileSync(path.join(base, 'tokens.css'), ':root { --xc-base: red; }');
+  fs.mkdirSync(sheetDir, { recursive: true });
+  fs.writeFileSync(path.join(child, 'theme.json'), '{"name":"child","extends":"base"}');
+  fs.writeFileSync(
+    path.join(child, 'tokens.css'),
+    [
+      '@import url("./components/x/component.css");',
+      '@import "./components/absent/component.css";',
+      '@import url(../base/tokens.css);',
+      '/* @import url("./components/commented/component.css"); */',
+      ':root { --xc-child: var(--xc-base); }',
+    ].join('\n'),
+  );
+  fs.writeFileSync(
+    path.join(sheetDir, 'component.css'),
+    '@import url(./nested.css);\n.x { color: var(--xc-child); border-color: var(--xc-import-typo); --xc-x-local: 1px; }',
+  );
+  fs.writeFileSync(
+    path.join(sheetDir, 'nested.css'),
+    '.y { margin: var(--xc-x-local); padding: var(--xc-nested-typo); }',
+  );
+  try {
+    return fn(directory);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+module.exports = { WIDGET_REGISTRY, withFixtureThemeChain, withFixtureImportingTheme };

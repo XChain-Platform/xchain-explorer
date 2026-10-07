@@ -341,7 +341,7 @@ const EXPLORER_STATUS = {
     "properties": {
         "available": {
             "type": "object",
-            "description": "Coin networks this instance serves as CURRENT data, keyed by coin ticker. Starts from the configured availability map and then drops every coin the tip-age gate marks stale (see 'stale'), so this map varies per request and a delisted coin still appears in 'supported'. Read this to decide whether to query a coin; read 'supported' to learn which coins the instance knows about at all.",
+            "description": "Coin networks this instance serves, keyed by coin ticker, starting from the configured availability map. By default a coin the tip-age gate marks stale stays listed here, because it is still served with a freshness marker, so being in this map does NOT mean the data is current; read 'stale' and 'tip_age_seconds' for that. Only a deployment that sets EXPLORER_STALE_FAIL_CLOSED=1 (its data routes then answer 503 COIN_DATA_STALE for that coin) removes a stale coin from this map, per request, while the coin still appears in 'supported'. Read this to decide whether to query a coin; read 'supported' to learn which coins the instance knows about at all.",
             "additionalProperties": {
                 "type": "string"
             }
@@ -463,14 +463,14 @@ const EXPLORER_STATUS = {
         },
         "stale": {
             "type": "object",
-            "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate), and also true when tip_future_seconds has passed that coin's max future skew. Fails closed, so a missing or unreadable block_time also reads true. A true entry is removed from 'available' and left in 'supported'. Only coins this instance measures appear here.",
+            "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate), and also true when tip_future_seconds has passed that coin's max future skew. Fails closed, so a missing or unreadable block_time also reads true. A true entry stays in 'available' by default (the coin is still served, with a freshness marker) and is removed from 'available' only when the deployment sets EXPLORER_STALE_FAIL_CLOSED=1; it always stays in 'supported'. Read this map, not 'available', to judge freshness. Only coins this instance measures appear here.",
             "additionalProperties": {
                 "type": "boolean"
             }
         },
         "replica_halted": {
             "type": "object",
-            "description": "Durable consensus-divergence halt verdict per coin ticker, read from xchain-sync's sync_halt tables on the indexer and decoder replicas (true = either database has an active, uncleared halt row). A halted replica keeps reporting a small lag until its source mints past it, so this is detectable neither by 'stale' nor by tip_age_seconds; it composes with 'stale' rather than replacing it (immediate detection here, eventual removal from 'available' there). true/false only when both tables were read successfully; null when the signal could not be determined (table absent, e.g. a DB not built by the sync client, or the read failed) and is never coerced to false. Only coins this instance measures appear here.",
+            "description": "Durable consensus-divergence halt verdict per coin ticker, read from xchain-sync's sync_halt tables on the indexer and decoder replicas (true = either database has an active, uncleared halt row). A halted replica keeps reporting a small lag until its source mints past it, so this is detectable neither by 'stale' nor by tip_age_seconds; it composes with 'stale' rather than replacing it (immediate detection here, eventual detection there). true/false only when both tables were read successfully; null when the signal could not be determined (table absent, e.g. a DB not built by the sync client, or the read failed) and is never coerced to false. Only coins this instance measures appear here.",
             "additionalProperties": {
                 "type": [
                     "boolean",
@@ -507,7 +507,7 @@ const EXPLORER_STATUS = {
         },
         "supported": {
             "type": "object",
-            "description": "Every coin network the XChain platform defines for this instance, keyed by coin ticker with a display name as the value. Static per config: the tip-age gate never removes a coin from here, only from 'available'.",
+            "description": "Every coin network the XChain platform defines for this instance, keyed by coin ticker with a display name as the value. Static per config: the tip-age gate never removes a coin from here, and removes a stale coin from 'available' only under EXPLORER_STALE_FAIL_CLOSED=1.",
             "additionalProperties": {
                 "type": "string"
             }

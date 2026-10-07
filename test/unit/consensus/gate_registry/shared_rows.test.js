@@ -18,6 +18,24 @@ const PART_PATHS = [1, 2, 3, 4, 5].map((part) => require.resolve(
     '../../../../src/consensus/gate_registry/shared_rows_' + part + '.js'
 ));
 const EXPECTED_ROW_COUNT = 107;
+const LISTS_MARKET_HEIGHT_KEYS = [
+    'list_owner_activation.LIST_OWNER_ACTIVATION',
+    'empty_allow_list_denies_activation.EMPTY_ALLOW_LIST_DENIES',
+    'swap_edit_rematch_activation.SWAP_EDIT_REMATCH_ACTIVATION',
+    'token_gate_list_at_block.TOKEN_GATE_LIST_AT_BLOCK',
+    'list_reference_validity_activation.LIST_REFERENCE_REQUIRES_VALID_LIST',
+    'list_head_follows_edit_chain.LIST_HEAD_FOLLOWS_EDIT_CHAIN',
+    'order_swap_maker_policy_admission.ORDER_SWAP_MAKER_POLICY_ADMISSION',
+    'order_swap_payout_policy_activation.ORDER_SWAP_PAYOUT_POLICY_PER_TOKEN',
+    'issue_policy_list_detach.ISSUE_POLICY_LIST_DETACH',
+    'bridge_policy_detach_activation.BRIDGE_POLICY_DETACH',
+    'callback_compensation_activation.CALLBACK_COMPENSATES_EVERY_DEBITED_HOLDER',
+];
+const LISTS_MARKET_TIME_KEYS = [
+    'dispenser_settlement_price_activation.DISPENSER_SETTLEMENT_PRICE_ACTIVATION',
+    'dispenser_freshness_proven_use_activation.DISPENSER_FRESHNESS_PROVEN_USE_ACTIVATION',
+    'list_edit_remove_activation.LIST_EDIT_REMOVE_ACTIVATION',
+];
 
 function freshSharedRows() {
     delete require.cache[SHARED_ROWS_PATH];
@@ -98,5 +116,27 @@ describe('shared gate row regtest arming', function () {
             testnet: 51,
             regtest: sharedRows.UNPINNED,
         });
+    });
+
+    it('arms every lists market height and time row from its matching environment', function () {
+        const sharedRows = freshSharedRows();
+        const registry = core.createRegistry();
+        const env = {
+            XC_LISTS_MARKET_REGTEST_ACTIVATION: '41',
+            XC_LISTS_MARKET_REGTEST_TIME: '1790812800',
+        };
+
+        for (const key of LISTS_MARKET_HEIGHT_KEYS) sharedRows.addGate(key, 'height', { regtest: 0 });
+        for (const key of LISTS_MARKET_TIME_KEYS) sharedRows.addGate(key, 'time', { regtest: 0 });
+        sharedRows.registerRows(registry, env);
+
+        for (const key of LISTS_MARKET_HEIGHT_KEYS) {
+            assert.strictEqual(sharedRows.REGTEST_ARMING[key].env, 'XC_LISTS_MARKET_REGTEST_ACTIVATION', key);
+            assert.strictEqual(registry.get(key).regtest, 41, key);
+        }
+        for (const key of LISTS_MARKET_TIME_KEYS) {
+            assert.strictEqual(sharedRows.REGTEST_ARMING[key].env, 'XC_LISTS_MARKET_REGTEST_TIME', key);
+            assert.strictEqual(registry.get(key).regtest, 1790812800, key);
+        }
     });
 });

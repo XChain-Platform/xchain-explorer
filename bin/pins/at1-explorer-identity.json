@@ -4844,20 +4844,6 @@
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v2 revoke renders pubkey even when the parent row is not found (reorg-dropped)",
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v3 contract-revoke: resolves pubkey + target_contract_index + tick from wire and parent row"
       ],
-      "3c5397a93064f8fa": [
-        "bare list-all API routes /{COIN}/api/dispensers is declared in the OpenAPI document without TYPE or QUERY",
-        "bare list-all API routes /{COIN}/api/dispensers reuses the filtered getDispensers route declaration",
-        "bare list-all API routes /{COIN}/api/dispensers keeps its filtered sibling",
-        "bare list-all API routes /{COIN}/api/orders is declared in the OpenAPI document without TYPE or QUERY",
-        "bare list-all API routes /{COIN}/api/orders reuses the filtered getOrders route declaration",
-        "bare list-all API routes /{COIN}/api/orders keeps its filtered sibling",
-        "bare list-all API routes /{COIN}/api/swaps is declared in the OpenAPI document without TYPE or QUERY",
-        "bare list-all API routes /{COIN}/api/swaps reuses the filtered getSwaps route declaration",
-        "bare list-all API routes /{COIN}/api/swaps keeps its filtered sibling",
-        "bare list-all API routes /{COIN}/api/tokens is declared in the OpenAPI document without TYPE or QUERY",
-        "bare list-all API routes /{COIN}/api/tokens reuses the filtered getTokens route declaration",
-        "bare list-all API routes /{COIN}/api/tokens keeps its filtered sibling"
-      ],
       "50771260871b136d": [
         "hub mirror selector modes builds a pinned selector when only a hub URL is available",
         "hub mirror selector modes prefers config seeds over environment seeds and a hub URL",
@@ -5180,6 +5166,24 @@
         "transaction route: a 64-hex hash is never mistaken for a transaction index [REGRESSION] an all-decimal 64-character hash resolves as a hash, not an index",
         "transaction route: a 64-hex hash is never mistaken for a transaction index a short numeric query still resolves as a transaction index",
         "transaction route: a 64-hex hash is never mistaken for a transaction index an ordinary hex hash still resolves as a hash"
+      ],
+      "62851527d8d0b8d7": [
+        "bare list-all API routes /{COIN}/api/dispensers is declared in the OpenAPI document without TYPE or QUERY",
+        "bare list-all API routes /{COIN}/api/dispensers keeps its filtered sibling",
+        "bare list-all API routes /{COIN}/api/dispensers resolves at runtime without a search term",
+        "bare list-all API routes /{COIN}/api/dispensers reuses the filtered getDispensers route declaration",
+        "bare list-all API routes /{COIN}/api/orders is declared in the OpenAPI document without TYPE or QUERY",
+        "bare list-all API routes /{COIN}/api/orders keeps its filtered sibling",
+        "bare list-all API routes /{COIN}/api/orders resolves at runtime without a search term",
+        "bare list-all API routes /{COIN}/api/orders reuses the filtered getOrders route declaration",
+        "bare list-all API routes /{COIN}/api/swaps is declared in the OpenAPI document without TYPE or QUERY",
+        "bare list-all API routes /{COIN}/api/swaps keeps its filtered sibling",
+        "bare list-all API routes /{COIN}/api/swaps resolves at runtime without a search term",
+        "bare list-all API routes /{COIN}/api/swaps reuses the filtered getSwaps route declaration",
+        "bare list-all API routes /{COIN}/api/tokens is declared in the OpenAPI document without TYPE or QUERY",
+        "bare list-all API routes /{COIN}/api/tokens keeps its filtered sibling",
+        "bare list-all API routes /{COIN}/api/tokens resolves at runtime without a search term",
+        "bare list-all API routes /{COIN}/api/tokens reuses the filtered getTokens route declaration"
       ],
       "6307b90aeac02140": [
         "Boundary: isInteger() Number(\"-1\") passes isInteger",
@@ -9865,7 +9869,7 @@
       },
       "test": {
         "fileCount": 342,
-        "titleCount": 5851,
+        "titleCount": 5855,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10110,7 +10114,7 @@
           "test/unit/explorer/routes/explorer_bridge_panel_routes.test.js": "a5dffcecd416d497",
           "test/unit/explorer/routes/explorer_bridge_routes.test.js": "a3e6fc175e9ddb18",
           "test/unit/explorer/routes/explorer_file_raw_and_action_miss.test.js": "84b057534c968f36",
-          "test/unit/explorer/routes/explorer_list_all_routes.test.js": "3c5397a93064f8fa",
+          "test/unit/explorer/routes/explorer_list_all_routes.test.js": "62851527d8d0b8d7",
           "test/unit/explorer/routes/explorer_routing.test.js": "d3f57a45075eee16",
           "test/unit/explorer/shared_lists/shared_lists_names.test.js": "c23f1c94403319c0",
           "test/unit/explorer/shared_lists/shared_lists_route.test.js": "10fec7dab7a3ec46",

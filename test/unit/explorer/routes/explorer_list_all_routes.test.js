@@ -17,7 +17,7 @@
  * filtered route declarations remain the canonical dispatch entries.
  */
 
-const { expect } = require('chai');
+const { expect, makeExplorer, request } = require('./explorer_routing.test/support/helpers.js');
 const { api } = require('../../../../src/explorer/routes/api_methods.js');
 const SPEC = require('../../../../src/content/json/xchain-platform-api.json');
 
@@ -29,6 +29,12 @@ const LIST_ALL = {
 };
 
 describe('bare list-all API routes', function () {
+
+    let explorer;
+
+    before(function () {
+        explorer = makeExplorer();
+    });
 
     for (const [route, method] of Object.entries(LIST_ALL)) {
         it(route + ' reuses the filtered ' + method + ' route declaration', function () {
@@ -48,6 +54,15 @@ describe('bare list-all API routes', function () {
         it(route + ' keeps its filtered sibling', function () {
             expect(api[route + '/{QUERY}/{TYPE}'][0]).to.equal(method);
             expect(SPEC.paths[route + '/{QUERY}/{TYPE}']).to.be.an('object');
+        });
+
+        it(route + ' resolves at runtime without a search term', async function () {
+            const path = route.replace('{COIN}', 'BTC');
+            const { cfg } = await request(explorer, path);
+            expect(cfg, 'captured request config').to.not.equal(null);
+            expect(cfg.type).to.equal('api');
+            expect(cfg.data.method).to.equal(method);
+            expect(cfg.data.search).to.equal(undefined);
         });
     }
 });

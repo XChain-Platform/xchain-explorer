@@ -161,8 +161,11 @@ function digestFile(rel) {
  * From the real checkout it is the sibling `../claude/bin/lib/explorer-routes.js`,
  * but every lane of this pass runs in tmp/<purpose>/<repo>, where that sibling is
  * two directories further up and only the xchain-* siblings are symlinked in. A
- * hard-coded '../claude' therefore throws in exactly the tree the pin is taken
+ * hard-coded '../claude' therefore misses in exactly the tree the pin is taken
  * in, so the ascent is the resolution rule and the sibling is just its first hit.
+ * A standalone repository checkout has no platform tree at all, in which case
+ * comparison can still check every repository-owned section by carrying the
+ * route section forward from the pin. Fresh pin generation remains strict.
  */
 function resolveRoutesLib() {
     const rel = path.join('claude', 'bin', 'lib', 'explorer-routes.js');
@@ -174,8 +177,7 @@ function resolveRoutesLib() {
         if (parent === dir) break;
         dir = parent;
     }
-    throw new Error(`explorer-identity: ${rel} not found above ${REPO_ROOT}; `
-        + 'the route digest is derived by the platform parser and has no second implementation');
+    return null;
 }
 
 /**
@@ -207,8 +209,22 @@ function routeTableSource() {
  * tables is a change worth seeing. `counts` and the tables themselves are kept
  * beside the hash because two mismatched hashes say nothing about what to fix.
  */
-function routeIdentity() {
-    const { parseRouteTables } = require(resolveRoutesLib());
+function routeIdentity(opts) {
+    const options = opts || {};
+    const routesLib = Object.prototype.hasOwnProperty.call(options, 'routesLib')
+        ? options.routesLib
+        : resolveRoutesLib();
+    if (!routesLib) {
+        const fallback = options.fallback;
+        if (!fallback || typeof fallback.digest_sha256 !== 'string'
+            || !fallback.counts || !fallback.tables) {
+            throw new Error('explorer-identity: claude/bin/lib/explorer-routes.js not found above '
+                + `${REPO_ROOT}; only --compare can reuse a complete pinned route section`);
+        }
+        return JSON.parse(JSON.stringify(fallback));
+    }
+
+    const { parseRouteTables } = require(routesLib);
     const tables = parseRouteTables(routeTableSource());
     const ordered = { pages: tables.pages, feeds: tables.feeds, apis: tables.apis };
     return {
@@ -473,7 +489,7 @@ function buildIdentity(opts) {
     };
     if (options.rev) identity.rev = options.rev;
     identity.twins = TWIN_FILES.slice().sort().map(digestFile);
-    identity.routes = routeIdentity();
+    identity.routes = routeIdentity(options.routeOptions);
     identity.fixtures = FIXTURE_FILES.slice().sort().map(digestFile);
     identity.coverage = coverageIdentity();
     identity.prototype = prototypeIdentity();
@@ -671,13 +687,21 @@ function main() {
         return;
     }
 
-    const identity = buildIdentity(opts);
+    const pin = opts.compare ? JSON.parse(fs.readFileSync(opts.compare, 'utf8')) : null;
+    const routesLib = resolveRoutesLib();
+    const routeFallback = !routesLib && pin ? pin.routes : undefined;
+    const identity = buildIdentity({
+        ...opts,
+        routeOptions: { routesLib, fallback: routeFallback },
+    });
 
     if (opts.compare) {
-        const pin = JSON.parse(fs.readFileSync(opts.compare, 'utf8'));
         const renames = opts.renameMap ? JSON.parse(fs.readFileSync(opts.renameMap, 'utf8')) : {};
         const differences = compareIdentities(pin, identity, renames, { noSuites: opts.noSuites });
         const against = path.relative(REPO_ROOT, opts.compare);
+        if (!routesLib) {
+            process.stdout.write(`explorer identity: platform route parser unavailable; route section taken from ${against}\n`);
+        }
         if (!differences.length) {
             process.stdout.write(`explorer identity holds against ${against}`
                 + `${opts.renameMap ? ' through the declared rename map' : ''}\n`);

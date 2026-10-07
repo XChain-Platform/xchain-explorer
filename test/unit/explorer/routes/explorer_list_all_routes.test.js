@@ -13,8 +13,8 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * The bare list-all API routes answer without a search term, and the
- * OpenAPI document declares exactly the routes the route table serves.
+ * The bare list-all API requests answer without a search term while their
+ * filtered route declarations remain the canonical dispatch entries.
  */
 
 const { expect } = require('chai');
@@ -31,8 +31,9 @@ const LIST_ALL = {
 describe('bare list-all API routes', function () {
 
     for (const [route, method] of Object.entries(LIST_ALL)) {
-        it(route + ' is registered with ' + method + ' and no search types', function () {
-            expect(api[route]).to.deep.equal([method]);
+        it(route + ' reuses the filtered ' + method + ' route declaration', function () {
+            expect(api[route]).to.equal(undefined);
+            expect(api[route + '/{QUERY}/{TYPE}'][0]).to.equal(method);
         });
 
         it(route + ' is declared in the OpenAPI document without TYPE or QUERY', function () {

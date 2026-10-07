@@ -35,12 +35,12 @@
     }
   ],
   "routes": {
-    "digest_sha256": "e304a4914020aeae7717da917817f094610f71fecbafd70d443b259cc8bc2dce",
+    "digest_sha256": "ebd443b46060e252a05a2a7dbe8d2b9984b2974d4d68a00b050e69070ab0beec",
     "counts": {
       "pages": 117,
       "feeds": 110,
-      "apis": 167,
-      "total": 394
+      "apis": 163,
+      "total": 390
     },
     "tables": {
       "pages": [
@@ -1029,11 +1029,6 @@
           ]
         },
         {
-          "route": "/{COIN}/api/dispensers",
-          "method": "getDispensers",
-          "types": []
-        },
-        {
           "route": "/{COIN}/api/dispenser_cancels/{QUERY}/{TYPE}",
           "method": "getDispenserCancels",
           "types": [
@@ -1158,11 +1153,6 @@
             "address",
             "token"
           ]
-        },
-        {
-          "route": "/{COIN}/api/orders",
-          "method": "getOrders",
-          "types": []
         },
         {
           "route": "/{COIN}/api/order_expires/{QUERY}/{TYPE}",
@@ -1927,11 +1917,6 @@
           ]
         },
         {
-          "route": "/{COIN}/api/swaps",
-          "method": "getSwaps",
-          "types": []
-        },
-        {
           "route": "/{COIN}/api/swap_edits/{QUERY}/{TYPE}",
           "method": "getSwapEdits",
           "types": [
@@ -2159,11 +2144,6 @@
             "token",
             "subtoken"
           ]
-        },
-        {
-          "route": "/{COIN}/api/tokens",
-          "method": "getTokens",
-          "types": []
         },
         {
           "route": "/{COIN}/api/transaction/{QUERY}/{TYPE}",
@@ -4864,18 +4844,18 @@
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v2 revoke renders pubkey even when the parent row is not found (reorg-dropped)",
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v3 contract-revoke: resolves pubkey + target_contract_index + tick from wire and parent row"
       ],
-      "4eca3ac56af2e561": [
+      "3c5397a93064f8fa": [
         "bare list-all API routes /{COIN}/api/dispensers is declared in the OpenAPI document without TYPE or QUERY",
-        "bare list-all API routes /{COIN}/api/dispensers is registered with getDispensers and no search types",
+        "bare list-all API routes /{COIN}/api/dispensers reuses the filtered getDispensers route declaration",
         "bare list-all API routes /{COIN}/api/dispensers keeps its filtered sibling",
         "bare list-all API routes /{COIN}/api/orders is declared in the OpenAPI document without TYPE or QUERY",
-        "bare list-all API routes /{COIN}/api/orders is registered with getOrders and no search types",
+        "bare list-all API routes /{COIN}/api/orders reuses the filtered getOrders route declaration",
         "bare list-all API routes /{COIN}/api/orders keeps its filtered sibling",
         "bare list-all API routes /{COIN}/api/swaps is declared in the OpenAPI document without TYPE or QUERY",
-        "bare list-all API routes /{COIN}/api/swaps is registered with getSwaps and no search types",
+        "bare list-all API routes /{COIN}/api/swaps reuses the filtered getSwaps route declaration",
         "bare list-all API routes /{COIN}/api/swaps keeps its filtered sibling",
         "bare list-all API routes /{COIN}/api/tokens is declared in the OpenAPI document without TYPE or QUERY",
-        "bare list-all API routes /{COIN}/api/tokens is registered with getTokens and no search types",
+        "bare list-all API routes /{COIN}/api/tokens reuses the filtered getTokens route declaration",
         "bare list-all API routes /{COIN}/api/tokens keeps its filtered sibling"
       ],
       "50771260871b136d": [
@@ -10130,7 +10110,7 @@
           "test/unit/explorer/routes/explorer_bridge_panel_routes.test.js": "a5dffcecd416d497",
           "test/unit/explorer/routes/explorer_bridge_routes.test.js": "a3e6fc175e9ddb18",
           "test/unit/explorer/routes/explorer_file_raw_and_action_miss.test.js": "84b057534c968f36",
-          "test/unit/explorer/routes/explorer_list_all_routes.test.js": "4eca3ac56af2e561",
+          "test/unit/explorer/routes/explorer_list_all_routes.test.js": "3c5397a93064f8fa",
           "test/unit/explorer/routes/explorer_routing.test.js": "d3f57a45075eee16",
           "test/unit/explorer/shared_lists/shared_lists_names.test.js": "c23f1c94403319c0",
           "test/unit/explorer/shared_lists/shared_lists_route.test.js": "10fec7dab7a3ec46",

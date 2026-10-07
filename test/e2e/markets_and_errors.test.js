@@ -217,8 +217,9 @@ describe('E2E-34: Empty database returns graceful responses', function () {
 
     it('token query returns error on empty DB', async function () {
         const res = await request.get('/RBTC/api/token/ANYTICK');
-        // No token data → 400
-        expect(res.status).to.equal(400);
+        // An unknown token is a single-record miss: 404, the same answer
+        // api_single_item.test.js pins against the seeded database.
+        expect(res.status).to.equal(404);
     });
 
     it('markets endpoint returns empty on empty DB', async function () {

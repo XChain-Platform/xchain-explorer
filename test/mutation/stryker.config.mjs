@@ -12,6 +12,8 @@
  *
  **********************************************************************
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
+import { siblingSpecs } from "./sibling_specs.mjs";
+
 export default {
   mutate: [
     'src/lib/utility.js',
@@ -49,7 +51,11 @@ export default {
     // Dropping them costs no mutation signal by construction: a test that never
     // executes the code cannot kill a mutant of it. They still guard the real
     // tree under `npm test`.
-    ignore: [
+    ignore: [...new Set([
+      // Every spec that needs a sibling xchain-* checkout, directly or through a
+      // support file, found at load time by sibling_specs.mjs; the sandbox has no
+      // sibling beside it, so a new such test must not reopen the dry-run failure.
+      ...siblingSpecs(),
       'test/unit/action_detail/action_manifest_conformance.test.js',
       'test/unit/protocol/consensus_primitive_conformance.test.js',
       'test/unit/mirror/hub_mirror_client_conformance.test.js',
@@ -71,8 +77,34 @@ export default {
       // sandbox, so the sibling xchain-indexer checkout it needs is never there.
       // Unrelated to which files are mutated; every mutate target hits this the
       // same way, not only the newly-added src/db/** ones.
-      'test/unit/mirror/hub_mirror_bridge_tables.test.js'
-    ]
+      'test/unit/mirror/hub_mirror_bridge_tables.test.js',
+      // Resolves the sibling xchain-hub checkout relative to its own test file,
+      // which lands on Stryker's `.stryker-tmp/sandbox-*` directory when mocha
+      // runs from the sandbox, where the sibling is absent and
+      // XCHAIN_REQUIRE_SIBLINGS=1 turns that into a failure in the dry run.
+      // Unrelated to which files are mutated.
+      'test/unit/config/coins_conformance.test.js',
+      // Every remaining unit test that resolves a sibling checkout through
+      // test/helpers/sibling_checkout.js. Each one reaches its sibling relative
+      // to its own file, which lands inside `.stryker-tmp/sandbox-*` where no
+      // sibling exists, so under XCHAIN_REQUIRE_SIBLINGS=1 the dry run fails.
+      // vm_query.test.js is listed instead of its support/consensus.js, which
+      // is a required helper and not a spec file: that helper needs the
+      // xchain-documentation protocol constants for the size-cap parity check.
+      'test/unit/contract/vm_query.test.js',
+      'test/unit/db/core/db_reorg_real_ddl.test.js',
+      'test/unit/db/mempool/db_mempool_address_case.test.js',
+      'test/unit/http/contract_state_proof.test.js',
+      'test/unit/http/locked_balance_proof.test.js',
+      // Further specs that need a sibling checkout, some only through a
+      // support/ helper: explorer_checkpoints.test/support/parity.js loads
+      // xchain-sdk/src/checkpoint.js, which the sandbox lacks.
+      'test/unit/explorer/explorer_checkpoints.test.js',
+      'test/unit/contract/contract_introspect.test.js',
+      'test/unit/http/proof_server.test.js',
+      'test/unit/ws/schema_version_client.test.js',
+      'test/unit/repo/sibling_coverage.test.js'
+    ])]
   },
   reporters: ['html', 'json', 'clear-text', 'progress'],
   htmlReporter: {

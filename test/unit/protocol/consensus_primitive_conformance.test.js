@@ -27,8 +27,8 @@
 //   2. IDENTITY  - the local copy is byte-identical to the xchain-documentation copy.
 // (1) catches a logic change that happens to pass the local unit suite; (2)
 // catches ANY edit to one copy that was not propagated to the others. When the
-// sibling xchain-documentation repo is not checked out (standalone deploy), skip
-// rather than fail, matching the existing cross-repo guard convention.
+// sibling xchain-documentation repo is not checked out, the committed fallback
+// vectors keep the behavioral guard and its suite identity available.
 
 const assert = require('assert');
 const fs     = require('fs');
@@ -46,13 +46,12 @@ const LOCAL_DIR = path.join(__dirname, '..', '..', '..', 'src');
 const DOCS_DIR  = process.env.XCHAIN_DOCS_DIR || path.join(__dirname, '..', '..', '..', '..', 'xchain-documentation');
 const CANON_DIR = path.join(DOCS_DIR, 'protocol', 'reference-impl');
 const VEC_DIR   = path.join(DOCS_DIR, 'protocol', 'test-vectors');
+const FALLBACK_VEC_DIR = path.join(__dirname, '..', '..', 'fixtures', 'consensus');
+const ACTIVE_VEC_DIR = fs.existsSync(VEC_DIR) ? VEC_DIR : FALLBACK_VEC_DIR;
 
-let quorumVec = null, equivVec = null, activationVec = null;
-try {
-    quorumVec     = require(path.join(VEC_DIR, 'stake_weighted_quorum.json'));
-    equivVec      = require(path.join(VEC_DIR, 'equivocation_header.json'));
-    activationVec = require(path.join(VEC_DIR, 'activation_predicates.json'));
-} catch(e){ /* sibling xchain-documentation absent */ }
+const quorumVec     = require(path.join(ACTIVE_VEC_DIR, 'stake_weighted_quorum.json'));
+const equivVec      = require(path.join(ACTIVE_VEC_DIR, 'equivocation_header.json'));
+const activationVec = require(path.join(ACTIVE_VEC_DIR, 'activation_predicates.json'));
 
 const CANON_PRESENT = fs.existsSync(CANON_DIR);
 
@@ -69,8 +68,6 @@ function vecValidators(c){
 function meets(c){ return swq.meetsStakeThreshold(vecValidators(c), c.signers); }
 
 describe('consensus-primitive conformance: canonical vectors @regression', function(){
-    before(function(){ if(!quorumVec || !equivVec){ if(process.env.XCHAIN_REQUIRE_SIBLINGS==='1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but consensus test-vectors not found (sibling xchain-documentation missing)'); this.skip(); } });
-
     describe('stake_weighted_quorum.meetsStakeThreshold', function(){
         (quorumVec ? quorumVec.meetsStakeThreshold : []).forEach(function(c){
             it(c.name, function(){ assert.strictEqual(meets(c), c.expected); });
@@ -119,7 +116,6 @@ function decodeSnapshotBlock(v){
 // The activation boundaries run through THIS repo's carriers and so its own gate registry,
 // which byte identity never reaches; no snapshot_reorg_buffer.js here, so no burial group.
 describe('consensus-primitive conformance: activation predicate vectors @regression', function(){
-    before(function(){ if(!activationVec){ if(process.env.XCHAIN_REQUIRE_SIBLINGS==='1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but activation_predicates.json not found (sibling xchain-documentation missing)'); this.skip(); } });
     const groups = activationVec || {};
 
     it('every group this repo runs is a non-empty list', function(){

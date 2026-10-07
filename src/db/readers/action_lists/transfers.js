@@ -35,11 +35,17 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
     async getSends(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
+        let pageOffset = (Number.isSafeInteger(Number(sql.apiOffset)) && Number(sql.apiOffset) > 0)
+            ? Number(sql.apiOffset) : 0;
+        sql.apiOffset = 0;
+        config.data.offset = config.data.offset || {};
+        if(!config.data.offset.start)
+            config.data.offset.start = true;
         // Support searching by both source or destination address
         if(config.data.type=='address')
             args.push(config.data.search);
         let count = `SELECT
-                        count(*) as total
+                        count(DISTINCT m.action_index) as total
                     FROM
                         sends m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -53,7 +59,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data;
-        let query = `SELECT
+        let query = `WITH filtered_sends AS (
+                    SELECT
                         a4.action,
                         m.action_index,
                         a1.action_format, 
@@ -66,7 +73,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                         t2.hash as tx_hash,
                         t1.tx_index,
                         m1.memo,
-                        s1.status
+                        s1.status,
+                        m.leg_ordinal
                     FROM
                         sends m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -79,9 +87,31 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
+                    WHERE ` + sql.where.data + sql.where.offset + `
+                ), page_actions AS (
+                    SELECT DISTINCT action_index
+                    FROM filtered_sends
+                    ORDER BY action_index ` + sql.order + `
+                    LIMIT ` + sql.limit + ` OFFSET ` + pageOffset + `
+                )
+                SELECT
+                    m.action,
+                    m.action_index,
+                    m.action_format,
+                    m.source,
+                    m.destination,
+                    m.tick,
+                    m.amount,
+                    m.block_index,
+                    m.timestamp,
+                    m.tx_hash,
+                    m.tx_index,
+                    m.memo,
+                    m.status
+                FROM
+                    filtered_sends m
+                    INNER JOIN page_actions p ON (p.action_index=m.action_index)
+                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ASC`;
         return [query, args, count];
     }
 

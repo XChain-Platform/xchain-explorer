@@ -255,4 +255,4 @@ function setCheckpointDb(db, kcfg, cfg, key, coin, net){
     }
 }
 
-module.exports = { resetPoolMaps, setNetworkPools, utcTypeCast, indexerPoolConfig };
+module.exports = { resetPoolMaps, setNetworkPools };

@@ -142,6 +142,8 @@ function detailCore_dispatchAction(o){
     if(o.action=='XCALL'){            found = true;  showXcallDetails(o);           }
     if(o.action=='XEXEC'){            found = true;  showXexecDetails(o);           }
     if(o.action=='XBRIDGE'){          found = true;  $('#info-xbridge').html(renderXbridgeAction(o)); }
+    if(o.action=='XPOLICY'){          found = true;  $('#info-xpolicy').html(renderXpolicyAction(o)); }
+    if(o.action=='LIST_SHARE'){       found = true;  $('#info-list-share').html(renderListShareAction(o)); }
     if(o.action=='CROSS_SETTLE'){     found = true;  showCrossSettleDetails(o);     }
     if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
     if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }

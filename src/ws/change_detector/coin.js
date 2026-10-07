@@ -45,7 +45,7 @@ class CoinPass {
         // First poll: seed state without emitting
         if (!prev.initialized) {
             seedCursors(prev, currentBlockIndex, currentActionIndex);
-            await seedHistory(this, config, prev, currentBlockIndex);
+            await seedHistory(this, config, prev, currentBlockIndex, currentActionIndex);
             return;
         }
 
@@ -145,11 +145,22 @@ function rememberBlocks(prev, blocks) {
     if (blocks.length) trimHistory(history, Number(blocks[blocks.length - 1].block_index));
 }
 
-// The blocks already at the tip when this process starts are never announced, but
-// a reorg of them must still be recognised, so their hashes are remembered too.
-async function seedHistory(detector, config, prev, currentBlockIndex) {
-    const rows = await detector.db.getBlocksSince(config, currentBlockIndex - HISTORY_DEPTH, HISTORY_DEPTH * 2);
-    rememberBlocks(prev, rows || []);
+// The blocks and actions already at the tip when this process starts are never
+// announced, but a reorg of them must still be recognised. action_index is a
+// contiguous chain cursor, so each block's action_count locates its first action
+// while walking backward from the current maximum.
+async function seedHistory(detector, config, prev, currentBlockIndex, currentActionIndex) {
+    const rows = await detector.db.getBlocksSince(config, currentBlockIndex - HISTORY_DEPTH, HISTORY_DEPTH * 2) || [];
+    rememberBlocks(prev, rows);
+    if (!rows.length || Number(rows[rows.length - 1].block_index) !== Number(currentBlockIndex)) return;
+
+    const history = historyOf(prev);
+    let nextAction = BigInt(currentActionIndex) + 1n;
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const count = BigInt(rows[i].action_count || 0);
+        if (count > 0n) history.get(Number(rows[i].block_index)).firstAction = nextAction - count;
+        nextAction -= count;
+    }
 }
 
 // Remember the lowest action index announced per block, which is where the

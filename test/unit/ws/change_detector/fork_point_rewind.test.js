@@ -20,8 +20,8 @@ const sinon = require('sinon');
 const { expect } = require('chai');
 const coinPass = require('../../../../src/ws/change_detector/coin.js');
 
-function block(index, hash) {
-    return { block_index: index, block_hash: hash };
+function block(index, hash, actionCount = 0) {
+    return { block_index: index, block_hash: hash, action_count: actionCount };
 }
 
 function action(actionIndex, blockIndex) {
@@ -54,24 +54,26 @@ function makeDetector(chain, actions) {
 }
 
 describe('change detector fork-point rewind', function () {
-    it('re-emits a same-height replacement after a reorg', async function () {
-        const chain = { blocks: [block(10, 'a'), block(11, 'b')] };
+    it('re-emits same-height blocks and actions first seen at initialization', async function () {
+        const chain = { blocks: [block(10, 'a', 1), block(11, 'b', 1)] };
         const actions = { rows: [action(5n, 10), action(6n, 11)] };
         const detector = makeDetector(chain, actions);
 
         await detector.checkCoin('BTC');
-        chain.blocks = [block(10, 'a'), block(11, 'b'), block(12, 'c')];
+        chain.blocks = [block(10, 'a', 1), block(11, 'b', 1), block(12, 'c', 1)];
         actions.rows = [action(5n, 10), action(6n, 11), action(7n, 12)];
         await detector.checkCoin('BTC');
         detector.emit.resetHistory();
 
-        chain.blocks = [block(10, 'a'), block(11, 'b2'), block(12, 'c2')];
+        chain.blocks = [block(10, 'a', 1), block(11, 'b2', 1), block(12, 'c2', 1)];
         actions.rows = [action(5n, 10), action(6n, 11), action(7n, 12)];
         detector.reorged = true;
         await detector.checkCoin('BTC');
 
         const blocks = detector.emit.getCalls().filter((c) => c.args[0] === 'block').map((c) => c.args[2].block_hash);
         expect(blocks).to.deep.equal(['b2', 'c2']);
+        const replayed = detector.emit.getCalls().filter((c) => c.args[0] === 'action').map((c) => c.args[2].action_index);
+        expect(replayed).to.deep.equal([6n, 7n]);
     });
 
     it('rewinds only to the lowest replaced height', async function () {

@@ -201,7 +201,7 @@ class Broadcaster {
                 // what address-channel routing now reads.
                 status:       action.status        || null,
                 // Additive (spec M1.4): the recipients of this action, resolved by
-                // db.getActionsSince across the nine destination-bearing families.
+                // db.getActionsSince across the destination-bearing families.
                 // Same field name and semantics as the mempool frames, so a client
                 // reads one shape whether the tx is pending or confirmed.
                 //

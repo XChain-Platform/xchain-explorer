@@ -38,7 +38,7 @@ const Database = proxyquire('../../../../src/db/index.js', {
 const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-indexer', 'src', 'sql');
 const DDL_FILES = ['blocks', 'transactions', 'actions', 'index_actions', 'index_addresses', 'index_transactions',
     'sends', 'sweeps', 'dispenses', 'mints', 'messages', 'fees', 'slash_events', 'capability_slash_events',
-    'bridge_settlements'];
+    'bridge_settlements', 'list_transfers'];
 
 // Mechanical MariaDB -> SQLite translation, type and engine syntax only. Index
 // statements are dropped (SQLite index names are schema-global, MariaDB's are
@@ -180,6 +180,21 @@ describe('live feed readers against the REAL indexer DDL (sends union)', functio
         expect(rows[0].source).to.equal('1src');
         expect(rows[0].destinations).to.deep.equal(['1dest']);
         // One feed read plus ONE union: the whole union, bridge branch included, is valid SQL.
+        expect(db.doQuery.callCount).to.equal(2);
+    });
+
+    it('getActionsSince names the new owner of a LIST transfer from the real list_transfers table', async function () {
+        const oldOwner = addAddress('1old');
+        const newOwner = addAddress('1new');
+        addTx(8, 500);
+        addAction(50, 500, 8, 'LIST', oldOwner);
+        sqlite.prepare('INSERT INTO list_transfers (action_index, list_action_index, destination_id) VALUES (?, ?, ?)')
+            .run(50, 49, newOwner);
+
+        const rows = await db.getActionsSince(cfg, 49, 100);
+
+        expect(rows[0].source).to.equal('1old');
+        expect(rows[0].destinations).to.deep.equal(['1new']);
         expect(db.doQuery.callCount).to.equal(2);
     });
 });

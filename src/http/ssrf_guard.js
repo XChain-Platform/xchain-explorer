@@ -81,10 +81,23 @@ function isPrivateAddress(ip) {
         // all three on the v4 list below. The URL parser emits the mapped form in
         // hex pieces (::ffff:7f00:1), which a "::ffff:" prefix strip left as
         // unmatchable residue.
+        const v4of = (hi, lo) => [hi >>> 8, hi & 0xff, lo >>> 8, lo & 0xff].join('.');
         const mapped = (g[0] | g[1] | g[2] | g[3]) === 0
             && ((g[4] === 0 && (g[5] === 0xffff || g[5] === 0)) || (g[4] === 0xffff && g[5] === 0));
         if (mapped)
-            addr = [g[6] >>> 8, g[6] & 0xff, g[7] >>> 8, g[7] & 0xff].join('.');
+            addr = v4of(g[6], g[7]);
+        // A NAT64 gateway forwards the well-known 64:ff9b::/96 to the IPv4 in its
+        // low 32 bits, so that address is classified on the v4 list (RFC 6052).
+        const nat64 = g[0] === 0x64 && g[1] === 0xff9b;
+        if (nat64 && (g[2] | g[3] | g[4] | g[5]) === 0)
+            addr = v4of(g[6], g[7]);
+        // Refuse the rest of 64:ff9b::/32: the local-use /48 places its IPv4 where
+        // the operator chose (RFC 8215), and the remainder is unallocated.
+        else if (nat64)
+            return true;
+        // A 6to4 relay forwards 2002::/16 to the IPv4 in bits 16-47 (RFC 3056).
+        if (g[0] === 0x2002)
+            addr = v4of(g[1], g[2]);
     } else {
         addr = addr.replace(/^::ffff:/i, '');   // mapped text net.isIP rejects
     }

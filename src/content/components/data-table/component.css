@@ -14,7 +14,8 @@
  * data-table component styles.
  *
  * Tokens only, no literals: every value here reads from the --xc-* layer the
- * theme defines, and the token-literal gate (test/unit/theme-token-literal-gate)
+ * theme defines, and the token-literal gate
+ * (test/unit/content/components/theme_token_literal_gate.test.js)
  * turns red if one is reintroduced. The table's own look still lives in
  * xchain.css for now; what belongs here is only what the COMPONENT adds, which
  * today is the mount-failure state and the column-permutation seam.

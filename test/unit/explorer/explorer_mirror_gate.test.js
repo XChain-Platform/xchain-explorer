@@ -118,6 +118,53 @@ describe('explorer hub-mirror staleness gate', function () {
         delete process.env.MIRROR_LAG_FAIL_CLOSED;
     });
 
+    describe('_mirrorGate()', function () {
+        // A bootstrapped mirror whose stream watermark was never set (poll mode, or no
+        // hub heartbeat yet) reports a null lag. Under the opt-in that is unmeasurable,
+        // so it must count as past the threshold rather than as fresh.
+        const NULL_LAG = { ...OK_STATUS, streamWatermark: 0, mirrorLagSeconds: null };
+
+        it('unknown lag blocks under MIRROR_LAG_FAIL_CLOSED=1 and says why', function () {
+            process.env.MIRROR_MAX_LAG_S = '60';
+            process.env.MIRROR_LAG_FAIL_CLOSED = '1';
+            const warn = sinon.stub(console, 'warn');
+            const gate = makeExplorer(NULL_LAG).mirrorGate('BTC');
+            expect(gate.blocked).to.equal('MIRROR_STALE');
+            expect(gate.annotate).to.deep.equal({ mirror_bootstrapped: true, mirror_lag_seconds: null });
+            expect(warn.calledWithMatch(sinon.match(/HUB_MIRROR_LAG_UNKNOWN[\s\S]*failing closed/))).to.equal(true);
+        });
+
+        it('unknown lag warns but serves when MIRROR_MAX_LAG_S is set without the opt-in', function () {
+            process.env.MIRROR_MAX_LAG_S = '60';
+            const warn = sinon.stub(console, 'warn');
+            const gate = makeExplorer(NULL_LAG).mirrorGate('BTC');
+            expect(gate.blocked).to.equal(null);
+            expect(warn.calledWithMatch(sinon.match(/HUB_MIRROR_LAG_UNKNOWN[\s\S]*serving with annotation/))).to.equal(true);
+        });
+
+        it('unknown lag is neither warned nor blocked with no MIRROR_MAX_LAG_S', function () {
+            process.env.MIRROR_LAG_FAIL_CLOSED = '1';
+            const warn = sinon.stub(console, 'warn');
+            const gate = makeExplorer(NULL_LAG).mirrorGate('BTC');
+            expect(gate).to.deep.equal({ blocked: null, annotate: { mirror_bootstrapped: true, mirror_lag_seconds: null } });
+            expect(warn.calledWithMatch(sinon.match(/HUB_MIRROR_LAG_UNKNOWN/))).to.equal(false);
+        });
+
+        it('names the unmeasurable-lag cause in the MIRROR_STALE body', function () {
+            const body = makeExplorer().mirrorBlockedBody('MIRROR_STALE');
+            expect(body.code).to.equal('MIRROR_STALE');
+            expect(body.error).to.match(/cannot be measured/);
+        });
+    });
+});
+
+describe('explorer hub-mirror staleness gate', function () {
+    afterEach(function () {
+        sinon.restore();
+        delete process.env.MIRROR_MAX_LAG_S;
+        delete process.env.MIRROR_LAG_FAIL_CLOSED;
+    });
+
     describe('GET /:coin/api/hub-mirror/status', function () {
         it('404 on unknown coin', async function () {
             const res = mockRes();
@@ -170,6 +217,17 @@ describe('explorer hub-mirror staleness gate', function () {
             expect(res._body.mirror_bootstrapped).to.equal(true);
             expect(res._body.mirror_lag_seconds).to.equal(5);
             expect(res._body.checkpoints).to.deep.equal([{ block_index: 500 }]);
+        });
+
+        it('503 MIRROR_STALE on an unmeasurable lag under the fail-closed opt-in', async function () {
+            process.env.MIRROR_MAX_LAG_S = '60';
+            process.env.MIRROR_LAG_FAIL_CLOSED = '1';
+            sinon.stub(console, 'warn');
+            const res = mockRes();
+            await makeExplorer({ ...OK_STATUS, streamWatermark: 0, mirrorLagSeconds: null })
+                .processCheckpointsRequest(req({ coin: 'BTC' }), res);
+            expect(res._status).to.equal(503);
+            expect(res._body.code).to.equal('MIRROR_STALE');
         });
 
         it('unaffected (no annotations) in externally-maintained mode', async function () {

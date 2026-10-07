@@ -251,6 +251,40 @@ describe('WS schema v2 conformance: chain indices are decimal strings', function
     });
 });
 
+describe('the catch-up ahead-of-tip gate', function () {
+    afterEach(() => sinon.restore());
+
+    // A cursor above MAX(action_index) once replayed nothing and COMPLETEd on the
+    // client's own index, so a reorg-lowered tip left the client's cursor too high.
+    // The second pair is 1 apart and collapses to one Number, so only BigInt sees it.
+    const cases = [['a cursor above the tip', 4n, '10'], ['an above-2^53 cursor one past the tip', 9007199254740992n, '9007199254740993']];
+    for (const [name, max, since] of cases) {
+        it('refuses ' + name + ' with CATCH_UP_AHEAD_OF_TIP and no COMPLETE', async function () {
+            const db = { getMaxActionIndex: sinon.stub().resolves(max), getActionsSince: sinon.stub().resolves([]) };
+            const s = makeServer({ explorer: { db } });
+            const client = spyClient();
+
+            await s.handleCatchUp(client, since, {}, 'req-a');
+
+            const errors = framesOf(client, 'error');
+            expect(errors.map(e => [e.data.code, e.id])).to.deep.equal([['CATCH_UP_AHEAD_OF_TIP', 'req-a']]);
+            expect(framesOf(client, 'CATCH_UP_COMPLETE')).to.have.lengthOf(0);
+            expect(db.getActionsSince.called).to.equal(false);
+        });
+    }
+
+    it('still completes a cursor equal to the tip', async function () {
+        const db = { getMaxActionIndex: sinon.stub().resolves(4n), getActionsSince: sinon.stub().resolves([]) };
+        const s = makeServer({ explorer: { db } });
+        const client = spyClient();
+
+        await s.handleCatchUp(client, '4', {}, 'req-e');
+
+        expect(framesOf(client, 'error')).to.have.lengthOf(0);
+        expect(framesOf(client, 'CATCH_UP_COMPLETE').map(c => c.data.latest_action_index)).to.deep.equal(['4']);
+    });
+});
+
 describe('WebSocketServer#_handleCatchUp (ws-4: catch-up/live filter parity)', function () {
     afterEach(() => sinon.restore());
 

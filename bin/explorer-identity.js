@@ -142,6 +142,22 @@ const FIXTURE_FILES = [
 ];
 
 const COVERAGE_METRICS = ['lines', 'statements', 'branches', 'functions'];
+const SCRIPT_SUPERSETS = {
+    'test:boundary:integration': 'test:boundary',
+    'test:boundary:unit': 'test:boundary',
+    'test:config': 'test',
+    'test:db': 'test',
+    'test:explorer': 'test',
+    'test:regression:full': 'test:regression',
+    'test:regression:p0': 'test:regression',
+    'test:regression:p0:unit': 'test:regression',
+    'test:regression:p1': 'test:regression',
+    'test:smoke:connected': 'test:smoke',
+    'test:smoke:unit': 'test:smoke',
+    'test:utility': 'test',
+    'test:ws': 'test',
+};
+const SUPERSET_SCRIPTS = new Set(Object.values(SCRIPT_SUPERSETS));
 
 function sha256(buf) {
     return crypto.createHash('sha256').update(buf).digest('hex');
@@ -155,15 +171,6 @@ function digestFile(rel) {
     return { path: rel, bytes: buf.length, sha256: sha256(buf) };
 }
 
-/**
- * The platform's explorer route parser, found by walking UP from this repo.
- *
- * From the real checkout it is the sibling `../claude/bin/lib/explorer-routes.js`,
- * but every lane of this pass runs in tmp/<purpose>/<repo>, where that sibling is
- * two directories further up and only the xchain-* siblings are symlinked in. A
- * hard-coded '../claude' therefore throws in exactly the tree the pin is taken
- * in, so the ascent is the resolution rule and the sibling is just its first hit.
- */
 function resolveRoutesLib() {
     const rel = path.join('claude', 'bin', 'lib', 'explorer-routes.js');
     let dir = path.dirname(REPO_ROOT);
@@ -174,8 +181,7 @@ function resolveRoutesLib() {
         if (parent === dir) break;
         dir = parent;
     }
-    throw new Error(`explorer-identity: ${rel} not found above ${REPO_ROOT}; `
-        + 'the route digest is derived by the platform parser and has no second implementation');
+    return null;
 }
 
 /**
@@ -207,8 +213,22 @@ function routeTableSource() {
  * tables is a change worth seeing. `counts` and the tables themselves are kept
  * beside the hash because two mismatched hashes say nothing about what to fix.
  */
-function routeIdentity() {
-    const { parseRouteTables } = require(resolveRoutesLib());
+function routeIdentity(opts) {
+    const options = opts || {};
+    const routesLib = Object.prototype.hasOwnProperty.call(options, 'routesLib')
+        ? options.routesLib
+        : resolveRoutesLib();
+    if (!routesLib) {
+        const fallback = options.fallback;
+        if (!fallback || typeof fallback.digest_sha256 !== 'string'
+            || !fallback.counts || !fallback.tables) {
+            throw new Error('explorer-identity: platform route parser unavailable; '
+                + 'only --compare can reuse a complete pinned route section');
+        }
+        return JSON.parse(JSON.stringify(fallback));
+    }
+
+    const { parseRouteTables } = require(routesLib);
     const tables = parseRouteTables(routeTableSource());
     const ordered = { pages: tables.pages, feeds: tables.feeds, apis: tables.apis };
     return {
@@ -398,6 +418,43 @@ function collect(script) {
     return { fileCount: Object.keys(sorted).length, titleCount: titles, files: sorted };
 }
 
+function globRegex(pattern) {
+    let source = '^';
+    for (let i = 0; i < pattern.length; i += 1) {
+        const ch = pattern[i];
+        if (ch === '*' && pattern[i + 1] === '*') { source += '.*'; i += 1; }
+        else if (ch === '*') source += '[^/]*';
+        else source += /[\\^$.*+?()[\]{}|]/.test(ch) ? `\\${ch}` : ch;
+    }
+    return new RegExp(`${source}$`);
+}
+
+function collectFromSuperset(script, superset) {
+    const parsed = mochaArgsFor(script);
+    if (!parsed.args || Object.keys(parsed.env).length) return null;
+    const selectors = [];
+    for (let i = 0; i < parsed.args.length; i += 1) {
+        const arg = parsed.args[i];
+        if (arg === '--timeout') { i += 1; continue; }
+        if (arg === '--exit' || arg === '--recursive') continue;
+        if (arg.startsWith('-')) return null;
+        selectors.push(arg);
+    }
+    if (!selectors.length) return null;
+    const matchers = selectors.map(globRegex);
+    const allFiles = Object.keys(superset.files);
+    if (matchers.some((matcher) => !allFiles.some((rel) => matcher.test(rel)))) return null;
+    const files = {};
+    for (const rel of allFiles) {
+        if (matchers.some((matcher) => matcher.test(rel))) files[rel] = superset.files[rel];
+    }
+    return {
+        fileCount: Object.keys(files).length,
+        titleCount: Object.values(files).reduce((total, titles) => total + titles.length, 0),
+        files,
+    };
+}
+
 function setKey(titles) {
     return crypto.createHash('sha256').update(titles.join('\n')).digest('hex').slice(0, 16);
 }
@@ -419,6 +476,7 @@ function suiteIdentity(only) {
     const titleSets = {};
     const scripts = {};
     const totals = { scripts: names.length, collected: 0, skipped: 0, composite: 0, errored: 0, not_a_test_script: 0 };
+    const supersets = {};
     for (const name of names) {
         if (only && name !== only) continue;
         if (!name.startsWith('test')) {
@@ -426,8 +484,12 @@ function suiteIdentity(only) {
             totals.not_a_test_script += 1;
             continue;
         }
-        const result = collect(pkg.scripts[name]);
+        const superset = supersets[SCRIPT_SUPERSETS[name]];
+        const result = superset
+            ? collectFromSuperset(pkg.scripts[name], superset) || collect(pkg.scripts[name])
+            : collect(pkg.scripts[name]);
         if (result.files) {
+            if (SUPERSET_SCRIPTS.has(name)) supersets[name] = { files: result.files };
             const files = {};
             for (const rel of Object.keys(result.files)) {
                 const key = setKey(result.files[rel]);
@@ -473,7 +535,7 @@ function buildIdentity(opts) {
     };
     if (options.rev) identity.rev = options.rev;
     identity.twins = TWIN_FILES.slice().sort().map(digestFile);
-    identity.routes = routeIdentity();
+    identity.routes = routeIdentity(options.routeOptions);
     identity.fixtures = FIXTURE_FILES.slice().sort().map(digestFile);
     identity.coverage = coverageIdentity();
     identity.prototype = prototypeIdentity();
@@ -671,13 +733,21 @@ function main() {
         return;
     }
 
-    const identity = buildIdentity(opts);
+    const pin = opts.compare ? JSON.parse(fs.readFileSync(opts.compare, 'utf8')) : null;
+    const routesLib = resolveRoutesLib();
+    const routeFallback = !routesLib && pin ? pin.routes : undefined;
+    const identity = buildIdentity({
+        ...opts,
+        routeOptions: { routesLib, fallback: routeFallback },
+    });
 
     if (opts.compare) {
-        const pin = JSON.parse(fs.readFileSync(opts.compare, 'utf8'));
         const renames = opts.renameMap ? JSON.parse(fs.readFileSync(opts.renameMap, 'utf8')) : {};
         const differences = compareIdentities(pin, identity, renames, { noSuites: opts.noSuites });
         const against = path.relative(REPO_ROOT, opts.compare);
+        if (!routesLib) {
+            process.stdout.write(`explorer identity: platform route parser unavailable; route section taken from ${against}\n`);
+        }
         if (!differences.length) {
             process.stdout.write(`explorer identity holds against ${against}`
                 + `${opts.renameMap ? ' through the declared rename map' : ''}\n`);

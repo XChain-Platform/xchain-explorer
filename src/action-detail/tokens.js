@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Detail handlers for the token-supply and transfer actions: AIRDROP, DESTROY,
- * DIVIDEND, ISSUE, LINK, MINT, SEND and SWEEP.
+ * DIVIDEND, ISSUE, LINK, LIST_SHARE, MINT, SEND, SWEEP and XPOLICY.
  ********************************************************************/
 
 'use strict';
@@ -177,10 +177,10 @@ const XBRIDGE_RECORD_KEYS = ['dest_chain', 'dest_address', 'decimals', 'min_dept
 // Read one bridge table only when the connected schema carries it: on a replica that
 // never took the bridge migration the statement is error 1146 for the whole action
 // page, and the page is worth more than the section. Answers null when nothing was read.
-async function readBridgeTable({ db, config, action_index }, table, statement){
+async function readBridgeTable({ db, config, action_index }, table, statement, args = [action_index]){
     if(!await tablesPresent(db, config, [table])) return null;
     try {
-        return await db.doQuery(config, statement, [action_index]);
+        return await db.doQuery(config, statement, args);
     } catch(e) {
         // The net under a probe that answered wrong (it failed, or the table went
         // away under a live explorer). A failure that is not a missing table is a
@@ -224,14 +224,42 @@ const XBRIDGE = {
     },
 };
 
+// The settlement-anchor actions are minted by the indexer, never broadcast: an XPOLICY
+// leg set or a shared-list apply records its idempotency row in bridge_settlements
+// keyed by the anchor's own action_index, with the hub snapshot id in transfer_id. The
+// signed snapshot itself is read from the mirror table by that id. Either table may be
+// absent on a replica without the mirrors, in which case the key is omitted, not nulled.
+function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
+    return {
+        queries() {
+            return { query: null, query2: null, query3: null };
+        },
+        async afterMain(ctx, data) {
+            const settle = await readBridgeTable(ctx, bridgeSql.BRIDGE_SETTLEMENTS_TABLE, bridgeSql.XBRIDGE_SETTLEMENT);
+            if(settle === null) return;
+            const row = settle.length ? settle[0] : null;
+            data['bridge_settlement'] = row;
+            data['snapshot_id'] = row ? row.transfer_id : null;
+            if(!row) return;
+            const snap = await readBridgeTable(ctx, snapshotTable, snapshotSql, [row.transfer_id]);
+            if(snap !== null) data[snapshotKey] = snap.length ? snap[0] : null;
+        },
+    };
+}
+
+const XPOLICY = settlementAnchor(bridgeSql.POLICY_SNAPSHOTS_TABLE, bridgeSql.POLICY_SNAPSHOT, 'policy_snapshot');
+const LIST_SHARE = settlementAnchor(bridgeSql.LIST_SNAPSHOTS_TABLE, bridgeSql.LIST_SNAPSHOT, 'list_snapshot');
+
 module.exports = {
     AIRDROP,
     DESTROY,
     DIVIDEND,
     ISSUE,
     LINK,
+    LIST_SHARE,
     MINT,
     SEND,
     SWEEP,
-    XBRIDGE
+    XBRIDGE,
+    XPOLICY
 };

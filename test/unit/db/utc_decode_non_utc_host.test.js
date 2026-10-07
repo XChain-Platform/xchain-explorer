@@ -35,14 +35,14 @@ const DRIVER_PACKET = pathToFileURL(
 // string()/datetime() read from a packet, run the pool's typeCast over it, and
 // report the driver's own default decode beside it for comparison.
 const CHILD = `
-const { utcTypeCast, indexerPoolConfig } = require(${JSON.stringify(POOL_SETUP)});
+const { resetPoolMaps, setNetworkPools } = require(${JSON.stringify(POOL_SETUP)});
 (async () => {
     const { default: Packet } = await import(${JSON.stringify(DRIVER_PACKET)});
     const cell = (text) => {
         if (text === null) return Buffer.from([0xfb]);
         return Buffer.concat([Buffer.from([text.length]), Buffer.from(text)]);
     };
-    const run = (type, text, useCast) => {
+    const run = (type, text, typeCast) => {
         const buf = cell(text);
         const packet = new Packet().update(buf, 0, buf.length);
         const column = {
@@ -51,21 +51,54 @@ const { utcTypeCast, indexerPoolConfig } = require(${JSON.stringify(POOL_SETUP)}
             datetime: () => packet.readDateTime()
         };
         const dflt = () => (type === 'DATE' ? packet.readDate() : packet.readDateTime());
-        const out = useCast ? utcTypeCast(column, dflt) : dflt();
+        const out = typeCast ? typeCast(column, dflt) : dflt();
         return out === null ? null : out.toISOString();
     };
-    const cfg = indexerPoolConfig({ db_host: 'h', db_port: 1, user: 'u', pass: 'p', name: 'n' });
+    const configs = [];
+    const mariadb = {
+        createPool: (config) => {
+            configs.push(config);
+            return {};
+        }
+    };
+    const db = {
+        util: { isNull: (value) => value === null || value === undefined },
+        decoderApiUrlFromConfig: () => null
+    };
+    resetPoolMaps(db);
+    setNetworkPools(db, mariadb, {
+        mainnet: {
+            database: {
+                indexer: {
+                    db_host: 'indexer-host', db_port: 3306,
+                    user: 'indexer-user', pass: 'indexer-pass', name: 'indexer-db'
+                },
+                decoder: {
+                    db_host: 'decoder-host', db_port: 3306,
+                    user: 'decoder-user', pass: 'decoder-pass', name: 'decoder-db'
+                }
+            }
+        }
+    }, 'BTC', 'mainnet');
+    const [indexer, decoder] = configs;
     process.stdout.write('\\nRESULT:' + JSON.stringify({
         tz: process.env.TZ,
-        wired: cfg.typeCast === utcTypeCast && cfg.timezone === 'Z',
-        datetime: run('DATETIME', '2026-03-01 12:00:00', true),
-        datetimeFrac: run('DATETIME', '2026-07-04 23:59:59.250', true),
-        timestamp: run('TIMESTAMP', '2026-03-01 12:00:00', true),
-        date: run('DATE', '2026-03-01', true),
-        zero: run('DATETIME', '0000-00-00 00:00:00', true),
-        nul: run('DATETIME', null, true),
-        passthrough: utcTypeCast({ type: 'VARCHAR', string: () => 'x' }, () => 'next-called'),
-        driverDefault: run('DATETIME', '2026-03-01 12:00:00', false)
+        poolCount: configs.length,
+        indexerWired: indexer.timezone === 'Z' && typeof indexer.typeCast === 'function',
+        decoderWired: decoder.timezone === 'Z' && typeof decoder.typeCast === 'function',
+        sameTypeCast: indexer.typeCast === decoder.typeCast,
+        indexerDatetime: run('DATETIME', '2026-03-01 12:00:00', indexer.typeCast),
+        decoderDatetime: run('DATETIME', '2026-03-01 12:00:00', decoder.typeCast),
+        datetimeFrac: run('DATETIME', '2026-07-04 23:59:59.250', decoder.typeCast),
+        timestamp: run('TIMESTAMP', '2026-03-01 12:00:00', decoder.typeCast),
+        date: run('DATE', '2026-03-01', decoder.typeCast),
+        zero: run('DATETIME', '0000-00-00 00:00:00', decoder.typeCast),
+        nul: run('DATETIME', null, decoder.typeCast),
+        passthrough: decoder.typeCast ? decoder.typeCast(
+            { type: 'VARCHAR', string: () => 'x' },
+            () => 'next-called'
+        ) : null,
+        driverDefault: run('DATETIME', '2026-03-01 12:00:00')
     }));
 })();
 `;
@@ -88,8 +121,12 @@ describe('pool DATETIME decode on a non-UTC host', function(){
     for(const tz of ['UTC', 'America/Chicago', 'Asia/Kolkata', 'Pacific/Auckland']){
         it('decodes UTC-literal values as UTC under TZ=' + tz, function(){
             const r = decodeUnder(tz);
-            expect(r.wired).to.equal(true);
-            expect(r.datetime).to.equal('2026-03-01T12:00:00.000Z');
+            expect(r.poolCount).to.equal(2);
+            expect(r.indexerWired).to.equal(true);
+            expect(r.decoderWired).to.equal(true);
+            expect(r.sameTypeCast).to.equal(true);
+            expect(r.indexerDatetime).to.equal('2026-03-01T12:00:00.000Z');
+            expect(r.decoderDatetime).to.equal('2026-03-01T12:00:00.000Z');
             expect(r.datetimeFrac).to.equal('2026-07-04T23:59:59.250Z');
             expect(r.timestamp).to.equal('2026-03-01T12:00:00.000Z');
             expect(r.date).to.equal('2026-03-01T00:00:00.000Z');

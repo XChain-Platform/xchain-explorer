@@ -95,6 +95,14 @@ function showActionDetails(){
     }
 }
 
+// The bridge and settlement-anchor cards are filled wholesale by xbridge_panels_render.js.
+function detailCore_dispatchBridgePanel(o){
+    if(o.action=='XBRIDGE'){     $('#info-xbridge').html(renderXbridgeAction(o));         return true; }
+    if(o.action=='XPOLICY'){     $('#info-xpolicy').html(renderXpolicyAction(o));         return true; }
+    if(o.action=='LIST_SHARE'){  $('#info-list-share').html(renderListShareAction(o));    return true; }
+    return false;
+}
+
 function detailCore_dispatchAction(o){
     // Dispatch the matching action detail renderer.
     var found = false;
@@ -141,9 +149,7 @@ function detailCore_dispatchAction(o){
     if(o.action=='WITHDRAW'){         found = true;  showWithdrawDetails(o);        }
     if(o.action=='XCALL'){            found = true;  showXcallDetails(o);           }
     if(o.action=='XEXEC'){            found = true;  showXexecDetails(o);           }
-    if(o.action=='XBRIDGE'){          found = true;  $('#info-xbridge').html(renderXbridgeAction(o)); }
-    if(o.action=='XPOLICY'){          found = true;  $('#info-xpolicy').html(renderXpolicyAction(o)); }
-    if(o.action=='LIST_SHARE'){       found = true;  $('#info-list-share').html(renderListShareAction(o)); }
+    if(detailCore_dispatchBridgePanel(o)) found = true;
     if(o.action=='CROSS_SETTLE'){     found = true;  showCrossSettleDetails(o);     }
     if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
     if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }

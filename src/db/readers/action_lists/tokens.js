@@ -200,69 +200,39 @@ class TokenReaders {
         config.data.offset = config.data.offset || {};
         if(!config.data.offset.start)
             config.data.offset.start = true;
-        let count = `SELECT
-                        count(DISTINCT m.action_index) as total
-                    FROM
-                        destroys m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `WITH filtered_destroys AS (
-                    SELECT
-                        a3.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        t3.tick,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status,
-                        m.leg_ordinal
-                    FROM
-                        destroys m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset + `
+        let joins = `destroys m
+                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                    LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)`;
+        let count = `SELECT count(DISTINCT m.action_index) as total
+                    FROM ` + joins + ` WHERE ` + sql.where.data;
+        let query = `SELECT m.action, m.action_index, m.action_format, m.source,
+                    m.tick, m.amount, m.block_index, m.timestamp, m.tx_hash,
+                    m.tx_index, m.memo, m.status
+                FROM (
+                WITH filtered_destroys AS (
+                    SELECT a3.action, m.action_index, a1.action_format, a2.address as source,
+                        t3.tick, m.amount, b1.block_index, b1.block_time as timestamp,
+                        t2.hash as tx_hash, t1.tx_index, m1.memo, s1.status, m.leg_ordinal
+                    FROM ` + joins + ` WHERE ` + sql.where.data + sql.where.offset + `
                 ), page_actions AS (
                     SELECT DISTINCT action_index
                     FROM filtered_destroys
                     ORDER BY action_index ` + sql.order + `
                     LIMIT ` + sql.limit + ` OFFSET ` + pageOffset + `
                 )
-                SELECT
-                    m.action,
-                    m.action_index,
-                    m.action_format,
-                    m.source,
-                    m.tick,
-                    m.amount,
-                    m.block_index,
-                    m.timestamp,
-                    m.tx_hash,
-                    m.tx_index,
-                    m.memo,
-                    m.status
-                FROM
-                    filtered_destroys m
+                SELECT m.action, m.action_index, m.action_format, m.source, m.tick, m.amount,
+                    m.block_index, m.timestamp, m.tx_hash, m.tx_index, m.memo, m.status,
+                    m.leg_ordinal
+                FROM filtered_destroys m
                     INNER JOIN page_actions p ON (p.action_index=m.action_index)
+                ) m
                 ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ASC`;
         return [query, null, count];
     }

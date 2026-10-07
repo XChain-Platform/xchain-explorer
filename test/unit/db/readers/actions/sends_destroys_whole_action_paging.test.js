@@ -62,6 +62,7 @@ describe('SEND and DESTROY whole-action paging', () => {
             const cfg = config(method);
             const [query, , count] = await reader.call({}, cfg);
 
+            assert.match(query, /^SELECT m\.action, m\.action_index/);
             assert.match(query, new RegExp('WITH ' + cte + ' AS'));
             assert.match(query, /SELECT DISTINCT action_index[\s\S]*LIMIT 2 OFFSET 0/);
             assert.match(query, new RegExp('FROM\\s+' + cte + ' m[\\s\\S]*page_actions p'));

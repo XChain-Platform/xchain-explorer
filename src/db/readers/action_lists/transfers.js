@@ -23,15 +23,8 @@
 const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js');
 delete contentReaders.getLists;
 class TransferReaders { async getLists(config){ return buildListsQuery(this, config, tablesPresent); }
-    // A contract-emitted SEND has no broadcast transaction behind it: the injected
-    // EXECUTE that ran it carries no TX_INDEX (xchain-indexer actions/xexec.js), and
-    // execute/index.js propagates that absence into every action the run emits, so the
-    // `actions` row lands with tx_index NULL while block_index is NOT NULL. Joining
-    // blocks THROUGH an INNER-joined transaction therefore did not degrade such a
-    // row, it deleted it from the feed AND from its total, silently, and the /sends
-    // route is what the SDK's x402 layer reads to confirm a payment. Blocks joins
-    // off a1.block_index (INNER, always present) and transactions degrades to LEFT,
-    // which is the shape the tx-less action feed and getUnstakes already use.
+    // Contract-emitted sends have no transaction. Join blocks from the action and
+    // keep the transaction optional so those actions remain visible in the feed.
     async getSends(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
@@ -44,73 +37,41 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
         // Support searching by both source or destination address
         if(config.data.type=='address')
             args.push(config.data.search);
-        let count = `SELECT
-                        count(DISTINCT m.action_index) as total
-                    FROM
-                        sends m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data;
-        let query = `WITH filtered_sends AS (
-                    SELECT
-                        a4.action,
-                        m.action_index,
-                        a1.action_format, 
-                        a2.address as source,
-                        a3.address as destination,
-                        t3.tick,
-                        m.amount,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        m1.memo,
-                        s1.status,
-                        m.leg_ordinal
-                    FROM
-                        sends m
-                        INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                        LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
-                        LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
-                        LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    WHERE ` + sql.where.data + sql.where.offset + `
+        let joins = `sends m
+                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
+                    LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
+                    LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
+                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
+                    LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)`;
+        let count = `SELECT count(DISTINCT m.action_index) as total
+                    FROM ` + joins + ` WHERE ` + sql.where.data;
+        let query = `SELECT m.action, m.action_index, m.action_format, m.source,
+                    m.destination, m.tick, m.amount, m.block_index, m.timestamp,
+                    m.tx_hash, m.tx_index, m.memo, m.status
+                FROM (
+                WITH filtered_sends AS (
+                    SELECT a4.action, m.action_index, a1.action_format, a2.address as source,
+                        a3.address as destination, t3.tick, m.amount, b1.block_index,
+                        b1.block_time as timestamp, t2.hash as tx_hash, t1.tx_index,
+                        m1.memo, s1.status, m.leg_ordinal
+                    FROM ` + joins + ` WHERE ` + sql.where.data + sql.where.offset + `
                 ), page_actions AS (
                     SELECT DISTINCT action_index
                     FROM filtered_sends
                     ORDER BY action_index ` + sql.order + `
                     LIMIT ` + sql.limit + ` OFFSET ` + pageOffset + `
                 )
-                SELECT
-                    m.action,
-                    m.action_index,
-                    m.action_format,
-                    m.source,
-                    m.destination,
-                    m.tick,
-                    m.amount,
-                    m.block_index,
-                    m.timestamp,
-                    m.tx_hash,
-                    m.tx_index,
-                    m.memo,
-                    m.status
-                FROM
-                    filtered_sends m
+                SELECT m.action, m.action_index, m.action_format, m.source, m.destination,
+                    m.tick, m.amount, m.block_index, m.timestamp, m.tx_hash, m.tx_index,
+                    m.memo, m.status, m.leg_ordinal
+                FROM filtered_sends m
                     INNER JOIN page_actions p ON (p.action_index=m.action_index)
+                ) m
                 ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ASC`;
         return [query, args, count];
     }

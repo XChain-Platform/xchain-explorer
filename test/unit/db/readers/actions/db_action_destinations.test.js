@@ -21,7 +21,7 @@
  * notification never fired for anyone.
  *
  * Three properties are load-bearing and are what these tests defend:
- *   - the EIGHT destination_id families plus bridge_settlements are consulted
+ *   - the NINE destination_id families plus bridge_settlements are consulted
  *     and `contracts` is NOT (its
  *     slash_destination_id is deploy-time routing config, not a recipient);
  *   - the batch costs a BOUNDED number of queries, not one per action, since
@@ -130,13 +130,13 @@ describe('db.getActionsSince destinations (M1.4)', () => {
 });
 
 describe('db.getActionsSince destinations (M1.4)', () => {
-    it('consults all EIGHT destination-bearing families', async () => {
+    it('consults all NINE destination_id families', async () => {
         const db = mkDb([{ action_index: 501n, action: 'SEND', source: 'srcAddr' }], () => []);
         await db.getActionsSince(cfg, 500n, 100);
         const sql = destQueries(db).join('\n');
 
         for (const table of ['sends', 'sweeps', 'dispenses', 'mints', 'messages',
-                             'fees', 'slash_events', 'capability_slash_events'])
+                             'fees', 'slash_events', 'capability_slash_events', 'list_transfers'])
             expect(sql, table).to.include(table + ' m');
     });
 
@@ -171,8 +171,8 @@ describe('db.getActionsSince destinations (M1.4)', () => {
         await db.getActionsSince(cfg, 500n, 100);
         const call = db.calls.filter(c => !isFeedQuery(c.query))[0];
 
-        // 2 action indexes x 9 families, and nothing but those indexes.
-        expect(call.args).to.have.lengthOf(18);
+        // 2 action indexes x 10 families, and nothing but those indexes.
+        expect(call.args).to.have.lengthOf(20);
         expect(call.args.slice(0, 2)).to.deep.equal([501n, 502n]);
         expect(new Set(call.args.map(String))).to.deep.equal(new Set(['501', '502']));
     });
@@ -216,7 +216,7 @@ describe('db.getActionsSince destinations (M1.4)', () => {
         expect(rows[1].destinations).to.deep.equal([]);
     });
 
-    it('a MISSING table costs only its own family: the other seven still resolve', async () => {
+    it('a MISSING table costs only its own family: the others still resolve', async () => {
         const db = mkDb(
             [{ action_index: 501n, action: 'SEND', source: 'srcAddr' }],
             (query) => {
@@ -240,7 +240,7 @@ describe('db.getActionsSince destinations (M1.4)', () => {
                 return [];
             });
 
-        await db.getActionsSince(cfg, 500n, 100);   // discovers it: 1 union + 9 retries
+        await db.getActionsSince(cfg, 500n, 100);   // discovers it: 1 union + 10 retries
         db.calls = [];
         db.doQuery.resetHistory();
         await db.getActionsSince(cfg, 500n, 100);
@@ -337,6 +337,39 @@ describe('db.getActionsSince destinations: XBRIDGE settle legs', () => {
         const after = destQueries(db);
         expect(after).to.have.lengthOf(1);
         expect(after[0]).to.not.include('bridge_settlements');
+        expect(after[0]).to.include('sends m');
+    });
+});
+
+describe('db.getActionsSince destinations: LIST ownership transfers', () => {
+    it('names the new owner of a transferred LIST, joined on list_transfers.action_index', async () => {
+        const db = mkDb(
+            [{ action_index: 801n, action: 'LIST', source: 'oldOwner' }],
+            (query) => query.includes('list_transfers m') ? [destRow(801n, 'newOwner')] : []);
+
+        const rows = await db.getActionsSince(cfg, 800n, 100);
+
+        expect(rows[0].destinations).to.deep.equal(['newOwner']);
+        expect(destQueries(db).join('\n')).to.match(/list_transfers m[\s\S]*m\.action_index IN/);
+    });
+
+    it('a deployment without list_transfers quarantines only that family', async () => {
+        const db = mkDb(
+            [{ action_index: 501n, action: 'SEND', source: 'srcAddr' }],
+            (query) => {
+                if (query.includes('list_transfers m')) throw wrapped('ER_NO_SUCH_TABLE', 1146);
+                if (query.includes('sends m')) return [destRow(501n, 'destAddr')];
+                return [];
+            });
+
+        const first = await db.getActionsSince(cfg, 500n, 100);
+        expect(first[0].destinations).to.deep.equal(['destAddr']);
+        db.calls = [];
+        await db.getActionsSince(cfg, 500n, 100);
+
+        const after = destQueries(db);
+        expect(after).to.have.lengthOf(1);
+        expect(after[0]).to.not.include('list_transfers');
         expect(after[0]).to.include('sends m');
     });
 });

@@ -287,6 +287,17 @@ const ADDRESS_INFO = {
     required: ['address', 'balances', 'utxos', 'estimated_value', 'tracker_available', 'controllers', 'info'],
 };
 
+const CONTRACT = {
+    type: 'object',
+    description: 'One deployed contract with its permissions manifest. `permissions` is the declared emission allowlist, null when the contract declared none; `permissions_error` is true when the stored manifest JSON is unreadable, so a null `permissions` then means unknown rather than unrestricted.',
+    properties: {
+        max_take_bps: { type: ['integer', 'null'], description: 'Per-contract fee cap in basis points; null when the global cap applies' },
+        permissions: { type: ['array', 'null'], items: {} },
+        permissions_error: { type: 'boolean', description: 'True when the stored permissions JSON could not be parsed' },
+    },
+    required: ['permissions', 'permissions_error'],
+};
+
 const BOOL_MAP = (names) => Object.fromEntries(names.map((n) => [n, { type: 'boolean' }]));
 const NUMBER = { type: 'number' };
 
@@ -539,7 +550,7 @@ HOLDER.description = 'Token holder data';
 const COMPONENT_SCHEMAS = Object.assign(
     Object.fromEntries(ROWS.map(([name, , description, spec, notes]) => [name, rowSchema(description, spec, notes)])),
     {
-        ActionDetail: ACTION_DETAIL, AddressInfo: ADDRESS_INFO, Block: BLOCK, ExplorerStatus: EXPLORER_STATUS,
+        ActionDetail: ACTION_DETAIL, AddressInfo: ADDRESS_INFO, Block: BLOCK, Contract: CONTRACT, ExplorerStatus: EXPLORER_STATUS,
         History: HISTORY, Holder: HOLDER, HolderRow: rowSchema('One holder of a token', 'address:s amount:s'),
         Market: MARKET, MarketHistory: MARKET_HISTORY, MarketOrder: MARKET_ORDER, Orderbook: ORDERBOOK,
         Token: TOKEN, Transaction: TRANSACTION,
@@ -558,7 +569,7 @@ const LIST_EXTRAS = {
 
 // db method -> component schema of its whole 200 body.
 const BODY_SCHEMAS = {
-    getAction: 'ActionDetail', getAddress: 'AddressInfo', getBlock: 'Block', getHolders: 'Holder',
+    getAction: 'ActionDetail', getAddress: 'AddressInfo', getBlock: 'Block', getContract: 'Contract', getHolders: 'Holder',
     getOrderbook: 'Orderbook', getStatus: 'ExplorerStatus', getToken: 'Token', getTransaction: 'Transaction',
 };
 

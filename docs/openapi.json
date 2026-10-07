@@ -3731,7 +3731,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/Contract"
                 }
               }
             }
@@ -16420,6 +16420,34 @@
         "required": [
           "block_index",
           "timestamp"
+        ]
+      },
+      "Contract": {
+        "type": "object",
+        "description": "One deployed contract with its permissions manifest. `permissions` is the declared emission allowlist, null when the contract declared none; `permissions_error` is true when the stored manifest JSON is unreadable, so a null `permissions` then means unknown rather than unrestricted.",
+        "properties": {
+          "max_take_bps": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Per-contract fee cap in basis points; null when the global cap applies"
+          },
+          "permissions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {}
+          },
+          "permissions_error": {
+            "type": "boolean",
+            "description": "True when the stored permissions JSON could not be parsed"
+          }
+        },
+        "required": [
+          "permissions",
+          "permissions_error"
         ]
       },
       "ExplorerStatus": {

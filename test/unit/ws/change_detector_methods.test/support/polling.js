@@ -188,6 +188,64 @@ describe('ChangeDetector', function () {
     afterEach(() => sinon.restore());
 
     describe('_checkCoin()', function () {
+        // The fetch has no upper bound, so a row the indexer commits between the tip
+        // read and the fetch comes back above the tip; the cursor must not fall below it.
+        it('advances past a fetched row above the observed tip, keeping the tip type', function () {
+            let det = mk();  // fetchLimit 100
+            let blocks = det.nextCursor([{ block_index: 9 }, { block_index: 10 }, { block_index: 11 }], 'block_index', 10);
+            expect(blocks).to.equal(11);
+            expect(typeof blocks).to.equal('number');
+            let actions = det.nextCursor([{ action_index: 9n }, { action_index: 10n }, { action_index: 11n }], 'action_index', 10n);
+            expect(actions).to.equal(11n);
+            expect(typeof actions).to.equal('bigint');
+            // Unchanged: a short fetch below the tip still lands on the tip.
+            expect(det.nextCursor([{ block_index: 6 }], 'block_index', 9)).to.equal(9);
+        });
+
+        it('does not re-send a block committed between the tip read and the fetch', async function () {
+            let det = mk();
+            det.state.BTC = { blockIndex: 9, actionIndex: 0n, initialized: true };
+            det.db.getMaxBlockIndex.onFirstCall().resolves(10);
+            det.db.getMaxBlockIndex.resolves(11);
+            det.db.getBlocksSince.callsFake(async (cfg, since) => {
+                let rows = [];
+                for (let i = since + 1; i <= 11; i++) rows.push({ block_index: i });
+                return rows;
+            });
+            let seen = [];
+            det.on('block', (c, b) => seen.push(b.block_index));
+
+            await det.checkCoin('BTC');
+            await det.checkCoin('BTC');
+            expect(seen).to.deep.equal([10, 11]);
+            expect(det.state.BTC.blockIndex).to.equal(11);
+        });
+
+        it('does not re-send an action committed between the tip read and the fetch', async function () {
+            let det = mk();
+            det.state.BTC = { blockIndex: 0, actionIndex: 9n, initialized: true };
+            det.db.getMaxActionIndex.onFirstCall().resolves(10n);
+            det.db.getMaxActionIndex.resolves(11n);
+            det.db.getActionsSince.callsFake(async (cfg, since) => {
+                let rows = [];
+                for (let i = BigInt(since) + 1n; i <= 11n; i++) rows.push({ action: 'SEND', action_index: i });
+                return rows;
+            });
+            let seen = [];
+            det.on('action', (c, a) => seen.push(a.action_index));
+
+            await det.checkCoin('BTC');
+            await det.checkCoin('BTC');
+            expect(seen).to.deep.equal([10n, 11n]);
+            expect(det.state.BTC.actionIndex).to.equal(11n);
+        });
+    });
+});
+
+describe('ChangeDetector', function () {
+    afterEach(() => sinon.restore());
+
+    describe('_checkCoin()', function () {
         it('leaves the block cursor a Number (only the action cursor went BigInt)', function () {
             let det = mk();  // fetchLimit 100
             let rows = [];

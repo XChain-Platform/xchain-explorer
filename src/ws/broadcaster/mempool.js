@@ -101,12 +101,14 @@ class MempoolFrames {
         //
         // `action` is additive too, and is what makes this frame survive a `types`
         // filter: passesFilter resolves an action name before falling back to the
-        // literal event type, so a frame with no name is only ever matched by
-        // types:['MEMPOOL_REMOVED'] and a subscriber filtering on families
-        // (types:['SEND']) would get the MEMPOOL_ACTION and never its removal,
-        // leaving a pending entry with nothing to reconcile it away. Null for a row
-        // that never decoded, which claims no family and reaches only a subscriber
-        // asking for the type itself or filtering on nothing.
+        // literal event type, and MEMPOOL_REMOVED is not a subscribable type name
+        // (VALID_TYPES holds action and lifecycle names only, so subscribe refuses
+        // it). Without the name, a subscriber filtering on families (types:['SEND'])
+        // would get the MEMPOOL_ACTION and never its removal, leaving a pending entry
+        // with nothing to reconcile it away. Null for a row that never decoded: that
+        // row produced no family-named MEMPOOL_ACTION, so no filtered subscriber was
+        // shown it as pending, and its removal reaches only subscribers with no
+        // `types` filter.
         const base = {
             tx_hash: row.tx_hash || null,
             source:  row.source  || null,

@@ -98,6 +98,40 @@ describe('IconResolver json_url lane uses the token page JSON-link rule', functi
     });
 });
 
+// A description can match two lanes at once. The page takes its JSON-link lane
+// before it ever reads stamp:, imgur or youtube/soundcloud forms, so the listing
+// icon has to follow that same order or the two fetch different documents.
+describe('IconResolver picks the page lane for a description matching two lanes', function(){
+    // Lower-case schemes only: the page strips the scheme case-sensitively.
+    ['imgur.com/abc.json', 'https://imgur.com/abc.json', 'http://imgur.com/abc.json',
+     'imgur/abc.json', 'imgur.com/abc.json?v=1', 'youtube/x.json', 'soundcloud/x.json;Track',
+     'stamp:AAAA.json'].forEach(desc => {
+        it(`"${desc}" takes the json_url lane at the page's URL`, function(){
+            const r = resolveDescriptionToSource(desc);
+            expect(r, desc).to.be.an('object');
+            expect(r.scheme).to.equal('json_url');
+            expect(r.url).to.equal(tokenInfo_metadataUrl(desc));
+        });
+    });
+
+    [['imgur.com/yTS3gEv.png', 'imgur'],
+     ['youtube/FenVJ_cyE5M;Title', null],
+     ['stamp:iVBORw0KGgo=', 'stamp']].forEach(([desc, scheme]) => {
+        it(`"${desc}" keeps its own lane, which the page does not fetch as JSON`, function(){
+            const r = resolveDescriptionToSource(desc);
+            expect(r ? r.scheme : null).to.equal(scheme);
+            expect(tokenInfo_metadataUrl(desc)).to.equal(false);
+        });
+    });
+
+    [['ipfs:abc.json', 'ipfs'], ['ar:abc.json', 'arweave'],
+     ['https://arweave.net/abc/x.json', 'arweave_url'], ['action:12', 'action']].forEach(([desc, scheme]) => {
+        it(`"${desc}" keeps the earlier ${scheme} lane`, function(){
+            expect(resolveDescriptionToSource(desc).scheme).to.equal(scheme);
+        });
+    });
+});
+
 // CIP25 and TIS token metadata can carry several image fields at once, so the order
 // they are tried decides which picture a wallet actually shows. These lock that order.
 describe('IconResolver.selectIconUrlFromCip25Json', function(){

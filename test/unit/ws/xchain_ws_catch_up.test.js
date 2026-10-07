@@ -148,6 +148,20 @@ describe('xchain_ws.js reconnect catch-up: cursor, continuation and refusal', fu
         expect(events[0].since_action_index).to.equal('500');
         expect(catchUps(ws)).to.have.lengthOf(2);
     });
+
+    // The server refuses a cursor above its tip rather than COMPLETE on it; the page
+    // must hear that as a resync, not as a caught-up replay.
+    it('reports a CATCH_UP_AHEAD_OF_TIP refusal to the page as resync_required', function () {
+        const ws = loadClient();
+        const events = [];
+        ws.on('resync_required', (m) => events.push(m.data));
+        reconnectWith(ws, '500', [{ channels: ['actions'], params: {} }]);
+        const id = catchUps(ws)[0].id;
+        recv(ws, { type: 'error', id, data: { code: 'CATCH_UP_AHEAD_OF_TIP', message: 'resync via REST' } });
+
+        expect(events.map(e => [e.code, e.since_action_index])).to.deep.equal([['CATCH_UP_AHEAD_OF_TIP', '500']]);
+        expect(ws.lastActionIndex).to.equal('500');
+    });
 });
 
 describe('xchain_ws.js reconnect catch-up: not_replayed', function () {

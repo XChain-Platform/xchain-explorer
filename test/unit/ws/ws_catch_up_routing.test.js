@@ -273,6 +273,18 @@ describe('catch-up in-progress latch release', function () {
         });
     }
 
+    // Its own case: the table subscribes from '0', which can never be above mkDb's tip of 4.
+    it('releases the latch after the CATCH_UP_AHEAD_OF_TIP exit, so a later request is not wedged', async function () {
+        const { s } = setup(mkDb());
+        const client = addClient(s, 1);
+
+        subscribe(s, client, ['actions'], { since_action_index: '10' }, 'r1');
+        await settle();
+
+        expect(frames(client, 'error').map(e => e.data.code)).to.deep.equal(['CATCH_UP_AHEAD_OF_TIP']);
+        expect(client.catchUpInProgress).to.equal(false);
+    });
+
     it('answers a blocks-only catch-up even while another replay holds the latch', async function () {
         const h  = held();
         const db = mkDb({ getMaxActionIndex: sinon.stub().returns(h.p) });

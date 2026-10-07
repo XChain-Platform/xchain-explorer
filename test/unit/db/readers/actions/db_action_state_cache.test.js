@@ -217,6 +217,41 @@ describe('action LRU skips responses carrying a live state block', function () {
 
     describe('[REGRESSION] a mutable lifecycle response must not be memoized', function () {
 
+        // The indexer flips an unstake to completed at cooldown maturity and zeroes
+        // its amount on a slash during cooldown, so neither family may be memoized.
+        it('refuses a capability and a contract UNSTAKE, whose status and amount change in cooldown', function () {
+            const db = makeDb();
+            expect(db.isCacheableAction({
+                action: 'UNSTAKE', action_index: 800, action_format: 0,
+                amount: '100', cooldown_end_block: 1500, status: 'valid',
+            })).to.equal(false);
+            expect(db.isCacheableAction({
+                action: 'UNSTAKE', action_index: 801, action_format: 1,
+                target_contract_index: 12, tick: 'XCP', amount: '5',
+                cooldown_end_block: 1600, status: 'pending',
+            })).to.equal(false);
+            expect(db.isCacheableAction({
+                action: 'UNSTAKE', action_index: 802, amount: null,
+                cooldown_end_block: null, status: null,
+            })).to.equal(false);
+        });
+
+        it('an UNSTAKE stays absent from the LRU, so the next read sees it complete', function () {
+            const db  = makeDb();
+            const key = db.cacheKey('BTC', 800);
+            const live = { action: 'UNSTAKE', action_index: 800, cooldown_end_block: 1500, status: 'valid' };
+            if (db.isCacheableAction(live)) db.cacheSet(db._actionDataCache, key, live);
+            expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
+        });
+
+    });
+
+});
+
+describe('action LRU skips responses carrying a live state block', function () {
+
+    describe('[REGRESSION] a mutable lifecycle response must not be memoized', function () {
+
         // Presence, not value: null IS the pending state, and it is precisely the
         // read that goes stale. A value test would cache exactly the wrong rows.
         it('a null lifecycle field blocks caching just as a populated one does', function () {

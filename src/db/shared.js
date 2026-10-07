@@ -28,6 +28,10 @@
 
 'use strict';
 
+// Structured logging, cached at require time like the sibling db modules.
+const { getLogger } = require('../observability');
+const log = getLogger();
+
 // The one field list every compact action summary projects (transaction and
 // history rows via getActionSummaryData, BATCH members via projectActionSummary).
 // Every field the client's getActionDetails reads must be here, or the summary
@@ -87,6 +91,11 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
 //   bet_status          BET wager, and settled_block with it.
 //   settled_block       BET wager, null until the feed resolves.
 //   deactivation_block  DELEGATE: null until a later revoke deactivates the row.
+//   cooldown_end_block  UNSTAKE v0/v1: status goes valid/pending -> completed at
+//                       cooldown maturity, and a slash during cooldown zeroes the
+//                       amount. ADDRESS format 1 and the UNSTAKE v2 completion
+//                       also select it, so they stop caching too: a query, not a
+//                       correctness cost.
 //
 // Matched by PRESENCE, not by value. Null is exactly the pending state these
 // fields hold at the moment a detail page is most likely to be asked for, so a
@@ -98,7 +107,8 @@ const MUTABLE_ACTION_FIELDS = Object.freeze([
     'request_status', 'response_status', 'result_status', 'resolved_block',   // ATTEST, XCALL
     'poll_status',                                                            // VOTE
     'feed_status', 'bet_status', 'settled_block',                             // BET
-    'deactivation_block'                                                      // DELEGATE
+    'deactivation_block',                                                     // DELEGATE
+    'cooldown_end_block'                                                      // UNSTAKE
 ]);
 
 // Raised by doQuery when the underlying query genuinely FAILED (connection
@@ -197,10 +207,22 @@ async function attestBatchColumnsPresent(db, config){
              LIMIT ${ATTEST_BATCH_COLUMNS.length}`, ATTEST_BATCH_COLUMNS);
         let found = new Set((rows || []).map(r => String(r.COLUMN_NAME)));
         let present = ATTEST_BATCH_COLUMNS.every(name => found.has(name));
+        // Report a replica that predates the batch migrations once per coin, not per re-probe.
+        if(!present && !memo)
+            log.warn('ATTEST_BATCH_COLUMNS_ABSENT', { coin: config.coin,
+                missing: ATTEST_BATCH_COLUMNS.filter(name => !found.has(name)) });
         db.attestBatchColumnMemo[config.coin] = { present, at: Date.now() };
         return present;
-    } catch(_){
-        db.attestBatchColumnMemo[config.coin] = { present: false, at: Date.now() };
+    } catch(err){
+        // A failed probe says nothing about the schema: degrade only this request, leave
+        // the memo alone so the next request probes again, and warn at most once per TTL.
+        if(!db.attestBatchProbeWarnedAt) db.attestBatchProbeWarnedAt = {};
+        let warnedAt = db.attestBatchProbeWarnedAt[config.coin];
+        if(!warnedAt || Date.now() - warnedAt >= ATTEST_BATCH_PROBE_TTL_MS){
+            db.attestBatchProbeWarnedAt[config.coin] = Date.now();
+            log.warn('ATTEST_BATCH_PROBE_FAILED', { coin: config.coin,
+                err: err && err.message, effect: 'batch fields omitted from this response' });
+        }
         return false;
     }
 }

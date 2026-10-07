@@ -45,15 +45,18 @@ class CoinPass {
         // First poll: seed state without emitting
         if (!prev.initialized) {
             seedCursors(prev, currentBlockIndex, currentActionIndex);
+            await seedHistory(this, config, prev, currentBlockIndex, currentActionIndex);
             return;
         }
 
-        // On a reorg, clamp each cursor down to the (possibly lower) new tip so the
-        // feed resumes at the correct height instead of waiting for the chain to
-        // re-pass the old high-water mark. Same-height replacements are covered by
-        // the cache invalidation above + the authoritative REST reads; this loop is
-        // a best-effort live feed, not a reorg replay.
-        if (reorged) rewindCursors(prev, currentBlockIndex, currentActionIndex);
+        // On a reorg, rewind each cursor to just below the fork point: the lowest
+        // remembered height whose block hash changed or vanished, and never above the
+        // (possibly lower) new tip. A replacement at an unchanged height therefore
+        // re-enters the feed instead of sitting under the high-water mark.
+        if (reorged) {
+            const fork = await findForkPoint(this, config, prev);
+            rewindCursors(prev, fork, currentBlockIndex, currentActionIndex);
+        }
 
         // The chain grew since the last poll, so there are new blocks to announce.
         if (currentBlockIndex > prev.blockIndex)
@@ -116,8 +119,98 @@ function seedCursors(prev, currentBlockIndex, currentActionIndex) {
     prev.initialized = true;
 }
 
-// The reorg clamp: each cursor above the new tip comes down to it.
-function rewindCursors(prev, currentBlockIndex, currentActionIndex) {
+// Heights of emitted-block identity kept per coin; a reorg deeper than this
+// rewinds only as far as the oldest remembered height.
+const HISTORY_DEPTH = 256;
+
+function historyOf(prev) {
+    if (!prev.history) prev.history = new Map();
+    return prev.history;
+}
+
+function trimHistory(history, tip) {
+    for (const height of history.keys())
+        if (height <= tip - HISTORY_DEPTH) history.delete(height);
+}
+
+// Remember each announced block's hash so a later poll can tell a replaced height
+// from an unchanged one.
+function rememberBlocks(prev, blocks) {
+    const history = historyOf(prev);
+    for (const block of blocks) {
+        const height = Number(block.block_index);
+        const entry  = history.get(height);
+        history.set(height, { hash: block.block_hash || null, firstAction: entry ? entry.firstAction : null });
+    }
+    if (blocks.length) trimHistory(history, Number(blocks[blocks.length - 1].block_index));
+}
+
+// The blocks and actions already at the tip when this process starts are never
+// announced, but a reorg of them must still be recognised. action_index is a
+// contiguous chain cursor, so each block's action_count locates its first action
+// while walking backward from the current maximum.
+async function seedHistory(detector, config, prev, currentBlockIndex, currentActionIndex) {
+    const rows = await detector.db.getBlocksSince(config, currentBlockIndex - HISTORY_DEPTH, HISTORY_DEPTH * 2) || [];
+    rememberBlocks(prev, rows);
+    if (!rows.length || Number(rows[rows.length - 1].block_index) !== Number(currentBlockIndex)) return;
+
+    const history = historyOf(prev);
+    let nextAction = BigInt(currentActionIndex) + 1n;
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const count = BigInt(rows[i].action_count || 0);
+        if (count > 0n) history.get(Number(rows[i].block_index)).firstAction = nextAction - count;
+        nextAction -= count;
+    }
+}
+
+// Remember the lowest action index announced per block, which is where the
+// action cursor must return to if that block is replaced.
+function rememberActions(prev, actions) {
+    const history = historyOf(prev);
+    for (const action of actions) {
+        const height = Number(action.block_index);
+        if (!Number.isFinite(height)) continue;
+        const index = BigInt(action.action_index);
+        const entry = history.get(height) || { hash: null, firstAction: null };
+        if (entry.firstAction === null || index < entry.firstAction) entry.firstAction = index;
+        history.set(height, entry);
+    }
+}
+
+// The lowest remembered height whose block no longer matches what was announced,
+// or null when every remembered height still matches.
+async function findForkPoint(detector, config, prev) {
+    const history = historyOf(prev);
+    const heights = [...history.keys()].sort((a, b) => a - b);
+    if (!heights.length) return null;
+    const lowest = heights[0];
+    const rows   = await detector.db.getBlocksSince(config, lowest - 1, HISTORY_DEPTH * 2) || [];
+    const now    = new Map(rows.map((row) => [Number(row.block_index), row.block_hash || null]));
+    for (const height of heights) {
+        if (!now.has(height)) return height;
+        const known = history.get(height).hash;
+        if (known !== null && now.get(height) !== known) return height;
+    }
+    return null;
+}
+
+// The reorg rewind: each cursor drops below the fork point, then is clamped to the
+// new tip.
+function rewindCursors(prev, fork, currentBlockIndex, currentActionIndex) {
+    if (fork !== null) {
+        const history = historyOf(prev);
+        let firstAction = null;
+        for (const [height, entry] of history) {
+            if (height < fork) continue;
+            if (entry.firstAction !== null && (firstAction === null || entry.firstAction < firstAction))
+                firstAction = entry.firstAction;
+            history.delete(height);
+        }
+        if (prev.blockIndex > fork - 1) prev.blockIndex = fork - 1;
+        if (firstAction !== null && prev.actionIndex >= firstAction) prev.actionIndex = firstAction - 1n;
+        if (prev.closedBlock > fork - 1) prev.closedBlock = fork - 1;
+        if (prev.xcallBlock  > fork - 1) prev.xcallBlock  = fork - 1;
+    }
     if (prev.blockIndex  > currentBlockIndex)  prev.blockIndex  = currentBlockIndex;
     if (prev.actionIndex > currentActionIndex) prev.actionIndex = currentActionIndex;
     // The latch cursor rewinds with them, and here it is more than a stall fix:
@@ -141,6 +234,7 @@ async function emitNewBlocks(detector, coin, config, prev, currentBlockIndex) {
         for (const block of newBlocks) {
             detector.emit('block', coin, block);
         }
+        rememberBlocks(prev, newBlocks);
     }
     // Advance by what was actually fetched, NOT to the observed tip:
     // getBlocksSince returns the LOWEST `fetchLimit` rows (block_index ASC),
@@ -180,6 +274,7 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
             await detector.emitEntityUpdates(coin, config, action, entityCache);
             await detector.emitAttestationEvents(coin, config, action);
         }
+        rememberActions(prev, newActions);
     }
     // Same drain semantics as blocks (getActionsSince is action_index ASC,
     // capped at fetchLimit): advance to the last emitted action, not the tip.

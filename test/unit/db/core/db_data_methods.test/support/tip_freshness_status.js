@@ -208,6 +208,26 @@ describe('Database tip-freshness gate', () => {
             expect(status.properties.tip_age_seconds.additionalProperties.type)
                 .to.deep.equal(['integer', 'null']);
         });
+
+        // A stale coin stays in `available` unless EXPLORER_STALE_FAIL_CLOSED=1, so
+        // every sentence that removes a coin from it must name that opt-in, in the
+        // served spec and in the hand-kept copy alike.
+        it('ties every removal from available to the EXPLORER_STALE_FAIL_CLOSED opt-in', () => {
+            const legacy = require('../../../../../../src/content/json/xchain-platform-api.json');
+            const legacyStatus = legacy.components.schemas.ExplorerStatus;
+            const statusOp = Object.entries(legacy.paths).find(([p]) => /\/status$/.test(p))[1].get;
+            const texts = [statusOp.description];
+            for (const schema of [status, legacyStatus])
+                for (const prop of Object.values(schema.properties)) texts.push(prop.description || '');
+            const removal = /(remov|drop|delist)\w*[^.]*'?available'?|available[^.]*(remov|drop|delist)/i;
+            for (const text of texts)
+                for (const sentence of text.split(/(?<=\.)\s+/).filter((s) => removal.test(s)))
+                    expect(sentence, sentence).to.match(/EXPLORER_STALE_FAIL_CLOSED/);
+            for (const schema of [status, legacyStatus]) {
+                expect(schema.properties.available.description).to.match(/EXPLORER_STALE_FAIL_CLOSED/);
+                expect(schema.properties.available.description).to.match(/stays listed/);
+            }
+        });
     });
 });
 

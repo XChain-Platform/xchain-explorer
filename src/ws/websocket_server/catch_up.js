@@ -16,9 +16,9 @@
  *
  * A subscribe carrying since_action_index replays the actions the client
  * missed. The replay runs in three steps: the cursor and in-progress guard,
- * the stale and depth gates, then the replayed frames (each missed row's
- * NEW_ACTION and the lifecycle events the live detector derives from that row)
- * closed by one CATCH_UP_COMPLETE.
+ * the stale, ahead-of-tip and depth gates, then the replayed frames (each
+ * missed row's NEW_ACTION and the lifecycle events the live detector derives
+ * from that row) closed by one CATCH_UP_COMPLETE.
  *
  * The db reads stay awaited in sequence in runCatchUp, so a replay yields to the
  * event loop at the same points it always did and its frames interleave with a
@@ -232,8 +232,8 @@ class WebSocketCatchUp {
     }
 }
 
-// The gated replay, run with the client's latch held: the stale gate, the depth gate,
-// then the replayed frames closed by one CATCH_UP_COMPLETE.
+// The gated replay, run with the client's latch held: the stale gate, the ahead-of-tip
+// and depth gates, then the replayed frames closed by one CATCH_UP_COMPLETE.
 async function runCatchUp(server, client, sinceBig, filter, requestId, keys) {
     const db     = server.explorer.db;
     const config = { coin: client.coin };
@@ -255,12 +255,20 @@ async function runCatchUp(server, client, sinceBig, filter, requestId, keys) {
         return;
     }
 
-    // Check depth: reject if too far behind
+    // Check the cursor against the tip: reject one above it or too far behind it
     try {
         // Both sides BigInt so the subtraction is exact and never mixes types;
         // getMaxActionIndex answers in BigInt, and BigInt() re-wraps a Number a
         // test double may return.
         const currentMax = BigInt(await db.getMaxActionIndex(config) || 0);
+        // A cursor above the tip (a reorg lowered MAX(action_index), or a replica is
+        // behind) would replay nothing and COMPLETE on the client's own index, never telling it.
+        if (sinceBig > currentMax) {
+            server.sendError(client, 'CATCH_UP_AHEAD_OF_TIP',
+                `Requested action_index ${sinceBig} is ahead of current (${currentMax}). Use REST API to resync.`,
+                requestId);
+            return;
+        }
         if (currentMax - sinceBig > BigInt(server.catchUpMaxDepth)) {
             server.sendError(client, 'CATCH_UP_TOO_OLD',
                 `Requested action_index ${sinceBig} is more than ${server.catchUpMaxDepth} behind current (${currentMax}). Use REST API to backfill.`,

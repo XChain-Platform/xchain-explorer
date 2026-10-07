@@ -142,13 +142,22 @@ const FIXTURE_FILES = [
 ];
 
 const COVERAGE_METRICS = ['lines', 'statements', 'branches', 'functions'];
-const UNIT_SUBSET_SCRIPTS = new Set([
-    'test:config',
-    'test:db',
-    'test:explorer',
-    'test:utility',
-    'test:ws',
-]);
+const SCRIPT_SUPERSETS = {
+    'test:boundary:integration': 'test:boundary',
+    'test:boundary:unit': 'test:boundary',
+    'test:config': 'test',
+    'test:db': 'test',
+    'test:explorer': 'test',
+    'test:regression:full': 'test:regression',
+    'test:regression:p0': 'test:regression',
+    'test:regression:p0:unit': 'test:regression',
+    'test:regression:p1': 'test:regression',
+    'test:smoke:connected': 'test:smoke',
+    'test:smoke:unit': 'test:smoke',
+    'test:utility': 'test',
+    'test:ws': 'test',
+};
+const SUPERSET_SCRIPTS = new Set(Object.values(SCRIPT_SUPERSETS));
 
 function sha256(buf) {
     return crypto.createHash('sha256').update(buf).digest('hex');
@@ -467,7 +476,7 @@ function suiteIdentity(only) {
     const titleSets = {};
     const scripts = {};
     const totals = { scripts: names.length, collected: 0, skipped: 0, composite: 0, errored: 0, not_a_test_script: 0 };
-    let unitSuperset = null;
+    const supersets = {};
     for (const name of names) {
         if (only && name !== only) continue;
         if (!name.startsWith('test')) {
@@ -475,11 +484,12 @@ function suiteIdentity(only) {
             totals.not_a_test_script += 1;
             continue;
         }
-        const result = unitSuperset && UNIT_SUBSET_SCRIPTS.has(name)
-            ? collectFromSuperset(pkg.scripts[name], unitSuperset) || collect(pkg.scripts[name])
+        const superset = supersets[SCRIPT_SUPERSETS[name]];
+        const result = superset
+            ? collectFromSuperset(pkg.scripts[name], superset) || collect(pkg.scripts[name])
             : collect(pkg.scripts[name]);
         if (result.files) {
-            if (name === 'test') unitSuperset = { files: result.files };
+            if (SUPERSET_SCRIPTS.has(name)) supersets[name] = { files: result.files };
             const files = {};
             for (const rel of Object.keys(result.files)) {
                 const key = setKey(result.files[rel]);

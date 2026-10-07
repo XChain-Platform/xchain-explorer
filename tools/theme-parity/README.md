@@ -70,7 +70,13 @@ The probe picks those sheets out of `document.styleSheets` with a hand-written
 does not name is read by nothing. The component sheets sat in exactly that gap
 between 2026-09-02 and the pattern being widened; `theme-token-literal-gate`
 now checks the pattern against `template.html`'s own link list so the next one
-fails the suite instead of vanishing. The `baseline-2026-08-20.json` capture
+fails the suite instead of vanishing. A theme's `tokens.css` can also pull sheets
+in with `@import` (the console theme imports four component overrides), and an
+imported sheet never appears in `document.styleSheets`: the probe follows each
+import rule's own `styleSheet` under the same `SHEET` test, refuses a capture
+whose first-party import came back empty or missing (Chrome hands a 404 import
+an empty sheet, not a null one), and the gate checks the pattern against
+every `themes/*/tokens.css` import target too. The `baseline-2026-08-20.json` capture
 predates the component layer: its per-page `cssRules` counts are one revision
 behind, and its hashes are not, because those component rules match no element
 on a healthy page.

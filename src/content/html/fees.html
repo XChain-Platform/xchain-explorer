@@ -200,11 +200,19 @@ $(document).ready(function() {
     // Renders whatever processFeeQuoteRequest sends back on a 200. `valid` is a
     // THREE-state verdict, not a boolean, and each state is its own badge:
     //   true  - the indexer dry-ran the action and it is valid
-    //   false - the indexer checked and rejected it (e.g. an unknown TICK)
+    //   false - the indexer checked and rejected it (e.g. an unknown TICK, or a
+    //           static-lane input or output it computed as out of band)
     //   null  - a correctly-priced STATIC quote with no on-chain verdict. The
     //           denylisted actions (DEPLOY, EXECUTE) are priced from the gas schedule
-    //           without entering the VM, and the busy/denied/fee-exempt branches answer
-    //           the same way, so the fee is payable while validity is unjudged.
+    //           without entering the VM, so the fee is payable while validity is unjudged.
+    // `valid` only means that once the indexer's no-verdict markers are ruled out, and
+    // several of them travel WITH valid:false: busy/retryable (the quote never ran),
+    // denied (XEXEC, BATCH, or a schedule that cannot price the action), guardInert or
+    // the FEE_QUOTE_CONTROLLER_UNSUPPORTED status (a controller guard the public path
+    // will not run), and supported:false (no FEE_DESTINATION). Fee-exempt answers
+    // valid:true without running the handler. Each of those is badged by its marker,
+    // in the order xchain-sdk's preflight classifyNonVerdict checks them, so a refusal
+    // to judge is never shown as a rejection or a pass.
     // A truthiness test collapses null into false and badges a payable fee red, so the
     // reader cannot tell an unchecked quote from a rejected one. `validated`,
     // `staticQuote` and `note` carry that provenance and are rendered beside it.
@@ -215,7 +223,18 @@ $(document).ready(function() {
         rows.push(['Action', isNull(o.action) ? '-' : escapeHtml(String(o.action))]);
         rows.push(['Supported', o.supported ? 'Yes' : 'No']);
         let validBadge;
-        if(o.valid === true)       validBadge = '<span class="badge text-bg-success">Valid</span>';
+        let notQuotable = '<span class="badge text-bg-secondary">Not quotable</span>';
+        if(o.busy === true || o.retryable === true)
+            validBadge = '<span class="badge text-bg-secondary">Not checked</span>';
+        else if(o.denied === true)
+            validBadge = notQuotable;
+        else if(o.feeExempt === true)
+            validBadge = '<span class="badge text-bg-secondary">Fee exempt</span>';
+        else if(o.guardInert === true || String(o.status || '').indexOf('FEE_QUOTE_CONTROLLER_UNSUPPORTED') !== -1)
+            validBadge = notQuotable;
+        else if(o.supported === false)
+            validBadge = notQuotable;
+        else if(o.valid === true)  validBadge = '<span class="badge text-bg-success">Valid</span>';
         else if(o.valid === false) validBadge = '<span class="badge text-bg-danger">Invalid</span>';
         else                       validBadge = '<span class="badge text-bg-secondary">Not checked</span>';
         rows.push(['Valid', validBadge]);
@@ -279,11 +298,15 @@ $(document).ready(function() {
     // --- Oracle fee quote sandbox -------------------------------------------------
     //
     // processOracleFeeQuoteRequest's 200 shape differs by outcome: a valid quote
-    // carries requiredFeeNative/requiredFeeSats/note, an invalid one carries only
-    // { valid:false, error }. Both are rendered; only non-2xx (missing/invalid
-    // params, upstream outage) goes through .fail().
+    // carries valid:true plus requiredFeeNative/requiredFeeSats/note, a refused one
+    // carries { valid:false, error }, and an indexer that is not ready, has no indexed
+    // block, or failed to compute answers a bare { error } with no `valid` at all (and
+    // a reply with no result reaches here as null). Only valid === true earns the
+    // green badge; everything else shows its error as a warning. Only non-2xx
+    // (missing/invalid params, upstream outage) goes through .fail().
     function renderOracleQuoteResult(o){
-        if(o.valid === false){
+        if(!o || o.valid !== true){
+            o = o || {};
             $('#oracle-quote-result').html('<div class="alert alert-warning small mb-0" role="alert">' +
                 escapeHtml(o.error || 'Quote is not valid.') + '</div>');
             return;

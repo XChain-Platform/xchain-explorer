@@ -48,6 +48,9 @@ class MirrorGate {
     // empty mirror having to read as an outage rather than an empty ledger, while a
     // bootstrapped-but-lagging one serves with a mirror_lag_seconds annotation and
     // hard-fails past MIRROR_MAX_LAG_S only when MIRROR_LAG_FAIL_CLOSED=1 opts in.
+    // Under that threshold a lag that cannot be measured (no stream watermark yet, or
+    // a poll-mode mirror that never certifies one) counts as past it, as isTipStale
+    // treats an unknown tip: the opt-in exists to refuse what the node cannot vouch for.
     mirrorGate(coin){
         let mgr = this.hubMirrorSync;
         if(!mgr || !mgr.managesCoin(coin)) return { blocked: null, annotate: null };
@@ -63,7 +66,19 @@ class MirrorGate {
             return { blocked: 'MIRROR_NOT_BOOTSTRAPPED', annotate: null };
         let annotate = { mirror_bootstrapped: true, mirror_lag_seconds: status.mirrorLagSeconds };
         let maxLag = parseInt(configEnv().MIRROR_MAX_LAG_S, 10) || 0;
-        if(maxLag > 0 && status.mirrorLagSeconds !== null && status.mirrorLagSeconds > maxLag){
+        // Refuse an unmeasurable lag under the opt-in, and warn either way, since
+        // silently serving it is how a frozen mirror reads as a current one.
+        if(maxLag > 0 && !Number.isFinite(status.mirrorLagSeconds)){
+            log.warn('HUB_MIRROR_LAG_UNKNOWN', {
+                coin, max_lag_s: maxLag, stream_watermark: status.streamWatermark,
+                detail: 'mirror lag cannot be measured (no stream watermark: poll mode or no hub heartbeat yet)' +
+                    (configEnv().MIRROR_LAG_FAIL_CLOSED === '1' ? ' (failing closed)' : ' (serving with annotation)')
+            });
+            if(configEnv().MIRROR_LAG_FAIL_CLOSED === '1')
+                return { blocked: 'MIRROR_STALE', annotate };
+            return { blocked: null, annotate };
+        }
+        if(maxLag > 0 && status.mirrorLagSeconds > maxLag){
             log.warn('HUB_MIRROR_LAG_EXCEEDED', {
                 coin, lag_s: status.mirrorLagSeconds, max_lag_s: maxLag,
                 detail: 'mirror lag exceeds MIRROR_MAX_LAG_S' +
@@ -84,7 +99,8 @@ class MirrorGate {
         else if(blocked === 'MIRROR_NOT_BOOTSTRAPPED')
             error = 'Hub-mirror has not completed its initial bootstrap; consensus data is unavailable rather than served empty.';
         else
-            error = 'Hub-mirror is stale beyond MIRROR_MAX_LAG_S and MIRROR_LAG_FAIL_CLOSED is set.';
+            error = 'Hub-mirror lag exceeds MIRROR_MAX_LAG_S or cannot be measured (no stream watermark), ' +
+                'and MIRROR_LAG_FAIL_CLOSED is set.';
         return { error, code: blocked };
     }
 

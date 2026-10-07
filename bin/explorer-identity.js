@@ -142,6 +142,13 @@ const FIXTURE_FILES = [
 ];
 
 const COVERAGE_METRICS = ['lines', 'statements', 'branches', 'functions'];
+const UNIT_SUBSET_SCRIPTS = new Set([
+    'test:config',
+    'test:db',
+    'test:explorer',
+    'test:utility',
+    'test:ws',
+]);
 
 function sha256(buf) {
     return crypto.createHash('sha256').update(buf).digest('hex');
@@ -402,6 +409,43 @@ function collect(script) {
     return { fileCount: Object.keys(sorted).length, titleCount: titles, files: sorted };
 }
 
+function globRegex(pattern) {
+    let source = '^';
+    for (let i = 0; i < pattern.length; i += 1) {
+        const ch = pattern[i];
+        if (ch === '*' && pattern[i + 1] === '*') { source += '.*'; i += 1; }
+        else if (ch === '*') source += '[^/]*';
+        else source += /[\\^$.*+?()[\]{}|]/.test(ch) ? `\\${ch}` : ch;
+    }
+    return new RegExp(`${source}$`);
+}
+
+function collectFromSuperset(script, superset) {
+    const parsed = mochaArgsFor(script);
+    if (!parsed.args || Object.keys(parsed.env).length) return null;
+    const selectors = [];
+    for (let i = 0; i < parsed.args.length; i += 1) {
+        const arg = parsed.args[i];
+        if (arg === '--timeout') { i += 1; continue; }
+        if (arg === '--exit' || arg === '--recursive') continue;
+        if (arg.startsWith('-')) return null;
+        selectors.push(arg);
+    }
+    if (!selectors.length) return null;
+    const matchers = selectors.map(globRegex);
+    const allFiles = Object.keys(superset.files);
+    if (matchers.some((matcher) => !allFiles.some((rel) => matcher.test(rel)))) return null;
+    const files = {};
+    for (const rel of allFiles) {
+        if (matchers.some((matcher) => matcher.test(rel))) files[rel] = superset.files[rel];
+    }
+    return {
+        fileCount: Object.keys(files).length,
+        titleCount: Object.values(files).reduce((total, titles) => total + titles.length, 0),
+        files,
+    };
+}
+
 function setKey(titles) {
     return crypto.createHash('sha256').update(titles.join('\n')).digest('hex').slice(0, 16);
 }
@@ -423,6 +467,7 @@ function suiteIdentity(only) {
     const titleSets = {};
     const scripts = {};
     const totals = { scripts: names.length, collected: 0, skipped: 0, composite: 0, errored: 0, not_a_test_script: 0 };
+    let unitSuperset = null;
     for (const name of names) {
         if (only && name !== only) continue;
         if (!name.startsWith('test')) {
@@ -430,8 +475,11 @@ function suiteIdentity(only) {
             totals.not_a_test_script += 1;
             continue;
         }
-        const result = collect(pkg.scripts[name]);
+        const result = unitSuperset && UNIT_SUBSET_SCRIPTS.has(name)
+            ? collectFromSuperset(pkg.scripts[name], unitSuperset) || collect(pkg.scripts[name])
+            : collect(pkg.scripts[name]);
         if (result.files) {
+            if (name === 'test') unitSuperset = { files: result.files };
             const files = {};
             for (const rel of Object.keys(result.files)) {
                 const key = setKey(result.files[rel]);

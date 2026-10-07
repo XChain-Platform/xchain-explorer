@@ -1,0 +1,250 @@
+{
+  "_description": "Canonical conformance vectors for the stake-weighted quorum predicate (STAKE_WEIGHTED_QUORUM / WI-1). The predicate's canonical source is xchain-indexer/src/consensus/stake_weighted_quorum.js; the platform's twin reconciler vendors BYTE-IDENTICAL copies into xchain-hub, xchain-explorer, xchain-sdk, xchain-sync and this repo's protocol/reference-impl/consensus/stake_weighted_quorum.js. Each repo's ConsensusPrimitiveConformance test runs these vectors against its local copy AND asserts byte-identity with the documentation copy, so any drift is machine-detectable. A divergence in predicate logic forks the chain. This file is the single source of truth; do not fork it. Predicate: a source-deduped quorum holds iff 3 * sum(distinct signing-source weight) > 2 * S, where S = sum of weight over distinct sources; pubkeys are matched case-insensitively. Fail-closed rules: a blank or missing source fails closed; a MISSING or nonnumeric weight fails closed (totalStake throws), because zeroing it shrinks S and lowers the very 2/3 bar it is measured against (#3897) - an explicit '0' is still legitimate; a NEGATIVE weight anywhere in the snapshot fails closed (totalStake throws); a non-positive total stake S is never quorate.",
+  "meetsStakeThreshold": [
+    {
+      "name": "single source meets the threshold (3S > 2S)",
+      "validators": [{ "pubkey": "K1", "source": "s1", "weight": "10" }],
+      "signers": ["K1"],
+      "expected": true
+    },
+    {
+      "name": "empty signer set fails (0 > 0 is false)",
+      "validators": [{ "pubkey": "K1", "source": "s1", "weight": "10" }],
+      "signers": [],
+      "expected": false
+    },
+    {
+      "name": "two of three equal sources fail the strict 2/3 boundary (60 > 60 is false)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "10" },
+        { "pubkey": "K3", "source": "s3", "weight": "10" }
+      ],
+      "signers": ["K1", "K2"],
+      "expected": false
+    },
+    {
+      "name": "all three equal sources pass (90 > 60)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "10" },
+        { "pubkey": "K3", "source": "s3", "weight": "10" }
+      ],
+      "signers": ["K1", "K2", "K3"],
+      "expected": true
+    },
+    {
+      "name": "three of four equal sources pass (>2/3)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "10" },
+        { "pubkey": "K3", "source": "s3", "weight": "10" },
+        { "pubkey": "K4", "source": "s4", "weight": "10" }
+      ],
+      "signers": ["K1", "K2", "K3"],
+      "expected": true
+    },
+    {
+      "name": "two of four equal sources fail",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "10" },
+        { "pubkey": "K3", "source": "s3", "weight": "10" },
+        { "pubkey": "K4", "source": "s4", "weight": "10" }
+      ],
+      "signers": ["K1", "K2"],
+      "expected": false
+    },
+    {
+      "name": "source dedup: two keys of one source count that source once (insufficient)",
+      "validators": [
+        { "pubkey": "K1a", "source": "s1", "weight": "10" },
+        { "pubkey": "K1b", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "10" },
+        { "pubkey": "K3", "source": "s3", "weight": "10" }
+      ],
+      "signers": ["K1a", "K1b"],
+      "expected": false
+    },
+    {
+      "name": "pubkey match is case-insensitive",
+      "validators": [{ "pubkey": "ABCD", "source": "s1", "weight": "10" }],
+      "signers": ["abcd"],
+      "expected": true
+    },
+    {
+      "name": "a duplicate signer pubkey is counted once",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "10" },
+        { "pubkey": "K3", "source": "s3", "weight": "10" }
+      ],
+      "signers": ["K1", "K1", "K2"],
+      "expected": false
+    },
+    {
+      "name": "an unknown signer pubkey is ignored, not counted",
+      "validators": [{ "pubkey": "K1", "source": "s1", "weight": "10" }],
+      "signers": ["K1", "UNKNOWN"],
+      "expected": true
+    },
+    {
+      "name": "blank source fails closed even though it would otherwise pass",
+      "validators": [{ "pubkey": "K1", "source": "", "weight": "10" }],
+      "signers": ["K1"],
+      "expected": false
+    },
+    {
+      "name": "weighted: one heavy source alone exceeds 2/3 of total (300 > 240)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "100" },
+        { "pubkey": "K2", "source": "s2", "weight": "10" },
+        { "pubkey": "K3", "source": "s3", "weight": "10" }
+      ],
+      "signers": ["K1"],
+      "expected": true
+    },
+    {
+      "name": "decimal weights: fractional stake math is exact (4.5 > 3.0)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "0.5" },
+        { "pubkey": "K2", "source": "s2", "weight": "0.5" },
+        { "pubkey": "K3", "source": "s3", "weight": "0.5" }
+      ],
+      "signers": ["K1", "K2", "K3"],
+      "expected": true
+    },
+    {
+      "name": "negative weight fails closed: a corrupt row cannot buy quorum for an otherwise-passing signer",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "-100" }
+      ],
+      "signers": ["K1"],
+      "expected": false
+    },
+    {
+      "name": "negative weight fails closed: an EMPTY signer set must not finalize against negative S (0 > 2*S regression)",
+      "validators": [{ "pubkey": "K1", "source": "s1", "weight": "-5" }],
+      "signers": [],
+      "expected": false
+    },
+    {
+      "name": "negative weight fails closed even when the remaining positive stake alone would pass",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "100" },
+        { "pubkey": "K2", "source": "s2", "weight": "-1" },
+        { "pubkey": "K3", "source": "s3", "weight": "10" }
+      ],
+      "signers": ["K1", "K3"],
+      "expected": false
+    },
+    {
+      "name": "all-zero weights: S is not positive, nothing is quorate even with every source signing",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "0" },
+        { "pubkey": "K2", "source": "s2", "weight": "0" }
+      ],
+      "signers": ["K1", "K2"],
+      "expected": false
+    },
+    {
+      "name": "a TRUNCATED snapshot fails closed even when the un-truncated set would be quorate (stake-eviction / silent-drift guard)",
+      "validators": [{ "pubkey": "K1", "source": "s1", "weight": "10" }],
+      "signers": ["K1"],
+      "truncated": true,
+      "expected": false
+    },
+    {
+      "name": "a missing weight fails closed: it must not shrink S and lower the 2/3 bar",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "70" },
+        { "pubkey": "K2", "source": "s2", "weight": "20" },
+        { "pubkey": "K3", "source": "s3" }
+      ],
+      "signers": ["K1"],
+      "expected": false
+    },
+    {
+      "name": "a null weight fails closed for the same reason",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "70" },
+        { "pubkey": "K2", "source": "s2", "weight": null }
+      ],
+      "signers": ["K1"],
+      "expected": false
+    },
+    {
+      "name": "a nonnumeric weight fails closed (bcnum would silently zero it)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "70" },
+        { "pubkey": "K2", "source": "s2", "weight": "x" }
+      ],
+      "signers": ["K1"],
+      "expected": false
+    },
+    {
+      "name": "an explicit zero weight is still legitimate and does not fail closed",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "0" }
+      ],
+      "signers": ["K1"],
+      "expected": true
+    }
+  ],
+  "totalStake": [
+    {
+      "name": "sums weight over distinct sources (first weight per source wins)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K1b", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "5" }
+      ],
+      "expected": "15"
+    },
+    {
+      "name": "a blank source throws (a collapsed bucket is meaningless)",
+      "validators": [{ "pubkey": "K1", "source": "", "weight": "10" }],
+      "throws": true
+    },
+    {
+      "name": "a negative weight throws (S over a corrupt snapshot is meaningless)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "-1" }
+      ],
+      "throws": true
+    },
+    {
+      "name": "a TRUNCATED snapshot throws (dropped sources make the sum meaningless)",
+      "validators": [{ "pubkey": "K1", "source": "s1", "weight": "10" }],
+      "truncated": true,
+      "throws": true
+    },
+    {
+      "name": "a missing weight throws (zeroing it would silently lower S)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2" }
+      ],
+      "throws": true
+    },
+    {
+      "name": "a nonnumeric weight throws (bcnum would silently zero it)",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "x" }
+      ],
+      "throws": true
+    },
+    {
+      "name": "an explicit zero weight is legitimate and sums normally",
+      "validators": [
+        { "pubkey": "K1", "source": "s1", "weight": "10" },
+        { "pubkey": "K2", "source": "s2", "weight": "0" }
+      ],
+      "expected": "10"
+    }
+  ]
+}

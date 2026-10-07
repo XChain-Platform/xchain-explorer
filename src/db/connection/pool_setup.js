@@ -34,6 +34,18 @@
 
 const poolSizing = require('../../mirror/pool_sizing');
 
+// The driver's timezone option only issues SET time_zone for the session; it
+// still builds DATE and DATETIME values with the host's local zone. Columns
+// here hold UTC literals, so decode them as UTC on any host.
+function utcTypeCast(column, next){
+    const type = column.type;
+    if(type !== 'DATETIME' && type !== 'TIMESTAMP' && type !== 'DATE') return next();
+    const text = column.string();
+    if(text === null || text.startsWith('0000-00-00')) return null;
+    const iso = text.length <= 10 ? text + 'T00:00:00Z' : text.replace(' ', 'T') + 'Z';
+    return new Date(iso);
+}
+
 // Empty every per-coin map setup is about to refill. Runs after the previous
 // pools were ended, so nothing still references a handle these maps held.
 function resetPoolMaps(db){
@@ -130,7 +142,8 @@ function indexerPoolConfig(cfg){
         queryTimeout:     poolSizing.resolveQueryTimeout('indexer'),
         // Run the session at +00:00 like the indexer and decoder writers, so
         // UNIX_TIMESTAMP() and NOW() agree with their UTC-literal DATETIME columns
-        timezone:         'Z'
+        timezone:         'Z',
+        typeCast:         utcTypeCast
     };
 }
 
@@ -206,7 +219,8 @@ function setDecoderPool(db, mariadb, dcfg, cfg, key){
                     insertIdAsNumber: true,
                     queryTimeout:     poolSizing.resolveQueryTimeout('decoder'),
                     // Session at +00:00: mempool first_seen is a UTC-literal DATETIME
-                    timezone:         'Z'
+                    timezone:         'Z',
+                    typeCast:         utcTypeCast
                 });
             }
         }
@@ -241,4 +255,4 @@ function setCheckpointDb(db, kcfg, cfg, key, coin, net){
     }
 }
 
-module.exports = { resetPoolMaps, setNetworkPools };
+module.exports = { resetPoolMaps, setNetworkPools, utcTypeCast, indexerPoolConfig };

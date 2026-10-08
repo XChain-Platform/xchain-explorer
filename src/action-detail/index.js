@@ -89,7 +89,10 @@ function getHandler(type) {
 // Sorted so the manifest-conformance guard and the golden generator both see a
 // stable order regardless of require order.
 const ACTION_TYPES = Object.keys(REGISTRY).sort();
-const ACTION_DETAIL_ONLY_TYPES = Object.freeze(['LIST_SHARE', 'XPOLICY']);
+// Registered handlers the manifest does not mark explorerRender. Empty since the
+// canonical manifest gained the settlement-anchor category, which marks XPOLICY
+// and LIST_SHARE explorerRender.
+const ACTION_DETAIL_ONLY_TYPES = Object.freeze([]);
 
 module.exports = {
     REGISTRY,

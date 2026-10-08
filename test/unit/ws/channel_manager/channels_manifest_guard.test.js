@@ -31,8 +31,7 @@ const LIFECYCLE_EVENTS = [
     'XCALL_COMPLETED', 'XCALL_EXPIRED',
     'ATTESTATION_REQUEST', 'ATTESTATION_RESPONSE'
 ];
-const SETTLEMENT_ANCHOR_ROWS = ['XPOLICY', 'LIST_SHARE'];
-const EXEMPT = new Set([...LIFECYCLE_EVENTS, ...SETTLEMENT_ANCHOR_ROWS]);
+const EXEMPT = new Set(LIFECYCLE_EVENTS);
 
 describe('channel manager type names against the action manifest', function () {
 

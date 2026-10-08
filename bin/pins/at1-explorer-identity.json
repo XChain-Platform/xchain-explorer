@@ -3278,21 +3278,6 @@
         "whereAnchor returns the anchor mapped to each representative query method",
         "whereAnchor uses the default for names inherited from Object.prototype"
       ],
-      "1ff029a1efbfe22d": [
-        "Security: Rate Limiting: operator template and README quote the source default .env.example states and assigns the source app-wide default",
-        "Security: Rate Limiting: operator template and README quote the source default README rate-limiting bullet quotes the source default when it quotes one",
-        "Security: Rate Limiting: operator template and README quote the source default parses a stale template and README figure, so a drift cannot read as absent",
-        "Security: Rate Limiting: operator template and README quote the source default reads an app-wide default from the source (sanity: the parser matched)",
-        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names a drifted default when the source default no longer equals the pin",
-        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names an orphaned pin when the conf keeps one the source no longer reads",
-        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names an unpinned variable when the source reads one the conf lacks",
-        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) reports a missing pin and a value drift together, not just the first one found",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) keeps every source default equal to its pinned value, naming any drift (row 32)",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) keeps the app-wide fallback equal to the derived 1080 (row 32)",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) pins every knob the source reads (row 33: no unpinned variable)",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) reads back every pinned name in the source (row 33: no orphaned pin)",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) sees nine limiter env vars on each side today (sanity: the parsers matched something)"
-      ],
       "21dd83888010e79b": [
         "db.getMempool: list-all mode (M1.2) address/token filtering still narrows the set in list-all's absence (regression guard)",
         "db.getMempool: list-all mode (M1.2) an empty string type is treated the same as no type (list-all)",
@@ -9595,6 +9580,21 @@
         "Database#getCommitments (M3.8 data leg) the list query carries a LIMIT sourced from config.data.sql.limit",
         "Database#getCommitments (M3.8 data leg) type=block appends the bound height as the LAST arg, after every join placeholder"
       ],
+      "ed25dda8f6e30778": [
+        "Security: Rate Limiting: operator template and README quote the source default .env.example states and assigns the source app-wide default",
+        "Security: Rate Limiting: operator template and README quote the source default README rate-limiting bullet quotes the source default when it quotes one",
+        "Security: Rate Limiting: operator template and README quote the source default parses a stale template and README figure, so a drift cannot read as absent",
+        "Security: Rate Limiting: operator template and README quote the source default reads an app-wide default from the source (sanity: the parser matched)",
+        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names a drifted default when the source default no longer equals the pin",
+        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names an orphaned pin when the conf keeps one the source no longer reads",
+        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names an unpinned variable when the source reads one the conf lacks",
+        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) reports a missing pin and a value drift together, not just the first one found",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) keeps every source default equal to its pinned value, naming any drift (row 32)",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) keeps the app-wide fallback equal to the derived 180 (row 32)",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) pins every knob the source reads (row 33: no unpinned variable)",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) reads back every pinned name in the source (row 33: no orphaned pin)",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) sees nine limiter env vars on each side today (sanity: the parsers matched something)"
+      ],
       "ede31e64f456f593": [
         "federation reads: coin routing refuses getrollcallsigners on TBTC with the indexer's DOGE-only error, reading nothing",
         "federation reads: coin routing serves a coin-neutral read off the TBTC replica",
@@ -10547,7 +10547,7 @@
           "test/security/npmrc_hygiene.test.js": "a1f62ebd773c03f5",
           "test/security/path_traversal.test.js": "d4ac69945c87d14c",
           "test/security/rate_limit_log.test.js": "aa5c8baf3a84108d",
-          "test/security/rate_limit_pins.test.js": "1ff029a1efbfe22d",
+          "test/security/rate_limit_pins.test.js": "ed25dda8f6e30778",
           "test/security/rate_limiting.test.js": "93d927780b91e5db",
           "test/security/sql_injection.test.js": "22c2224ee6100d6f",
           "test/security/ssrf_protection.test.js": "2cddc605027d7848"

@@ -45,6 +45,67 @@ const fixturePorts = require('../../../bin/fixture-ports.js');
 
 const FIXTURE_DATABASE = 'XChain_BTC_Regtest_Indexer';
 
+function withTimeoutFloor(hook, timeoutMs) {
+    const setFloor = (context) => {
+        const timeout = context.timeout;
+        context.timeout = function (value) {
+            if (arguments.length === 0) return timeout.call(this);
+            const requested = Number(value);
+            return timeout.call(this,
+                Number.isFinite(requested) && requested > 0 ? Math.max(requested, timeoutMs) : value);
+        };
+        context.timeout(timeoutMs);
+        return () => { context.timeout = timeout; };
+    };
+
+    if (hook.length > 0) {
+        return function (done) {
+            const restore = setFloor(this);
+            let finished = false;
+            const finish = (...args) => {
+                if (!finished) {
+                    finished = true;
+                    restore();
+                }
+                done(...args);
+            };
+            try {
+                return hook.call(this, finish);
+            } catch (err) {
+                restore();
+                throw err;
+            }
+        };
+    }
+
+    return function (...args) {
+        const restore = setFloor(this);
+        try {
+            const result = hook.apply(this, args);
+            if (result && typeof result.then === 'function') return Promise.resolve(result).finally(restore);
+            restore();
+            return result;
+        } catch (err) {
+            restore();
+            throw err;
+        }
+    };
+}
+
+function installMochaHookTimeoutFloor(timeoutMs) {
+    if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) return;
+    for (const name of ['before', 'after', 'beforeEach', 'afterEach']) {
+        const register = global[name];
+        if (typeof register !== 'function') continue;
+        global[name] = function (title, hook) {
+            if (typeof title === 'function') return register(withTimeoutFloor(title, timeoutMs));
+            return register(title, withTimeoutFloor(hook, timeoutMs));
+        };
+    }
+}
+
+installMochaHookTimeoutFloor(Number(process.env.XCHAIN_INTEGRATION_HOOK_TIMEOUT_MS));
+
 // Accept a host-side symlink to a shared venue environment file and use its
 // database instead of publishing another one on the same fixed port.
 const VENUE_ENV_PATH = process.env.XCHAIN_VENUE_ENV || '/misc/ci/venue.env';

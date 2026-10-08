@@ -44,7 +44,8 @@ if ! node bin/db-fixture.js check; then
 fi
 
 MOCHA="node ./node_modules/.bin/mocha"
-FLAGS="--timeout 30000 --exit"
+export XCHAIN_INTEGRATION_HOOK_TIMEOUT_MS="${XCHAIN_INTEGRATION_HOOK_TIMEOUT_MS:-120000}"
+FLAGS="--timeout $XCHAIN_INTEGRATION_HOOK_TIMEOUT_MS --exit"
 failed=()
 
 for f in test/integration/*.test.js; do

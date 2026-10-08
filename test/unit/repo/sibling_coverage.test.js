@@ -78,6 +78,9 @@ const SIBLINGS = [
     { repo: 'xchain-hub', envs: ['XCHAIN_HUB_DIR'],
       marker: path.join('src', 'coins'),
       guards: 'vendored coins-registry byte-identity (BTC/LTC/DOGE/index/consensus_pin)' },
+    { repo: 'xchain-dashboard', envs: ['XCHAIN_DASHBOARD_DIR'],
+      marker: path.join('monitor', 'src', 'lib', 'explorer-client.js'),
+      guards: 'dashboard explorer-reader field manifest conformance' },
 ];
 
 function resolve(entry) {

@@ -31,3 +31,5 @@ xchain-encoder
 xchain-hub
 # Shared gate_registry twin rows.
 xchain-sync
+# Dashboard explorer-reader field manifest conformance.
+xchain-dashboard

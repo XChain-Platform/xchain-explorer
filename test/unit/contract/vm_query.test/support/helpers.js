@@ -40,7 +40,7 @@ function dbStub(overrides = {}){
 // carries it by default, so the fail-closed drift gate does not turn the rest
 // of the suite into drift refusals; the gate's own tests override it.
 const CANONICAL_VM_CONSENSUS = {
-    CONSENSUS_VERSION:                   '5',
+    CONSENSUS_VERSION:                   '6',
     BINARY_ALLOC_GATE_BLOCK_TIME:        1786060800,
     ASYNC_SURFACE_GATE_BLOCK_TIME:       1786060800,
     STATE_KEY_NUL_GATE_BLOCK_TIME:       1786060800,

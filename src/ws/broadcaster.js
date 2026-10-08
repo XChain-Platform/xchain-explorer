@@ -89,13 +89,35 @@ class Broadcaster {
         // invalidation and needs no clock.
         this._addressIdMemo = new Map(); // coin -> Map<address, id|null>
 
+        // An indexed action row can produce NEW_ACTION, lifecycle, entity and
+        // attestation frames. Keep its delivery admission open until the detector
+        // announces the row end so one client cannot receive only a prefix.
+        this._actionRows = new Map(); // coin -> { action, admissions }
+
         // Wire up ChangeDetector events
+        this.changeDetector.on('action_row_start', (coin, action) => this.onActionRowStart(coin, action));
+        this.changeDetector.on('action_row_end',   (coin, action) => this.onActionRowEnd(coin, action));
         this.changeDetector.on('block',           (coin, block)  => this.onBlock(coin, block));
         this.changeDetector.on('action',          (coin, action) => this.onAction(coin, action));
         this.changeDetector.on('lifecycle_event',  (coin, event)  => this.onLifecycleEvent(coin, event));
         this.changeDetector.on('entity_update',    (coin, event)  => this.onEntityUpdate(coin, event));
         this.changeDetector.on('mempool_action',   (coin, row)    => this.onMempoolAction(coin, row));
         this.changeDetector.on('mempool_removed',  (coin, row)    => this.onMempoolRemoved(coin, row));
+    }
+
+    onActionRowStart(coin, action) {
+        this._actionRows.set(coin, { action, admissions: new Map() });
+    }
+
+    onActionRowEnd(coin, action) {
+        const row = this._actionRows.get(coin);
+        if (!row || row.action !== action) return;
+        this._actionRows.delete(coin);
+        for (const client of this.wsServer.getClients().values()) {
+            if (client.coin !== coin || !client.backpressureClosePending) continue;
+            client.backpressureClosePending = false;
+            this.shedBackedUpClient(client);
+        }
     }
 
     // Handle new block from ChangeDetector. NEW_BLOCK is broadcast synchronously
@@ -222,8 +244,9 @@ class Broadcaster {
         // The coin-wide actions channel first, then each distinct party's address channel
         // (one frame for an address that is both source and destination). The catch-up
         // replay routes by the same actionChannelKeys, so the two cannot drift apart.
+        const actionRow = this._actionRows.get(coin);
         for (const channelKey of actionChannelKeys(coin, action.source, event.data.destinations)) {
-            this.broadcastToChannelKey(channelKey, event, action);
+            this.broadcastToChannelKey(channelKey, event, action, actionRow);
         }
     }
 
@@ -243,8 +266,9 @@ class Broadcaster {
         // The global 'actions' channel, the dedicated channel the event names (per entity
         // when it is an entity channel such as coin:dispenser:<index>), then each address
         // it names. The catch-up replay routes by the same lifecycleChannelKeys.
+        const actionRow = this._actionRows.get(coin);
         for (const channelKey of lifecycleChannelKeys(this, coin, lifecycleEvent)) {
-            this.broadcastToChannelKey(channelKey, event, lifecycleEvent);
+            this.broadcastToChannelKey(channelKey, event, lifecycleEvent, actionRow);
         }
     }
 
@@ -313,13 +337,13 @@ class Broadcaster {
                 tick1: updateEvent.data.tick1,
                 tick2: updateEvent.data.tick2
             });
-            this.broadcastToChannelKey(channelKey, event, updateEvent);
+            this.broadcastToChannelKey(channelKey, event, updateEvent, this._actionRows.get(coin));
         } else if (entityId !== null && entityId !== undefined) {
             let entityKey = { address: entityId };
             if(updateEvent.channel === 'token') entityKey = { tick: entityId };
             if(updateEvent.channel === 'dispenser') entityKey = { action_index: entityId };
             const channelKey = this.wsServer.channelManager.buildChannelKey(coin, updateEvent.channel, entityKey);
-            this.broadcastToChannelKey(channelKey, event, updateEvent);
+            this.broadcastToChannelKey(channelKey, event, updateEvent, this._actionRows.get(coin));
         }
     }
 

@@ -3844,6 +3844,14 @@
         "ATTEST batch summaries labels a v6 continuation from the action detail aliases",
         "ATTEST batch summaries leaves a v0 row on the existing ATTEST fallback"
       ],
+      "2707aa9125a50264": [
+        "Broadcaster row-atomic backpressure defers a non-row backpressure close before the client's first row frame until row end",
+        "Broadcaster row-atomic backpressure defers a non-row backpressure close until the admitted row ends",
+        "Broadcaster row-atomic backpressure ends a detector row even when enrichment fails",
+        "Broadcaster row-atomic backpressure keeps attestation fanout in the admission chosen for its action row",
+        "Broadcaster row-atomic backpressure keeps every wanted frame in a row after admitting its first frame",
+        "Broadcaster row-atomic backpressure rejects a backed-up row once instead of reconsidering each frame"
+      ],
       "2709cccf5e791788": [
         "XChainDecoderConnector constructor defaults the timeout to 2500ms (status hot path)",
         "XChainDecoderConnector constructor honours DECODER_API_TIMEOUT_MS",
@@ -9925,8 +9933,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 347,
-        "titleCount": 5898,
+        "fileCount": 348,
+        "titleCount": 5904,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10257,6 +10265,7 @@
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
           "test/unit/ws/broadcaster_mempool_fanout.test.js": "1c31b3f297b71629",
           "test/unit/ws/broadcaster_mempool_types_filter.test.js": "5b1ab7ada43c315b",
+          "test/unit/ws/broadcaster_row_atomic_backpressure.test.js": "2707aa9125a50264",
           "test/unit/ws/broadcaster_stale_marker.test.js": "e74a3fb230017c50",
           "test/unit/ws/change_detector.test.js": "266e2b5772181edf",
           "test/unit/ws/change_detector/bet_latches.test.js": "dbbbe200376c26b1",
@@ -10584,8 +10593,8 @@
         }
       },
       "test:ws": {
-        "fileCount": 18,
-        "titleCount": 365,
+        "fileCount": 19,
+        "titleCount": 371,
         "files": {
           "test/unit/ws/bet_frame_keys.test.js": "8f07c8b4794b7a91",
           "test/unit/ws/broadcaster.test.js": "19290a524bdda045",
@@ -10593,6 +10602,7 @@
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
           "test/unit/ws/broadcaster_mempool_fanout.test.js": "1c31b3f297b71629",
           "test/unit/ws/broadcaster_mempool_types_filter.test.js": "5b1ab7ada43c315b",
+          "test/unit/ws/broadcaster_row_atomic_backpressure.test.js": "2707aa9125a50264",
           "test/unit/ws/broadcaster_stale_marker.test.js": "e74a3fb230017c50",
           "test/unit/ws/change_detector.test.js": "266e2b5772181edf",
           "test/unit/ws/change_detector_mempool_map.test.js": "11daa587b9651a21",

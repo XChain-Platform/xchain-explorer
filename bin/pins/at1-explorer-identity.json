@@ -4668,6 +4668,19 @@
         "API docs page spec URL points Swagger UI at /openapi.json",
         "API docs page spec URL serves the generated docs/openapi.json at the initializer URL"
       ],
+      "4c8d99048b00614d": [
+        "SEND and DESTROY whole-action paging getDestroys applies API offsets to actions instead of legs",
+        "SEND and DESTROY whole-action paging getDestroys applies raw explorer starts to actions instead of returning the first page",
+        "SEND and DESTROY whole-action paging getDestroys de-duplicates action cursors in first, last, and stop boundaries",
+        "SEND and DESTROY whole-action paging getDestroys limits distinct actions and returns every selected leg",
+        "SEND and DESTROY whole-action paging getDestroys uses cursor predicates instead of explorer starts for next pages",
+        "SEND and DESTROY whole-action paging getSends applies API offsets to actions instead of legs",
+        "SEND and DESTROY whole-action paging getSends applies raw explorer starts to actions instead of returning the first page",
+        "SEND and DESTROY whole-action paging getSends de-duplicates action cursors in first, last, and stop boundaries",
+        "SEND and DESTROY whole-action paging getSends limits distinct actions and returns every selected leg",
+        "SEND and DESTROY whole-action paging getSends uses cursor predicates instead of explorer starts for next pages",
+        "SEND and DESTROY whole-action paging leaves single-row action boundaries unchanged"
+      ],
       "4d36f7f61b891a56": [
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression capability rotate (v0) is untouched and drops wire_data from the response",
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression stake-key revoke (revoked_pubkey set) is NOT overridden by the wire resolver",
@@ -9905,8 +9918,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 345,
-        "titleCount": 5882,
+        "fileCount": 346,
+        "titleCount": 5893,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10103,6 +10116,7 @@
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "0b02e0d503f02250",
           "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "ceeb3b770bc5d73b",
           "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "4b74db17492acc17",
+          "test/unit/db/readers/actions/sends_destroys_whole_action_paging.test.js": "4c8d99048b00614d",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
           "test/unit/db/readers/bets/db_bet_leg_status.test.js": "82bf43fea502fa27",
           "test/unit/db/readers/db_attest_batch_probe.test.js": "fce077957ca91145",

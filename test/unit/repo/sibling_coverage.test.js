@@ -56,6 +56,10 @@ const STRICT       = process.env.XCHAIN_REQUIRE_SIBLINGS === '1';
 // altEnvs name an override that points straight at the material a guard needs
 // (a schema directory, say) rather than at the repo: set and present, the guard
 // runs, so the sibling is not what that run is missing.
+// optional marks a sibling no CI venue can ship (a private repo the shared
+// unauthenticated clone loop cannot fetch): it is reported like any other when
+// absent, but it is never declared in .ci-siblings and its absence never fails
+// strict mode, since no run could ever supply it.
 const SIBLINGS = [
     { repo: 'xchain-indexer', envs: [],
       marker: path.join('src', 'sql'),
@@ -78,7 +82,7 @@ const SIBLINGS = [
     { repo: 'xchain-hub', envs: ['XCHAIN_HUB_DIR'],
       marker: path.join('src', 'coins'),
       guards: 'vendored coins-registry byte-identity (BTC/LTC/DOGE/index/consensus_pin)' },
-    { repo: 'xchain-dashboard', envs: ['XCHAIN_DASHBOARD_DIR'],
+    { repo: 'xchain-dashboard', envs: ['XCHAIN_DASHBOARD_DIR'], optional: 'private repo, not cloned by CI',
       marker: path.join('monitor', 'src', 'lib', 'explorer-client.js'),
       guards: 'dashboard explorer-reader field manifest conformance' },
 ];
@@ -120,7 +124,8 @@ describe('cross-repo sibling coverage (what this run could NOT verify)', functio
         const mode = STRICT ? 'STRICT (absence fails)' : 'permissive (absence skips)';
         console.log(`      sibling coverage: ${results.length - absent.length}/${results.length} resolvable, ${mode}`);
         for (const r of absent) {
-            console.log(`      NOT VERIFIED: ${r.repo} absent at ${r.dir} (${r.via}) -> ${r.guards}`);
+            const why = r.optional ? ` [optional: ${r.optional}]` : '';
+            console.log(`      NOT VERIFIED: ${r.repo} absent at ${r.dir} (${r.via})${why} -> ${r.guards}`);
         }
     });
 
@@ -142,7 +147,7 @@ describe('cross-repo sibling coverage (what this run could NOT verify)', functio
         assert.ok(fs.existsSync(declFile), '.ci-siblings is missing from ' + REPO_ROOT);
         const declared = fs.readFileSync(declFile, 'utf8').split('\n')
             .map(l => l.trim()).filter(l => l && !l.startsWith('#'));
-        const undeclared = results.map(r => r.repo).filter(r => !declared.includes(r));
+        const undeclared = results.filter(r => !r.optional).map(r => r.repo).filter(r => !declared.includes(r));
         assert.deepStrictEqual(undeclared, [],
             'these siblings carry cross-repo guards but are not declared in .ci-siblings, so the '
             + 'venue never checks them out and every guard against them skips while the gate prints '
@@ -150,16 +155,17 @@ describe('cross-repo sibling coverage (what this run could NOT verify)', functio
     });
 
     it('resolves every sibling checkout the cross-repo guards depend on', function () {
+        const required = absent.filter(r => !r.optional);
         if (!absent.length) return;
-        const detail = absent.map(r => `${r.repo} (expected ${r.dir}, via ${r.via}; silences ${r.guards})`).join('; ');
-        if (STRICT) {
+        const detail = required.map(r => `${r.repo} (expected ${r.dir}, via ${r.via}; silences ${r.guards})`).join('; ');
+        if (STRICT && required.length) {
             throw new Error(
-                `XCHAIN_REQUIRE_SIBLINGS=1 but ${absent.length} sibling checkout(s) are missing: ${detail}. `
+                `XCHAIN_REQUIRE_SIBLINGS=1 but ${required.length} sibling checkout(s) are missing: ${detail}. `
                 + 'Every cross-repo parity guard against them skipped, so this run proves less than a green '
                 + 'result suggests. Check the siblings out, or unset XCHAIN_REQUIRE_SIBLINGS to accept the gap.');
         }
-        // Permissive mode: recorded above and in the pending list, never a failure,
-        // so a single-repo clone stays green.
+        // Permissive mode, or only optional siblings absent: recorded above and in
+        // the pending list, never a failure, so a single-repo clone stays green.
         this.skip();
     });
 });

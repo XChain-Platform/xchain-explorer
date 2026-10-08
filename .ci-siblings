@@ -31,5 +31,10 @@ xchain-encoder
 xchain-hub
 # Shared gate_registry twin rows.
 xchain-sync
-# Dashboard explorer-reader field manifest conformance.
-xchain-dashboard
+# xchain-dashboard is NOT declared here although the dashboard explorer-reader
+# manifest guard reads it: the repo is private, and the shared GitHub clone loop
+# fetches every name in this file unauthenticated, so declaring it fails the
+# whole CI job before any test runs. The guard resolves the dashboard from a
+# developer checkout beside this repo or XCHAIN_DASHBOARD_DIR, and skips with a
+# printed reason where it is absent; sibling_coverage.test.js lists it as an
+# optional sibling so the gap still prints on every run.

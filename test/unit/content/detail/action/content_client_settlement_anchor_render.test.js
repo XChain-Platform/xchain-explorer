@@ -22,9 +22,16 @@ const { JSDOM } = require('jsdom');
 const content = path.resolve(__dirname, '..', '..', '..', '../../src/content');
 const panels = require(path.join(content, 'js', 'xbridge_panels_render.js'));
 
+function feedLabel(action){
+    const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
+    dom.window.XC = { coin: 'DOGE' };
+    dom.window.eval(fs.readFileSync(path.join(content, 'js', 'xchain', 'action_detail.js'), 'utf8'));
+    return dom.window.getActionDetails(action, {});
+}
+
 describe('settlement anchor panels', function(){
     it('renders an XPOLICY snapshot', function(){
-        const html = panels.renderXpolicyAction({ snapshot: {
+        const html = panels.renderXpolicyAction({ policy_snapshot: {
             tick: 'PEPE', origin_chain: 'BTC', policy_seq: 3, snapshot_block: 900, origin_block: 880,
             allow_list: '["a","b"]', block_list: null, sleeping: 1, policy_hash: 'ab12'
         }});
@@ -36,7 +43,7 @@ describe('settlement anchor panels', function(){
     });
 
     it('renders a LIST_SHARE version and escapes the name', function(){
-        const html = panels.renderListShareAction({ snapshot: {
+        const html = panels.renderListShareAction({ list_snapshot: {
             home_chain: 'DOGE', home_list_index: 7, seq: 2, kind: 'delta', snapshot_block: 910,
             added: '["x"]', removed: '[]', name: '<b>n</b>', members_hash: 'cd34'
         }});
@@ -48,6 +55,11 @@ describe('settlement anchor panels', function(){
 
     it('shows dashes when the snapshot is not mirrored', function(){
         expect(panels.renderXpolicyAction({})).to.match(/xc-anchor-token">-/);
+    });
+
+    it('labels XPOLICY and LIST_SHARE rows in compact action feeds', function(){
+        expect(feedLabel('XPOLICY')).to.equal('Policy snapshot (XPOLICY)');
+        expect(feedLabel('LIST_SHARE')).to.equal('Shared list version (LIST_SHARE)');
     });
 
     it('wires both actions into the action page', function(){

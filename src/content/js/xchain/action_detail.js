@@ -370,6 +370,10 @@ function actionDetail_renderConsensusActions(html, action, info, coin){
         if(batchLabel !== null)
             html = escapeHtml(batchLabel);
     }
+    if(action=='XPOLICY')
+        html = 'Policy snapshot (XPOLICY)';
+    if(action=='LIST_SHARE')
+        html = 'Shared list version (LIST_SHARE)';
     // Never render a blank Details cell: any type without an explicit summary
     // above (BATCH, XCALL, XEXEC, CROSS_SETTLE, NODEPROOF, ATTEST, COINPAY,
     // ... and any FUTURE type) falls back to a humanized action name, so a new

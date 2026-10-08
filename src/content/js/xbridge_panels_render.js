@@ -333,10 +333,9 @@ function anchorCount(v){
     return Array.isArray(a) ? a.length : null;
 }
 
-// XPOLICY: a finalized bridged-token policy snapshot. d.snapshot is the mirrored
-// policy_snapshots row; without it the wire fields on d render alone.
+// XPOLICY: a finalized bridged-token policy snapshot.
 function renderXpolicyAction(d){
-    var s    = (d && d.snapshot) ? d.snapshot : (d || {});
+    var s    = (d && (d.policy_snapshot || d.snapshot)) || d || {};
     var row  = anchorRowBuilder();
     var html = '<table class="table table-sm table-striped table-bordered mb-0 no-outer-borders xc-anchor-action" data-anchor="xpolicy"><tbody>';
     html += row('Format', 'Policy snapshot (XPOLICY)');
@@ -354,10 +353,9 @@ function renderXpolicyAction(d){
     return html;
 }
 
-// LIST_SHARE: a finalized shared-list version. d.snapshot is the mirrored
-// list_snapshots row.
+// LIST_SHARE: a finalized shared-list version.
 function renderListShareAction(d){
-    var s    = (d && d.snapshot) ? d.snapshot : (d || {});
+    var s    = (d && (d.list_snapshot || d.snapshot)) || d || {};
     var row  = anchorRowBuilder();
     var html = '<table class="table table-sm table-striped table-bordered mb-0 no-outer-borders xc-anchor-action" data-anchor="list-share"><tbody>';
     html += row('Format', 'Shared list version (LIST_SHARE)');

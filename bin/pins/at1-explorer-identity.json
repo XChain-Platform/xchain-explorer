@@ -5769,6 +5769,13 @@
         "@p0 @security SQL injection order/limit regression offset args are kept separate from base args",
         "@p0 @security SQL injection order/limit regression rejects injection in sortorder"
       ],
+      "83c562845e67d21a": [
+        "settlement anchor panels labels XPOLICY and LIST_SHARE rows in compact action feeds",
+        "settlement anchor panels renders a LIST_SHARE version and escapes the name",
+        "settlement anchor panels renders an XPOLICY snapshot",
+        "settlement anchor panels shows dashes when the snapshot is not mirrored",
+        "settlement anchor panels wires both actions into the action page"
+      ],
       "848ec7b4eb6a7563": [
         "Betting oracle fees earned @regression reports an oracle who has never been paid as an empty list, not a missing field",
         "Betting oracle fees earned @regression requires the credited address to BE the resolver, so a bettor payout is not counted",
@@ -6998,12 +7005,6 @@
         "hub DB sync live row events applies a cross-chain match anchor event through the mirror writer",
         "hub DB sync live row events refuses an event from a different hub schema version",
         "hub DB sync pending price events stops at the cap and forces a failed flush"
-      ],
-      "9bda744d4d7d36e7": [
-        "settlement anchor panels renders a LIST_SHARE version and escapes the name",
-        "settlement anchor panels renders an XPOLICY snapshot",
-        "settlement anchor panels shows dashes when the snapshot is not mirrored",
-        "settlement anchor panels wires both actions into the action page"
       ],
       "9c5dfd7e2915588a": [
         "@p0 @core Address API regression GET /RBTC/api/address/{addr}: returns address summary",
@@ -9911,8 +9912,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 345,
-        "titleCount": 5882,
+        "fileCount": 346,
+        "titleCount": 5887,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -9981,7 +9982,7 @@
           "test/unit/content/detail/action/content_client_action_detail_render.test.js": "df3aaf71a908f5de",
           "test/unit/content/detail/action/content_client_action_detail_render.test/system_action_origin.test.js": "babed36c332da317",
           "test/unit/content/detail/action/content_client_action_proof_gating.test.js": "03b500abda6fe6ea",
-          "test/unit/content/detail/action/content_client_settlement_anchor_render.test.js": "9bda744d4d7d36e7",
+          "test/unit/content/detail/action/content_client_settlement_anchor_render.test.js": "83c562845e67d21a",
           "test/unit/content/detail/address_and_validator/content_client_address_staking.test.js": "153997be300f8ebd",
           "test/unit/content/detail/address_and_validator/content_client_token_info.test/token_null_market.test.js": "a4a4ffcd25aa1936",
           "test/unit/content/detail/address_and_validator/content_client_token_info.test/token_relay_url.test.js": "fc89e8bc836833ec",

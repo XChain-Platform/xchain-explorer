@@ -59,7 +59,7 @@ class ChannelFanout {
     }
 
     // Broadcast to a specific channel key with filter evaluation
-    broadcastToChannelKey(channelKey, event, actionData) {
+    broadcastToChannelKey(channelKey, event, actionData, actionRow) {
         const channelManager = this.wsServer.channelManager;
         const subscribers    = channelManager.getSubscribers(channelKey);
         if (!subscribers || subscribers.size === 0) return;
@@ -71,7 +71,7 @@ class ChannelFanout {
             const client = clients.get(clientId);
             if (!client) continue;
 
-            if (!deliverToSubscriber(this, client, filter, event, actionData)) continue;
+            if (!deliverToSubscriber(this, client, filter, event, actionData, actionRow)) continue;
 
             // Track once subscriptions for removal
             if (filter.once) {
@@ -159,13 +159,18 @@ class ChannelFanout {
         if (data.address)       addrs.add(data.address);
         return addrs;
     }
+
+    shedBackedUpClient(client) {
+        shedBackedUpClient(this, client);
+    }
 }
 
 // Counts a frame dropped for a backed-up subscriber, sheds the connection once, and
 // reports the skip throttled per client so the drop leaves a trace without flooding the log.
-function noteBackpressureSkip(broadcaster, client) {
+function noteBackpressureSkip(broadcaster, client, deferClose) {
     client.backpressureSkips = (client.backpressureSkips || 0) + 1;
-    shedBackedUpClient(broadcaster, client);
+    if (deferClose) client.backpressureClosePending = true;
+    else shedBackedUpClient(broadcaster, client);
     const now = Date.now();
     if (now - (client.backpressureLoggedAt || 0) < BACKPRESSURE_LOG_WINDOW_MS) return;
     client.backpressureLoggedAt = now;
@@ -202,13 +207,27 @@ function shedBackedUpClient(broadcaster, client) {
 // filtered out, skipped, or its send threw, which is what keeps a once subscription
 // that was never delivered from being removed; true otherwise, including a socket
 // that is not open (no send, but the once subscription still counts as spent).
-function deliverToSubscriber(broadcaster, client, filter, event, actionData) {
+function deliverToSubscriber(broadcaster, client, filter, event, actionData, actionRow) {
     // Filter pipeline (AND logic): all non-null filters must pass
     if (!broadcaster.passesFilter(filter, event, actionData)) return false;
 
-    // Backpressure check, after the filter: only a frame the client wanted can shed it
-    if (client.ws.bufferedAmount > broadcaster.maxBackpressure) {
-        noteBackpressureSkip(broadcaster, client);
+    if (actionRow) {
+        const admitted = actionRow.admissions.get(client.id);
+        if (admitted === false) return false;
+        if (admitted === undefined) {
+            const canStartRow = client.ws.bufferedAmount <= broadcaster.maxBackpressure;
+            actionRow.admissions.set(client.id, canStartRow);
+            if (!canStartRow) {
+                noteBackpressureSkip(broadcaster, client, false);
+                return false;
+            }
+        }
+    } else if (client.ws.bufferedAmount > broadcaster.maxBackpressure) {
+        // A non-row frame can be dropped while an admitted action row is still
+        // producing frames. The action_row_start/action_row_end boundary defers
+        // the close so the row remains indivisible.
+        const rowInFlight = broadcaster._actionRows && broadcaster._actionRows.has(client.coin);
+        noteBackpressureSkip(broadcaster, client, rowInFlight);
         return false;
     }
 

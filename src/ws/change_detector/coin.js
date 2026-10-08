@@ -269,10 +269,15 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
         // the typed lifecycle events its type maps to, entity updates for whatever
         // has a subscriber, and, for ATTEST only, the `attestation` channel.
         for (const action of newActions) {
-            detector.emit('action', coin, action);
-            await detector.emitLifecycleEvents(coin, config, action);
-            await detector.emitEntityUpdates(coin, config, action, entityCache);
-            await detector.emitAttestationEvents(coin, config, action);
+            detector.emit('action_row_start', coin, action);
+            try {
+                detector.emit('action', coin, action);
+                await detector.emitLifecycleEvents(coin, config, action);
+                await detector.emitEntityUpdates(coin, config, action, entityCache);
+                await detector.emitAttestationEvents(coin, config, action);
+            } finally {
+                detector.emit('action_row_end', coin, action);
+            }
         }
         rememberActions(prev, newActions);
     }

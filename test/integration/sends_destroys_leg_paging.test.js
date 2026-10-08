@@ -78,7 +78,9 @@ describe('multi-leg SEND and DESTROY paging', function () {
         expect(second.body.data).to.have.lengthOf(1);
         expect(Number(second.body.data[0][second.body.data[0].length - 1])).to.equal(16);
     });
+});
 
+describe('whole-action SEND and DESTROY results', function () {
     it('applies a raw explorer start in whole-action units', async function () {
         const first = await request.get(
             `/RBTC/explorer/sends/${ADDR1}/address?start=0&length=1`

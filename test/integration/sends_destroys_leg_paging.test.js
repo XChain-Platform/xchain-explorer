@@ -79,6 +79,23 @@ describe('multi-leg SEND and DESTROY paging', function () {
         expect(Number(second.body.data[0][second.body.data[0].length - 1])).to.equal(16);
     });
 
+    it('applies a raw explorer start in whole-action units', async function () {
+        const first = await request.get(
+            `/RBTC/explorer/sends/${ADDR1}/address?start=0&length=1`
+        );
+        const second = await request.get(
+            `/RBTC/explorer/sends/${ADDR1}/address?start=1&length=1`
+        );
+
+        expect(first.status).to.equal(200);
+        expect(first.body.data).to.have.lengthOf(2);
+        expect(first.body.data.map(row => Number(row[row.length - 1]))).to.deep.equal([19, 19]);
+
+        expect(second.status).to.equal(200);
+        expect(second.body.data).to.have.lengthOf(1);
+        expect(Number(second.body.data[0][second.body.data[0].length - 1])).to.equal(16);
+    });
+
     it('counts one DESTROY action and returns both legs', async function () {
         const api = await request.get(`/RBTC/api/destroys/${ADDR3}/address?limit=1`);
         const explorer = await request.get(

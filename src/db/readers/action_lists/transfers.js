@@ -28,11 +28,18 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
     async getSends(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
-        let pageOffset = (Number.isSafeInteger(Number(sql.apiOffset)) && Number(sql.apiOffset) > 0)
-            ? Number(sql.apiOffset) : 0;
+        let rawExplorerOffset = config.type=='explorer' &&
+            !(config.data.offset && config.data.offset.action);
+        let requestedOffset = (config.type=='api')
+            ? Number(sql.apiOffset)
+            : Number(config.data.query && config.data.query.start);
+        let pageOffset = (Number.isSafeInteger(requestedOffset) && requestedOffset > 0)
+            ? Math.min(requestedOffset, 100000) : 0;
+        if(config.type=='explorer' && config.data.offset && config.data.offset.action)
+            pageOffset = 0;
         sql.apiOffset = 0;
         config.data.offset = config.data.offset || {};
-        if(!config.data.offset.start)
+        if(!config.data.offset.start && !(rawExplorerOffset && requestedOffset > 100000))
             config.data.offset.start = true;
         // Support searching by both source or destination address
         if(config.data.type=='address')

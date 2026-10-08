@@ -19,13 +19,14 @@ const transfers = require('../../../../../src/db/readers/action_lists/transfers.
 const tokens = require('../../../../../src/db/readers/action_lists/tokens.js');
 const { firstLastSql, stopSql } = require('../../../../../src/db/query_sql/offset_boundaries.js');
 
-function config(method, apiOffset = 0){
+function config(method, apiOffset = 0, type = 'api', query = {}){
     return {
-        type: 'api',
+        type,
         data: {
             method,
             search: 'address-1',
             type: 'address',
+            query,
             sql: {
                 order: 'DESC',
                 limit: 2,
@@ -78,6 +79,22 @@ describe('SEND and DESTROY whole-action paging', () => {
             assert.match(query, /LIMIT 2 OFFSET 4/);
             assert.strictEqual(cfg.data.sql.apiOffset, 0);
             assert.strictEqual(cfg.data.offset.start, true);
+        });
+
+        it(method + ' applies raw explorer starts to actions instead of returning the first page', async () => {
+            const cfg = config(method, 0, 'explorer', { start: '999999', length: '10' });
+            const [query] = await reader.call({}, cfg);
+
+            assert.match(query, /LIMIT 2 OFFSET 100000/);
+            assert.notStrictEqual(cfg.data.offset.start, true);
+        });
+
+        it(method + ' uses cursor predicates instead of explorer starts for next pages', async () => {
+            const cfg = config(method, 0, 'explorer', { start: '10', length: '2' });
+            cfg.data.offset = { start: 50, action: 'next' };
+            const [query] = await reader.call({}, cfg);
+
+            assert.match(query, /LIMIT 2 OFFSET 0/);
         });
 
         it(method + ' de-duplicates action cursors in first, last, and stop boundaries', () => {

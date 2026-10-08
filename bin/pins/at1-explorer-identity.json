@@ -5115,6 +5115,16 @@
         "client: the LIST page shows current membership renders an older explorer response (no state block) unchanged",
         "client: the LIST page shows current membership still renders the edits table"
       ],
+      "6506a6bbf1c67904": [
+        "dashboard manifest conformance support builds an RBTC reader config with required and conformance probe arguments",
+        "dashboard manifest conformance support collects projected keys from rows and MariaDB metadata",
+        "dashboard manifest conformance support loads a non-empty exported reader manifest",
+        "dashboard manifest conformance support rejects a missing or empty reader manifest",
+        "dashboard manifest conformance support reports only absent manifest keys",
+        "dashboard manifest conformance support resolves the dashboard client from the sibling root or environment override",
+        "dashboard manifest conformance support restores an owned doQuery after a reader failure",
+        "dashboard manifest conformance support uses the widest reader query projection and restores an inherited doQuery"
+      ],
       "65cbd0477fb22600": [
         "ROLLCALL detail version and consensus gates escapes gate names before writing badge markup",
         "ROLLCALL detail version and consensus gates keeps the shipped markup and rollcall row layout exactly aligned",
@@ -9933,8 +9943,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 348,
-        "titleCount": 5904,
+        "fileCount": 349,
+        "titleCount": 5912,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -9981,6 +9991,7 @@
           "test/unit/config/consensus_pin_boot.test.js": "116141af1654c3e7",
           "test/unit/config/resolve_coins.test.js": "bdab718683313f36",
           "test/unit/config/validate.test.js": "39d38d610943e3e4",
+          "test/unit/conformance/dashboard_manifest_support.test.js": "6506a6bbf1c67904",
           "test/unit/connectors/hub_connector.test.js": "dc67240bee778f9f",
           "test/unit/connectors/hub_consensus_hash.test.js": "acafd7633f12616b",
           "test/unit/connectors/x_chain_decoder_connector.test.js": "2709cccf5e791788",

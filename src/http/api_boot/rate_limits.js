@@ -38,19 +38,15 @@ const { limitedHandler } = require('../rate_limit_log.js');  // limiter counter 
  * Rate limiting: requests per minute per IP (image requests are excluded;
  * override the default with EXPLORER_RATE_LIMIT_RPM).
  *
- * Where 1080 comes from: a five-address wallet's worst minute is a cold
- * open plus the two 20-second polls that fit in the same window, measured
- * at 180 explorer reads; x2 because the wallet's SDK retries once, and x3
- * for headroom because a NAT with three testers shares one bucket. The
- * number is per REAL CLIENT ADDRESS, which is what the origin sees once
- * the fronting proxy resolves real clients; it was a per-CDN-edge-address
- * number before that, where the same wallet traffic scattered across
- * buckets and hid the requirement. It replaces a 500 that predates any
- * measurement of the client.
+ * Where 180 comes from: a five-address wallet using the batch routes makes
+ * 30 explorer reads in its worst minute: 15 proofs, 12 batch reads and 3
+ * checkpoint verifications. The ceiling includes one SDK retry and headroom
+ * for three testers sharing a NAT. The number is per real client address,
+ * which is what the origin sees once the fronting proxy resolves real clients.
  *
- * Three of the explorer's eight origin limits moved on that profile: this
- * one, the action/balance proof limiter and the checkpoint-verify limiter
- * (both to 90, in XChainExplorer.js). The other five (fee quote 120,
+ * The action/balance proof limiter remains 90 on that profile, while
+ * checkpoint verify is 60 after the SDK caches the validator set. The other
+ * five route-specific limits (fee quote 120,
  * preflight POST 60, checkpoint list 120, validator-set proof 30, VM query
  * 20) are not on an idle wallet's path, so the profile does not exercise
  * them and they keep their shipped values on purpose.
@@ -64,7 +60,7 @@ const { limitedHandler } = require('../rate_limit_log.js');  // limiter counter 
  */
 function appWidePolicyFor(configInfo){
     return {
-        limit:    parseInt(configInfo.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080,
+        limit:    parseInt(configInfo.env.EXPLORER_RATE_LIMIT_RPM, 10) || 180,
         envVar:   'EXPLORER_RATE_LIMIT_RPM',
         windowMs: 60 * 1000,
         message:  { error: 'Too many requests', code: 'RATE_LIMITED' }

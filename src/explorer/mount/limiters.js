@@ -125,14 +125,12 @@ function buildCheckpointLimiters(host){
         legacyHeaders:   false,
         handler:         limitedHandler({ service: 'Explorer', name: 'checkpoint-list', ...checkpointListPolicy })
     });
-    // Verify is 90 rather than the list's 120 because it is the heavier of the
-    // pair, and 90 rather than its own former 60 because the wallet's light
-    // client issues one /verify per proof job: a five-address wallet's fifteen
-    // jobs per session, x2 for the SDK's single retry and x3 for a NAT with
-    // three testers, is 90 in the worst minute. The measured wallet profile is
-    // the source of that number, not a round guess.
+    // Verify is 60 rather than the list's 120 because it is the heavier of the
+    // pair. The wallet needs 18 verifications in its worst minute once the SDK
+    // caches the validator set, including one retry and three testers sharing a
+    // NAT, leaving headroom within the proof-tier ceiling.
     const checkpointVerifyPolicy = {
-        limit:    parseInt(configEnv().EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 90,
+        limit:    parseInt(configEnv().EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM, 10) || 60,
         envVar:   'EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM',
         windowMs: 60 * 1000,
         message:  { error: 'Too many checkpoint verification requests', code: 'RATE_LIMITED' }
@@ -160,7 +158,7 @@ function buildProofLimiters(host){
     // height, and a typed 409 below it (see the handler).
 
     // Merkle-proof recompute is CPU-bound per request (it hashes every leaf in the
-    // target block), so cap it per-IP well below the platform-wide 1080rpm
+    // target block), so cap it per-IP below the platform-wide 180rpm
     // default, mirroring the VM-call limiter's design.
     //
     // 90, not the former 60: the wallet's balance proof rides this limiter, and a

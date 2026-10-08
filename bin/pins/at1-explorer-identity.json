@@ -8292,6 +8292,13 @@
         "shared-list names reads home names in one batch and keeps the newest valid rename",
         "shared-list names returns null names when list_metas is missing"
       ],
+      "c38428ebb0cdb131": [
+        "Broadcaster row-atomic backpressure defers a non-row backpressure close until the admitted row ends",
+        "Broadcaster row-atomic backpressure ends a detector row even when enrichment fails",
+        "Broadcaster row-atomic backpressure keeps attestation fanout in the admission chosen for its action row",
+        "Broadcaster row-atomic backpressure keeps every wanted frame in a row after admitting its first frame",
+        "Broadcaster row-atomic backpressure rejects a backed-up row once instead of reconsidering each frame"
+      ],
       "c40dac72e51909f3": [
         "SLASH detail status selects a status derived from the slash event row, so the page never shows a bare dash",
         "staking action-detail SQL exports a valid COLLECT_DETAIL query",
@@ -9891,12 +9898,6 @@
         "action detail cards (M2.5): multi-section cards leaves every section alone when the config does not cover the whole card",
         "action detail cards (M2.5): multi-section cards mounts every shipped block with its config and no row-count mismatch",
         "action detail cards (M2.5): multi-section cards moves a row only within its own section and keeps every section intact"
-      ],
-      "ff54920aed5b77bd": [
-        "Broadcaster row-atomic backpressure defers a non-row backpressure close until the admitted row ends",
-        "Broadcaster row-atomic backpressure ends a detector row even when enrichment fails",
-        "Broadcaster row-atomic backpressure keeps every wanted frame in a row after admitting its first frame",
-        "Broadcaster row-atomic backpressure rejects a backed-up row once instead of reconsidering each frame"
       ]
     },
     "scripts": {
@@ -9932,7 +9933,7 @@
       },
       "test": {
         "fileCount": 348,
-        "titleCount": 5902,
+        "titleCount": 5903,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10263,7 +10264,7 @@
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
           "test/unit/ws/broadcaster_mempool_fanout.test.js": "1c31b3f297b71629",
           "test/unit/ws/broadcaster_mempool_types_filter.test.js": "5b1ab7ada43c315b",
-          "test/unit/ws/broadcaster_row_atomic_backpressure.test.js": "ff54920aed5b77bd",
+          "test/unit/ws/broadcaster_row_atomic_backpressure.test.js": "c38428ebb0cdb131",
           "test/unit/ws/broadcaster_stale_marker.test.js": "e74a3fb230017c50",
           "test/unit/ws/change_detector.test.js": "266e2b5772181edf",
           "test/unit/ws/change_detector/bet_latches.test.js": "dbbbe200376c26b1",
@@ -10592,7 +10593,7 @@
       },
       "test:ws": {
         "fileCount": 19,
-        "titleCount": 369,
+        "titleCount": 370,
         "files": {
           "test/unit/ws/bet_frame_keys.test.js": "8f07c8b4794b7a91",
           "test/unit/ws/broadcaster.test.js": "19290a524bdda045",
@@ -10600,7 +10601,7 @@
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
           "test/unit/ws/broadcaster_mempool_fanout.test.js": "1c31b3f297b71629",
           "test/unit/ws/broadcaster_mempool_types_filter.test.js": "5b1ab7ada43c315b",
-          "test/unit/ws/broadcaster_row_atomic_backpressure.test.js": "ff54920aed5b77bd",
+          "test/unit/ws/broadcaster_row_atomic_backpressure.test.js": "c38428ebb0cdb131",
           "test/unit/ws/broadcaster_stale_marker.test.js": "e74a3fb230017c50",
           "test/unit/ws/change_detector.test.js": "266e2b5772181edf",
           "test/unit/ws/change_detector_mempool_map.test.js": "11daa587b9651a21",

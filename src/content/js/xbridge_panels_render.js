@@ -316,6 +316,62 @@ function renderXbridgeAction(d){
     }
 }
 
+function anchorRowBuilder(){
+    return function(label, value){
+        return '<tr><th class="text-muted fw-normal">' + xbEsc(label) + '</th>'
+             + '<td class="xc-anchor-' + xbEsc(String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-')) + '">'
+             + value + '</td></tr>';
+    };
+}
+
+function anchorCount(v){
+    if(v === null || v === undefined || v === '') return null;
+    var a = v;
+    if(typeof v === 'string'){
+        try { a = JSON.parse(v); } catch(e){ return null; }
+    }
+    return Array.isArray(a) ? a.length : null;
+}
+
+// XPOLICY: a finalized bridged-token policy snapshot.
+function renderXpolicyAction(d){
+    var s    = (d && (d.policy_snapshot || d.snapshot)) || d || {};
+    var row  = anchorRowBuilder();
+    var html = '<table class="table table-sm table-striped table-bordered mb-0 no-outer-borders xc-anchor-action" data-anchor="xpolicy"><tbody>';
+    html += row('Format', 'Policy snapshot (XPOLICY)');
+    html += row('Token', xbEsc(xbDash(s.tick)));
+    html += row('Origin chain', xbEsc(xbDash(s.origin_chain)));
+    html += row('Policy sequence', xbEsc(xbDash(s.policy_seq)));
+    html += row('Snapshot block', xbEsc(xbDash(s.snapshot_block)));
+    html += row('Origin block', xbEsc(xbDash(s.origin_block)));
+    var allow = anchorCount(s.allow_list), block = anchorCount(s.block_list);
+    html += row('Allow list', allow === null ? 'none' : xbEsc(allow) + ' addresses');
+    html += row('Block list', block === null ? 'none' : xbEsc(block) + ' addresses');
+    html += row('Sleeping', Number(s.sleeping) === 1 ? 'yes' : 'no');
+    html += row('Policy hash', xbEsc(xbDash(s.policy_hash)));
+    html += '</tbody></table>';
+    return html;
+}
+
+// LIST_SHARE: a finalized shared-list version.
+function renderListShareAction(d){
+    var s    = (d && (d.list_snapshot || d.snapshot)) || d || {};
+    var row  = anchorRowBuilder();
+    var html = '<table class="table table-sm table-striped table-bordered mb-0 no-outer-borders xc-anchor-action" data-anchor="list-share"><tbody>';
+    html += row('Format', 'Shared list version (LIST_SHARE)');
+    html += row('Home chain', xbEsc(xbDash(s.home_chain)));
+    html += row('Home list', xbEsc(xbDash(s.home_list_index)));
+    html += row('Version', xbEsc(xbDash(s.seq)) + (s.kind ? ' (' + xbEsc(s.kind) + ')' : ''));
+    html += row('Snapshot block', xbEsc(xbDash(s.snapshot_block)));
+    var added = anchorCount(s.added), removed = anchorCount(s.removed);
+    html += row('Added', added === null ? '-' : xbEsc(added));
+    html += row('Removed', removed === null ? '-' : xbEsc(removed));
+    if(s.name) html += row('Name', xbEsc(s.name));
+    html += row('Members hash', xbEsc(xbDash(s.members_hash)));
+    html += '</tbody></table>';
+    return html;
+}
+
 // Node-side export for the unit tier, the same shape formatters.js ships: the
 // browser defines the globals above and ignores this block.
 if(typeof module !== 'undefined' && module.exports){
@@ -324,6 +380,7 @@ if(typeof module !== 'undefined' && module.exports){
         bridgeDeltaState: bridgeDeltaState, renderBridgeCopies: renderBridgeCopies, xbDash: xbDash,
         renderBridgeTransfers: renderBridgeTransfers, renderBridgeOrigin: renderBridgeOrigin,
         renderBridgePolicy: renderBridgePolicy, xbridgeVersionInfo: xbridgeVersionInfo,
-        renderXbridgeAction: renderXbridgeAction
+        renderXbridgeAction: renderXbridgeAction,
+        renderXpolicyAction: renderXpolicyAction, renderListShareAction: renderListShareAction
     };
 }

@@ -37,7 +37,7 @@
  *           tokenization is done correctly the two modes should still agree
  *           here, with the difference living in the render layer below.
  *
- *   rend  - a fixed census of 31 anchor selectors x 23 properties, read as
+ *   rend  - a fixed census of 31 anchor selectors x 29 properties, read as
  *           computed values no matter which stylesheet won. This proves the
  *           RENDERED result is unchanged, and unlike the rule layer it DOES
  *           differ between light and dark, so it is the layer that can
@@ -123,10 +123,13 @@ window.__XC = (function () {
     '.btn','.btn-primary','a','h1','h2','.badge','.form-control','.form-select','input','select',
     '#market-info','.market-header','.table-stats th','.table-market-stats th','.dataTables_wrapper',
     '.dataTables_wrapper .dataTables_paginate .paginate_button','.bg-green td','.bg-red td','.pagination'];
+  // Every box property on all four sides: the table-cell anchor declares padding-right
+  // and its first and last cells set border-left-width and border-right-width.
   const P = ['color','background-color','background-image','border-top-color','border-bottom-color',
-    'border-left-color','border-top-width','border-bottom-width','border-radius','box-shadow','font-family',
-    'font-size','font-weight','line-height','letter-spacing','padding-top','padding-left','padding-bottom',
-    'margin-top','margin-bottom','opacity','text-decoration-line','text-transform'];
+    'border-left-color','border-right-color','border-top-width','border-bottom-width','border-left-width',
+    'border-right-width','border-radius','box-shadow','font-family','font-size','font-weight','line-height',
+    'letter-spacing','padding-top','padding-right','padding-left','padding-bottom','margin-top','margin-right',
+    'margin-bottom','margin-left','opacity','text-decoration-line','text-transform'];
   // Admit every FIRST-PARTY sheet and no vendor one. The component alternative is
   // here because that layer landed later and fell straight through the pattern.
   // Checked by theme-token-literal-gate against template.html's own link list and

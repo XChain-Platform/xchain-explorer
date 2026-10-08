@@ -299,3 +299,43 @@ describe('theme parity probe (behavioural)', () => {
     });
   });
 });
+
+describe('theme parity probe (behavioural)', () => {
+  // The render census is a hand-written property list, so a side it omits is a
+  // side no capture can see. The table-cell anchor declares padding-right and its
+  // edge cells set border-left-width and border-right-width.
+  describe('the render census reads every box property on all four sides', () => {
+    const CELL = 'table.dataTable tbody td';
+    const cellPage = (style) => page({
+      markup: `<table class="dataTable"><tbody><tr><td style="${style}">x</td></tr></tbody></table>`,
+    });
+
+    it('records padding, margin, border width and border colour for each side', () => {
+      const win = cellPage('padding-right: 3px');
+      const res = win.__XC('coin_home', 'before');
+      assert.ok(!res.invalid, `capture rejected: ${JSON.stringify(res.invalid)}`);
+      const rend = rendOf(win, 'before', 'coin_home', 'light');
+      const missing = [];
+      for (const side of ['top', 'right', 'bottom', 'left']) {
+        for (const p of [`padding-${side}`, `margin-${side}`, `border-${side}-width`, `border-${side}-color`]) {
+          if (!(`${CELL} | ${p}` in rend)) missing.push(p);
+        }
+      }
+      assert.deepEqual(missing, []);
+      assert.equal(rend[`${CELL} | padding-right`], '3px');
+    });
+
+    it('changes the render hash when only the cell padding-right changes', () => {
+      const a = cellPage('padding-right: 3px').__XC('coin_home', 'before');
+      const b = cellPage('padding-right: 9px').__XC('coin_home', 'before');
+      assert.notEqual(a.light.rend.hash, b.light.rend.hash);
+      assert.notEqual(a.dark.rend.hash, b.dark.rend.hash);
+    });
+
+    it('changes the render hash when only the cell border-right-width changes', () => {
+      const a = cellPage('border-right: 1px solid red').__XC('coin_home', 'before');
+      const b = cellPage('border-right: 4px solid red').__XC('coin_home', 'before');
+      assert.notEqual(a.light.rend.hash, b.light.rend.hash);
+    });
+  });
+});

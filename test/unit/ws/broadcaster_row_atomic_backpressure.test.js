@@ -124,6 +124,38 @@ describe('Broadcaster row-atomic backpressure', function () {
 describe('Broadcaster row-atomic backpressure', function () {
     afterEach(() => sinon.restore());
 
+    it('keeps attestation fanout in the admission chosen for its action row', function () {
+        const { changeDetector, channelManager, clients } = harness();
+        const ws = socket();
+        const connected = client(1, ws);
+        clients.set(connected.id, connected);
+        channelManager.subscribe(connected, ['actions', 'attestation']);
+        ws.send.callsFake(() => { ws.bufferedAmount = 1000; });
+
+        const row = { ...action(502), action: 'ATTEST' };
+        const attestation = {
+            type: 'ATTESTATION_REQUEST',
+            action: 'ATTEST',
+            channel: 'attestation',
+            data: { action_index: 502, source: '1source' }
+        };
+        changeDetector.emit('action_row_start', 'BTC', row);
+        changeDetector.emit('action', 'BTC', row);
+        changeDetector.emit('lifecycle_event', 'BTC', attestation);
+        changeDetector.emit('action_row_end', 'BTC', row);
+
+        const types = ws.send.getCalls().map((call) => JSON.parse(call.args[0]).type);
+        expect(types).to.deep.equal([
+            'NEW_ACTION', 'ATTESTATION_REQUEST', 'ATTESTATION_REQUEST'
+        ]);
+        expect(ws.close.callCount).to.equal(0);
+        expect(connected.backpressureSkips || 0).to.equal(0);
+    });
+});
+
+describe('Broadcaster row-atomic backpressure', function () {
+    afterEach(() => sinon.restore());
+
     it('defers a non-row backpressure close until the admitted row ends', function () {
         const { broadcaster, changeDetector, channelManager, clients } = harness();
         const ws = socket();

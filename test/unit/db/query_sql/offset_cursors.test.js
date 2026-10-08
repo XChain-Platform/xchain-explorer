@@ -51,6 +51,7 @@ describe('offset_cursors', () => {
     describe('fallback to DEFAULT_CURSOR', () => {
         it('applies to an unlisted method and an undefined method', () => {
             assert.strictEqual(cursorField('getSends'), DEFAULT_CURSOR);
+            assert.strictEqual(cursorField('getDestroys'), DEFAULT_CURSOR);
             assert.strictEqual(cursorField(undefined), DEFAULT_CURSOR);
         });
 

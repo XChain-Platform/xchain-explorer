@@ -218,7 +218,7 @@ function deliverToSubscriber(broadcaster, client, filter, event, actionData, act
             const canStartRow = client.ws.bufferedAmount <= broadcaster.maxBackpressure;
             actionRow.admissions.set(client.id, canStartRow);
             if (!canStartRow) {
-                noteBackpressureSkip(broadcaster, client, false);
+                noteBackpressureSkip(broadcaster, client, client.backpressureClosePending === true);
                 return false;
             }
         }

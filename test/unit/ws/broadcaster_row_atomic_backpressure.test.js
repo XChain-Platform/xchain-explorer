@@ -181,6 +181,35 @@ describe('Broadcaster row-atomic backpressure', function () {
         expect(ws.close.firstCall.args).to.deep.equal([4008, 'backpressure']);
         expect(connected.backpressureClosePending).to.equal(false);
     });
+
+    it("defers a non-row backpressure close before the client's first row frame until row end", function () {
+        const { broadcaster, changeDetector, channelManager, clients } = harness();
+        const ws = socket();
+        ws.bufferedAmount = 1000;
+        const connected = client(1, ws);
+        clients.set(connected.id, connected);
+        channelManager.subscribe(connected, ['actions']);
+        channelManager.subscribe(connected, ['blocks']);
+
+        const row = action(502);
+        changeDetector.emit('action_row_start', 'BTC', row);
+        broadcaster.broadcastToChannel('BTC', 'blocks', { type: 'NEW_BLOCK', data: {} }, null);
+
+        expect(ws.close.callCount).to.equal(0);
+        expect(connected.backpressureClosePending).to.equal(true);
+
+        changeDetector.emit('action', 'BTC', row);
+
+        expect(ws.send.callCount).to.equal(0);
+        expect(ws.close.callCount).to.equal(0);
+        expect(connected.backpressureSkips).to.equal(2);
+
+        changeDetector.emit('action_row_end', 'BTC', row);
+
+        expect(ws.close.callCount).to.equal(1);
+        expect(ws.close.firstCall.args).to.deep.equal([4008, 'backpressure']);
+        expect(connected.backpressureClosePending).to.equal(false);
+    });
 });
 
 describe('Broadcaster row-atomic backpressure', function () {

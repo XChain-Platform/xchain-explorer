@@ -173,7 +173,7 @@ Two consequences for anyone reading older evidence:
   `baseline-<date>.json` with the corrected probe before treating a light/dark
   comparison as evidence**, and do that before the pending pre-prod
   theme-parity re-record rather than after it.
-- `test/unit/theme-parity-probe.test.js` executes the probe in jsdom and pins
+- `test/unit/content/components/theme_parity_probe.test.js` executes the probe in jsdom and pins
   both behaviours: the light and dark captures of a page marked dark must
   render differently, the same page must yield the same hash pair whichever
   mode it arrived in, and a degenerate capture must return `invalid` and write

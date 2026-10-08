@@ -35,6 +35,7 @@ const CHECKPOINT_COMMITMENT_KEY = 'checkpoint_commitment_activation.CHECKPOINT_C
 function isCheckpointCommitmentActive(snapshotBlock, network){
     return gateRegistry.activeAt(CHECKPOINT_COMMITMENT_KEY, network, null, snapshotBlock, null);
 }
+const { sendProofError } = require('./proof_errors.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -226,8 +227,7 @@ class CheckpointProofs {
                             CHECKPOINT_PRE_COMMITMENT: [409, 'Checkpoint predates the state-commitment flag-day (no committed roots)'],
                             NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
                             PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
-                let m = map[result.error] || [500, 'Server error'];
-                return res.status(m[0]).json({ error: m[1], code: result.error });
+                return sendProofError(res, map, result.error);
             }
             return res.json(result);
         } catch(e){

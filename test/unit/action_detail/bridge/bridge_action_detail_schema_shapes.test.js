@@ -32,6 +32,7 @@ const assert = require('node:assert/strict');
 const { REGISTRY }     = require('../../../../src/action-detail');
 const { DbQueryError } = require('../../../../src/db/shared.js');
 const { SCHEMA_PROBE_TTL_MS } = require('../../../../src/db/schema_probe.js');
+const sources = require('../../../../src/db/readers/checkpoints/sources.js');
 
 const SETTLE_ROW = { transfer_id: 'e'.repeat(64), kind: 'transfer', block_index: 77,
                      src_chain: 'BTC', src_action_index: 42, dest_chain: 'DOGE',
@@ -47,9 +48,12 @@ function missingTableError(table) {
 }
 
 // Stands in for a replica whose schema holds exactly `state.tables`. The settle read
-// is refused the way the server refuses it when the table is not there.
+// is refused the way the server refuses it when the table is not there. Its
+// co-located hub DB holds no transfer, so a user leg read there stays in flight.
 function makeDb(state) {
     return {
+        checkpointDb: { DOGE: { name: 'hub', chain: 'DOGE', network: 'mainnet' } },
+        bridgeTransferSource: sources.bridgeTransferSource,
         async doQuery(config, sql, args) {
             state.queries.push({ coin: config.coin, sql, args });
             if (/information_schema\.TABLES/i.test(sql)) {

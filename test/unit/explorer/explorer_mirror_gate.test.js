@@ -327,3 +327,47 @@ describe('explorer hub-mirror staleness gate', function () {
         });
     });
 });
+
+// A proof builder's code the route's map does not register must never reach the
+// stable `code` field; the route answers the registered SERVER_ERROR instead.
+function proofRouted(method, handler, params, error) {
+    const res = mockRes();
+    const explorer = makeExplorer(null);
+    explorer.parseCoinCode = () => ({ coin: 'BTC', network: 'MAINNET' });
+    explorer.proofServer = { [method]: async () => ({ error }) };
+    process.env.INDEXER_API_URL = 'http://indexer.invalid/api';
+    return explorer[handler](req(params, { height: '100' }), res)
+        .then(() => { delete process.env.INDEXER_API_URL; return res; },
+              (e) => { delete process.env.INDEXER_API_URL; throw e; });
+}
+
+describe('proof routes answer only registered error codes', function () {
+    afterEach(function () { sinon.restore(); });
+
+    const validatorSet = (error) => proofRouted('validatorSetProof', 'processValidatorSetProofRequest', { coin: 'BTC' }, error);
+    const action = (error) => proofRouted('actionProof', 'processActionProofRequest', { coin: 'BTC', actionIndex: '1' }, error);
+
+    it('validator-set: answers SERVER_ERROR, never raw exception text, for an unregistered error', async function () {
+        const res = await validatorSet('Cannot read properties of undefined (reading \'x\'): at assemble');
+        expect(res._status).to.equal(500);
+        expect(res._body.code).to.equal('SERVER_ERROR');
+    });
+
+    it('validator-set: answers SERVER_ERROR for an error named like an Object prototype key', async function () {
+        const res = await validatorSet('constructor');
+        expect(res._status).to.equal(500);
+        expect(res._body.code).to.equal('SERVER_ERROR');
+    });
+
+    it('action: keeps a registered code with its own status', async function () {
+        const res = await action('ACTION_NOT_FOUND');
+        expect(res._status).to.equal(404);
+        expect(res._body.code).to.equal('ACTION_NOT_FOUND');
+    });
+
+    it('action: answers SERVER_ERROR, never raw exception text, for an unregistered error', async function () {
+        const res = await action('Unexpected token in JSON at position 3');
+        expect(res._status).to.equal(500);
+        expect(res._body.code).to.equal('SERVER_ERROR');
+    });
+});

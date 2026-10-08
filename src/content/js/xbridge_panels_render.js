@@ -273,6 +273,28 @@ function xbridgeRecordRows(d, row){
     return html;
 }
 
+// Format a protocol-time instant (unix seconds) as UTC, or a dash when it is not one.
+function xbUtc(seconds){
+    var n = Number(seconds);
+    return (isFinite(n) && n > 0) ? new Date(n * 1000).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC') : '-';
+}
+
+// The Settlement row of a user leg, from the hub-mirrored transfer the handler read.
+// Hub finality is not the destination credit, so a finalized row says when it applies;
+// in flight means the mirror was read and holds no transfer for this leg yet.
+function xbridgeUserLegSettlement(d, row){
+    var state = String(d.bridge_transfer_status || '').toLowerCase(), dest = d.dest_chain || (d.bridge_transfer || {}).dest_chain;
+    var badge = function(cls, text, note){
+        return row('Settlement', '<span class="badge xc-bridge-state ' + cls + '">' + text + '</span> <span class="small text-muted">' + note + '</span>');
+    };
+    // A refused leg moved nothing, so nothing will ever settle for it.
+    if(/^invalid/i.test(String(d.status || ''))) return row('Settlement', '<span class="small text-muted">none: the action was refused</span>');
+    if(state === 'finalized')
+        return badge('xc-bridge-state-ok', 'finalized', 'applies on ' + xbEsc(xbDash(dest)) + ' at ' + xbEsc(xbUtc(d.bridge_effective_time)));
+    if(state === 'retracted') return badge('xc-bridge-state-deficit', 'retracted', 'the federation withdrew this transfer');
+    return d.bridge_pending ? badge('xc-bridge-state-unknown', 'in flight', 'settles on the destination chain') : '';
+}
+
 // The XBRIDGE detail card. `d` is the getActionData row: action_format is the
 // version, and the xbridges record fields, bridge_settlement and bridge_pending
 // come from the explorer's XBRIDGE handler (src/action-detail/tokens.js).
@@ -296,15 +318,7 @@ function renderXbridgeAction(d){
         html += row('Settled in block', xbEsc(xbDash(s.block_index)));
     } else if(d && !info.injected){
         html += xbridgeRecordRows(d, row);
-        if(d.bridge_pending && /^invalid/i.test(String(d.status || ''))){
-            // A refused leg moved nothing, so nothing will ever settle for it.
-            html += row('Settlement', '<span class="small text-muted">none: the action was refused</span>');
-        } else if(d.bridge_pending){
-            // In flight, not missing: the settle for this leg is applied on the OTHER
-            // chain, so this node has no record of it by construction.
-            html += row('Settlement', '<span class="badge xc-bridge-state xc-bridge-state-unknown">in flight</span> '
-                + '<span class="small text-muted">settles on the destination chain</span>');
-        }
+        html += xbridgeUserLegSettlement(d, row);
     }
     html += '</tbody></table>';
     return html;

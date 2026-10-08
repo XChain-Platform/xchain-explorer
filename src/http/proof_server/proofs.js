@@ -21,6 +21,16 @@
 const M   = require('../../consensus/merkle.js');
 const SUB = require('../../consensus/gates/state_subtree_gate.js');   // byte-identical fourth carrier; escrow-leaf liveness only
 const swq = require('../../consensus/stake_weighted_quorum.js');
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
+// A sub-root set that cannot even be assembled is the same refusal as one that
+// assembles to the wrong root; the exception text goes to the log, never the client.
+function rootBindFailure(e) {
+    if (!e || e.message !== 'PROOF_STATE_ROOT_MISMATCH')
+        log.error('PROOF_STATE_ROOT_ASSEMBLY_FAILED', { err: e && e.message });
+    return { error: 'PROOF_STATE_ROOT_MISMATCH' };
+}
 
 // One capability's stake set at the checkpoint height, for validatorSetProof.
 // Answers { error } to refuse the whole request, null ONLY when the indexer says the
@@ -91,7 +101,7 @@ class ProofBuilders {
         if (!tr) return { error: 'NO_STATE_TREE' };                                // not a full indexer DB
         let stateRoot;
         try { stateRoot = this.bindRoots(cp, tr); }
-        catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
+        catch (e) { return rootBindFailure(e); }
         const keyBuf = M.balanceKey(chain, network, address, tick);
         const smt    = await this.prove(config, tr.balances_root, keyBuf);
         const sub    = M.stateRootProof(this.subRoots(tr), 'balances_root');
@@ -147,7 +157,7 @@ class ProofBuilders {
         if (!tr) return { error: 'NO_STATE_TREE' };
         let stateRoot;
         try { stateRoot = this.bindRoots(cp, tr); }
-        catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
+        catch (e) { return rootBindFailure(e); }
         const keyBuf = M.escrowKey(chain, network, address, tick);
         const smt    = await this.prove(config, tr.balances_root, keyBuf);
         const sub    = M.stateRootProof(this.subRoots(tr), 'balances_root');
@@ -244,7 +254,7 @@ class ProofBuilders {
         if (!tr || tr.stakes_root == null) return { error: 'NO_STATE_TREE' };
         let stateRoot;
         try { stateRoot = this.bindRoots(cp, tr); }
-        catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
+        catch (e) { return rootBindFailure(e); }
         const sub  = M.stateRootProof(this.subRoots(tr), 'stakes_root');
         const caps = (capabilities && capabilities.length) ? capabilities : ['oracle_publish', 'cross_chain'];
         const out  = {};
@@ -294,7 +304,7 @@ class ProofBuilders {
         if (!tr.contract_state_root) return { error: 'CONTRACT_STATE_NOT_COMMITTED' };
         let stateRoot;
         try { stateRoot = this.bindRoots(cp, tr); }
-        catch (e) { return { error: (e && e.message) || 'PROOF_STATE_ROOT_MISMATCH' }; }
+        catch (e) { return rootBindFailure(e); }
 
         const keyBuf = M.contractStateKey(chain, network, contractIndex, key);
         const smt    = await this.prove(config, tr.contract_state_root, keyBuf);

@@ -122,6 +122,18 @@ class CheckpointSourceReaders {
             'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
+    // Resolve the hub-mirrored bridge_transfers for a coin, on matchSource's terms: the
+    // co-located hub DB only, and the base chain plus network to bind, since the hub
+    // table carries every chain and network (an RBTC key binds src_chain BTC).
+    bridgeTransferSource(config){
+        let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
+        if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
+            return { table: '`' + src.name + '`.bridge_transfers', chain: src.chain, network: src.network };
+        throw new Error('No co-located hub DB configured for coin ' + config.coin +
+            ': bridge_transfers is served only from the mandatory co-located hub DB, never from ' +
+            'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
+    }
+
     // Apply the generic id-keyed datatable paging semantics to RPC-sourced rows in
     // JS, mirroring what getQueryOffsetSql + ORDER BY m.id + LIMIT do in SQL for the
     // id-keyed list methods: action 'prev' keeps id > start (and < stop), 'last'

@@ -85,6 +85,22 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
         const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A, TICK, 100);
         assert.strictEqual(r.error, 'PROOF_STATE_ROOT_MISMATCH');
     });
+
+    it('answers the registered PROOF_STATE_ROOT_MISMATCH, not exception text, when a sub-root cannot be assembled', async function () {
+        const { server } = makeServer('5');
+        server.db.getStateTreeRow = async () => ({ balances_root: 12345, stakes_root: EMPTY_ROOT,
+            state_root: 'ff'.repeat(32), block_merkle_root: 'e5'.repeat(32) });
+        // The logged event is what separates an assembly throw from a plain root mismatch.
+        const logger = require('../../../src/observability').getLogger();
+        const seen = [];
+        const original = logger.error;
+        logger.error = (event) => { seen.push(event); };
+        let r;
+        try { r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A, TICK, 100); }
+        finally { logger.error = original; }
+        assert.strictEqual(r.error, 'PROOF_STATE_ROOT_MISMATCH');
+        assert.deepStrictEqual(seen, ['PROOF_STATE_ROOT_ASSEMBLY_FAILED']);
+    });
 });
 
 describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {

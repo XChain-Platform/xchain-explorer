@@ -294,3 +294,56 @@ describe('action LRU skips responses carrying a live state block', function () {
     });
 
 });
+
+describe('action LRU skips a status a later action restamps in place', function () {
+
+    // The settling COINPAY rewrites the match row from pending_coinpay to valid.
+    it('refuses an unpaid COINPAY order match, whose status has no colon', function () {
+        const db = makeDb();
+        expect(db.isCacheableAction({ action: 'ORDER_MATCH', action_index: 900, status: 'pending_coinpay' }))
+            .to.equal(false);
+        expect(db.isCacheableAction({ action: 'ORDER_MATCH', action_index: 900, status: 'PENDING_COINPAY' }))
+            .to.equal(false);
+    });
+
+    it('still caches a settled order match and still refuses a pending DEPLOY', function () {
+        const db = makeDb();
+        expect(db.isCacheableAction({ action: 'ORDER_MATCH', action_index: 900, status: 'valid' })).to.equal(true);
+        expect(db.isCacheableAction({
+            action: 'DEPLOY', action_index: 901, status: 'pending: CODE_HASH (awaiting chunks)',
+        })).to.equal(false);
+    });
+
+    // The completing chunk can stamp the head invalid_archive whatever it was stored as.
+    it('refuses an ANCHOR v1 archive head in every stored status', function () {
+        const db = makeDb();
+        for (const status of ['valid', 'unverified', 'invalid: insufficient signer stake'])
+            expect(db.isCacheableAction({
+                action: 'ANCHOR', action_index: 950, version: 1, total_chunks: 3, status,
+            }), status).to.equal(false);
+    });
+
+    it('refuses an ANCHOR v3 bundle whose section 0 header carries no chunk count', function () {
+        const db = makeDb();
+        expect(db.isCacheableAction({
+            action: 'ANCHOR', action_index: 951, version: '3', total_chunks: null, status: 'valid',
+        })).to.equal(false);
+    });
+
+    it('still caches an ANCHOR v0 bundle and a v2 chunk, which nothing restamps', function () {
+        const db = makeDb();
+        expect(db.isCacheableAction({ action: 'ANCHOR', action_index: 952, version: 0, status: 'valid' }))
+            .to.equal(true);
+        expect(db.isCacheableAction({ action: 'ANCHOR', action_index: 953, version: 2, status: 'valid' }))
+            .to.equal(true);
+    });
+
+    it('an ANCHOR v1 head stays absent from the LRU, so the next read sees invalid_archive', function () {
+        const db  = makeDb();
+        const key = db.cacheKey('DOGE', 950);
+        const head = { action: 'ANCHOR', action_index: 950, version: 1, total_chunks: 3, status: 'valid' };
+        if (db.isCacheableAction(head)) db.cacheSet(db._actionDataCache, key, head);
+        expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
+    });
+
+});

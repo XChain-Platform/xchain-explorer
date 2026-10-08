@@ -96,6 +96,8 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
 //                       amount. ADDRESS format 1 and the UNSTAKE v2 completion
 //                       also select it, so they stop caching too: a query, not a
 //                       correctness cost.
+//   bridge_transfer     XBRIDGE user leg: the hub-mirrored transfer, null while in
+//                       flight, then finalized (or retracted) by the hub.
 //
 // Matched by PRESENCE, not by value. Null is exactly the pending state these
 // fields hold at the moment a detail page is most likely to be asked for, so a
@@ -108,7 +110,8 @@ const MUTABLE_ACTION_FIELDS = Object.freeze([
     'poll_status',                                                            // VOTE
     'feed_status', 'bet_status', 'settled_block',                             // BET
     'deactivation_block',                                                     // DELEGATE
-    'cooldown_end_block'                                                      // UNSTAKE
+    'cooldown_end_block',                                                     // UNSTAKE
+    'bridge_transfer'                                                         // XBRIDGE user leg
 ]);
 
 // Raised by doQuery when the underlying query genuinely FAILED (connection

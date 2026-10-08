@@ -28,11 +28,12 @@
 const assert = require('node:assert/strict');
 
 const { REGISTRY, ACTION_TYPES, getHandler } = require('../../../../src/action-detail');
+const sources = require('../../../../src/db/readers/checkpoints/sources.js');
 
 // Minimal ctx over a replica that HAS the settle table: the handler asks the schema
 // for bridge_settlements before reading it, so the double answers that probe the way
-// the server answers it and the settle read with `rows`. The pre-bridge schema, where
-// the probe answers empty, is driven in bridge_action_detail_schema_shapes.test.js.
+// the server answers it and every read with `rows`, the co-located hub DB included.
+// The pre-bridge schema is driven in bridge_action_detail_schema_shapes.test.js.
 function ctx(rows) {
     const queries = [];
     return {
@@ -41,6 +42,8 @@ function ctx(rows) {
             action_index: 4242,
             config: { coin: 'DOGE' },
             db: {
+                checkpointDb: { DOGE: { name: 'hub', chain: 'DOGE', network: 'mainnet' } },
+                bridgeTransferSource: sources.bridgeTransferSource,
                 async doQuery(config, sql, args) {
                     queries.push({ sql, args });
                     if (/information_schema\.TABLES/i.test(sql)) return [{ TABLE_NAME: 'bridge_settlements' }];

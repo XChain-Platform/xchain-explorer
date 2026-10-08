@@ -66,8 +66,9 @@ class EntityUpdates {
         // subscribed token (full tick resolution would mean joining more tables).
         const subscribedTicks = this.channelManager.getSubscribedTicks(coin);
         // XBRIDGE is on the list because its locks, burns and settle legs move supply
-        // and holders of the bridged token.
-        if (subscribedTicks.size > 0 && ['ISSUE', 'MINT', 'DESTROY', 'SEND', 'AIRDROP', 'DIVIDEND', 'XBRIDGE'].includes(action.action)) {
+        // and holders of the bridged token; SWEEP moves every balance of its source in
+        // its own single row, so holder counts change with no other action behind it.
+        if (subscribedTicks.size > 0 && ['ISSUE', 'MINT', 'DESTROY', 'SEND', 'AIRDROP', 'DIVIDEND', 'XBRIDGE', 'SWEEP'].includes(action.action)) {
             await emitTokenUpdates(this, coin, config, action, cache, subscribedTicks);
         }
 

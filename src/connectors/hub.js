@@ -173,6 +173,9 @@ class XChainHubConnector {
     // are last-call-wins on a process-wide connector, so a caller that branches on
     // the answer (HubOperationalCache's -32601 capability-gap throw) must read
     // `out` or it can read a concurrent call's error across its own await.
+    // `out.allEndpointsAnswered` is true only when the final pass got a
+    // protocol-level answer from EVERY endpoint, the one case where an rpcError
+    // is definitive for the whole fleet rather than one endpoint's word.
     async call(data, { timeout = 5000, attempts = this.maxAttempts, delayMs = this.retryDelayMs, out = null } = {}){
         // A reachable-but-unhealthy hub responds with a non-2xx status (e.g. the
         // 503 "degraded" health body returned when its DB pool is down) that
@@ -183,7 +186,7 @@ class XChainHubConnector {
         // only surface it if no endpoint comes back healthy.
         const state = { degraded: null };
         this.lastRpcError = null;
-        if(out){ out.rpcError = null; out.failures = []; }
+        if(out){ out.rpcError = null; out.failures = []; out.allEndpointsAnswered = false; }
         for(let attempt = 1; attempt <= attempts; attempt++){
             // Reset each pass so lastFailures reflects the final attempt's
             // outcome rather than accumulating duplicates across retries.
@@ -197,7 +200,10 @@ class XChainHubConnector {
             // unreachable): the outcome is deterministic for this request, so
             // backoff cannot change it and the unreachable warning below would
             // misname a live hub as down. Give up without retrying.
-            if(pass.rpcAnswered === this.urls.length) break;
+            if(pass.rpcAnswered === this.urls.length){
+                if(out) out.allEndpointsAnswered = true;
+                break;
+            }
             // All endpoints failed this pass. Back off before the next unless
             // this was the final attempt.
             if(attempt < attempts){

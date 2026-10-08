@@ -25,6 +25,15 @@ const BRIDGE_SETTLEMENTS_TABLE = 'bridge_settlements';
 const XBRIDGE_SETTLEMENT = `SELECT transfer_id, kind, block_index, src_chain, src_action_index, dest_chain, dest_address, tick
              FROM bridge_settlements WHERE action_index=? LIMIT 1`;
 
+// The hub-mirrored transfer a user leg opened, read by its source ref from the
+// schema-qualified table bridgeTransferSource names. A retract then re-finalize can
+// leave several rows for one leg, so a finalized row wins, then the newest.
+function xbridgeTransferBySrc(table){
+    return `SELECT transfer_id, status, effective_time, dest_chain, dest_address, snapshot_block
+             FROM ${table} WHERE src_chain=? AND src_action_index=? AND network=?
+             ORDER BY (status='finalized') DESC, id DESC LIMIT 1`;
+}
+
 // The user leg's own action record, written by the indexer at parse time on the chain
 // the lock or burn was broadcast from.
 const XBRIDGES_TABLE = 'xbridges';
@@ -69,5 +78,6 @@ module.exports = {
     BRIDGE_SETTLEMENTS_TABLE,
     XBRIDGE_SETTLEMENT,
     XBRIDGES_TABLE,
-    XBRIDGE_RECORD
+    XBRIDGE_RECORD,
+    xbridgeTransferBySrc
 };

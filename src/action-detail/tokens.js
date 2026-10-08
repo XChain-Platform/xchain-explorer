@@ -157,10 +157,12 @@ const SWEEP = {
 //     the table the settle pass writes, so v2/v5 resolve their transfer_id,
 //     kind, the source leg they close and the destination they credited;
 //   - a user leg's settlement is applied on the OTHER chain (a BTC lock settles
-//     on DOGE, a DOGE burn settles on BTC), so this chain holds no settlement
-//     row for it and `bridge_settlement` is null until the far leg lands. That
-//     null is the in-flight state, not a missing record, which is why it is
-//     reported as an explicit `bridge_pending` flag rather than left blank;
+//     on DOGE, a DOGE burn settles on BTC), so this chain never holds a settlement
+//     row for it and `bridge_settlement` stays null. Its state is the hub-mirrored
+//     bridge_transfers row keyed by its source ref, read from the co-located hub DB:
+//     a finalized or retracted row ends the in-flight state and names the transfer,
+//     no row is the in-flight state (`bridge_pending: true`), and a hub DB that
+//     cannot be read leaves `bridge_pending` omitted, because nothing was read;
 //   - a replica that has not taken the indexer's bridge-tables migration holds
 //     neither table, so this node knows NOTHING about the leg. Every key above is
 //     then omitted rather than nulled: absence reads as unknown, while
@@ -211,6 +213,42 @@ function attachXbridgeSettlement(data, settle){
     data['bridge_pending'] = (row) ? false : true;
 }
 
+// The mirror-injected formats (v2/v5): their source ref names a leg on another chain.
+const XBRIDGE_INJECTED_FORMATS = [2, 5];
+
+// Read the transfer a user leg opened from the co-located hub DB, never a replica's
+// stale copy. Null when that DB is not configured or lacks the table.
+async function readUserLegTransfer({ db, config, action_index }){
+    if(typeof db.bridgeTransferSource !== 'function') return null;
+    let src;
+    // The resolver refuses only a missing or unsafe hub DB entry, which is unknown here.
+    try { src = db.bridgeTransferSource(config); } catch(e) { return null; }
+    try {
+        return await db.doQuery(config, bridgeSql.xbridgeTransferBySrc(src.table),
+            [src.chain, action_index, src.network]);
+    } catch(e) {
+        // Same net as readBridgeTable: only a missing table degrades to unknown.
+        if(!isMissingTableError(e)) throw e;
+        return null;
+    }
+}
+
+// Settle a user leg from its mirrored transfer; an unread mirror drops the pending claim.
+function attachUserLegTransfer(data, transfers){
+    if(transfers === null){
+        delete data['bridge_pending'];
+        return;
+    }
+    const row = transfers.length ? transfers[0] : null;
+    data['bridge_pending']  = !row;
+    // Present even while null: the hub moves it later, so the action LRU must skip it.
+    data['bridge_transfer'] = row;
+    if(!row) return;
+    data['transfer_id']            = row.transfer_id;
+    data['bridge_transfer_status'] = row.status;
+    data['bridge_effective_time']  = row.effective_time;
+}
+
 const XBRIDGE = {
     // No static detail query: both bridge reads are probe-guarded, so they run in
     // afterMain, and the de-blank baseline is the main row.
@@ -220,7 +258,10 @@ const XBRIDGE = {
     async afterMain(ctx, data) {
         attachXbridgeRecord(data, await readBridgeTable(ctx, bridgeSql.XBRIDGES_TABLE, bridgeSql.XBRIDGE_RECORD));
         const settle = await readBridgeTable(ctx, bridgeSql.BRIDGE_SETTLEMENTS_TABLE, bridgeSql.XBRIDGE_SETTLEMENT);
-        if(settle !== null) attachXbridgeSettlement(data, settle);
+        if(settle === null) return;
+        attachXbridgeSettlement(data, settle);
+        if(!data['bridge_settlement'] && !XBRIDGE_INJECTED_FORMATS.includes(Number(data.action_format)))
+            attachUserLegTransfer(data, await readUserLegTransfer(ctx));
     },
 };
 

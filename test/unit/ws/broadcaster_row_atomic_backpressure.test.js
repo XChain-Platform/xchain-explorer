@@ -119,6 +119,10 @@ describe('Broadcaster row-atomic backpressure', function () {
         expect(ws.close.callCount).to.equal(1);
         expect(connected.backpressureSkips).to.equal(1);
     });
+});
+
+describe('Broadcaster row-atomic backpressure', function () {
+    afterEach(() => sinon.restore());
 
     it('defers a non-row backpressure close until the admitted row ends', function () {
         const { broadcaster, changeDetector, channelManager, clients } = harness();
@@ -145,6 +149,10 @@ describe('Broadcaster row-atomic backpressure', function () {
         expect(ws.close.firstCall.args).to.deep.equal([4008, 'backpressure']);
         expect(connected.backpressureClosePending).to.equal(false);
     });
+});
+
+describe('Broadcaster row-atomic backpressure', function () {
+    afterEach(() => sinon.restore());
 
     it('ends a detector row even when enrichment fails', async function () {
         const detector = Object.create(coinPass);

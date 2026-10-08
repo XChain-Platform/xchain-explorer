@@ -30,14 +30,14 @@ function decomment(src) {
 function manifestSlice(flag) {
     return Object.entries(MANIFEST.actions).filter(([, v]) => v[flag]).map(([k]) => k).sort();
 }
-// The render surface is the per-action detail registry (src/action-detail/):
-// one handler per action type, which getActionData dispatches on. Reading the
-// registry keys is exact by construction - the previous scrape for uppercase
-// `type=='X'` inside the getActionData body could miscount any unrelated
-// comparison that happened to sit in the same method.
 function localExplorerSet() {
-    const { ACTION_TYPES } = require('../../../src/action-detail');
-    return ACTION_TYPES.filter(n => n !== 'UNKNOWN').sort(); // UNKNOWN is the catch-all render, not an action
+    const { ACTION_TYPES, ACTION_DETAIL_ONLY_TYPES } = require('../../../src/action-detail');
+    const invalid = ACTION_DETAIL_ONLY_TYPES.filter(name => !ACTION_TYPES.includes(name) ||
+        (MANIFEST.actions[name] && MANIFEST.actions[name].explorerRender));
+    assert.deepStrictEqual(invalid, [],
+        'action-detail-only types must be registered and absent from the public explorerRender manifest slice');
+    const detailOnly = new Set(ACTION_DETAIL_ONLY_TYPES);
+    return ACTION_TYPES.filter(n => n !== 'UNKNOWN' && !detailOnly.has(n)).sort();
 }
 // The two CLIENT halves of the render seam. getActionData returning rich data is
 // useless if xchain.js has no dispatch branch or action.html no info-* panel:

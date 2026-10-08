@@ -89,10 +89,12 @@ function getHandler(type) {
 // Sorted so the manifest-conformance guard and the golden generator both see a
 // stable order regardless of require order.
 const ACTION_TYPES = Object.keys(REGISTRY).sort();
+const ACTION_DETAIL_ONLY_TYPES = Object.freeze(['LIST_SHARE', 'XPOLICY']);
 
 module.exports = {
     REGISTRY,
     ACTION_TYPES,
+    ACTION_DETAIL_ONLY_TYPES,
     getHandler,
     // The two pipeline steps that are the same for every action.
     deblankBaseline:     shared.deblankBaseline,

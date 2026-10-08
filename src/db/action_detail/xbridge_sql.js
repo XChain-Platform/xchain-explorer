@@ -47,7 +47,25 @@ const XBRIDGE_RECORD = `SELECT
                     x1.action_index=?
                 LIMIT 1`;
 
+// The hub-mirrored snapshots the settlement-anchor actions point at, read by the
+// snapshot id the settlement row carries. Member lists are left out of the card.
+const POLICY_SNAPSHOTS_TABLE = 'policy_snapshots';
+
+const POLICY_SNAPSHOT = `SELECT snapshot_id, snapshot_block, origin_chain, tick, policy_seq, origin_block, policy_hash,
+                    sleeping, effective_time, network, finalizing_view, status
+             FROM policy_snapshots WHERE snapshot_id=? LIMIT 1`;
+
+const LIST_SNAPSHOTS_TABLE = 'list_snapshots';
+
+const LIST_SNAPSHOT = `SELECT snapshot_id, snapshot_block, network, home_chain, home_list_index, list_type, seq, kind,
+                    members_hash, name, description, origin_block, finalizing_view, status
+             FROM list_snapshots WHERE snapshot_id=? LIMIT 1`;
+
 module.exports = {
+    LIST_SNAPSHOT,
+    LIST_SNAPSHOTS_TABLE,
+    POLICY_SNAPSHOT,
+    POLICY_SNAPSHOTS_TABLE,
     BRIDGE_SETTLEMENTS_TABLE,
     XBRIDGE_SETTLEMENT,
     XBRIDGES_TABLE,

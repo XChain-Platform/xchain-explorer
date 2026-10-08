@@ -25,7 +25,7 @@ Query and presentation layer for the XChain Platform. Reads from the Indexer dat
 - **WebSocket API**: real-time push of blocks, actions, and lifecycle events with per-channel subscriptions and catch-up replay
 - **Config discovery**: fetches configuration from xchain-hub and refreshes every 60 seconds
 - **SSL/TLS support**: serves both HTTP and HTTPS with configurable certificates
-- **Rate limiting**: configurable request rate limiting (default 500 req/min)
+- **Rate limiting**: configurable request rate limiting (default 1080 req/min)
 - **Security hardened**: Helmet CSP, CORS, SSRF-protected relay, parameterized SQL, directory traversal prevention
 - **DataTables integration**: server-side pagination endpoints for the web UI
 - **Chart.js integration**: candlestick, market depth, and line charts

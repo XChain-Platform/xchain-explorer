@@ -27,8 +27,9 @@
 //   2. IDENTITY  - the local copy is byte-identical to the xchain-documentation copy.
 // (1) catches a logic change that happens to pass the local unit suite; (2)
 // catches ANY edit to one copy that was not propagated to the others. When the
-// sibling xchain-documentation repo is not checked out, the committed fallback
-// vectors keep the behavioral guard and its suite identity available.
+// sibling xchain-documentation repo is absent or refused by siblingCheckout(), the
+// committed fallback vectors keep the behavioral guard and its suite identity
+// available; a byte-identity block below keeps that fallback from going stale.
 
 const assert = require('assert');
 const fs     = require('fs');
@@ -49,7 +50,8 @@ const DOCS_DIR  = process.env.XCHAIN_DOCS_DIR || path.join(__dirname, '..', '..'
 const CANON_DIR = path.join(DOCS_DIR, 'protocol', 'reference-impl');
 const VEC_DIR   = path.join(DOCS_DIR, 'protocol', 'test-vectors');
 const FALLBACK_VEC_DIR = path.join(__dirname, '..', '..', 'fixtures', 'consensus');
-const ACTIVE_VEC_DIR = fs.existsSync(VEC_DIR) ? VEC_DIR : FALLBACK_VEC_DIR;
+const VEC_VERDICT = siblingCheckout(__dirname, VEC_DIR);
+const ACTIVE_VEC_DIR = VEC_VERDICT.usable ? VEC_DIR : FALLBACK_VEC_DIR;
 const CANON_VERDICT = siblingCheckout(__dirname, CANON_DIR);
 
 const quorumVec     = require(path.join(ACTIVE_VEC_DIR, 'stake_weighted_quorum.json'));
@@ -151,6 +153,24 @@ describe('consensus-primitive conformance: byte-identity to canonical source @re
             assert.strictEqual(local, canon,
                 'this repo\'s consensus/' + f + ' has drifted from the canonical source; ' +
                 'edit xchain-indexer/src/consensus/' + f + ' and re-run reconcile-twins.sh to re-vendor every copy.');
+        });
+    });
+});
+
+describe('consensus-primitive conformance: fallback vectors byte-identical to canonical @regression', function(){
+    before(function(){
+        if(!VEC_VERDICT.usable)
+            return skipOrFail(this, VEC_VERDICT, 'the fallback test-vector identity guard');
+    });
+
+    // Compare the committed fallback to canonical so a standalone run never judges stale vectors.
+    ['stake_weighted_quorum.json', 'equivocation_header.json', 'activation_predicates.json'].forEach(function(f){
+        it('fixtures/consensus/' + f + ' is byte-identical to xchain-documentation/protocol/test-vectors', function(){
+            const fallback = fs.readFileSync(path.join(FALLBACK_VEC_DIR, f), 'utf8');
+            const canon    = fs.readFileSync(path.join(VEC_DIR, f), 'utf8');
+            assert.strictEqual(fallback, canon,
+                'test/fixtures/consensus/' + f + ' has drifted from the canonical vectors; ' +
+                'copy xchain-documentation/protocol/test-vectors/' + f + ' over it.');
         });
     });
 });

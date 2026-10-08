@@ -59,8 +59,10 @@ function fakeCharsetDb(shapes) {
     };
 }
 
+// Carries the columns the add step owns, so only the charset step is observed.
 const COLUMNS = ['id', 'network', 'request_id', 'provider_id', 'status', 'response_payload',
-                 'response_hash', 'meta', 'effective_time', 'signer_pubkeys', 'signatures'];
+                 'response_hash', 'meta', 'effective_time', 'signer_pubkeys', 'signatures',
+                 'admit_block_btc', 'batch_action_index'];
 
 // A mirror predating the widen: both provider-byte columns on the utf8mb3 tail.
 const LEGACY = {

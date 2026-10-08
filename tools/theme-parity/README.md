@@ -81,9 +81,12 @@ predates the component layer: its per-page `cssRules` counts are one revision
 behind, and its hashes are not, because those component rules match no element
 on a healthy page.
 
-**rend** - a fixed census of 31 anchor selectors x 23 properties, read
+**rend** - a fixed census of 31 anchor selectors x 29 properties, read
 regardless of which stylesheet won. This layer does differ between modes, so it
-is the one that can catch a dark-mode regression.
+is the one that can catch a dark-mode regression. The census covers every box
+property on all four sides. It held 23 properties when the 2026-08-20 baseline
+was captured, so a rend capture taken before that change is not comparable with
+one taken after it; compare only pairs captured with the same probe.
 
 **Layout-derived keys** (widths, heights, margins, offsets) are read
 layout-independently in both layers: `getComputedStyle` returns the USED

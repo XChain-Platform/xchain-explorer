@@ -64,11 +64,8 @@ module.exports = {
         // could drop a consensus-relevant column, so refuse it and mark the
         // table not-drained (CATCHUP-SCHEMA-BYPASS-1).
         if (!hasExpectedSchemaVersion(catchUp.schema_version)) {
-            let versionProblem = catchUp.schema_version == null
-                ? 'schema_version missing for '
-                : 'schema_version ' + schemaVersionLabel(catchUp.schema_version) +
-                    ' != local ' + HUB_SCHEMA_VERSION + ' for ';
-            getLogger().error('HubDbSync: catch-up ' + versionProblem + table + '; skipping catch-up');
+            getLogger().error('HubDbSync: catch-up schema_version ' + schemaVersionLabel(catchUp.schema_version) +
+                ' != local ' + HUB_SCHEMA_VERSION + ' for ' + table + '; skipping catch-up');
             drain.applyErrors++;
             return;
         }

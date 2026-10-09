@@ -334,11 +334,8 @@ module.exports = {
         // drained" without applying, so bootstrapAll retries and the barrier stays
         // shut, deferring blocks rather than settling against mismatched mirror data.
         if (!hasExpectedSchemaVersion(result.schema_version)) {
-            let versionProblem = result.schema_version == null
-                ? 'schema_version missing for '
-                : 'schema_version ' + schemaVersionLabel(result.schema_version) +
-                    ' != local ' + HUB_SCHEMA_VERSION + ' for ';
-            getLogger().error('HubDbSync: hub snapshot ' + versionProblem + table +
+            getLogger().error('HubDbSync: hub snapshot schema_version ' + schemaVersionLabel(result.schema_version) +
+                ' != local ' + HUB_SCHEMA_VERSION + ' for ' + table +
                 '; refusing to bootstrap. Restart this indexer after upgrading the hub.');
             return false;
         }

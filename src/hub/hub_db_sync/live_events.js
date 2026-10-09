@@ -52,11 +52,8 @@ module.exports = {
             // Fail closed: do not apply, do not advance the watermark, so the
             // barrier stays shut and the block is deferred rather than settled
             // against mismatched mirror data.
-            let versionProblem = event.schema_version == null
-                ? 'schema_version missing for '
-                : 'schema_version ' + schemaVersionLabel(event.schema_version) +
-                    ' != local ' + HUB_SCHEMA_VERSION + ' for ';
-            getLogger().error('HubDbSync: hub ' + versionProblem + event.table +
+            getLogger().error('HubDbSync: hub schema_version ' + schemaVersionLabel(event.schema_version) +
+                ' != local ' + HUB_SCHEMA_VERSION + ' for ' + event.table +
                 '; refusing to apply row. Restart this indexer after upgrading the hub.');
             // Freeze the watermark gate until a clean re-bootstrap, so a
             // following heartbeat cannot certify the stream as caught-up

@@ -53,8 +53,6 @@ class MempoolDiff {
         let rows;
         if (typeof this.db.getDecoderMempoolFeed === 'function') {
             const feed = await this.db.getDecoderMempoolFeed({ coin }, WINDOW);
-            // Decoder configured but unavailable: skip the poll and keep state,
-            // so an outage is not read as every pending tx leaving the mempool.
             rows = feed === null ? null : feed.rows;
         } else {
             rows = await this.db.getDecoderMempoolRows({ coin }, WINDOW);

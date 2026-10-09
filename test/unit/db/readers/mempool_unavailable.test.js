@@ -87,6 +87,10 @@ describe('mempool feed when the decoder is unavailable', () => {
         expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.have.length(1);
         clock.restore();
     });
+});
+
+describe('mempool feed availability', () => {
+    afterEach(() => sinon.restore());
 
     it('returns rows and read_ok_at for a fresh snapshot', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves(reply({
@@ -119,6 +123,10 @@ describe('mempool feed when the decoder is unavailable', () => {
         expect(err).to.not.equal(null);
         expect(err.message).to.contain('DECODER_MEMPOOL_UNAVAILABLE');
     });
+});
+
+describe('mempool change detector availability', () => {
+    afterEach(() => sinon.restore());
 
     it('the change detector skips the poll and keeps state on null', async () => {
         const seen = new Map([['h1', { source: 's', action: 'SEND', data: 'x' }]]);

@@ -12,20 +12,7 @@
  *
  **********************************************************************
  *
- * XChain Explorer - the mempool feed, /api/network and the action totals
- *
- * One part of src/db/readers/entities.js (the entry composes it through
- * composeReaderParts). The mempool feed, the /api/network summary and the
- * per-action-type totals it quotes, with a bounded cache that keeps those
- * growing-table counts off the request path during its lifetime.
- *
- * Totals travel with the summary that serves them: the counters are
- * expensive enough to be cached, the TTL bounds their age, and a reorg
- * generation prevents rolled-back values from surviving a chain rewrite.
- *
- * Authored as a class body whose prototype is exported, like every other
- * family under src/db/: `this` is the Database instance at call time, and the
- * methods reach Database.prototype non-enumerable, by descriptor.
+ * XChain Explorer - the mempool feed, /api/network and action totals
  *
  ********************************************************************/
 
@@ -37,8 +24,8 @@ const { DbQueryError } = require('../../shared.js');
 const DecoderConnector = require('../../../connectors/decoder.js');
 const decoderReaders = require('../health/decoder.js');
 
-const originalDecoderMempoolCount = decoderReaders.getDecoderMempoolCount;
-const originalDecoderMempoolRows  = decoderReaders.getDecoderMempoolRows;
+const originalMempoolCount = decoderReaders.getDecoderMempoolCount;
+const originalMempoolRows = decoderReaders.getDecoderMempoolRows;
 const NODE_MEMPOOL_MAX_AGE_MS = 2 * 60 * 1000;
 
 function decoderMempoolUrl(db, code, parsed){
@@ -57,6 +44,27 @@ function ageNodeMempoolCount(snapshot, now){
     return Object.assign({}, snapshot, { node_tx_count: null });
 }
 
+function cacheSnapshot(db, code, entry){
+    db._mempoolApiCache[code] = entry;
+    return entry.v;
+}
+
+function snapshotValue(reply, now){
+    const reportedOkAt = Number(reply.read_ok_at);
+    const okAt = Number.isFinite(reportedOkAt) && reportedOkAt > 0
+        ? reportedOkAt : (reply.stale === true ? null : now);
+    const value = {
+        node_tx_count: (typeof reply.node_tx_count === 'number' && reply.node_tx_count >= 0)
+            ? reply.node_tx_count : null,
+        total: Number(reply.total) || 0,
+        rows: reply.rows,
+        read_ok_at: okAt
+    };
+    if(Object.prototype.hasOwnProperty.call(reply, 'node_updated_at'))
+        value.node_updated_at = reply.node_updated_at;
+    return { okAt, value: ageNodeMempoolCount(value, now) };
+}
+
 async function getDecoderMempoolSnapshot(config){
     const code = config.coin;
     const ttl  = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
@@ -69,41 +77,20 @@ async function getDecoderMempoolSnapshot(config){
     if(!url) return null;
     try {
         const reply = await new DecoderConnector(url).getmempool(500);
-        if(!reply || !Array.isArray(reply.rows)){
-            this._mempoolApiCache[code] = { t: now, v: null, okAt: null, malformed: true };
-            return null;
-        }
-        const reportedOkAt = Number(reply.read_ok_at);
-        const okAt = Number.isFinite(reportedOkAt) && reportedOkAt > 0
-            ? reportedOkAt : (reply.stale === true ? null : now);
-        const hasNodeUpdatedAt = Object.prototype.hasOwnProperty.call(reply, 'node_updated_at');
-        let value = {
-            node_tx_count: (typeof reply.node_tx_count === 'number' && reply.node_tx_count >= 0)
-                ? reply.node_tx_count : null,
-            total: Number(reply.total) || 0,
-            rows: reply.rows,
-            read_ok_at: okAt
-        };
-        if(hasNodeUpdatedAt) value.node_updated_at = reply.node_updated_at;
-        value = ageNodeMempoolCount(value, now);
+        if(!reply || !Array.isArray(reply.rows))
+            return cacheSnapshot(this, code, { t: now, v: null, okAt: null, malformed: true });
+        const { okAt, value } = snapshotValue(reply, now);
         if(reply.stale === true){
             const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
-            this._mempoolApiCache[code] = {
-                t: now - ttl,
-                v: usable,
-                okAt,
-                unavailable: usable === null
-            };
-            return usable;
+            return cacheSnapshot(this, code,
+                { t: now - ttl, v: usable, okAt, unavailable: usable === null });
         }
-        this._mempoolApiCache[code] = { t: now, v: value, okAt };
-        return value;
+        return cacheSnapshot(this, code, { t: now, v: value, okAt });
     } catch(e){
         const okAt = hit ? hit.okAt : undefined;
         const value = hit && hit.v && Number.isFinite(Number(okAt)) && (now - Number(okAt)) < 2 * ttl
             ? ageNodeMempoolCount(hit.v, now) : null;
-        this._mempoolApiCache[code] = { t: now, v: value, okAt, unavailable: value === null };
-        return value;
+        return cacheSnapshot(this, code, { t: now, v: value, okAt, unavailable: value === null });
     }
 }
 
@@ -114,7 +101,7 @@ async function getDecoderMempoolCount(config){
     if(snapshot) return snapshot.total;
     const hit = (this._mempoolApiCache || {})[config.coin];
     if(configured && !(hit && hit.malformed)) return null;
-    return originalDecoderMempoolCount.call(this, config);
+    return originalMempoolCount.call(this, config);
 }
 
 async function getDecoderMempoolRows(config, limit){
@@ -127,7 +114,7 @@ async function getDecoderMempoolRows(config, limit){
     }
     const hit = (this._mempoolApiCache || {})[config.coin];
     if(configured && !(hit && hit.malformed)) return null;
-    return originalDecoderMempoolRows.call(this, config, limit);
+    return originalMempoolRows.call(this, config, limit);
 }
 
 for(const [name, value] of Object.entries({
@@ -139,21 +126,9 @@ for(const [name, value] of Object.entries({
     Object.defineProperty(decoderReaders, name, Object.assign({}, descriptor, { value }));
 }
 
-// The coin identity and network this request is for, read off the loaded explorer
-// config rather than off the route code alone, so a re-tune of a chain's name,
-// ticker or prefix reaches the response without an edit here. A module function
-// rather than a method: Database.prototype carries the family's public readers
-// and nothing else, so a cut made for length adds no name to it.
 async function resolveCoinIdentity(db, config){
-    // Resolve the coin this request is for. config.coin is the route code
-    // (BTC / TBTC / RDOGE …); the per-coin chain identity (name + ticker)
-    // lives in the loaded explorer config under the BASE coin key (BTC/LTC/DOGE).
     let code = config.coin;
     let coinName = String(code), coinTick = String(code);
-    // Network of THIS request, derived from the route-code prefix (T=testnet,
-    // R=regtest, none=mainnet). Used for the finality clamp below so an
-    // override may only raise the depth on mainnet. Defaults to mainnet (the
-    // safe, clamping choice) when config is momentarily unavailable.
     let reqNetwork = 'mainnet';
     try {
         let full  = await db.configInfo.getConfig();
@@ -173,16 +148,10 @@ async function resolveCoinIdentity(db, config){
 }
 
 function buildNetworkState(block, blockTime, unconfirmed, unconfirmedNode){
-    // Network information: block/time are the real indexer tip for this coin.
     return {
         block : block,
         time  : blockTime,
-        // Real mempool size: count of unconfirmed XChain-carrying txs for
-        // this coin (0 if neither the decoder API nor DB is reachable).
         unconfirmed: unconfirmed,
-        // The coin node's TOTAL mempool tx count (XChain or not), from
-        // the decoder API. null when no decoder API resolves for this
-        // coin (a DB-only deployment cannot know it); clients hide it.
         unconfirmed_node: unconfirmedNode,
     };
 }
@@ -300,45 +269,7 @@ async function readActionTotals(db, config, coin){
 }
 
 class EntityNetworkReaders {
-    //
-    // /{COIN}/api/mempool[/{QUERY}/{TYPE}]: unconfirmed actions read from the
-    // colocated decoder DB (see getDecoderMempoolRows). Rows are PRE-VALIDATION
-    // (the indexer can still reject them at confirmation), carry a destination
-    // column that is always NULL (see getDecoderMempoolRows: never read, never
-    // filtered on), and the full decoded action string ships in `data`; clients
-    // with format knowledge (e.g. the SDK's x402 verifier) parse fields out of it.
-    // Filtering is a best-effort prefilter done in JS rather than in SQL (the
-    // action string is one opaque pipe-joined column, so a LIKE would match
-    // across field boundaries): TYPE=address matches the source OR any exact
-    // pipe-segment of the action string (covers SEND destinations across
-    // versions) OR the `^<id>` reference the SDK compacts that address to by
-    // default (see mempoolRowMatchesAddress and the accepted-limitations note
-    // in the endpoint header above); TYPE=token matches any exact segment
-    // against the uppercased
-    // tick. No TYPE (bare /api/mempool, or the /explorer/mempool list-all
-    // fallback) lists every decoded row (spec explorer-coverage-completion
-    // M1.2): the old code matched ONLY address/token and silently returned []
-    // for the list-all case, which is the bug this row fixes.
-    //
-    // PAGING (deliberate §8 exception, spec-approved): this is a direct-return
-    // method (getData's `typeof query === 'object'` branch), and the source is
-    // the decoder's mempool table, not an indexer action table: there is no
-    // action_index/id cursor column pre-confirmation for the standard SQL
-    // OFFSET/cursor machinery (getQueryOffsets/getQueryOffsetSql) to key off,
-    // and getDecoderMempoolRows already caps its read at one bounded window
-    // (500 rows, clamped in getDecoderMempoolRows itself) rather than scanning
-    // the whole table. Given that bounded window, paging is done here by a
-    // plain JS-side slice honoring sql.limit (computed by getQuery: the
-    // per-method max for /api, the DataTables page `length` for /explorer)
-    // and whichever offset numbering the caller already uses: `sql.apiOffset`
-    // for /api (page-based), or the raw DataTables `query.start` row offset
-    // for /explorer. The action_index next/prev/first/last cursor dance the
-    // other list feeds use does not apply here, since there is no cursor
-    // column to carry it on, so /explorer/mempool pages by plain numeric
-    // offset instead, which is safe specifically because the source window
-    // is already capped.
-    // `total` is the full filtered-match count (pre-slice), matching every
-    // other list feed's envelope semantics for recordsTotal/json.total.
+    // Reads one bounded mempool window and applies address/token filters in JS.
     async getMempool(config){
         let search = String(config.data.search || '');
         let type   = String(config.data.type || '').toLowerCase();
@@ -391,12 +322,6 @@ class EntityNetworkReaders {
         return [out.slice(offset, offset + limit), null, total];
     }
 
-    // The mempool rows plus the time they were last read successfully
-    // (read_ok_at, epoch ms), or null when a decoder API endpoint is configured
-    // for the coin but its snapshot is unavailable or older than two cache
-    // TTLs. With no endpoint configured the colocated decoder DB is read as
-    // before and read_ok_at is the read time. Callers treat null as unknown,
-    // never as an empty mempool.
     async getDecoderMempoolFeed(config, limit){
         const code   = config.coin;
         const parsed = await this.parseCoinCode(code);
@@ -442,14 +367,6 @@ class EntityNetworkReaders {
         return [data];
     }
 
-    // Exact per-action-table record counts for the homepage counters, cached per coin.
-    // The stable TTL bounds count frequency even while the indexed tip advances, and one
-    // shared promise collapses simultaneous cold requests onto the same count pass.
-    //
-    // NOTE ON THE CLIENT: the response carries no Cache-Control and no Expires, so nothing
-    // here is cached by HTTP. The explorer's own page script keeps the parsed response in
-    // localStorage for 5 minutes (getCoinNetworkInfo in src/content/js/xchain.js); that is a
-    // separate cache with its own recovery path, not a browser HTTP cache.
     async getActionTotals(config){
         const coin = config.coin;
         const ttl  = parseInt(this.configInfo.env.EXPLORER_TOTALS_CACHE_MS, 10) || 60000;

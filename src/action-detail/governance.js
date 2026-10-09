@@ -25,6 +25,11 @@ const { getLogger } = require('../observability');
 const log = getLogger();
 const sql = require('../db/action_detail/governance_sql.js');
 
+// DETAILS is attacker-controlled base64 JSON. Decode it for API convenience,
+// while retaining the raw field for callers that need to inspect chain bytes.
+// Invalid JSON becomes null rather than the undecoded string, so consumers
+// cannot accidentally treat hostile bytes as a parsed metadata object. The
+// renderer handles every resulting value as data and never fetches embedded URLs.
 function decodeBetDetails(data, isNull){
     data['details_json'] = null;
     if(isNull(data['details']))
@@ -33,13 +38,19 @@ function decodeBetDetails(data, isNull){
     catch(_){ data['details_json'] = null; }
 }
 
+// The joined query needs distinct aliases to identify the cancel, resolve, and
+// edit rows before their public shape is known. Once classified, expose their
+// common parent as feed_ref and remove those internal discriminator columns.
 function clearBetPlumbing(data){
     delete data['cancel_feed_ref']; delete data['resolve_feed_ref'];
     delete data['edit_feed_ref']; delete data['edit_status'];
 }
 
 const BET = {
-    // Formats: 0 feed, 1 cancel, 2 wager, 3 resolve, 4 edit.
+    // One BET action name covers five independently stored formats: format 0 owns
+    // a bet_feeds row, format 1 a bet_cancels row, format 2 a bets row, format 3
+    // a bet_resolves row, and format 4 a bet_edits row. The format-specific joins
+    // stay separate because their presence and status identify the response shape.
     queries() {
         let query  = null;
         let query2 = null;
@@ -47,7 +58,9 @@ const BET = {
         query = sql.BET_DETAIL;
         return { query, query2, query3 };
     },
-    // Shape the detail response for each BET format.
+    // Normalize those joined rows into one stable response. bet_kind selects the
+    // renderer, feed_ref always names the parent market, and fields from sibling
+    // formats are removed so a null joined column cannot masquerade as real data.
     async afterMain({ db, config, action_index }, data) {
         let fmt = db.util.isNull(data['action_format']) ? null : Number(data['action_format']);
         if(fmt !== null)

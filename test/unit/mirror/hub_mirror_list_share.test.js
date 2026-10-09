@@ -15,6 +15,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const fs     = require('node:fs');
 const path   = require('node:path');
 
 const HubDbSync = require('../../../src/hub/hub_db_sync.js');
@@ -22,6 +24,7 @@ const mirrorTables = require('../../../src/hub/hub_db_sync/mirror_tables.js');
 const { HUB_SCHEMA_VERSION } = require('../../../src/hub/hub_schema_version.js');
 
 const MIRROR_SQL = path.resolve(__dirname, '../../../src/sql/hub-mirror');
+const REMOTE_TOKEN_SQL_SHA256 = '810ba3847bea5feb45155c127cc1259b7d4dd845e05be853532e0cd387357280';
 
 describe('hub-mirror list share vendored contract @regression', function () {
     it('ensureTables creates list_snapshots from the vendored directory', async function () {
@@ -58,6 +61,13 @@ describe('hub-mirror list share vendored contract @regression', function () {
         await HubDbSync.ensureTables(conn, MIRROR_SQL);
         assert.ok(created.includes('remote_token_snapshots'),
             'ensureTables did not create remote_token_snapshots (created: ' + created.join(', ') + ')');
+    });
+
+    it('vendors remote_token_snapshots SQL byte-identical to the indexer copy', function () {
+        const sql = fs.readFileSync(path.join(MIRROR_SQL, 'remote_token_snapshots.sql'));
+        const digest = crypto.createHash('sha256').update(sql).digest('hex');
+
+        assert.equal(digest, REMOTE_TOKEN_SQL_SHA256);
     });
 
     it('registers remote_token_snapshots for bootstrap, local ids, and retraction', function () {

@@ -57,6 +57,24 @@ function showIssueDetails(data){
             ? '<span class="badge text-bg-warning text-dark">Unbind</span>'
             : '<span class="badge text-bg-info text-white">Bind</span>');
     }
+    showIssueBridgeCard(data);
+}
+
+// ISSUE v7 opts the token into bridging. Its three fields are null on every other
+// format, so they get their own card, shown only for format 7.
+function showIssueBridgeCard(data){
+    let isBridge = (Number(data.action_format) === 7);
+    $('#info-issue .issue-bridge-card').toggleClass('d-none', !isBridge);
+    if(!isBridge) return;
+    // '-' on the wire is the explicit "no destination chains" value.
+    let chains = isNull(data.bridge_chains) ? '-'
+        : (String(data.bridge_chains) === '-' ? 'None' : String(data.bridge_chains).split(',').join(', '));
+    $('#info-issue .issue-bridge-chains').text(chains);
+    // MIN_DEPTH only raises the platform depth, so 0 means no raise.
+    $('#info-issue .issue-min-depth').text(isNull(data.min_depth) ? '-'
+        : (Number(data.min_depth) === 0 ? 'Platform default' : numeral(data.min_depth).format('0,0') + ' confirmations'));
+    $('#info-issue .issue-lock-bridge').text(isNull(data.lock_bridge) ? '-'
+        : formatBinaryFlag(data.lock_bridge, 'Locked', 'Unlocked'));
 }
 
 function showIssueFieldGroups(actionFormat){
@@ -97,6 +115,11 @@ function showListDetails(data){
     $('#info-list .list-edit-type').text(edit);
     $('#info-list .list-action-index').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
     $('#info-list .list-memo').text((data.memo == null) ? '' : data.memo);
+    // A format 3 LIST transfers the list, so name the address it went to.
+    let isTransfer = (Number(data.action_format) === 3);
+    $('#info-list .list-destination-row').toggleClass('d-none', !isTransfer);
+    $('#info-list .list-destination').html(!isTransfer || isNull(data.destination) ? '-'
+        : formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
     // Add header columns
     $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th></tr>');
     $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th><th>Status</th></tr>');

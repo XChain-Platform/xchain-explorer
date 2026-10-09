@@ -109,6 +109,13 @@ describe('client: token metadata URL rule shared with the relay', function () {
         expect(win.fetched).to.have.length(0);
     });
 
+    it('fetches the trimmed metadata URL for a whitespace-padded description, as the icon resolver does', function () {
+        const win = boot();
+        win.XC.tokenInfo = tokenFixture('PADDED', ' ipfs:QmHash ');
+        win.showTokenInfo();
+        expect(win.fetched[0]).to.equal('https://ipfsc.crystalsuite.com/QmHash');
+    });
+
     it('derives an ordinary JSON host to the URL itself', function () {
         expect(tokenInfo_metadataUrl(FAIRYWINK_URL)).to.equal(FAIRYWINK_URL);
         expect(tokenInfo_metadataUrl('http://example.org/meta.json;x')).to.equal('https://example.org/meta.json');

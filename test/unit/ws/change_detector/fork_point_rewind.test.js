@@ -111,3 +111,77 @@ describe('change detector fork-point rewind', function () {
         expect(detector.state.BTC.actionIndex).to.equal(3n);
     });
 });
+
+// A grown chain whose tail is then replaced, with a db layer that reports the
+// reorg exactly once, as checkReorgAndInvalidate does.
+async function reorgAfterGrowth() {
+    const chain = { blocks: [block(10, 'a', 1), block(11, 'b', 1)] };
+    const actions = { rows: [action(5n, 10), action(6n, 11)] };
+    const detector = makeDetector(chain, actions);
+    await detector.checkCoin('BTC');
+    chain.blocks = [block(10, 'a', 1), block(11, 'b', 1), block(12, 'c', 1)];
+    actions.rows = [action(5n, 10), action(6n, 11), action(7n, 12)];
+    await detector.checkCoin('BTC');
+    detector.emit.resetHistory();
+
+    chain.blocks = [block(10, 'a', 1), block(11, 'b2', 1), block(12, 'c2', 1)];
+    const verdicts = [true];
+    detector.db.checkReorgAndInvalidate = async () => verdicts.shift() || false;
+    return { detector, chain, actions };
+}
+
+function failOnce(db, name) {
+    const real = db[name];
+    let failed = false;
+    db[name] = async (...args) => {
+        if (!failed) { failed = true; throw new Error('read failed'); }
+        return real(...args);
+    };
+}
+
+function emitted(detector) {
+    const calls = detector.emit.getCalls();
+    return {
+        blocks:  calls.filter((c) => c.args[0] === 'block').map((c) => c.args[2].block_hash),
+        actions: calls.filter((c) => c.args[0] === 'action').map((c) => c.args[2].action_index)
+    };
+}
+
+describe('change detector reorg retry after a failed read', function () {
+    it('keeps a one-shot reorg verdict when the fork-point read fails', async function () {
+        const { detector } = await reorgAfterGrowth();
+        failOnce(detector.db, 'getBlocksSince');
+
+        await detector.checkCoin('BTC').then(() => { throw new Error('expected a rejection'); }, () => {});
+        expect(emitted(detector).blocks).to.deep.equal([]);
+        expect(detector.state.BTC.pendingReorg).to.equal(true);
+
+        await detector.checkCoin('BTC');
+        expect(emitted(detector)).to.deep.equal({ blocks: ['b2', 'c2'], actions: [6n, 7n] });
+        expect(detector.state.BTC.pendingReorg).to.equal(false);
+    });
+
+    it('keeps a one-shot reorg verdict when the tip read fails', async function () {
+        const { detector } = await reorgAfterGrowth();
+        failOnce(detector.db, 'getMaxBlockIndex');
+
+        await detector.checkCoin('BTC').then(() => { throw new Error('expected a rejection'); }, () => {});
+        await detector.checkCoin('BTC');
+        expect(emitted(detector)).to.deep.equal({ blocks: ['b2', 'c2'], actions: [6n, 7n] });
+    });
+
+    it('rewinds every cursor below a lower new tip after a failed poll', async function () {
+        const { detector, chain, actions } = await reorgAfterGrowth();
+        chain.blocks = [block(10, 'a', 1), block(11, 'b2', 1)];
+        actions.rows = [action(5n, 10), action(6n, 11)];
+        failOnce(detector.db, 'getMaxActionIndex');
+
+        await detector.checkCoin('BTC').then(() => { throw new Error('expected a rejection'); }, () => {});
+        await detector.checkCoin('BTC');
+        const state = detector.state.BTC;
+        expect(emitted(detector)).to.deep.equal({ blocks: ['b2'], actions: [6n] });
+        expect(state.closedBlock).to.be.at.most(10);
+        expect(state.xcallBlock).to.be.at.most(10);
+        expect(state.pendingReorg).to.equal(false);
+    });
+});

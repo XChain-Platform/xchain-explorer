@@ -10492,7 +10492,8 @@
           "503": {
             "$ref": "#/components/responses/CoinUnavailable"
           }
-        }
+        },
+        "description": "Each tick1_* and tick2_* field describes the tick named in tick1 or tick2 on the same row."
       }
     },
     "/{COIN}/api/markets/{TICK1}": {
@@ -10565,7 +10566,8 @@
           "503": {
             "$ref": "#/components/responses/CoinUnavailable"
           }
-        }
+        },
+        "description": "Every returned pair puts the searched tick in tick2, with its values in the tick2_* fields, and the counter tick in tick1 and tick1_*, despite the {TICK1} path name. This is the slot TICK2 takes in /market/{TICK1}/{TICK2}. Read the searched tick's price from tick2_price."
       }
     },
     "/{COIN}/api/market/{TICK1}/{TICK2}": {
@@ -12295,8 +12297,11 @@
                 "description": "Unix time of the tip block (0 when the chain is empty)"
               },
               "unconfirmed": {
-                "type": "integer",
-                "description": "Unconfirmed XChain-carrying transactions (decoder API or DB; 0 when unreachable)"
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "description": "Unconfirmed XChain-carrying transactions (decoder API or DB); null means the mempool read is unavailable"
               },
               "unconfirmed_node": {
                 "type": [

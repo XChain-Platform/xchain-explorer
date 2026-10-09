@@ -46,9 +46,9 @@ const MIRROR_MIGRATIONS = {
             { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
         ]
     },
-    // Fence the three twins the same item-5308 rollout touched. _applyRetraction
+    // Fence the three twins the same item-5308 rollout touched. applyRetraction
     // fences from the incoming event, not from local columns, so a missing one throws.
-    // Carry finalizing_view too (_applyRow intersects against SHOW COLUMNS, so a
+    // Carry finalizing_view too (applyRow intersects against SHOW COLUMNS, so a
     // missing column is dropped from the insert without a word).
     // Use no AFTER anchors, as price_snapshots above does not: order is cosmetic
     // here, and an anchor absent from an old schema fails the whole single ALTER.
@@ -99,8 +99,8 @@ const MIRROR_MIGRATIONS = {
         ]
     },
     // The two bridge mirror twins carry the same fence pair as cross_chain_calls
-    // above, for the same reason: _applyRetraction fences from the incoming event,
-    // so a mirror missing push_generation throws on a retraction, and _applyRow
+    // above, for the same reason: applyRetraction fences from the incoming event,
+    // so a mirror missing push_generation throws on a retraction, and applyRow
     // intersects against SHOW COLUMNS, so a missing finalizing_view is dropped from
     // the insert silently and the EQUIV header can no longer be rebuilt. A mirror
     // that predates these tables gets them from ensureTables(); these entries are

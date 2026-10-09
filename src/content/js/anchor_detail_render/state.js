@@ -139,7 +139,7 @@ function anchorStatusBadge(status){
 // Mirror gate_registry reached(): prefer the DOGE-qualified threshold, retaining
 // the bare network key for old tables. Both threshold and DOGE height must be finite.
 // Fails CLOSED (an absent global, unknown network or UNPINNED null threshold is
-// inactive), the opposite polarity of the ANCHOR_ACTIVATION legacy check.
+// inactive); the ANCHOR_ACTIVATION legacy check shares the rule but leaves an unlisted network unjudged.
 function anchorFoldActive(net, doge){
     let table = (typeof ANCHOR_FOLD_ACTIVATION === 'object' && ANCHOR_FOLD_ACTIVATION) ? ANCHOR_FOLD_ACTIVATION : null;
     let threshold = null;
@@ -172,10 +172,13 @@ function anchorTraits(d){
     let v   = isNull(row.version) ? null : Number(row.version);
 
     let net    = isNull(row.network) ? null : String(row.network);
-    let cutoff = (net !== null && Object.prototype.hasOwnProperty.call(ANCHOR_ACTIVATION, net))
-        ? ANCHOR_ACTIVATION[net] : null;
+    // Mirror the indexer's reached() for a listed network: a non-finite threshold (UNPINNED)
+    // or height is not activated, so the row reads Legacy; no entry or no height is unjudged.
+    let pinned = (net !== null && Object.prototype.hasOwnProperty.call(ANCHOR_ACTIVATION, net));
+    let cutoff = pinned ? ANCHOR_ACTIVATION[net] : null;
     let doge   = isNull(row.block_index_doge) ? null : Number(row.block_index_doge);
-    let legacy = (cutoff !== null && doge !== null && doge < cutoff);
+    let activated = (typeof cutoff === 'number' && Number.isFinite(cutoff) && Number.isFinite(doge) && doge >= cutoff);
+    let legacy = (pinned && doge !== null && !activated);
     let preFold = (!legacy && v === 3 && !anchorFoldActive(net, doge));
 
     let t = (!legacy && !preFold && v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
@@ -282,7 +285,9 @@ function anchorRootCell(root, version){
 function anchorChunkLabel(d){
     let row = d || {};
     if(isNull(row.chunk_index) && isNull(row.total_chunks)) return '-';
-    let idx   = isNull(row.chunk_index)  ? 0 : Number(row.chunk_index);
+    // Show the stored index 1-based, as the feed summary does. A NULL index beside a
+    // total is the v1 archive head, which stores no index and holds segment 0.
+    let idx   = isNull(row.chunk_index)  ? 1 : (Number(row.chunk_index) + 1);
     let total = isNull(row.total_chunks) ? null : Number(row.total_chunks);
     return anchorEsc(idx) + (total === null ? '' : (' of ' + anchorEsc(total)));
 }

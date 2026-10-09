@@ -13,7 +13,7 @@
 // lives in xchain-documentation/protocol/action-manifest.json (vendored here).
 // This guard asserts the registered action-detail handlers equal the manifest's
 // explorerRender slice. (The explorer set is the superset: it also renders
-// lifecycle + legacy order/dispenser cancel+edit views.)
+// lifecycle + the indexer-renamed order/swap/dispenser cancel+edit views.)
 
 const { srcText } = require('../../helpers/source_text');
 const assert = require('assert');

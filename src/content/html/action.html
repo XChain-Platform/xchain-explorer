@@ -1092,6 +1092,27 @@
                             </tr>
                             </tbody>
                             </table>
+                            <table class="table table-sm table-striped table-hover table-bordered mb-0 d-none issue-bridge-card" width="100%">
+                            <thead>
+                            <tr>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-exchange"></i> Bridge Opt-in</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <th width="150">Bridge Chains</th>
+                                <td class="issue-bridge-chains"></td>
+                            </tr>
+                            <tr>
+                                <th>Min Depth</th>
+                                <td class="issue-min-depth"></td>
+                            </tr>
+                            <tr>
+                                <th>Lock Bridge</th>
+                                <td class="issue-lock-bridge"></td>
+                            </tr>
+                            </tbody>
+                            </table>
                         </div>
 
                         <!-- LINK Action -->
@@ -1138,6 +1159,10 @@
                             <tr>
                                 <th>List Action Index</th>
                                 <td class="list-action-index"></td>
+                            </tr>
+                            <tr class="list-destination-row d-none">
+                                <th>Transferred To</th>
+                                <td class="list-destination"></td>
                             </tr>
                             <tr>
                                 <th>Memo</th>
@@ -1823,7 +1848,7 @@
                             </tr>
                             </tbody>
                             </table>
-                            <!-- Publisher-attestation tail (v4/v5/v6 reward-derivation anchors) -->
+                            <!-- Publisher-attestation tail (ANCHOR v0/v1/v3) -->
                             <table class="table table-sm table-striped table-hover table-bordered mb-0 anchor-publisher-row d-none" width="100%">
                             <tbody>
                             <tr>

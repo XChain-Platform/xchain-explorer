@@ -28,6 +28,21 @@
 
 'use strict';
 
+const { CHECKPOINT_VERSIONS, CHECKPOINT_SECTION_VERSIONS_SQL } = require('../../federation_sql.js');
+
+// Integer constants only, never caller input, so they splice in without placeholders.
+const ANCHOR_VERSIONS_SQL = 'IN (' + CHECKPOINT_VERSIONS.join(', ') + ')';
+
+// Pin the anchor leg to one row per checkpoint key (a v0 section, its v1 head and replays
+// share it), ranked as ANCHOR_ACTIONS_SQL ranks them, then by section_index.
+const ANCHOR_ONE_ROW_SQL = ` AND (an.action_index, an.section_index) = (SELECT a3.action_index, a3.section_index
+                           FROM anchor_actions a3
+                           WHERE a3.chain = an.chain AND a3.network = an.network
+                             AND a3.block_index = an.block_index AND a3.checkpoint_seq = an.checkpoint_seq
+                             AND a3.version ${ANCHOR_VERSIONS_SQL}
+                           ORDER BY (a3.version ${CHECKPOINT_SECTION_VERSIONS_SQL}) DESC, a3.action_index DESC, a3.section_index DESC
+                           LIMIT 1)`;
+
 class XcallListReaders {
     // Get list of ATTEST actions from the consolidated `attests` table. Lists both
     // v0 (request) and v1 (response) rows; `version` + request/response status let
@@ -246,7 +261,9 @@ class XcallListReaders {
     //
     // Reuses the exact latest-per-height predicate getCheckpoints established rather than
     // a third, differently-bounded checkpoint query, and applies the identical shape to
-    // the anchor leg's own latest-checkpoint_seq-per-height lookup.
+    // the anchor leg's own latest-checkpoint_seq-per-height lookup. The anchor leg then
+    // pins one row (ANCHOR_ONE_ROW_SQL), because the paging cursor and count(*) both
+    // assume one row per height.
     async getCommitments(config){
         let sql      = config.data.sql;
         let src      = this.checkpointSource(config);
@@ -259,7 +276,8 @@ class XcallListReaders {
         // holds commitments for all three.
         let anFilter = ' AND an.chain = ? AND an.network = ?';
         let anLatest = ` AND an.checkpoint_seq = (SELECT MAX(a2.checkpoint_seq) FROM anchor_actions a2
-                           WHERE a2.block_index = an.block_index AND a2.chain = ? AND a2.network = ?)`;
+                           WHERE a2.block_index = an.block_index AND a2.chain = ? AND a2.network = ?
+                             AND a2.version ${ANCHOR_VERSIONS_SQL})${ANCHOR_ONE_ROW_SQL}`;
         let count = `SELECT
                         count(*) as total
                     FROM

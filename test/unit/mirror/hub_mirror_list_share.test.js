@@ -29,6 +29,14 @@ const INDEXER_REMOTE_TOKEN_SQL = path.resolve(
 );
 const INDEXER_REMOTE_TOKEN_VERDICT = siblingCheckout(__dirname, INDEXER_REMOTE_TOKEN_SQL);
 
+function assertRemoteTokenSqlMatchesIndexer() {
+    const local = fs.readFileSync(path.join(MIRROR_SQL, 'remote_token_snapshots.sql'));
+    const canonical = fs.readFileSync(INDEXER_REMOTE_TOKEN_SQL);
+
+    assert.ok(local.equals(canonical),
+        'the vendored remote_token_snapshots SQL differs from xchain-indexer/src/sql');
+}
+
 describe('hub-mirror list share vendored contract @regression', function () {
     it('ensureTables creates list_snapshots from the vendored directory', async function () {
         const created = [];
@@ -70,11 +78,7 @@ describe('hub-mirror list share vendored contract @regression', function () {
         if (!INDEXER_REMOTE_TOKEN_VERDICT.usable)
             return skipOrFail(this, INDEXER_REMOTE_TOKEN_VERDICT, 'the remote token SQL identity guard');
 
-        const local = fs.readFileSync(path.join(MIRROR_SQL, 'remote_token_snapshots.sql'));
-        const canonical = fs.readFileSync(INDEXER_REMOTE_TOKEN_SQL);
-
-        assert.ok(local.equals(canonical),
-            'the vendored remote_token_snapshots SQL differs from xchain-indexer/src/sql');
+        assertRemoteTokenSqlMatchesIndexer();
     });
 
     it('registers remote_token_snapshots for bootstrap, local ids, and retraction', function () {

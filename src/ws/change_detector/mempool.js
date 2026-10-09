@@ -50,7 +50,16 @@ class MempoolDiff {
         if (!state) return;
 
         const WINDOW = 500;
-        const rows = await this.db.getDecoderMempoolRows({ coin }, WINDOW);
+        let rows;
+        if (typeof this.db.getDecoderMempoolFeed === 'function') {
+            const feed = await this.db.getDecoderMempoolFeed({ coin }, WINDOW);
+            // Decoder configured but unavailable: skip the poll and keep state,
+            // so an outage is not read as every pending tx leaving the mempool.
+            if (feed === null) return;
+            rows = feed.rows;
+        } else {
+            rows = await this.db.getDecoderMempoolRows({ coin }, WINDOW);
+        }
         const { current, decodedNew, maxHash } = indexMempoolRows(this.db, state, rows);
         // The read is ORDER BY tx_hash LIMIT 500 (getDecoderMempoolRows). When the
         // window came back full the table may hold more rows than it covers, and

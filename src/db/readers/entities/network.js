@@ -33,6 +33,8 @@
 
 const coinsRegistry = require('../../../coins');
 const { isMissingTableError } = require('../../schema_probe.js');
+const { DbQueryError } = require('../../shared.js');
+const DecoderConnector = require('../../../connectors/decoder.js');
 
 // The coin identity and network this request is for, read off the loaded explorer
 // config rather than off the route code alone, so a re-tune of a chain's name,
@@ -237,7 +239,10 @@ class EntityNetworkReaders {
     async getMempool(config){
         let search = String(config.data.search || '');
         let type   = String(config.data.type || '').toLowerCase();
-        let rows   = await this.getDecoderMempoolRows(config, 500);
+        let feed   = await this.getDecoderMempoolFeed(config, 500);
+        if(feed === null)
+            throw new DbQueryError('DECODER_MEMPOOL_UNAVAILABLE: decoder mempool is configured but not answering for ' + config.coin);
+        let rows   = feed.rows;
         let out    = [];
         // Resolve the queried address to its index id ONCE per request, not once
         // per row: getExactAddressId is cached (per coin + reorg generation), but the
@@ -283,6 +288,31 @@ class EntityNetworkReaders {
         return [out.slice(offset, offset + limit), null, total];
     }
 
+    // The mempool rows plus the time they were last read successfully
+    // (read_ok_at, epoch ms), or null when a decoder API endpoint is configured
+    // for the coin but its snapshot is unavailable or older than two cache
+    // TTLs. With no endpoint configured the colocated decoder DB is read as
+    // before and read_ok_at is the read time. Callers treat null as unknown,
+    // never as an empty mempool.
+    async getDecoderMempoolFeed(config, limit){
+        const code   = config.coin;
+        const parsed = await this.parseCoinCode(code);
+        const url    = DecoderConnector.resolveDecoderUrl(
+                         parsed ? parsed.coin    : null,
+                         parsed ? parsed.network : null,
+                         (this.decoderApiUrl || {})[code] || null);
+        if(!url)
+            return { rows: await this.getDecoderMempoolRows(config, limit), read_ok_at: Date.now() };
+        const ttl  = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
+        const snap = await this.getDecoderMempoolSnapshot(config);
+        const hit  = (this._mempoolApiCache || {})[code];
+        const okAt = hit && hit.okAt;
+        if(!snap || !okAt || (Date.now() - okAt) >= 2 * ttl)
+            return null;
+        const max = Math.max(1, Math.min(Number(limit) || 200, 500));
+        return { rows: snap.rows.slice(0, max), read_ok_at: okAt };
+    }
+
     async getNetwork(config){
         let { coinName, coinTick, reqNetwork } = await resolveCoinIdentity(this, config);
 
@@ -294,6 +324,8 @@ class EntityNetworkReaders {
         // decoder API can report (null when it isn't configured/reachable).
         let unconfirmed     = await this.getDecoderMempoolCount(config);
         let unconfirmedNode = await this.getNodeMempoolCount(config);
+        // node_tx_count ages out with the snapshot that carried it.
+        if(await this.getDecoderMempoolFeed(config, 1) === null) unconfirmedNode = null;
         // Live fee tiers from this coin's encoder (estimatesmartfee), cached.
         let fee = await this.getFeeEstimate(config);
         // Live USD price from the xchain-hub oracle (mainnet coins only; null for

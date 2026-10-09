@@ -86,13 +86,12 @@ describe('hub-mirror list share vendored contract @regression', function () {
     });
 
     it('registers remote_token_snapshots for bootstrap, local ids, and retraction', function () {
-        assert.ok(mirrorTables.CROSS_CHAIN_TABLES.includes('remote_token_snapshots'));
+        assert.ok(mirrorTables.HUB_STATE_TABLES.includes('remote_token_snapshots'));
         assert.ok(mirrorTables.MIRRORED_TABLES.includes('remote_token_snapshots'));
         assert.ok(mirrorTables.AUTO_INCREMENT_ID_TABLES.includes('remote_token_snapshots'));
         assert.equal(mirrorTables.RETRACTION_COLUMNS.remote_token_snapshots, 'source_action_index');
         assert.equal(mirrorTables.RETRACTION_CHAIN_COLUMNS.remote_token_snapshots, 'coin');
-        assert.deepEqual(mirrorTables.REFUSED_ROW_NAMES.remote_token_snapshots,
-            { column: 'snapshot_id', tag: null });
+        assert.equal(mirrorTables.REFUSED_ROW_NAMES.remote_token_snapshots, undefined);
     });
 
     it('vendors HUB_SCHEMA_VERSION 9', function () {

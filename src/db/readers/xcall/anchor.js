@@ -102,9 +102,9 @@ async function readAnchorIdentity(db, config){
 // The signature payload, parsed onto the spine row.
 function parseAnchorPayload(db, row){
     row.validator_signatures   = db.parseSignaturesArray(row.validator_signatures);
-    // The v4/v5/v6 XANCPUB tail is RAW WIRE transport, not the quorum-verified subset
-    // (anchor_actions.sql), so it is parsed for display and named as attestations to
-    // re-verify, never presented as a verified quorum.
+    // The v0/v1/v3 XANCPUB tail (v2 chunks carry none; v4 and up are unknown) is RAW WIRE
+    // transport, not the quorum-verified subset (anchor_actions.sql), so it is parsed for
+    // display and named as attestations to re-verify, never presented as a verified quorum.
     row.publisher_attestations = db.parseSignaturesArray(row.publisher_attestations);
 }
 

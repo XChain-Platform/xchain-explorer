@@ -52,10 +52,12 @@ class CoinPass {
         // On a reorg, rewind each cursor to just below the fork point: the lowest
         // remembered height whose block hash changed or vanished, and never above the
         // (possibly lower) new tip. A replacement at an unchanged height therefore
-        // re-enters the feed instead of sitting under the high-water mark.
-        if (reorged) {
+        // re-enters the feed instead of sitting under the high-water mark. The
+        // pending flag, not this poll's verdict, gates it (see readTip).
+        if (prev.pendingReorg) {
             const fork = await findForkPoint(this, config, prev);
             rewindCursors(prev, fork, currentBlockIndex, currentActionIndex);
+            prev.pendingReorg = false;
         }
 
         // The chain grew since the last poll, so there are new blocks to announce.
@@ -90,9 +92,13 @@ async function readTip(detector, config) {
     // a rewind the strictly-greater comparisons would stop emitting until the
     // chain re-climbed past the pre-reorg tip (feed stall while the new tip sits
     // lower; replaced tail otherwise skipped).
+    // checkReorgAndInvalidate reports a reorg once (it records the new tip before
+    // returning), so the verdict is kept on the coin's state until the rewind
+    // completes: a read that throws before then must not lose it.
     let reorged = false;
     if (typeof detector.db.checkReorgAndInvalidate === 'function')
         reorged = await detector.db.checkReorgAndInvalidate(config);
+    if (reorged) detector.state[config.coin].pendingReorg = true;
 
     const currentBlockIndex  = await detector.db.getMaxBlockIndex(config) || 0;
     // Zero-default is 0n, not 0: getMaxActionIndex answers in BigInt so the
@@ -116,6 +122,8 @@ function seedCursors(prev, currentBlockIndex, currentActionIndex) {
     // Same seed rule for the XCALL phase cursor: every call that resolved at or
     // below the tip resolved before this process started.
     prev.xcallBlock  = currentBlockIndex;
+    // Every cursor now sits at the observed tip, so no rewind is owed.
+    prev.pendingReorg = false;
     prev.initialized = true;
 }
 
@@ -263,7 +271,9 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
             addr:      new Map(),
             token:     new Map(),
             dispenser: new Map(),
-            market:    new Map()
+            market:    new Map(),
+            // The batch's ledger ticks, read on first need (entities.js ledgerTicksOf).
+            ledger:    { actions: newActions, ticks: undefined }
         };
         // Each new action fans out four ways: the raw indexed row on `actions`,
         // the typed lifecycle events its type maps to, entity updates for whatever

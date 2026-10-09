@@ -228,16 +228,16 @@ const STATE_COMMITMENT_ACTIVATION = gateRegistry.copy('state_commitment_activati
 const CHECKPOINT_COMMITMENT_ACTIVATION = gateRegistry.copy('checkpoint_commitment_activation.CHECKPOINT_COMMITMENT_ACTIVATION');
 
 // ANCHOR_REWARD_ACTIVATION (anchor-reward re-derivation): the flag-day at/above which the validator
-// anchor reward stops being TRUSTED from the hub's `pushvalidatorrewards` JSON-RPC and is instead
+// anchor reward stops being TRUSTED from the hub over a key-authenticated JSON-RPC (since retired) and is instead
 // DERIVED by every indexer from the on-chain ANCHOR bytes. Post-flag-day the hub emits a publisher-
-// bearing ANCHOR (v4 rootless / v5 root-bearing) carrying the elected publisher pubkey plus a 2f+1
+// bearing ANCHOR checkpoint bundle (v0 of the restarted wire set) carrying the elected publisher pubkey plus a 2f+1
 // `oracle_publish` attestation (XANCPUB) over the reward tuple; the indexer verifies that quorum and
 // credits the publisher with ANCHOR_REWARD_AMOUNT (a frozen consensus constant, NEVER from the wire).
-// Below the flag-day the old push path stands and v4/v5 anchors are rejected. Consensus-relevant (the
+// Below the flag-day the legacy anchor wire applies and an anchor's PUBLISHER tail earns no derived credit. Consensus-relevant (the
 // credited reward becomes a COLLECT-spendable per-block ledger row), so it must deploy hub + ALL
 // indexers atomically. Like CHECKPOINT_COMMITMENT_ACTIVATION / STAKE_WEIGHTED_QUORUM_ACTIVATION it gates
 // on the BTC-anchored `snapshot_block` carried by every ANCHOR canonical. Kept byte-identical to the
-// local copies in xchain-{hub,indexer}/src/anchor_reward_activation.js by the cross-service regression
+// local copies in xchain-{hub,indexer}/src/consensus/gates/anchor_reward_gate.js by the cross-service regression
 // suite. Same ARMED height and deploy-by convention as the maps above: mainnet is armed to 961000
 // (2026-07-07; BTC anchor ~2026-08-04), not a disabled placeholder.
 const ANCHOR_REWARD_ACTIVATION = gateRegistry.copy('anchor_reward_activation.ANCHOR_REWARD_ACTIVATION');
@@ -247,14 +247,15 @@ const ANCHOR_REWARD_ACTIVATION = gateRegistry.copy('anchor_reward_activation.ANC
 const ANCHOR_REWARD_AMOUNT = '10.00000000';
 
 // ARCHIVE_REWARD_ACTIVATION (archive-reward re-derivation): the flag-day at/above which the
-// anchor_archive reward stops riding the key-authenticated `pushvalidatorrewards` rail and is instead
-// DERIVED by every indexer from the on-chain ANCHOR v6 bytes (the v1 archive anchor plus the same
-// PUBLISHER + 2f+1 XANCPUB attestation tail as v4/v5, attested over an 'anchor_archive' canonical
-// keyed on MATCH_BATCH_SEQ). This retires the last insider-with-key reward-forge surface the
-// per-chain ANCHOR_REWARD flag-day left open. Below the flag-day the legacy v1 + push path stands
-// and v6 anchors are rejected. Consensus-relevant, same deploy rules and snapshot_block gating as
+// anchor_archive reward stops riding the key-authenticated hub JSON-RPC rail (since retired) and is instead
+// DERIVED by every indexer from the on-chain ANCHOR archive-head bytes (v1 of the restarted wire set,
+// carrying the same PUBLISHER + 2f+1 XANCPUB attestation tail the v0 bundle carries, attested over an
+// 'anchor_archive' canonical keyed on MATCH_BATCH_SEQ). This retires the last insider-with-key
+// reward-forge surface the per-chain ANCHOR_REWARD flag-day left open. Below the flag-day the legacy
+// tail-less archive wire applies and an archive head's PUBLISHER tail earns no derived credit.
+// Consensus-relevant, same deploy rules and snapshot_block gating as
 // ANCHOR_REWARD_ACTIVATION; kept byte-identical to the local copies in
-// xchain-{hub,indexer}/src/anchor_reward_activation.js by the cross-service regression suite.
+// xchain-{hub,indexer}/src/consensus/gates/anchor_reward_gate.js by the cross-service regression suite.
 const ARCHIVE_REWARD_ACTIVATION = gateRegistry.copy('anchor_reward_activation.ARCHIVE_REWARD_ACTIVATION');
 
 // ANCHOR_ACTIVATION: the DOGE height (per network) at/above which the ANCHOR wire set restarts at
@@ -264,9 +265,9 @@ const ARCHIVE_REWARD_ACTIVATION = gateRegistry.copy('anchor_reward_activation.AR
 // archive fold) parses only once ANCHOR_FOLD_ACTIVATION is also active, and every other version
 // byte is 'invalid: VERSION (unknown)'. Keyed on the action's OWN DOGE block_index
 // (data['BLOCK_INDEX'] at parse time, anchor_actions.block_index_doge), never on SNAPSHOT_BLOCK or
-// the checkpointed height: the row being judged is the anchor itself. The mainnet height (6360000)
-// is a flag day the operator arms deliberately; once the chain passes it the restarted wire set is
-// live there, and until then every mainnet ANCHOR reads as pre-activation.
+// the checkpointed height: the row being judged is the anchor itself. Mainnet 6360000 is LIVE: the
+// DOGE tip passed it near 2026-09-03 (tip 6371762 on 2026-09-12), so the restarted wire set has
+// been active on mainnet since then; the value is unchanged and no flag day remains.
 // Testnet 67858600 is 24 blocks above its last pre-restart anchor (67858576) and is already past.
 // Neither is 0, because both carry pre-restart history (mainnet 56 rows, testnet 11, measured
 // 2026-08-30): at 0 the gate can never fire, so the retired wires fall through to the restarted

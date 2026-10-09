@@ -207,6 +207,17 @@ function actionDetail_renderMarketActions(html, action, info, coin){
         let type2   = XC.list_types[info.type] || 'Unknown';
         html = action3 + ' ' + type2 + ' List';
     }
+    // Name the BET shape from its record format, the one shape key every summary
+    // surface projects; a row with no format keeps the generic name.
+    if(action=='BET'){
+        let fmt = isNull(info.action_format) ? null : Number(info.action_format);
+        let shapes = { 0: 'Create bet feed', 1: 'Cancel bet feed', 3: 'Resolve bet feed', 4: 'Edit bet feed lists' };
+        if(fmt === 2)
+            html = (isNull(info.tick) || isNull(info.amount)) ? 'Wager'
+                : 'Wager ' + formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
+        else if(fmt !== null && shapes[fmt])
+            html = shapes[fmt];
+    }
     return html;
 }
 
@@ -374,11 +385,9 @@ function actionDetail_renderConsensusActions(html, action, info, coin){
         html = 'Policy snapshot (XPOLICY)';
     if(action=='LIST_SHARE')
         html = 'Shared list version (LIST_SHARE)';
-    // Never render a blank Details cell: any type without an explicit summary
-    // above (BATCH, XCALL, XEXEC, CROSS_SETTLE, NODEPROOF, ATTEST, COINPAY,
-    // ... and any FUTURE type) falls back to a humanized action name, so a new
-    // action type can no longer silently summarize as empty while being fully
-    // supported everywhere else.
+    // Never render a blank Details cell: a type with no summary branch falls back to
+    // its humanized name. The fallback-only set is pinned by a test, so a new type
+    // must either get a branch or join that list on purpose.
     if(html === ''){
         let words = String(action).toLowerCase().split('_');
         html = words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');

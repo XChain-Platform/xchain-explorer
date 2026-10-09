@@ -250,8 +250,13 @@ const ROUTES = [
     ['/{COIN}/api/rich_list/{QUERY}', 'getRichList', 'token', 'Tokens', 'One token’s holder ranking and supply stats: circulating supply, holder count, the summed balances alongside it, and the top holders (capped at the request limit, 100 max) with each holder’s percent of circulating supply. Zero balances are excluded. There is no cross-token ranking route'],
     ['/{COIN}/api/transaction/{QUERY}/{TYPE}', 'getTransaction', ['tx_hash', 'tx_index'], 'Core', 'Transaction lookup'],
     // ── Markets ───────────────────────────────────────────────────────────
-    ['/{COIN}/api/markets', 'getMarkets', null, 'Markets', 'All trading pairs'],
-    ['/{COIN}/api/markets/{TICK1}', 'getMarkets', null, 'Markets', 'Trading pairs for one tick'],
+    ['/{COIN}/api/markets', 'getMarkets', null, 'Markets', 'All trading pairs',
+        { description: 'Each tick1_* and tick2_* field describes the tick named in tick1 or tick2 on the same row.' }],
+    // The searched tick's slot is part of the contract, and the path name suggests the other one.
+    ['/{COIN}/api/markets/{TICK1}', 'getMarkets', null, 'Markets', 'Trading pairs for one tick',
+        { description: 'Every returned pair puts the searched tick in tick2, with its values in the tick2_* fields, '
+            + 'and the counter tick in tick1 and tick1_*, despite the {TICK1} path name. This is the slot TICK2 '
+            + 'takes in /market/{TICK1}/{TICK2}. Read the searched tick\'s price from tick2_price.' }],
     ['/{COIN}/api/market/{TICK1}/{TICK2}', 'getMarket', null, 'Markets', 'Market summary for a pair'],
     ['/{COIN}/api/market/{TICK1}/{TICK2}/history', 'getMarketHistory', null, 'Markets', 'Trade history for a pair'],
     ['/{COIN}/api/market/{TICK1}/{TICK2}/history/{ADDRESS}', 'getMarketHistory', null, 'Markets', 'Trade history for a pair, one address'],

@@ -293,3 +293,36 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         expect(offsetArgs).to.deep.equal([500]);
     });
 });
+
+describe('Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity', () => {
+    async function commitmentQueries() {
+        const db = makeRealDb();
+        db.checkpointDb = { ...HUB };
+        return db.getCommitments(commitmentsConfig());
+    }
+
+    it('pins the anchor leg to one row in both the list and the count query', async () => {
+        const [query, , count] = await commitmentQueries();
+        const pin = /\(an\.action_index, an\.section_index\) = \(SELECT a3\.action_index, a3\.section_index[\s\S]*?LIMIT 1\)/;
+        expect(query).to.match(pin);
+        expect(count).to.match(pin);
+    });
+
+    it('ranks checkpoint sections before archive heads, then newest, then section_index', async () => {
+        const [query] = await commitmentQueries();
+        expect(query).to.include('ORDER BY (a3.version IN (0, 3)) DESC, a3.action_index DESC, a3.section_index DESC');
+    });
+
+    it('correlates the pin on the joined row only, so it adds no placeholders', async () => {
+        const [query] = await commitmentQueries();
+        expect(query).to.include('a3.chain = an.chain AND a3.network = an.network');
+        expect(query).to.include('a3.block_index = an.block_index AND a3.checkpoint_seq = an.checkpoint_seq');
+        expect(query).to.not.match(/a3\.\w+ = \?/);
+    });
+
+    it('filters both the latest-seq lookup and the pin to the checkpoint-bearing versions', async () => {
+        const [query] = await commitmentQueries();
+        expect(query).to.include('a2.version IN (0, 1, 3)');
+        expect(query).to.include('a3.version IN (0, 1, 3)');
+    });
+});

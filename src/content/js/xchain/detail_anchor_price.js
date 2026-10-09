@@ -69,7 +69,9 @@ function showAnchorDetails(data){
     $('#info-anchor .anchor-contract-hash').html(isNull(data.contract_hash) ? '-' : formatHash(data.contract_hash, 32));
     $('#info-anchor .anchor-match-batch').text(isNull(data.match_batch_seq) ? '-' : numeral(data.match_batch_seq).format('0,0'));
     $('#info-anchor .anchor-match-count').text(isNull(data.match_count) ? '-' : numeral(data.match_count).format('0,0'));
-    $('#info-anchor .anchor-chunk').text(isNull(data.chunk_index) ? '-' : (data.chunk_index + ' of ' + data.total_chunks));
+    // The stored index is 0 on the head and 1-based on each continuation; show it 1-based like the feed.
+    $('#info-anchor .anchor-chunk').text(isNull(data.chunk_index) ? '-'
+        : ((Number(data.chunk_index) + 1) + ' of ' + (isNull(data.total_chunks) ? '?' : data.total_chunks)));
     $('#info-anchor .anchor-doge-block').text(isNull(data.block_index_doge) ? '-' : numeral(data.block_index_doge).format('0,0'));
     // SPV commitment roots (NULL pre-CHECKPOINT_COMMITMENT flag-day; populated for v3).
     let hasRoots = !isNull(data.state_root) || !isNull(data.block_merkle_root);

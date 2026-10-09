@@ -63,6 +63,44 @@ async function refusesToCacheStaleReplyAsSuccessful(){
 describe('mempool feed when the decoder is unavailable', () => {
     afterEach(() => sinon.restore());
 
+    it('decoder configured and healthy', async () => {
+        const row = { tx_hash: 'healthy' };
+        sinon.stub(DecoderConnector.prototype, 'getmempool').resolves(reply({ total: 1, rows: [row] }));
+        const db = makeDb();
+
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(1);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.deep.equal([row]);
+        expect(db.doDecoderQuery.called).to.equal(false);
+    });
+
+    it('decoder configured and malformed', async () => {
+        sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ total: 7, rows: 'invalid' });
+        const db = makeDb();
+
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
+        expect(db.doDecoderQuery.called).to.equal(false);
+    });
+
+    it('decoder configured and unreachable', async () => {
+        sinon.stub(DecoderConnector.prototype, 'getmempool').rejects(new Error('offline'));
+        const db = makeDb();
+
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
+        expect(db.doDecoderQuery.called).to.equal(false);
+    });
+
+    it('decoder not configured', async () => {
+        const row = { tx_hash: 'database' };
+        const query = sinon.stub().callsFake(async (config, sql) => sql.includes('COUNT(*)') ? [{ count: 1 }] : [row]);
+        const db = makeDb({ decoderApiUrl: {}, doDecoderQuery: query });
+
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(1);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.deep.equal([row]);
+        expect(query.callCount).to.equal(2);
+    });
+
     it('does not cache a stale decoder reply as a successful refresh', refusesToCacheStaleReplyAsSuccessful);
 
     it('rejects a stale reply with no recent successful read', async () => {

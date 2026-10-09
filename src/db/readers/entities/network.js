@@ -69,12 +69,12 @@ async function getDecoderMempoolSnapshot(config){
     }
 }
 async function getDecoderMempoolCount(config){
-    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config), hit = (this._mempoolApiCache || {})[config.coin];
-    return snapshot ? snapshot.total : decoderMempoolUrl(this, config.coin, parsed) && !(hit && hit.malformed) ? null : originalMempoolCount.call(this, config);
+    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config);
+    return snapshot ? snapshot.total : decoderMempoolUrl(this, config.coin, parsed) ? null : originalMempoolCount.call(this, config);
 }
 async function getDecoderMempoolRows(config, limit){
-    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config), hit = (this._mempoolApiCache || {})[config.coin];
-    return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) && !(hit && hit.malformed) ? null : originalMempoolRows.call(this, config, limit);
+    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config);
+    return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) ? null : originalMempoolRows.call(this, config, limit);
 }
 for(const [name, value] of Object.entries({ getDecoderMempoolSnapshot, getDecoderMempoolCount, getDecoderMempoolRows })) Object.defineProperty(decoderReaders, name, Object.assign({}, Object.getOwnPropertyDescriptor(decoderReaders, name), { value }));
 // The coin identity and network this request is for, read off the loaded explorer

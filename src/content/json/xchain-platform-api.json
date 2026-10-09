@@ -4027,7 +4027,11 @@
                                 "type": "integer"
                             },
                             "unconfirmed": {
-                                "type": "integer"
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "description": "Unconfirmed XChain-carrying transactions (decoder API or DB); null means the mempool read is unavailable"
                             },
                             "unconfirmed_node": {
                                 "type": [

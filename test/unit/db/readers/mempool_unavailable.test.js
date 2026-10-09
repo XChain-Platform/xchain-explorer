@@ -100,6 +100,10 @@ describe('mempool feed when the decoder is unavailable', () => {
         expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.deep.equal([row]);
         expect(query.callCount).to.equal(2);
     });
+});
+
+describe('mempool feed failure handling', () => {
+    afterEach(() => sinon.restore());
 
     it('does not cache a stale decoder reply as a successful refresh', refusesToCacheStaleReplyAsSuccessful);
 

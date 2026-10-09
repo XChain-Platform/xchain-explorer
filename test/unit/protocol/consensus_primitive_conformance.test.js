@@ -157,6 +157,34 @@ describe('consensus-primitive conformance: byte-identity to canonical source @re
     });
 });
 
+describe('consensus-primitive conformance: gate_registry row parts byte-identity @regression', function(){
+    before(function(){
+        if(!CANON_VERDICT.usable)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical gate_registry identity guard');
+    });
+
+    const LOCAL_ONLY = ['local_rows.js'];
+    const localParts = () => fs.readdirSync(path.join(LOCAL_DIR, 'consensus', 'gate_registry')).filter((f) => f.endsWith('.js')).sort();
+    const canonParts = () => fs.readdirSync(path.join(CANON_DIR, 'consensus', 'gate_registry')).filter((f) => f.endsWith('.js')).sort();
+
+    it('gate_registry/ file set equals the canonical set plus the local-only rows', function(){
+        assert.deepStrictEqual(
+            localParts().filter((f) => !LOCAL_ONLY.includes(f)),
+            canonParts(),
+            'the vendored gate_registry/ file set has drifted from xchain-documentation/protocol/reference-impl/consensus/gate_registry/');
+    });
+
+    it('every vendored gate_registry/ part is byte-identical to the canonical copy', function(){
+        const parts = canonParts();
+        assert.ok(parts.length > 0, 'canonical gate_registry/ is empty');
+        for(const f of parts){
+            const local = fs.readFileSync(path.join(LOCAL_DIR, 'consensus', 'gate_registry', f), 'utf8');
+            const canon = fs.readFileSync(path.join(CANON_DIR, 'consensus', 'gate_registry', f), 'utf8');
+            assert.strictEqual(local, canon, 'consensus/gate_registry/' + f + ' has drifted from the canonical source; re-vendor it from xchain-indexer.');
+        }
+    });
+});
+
 describe('consensus-primitive conformance: fallback vectors byte-identical to canonical @regression', function(){
     before(function(){
         if(!VEC_VERDICT.usable)

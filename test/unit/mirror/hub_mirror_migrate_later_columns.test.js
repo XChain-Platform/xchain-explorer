@@ -115,6 +115,17 @@ describe('hub-mirror-migrate later hub columns', function () {
         expect(add).to.not.include('push_generation');
     });
 
+    it('adds the finalizing view and chain identity to a legacy remote token snapshot table', async function () {
+        const later = ['finalizing_view', 'btc_chain_id'];
+        const db = oneTableDb('remote_token_snapshots', twinColumnsWithout('remote_token_snapshots', later));
+        const applied = await ensureMirrorColumns(db, () => {});
+        expect(applied).to.deep.equal([
+            'ALTER TABLE `remote_token_snapshots` ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0, '
+            + 'ADD COLUMN btc_chain_id CHAR(64) NULL'
+        ]);
+        expect(db.executed).to.deep.equal(applied);
+    });
+
     it('is a no-op on a table that already carries every twin column', async function () {
         const db = oneTableDb('list_snapshots', twinColumnsWithout('list_snapshots', []));
         const applied = await ensureMirrorColumns(db, () => {});

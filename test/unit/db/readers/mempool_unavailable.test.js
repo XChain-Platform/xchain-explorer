@@ -92,7 +92,7 @@ describe('mempool feed when the decoder is unavailable', () => {
     });
 
     it('decoder configured with an unrecognized nonempty reply', async () => {
-        sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ unexpected: 'payload' });
+        sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ nonsense: true });
         const db = makeDb();
 
         expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);

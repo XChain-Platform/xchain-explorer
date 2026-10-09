@@ -25,17 +25,21 @@ const { getLogger } = require('../observability');
 const log = getLogger();
 const sql = require('../db/action_detail/governance_sql.js');
 
+function decodeBetDetails(data, isNull){
+    data['details_json'] = null;
+    if(isNull(data['details']))
+        return;
+    try { data['details_json'] = JSON.parse(Buffer.from(String(data['details']), 'base64').toString('utf8')); }
+    catch(_){ data['details_json'] = null; }
+}
+
+function clearBetPlumbing(data){
+    delete data['cancel_feed_ref']; delete data['resolve_feed_ref'];
+    delete data['edit_feed_ref']; delete data['edit_status'];
+}
+
 const BET = {
-    // BET action. One action name over four formats, each owning its own row:
-    // 0 create-feed -> bet_feeds, 2 place-bet -> bets, 1 cancel -> bet_cancels,
-    // 3 resolve -> bet_resolves. The cancel/resolve tables carry the leg's PARSE
-    // status and are written whatever it is, which is what makes a
-    // chain-REJECTED cancel or resolve reportable: those legs used to write only
-    // a bet_feed_statuses row and only when valid, so this query returned a NULL
-    // status and the SDK could not tell a rejection from a success. Their
-    // feed_action_index is kept in its OWN alias, never coalesced onto the bets
-    // column, because post-processing disambiguates the shapes off that column.
-    // Mirrors the VOTE multi-table + row-less-format handling above.
+    // Formats: 0 feed, 1 cancel, 2 wager, 3 resolve, 4 edit.
     queries() {
         let query  = null;
         let query2 = null;
@@ -43,11 +47,7 @@ const BET = {
         query = sql.BET_DETAIL;
         return { query, query2, query3 };
     },
-    // BET: disambiguate the four formats and shape each. A create owns a bet_feeds
-    // row (label present); a place owns a bets row (feed_action_index present);
-    // cancel (1) and resolve (3) own NO row of their own, so resolve their parent
-    // feed through the bet_feed_statuses row they wrote, the same row-less
-    // de-blanking VOTE v2 needs. bet_kind tells the client which shape it received.
+    // Shape the detail response for each BET format.
     async afterMain({ db, config, action_index }, data) {
         let fmt = db.util.isNull(data['action_format']) ? null : Number(data['action_format']);
         if(fmt !== null)
@@ -55,18 +55,15 @@ const BET = {
         if(!db.util.isNull(data['label']) || fmt === 0){
             data['bet_kind'] = 'feed';
             data['feed_ref'] = data['action_index'];
-            // DETAILS is attacker-controlled base64 JSON. Decode for convenience but
-            // keep the raw, and fall back to null (never the raw string) so a caller
-            // cannot mistake un-parsed hostile bytes for a parsed object. It is
-            // rendered strictly as data and no URL inside it is ever fetched.
-            data['details_json'] = null;
-            if(!db.util.isNull(data['details'])){
-                try { data['details_json'] = JSON.parse(Buffer.from(String(data['details']), 'base64').toString('utf8')); }
-                catch(_){ data['details_json'] = null; }
-            }
+            decodeBetDetails(data, db.util.isNull);
         } else if(!db.util.isNull(data['feed_action_index'])){
             data['bet_kind'] = 'bet';
             data['feed_ref'] = data['feed_action_index'];
+        } else if(fmt === 4){
+            data['bet_kind'] = 'edit';
+            if(!db.util.isNull(data['edit_feed_ref']))
+                data['feed_ref'] = data['edit_feed_ref'];
+            data['status'] = data['edit_status'];
         } else {
             // Format 1 (cancel) / 3 (resolve). The leg's own row (bet_cancels /
             // bet_resolves) names the feed it targeted and is present whatever the
@@ -88,7 +85,7 @@ const BET = {
         }
         // The cancel/resolve feed refs are plumbing for the branch above; the
         // payload exposes one `feed_ref` for every shape.
-        delete data['cancel_feed_ref']; delete data['resolve_feed_ref'];
+        clearBetPlumbing(data);
         // The DECLARED outcome belongs to the resolve shape alone. Keep it there and
         // nowhere else: a null one on a create/wager/cancel reads like a resolve that
         // named no result, which is not a state a resolve can be in.
@@ -106,6 +103,9 @@ const BET = {
             delete data['deadline']; delete data['refund_window']; delete data['expire_at'];
             delete data['min_amount']; delete data['allow_list']; delete data['block_list'];
             delete data['details']; delete data['closed_block']; delete data['terminal_block'];
+        }
+        if(data['bet_kind'] !== 'edit'){
+            delete data['edit_allow_list']; delete data['edit_block_list'];
         }
     },
 };

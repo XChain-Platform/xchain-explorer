@@ -620,6 +620,22 @@
                 {
                     "label": "Declared Outcome",
                     "cell": "bet-resolve-outcome"
+                },
+                {
+                    "label": "Market",
+                    "cell": "bet-edit-feed-ref"
+                },
+                {
+                    "label": "Allow List Edit",
+                    "cell": "bet-edit-allow-list"
+                },
+                {
+                    "label": "Block List Edit",
+                    "cell": "bet-edit-block-list"
+                },
+                {
+                    "label": "Action Status",
+                    "cell": "bet-edit-status"
                 }
             ]
         },

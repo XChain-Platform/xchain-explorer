@@ -16,9 +16,9 @@
  * Custom javascript for xchain explorer
  */
 
-// Display BET action information: one action name over four formats, so branch on
+// Display BET action information: one action name over five formats, so branch on
 // bet_kind (set server-side in getActionData). 'feed' is format 0 market creation,
-// 'bet' format 2 wager, 'cancel'/'resolve' the row-less formats 1/3.
+// 'bet' format 2 wager, 'cancel'/'resolve' formats 1/3, and 'edit' format 4.
 
 // RENDERING SAFETY (§11.1): LABEL, OUTCOMES and DETAILS are attacker-controlled
 // on-chain bytes. Everything derived from them goes through .text() or the
@@ -31,6 +31,7 @@ function showBetDetails(data){
     $('#info-bet .bet-feed-fields').toggleClass('d-none', kind != 'feed');
     $('#info-bet .bet-wager-fields').toggleClass('d-none', kind != 'bet');
     $('#info-bet .bet-action-fields').toggleClass('d-none', kind != 'cancel' && kind != 'resolve');
+    $('#info-bet .bet-edit-fields').toggleClass('d-none', kind != 'edit');
     // Only a resolve declares an outcome; a cancel shares the rows above and has none.
     $('#info-bet .bet-resolve-fields').toggleClass('d-none', kind != 'resolve');
 
@@ -107,7 +108,7 @@ function detailBetStake_renderFeed(data, kind, esc, statusClass){
 }
 
 function detailBetStake_renderAction(data, kind, esc, statusClass){
-    // Render wager, cancellation, and resolution fields.
+    // Render wager, cancellation, resolution, and list-edit fields.
     if(kind=='bet'){
         $('#info-bet .bet-feed-ref').html(isNull(data.feed_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_ref, data.feed_ref));
         let outcomeLabel = Array.isArray(data.outcome_labels) ? data.outcome_labels[data.outcome] : null;
@@ -135,6 +136,21 @@ function detailBetStake_renderAction(data, kind, esc, statusClass){
         let resolveLabel = Array.isArray(data.outcome_labels) ? data.outcome_labels[ro] : null;
         $('#info-bet .bet-resolve-outcome').html(isNull(ro) ? '-'
             : esc(formatIndexedLabel(ro, resolveLabel)) + (data.status == 'valid' ? '' : ' <span class="badge text-bg-warning text-dark">claimed - resolve ' + esc(isNull(data.status) ? 'not accepted' : data.status) + '</span>'));
+    }
+
+    if(kind=='edit'){
+        let editRef = function(value){
+            if(isNull(value)) return '<span class="text-muted">unchanged</span>';
+            let raw = String(value);
+            if(/^0+$/.test(raw)) return '<span class="text-muted">detached</span>';
+            if(/^\d+$/.test(raw)) return formatLink('/' + XC.coin + '/action/' + raw, raw);
+            return esc(raw);
+        };
+        $('#info-bet .bet-edit-feed-ref').html(isNull(data.feed_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.feed_ref, data.feed_ref));
+        $('#info-bet .bet-edit-allow-list').html(editRef(data.edit_allow_list));
+        $('#info-bet .bet-edit-block-list').html(editRef(data.edit_block_list));
+        $('#info-bet .bet-edit-status').html(isNull(data.status) ? '-'
+            : '<span class="badge text-bg-' + (data.status == 'valid' ? 'success' : 'danger') + '">' + esc(data.status) + '</span>');
     }
 }
 

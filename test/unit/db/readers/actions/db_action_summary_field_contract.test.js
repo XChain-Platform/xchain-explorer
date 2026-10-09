@@ -156,6 +156,18 @@ describe('action summary field contract: projection vs getActionDetails', functi
         expect(out.details).to.include({ destination: 'addrB', tick: 'DANK', amount: '100' });
     });
 
+    it('permits the computed multi-leg total fields read by the renderer', function () {
+        expect(Database.ACTION_SUMMARY_FIELDS).to.include.members(['leg_count', 'leg_total', 'mixed_tokens']);
+        const out = makeDb().projectActionSummary({
+            action: 'SEND',
+            sends: [
+                { destination: 'addrB', tick: 'DANK', amount: '1', status: 'valid' },
+                { destination: 'addrC', tick: 'DANK', amount: '2', status: 'valid' }
+            ]
+        });
+        expect(out.details).to.include({ leg_count: 2, leg_total: '3', mixed_tokens: false });
+    });
+
     it('returns details false when no summary field is present', function () {
         const db = makeDb();
         const out = db.projectActionSummary({ action: 'ANCHOR', status: 'valid' });

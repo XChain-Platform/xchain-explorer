@@ -164,11 +164,22 @@ class ActionSummaryReaders {
         // disclosure fetches the action). Both are absent, not 0 or 1, when there
         // is nothing to mark, so single sends keep their exact prior shape. A
         // multi-leg AIRDROP (formats 1-3, one airdrops[] row per leg) is marked the same way.
+        // For one token, leg_total is the exact DECLARED total across every leg,
+        // including an invalid leg: this is an action summary, while the disclosure
+        // reports which legs took effect. Unlike tokens cannot be added, so
+        // mixed_tokens replaces the total and makes the renderer say so.
         let legs = (info.action=='SEND') ? info.sends : (info.action=='DESTROY') ? info.destroys
                  : (info.action=='AIRDROP') ? info.airdrops : null;
         if(Array.isArray(legs) && legs.length > 1){
             if(!details) details = {};
             details.leg_count = legs.length;
+            details.mixed_tokens = legs.some((leg) => String(leg.tick) !== String(legs[0].tick));
+            if(!details.mixed_tokens){
+                let total = '0';
+                for(let leg of legs)
+                    total = this.util.bcadd(total, leg.amount, 18);
+                details.leg_total = String(total);
+            } else delete details.leg_total;
         }
         if(info.action=='BATCH' && Array.isArray(info.actions) && info.actions.length > 0){
             if(!details) details = {};

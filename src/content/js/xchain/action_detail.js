@@ -129,12 +129,17 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         }
     }
     if(action=='AIRDROP'){
-        html += info.amount + formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' to ';
-        // Route the list reference as an ACTION, not a token: airdrops.list_action_index is the
-        // index of the LIST action being paid out (indexer db.js createAirdrop), so a /token/ URL
-        // searched for a token named after a number. showAirdropDetails already links
-        // this same field through /action/.
-        html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
+        if(Number(info.leg_count) > 1 && (info.mixed_tokens === true || !isNull(info.leg_total))){
+            html += info.mixed_tokens === true ? 'Multiple tokens across '
+                : formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.leg_total) + ' across ';
+        } else {
+            html += info.amount + formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' to ';
+            // Route the list reference as an ACTION, not a token: airdrops.list_action_index is the
+            // index of the LIST action being paid out (indexer db.js createAirdrop), so a /token/ URL
+            // searched for a token named after a number. showAirdropDetails already links
+            // this same field through /action/.
+            html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
+        }
     }
     if(action=='BROADCAST'){
         // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
@@ -250,7 +255,10 @@ function actionDetail_renderMessageActions(html, action, info, coin){
         // sends[]; the summary producers flatten sends[0], but tolerate the nested
         // shape too so a raw payload never renders as ' to ' plus an empty link.
         let sends = (isNull(info.tick) && isNull(info.destination) && Array.isArray(info.sends)) ? info.sends : null;
-        if(sends && sends.length > 1){
+        if(Number(info.leg_count) > 1 && (info.mixed_tokens === true || !isNull(info.leg_total))){
+            html += info.mixed_tokens === true ? 'Multiple tokens to '
+                : formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.leg_total) + ' to ';
+        } else if(sends && sends.length > 1){
             let sameTick = sends.every((s) => s.tick == sends[0].tick);
             if(sameTick){
                 let total = sends.reduce((sum, s) => bcadd(sum, s.amount), '0');
@@ -287,8 +295,13 @@ function actionDetail_renderContractActions(html, action, info, coin){
     // Render staking and contract family summaries.
     // Compact summaries for the staking / contract families. Field names
     // mirror each type's show*Details() renderer.
-    if(action=='DESTROY')
-        html = formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
+    if(action=='DESTROY'){
+        if(Number(info.leg_count) > 1 && (info.mixed_tokens === true || !isNull(info.leg_total)))
+            html = info.mixed_tokens === true ? 'Multiple tokens across '
+                : formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.leg_total) + ' across ';
+        else
+            html = formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
+    }
     if(action=='STAKE'){
         html = formatAmount(info.amount);
         html += isNull(info.target_contract_index)

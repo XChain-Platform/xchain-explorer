@@ -90,7 +90,7 @@ function showActionDetails(){
     // Display the correct ACTION section and hide the 'No information available' message
     if(found){
         let name  = String(o.action).replaceAll('_','-').toLowerCase();
-        mountActionDetailCard(name);
+        mountActionDetailCard(name == 'bet-edit' ? 'bet' : name);
         $('#additionalInfoNotAvailable').hide();
     }
 }
@@ -160,6 +160,7 @@ function detailCore_dispatchAction(o){
     if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
     if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
     if(o.action=='BET'){              found = true;  showBetDetails(o);             }
+    if(o.action=='BET_EDIT'){         found = true;  showBetDetails(o);             }
     if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
     return found;
 }

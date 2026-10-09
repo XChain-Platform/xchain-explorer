@@ -23,6 +23,7 @@ const governance = require('../../../src/action-detail/governance.js');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SCRIPT = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_bet_stake.js'), 'utf8');
+const CORE = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_core.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(ROOT, 'src/content/html/action.html'), 'utf8');
 const JQUERY = fs.readFileSync(path.join(ROOT, 'src/content/js/jquery.min.js'), 'utf8');
 const LAYOUT = require('../../../src/content/layouts/action-detail-cards.json');
@@ -73,6 +74,7 @@ function renderEdit(data){
 
 describe('BET format 4 action detail', function(){
     it('joins the edit row, its status, and parent market into the BET detail query', function(){
+        assert.strictEqual(governance.BET_EDIT, governance.BET);
         assert.match(governanceSql.BET_DETAIL,
             /LEFT\s+JOIN bet_edits\s+be ON \(be\.action_index=a1\.action_index\)/);
         assert.match(governanceSql.BET_DETAIL,
@@ -151,6 +153,8 @@ describe('BET format 4 action detail rendering', function(){
     });
 
     it('keeps the edit markup and layout registry in lockstep', function(){
+        assert.match(panelHtml(), /<table[^>]*\bid="info-bet-edit"/);
+        assert.match(CORE, /mountActionDetailCard\(name\s*==\s*'bet-edit'\s*\?\s*'bet'\s*:\s*name\)/);
         const rows = LAYOUT.cards.bet.rows.slice(-4);
         assert.deepEqual(rows, [
             { label: 'Market', cell: 'bet-edit-feed-ref' },

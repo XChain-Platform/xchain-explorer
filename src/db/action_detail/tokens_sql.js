@@ -191,6 +191,20 @@ const ISSUE_QUERY = `SELECT
                     i1.action_index=?
                 LIMIT 1`;
 
+// The ISSUE format 7 bridge opt-in fields, stored on `issues` as raw wire text. Read
+// apart from ISSUE_QUERY because a replica carries them only after the bridge-fields
+// migration, and naming a missing column fails the whole statement.
+const ISSUE_BRIDGE_COLUMNS = Object.freeze(['bridge_chains', 'min_depth', 'lock_bridge']);
+const ISSUE_BRIDGE_QUERY = `SELECT
+                    i1.bridge_chains,
+                    i1.min_depth,
+                    i1.lock_bridge
+                FROM
+                    issues i1
+                WHERE
+                    i1.action_index=?
+                LIMIT 1`;
+
 const LINK_QUERY = `SELECT
                     a2.action,
                     a1.action_format,
@@ -367,6 +381,8 @@ module.exports = {
     DESTROY_QUERY2,
     DIVIDEND_QUERY,
     ISSUE_QUERY,
+    ISSUE_BRIDGE_COLUMNS,
+    ISSUE_BRIDGE_QUERY,
     LINK_QUERY,
     MINT_QUERY,
     SEND_QUERY,

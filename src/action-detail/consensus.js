@@ -44,7 +44,9 @@ const ANCHOR = {
     // the per-network checkpoint bundle, v1 the archive head (carries both its
     // own checkpoint fields and the match archive, plus a publisher-attestation
     // tail that may legitimately be empty, D4), v2 the archive continuation
-    // chunk. Every row mined below ANCHOR_ACTIVATION for its network reused
+    // chunk (no publisher tail), v3 the folded checkpoint + archive bundle (with a
+    // publisher tail, valid only at or above ANCHOR_FOLD_ACTIVATION); v4 and up are
+    // unknown versions. Every row mined below ANCHOR_ACTIVATION for its network reused
     // these same version bytes under an older, unrelated meaning; this query has
     // no version filter and selects every row identically regardless of version
     // or activation, so a legacy row's columns come back exactly as stored and
@@ -88,8 +90,8 @@ const ANCHOR = {
         if(blocks.length) data['snapshot_block'] = Math.max(...blocks);
     },
     // Expand the inlined publisher-attestation JSON on ANCHOR responses that
-    // carry a publisher tail (today's v0 bundle and v1 archive head; formerly
-    // v4/v5/v6 before the wire set restarted) into a structured array
+    // carry a publisher tail (the v0 bundle, the v1 archive head and the v3 folded
+    // bundle; v4 and up are unknown versions) into a structured array
     // the action-detail page can render. NULL/absent on every other row, which
     // yields an empty array so the client leaves the publisher row hidden.
     afterMain({ action_index }, data) {

@@ -51,9 +51,10 @@ const HUB_FILES = [
 // one, so its case keeps that title while comparing the renamed file; the entry drops out
 // of this map when a later grant re-takes the pin.
 const PINNED_TITLE_NAME = { 'hub_schema_version.js': 'hub-schema-version.js' };
-// The two gate modules the client reaches with ../../consensus/gates/, vendored at the
+// The three gate modules the client reaches with ../../consensus/gates/, vendored at the
 // same tail every repo carries the W5 twins at (src-relative, directory included).
-const DEP_FILES = ['consensus/gates/price_batching_floor_gate.js', 'consensus/gates/mirror_admission_gate.js'];
+const DEP_FILES = ['consensus/gates/price_batching_floor_gate.js', 'consensus/gates/mirror_admission_gate.js',
+    'consensus/gates/mirror_admission_margin_gate.js'];
 
 // The client entry installs a directory of parts (src/hub/hub_db_sync/, subdirectories
 // included), vendored as a SET by the sync script's HUB_DIRS= line. Both sides are walked

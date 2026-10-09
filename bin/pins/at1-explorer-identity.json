@@ -3081,32 +3081,6 @@
         "db.getHistoryData: parent_batch_action_index (M1.6) the COUNT query does NOT carry the subquery (spec: LIST query only)",
         "db.getHistoryData: parent_batch_action_index (M1.6) the LIST query carries the correlated subquery, aliased parent_batch_action_index"
       ],
-      "196430b0fe0480dd": [
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/price_batching_floor_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list_refresh.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/list_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
-      ],
       "19763ddde29bfb7f": [
         "chunked DEPLOY: which action deployed the contract the action cache refuses a pending response a pending response stays absent from the LRU, so the next read resolves it",
         "chunked DEPLOY: which action deployed the contract the action cache refuses a pending response caches a deferred assembler whose consuming carrier failed, a terminal answer",
@@ -4608,13 +4582,6 @@
         "hub-schema-version exports exactly HUB_SCHEMA_VERSION and nothing else",
         "hub-schema-version is a stable primitive (not an object that could drift a JSON payload)"
       ],
-      "4b74db17492acc17": [
-        "action summary field contract: projection vs getActionDetails SEND projects sends[0] and falls back to its status",
-        "action summary field contract: projection vs getActionDetails [REGRESSION] BATCH members carry the projection under summary, never on details",
-        "action summary field contract: projection vs getActionDetails [REGRESSION] staking/contract summary fields are projected",
-        "action summary field contract: projection vs getActionDetails every field getActionDetails reads is in ACTION_SUMMARY_FIELDS",
-        "action summary field contract: projection vs getActionDetails returns details false when no summary field is present"
-      ],
       "4bb485c7d8e7ff43": [
         "html template coverage every urls.html route resolves to a fragment or the list-page composer",
         "html template coverage extracts routes from the html table (source parsing did not break)",
@@ -5554,6 +5521,62 @@
         "vendored-VM check mode write boundary @regression VMCHK-2: stages an absent vendored copy and reports in sync",
         "vendored-VM check mode write boundary @regression VMCHK-3: reports drift when a present vendored tree carries an older version"
       ],
+      "74f0dc64333b053b": [
+        "action detail field contract: handler output vs detail renderers ADDRESS provides every field read by showAddressDetails",
+        "action detail field contract: handler output vs detail renderers AIRDROP provides every field read by showAirdropDetails",
+        "action detail field contract: handler output vs detail renderers BATCH provides every field read by showBatchDetails",
+        "action detail field contract: handler output vs detail renderers BET provides every field read by showBetDetails",
+        "action detail field contract: handler output vs detail renderers BET_EXPIRE provides every field read by showBetExpireDetails",
+        "action detail field contract: handler output vs detail renderers BROADCAST provides every field read by showBroadcastDetails",
+        "action detail field contract: handler output vs detail renderers CALLBACK provides every field read by showCallbackDetails",
+        "action detail field contract: handler output vs detail renderers COINPAY provides every field read by showCoinpayDetails",
+        "action detail field contract: handler output vs detail renderers COINPAY_EXPIRE provides every field read by showCoinpayExpireDetails",
+        "action detail field contract: handler output vs detail renderers COLLECT provides every field read by showCollectDetails",
+        "action detail field contract: handler output vs detail renderers CROSS_SETTLE provides every field read by showCrossSettleDetails",
+        "action detail field contract: handler output vs detail renderers DELEGATE provides every field read by showDelegateDetails",
+        "action detail field contract: handler output vs detail renderers DEPLOY provides every field read by showDeployDetails",
+        "action detail field contract: handler output vs detail renderers DEPOSIT provides every field read by showDepositDetails",
+        "action detail field contract: handler output vs detail renderers DESTROY provides every field read by showDestroyDetails",
+        "action detail field contract: handler output vs detail renderers DISPENSE provides every field read by showDispenseDetails",
+        "action detail field contract: handler output vs detail renderers DISPENSER provides every field read by showDispenserDetails",
+        "action detail field contract: handler output vs detail renderers DISPENSER_CANCEL provides every field read by showDispenserCancelDetails",
+        "action detail field contract: handler output vs detail renderers DISPENSER_CLOSE provides every field read by showDispenserCloseDetails",
+        "action detail field contract: handler output vs detail renderers DISPENSER_EDIT provides every field read by showDispenserEditDetails",
+        "action detail field contract: handler output vs detail renderers DISPENSER_EXPIRE provides every field read by showDispenserExpireDetails",
+        "action detail field contract: handler output vs detail renderers DIVIDEND provides every field read by showDividendDetails",
+        "action detail field contract: handler output vs detail renderers EXECUTE provides every field read by showExecuteDetails",
+        "action detail field contract: handler output vs detail renderers FILE provides every field read by showFileDetails",
+        "action detail field contract: handler output vs detail renderers ISSUE provides every field read by showIssueDetails",
+        "action detail field contract: handler output vs detail renderers LINK provides every field read by showLinkDetails",
+        "action detail field contract: handler output vs detail renderers LIST provides every field read by showListDetails",
+        "action detail field contract: handler output vs detail renderers MESSAGE provides every field read by showMessageDetails",
+        "action detail field contract: handler output vs detail renderers MINT provides every field read by showMintDetails",
+        "action detail field contract: handler output vs detail renderers ORDER provides every field read by showOrderDetails",
+        "action detail field contract: handler output vs detail renderers ORDER_CANCEL provides every field read by showOrderCancelDetails",
+        "action detail field contract: handler output vs detail renderers ORDER_EDIT provides every field read by showOrderEditDetails",
+        "action detail field contract: handler output vs detail renderers ORDER_EXPIRE provides every field read by showOrderExpireDetails",
+        "action detail field contract: handler output vs detail renderers ORDER_MATCH provides every field read by showOrderMatchDetails",
+        "action detail field contract: handler output vs detail renderers SEND provides every field read by showSendDetails",
+        "action detail field contract: handler output vs detail renderers SLASH provides every field read by showSlashDetails",
+        "action detail field contract: handler output vs detail renderers SLEEP provides every field read by showSleepDetails",
+        "action detail field contract: handler output vs detail renderers STAKE provides every field read by showStakeDetails",
+        "action detail field contract: handler output vs detail renderers SWAP provides every field read by showSwapDetails",
+        "action detail field contract: handler output vs detail renderers SWAP_CANCEL provides every field read by showSwapCancelDetails",
+        "action detail field contract: handler output vs detail renderers SWAP_EDIT provides every field read by showSwapEditDetails",
+        "action detail field contract: handler output vs detail renderers SWAP_EXPIRE provides every field read by showSwapExpireDetails",
+        "action detail field contract: handler output vs detail renderers SWAP_MATCH provides every field read by showSwapMatchDetails",
+        "action detail field contract: handler output vs detail renderers SWEEP provides every field read by showSweepDetails",
+        "action detail field contract: handler output vs detail renderers UNSTAKE provides every field read by showUnstakeDetails",
+        "action detail field contract: handler output vs detail renderers WITHDRAW provides every field read by showWithdrawDetails",
+        "action detail field contract: handler output vs detail renderers XCALL provides every field read by showXcallDetails",
+        "action detail field contract: handler output vs detail renderers XEXEC provides every field read by showXexecDetails",
+        "action detail field contract: handler output vs detail renderers covers exactly the registered actions that dispatch to these renderer modules",
+        "action detail field contract: handler output vs detail renderers discovers every action renderer under the detail directory",
+        "action detail field contract: handler output vs detail renderers fails when an explorer field is absent from the indexer schema",
+        "action detail field contract: handler output vs detail renderers fails when the indexer field contract is unavailable",
+        "action detail field contract: handler output vs detail renderers requires explicit output fields for wildcard SELECTs",
+        "action detail field contract: unqualified indexer fields fails when an unqualified explorer field is absent from the indexer schema"
+      ],
       "75f2b93fd5ced96f": [
         "E2E-14: BigInt values survive serialization BIGTOKEN balance is a string without truncation",
         "E2E-14: BigInt values survive serialization BIGTOKEN current supply is a string",
@@ -6470,6 +6493,11 @@
         "Fuzz: Utility input sanitization sanitizeInt always returns a finite integer across 10000 garbage inputs",
         "Fuzz: Utility numeric classification isFloat is false for integers past 32 bits and true for a real fraction",
         "Fuzz: Utility numeric classification isInteger and isFloat are mutually exclusive for every finite number (10000)"
+      ],
+      "93966786e23d8601": [
+        "unconfirmed count formatting formats numeric mempool counts",
+        "unconfirmed count formatting marks unavailable mempool reads without displaying a zero",
+        "unconfirmed count formatting uses the helper at both coin home render sites"
       ],
       "93d927780b91e5db": [
         "Security: Rate Limiting: Body size limit body size limit is 10kb or less",
@@ -7497,6 +7525,14 @@
         "catch-up replay routes like the live fan-out an actions subscribe still replays every action",
         "catch-up replay routes like the live fan-out an address subscribe replays only the actions naming that address, once each"
       ],
+      "a94ef3515c893710": [
+        "shared gate row exports exports the core sentinels and REGTEST_ARMING rules",
+        "shared gate row exports names UNARMED instead of spelling its numeric sentinel in shared gate rows",
+        "shared gate row registration registers every shared row once and rejects a second registration",
+        "shared gate row registration rejects a malformed row queued with addGate",
+        "shared gate row regtest arming arms every lists market height and time row from its matching environment",
+        "shared gate row regtest arming arms only the listed regtest entry from the rule environment"
+      ],
       "aa342200714200e1": [
         "Database#getActionTotals cache does not let one coin answer for another",
         "Database#getActionTotals cache does not re-count when the indexed tip moves within the TTL",
@@ -8028,6 +8064,13 @@
         "Font Awesome icon coverage (self-hosted Free build) links the self-hosted build, not a CDN kit",
         "Font Awesome icon coverage (self-hosted Free build) ships the stylesheets and webfonts the template links"
       ],
+      "bcc7ecaa24a03d02": [
+        "BET format 4 action detail joins the edit row, its status, and parent market into the BET detail query",
+        "BET format 4 action detail keeps edit-only columns off the other BET shapes",
+        "BET format 4 action detail rendering keeps the edit markup and layout registry in lockstep",
+        "BET format 4 action detail rendering renders retain, detach, and replace semantics with the action status",
+        "BET format 4 action detail shapes format 4 as an edit without querying cancel or resolve history"
+      ],
       "bd72ae4ebf0eb2df": [
         "ACTION manifest conformance: explorer explorerRender set @regression byte-identity to canonical manifest vendored test/fixtures/action-manifest.json is byte-identical to canonical",
         "ACTION manifest conformance: explorer explorerRender set @regression every explorerRender action has a matching info-* panel in action.html",
@@ -8355,13 +8398,6 @@
         "Security: batch endpoints: the limiter the service builds (row 51, C54) sends the draft headers and no legacy ones",
         "Security: batch endpoints: the refusal, driven through express-rate-limit 8 (row 51) refuses the third POST at a limit of two, with the batch JSON body",
         "Security: batch endpoints: the refusal, driven through express-rate-limit 8 (row 51) spends one bucket across both batch routes, not one each"
-      ],
-      "c53847ca4aa489df": [
-        "shared gate row exports exports the core sentinels and REGTEST_ARMING rules",
-        "shared gate row registration registers every shared row once and rejects a second registration",
-        "shared gate row registration rejects a malformed row queued with addGate",
-        "shared gate row regtest arming arms every lists market height and time row from its matching environment",
-        "shared gate row regtest arming arms only the listed regtest entry from the rule environment"
       ],
       "c56cff0e51bf4dfc": [
         "networkCoin: every chain on every network a BTC page maps bare and namespaced legs onto no prefix",
@@ -9571,6 +9607,15 @@
         "token-literal classifier (function-wrapped values) still honours the url() asset allowlist",
         "token-literal classifier (function-wrapped values) still reads a var() fallback as a legitimate degradation path"
       ],
+      "e889c65803fff411": [
+        "action summary field contract: indexer schema fails when a field in the real summary query is absent from the indexer schema",
+        "action summary field contract: indexer schema validates every real summary query against the indexer schema",
+        "action summary field contract: projection vs getActionDetails SEND projects sends[0] and falls back to its status",
+        "action summary field contract: projection vs getActionDetails [REGRESSION] BATCH members carry the projection under summary, never on details",
+        "action summary field contract: projection vs getActionDetails [REGRESSION] staking/contract summary fields are projected",
+        "action summary field contract: projection vs getActionDetails every field getActionDetails reads is in ACTION_SUMMARY_FIELDS",
+        "action summary field contract: projection vs getActionDetails returns details false when no summary field is present"
+      ],
       "ea1730e95b9cac39": [
         "Boundary: getPagingDataResults (API mode) a high page does not re-slice: API mode ignores page (SQL OFFSET already paged)",
         "Boundary: getPagingDataResults (API mode) getBalances default limit is 500",
@@ -9655,6 +9700,33 @@
         "federation reads: refusals and the log line writes one log line per read with coin, method, verdict, tip and duration",
         "federation reads: routing and log helpers reads a refusal or an uncut roll-call window as undecided",
         "federation reads: routing and log helpers splits a path code into pool key, base coin and network"
+      ],
+      "ee9decf96098ab8d": [
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_margin_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/price_batching_floor_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list_refresh.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/list_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
       ],
       "eed4fc76083c6fc6": [
         "PRICE detail render: malformed pairs JSON keeps the per-round fallback for a batch row",
@@ -9831,6 +9903,11 @@
         "settlement-anchor action detail handlers @regression registers XPOLICY and LIST_SHARE with no static query slots",
         "settlement-anchor action detail handlers @regression reports a missing settlement row as null without reading a snapshot"
       ],
+      "f845530ed29f5125": [
+        "hub consensus hash mismatch status reporting publishes mismatch details without changing existing status fields",
+        "hub consensus hash mismatch status reporting publishes unknown as the final two status keys",
+        "hub consensus hash mismatch status reporting records unknown, matching, and mismatching hash states"
+      ],
       "f9199ddce914d40b": [
         "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY query",
         "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY2 query",
@@ -9982,13 +10059,14 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 351,
-        "titleCount": 5946,
+        "fileCount": 355,
+        "titleCount": 6015,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
           "test/unit/action_detail/action_manifest_conformance.test.js": "bd72ae4ebf0eb2df",
           "test/unit/action_detail/action_not_found.test.js": "85815122e709ccfb",
+          "test/unit/action_detail/bet_edit_detail.test.js": "bcc7ecaa24a03d02",
           "test/unit/action_detail/bridge/bridge_action_detail.test.js": "143676fcf0f9c869",
           "test/unit/action_detail/bridge/bridge_action_detail_hub_transfer.test.js": "8e37884a9d16ffee",
           "test/unit/action_detail/bridge/bridge_action_detail_schema_shapes.test.js": "f0b26372a9bde02a",
@@ -10034,11 +10112,12 @@
           "test/unit/conformance/dashboard_manifest_support.test.js": "6506a6bbf1c67904",
           "test/unit/connectors/hub_connector.test.js": "dc67240bee778f9f",
           "test/unit/connectors/hub_consensus_hash.test.js": "acafd7633f12616b",
+          "test/unit/connectors/hub_consensus_hash_mismatch.test.js": "f845530ed29f5125",
           "test/unit/connectors/x_chain_decoder_connector.test.js": "2709cccf5e791788",
           "test/unit/connectors/x_chain_indexer_connector.test.js": "92aeb23d16a697b8",
           "test/unit/consensus/consensus_bound_rows.test.js": "1ae10423826a1c02",
           "test/unit/consensus/gate_registry/local_rows.test.js": "a76ec0bdf3924d67",
-          "test/unit/consensus/gate_registry/shared_rows.test.js": "c53847ca4aa489df",
+          "test/unit/consensus/gate_registry/shared_rows.test.js": "a94ef3515c893710",
           "test/unit/consensus/regtest_env_twin.test.js": "cbad35bf1daff99f",
           "test/unit/content/attest_v5_batch_head_render.test.js": "71e51d6b88fd1922",
           "test/unit/content/components/component_data_table.test.js": "31b4e41f89cb9ae0",
@@ -10127,6 +10206,7 @@
           "test/unit/content/pages/content_fee_quote_verdict.test.js": "91b1366699b75c59",
           "test/unit/content/pages/content_json_parse.test.js": "b3297f92d0dd7e3d",
           "test/unit/content/pages/xbridge_panels_render.test.js": "65d6c70d53e3106b",
+          "test/unit/content/unconfirmed_count_format.test.js": "93966786e23d8601",
           "test/unit/contract/abi_core.test.js": "8a672ba9f91488b8",
           "test/unit/contract/contract_introspect.test.js": "04f2b2ff93543f66",
           "test/unit/contract/owner_withdraw.test.js": "a2c823d5852437ae",
@@ -10179,10 +10259,11 @@
           "test/unit/db/query_sql/where_vote_clauses.test.js": "c95c9f03a953fc82",
           "test/unit/db/reader_parts.test.js": "6427b7bf2f94fa4d",
           "test/unit/db/readers/actions/db_action_destinations.test.js": "5284c2c92b0f568a",
+          "test/unit/db/readers/actions/db_action_detail_field_contract.test.js": "74f0dc64333b053b",
           "test/unit/db/readers/actions/db_action_source_attribution.test.js": "38cd5b889e0e9bc9",
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "020e5cee8fdc2368",
           "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "ceeb3b770bc5d73b",
-          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "4b74db17492acc17",
+          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "e889c65803fff411",
           "test/unit/db/readers/actions/sends_destroys_whole_action_paging.test.js": "4c8d99048b00614d",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
           "test/unit/db/readers/bets/db_bet_leg_status.test.js": "82bf43fea502fa27",
@@ -10276,7 +10357,7 @@
           "test/unit/mirror/hub_db_sync.test.js": "634a78dff95f2041",
           "test/unit/mirror/hub_mirror_bridge_tables.test.js": "f22c4e1330eebd92",
           "test/unit/mirror/hub_mirror_charset_widen.test.js": "d531308aad6a4cd7",
-          "test/unit/mirror/hub_mirror_client_conformance.test.js": "196430b0fe0480dd",
+          "test/unit/mirror/hub_mirror_client_conformance.test.js": "ee9decf96098ab8d",
           "test/unit/mirror/hub_mirror_list_share.test.js": "07691b9d5c88c526",
           "test/unit/mirror/hub_mirror_migrate.test.js": "9134d4bfe85fbeaa",
           "test/unit/mirror/hub_mirror_migrate_datetime.test.js": "9eedd185a4bd63fa",
@@ -10405,7 +10486,7 @@
       },
       "test:db": {
         "fileCount": 47,
-        "titleCount": 1482,
+        "titleCount": 1484,
         "files": {
           "test/unit/action_detail/history/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/history/db_history_unmapped_actions.test.js": "381a93ad4ecc32fc",
@@ -10440,7 +10521,7 @@
           "test/unit/db/readers/actions/db_action_destinations.test.js": "5284c2c92b0f568a",
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "020e5cee8fdc2368",
           "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "ceeb3b770bc5d73b",
-          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "4b74db17492acc17",
+          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "e889c65803fff411",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
           "test/unit/db/readers/bets/db_bet_leg_status.test.js": "82bf43fea502fa27",
           "test/unit/db/readers/db_checkpoint_hub_url_invariant.test.js": "296dd0840e4efd5d",

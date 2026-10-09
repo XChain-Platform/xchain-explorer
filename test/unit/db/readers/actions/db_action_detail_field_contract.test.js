@@ -366,6 +366,18 @@ describe('action detail field contract: handler output vs detail renderers', fun
         );
     });
 
+    it('fails when an unqualified explorer field is absent from the indexer schema', function () {
+        const schema = new Map(INDEXER_SCHEMA);
+        schema.set('contract_stakes', new Set(INDEXER_SCHEMA.get('contract_stakes')));
+        schema.get('contract_stakes').delete('target_contract_index');
+        assert.throws(
+            () => assertIndexerQueryShape(
+                'SELECT target_contract_index FROM contract_stakes WHERE action_index=?', schema
+            ),
+            /field absent from contract_stakes: target_contract_index/
+        );
+    });
+
     it('fails when the indexer field contract is unavailable', function () {
         const env = { XCHAIN_SIBLING_ROOT: path.join(ROOT, 'tmp', 'missing-siblings') };
         assert.throws(() => loadIndexerSchema(ROOT, env), /xchain-indexer src\/sql is required/);

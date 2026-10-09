@@ -27,6 +27,7 @@ const { srcText } = require('../../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
+const assert = require('assert');
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const Utility    = require('../../../../../src/lib/utility.js');
@@ -39,8 +40,47 @@ const Database     = proxyquire('../../../../../src/db/index.js', {
     './connection.js': proxyquire('../../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 const { BATCH }    = require('../../../../../src/action-detail/misc.js');
+const {
+    loadIndexerSchema,
+    assertIndexerQueryShape
+} = require('../../../../../src/action-detail/indexer_schema_contract.js');
 
 const SRC = srcText('src/content/js/xchain.js');
+const ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
+const INDEXER_SCHEMA = loadIndexerSchema(ROOT, process.env);
+
+const COMPUTED_SUMMARY_FIELDS = new Set([
+    'vote_kind',
+    'leg_count',
+    'member_count'
+]);
+
+const SUMMARY_FIELD_SOURCES = Object.freeze({
+    source: Object.freeze(['index_addresses.address']),
+    destination: Object.freeze(['index_addresses.address']),
+    controller: Object.freeze([
+        'address_controllers.contract_index',
+        'token_controllers.contract_index'
+    ]),
+    unbind: Object.freeze([
+        'address_controllers.is_unbind',
+        'token_controllers.is_unbind'
+    ]),
+    broadcast_fee: Object.freeze(['broadcasts.fee']),
+    callback_tick: Object.freeze(['index_tickers.tick']),
+    dividend_tick: Object.freeze(['index_tickers.tick']),
+    coin1: Object.freeze(['index_coins.coin']),
+    coin2: Object.freeze(['index_coins.coin']),
+    give_coin: Object.freeze(['index_coins.coin']),
+    get_coin: Object.freeze(['index_coins.coin']),
+    give_tick: Object.freeze(['index_tickers.tick']),
+    get_tick: Object.freeze(['index_tickers.tick']),
+    deployed_contract_index: Object.freeze(['contracts.action_index']),
+    contract_meta_name: Object.freeze(['contracts.meta_name']),
+    contract_meta_version: Object.freeze(['contracts.meta_version']),
+    anchored_block_index: Object.freeze(['anchor_actions.block_index']),
+    parent_batch_action_index: Object.freeze(['batches.action_index'])
+});
 
 // Slice a top-level function out of the client source by walking braces.
 function extractFn(name) {
@@ -80,12 +120,44 @@ function makeDb() {
     return new Database(mockExplorer);
 }
 
+function summaryFieldSources(field) {
+    if(Object.prototype.hasOwnProperty.call(SUMMARY_FIELD_SOURCES, field))
+        return SUMMARY_FIELD_SOURCES[field];
+    return [...INDEXER_SCHEMA]
+        .filter(([, columns]) => columns.has(field))
+        .map(([table]) => table + '.' + field);
+}
+
 describe('action summary field contract: projection vs getActionDetails', function () {
     it('every field getActionDetails reads is in ACTION_SUMMARY_FIELDS', function () {
         const reads = rendererFieldReads();
         expect(reads.size).to.be.greaterThan(20); // the regex found the real body
         const missing = [...reads].filter((f) => !NESTED_ONLY.has(f) && !Database.ACTION_SUMMARY_FIELDS.includes(f));
         expect(missing, 'getActionDetails reads fields the summary projection never carries').to.deep.equal([]);
+    });
+
+    it('every persisted summary field resolves to the indexer schema', function () {
+        let checked = 0;
+        for(const field of Database.ACTION_SUMMARY_FIELDS) {
+            if(COMPUTED_SUMMARY_FIELDS.has(field)) continue;
+            const sources = summaryFieldSources(field);
+            assert.ok(sources.length, field + ' has no indexer schema source');
+            for(const source of sources) {
+                const [table, column] = source.split('.');
+                checked += assertIndexerQueryShape('SELECT ' + column + ' FROM ' + table, INDEXER_SCHEMA);
+            }
+        }
+        assert.ok(checked > 60, 'summary schema contract did not check the projected fields');
+    });
+
+    it('fails when an unqualified summary source field is absent from the indexer schema', function () {
+        const schema = new Map(INDEXER_SCHEMA);
+        schema.set('actions', new Set(INDEXER_SCHEMA.get('actions')));
+        schema.get('actions').delete('action_format');
+        assert.throws(
+            () => assertIndexerQueryShape('SELECT action_format FROM actions', schema),
+            /field absent from actions: action_format/
+        );
     });
 
     it('[REGRESSION] staking/contract summary fields are projected', function () {

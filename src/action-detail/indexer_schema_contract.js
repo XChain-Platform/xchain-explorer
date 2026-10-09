@@ -72,6 +72,97 @@ function queryTableAliases(sql) {
     return aliases;
 }
 
+function selectLists(sql) {
+    const clean = stripSqlComments(String(sql));
+    const lists = [];
+    let depth = 0;
+    let quote = null;
+    for(let i = 0; i < clean.length; i++) {
+        const character = clean[i];
+        if(quote) {
+            if(character === quote && clean[i - 1] !== '\\') quote = null;
+            continue;
+        }
+        if(character === "'" || character === '"' || character === '`') {
+            quote = character;
+            continue;
+        }
+        if(character === '(') {
+            depth++;
+            continue;
+        }
+        if(character === ')') {
+            depth--;
+            continue;
+        }
+        if(!/^SELECT\b/i.test(clean.slice(i)) || /[\w$]/.test(clean[i - 1] || '')) continue;
+
+        const start = i + 6;
+        let listDepth = depth;
+        let listQuote = null;
+        for(let cursor = start; cursor < clean.length; cursor++) {
+            const current = clean[cursor];
+            if(listQuote) {
+                if(current === listQuote && clean[cursor - 1] !== '\\') listQuote = null;
+                continue;
+            }
+            if(current === "'" || current === '"' || current === '`') {
+                listQuote = current;
+            } else if(current === '(') {
+                listDepth++;
+            } else if(current === ')') {
+                listDepth--;
+            } else if(listDepth === depth && /^FROM\b/i.test(clean.slice(cursor))
+                && !/[\w$]/.test(clean[cursor - 1] || '')) {
+                lists.push(clean.slice(start, cursor));
+                break;
+            }
+        }
+    }
+    return lists;
+}
+
+function splitSelectItems(selectList) {
+    const items = [];
+    let start = 0;
+    let depth = 0;
+    let quote = null;
+    for(let i = 0; i < selectList.length; i++) {
+        const character = selectList[i];
+        if(quote) {
+            if(character === quote && selectList[i - 1] !== '\\') quote = null;
+            continue;
+        }
+        if(character === "'" || character === '"' || character === '`') {
+            quote = character;
+        } else if(character === '(') {
+            depth++;
+        } else if(character === ')') {
+            depth--;
+        } else if(character === ',' && depth === 0) {
+            items.push(selectList.slice(start, i));
+            start = i + 1;
+        }
+    }
+    items.push(selectList.slice(start));
+    return items;
+}
+
+function unqualifiedSelectFields(sql) {
+    const fields = [];
+    for(const list of selectLists(sql)) {
+        for(const rawItem of splitSelectItems(list)) {
+            const item = rawItem.replace(/\s+AS\s+`?[a-zA-Z_$][\w$]*`?\s*$/i, '').trim();
+            const direct = item.match(/^(?:DISTINCT\s+)?`?([a-zA-Z_$][\w$]*)`?$/i);
+            const distinct = item.match(/^DISTINCT\s*\(\s*`?([a-zA-Z_$][\w$]*)`?\s*\)$/i);
+            const aggregate = item.match(/^(?:AVG|COUNT|MAX|MIN|SUM)\s*\(\s*(?:DISTINCT\s+)?`?([a-zA-Z_$][\w$]*)`?\s*\)$/i);
+            const match = direct || distinct || aggregate;
+            if(match) fields.push(match[1]);
+        }
+    }
+    return fields;
+}
+
 function assertIndexerQueryShape(sql, schema) {
     const clean = stripSqlComments(String(sql));
     if(/\binformation_schema\./i.test(clean)) return 0;
@@ -87,6 +178,12 @@ function assertIndexerQueryShape(sql, schema) {
         const tables = aliases.get(match[1]);
         assert.ok([...tables].some((table) => schema.get(table).has(match[2])),
             'explorer queries indexer field absent from ' + [...tables].join('/') + ': ' + match[2]);
+        checked++;
+    }
+    const tables = new Set([...aliases.values()].flatMap((names) => [...names]));
+    for(const field of unqualifiedSelectFields(clean)) {
+        assert.ok([...tables].some((table) => schema.get(table).has(field)),
+            'explorer queries indexer field absent from ' + [...tables].join('/') + ': ' + field);
         checked++;
     }
     return checked;

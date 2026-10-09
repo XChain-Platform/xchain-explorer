@@ -748,7 +748,7 @@ const spec = {
                         properties: {
                             block:       { type: 'integer', description: 'Indexer tip height' },
                             time:        { type: 'integer', description: 'Unix time of the tip block (0 when the chain is empty)' },
-                            unconfirmed: { type: 'integer', description: 'Unconfirmed XChain-carrying transactions (decoder API or DB; 0 when unreachable)' },
+                            unconfirmed: { type: ['integer', 'null'], description: 'Unconfirmed XChain-carrying transactions (decoder API or DB); null means the mempool read is unavailable' },
                             // The coin node's whole mempool, not just our share of it. Null rather
                             // than 0 on a deployment with no decoder API, because "we cannot see it"
                             // and "there is nothing there" are different answers for a reader.

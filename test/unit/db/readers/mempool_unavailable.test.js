@@ -91,13 +91,12 @@ describe('mempool feed when the decoder is unavailable', () => {
         expect(db.doDecoderQuery.called).to.equal(false);
     });
 
-    it('falls back to the decoder DB when a reply has no mempool fields', async () => {
+    it('rejects a configured reply with no mempool fields', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ nonsense: true });
         const db = makeDb();
 
-        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
-        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.deep.equal([]);
-        expect(db.doDecoderQuery.calledOnce).to.equal(true);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
+        expect(db.doDecoderQuery.called).to.equal(false);
     });
 
     it('decoder configured with invalid rows', async () => {

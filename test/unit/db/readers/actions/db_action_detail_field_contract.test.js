@@ -34,6 +34,10 @@ const Database = proxyquire('../../../../../src/db/index.js', {
 const ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
 const DETAIL_DIR = path.join(ROOT, 'src', 'content', 'js', 'xchain', 'detail');
 const HANDLER_DIR = path.join(ROOT, 'src', 'action-detail');
+const SQL_KEYWORDS = new Set([
+    'where', 'inner', 'left', 'right', 'full', 'cross', 'join', 'on', 'union',
+    'group', 'order', 'limit', 'having'
+]);
 const SUPPLEMENT_SOURCE = fs.readFileSync(
     path.join(ROOT, 'src', 'db', 'readers', 'action_detail_io', 'action_data.js'),
     'utf8'
@@ -42,6 +46,38 @@ const DETAIL_SOURCES = new Map(fs.readdirSync(DETAIL_DIR)
     .filter((file) => file.endsWith('.js'))
     .sort()
     .map((file) => [file, fs.readFileSync(path.join(DETAIL_DIR, file), 'utf8')]));
+
+function findIndexerRoot() {
+    const candidates = [];
+    if(process.env.XCHAIN_SIBLING_ROOT)
+        candidates.push(path.join(process.env.XCHAIN_SIBLING_ROOT, 'xchain-indexer'));
+    for(let dir = ROOT; path.dirname(dir) !== dir; dir = path.dirname(dir))
+        candidates.push(path.join(path.dirname(dir), 'xchain-indexer'));
+    return candidates.find((dir) => fs.existsSync(path.join(dir, 'src', 'sql', 'actions.sql'))) || null;
+}
+
+function indexerSchema(indexer = findIndexerRoot()) {
+    assert.ok(indexer, 'xchain-indexer src/sql is required for explorer field-shape parity');
+    const schemaDir = path.join(indexer, 'src', 'sql');
+    const tables = new Map();
+    for(const file of fs.readdirSync(schemaDir).filter((name) => name.endsWith('.sql'))) {
+        const source = stripSqlComments(fs.readFileSync(path.join(schemaDir, file), 'utf8'));
+        const table = source.match(/\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`?([a-zA-Z_$][\w$]*)`?\s*\(/i);
+        if(!table) continue;
+        const body = source.slice(table.index + table[0].length, source.search(/\)\s*ENGINE\s*=/i));
+        const columns = new Set();
+        for(const line of body.split('\n')) {
+            const column = line.match(/^\s*`?([a-zA-Z_$][\w$]*)`?\s+[a-zA-Z]/);
+            if(column && !/^(?:primary|unique|key|constraint|foreign|check)$/i.test(column[1]))
+                columns.add(column[1]);
+        }
+        tables.set(table[1], columns);
+    }
+    assert.ok(tables.size > 100, 'indexer schema discovery did not load the real src/sql directory');
+    return tables;
+}
+
+const INDEXER_SCHEMA = indexerSchema();
 
 // A wildcard does not prove any particular output name. An action using one must
 // state its stable output fields here. There are no wildcard detail SELECTs now.
@@ -225,6 +261,38 @@ function selectedFields(action, sql, wildcardFields = WILDCARD_SELECT_FIELDS) {
     return fields;
 }
 
+function queryTableAliases(sql) {
+    const clean = stripSqlComments(String(sql));
+    const aliases = new Map();
+    const tables = /\b(?:FROM|JOIN)\s+`?([a-zA-Z_$][\w$]*)`?(?:\s+(?:AS\s+)?`?([a-zA-Z_$][\w$]*)`?)?/gi;
+    for(const match of clean.matchAll(tables)) {
+        let alias = match[2] && !SQL_KEYWORDS.has(match[2].toLowerCase()) ? match[2] : match[1];
+        if(!aliases.has(alias)) aliases.set(alias, new Set());
+        aliases.get(alias).add(match[1]);
+    }
+    return aliases;
+}
+
+function assertIndexerQueryShape(sql, schema = INDEXER_SCHEMA) {
+    const clean = stripSqlComments(String(sql));
+    if(/\binformation_schema\./i.test(clean)) return 0;
+    const aliases = queryTableAliases(clean);
+    for(const tables of aliases.values()) {
+        for(const table of tables)
+            assert.ok(schema.has(table), 'explorer queries table absent from indexer schema: ' + table);
+    }
+
+    let checked = 0;
+    for(const match of clean.matchAll(/\b([a-zA-Z_$][\w$]*)\s*\.\s*`?([a-zA-Z_$][\w$]*)`?/g)) {
+        if(!aliases.has(match[1])) continue;
+        const tables = aliases.get(match[1]);
+        assert.ok([...tables].some((table) => schema.get(table).has(match[2])),
+            'explorer queries indexer field absent from ' + [...tables].join('/') + ': ' + match[2]);
+        checked++;
+    }
+    return checked;
+}
+
 const HANDLER_SOURCES = new Map(fs.readdirSync(HANDLER_DIR)
     .filter((file) => file.endsWith('.js'))
     .sort()
@@ -257,6 +325,7 @@ function supplementFields(action) {
     for(const name of ACTION_SUPPLEMENTS[action] || []) {
         const source = extractFunction(SUPPLEMENT_SOURCE, name);
         for(const match of source.matchAll(/`(SELECT[\s\S]*?)`/g)) {
+            assertIndexerQueryShape(match[1]);
             for(const field of selectedFields(action, match[1])) fields.add(field);
         }
     }
@@ -291,6 +360,7 @@ async function captureDetail(action, actionFormat) {
 async function assertRendererContract(action, renderer) {
     const selected = supplementFields(action);
     const capturedDerived = new Set();
+    let indexerFieldsChecked = 0;
     const formats = action === 'DEPLOY' ? [0, 4] : [0];
     for(const format of formats) {
         const capture = await captureDetail(action, format);
@@ -299,8 +369,11 @@ async function assertRendererContract(action, renderer) {
         }
         for(const sql of capture.statements) {
             for(const field of selectedFields(action, sql)) selected.add(field);
+            indexerFieldsChecked += assertIndexerQueryShape(sql);
         }
     }
+
+    assert.ok(indexerFieldsChecked > 0, action + ' did not check any field against the indexer schema');
 
     const derived = handlerSetFields(getHandler(action));
     for(const field of capturedDerived) derived.add(field);
@@ -342,6 +415,22 @@ describe('action detail field contract: handler output vs detail renderers', fun
             })],
             ['declared_field']
         );
+    });
+
+    it('fails when an explorer field is absent from the indexer schema', function () {
+        const schema = new Map(INDEXER_SCHEMA);
+        schema.set('contract_stakes', new Set(INDEXER_SCHEMA.get('contract_stakes')));
+        schema.get('contract_stakes').delete('target_contract_index');
+        assert.throws(
+            () => assertIndexerQueryShape(
+                'SELECT m.target_contract_index FROM contract_stakes m WHERE m.action_index=?', schema
+            ),
+            /field absent from contract_stakes: target_contract_index/
+        );
+    });
+
+    it('fails when the indexer field contract is unavailable', function () {
+        assert.throws(() => indexerSchema(null), /xchain-indexer src\/sql is required/);
     });
 
     for(const { action, renderer } of actionRenderers()) {

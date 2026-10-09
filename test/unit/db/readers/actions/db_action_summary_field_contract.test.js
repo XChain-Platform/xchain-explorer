@@ -146,6 +146,9 @@ describe('action summary field contract: projection vs getActionDetails', functi
         expect(slash.details.capability).to.equal('validator');
     });
 
+});
+
+describe('action summary field contract: send and empty projections', function () {
     it('SEND projects sends[0] and falls back to its status', function () {
         const db = makeDb();
         const out = db.projectActionSummary({

@@ -63,6 +63,9 @@ describe('action summary structure markers: projectActionSummary', function () {
         expect(JSON.parse(JSON.stringify(out.details))).to.not.have.property('leg_count');
     });
 
+});
+
+describe('action summary structure markers: declared totals', function () {
     it('a multi-destroy carries the declared total, including an invalid leg', function () {
         const out = makeDb().projectActionSummary({
             action: 'DESTROY', status: 'valid', tick: 'P00P', amount: '1',

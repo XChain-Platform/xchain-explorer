@@ -87,7 +87,30 @@ const ISSUE = {
         query = sql.ISSUE_QUERY;
         return { query, query2, query3 };
     },
+    // Attach the format 7 bridge opt-in fields; every other format reads nothing more.
+    async afterMain(ctx, data) {
+        if(ctx.db.util.isNull(data['action_format']) || Number(data['action_format']) !== 7) return;
+        const row = await readIssueBridge(ctx);
+        data.bridge_chains = row ? row.bridge_chains : null;
+        data.min_depth     = row ? row.min_depth : null;
+        data.lock_bridge   = row ? row.lock_bridge : null;
+    },
 };
+
+// Read one ISSUE's bridge columns, or null on a replica that predates them.
+async function readIssueBridge({ db, config, action_index }){
+    const columns = sql.ISSUE_BRIDGE_COLUMNS;
+    if(!await columnsPresent(db, config, 'issues', columns)) return null;
+    try {
+        const rows = await db.doQuery(config, sql.ISSUE_BRIDGE_QUERY, [action_index]);
+        return (rows && rows.length) ? rows[0] : null;
+    } catch(e) {
+        // The net under a probe that answered wrong: record the real shape and show no bridge fields.
+        if(!isUnknownColumnError(e)) throw e;
+        setColumnsAbsent(db, config, 'issues', columns);
+        return null;
+    }
+}
 
 const LINK = {
     queries() {

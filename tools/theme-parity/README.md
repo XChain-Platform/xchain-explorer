@@ -86,7 +86,9 @@ regardless of which stylesheet won. This layer does differ between modes, so it
 is the one that can catch a dark-mode regression. The census covers every box
 property on all four sides. It held 23 properties when the 2026-08-20 baseline
 was captured, so a rend capture taken before that change is not comparable with
-one taken after it; compare only pairs captured with the same probe.
+one taken after it; compare only pairs captured with the same probe. The six
+properties added on 2026-10-07 are `border-right-color`, `border-left-width`,
+`border-right-width`, `padding-right`, `margin-left` and `margin-right`.
 
 **Layout-derived keys** (widths, heights, margins, offsets) are read
 layout-independently in both layers: `getComputedStyle` returns the USED

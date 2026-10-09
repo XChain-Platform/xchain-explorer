@@ -45,4 +45,38 @@ describe('anchor.html detail render @regression', function () {
             expect($('.anchor-kind').text()).to.equal('Archive head + publisher tail');
         });
     });
+
+    describe('activation gate: a threshold or height the indexer cannot compare', function () {
+        // The shipped page with its injected table swapped, so each case names the table it judges.
+        function renderWithTable(row, table) {
+            const dom = domWithPage();
+            dom.window.eval('ANCHOR_ACTIVATION = ' + JSON.stringify(table) + ';');
+            dom.window.renderAnchorPage(row);
+            return dom.window.$;
+        }
+
+        it('an unpinned (null) testnet threshold renders a testnet row as Legacy, as the indexer stores it', function () {
+            const $ = renderWithTable(Object.assign({}, V1, {
+                network: 'testnet', block_index_doge: 70000000, status: 'invalid: ANCHOR before activation'
+            }), { mainnet: 6360000, testnet: null, regtest: 0 });
+            expect($('.anchor-kind').text()).to.equal('Legacy (before activation)');
+        });
+
+        it('a non-numeric DOGE height on a listed network renders as Legacy', function () {
+            const $ = renderPage(Object.assign({}, V1, { network: 'testnet', block_index_doge: 'abc' }));
+            expect($('.anchor-kind').text()).to.equal('Legacy (before activation)');
+        });
+
+        it('a network the table does not list is judged on its version', function () {
+            const $ = renderWithTable(Object.assign({}, V1, {
+                network: 'testnet', block_index_doge: 150174, status: 'valid'
+            }), { mainnet: 6360000, regtest: 0 });
+            expect($('.anchor-kind').text()).to.equal('Archive head + publisher tail');
+        });
+
+        it('a row with no stored DOGE height is judged on its version', function () {
+            const $ = renderPage(Object.assign({}, V1, { network: 'testnet', block_index_doge: null }));
+            expect($('.anchor-kind').text()).to.equal('Archive head + publisher tail');
+        });
+    });
 });

@@ -281,9 +281,9 @@ function tokenInfo_parseDescription(desc){
         // (Token_Information_Standard.md, On-Chain Format).
         act     = /^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i;
 
-    // Rescue arweave URLs that used the legacy "/x.json" trick (gateway no longer accepts random suffixes)
+    // Trim first, as the server icon resolver does, then rescue legacy arweave "/x.json" URLs.
     if(typeof desc === 'string')
-        desc = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
+        desc = desc.trim().replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
 
     // A description that starts with http or names a .json file is a link, and its
     // first ';'-separated part is the URL itself.
@@ -342,14 +342,14 @@ function tokenInfo_getJsonUrl(info){
             // makes it render icons the downloader could not fetch, and vice
             // versa. The optional // is stripped here too, so the ipfs://HASH
             // form does not land as a double-slashed path the gateway 404s.
-            jsonUrl = 'https://ipfsc.crystalsuite.com/' + String(desc).replace(/^ipfs:(\/\/)?/i,'');
+            jsonUrl = 'https://ipfsc.crystalsuite.com/' + String(desc).replace(/^ipfs:(\/\/)?/i,'').trim();
         } else if(ord.test(desc)){
-            var hash = String(desc).replace(ord,'');
+            var hash = String(desc).replace(ord,'').trim();
             if(hash.length!=64)
                 hash = base64ToHex(hash);
             jsonUrl = 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash;
         } else if(ar.test(desc)){
-            jsonUrl = 'https://arweave.net/' + String(desc).replace(ar,'');
+            jsonUrl = 'https://arweave.net/' + String(desc).replace(ar,'').trim();
         } else if(arweave.test(desc)){
             jsonUrl = desc;
         } else {

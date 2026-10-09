@@ -27,6 +27,31 @@
 
 'use strict';
 
+const { isMissingTableError } = require('../../schema_probe.js');
+
+// The address a LIST format 3 transfer named as the new owner, from list_transfers.
+// The indexer writes that row only for a valid transfer, so an invalid one, or a
+// replica without the table, carries null.
+async function attachListTransferDestination(db, config, action_index, data){
+    data.destination = null;
+    let rows = null;
+    try {
+        rows = await db.doQuery(config,
+            `SELECT
+                        a1.address as destination
+                    FROM
+                        list_transfers t
+                        LEFT JOIN index_addresses a1 ON (a1.id=t.destination_id)
+                    WHERE
+                        t.action_index=?
+                    LIMIT 1`, [action_index]);
+    } catch(e){
+        if(!isMissingTableError(e)) throw e;
+    }
+    if(rows && rows.length && rows[0].destination != null)
+        data.destination = rows[0].destination;
+}
+
 // ISSUE v6 controller bind/unbind fields, which live in token_controllers rather
 // than in the issues row the handler selected.
 async function attachIssueControllerFields(db, config, action_index, data, fmt){
@@ -145,6 +170,8 @@ class ActionDataReaders {
         let fmt = this.util.isNull(data.action_format) ? null : Number(data.action_format);
         if(type=='ISSUE')
             await attachIssueControllerFields(this, config, action_index, data, fmt);
+        if(type=='LIST' && fmt === 3)
+            await attachListTransferDestination(this, config, action_index, data);
         if(type=='DEPLOY' && fmt === 4)
             await attachDeployChunkFields(this, config, action_index, data);
         // A v4 carrier is normally a code slice and nothing else, but the piece that

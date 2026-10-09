@@ -46,7 +46,7 @@ const DETAIL_SOURCES = new Map(fs.readdirSync(DETAIL_DIR)
     .filter((file) => file.endsWith('.js'))
     .sort()
     .map((file) => [file, fs.readFileSync(path.join(DETAIL_DIR, file), 'utf8')]));
-const INDEXER_SCHEMA = loadIndexerSchema(ROOT);
+const INDEXER_SCHEMA = loadIndexerSchema(ROOT, process.env);
 
 // A wildcard does not prove any particular output name. An action using one must
 // state its stable output fields here. There are no wildcard detail SELECTs now.

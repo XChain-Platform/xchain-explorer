@@ -27,7 +27,7 @@ function stripSqlComments(source) {
     return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '');
 }
 
-function findIndexerRoot(explorerRoot, env = process.env) {
+function findIndexerRoot(explorerRoot, env) {
     const candidates = [];
     if(env.XCHAIN_SIBLING_ROOT) {
         candidates.push(path.join(env.XCHAIN_SIBLING_ROOT, 'xchain-indexer'));
@@ -39,7 +39,7 @@ function findIndexerRoot(explorerRoot, env = process.env) {
 }
 
 function loadIndexerSchema(explorerRoot, env) {
-    const indexer = findIndexerRoot(explorerRoot, env);
+    const indexer = findIndexerRoot(explorerRoot, env || {});
     assert.ok(indexer, 'xchain-indexer src/sql is required for explorer field-shape parity');
     const schemaDir = path.join(indexer, 'src', 'sql');
     const tables = new Map();

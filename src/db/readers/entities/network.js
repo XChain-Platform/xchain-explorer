@@ -57,7 +57,7 @@ async function getDecoderMempoolSnapshot(config){
     if(!url) return null;
     try {
         const reply = await new DecoderConnector(url).getmempool(500);
-        if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null }).v;
+        if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, fallbackRows: Boolean(reply && typeof reply === 'object' && Object.keys(reply).length && !['rows', 'total', 'node_tx_count', 'status', 'stale', 'read_ok_at', 'node_updated_at'].some(field => Object.prototype.hasOwnProperty.call(reply, field))) }).v;
         const { okAt, value } = snapshotValue(reply, now);
         if(reply.stale === true){ const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
             return (this._mempoolApiCache[code] = { t: now - ttl, v: usable, okAt, stale: true, unavailable: usable === null }).v; }
@@ -74,7 +74,7 @@ async function getDecoderMempoolCount(config){
 }
 async function getDecoderMempoolRows(config, limit){
     const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config);
-    return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) ? null : originalMempoolRows.call(this, config, limit);
+    return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) && !(((this._mempoolApiCache || {})[config.coin] || {}).fallbackRows) ? null : originalMempoolRows.call(this, config, limit);
 }
 for(const [name, value] of Object.entries({ getDecoderMempoolSnapshot, getDecoderMempoolCount, getDecoderMempoolRows })) Object.defineProperty(decoderReaders, name, Object.assign({}, Object.getOwnPropertyDescriptor(decoderReaders, name), { value }));
 // The coin identity and network this request is for, read off the loaded explorer

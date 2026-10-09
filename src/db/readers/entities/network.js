@@ -35,6 +35,109 @@ const coinsRegistry = require('../../../coins');
 const { isMissingTableError } = require('../../schema_probe.js');
 const { DbQueryError } = require('../../shared.js');
 const DecoderConnector = require('../../../connectors/decoder.js');
+const decoderReaders = require('../health/decoder.js');
+
+const originalDecoderMempoolCount = decoderReaders.getDecoderMempoolCount;
+const originalDecoderMempoolRows  = decoderReaders.getDecoderMempoolRows;
+const NODE_MEMPOOL_MAX_AGE_MS = 2 * 60 * 1000;
+
+function decoderMempoolUrl(db, code, parsed){
+    return DecoderConnector.resolveDecoderUrl(
+        parsed ? parsed.coin    : null,
+        parsed ? parsed.network : null,
+        (db.decoderApiUrl || {})[code] || null);
+}
+
+function ageNodeMempoolCount(snapshot, now){
+    if(!snapshot || !Object.prototype.hasOwnProperty.call(snapshot, 'node_updated_at'))
+        return snapshot;
+    const updatedAt = Number(snapshot.node_updated_at);
+    if(Number.isFinite(updatedAt) && updatedAt > 0 && (now - updatedAt) < NODE_MEMPOOL_MAX_AGE_MS)
+        return snapshot;
+    return Object.assign({}, snapshot, { node_tx_count: null });
+}
+
+async function getDecoderMempoolSnapshot(config){
+    const code = config.coin;
+    const ttl  = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
+    const now  = Date.now();
+    this._mempoolApiCache = this._mempoolApiCache || {};
+    const hit = this._mempoolApiCache[code];
+    if(hit && (now - hit.t) < ttl) return ageNodeMempoolCount(hit.v, now);
+    const parsed = await this.parseCoinCode(code);
+    const url = decoderMempoolUrl(this, code, parsed);
+    if(!url) return null;
+    try {
+        const reply = await new DecoderConnector(url).getmempool(500);
+        if(!reply || !Array.isArray(reply.rows)){
+            this._mempoolApiCache[code] = { t: now, v: null, okAt: null, malformed: true };
+            return null;
+        }
+        const reportedOkAt = Number(reply.read_ok_at);
+        const okAt = Number.isFinite(reportedOkAt) && reportedOkAt > 0
+            ? reportedOkAt : (reply.stale === true ? null : now);
+        const hasNodeUpdatedAt = Object.prototype.hasOwnProperty.call(reply, 'node_updated_at');
+        let value = {
+            node_tx_count: (typeof reply.node_tx_count === 'number' && reply.node_tx_count >= 0)
+                ? reply.node_tx_count : null,
+            total: Number(reply.total) || 0,
+            rows: reply.rows,
+            read_ok_at: okAt
+        };
+        if(hasNodeUpdatedAt) value.node_updated_at = reply.node_updated_at;
+        value = ageNodeMempoolCount(value, now);
+        if(reply.stale === true){
+            const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
+            this._mempoolApiCache[code] = {
+                t: now - ttl,
+                v: usable,
+                okAt,
+                unavailable: usable === null
+            };
+            return usable;
+        }
+        this._mempoolApiCache[code] = { t: now, v: value, okAt };
+        return value;
+    } catch(e){
+        const okAt = hit ? hit.okAt : undefined;
+        const value = hit && hit.v && Number.isFinite(Number(okAt)) && (now - Number(okAt)) < 2 * ttl
+            ? ageNodeMempoolCount(hit.v, now) : null;
+        this._mempoolApiCache[code] = { t: now, v: value, okAt, unavailable: value === null };
+        return value;
+    }
+}
+
+async function getDecoderMempoolCount(config){
+    const parsed = await this.parseCoinCode(config.coin);
+    const configured = Boolean(decoderMempoolUrl(this, config.coin, parsed));
+    const snapshot = await this.getDecoderMempoolSnapshot(config);
+    if(snapshot) return snapshot.total;
+    const hit = (this._mempoolApiCache || {})[config.coin];
+    if(configured && !(hit && hit.malformed)) return null;
+    return originalDecoderMempoolCount.call(this, config);
+}
+
+async function getDecoderMempoolRows(config, limit){
+    const parsed = await this.parseCoinCode(config.coin);
+    const configured = Boolean(decoderMempoolUrl(this, config.coin, parsed));
+    const snapshot = await this.getDecoderMempoolSnapshot(config);
+    if(snapshot){
+        const max = Math.max(1, Math.min(Number(limit) || 200, 500));
+        return snapshot.rows.slice(0, max);
+    }
+    const hit = (this._mempoolApiCache || {})[config.coin];
+    if(configured && !(hit && hit.malformed)) return null;
+    return originalDecoderMempoolRows.call(this, config, limit);
+}
+
+for(const [name, value] of Object.entries({
+    getDecoderMempoolSnapshot,
+    getDecoderMempoolCount,
+    getDecoderMempoolRows
+})){
+    const descriptor = Object.getOwnPropertyDescriptor(decoderReaders, name);
+    Object.defineProperty(decoderReaders, name, Object.assign({}, descriptor, { value }));
+}
 
 // The coin identity and network this request is for, read off the loaded explorer
 // config rather than off the route code alone, so a re-tune of a chain's name,
@@ -306,7 +409,7 @@ class EntityNetworkReaders {
         const ttl  = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
         const snap = await this.getDecoderMempoolSnapshot(config);
         const hit  = (this._mempoolApiCache || {})[code];
-        const okAt = hit && hit.okAt;
+        const okAt = snap && snap.read_ok_at ? snap.read_ok_at : hit && hit.okAt;
         if(!snap || !okAt || (Date.now() - okAt) >= 2 * ttl)
             return null;
         const max = Math.max(1, Math.min(Number(limit) || 200, 500));
@@ -324,8 +427,6 @@ class EntityNetworkReaders {
         // decoder API can report (null when it isn't configured/reachable).
         let unconfirmed     = await this.getDecoderMempoolCount(config);
         let unconfirmedNode = await this.getNodeMempoolCount(config);
-        // node_tx_count ages out with the snapshot that carried it.
-        if(await this.getDecoderMempoolFeed(config, 1) === null) unconfirmedNode = null;
         // Live fee tiers from this coin's encoder (estimatesmartfee), cached.
         let fee = await this.getFeeEstimate(config);
         // Live USD price from the xchain-hub oracle (mainnet coins only; null for

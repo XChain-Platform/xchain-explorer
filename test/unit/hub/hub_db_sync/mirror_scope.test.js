@@ -127,6 +127,26 @@ describe('foreignNetworkRowNames', function () {
 
         assert.deepStrictEqual(await sync.foreignNetworkRowNames(TABLE, 'mainnet'), []);
     });
+
+    it('uses the snapshot id to name remote token rows', async function () {
+        const calls = [];
+        const sync = createSync({
+            doQuery: async (...args) => {
+                calls.push(args);
+                return [{ name: 'remote-snapshot-a' }];
+            }
+        });
+
+        assert.deepStrictEqual(
+            await sync.foreignNetworkRowNames('remote_token_snapshots', 'mainnet'),
+            ['remote-snapshot-a']
+        );
+        assert.deepStrictEqual(calls, [[
+            'SELECT snapshot_id AS name FROM remote_token_snapshots WHERE network <> ? ORDER BY id LIMIT '
+                + (REFUSED_ROW_NAME_LIMIT * 5),
+            ['mainnet']
+        ]]);
+    });
 });
 
 describe('purgeForeignNetworkRows', function () {

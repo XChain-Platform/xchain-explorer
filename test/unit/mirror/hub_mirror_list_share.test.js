@@ -18,7 +18,7 @@ const assert = require('node:assert/strict');
 const path   = require('node:path');
 
 const HubDbSync = require('../../../src/hub/hub_db_sync.js');
-const { CROSS_CHAIN_TABLES } = require('../../../src/hub/hub_db_sync/mirror_tables.js');
+const mirrorTables = require('../../../src/hub/hub_db_sync/mirror_tables.js');
 const { HUB_SCHEMA_VERSION } = require('../../../src/hub/hub_schema_version.js');
 
 const MIRROR_SQL = path.resolve(__dirname, '../../../src/sql/hub-mirror');
@@ -41,7 +41,33 @@ describe('hub-mirror list share vendored contract @regression', function () {
     });
 
     it('includes list_snapshots in CROSS_CHAIN_TABLES', function () {
-        assert.ok(CROSS_CHAIN_TABLES.includes('list_snapshots'));
+        assert.ok(mirrorTables.CROSS_CHAIN_TABLES.includes('list_snapshots'));
+    });
+
+    it('ensureTables creates remote_token_snapshots from the vendored directory', async function () {
+        const created = [];
+        const conn = {
+            async doQuery(sql) {
+                if (/^SHOW TABLES LIKE/i.test(sql.trim())) return [];
+                const match = /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?`?([A-Za-z0-9_]+)`?/i.exec(sql);
+                if (match) created.push(match[1]);
+                return [];
+            }
+        };
+
+        await HubDbSync.ensureTables(conn, MIRROR_SQL);
+        assert.ok(created.includes('remote_token_snapshots'),
+            'ensureTables did not create remote_token_snapshots (created: ' + created.join(', ') + ')');
+    });
+
+    it('registers remote_token_snapshots for bootstrap, local ids, and retraction', function () {
+        assert.ok(mirrorTables.CROSS_CHAIN_TABLES.includes('remote_token_snapshots'));
+        assert.ok(mirrorTables.MIRRORED_TABLES.includes('remote_token_snapshots'));
+        assert.ok(mirrorTables.AUTO_INCREMENT_ID_TABLES.includes('remote_token_snapshots'));
+        assert.equal(mirrorTables.RETRACTION_COLUMNS.remote_token_snapshots, 'source_action_index');
+        assert.equal(mirrorTables.RETRACTION_CHAIN_COLUMNS.remote_token_snapshots, 'coin');
+        assert.deepEqual(mirrorTables.REFUSED_ROW_NAMES.remote_token_snapshots,
+            { column: 'snapshot_id', tag: null });
     });
 
     it('vendors HUB_SCHEMA_VERSION 9', function () {

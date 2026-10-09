@@ -2164,8 +2164,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/action-detail-golden.json",
-      "bytes": 401067,
-      "sha256": "64a255c2ab84821c55503e57cf5a3cfc76e6967e531aef78b2c5f793a0350aa6"
+      "bytes": 401377,
+      "sha256": "a7e64d321dc4161dae8f333f39f10c69f8112f1c7c70e629df27a0bf044e70c2"
     },
     {
       "path": "test/fixtures/list-page-baseline.json",

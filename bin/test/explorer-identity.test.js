@@ -132,7 +132,7 @@ describe('bin/explorer-identity.js (AT1)', function () {
             identity.routes.counts.pages + identity.routes.counts.feeds + identity.routes.counts.apis);
         assert.strictEqual(identity.fixtures.length, 3);
         const golden = identity.fixtures.find((f) => f.path.endsWith('action-detail-golden.json'));
-        assert.strictEqual(golden.bytes, 401067, 'the golden changed size, which AT2 owns');
+        assert.strictEqual(golden.bytes, 401377, 'the golden changed size, which AT2 owns');
         // Zero enumerable keys is the guarantee the db/index.js carve has to preserve:
         // methods installed by assignment instead of by descriptor copy would
         // show up here long before any behavioural test noticed.

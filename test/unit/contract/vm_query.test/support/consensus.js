@@ -56,7 +56,7 @@ describe('vm-query', () => {
             'no PKG3_SANDBOX_ACTIVATION':                                 { PKG3_SANDBOX_ACTIVATION: undefined },
             'no JSON_STRINGIFY_HOOK_GATE_BLOCK_TIME':                     { JSON_STRINGIFY_HOOK_GATE_BLOCK_TIME: undefined },
             'an older consensus epoch':                                   { CONSENSUS_VERSION: '2' },
-            'a newer consensus epoch':                                    { CONSENSUS_VERSION: '7' },
+            'a newer consensus epoch':                                    { CONSENSUS_VERSION: '8' },
             'a divergent MAX_CODE_SIZE':                                  { MAX_CODE_SIZE: 32768 }
         };
 

@@ -73,8 +73,7 @@ async function getDecoderMempoolCount(config){
     return snapshot ? snapshot.total : decoderMempoolUrl(this, config.coin, parsed) ? null : originalMempoolCount.call(this, config);
 }
 async function getDecoderMempoolRows(config, limit){
-    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config);
-    const legacyReply = (((this._mempoolApiCache || {})[config.coin] || {}).legacyReply);
+    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config), legacyReply = (((this._mempoolApiCache || {})[config.coin] || {}).legacyReply);
     return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) && !legacyReply ? null : originalMempoolRows.call(this, config, limit);
 }
 for(const [name, value] of Object.entries({ getDecoderMempoolSnapshot, getDecoderMempoolCount, getDecoderMempoolRows })) Object.defineProperty(decoderReaders, name, Object.assign({}, Object.getOwnPropertyDescriptor(decoderReaders, name), { value }));

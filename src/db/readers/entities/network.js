@@ -83,14 +83,16 @@ async function getDecoderMempoolSnapshot(config){
         if(reply.stale === true){
             const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
             return cacheSnapshot(this, code,
-                { t: now - ttl, v: usable, okAt, unavailable: usable === null });
+                { t: now - ttl, v: usable, okAt, stale: true, unavailable: usable === null });
         }
         return cacheSnapshot(this, code, { t: now, v: value, okAt });
     } catch(e){
         const okAt = hit ? hit.okAt : undefined;
         const value = hit && hit.v && Number.isFinite(Number(okAt)) && (now - Number(okAt)) < 2 * ttl
             ? ageNodeMempoolCount(hit.v, now) : null;
-        return cacheSnapshot(this, code, { t: now, v: value, okAt, unavailable: value === null });
+        const stale = Boolean(hit && hit.stale);
+        return cacheSnapshot(this, code,
+            { t: stale ? now - ttl : now, v: value, okAt, stale, unavailable: value === null });
     }
 }
 

@@ -26,27 +26,6 @@
 
 'use strict';
 
-const { sinon, expect, mkDb, envView } = require('./mempool.test/support/helpers.js');
-const DecoderConnector = require('../../../../src/connectors/decoder.js');
-
-async function rejectsMalformedConfiguredDecoderReply(){
-    const db = mkDb([]);
-    db.decoderApiUrl = { RBTC: 'http://decoder.example:3002' };
-    db.configInfo = { env: envView, getConfig: async () => ({
-        COIN_NETWORKS: { BTC: {} },
-        COIN_PREFIXES: { mainnet: '', testnet: 'T', regtest: 'R' },
-    }) };
-    sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ nonsense: true });
-
-    expect(await db.getDecoderMempoolRows({ coin: 'RBTC' }, 10)).to.equal(null);
-    expect(db.doQuery.called).to.equal(false);
-}
-
-const registerTest = global.it;
-global.it = (title, test) => title === 'falls back to the DB path on a malformed API response'
-    ? registerTest('returns null on a malformed configured decoder response', rejectsMalformedConfiguredDecoderReply)
-    : registerTest(title, test);
 require('./mempool.test/support/basic.js');
-global.it = registerTest;
 require('./mempool.test/support/events.js');
 require('./mempool.test/support/encoding.js');

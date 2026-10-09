@@ -75,38 +75,40 @@ describe('mempool feed when the decoder is unavailable', () => {
 
     it('decoder configured and malformed', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ total: 7 });
-        const db = makeDb();
+        const row = { tx_hash: 'database' };
+        const query = sinon.stub().callsFake(async (config, sql) => sql.includes('COUNT(*)') ? [{ count: 1 }] : [row]);
+        const db = makeDb({ doDecoderQuery: query });
 
-        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
-        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
-        expect(db.doDecoderQuery.called).to.equal(false);
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(1);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.deep.equal([row]);
+        expect(query.callCount).to.equal(2);
     });
 
     it('decoder configured with an empty malformed reply', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({});
         const db = makeDb();
 
-        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
-        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
-        expect(db.doDecoderQuery.called).to.equal(false);
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(0);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.deep.equal([]);
+        expect(db.doDecoderQuery.callCount).to.equal(2);
     });
 
-    it('uses the decoder DB when the endpoint does not support mempool replies', async () => {
+    it('uses the decoder DB for an unrecognized configured-decoder reply', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ nonsense: true });
         const db = makeDb();
 
-        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(0);
         expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.deep.equal([]);
-        expect(db.doDecoderQuery.calledOnce).to.equal(true);
+        expect(db.doDecoderQuery.callCount).to.equal(2);
     });
 
     it('decoder configured with invalid rows', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ total: 7, rows: 'invalid' });
         const db = makeDb();
 
-        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
-        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
-        expect(db.doDecoderQuery.called).to.equal(false);
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(0);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.deep.equal([]);
+        expect(db.doDecoderQuery.callCount).to.equal(2);
     });
 });
 
@@ -178,6 +180,18 @@ describe('mempool feed failure handling', () => {
 
 describe('mempool feed availability', () => {
     afterEach(() => sinon.restore());
+
+    it('reads decoder DB rows after a malformed endpoint reply', async () => {
+        const row = { tx_hash: 'database' };
+        sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ total: 1 });
+        const db = makeDb({ doDecoderQuery: sinon.stub().resolves([row]) });
+
+        const feed = await db.getDecoderMempoolFeed({ coin: 'TST' }, 500);
+
+        expect(feed.rows).to.deep.equal([row]);
+        expect(feed.read_ok_at).to.be.a('number');
+        expect(db.doDecoderQuery.calledOnce).to.equal(true);
+    });
 
     it('returns rows and read_ok_at for a fresh snapshot', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves(reply({

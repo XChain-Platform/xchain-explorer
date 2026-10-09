@@ -47,6 +47,7 @@ function snapshotValue(reply, now){
     const value = { node_tx_count: typeof reply.node_tx_count === 'number' && reply.node_tx_count >= 0 ? reply.node_tx_count : null, total: Number(reply.total) || 0, rows: reply.rows, read_ok_at: okAt };
     if(Object.prototype.hasOwnProperty.call(reply, 'node_updated_at')) value.node_updated_at = reply.node_updated_at; return { okAt, value: ageNodeMempoolCount(value, now) };
 }
+function hasMempoolReplyField(reply){ return ['rows', 'total', 'node_tx_count', 'node_updated_at', 'read_ok_at', 'stale'].some(key => Object.prototype.hasOwnProperty.call(reply, key)); }
 async function getDecoderMempoolSnapshot(config){
     const code = config.coin, ttl = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000, now = Date.now();
     this._mempoolApiCache = this._mempoolApiCache || {};
@@ -56,7 +57,7 @@ async function getDecoderMempoolSnapshot(config){
     if(!url) return null;
     try {
         const reply = await new DecoderConnector(url).getmempool(500);
-        if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, malformed: true }).v;
+        if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, malformed: true, unsupported: Boolean(reply && typeof reply === 'object' && !Array.isArray(reply) && Object.keys(reply).length && !hasMempoolReplyField(reply)) }).v;
         const { okAt, value } = snapshotValue(reply, now);
         if(reply.stale === true){ const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
             return (this._mempoolApiCache[code] = { t: now - ttl, v: usable, okAt, stale: true, unavailable: usable === null }).v; }
@@ -73,7 +74,7 @@ async function getDecoderMempoolCount(config){
 }
 async function getDecoderMempoolRows(config, limit){
     const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config);
-    return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) ? null : originalMempoolRows.call(this, config, limit);
+    return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) && !(((this._mempoolApiCache || {})[config.coin] || {}).unsupported) ? null : originalMempoolRows.call(this, config, limit);
 }
 for(const [name, value] of Object.entries({ getDecoderMempoolSnapshot, getDecoderMempoolCount, getDecoderMempoolRows })) Object.defineProperty(decoderReaders, name, Object.assign({}, Object.getOwnPropertyDescriptor(decoderReaders, name), { value }));
 // The coin identity and network this request is for, read off the loaded explorer

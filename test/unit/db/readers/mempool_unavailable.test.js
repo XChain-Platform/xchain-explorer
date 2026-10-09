@@ -108,6 +108,10 @@ describe('mempool feed when the decoder is unavailable', () => {
         expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
         expect(db.doDecoderQuery.called).to.equal(false);
     });
+});
+
+describe('mempool feed decoder selection', () => {
+    afterEach(() => sinon.restore());
 
     it('decoder configured and unreachable', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').rejects(new Error('offline'));

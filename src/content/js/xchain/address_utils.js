@@ -75,6 +75,11 @@ function isNumeric(value){
     return typeof value === 'bigint' || (!isNaN(parseFloat(value)) && isFinite(value));
 }
 
+// A null count means the mempool read failed.
+function formatUnconfirmedCount(value){
+    return isNumeric(value) ? numeral(value).format('0,0') : 'unavailable';
+}
+
 // Per-chain base58 version bytes and bech32 HRPs (mirrors the indexer's
 // validation params). DOGE has no segwit, so no HRP entries for it.
 var ADDRESS_PARAMS = {

@@ -24,4 +24,10 @@ function schemaVersionLabel(schemaVersion) {
     return schemaVersion == null ? 'missing' : String(schemaVersion);
 }
 
+if (!hasExpectedSchemaVersion(HUB_SCHEMA_VERSION) ||
+    hasExpectedSchemaVersion(undefined) ||
+    hasExpectedSchemaVersion(null) ||
+    hasExpectedSchemaVersion(HUB_SCHEMA_VERSION + 1))
+    throw new Error('Hub mirror schema-version refusal check is invalid');
+
 module.exports = { hasExpectedSchemaVersion, schemaVersionLabel };

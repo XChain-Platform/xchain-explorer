@@ -4616,6 +4616,18 @@
         "attestation.html detail page @regression whole page: the shipped inline script [pending-past-deadline] the whole page never reports the live request as expired",
         "attestation.html detail page @regression whole page: the shipped inline script [relay] the whole page marks the relay legs"
       ],
+      "4ac943da3935bd0f": [
+        "ACTION manifest conformance: dispatch extraction credits a dispatch only @regression a bare comparison of the action name is not coverage",
+        "ACTION manifest conformance: dispatch extraction credits a dispatch only @regression a bridge panel counts only while the dispatcher calls the bridge helper",
+        "ACTION manifest conformance: dispatch extraction credits a dispatch only @regression nothing counts once the detail page stops calling the dispatcher",
+        "ACTION manifest conformance: dispatch extraction credits a dispatch only @regression removing any one dispatch line from the shipped source uncredits that action",
+        "ACTION manifest conformance: dispatch extraction credits a dispatch only @regression removing the bridge helper call from the shipped source uncredits every bridge panel",
+        "ACTION manifest conformance: explorer explorerRender set @regression byte-identity to canonical manifest vendored test/fixtures/action-manifest.json is byte-identical to canonical",
+        "ACTION manifest conformance: explorer explorerRender set @regression every explorerRender action has a matching info-* panel in action.html",
+        "ACTION manifest conformance: explorer explorerRender set @regression every explorerRender action has a showActionDetails dispatch branch in xchain.js",
+        "ACTION manifest conformance: explorer explorerRender set @regression every render-dispatch branch has a matching info-* panel (no dangling dispatch)",
+        "ACTION manifest conformance: explorer explorerRender set @regression getActionData branches exactly equal the manifest explorerRender slice"
+      ],
       "4afc4342423ffd23": [
         "Database#getAddressStaking (M4 address staking panel) EVERY sub-list interpolates sql.limit; nothing but a scalar aggregate is unbounded",
         "Database#getAddressStaking (M4 address staking panel) computes cooldown maturity against the indexer tip, not wall clock",
@@ -8149,13 +8161,6 @@
         "BET format 4 action detail rendering renders retain, detach, and replace semantics with the action status",
         "BET format 4 action detail shapes format 4 as an edit without querying cancel or resolve history"
       ],
-      "bd72ae4ebf0eb2df": [
-        "ACTION manifest conformance: explorer explorerRender set @regression byte-identity to canonical manifest vendored test/fixtures/action-manifest.json is byte-identical to canonical",
-        "ACTION manifest conformance: explorer explorerRender set @regression every explorerRender action has a matching info-* panel in action.html",
-        "ACTION manifest conformance: explorer explorerRender set @regression every explorerRender action has a showActionDetails dispatch branch in xchain.js",
-        "ACTION manifest conformance: explorer explorerRender set @regression every render-dispatch branch has a matching info-* panel (no dangling dispatch)",
-        "ACTION manifest conformance: explorer explorerRender set @regression getActionData branches exactly equal the manifest explorerRender slice"
-      ],
       "bdab718683313f36": [
         "resolve_coins base tables builds fresh base coin and network tables",
         "resolve_coins explorer section adds the explorer-wide configuration sections",
@@ -10157,11 +10162,11 @@
       },
       "test": {
         "fileCount": 363,
-        "titleCount": 6095,
+        "titleCount": 6100,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
-          "test/unit/action_detail/action_manifest_conformance.test.js": "bd72ae4ebf0eb2df",
+          "test/unit/action_detail/action_manifest_conformance.test.js": "4ac943da3935bd0f",
           "test/unit/action_detail/action_not_found.test.js": "85815122e709ccfb",
           "test/unit/action_detail/bet_edit_detail.test.js": "bcc7ecaa24a03d02",
           "test/unit/action_detail/bridge/bridge_action_detail.test.js": "143676fcf0f9c869",

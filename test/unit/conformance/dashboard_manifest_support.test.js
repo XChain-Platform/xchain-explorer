@@ -92,12 +92,71 @@ async function usesWidestReaderProjection() {
     };
     const config = { data: { method: 'getTokens' } };
 
-    const keys = await support.readerKeys(db, config);
+    const observed = await support.readerKeys(db, config);
 
-    assert.deepStrictEqual([...keys].sort(), ['supply', 'tick']);
+    // The widest projection is kept as a diagnostic only: zero served rows verify nothing.
+    assert.deepStrictEqual([...observed.sqlKeys].sort(), ['supply', 'tick']);
+    assert.strictEqual(observed.rowCount, 0);
+    assert.deepStrictEqual([...observed.rowKeys], []);
     assert.deepStrictEqual(calls, [['getTokens', 'count'], ['getTokens', 'rows']]);
     assert.strictEqual(Object.prototype.hasOwnProperty.call(db, 'doQuery'), false);
     assert.strictEqual(db.doQuery, prototype.doQuery);
+}
+
+// A stub reader whose SQL selects every field and whose mapper returns `rows`.
+function mappedReader(rows) {
+    const db = {
+        async doQuery() {
+            const result = [{ tick: 'TST', supply: '1', decimals: 0 }];
+            result.meta = [{ name: 'tick' }, { name: 'supply' }, { name: 'decimals' }];
+            return result;
+        },
+        async getData(config) {
+            await this.doQuery(config, 'rows');
+            return [rows, 1];
+        },
+    };
+    return db;
+}
+
+async function reportsFieldDroppedByMapper() {
+    const observed = await support.readerKeys(mappedReader([{ tick: 'TST', decimals: 0 }]), {});
+    const verdict = support.readerVerdict('getTokens', ['tick', 'supply', 'decimals'], observed, {});
+    assert.deepStrictEqual(verdict,
+        { failure: "getTokens: missing supply (selected by SQL but dropped by the reader's mapping)" });
+}
+
+async function treatsUndefinedValueAsAbsent() {
+    const observed = await support.readerKeys(mappedReader([{ tick: 'TST', supply: undefined, decimals: 0 }]), {});
+    assert.strictEqual(observed.rowCount, 1);
+    assert.deepStrictEqual([...observed.rowKeys].sort(), ['decimals', 'tick']);
+}
+
+async function requiresKeyOnEveryRow() {
+    const observed = await support.readerKeys(mappedReader([
+        { tick: 'A', supply: '1', decimals: 0 },
+        { tick: 'B', decimals: 0 },
+    ]), {});
+    assert.strictEqual(observed.rowCount, 2);
+    assert.deepStrictEqual([...observed.rowKeys].sort(), ['decimals', 'tick']);
+}
+
+async function readsDetailObjectAsOneRow() {
+    const observed = await support.readerKeys(mappedReader({ source: 'addr', status: 'valid' }), {});
+    assert.strictEqual(observed.rowCount, 1);
+    assert.deepStrictEqual([...observed.rowKeys].sort(), ['source', 'status']);
+}
+
+function failsReaderWithNoRows() {
+    const empty = { rowCount: 0, rowKeys: new Set(), sqlKeys: new Set(['tick']) };
+    assert.deepStrictEqual(support.readerVerdict('getTokens', ['tick'], empty, {}),
+        { failure: 'getTokens: returned no rows; seed a fixture row' });
+    assert.deepStrictEqual(support.readerVerdict('getTokens', ['tick'], empty, { getTokens: 'no table' }),
+        { notVerified: 'getTokens: NOT VERIFIED (no fixture row: no table)' });
+    const served = { rowCount: 1, rowKeys: new Set(['tick']), sqlKeys: new Set(['tick']) };
+    assert.deepStrictEqual(support.readerVerdict('getTokens', ['tick'], served, { getTokens: 'no table' }),
+        { failure: 'getTokens: returns rows now; remove it from UNSEEDED_READERS' });
+    assert.deepStrictEqual(support.readerVerdict('getTokens', ['tick'], served, {}), {});
 }
 
 async function restoresOwnedQueryAfterFailure() {
@@ -148,6 +207,11 @@ function registerTests() {
     it('collects projected keys from rows and MariaDB metadata', collectsProjectedKeys);
     it('uses the widest reader query projection and restores an inherited doQuery', usesWidestReaderProjection);
     it('restores an owned doQuery after a reader failure', restoresOwnedQueryAfterFailure);
+    it('reports a field the SQL selects but the reader mapping drops', reportsFieldDroppedByMapper);
+    it('treats an undefined-valued row key as absent from the served row', treatsUndefinedValueAsAbsent);
+    it('requires a manifest key on every served row, not only the first', requiresKeyOnEveryRow);
+    it('reads a single-object detail result as one served row', readsDetailObjectAsOneRow);
+    it('fails a reader with no served rows unless it is listed as unseeded', failsReaderWithNoRows);
     it('reports only absent manifest keys', reportsAbsentManifestKeys);
     it('builds an RBTC reader config with required and conformance probe arguments', buildsReaderConfig);
 }

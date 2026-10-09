@@ -103,7 +103,7 @@ describe('market readers: a side with no ticker', () => {
             if (q.includes('count(*) as total')) return [{ total: nativeSideEliminated ? 0 : 1 }];
             return nativeSideEliminated ? [] : [NATIVE_PAIR_ROW];
         });
-        // search = DOGESWAP matches tick2, so the reader flips the pair to lead with it.
+        // search = DOGESWAP matches the stored tick2, which is where the reader keeps the searched tick.
         const [data, , total] = await db.getMarkets(marketConfig('getMarkets', { search: 'DOGESWAP' }));
         expect(total, 'the market must be counted').to.equal(1);
         expect(data, 'the market must be listed').to.have.lengthOf(1);
@@ -130,7 +130,7 @@ describe('market readers: a side with no ticker', () => {
             'tick2_24hr_price', 'tick2_24hr_high', 'tick2_24hr_low', 'tick2_24hr_change', 'tick2_24hr_volume',
             'last_updated'
         ]);
-        // search matched tick1, so the stored orientation is served as-is.
+        // search matched the stored tick1, so the reader swaps the pair to put the searched tick in tick2.
         expect(data[0].tick1).to.equal('BBB');
         expect(data[0].tick2).to.equal('AAA');
     });
@@ -175,5 +175,36 @@ describe('market readers: a side with no ticker', () => {
         expect(firstQuery).to.include('LEFT  JOIN index_tickers   t2 ON (t2.id=o1.give_tick_id)');
         expect(firstQuery).to.include('LEFT  JOIN index_tickers   t3 ON (t3.id=o1.get_tick_id)');
         expect(firstQuery).to.include('c2.coin as give_coin');
+    });
+});
+
+// The documented /markets/{TICK1} contract: the searched tick sits in tick2, and every
+// tickN_* value travels with the tick named in tickN.
+describe('getMarkets tick slot orientation', () => {
+    const STORED = { ...NATIVE_PAIR_ROW, tick1: 'AAA', tick2: 'BBB' };
+
+    async function marketsFor(search) {
+        const db = makeDb();
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => (q.includes('count(*) as total') ? [{ total: 1 }] : [STORED]));
+        const [data] = await db.getMarkets(marketConfig('getMarkets', { search }));
+        return data[0];
+    }
+
+    it('puts a search that matches the stored tick1 in tick2, with that tick\'s values', async () => {
+        const row = await marketsFor('AAA');
+        expect([row.tick2, row.tick2_price, row.tick2_bid, row.tick2_24hr_volume]).to.deep.equal(['AAA', '0.001', '0.0009', '5.0']);
+        expect([row.tick1, row.tick1_price, row.tick1_bid, row.tick1_24hr_volume]).to.deep.equal(['BBB', '1000', '999', '5000']);
+    });
+
+    it('keeps a search that matches the stored tick2 in tick2, with that tick\'s values', async () => {
+        const row = await marketsFor('BBB');
+        expect([row.tick2, row.tick2_price, row.tick2_24hr_change]).to.deep.equal(['BBB', '1000', '-1.0']);
+        expect([row.tick1, row.tick1_price, row.tick1_24hr_change]).to.deep.equal(['AAA', '0.001', '1.0']);
+    });
+
+    it('serves the bare list with each value still following its tick', async () => {
+        const row = await marketsFor(null);
+        expect([row.tick1, row.tick1_price, row.tick1_ask]).to.deep.equal(['BBB', '1000', '1001']);
+        expect([row.tick2, row.tick2_price, row.tick2_ask]).to.deep.equal(['AAA', '0.001', '0.0011']);
     });
 });

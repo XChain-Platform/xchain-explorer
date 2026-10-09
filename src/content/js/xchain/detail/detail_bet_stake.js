@@ -175,7 +175,7 @@ function showBetExpireDetails(data){
 // Display STAKE action information (capability v1/v2 or contract-targeted v3)
 function showStakeDetails(data){
     let isContract = !isNull(data.target_contract_index);
-    $('#info-stake .stake-version').text('v' + data.version);
+    $('#info-stake .stake-version').text(isNull(data.version) ? '-' : ('v' + data.version));
     $('#info-stake .stake-pubkey').html(formatHash(data.signing_pubkey, 24));
     $('#info-stake .stake-amount').html(formatAmount(data.amount));
     $('#info-stake .stake-contract-row').toggleClass('d-none', !isContract);

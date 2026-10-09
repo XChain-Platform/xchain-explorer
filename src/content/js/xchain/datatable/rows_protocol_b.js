@@ -95,7 +95,7 @@ function xcDatatableRenderAnchorRow(context){
     let match_count    = data[8];
     $('td', row).eq(3).text(isNull(chain) ? '-' : chain);
     $('td', row).eq(4).text(isNull(network) ? '-' : network);
-    $('td', row).eq(5).text('v' + version);
+    $('td', row).eq(5).text(isNull(version) ? '-' : ('v' + version));
     $('td', row).eq(6).html(numeral(checkpoint_seq).format(fmtInteger));
     $('td', row).eq(7).html(isNull(snapshot_block) ? '-' : formatLink('/' + coin + '/block/' + snapshot_block, numeral(snapshot_block).format(fmtInteger)));
     $('td', row).eq(8).html(numeral(match_count).format(fmtInteger));

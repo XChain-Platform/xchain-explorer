@@ -1104,6 +1104,10 @@
                     "cell": "list-action-index"
                 },
                 {
+                    "label": "Transferred To",
+                    "cell": "list-destination"
+                },
+                {
                     "label": "Memo",
                     "cell": "list-memo"
                 },

@@ -67,6 +67,7 @@ const COMPUTED_RENDERER_FIELDS = Object.freeze({
 
 const ACTION_SUPPLEMENTS = Object.freeze({
     ISSUE: Object.freeze(['attachIssueControllerFields']),
+    LIST: Object.freeze(['attachListTransferDestination']),
     DEPLOY: Object.freeze(['attachDeployChunkFields', 'attachDeployExecutionFields'])
 });
 

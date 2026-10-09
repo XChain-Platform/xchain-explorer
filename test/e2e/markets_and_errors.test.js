@@ -137,10 +137,10 @@ describe('E2E-13: Filtered market listing returns correct count', function () {
         expect(Number(res.body.total)).to.equal(2);
         expect(res.body.data).to.have.lengthOf(2);
 
-        // Both pairs should involve XCHAIN
+        // Both pairs carry the searched tick in tick2 (the documented slot), the counter tick in tick1
         for (const market of res.body.data) {
-            const hasTick = market.tick1 === 'XCHAIN' || market.tick2 === 'XCHAIN';
-            expect(hasTick).to.equal(true, `Market ${market.tick1}/${market.tick2} should involve XCHAIN`);
+            expect(market.tick2).to.equal('XCHAIN', `Market ${market.tick1}/${market.tick2} should list XCHAIN in tick2`);
+            expect(market.tick1).to.not.equal('XCHAIN');
         }
     });
 
@@ -150,8 +150,8 @@ describe('E2E-13: Filtered market listing returns correct count', function () {
 
         expect(Number(res.body.total)).to.equal(1);
         const market = res.body.data[0];
-        const hasTick = market.tick1 === 'TOKENONE' || market.tick2 === 'TOKENONE';
-        expect(hasTick).to.equal(true);
+        expect(market.tick2).to.equal('TOKENONE');
+        expect(market.tick1).to.not.equal('TOKENONE');
     });
 });
 

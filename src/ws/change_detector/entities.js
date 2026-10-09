@@ -31,6 +31,9 @@
 
 'use strict';
 
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
 class EntityUpdates {
 
     // Read an entity's enrichment info at most once per poll. `map` is one of the
@@ -61,15 +64,12 @@ class EntityUpdates {
             await emitAddressUpdates(this, coin, config, action, cache, subscribedAddresses);
         }
 
-        // Token updates go out only when a tick has a subscriber: getActionsSince doesn't
-        // carry the tick, so this is a lightweight action-type check that refreshes every
-        // subscribed token (full tick resolution would mean joining more tables).
+        // Token updates go out only when a tick has a subscriber, for the ticks
+        // tokenTicksToRefresh names (the action-type list, then the ledger rows).
         const subscribedTicks = this.channelManager.getSubscribedTicks(coin);
-        // XBRIDGE is on the list because its locks, burns and settle legs move supply
-        // and holders of the bridged token; SWEEP moves every balance of its source in
-        // its own single row, so holder counts change with no other action behind it.
-        if (subscribedTicks.size > 0 && ['ISSUE', 'MINT', 'DESTROY', 'SEND', 'AIRDROP', 'DIVIDEND', 'XBRIDGE', 'SWEEP'].includes(action.action)) {
-            await emitTokenUpdates(this, coin, config, action, cache, subscribedTicks);
+        if (subscribedTicks.size > 0) {
+            const ticks = await tokenTicksToRefresh(this, config, action, cache, subscribedTicks);
+            if (ticks.length > 0) await emitTokenUpdates(this, coin, config, action, cache, ticks);
         }
 
         // Same gate for dispensers: refresh only the ones with a subscriber, and only on
@@ -116,7 +116,42 @@ async function emitAddressUpdates(detector, coin, config, action, cache, subscri
     }
 }
 
-// TOKEN_UPDATE for every subscribed tick.
+// Action types that refresh every subscribed tick. XBRIDGE is here because its
+// locks, burns and settle legs move supply and holders of the bridged token; SWEEP
+// moves every balance of its source in its own single row; ISSUE can change supply
+// or metadata with no ledger row behind it.
+const TOKEN_REFRESH_ALL_ACTIONS = new Set(['ISSUE', 'MINT', 'DESTROY', 'SEND', 'AIRDROP', 'DIVIDEND', 'XBRIDGE', 'SWEEP']);
+
+// The subscribed ticks this action may have changed. A listed type refreshes them
+// all; any other action refreshes the ticks its credit, debit and escrow rows moved
+// (DISPENSE, ORDER_MATCH, STAKE, fee debits, ...), matched case-insensitively
+// because a subscriber may spell a tick in any case.
+async function tokenTicksToRefresh(detector, config, action, cache, subscribedTicks) {
+    if (TOKEN_REFRESH_ALL_ACTIONS.has(action.action)) return [...subscribedTicks];
+    const moved = await ledgerTicksOf(detector, config, action, cache);
+    if (!moved || moved.size === 0) return [];
+    const folded = new Set([...moved].map((tick) => tick.toLowerCase()));
+    return [...subscribedTicks].filter((tick) => folded.has(String(tick).toLowerCase()));
+}
+
+// The ticks one action moved, from one ledger read per poll covering the whole
+// batch (cache.ledger, filled in emitNewActions). Null when there is no batch or
+// the read failed, which leaves only the listed types refreshing, as before.
+async function ledgerTicksOf(detector, config, action, cache) {
+    const ledger = cache && cache.ledger;
+    if (!ledger || typeof detector.db.getActionLedgerTicks !== 'function') return null;
+    if (ledger.ticks === undefined) {
+        try {
+            ledger.ticks = await detector.db.getActionLedgerTicks(config, ledger.actions.map((a) => a.action_index));
+        } catch (e) {
+            ledger.ticks = null;
+            log.warn('CHANGE_DETECTOR_LEDGER_TICKS_FAILED', { coin: config.coin, err: e && e.message });
+        }
+    }
+    return ledger.ticks ? ledger.ticks.get(String(action.action_index)) || null : null;
+}
+
+// TOKEN_UPDATE for each of the given subscribed ticks.
 async function emitTokenUpdates(detector, coin, config, action, cache, subscribedTicks) {
     for (const tick of subscribedTicks) {
         try {

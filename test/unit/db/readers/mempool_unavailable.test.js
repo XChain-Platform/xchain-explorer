@@ -31,37 +31,39 @@ function reply(over) {
     }, over);
 }
 
+async function refusesToCacheStaleReplyAsSuccessful(){
+    const clock = sinon.useFakeTimers({ now: 100000, toFake: ['Date'] });
+    const read = sinon.stub(DecoderConnector.prototype, 'getmempool');
+    read.onCall(0).resolves(reply({
+        stale: true,
+        read_ok_at: 99500,
+        rows: [{ tx_hash: 'stale' }]
+    }));
+    read.onCall(1).rejects(new Error('offline'));
+    read.onCall(2).resolves(reply({
+        read_ok_at: 100000,
+        rows: [{ tx_hash: 'recovered' }]
+    }));
+    const db = makeDb();
+
+    const first = await db.getDecoderMempoolSnapshot({ coin: 'TST' });
+    const second = await db.getDecoderMempoolSnapshot({ coin: 'TST' });
+    const third = await db.getDecoderMempoolSnapshot({ coin: 'TST' });
+
+    expect(first.read_ok_at).to.equal(99500);
+    expect(second.read_ok_at).to.equal(99500);
+    expect(third.read_ok_at).to.equal(100000);
+    expect(third.rows).to.deep.equal([{ tx_hash: 'recovered' }]);
+    expect(read.callCount).to.equal(3);
+    expect(db._mempoolApiCache.TST.okAt).to.equal(100000);
+    expect(db._mempoolApiCache.TST.stale).to.equal(undefined);
+    clock.restore();
+}
+
 describe('mempool feed when the decoder is unavailable', () => {
     afterEach(() => sinon.restore());
 
-    it('does not cache a stale decoder reply as a successful refresh', async () => {
-        const clock = sinon.useFakeTimers({ now: 100000, toFake: ['Date'] });
-        const read = sinon.stub(DecoderConnector.prototype, 'getmempool');
-        read.onCall(0).resolves(reply({
-            stale: true,
-            read_ok_at: 99500,
-            rows: [{ tx_hash: 'stale' }]
-        }));
-        read.onCall(1).rejects(new Error('offline'));
-        read.onCall(2).resolves(reply({
-            read_ok_at: 100000,
-            rows: [{ tx_hash: 'recovered' }]
-        }));
-        const db = makeDb();
-
-        const first = await db.getDecoderMempoolSnapshot({ coin: 'TST' });
-        const second = await db.getDecoderMempoolSnapshot({ coin: 'TST' });
-        const third = await db.getDecoderMempoolSnapshot({ coin: 'TST' });
-
-        expect(first.read_ok_at).to.equal(99500);
-        expect(second.read_ok_at).to.equal(99500);
-        expect(third.read_ok_at).to.equal(100000);
-        expect(third.rows).to.deep.equal([{ tx_hash: 'recovered' }]);
-        expect(read.callCount).to.equal(3);
-        expect(db._mempoolApiCache.TST.okAt).to.equal(100000);
-        expect(db._mempoolApiCache.TST.stale).to.equal(undefined);
-        clock.restore();
-    });
+    it('does not cache a stale decoder reply as a successful refresh', refusesToCacheStaleReplyAsSuccessful);
 
     it('rejects a stale reply with no recent successful read', async () => {
         const clock = sinon.useFakeTimers({ now: 100000, toFake: ['Date'] });

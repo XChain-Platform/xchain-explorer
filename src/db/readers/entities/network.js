@@ -57,7 +57,7 @@ async function getDecoderMempoolSnapshot(config){
     if(!url) return null;
     try {
         const reply = await new DecoderConnector(url).getmempool(500);
-        if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, fallbackRows: Boolean(reply && typeof reply === 'object' && !['rows', 'total', 'node_tx_count'].some(key => Object.prototype.hasOwnProperty.call(reply, key))) }).v;
+        if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, fallbackRows: Boolean(reply && typeof reply === 'object' && Object.keys(reply).length && !['rows', 'total', 'node_tx_count'].some(key => Object.prototype.hasOwnProperty.call(reply, key))) }).v;
         const { okAt, value } = snapshotValue(reply, now);
         if(reply.stale === true){ const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
             return (this._mempoolApiCache[code] = { t: now - ttl, v: usable, okAt, stale: true, unavailable: usable === null }).v; }

@@ -18,7 +18,7 @@ const SHARED_ROWS_PATH = require.resolve('../../../../src/consensus/gate_registr
 const PART_PATHS = [1, 2, 3, 4, 5].map((part) => require.resolve(
     '../../../../src/consensus/gate_registry/shared_rows_' + part + '.js'
 ));
-const EXPECTED_ROW_COUNT = 108;
+const EXPECTED_ROW_COUNT = 110;
 const LISTS_MARKET_HEIGHT_KEYS = [
     'list_owner_activation.LIST_OWNER_ACTIVATION',
     'empty_allow_list_denies_activation.EMPTY_ALLOW_LIST_DENIES',

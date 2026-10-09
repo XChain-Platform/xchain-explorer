@@ -27,10 +27,13 @@ const { srcText } = require('../../../../helpers/source_text');
 
 const fs   = require('fs');
 const path = require('path');
+const assert = require('assert');
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const Utility    = require('../../../../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../../../../fixtures/mock-config.js');
+const { makeConfig } = require('../../../../fixtures/mock-query-args.js');
+const { GENERIC_ROW } = require('../../../../fixtures/action-detail-capture.js');
 
 const configInfo   = createConfigInfoStub();
 const util         = new Utility(configInfo);
@@ -38,9 +41,16 @@ const mockExplorer = { configInfo, util };
 const Database     = proxyquire('../../../../../src/db/index.js', {
     './connection.js': proxyquire('../../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
-const { BATCH }    = require('../../../../../src/action-detail/misc.js');
+const { REGISTRY, getHandler } = require('../../../../../src/action-detail');
+const { BATCH } = require('../../../../../src/action-detail/misc.js');
+const {
+    loadIndexerSchema,
+    assertIndexerQueryShape
+} = require('../../../../../src/action-detail/indexer_schema_contract.js');
 
 const SRC = srcText('src/content/js/xchain.js');
+const ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
+const INDEXER_SCHEMA = loadIndexerSchema(ROOT, process.env);
 
 // Slice a top-level function out of the client source by walking braces.
 function extractFn(name) {
@@ -78,6 +88,29 @@ const NESTED_ONLY = new Set(['sends']);
 
 function makeDb() {
     return new Database(mockExplorer);
+}
+
+async function realSummaryQueries(action, actionFormat) {
+    const db = makeDb();
+    const config = makeConfig({ coin: 'BTC' });
+    const statements = [];
+    let call = 0;
+    db.doQuery = async function(cfg, statement, args) {
+        statements.push(String(statement));
+        call++;
+        if(call === 1) return [{ action }];
+        if(/information_schema\.TABLES/i.test(statement))
+            return (args || []).map((name) => ({ TABLE_NAME: name }));
+        if(/information_schema\.COLUMNS/i.test(statement))
+            return (args || []).map((name) => ({ COLUMN_NAME: name }));
+        return [Object.assign({}, GENERIC_ROW, { action_format: actionFormat })];
+    };
+
+    const handler = getHandler(action);
+    assert.strictEqual(handler, REGISTRY[action], action + ' must resolve through the registered handler');
+    db.buildActionPreload = async () => null;
+    await db.getActionSummaryData(config, [{ action_index: 42, action }]);
+    return statements;
 }
 
 describe('action summary field contract: projection vs getActionDetails', function () {
@@ -128,6 +161,37 @@ describe('action summary field contract: projection vs getActionDetails', functi
         const out = db.projectActionSummary({ action: 'ANCHOR', status: 'valid' });
         expect(out.details).to.equal(false);
         expect(out.status).to.equal('valid');
+    });
+});
+
+describe('action summary field contract: indexer schema', function () {
+    it('validates every real summary query against the indexer schema', async function () {
+        let checked = 0;
+        let queriedActions = 0;
+        for(const action of Object.keys(REGISTRY)) {
+            const formats = action === 'DEPLOY' ? [0, 4] : [0];
+            for(const format of formats) {
+                const statements = await realSummaryQueries(action, format);
+                if(statements.length) queriedActions++;
+                for(const statement of statements)
+                    checked += assertIndexerQueryShape(statement, INDEXER_SCHEMA);
+            }
+        }
+        assert.ok(queriedActions > 50, 'summary schema contract did not reach the registered queries');
+        assert.ok(checked > 300, 'summary schema contract did not check the real query fields');
+    });
+
+    it('fails when a field in the real summary query is absent from the indexer schema', async function () {
+        const statements = await realSummaryQueries('STAKE', 0);
+        const statement = statements.find((sql) => /target_contract_index/.test(sql));
+        assert.ok(statement, 'STAKE real summary query was not captured');
+        const schema = new Map(INDEXER_SCHEMA);
+        schema.set('contract_stakes', new Set(INDEXER_SCHEMA.get('contract_stakes')));
+        schema.get('contract_stakes').delete('target_contract_index');
+        assert.throws(
+            () => assertIndexerQueryShape(statement, schema),
+            /field absent from contract_stakes: target_contract_index/
+        );
     });
 });
 

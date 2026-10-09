@@ -372,6 +372,20 @@ const EXPLORER_STATUS = {
             ],
             "description": "Seconds since the last successful hub-config fetch. A climbing value means the served hub-derived config is stale. null until the first successful fetch."
         },
+        "hub_consensus_hash_mismatch": {
+            "type": [
+                "boolean",
+                "null"
+            ],
+            "description": "Whether the hub's per-network coin-registry consensus hashes disagree with this explorer's bundled registry. true means at least one mismatch, false means every advertised hash matches, and null means the hub did not advertise hashes."
+        },
+        "hub_consensus_hash_mismatch_details": {
+            "type": "array",
+            "description": "One diagnostic string per hub consensus-hash mismatch. Empty when no mismatch is known.",
+            "items": {
+                "type": "string"
+            }
+        },
         "last_block": {
             "type": "object",
             "description": "Most recent block index processed by the indexer, keyed by coin ticker (e.g. RBTC: 850). Value is null for a coin whose per-coin DB read failed (the outage this health endpoint exists to surface).",

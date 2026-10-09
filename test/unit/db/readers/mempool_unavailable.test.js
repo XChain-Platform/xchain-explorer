@@ -85,6 +85,15 @@ describe('mempool feed when the decoder is unavailable', () => {
         expect(db.doDecoderQuery.called).to.equal(false);
     });
 
+    it('returns null count and rows instead of falling back on a malformed decoder reply', async () => {
+        sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ total: 7, rows: 'invalid' });
+        const db = makeDb();
+
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
+        expect(db.doDecoderQuery.called).to.equal(false);
+    });
+
     it('ages node_tx_count independently using node_updated_at', async () => {
         const clock = sinon.useFakeTimers({ now: 500000, toFake: ['Date'] });
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves(reply({

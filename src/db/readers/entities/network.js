@@ -101,8 +101,7 @@ async function getDecoderMempoolCount(config){
     const configured = Boolean(decoderMempoolUrl(this, config.coin, parsed));
     const snapshot = await this.getDecoderMempoolSnapshot(config);
     if(snapshot) return snapshot.total;
-    const hit = (this._mempoolApiCache || {})[config.coin];
-    if(configured && !(hit && hit.malformed)) return null;
+    if(configured) return null;
     return originalMempoolCount.call(this, config);
 }
 
@@ -114,8 +113,7 @@ async function getDecoderMempoolRows(config, limit){
         const max = Math.max(1, Math.min(Number(limit) || 200, 500));
         return snapshot.rows.slice(0, max);
     }
-    const hit = (this._mempoolApiCache || {})[config.coin];
-    if(configured && !(hit && hit.malformed)) return null;
+    if(configured) return null;
     return originalMempoolRows.call(this, config, limit);
 }
 

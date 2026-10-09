@@ -74,6 +74,15 @@ describe('mempool feed when the decoder is unavailable', () => {
     });
 
     it('decoder configured and malformed', async () => {
+        sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ total: 7 });
+        const db = makeDb();
+
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
+        expect(await db.getDecoderMempoolRows({ coin: 'TST' }, 500)).to.equal(null);
+        expect(db.doDecoderQuery.called).to.equal(false);
+    });
+
+    it('decoder configured with invalid rows', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').resolves({ total: 7, rows: 'invalid' });
         const db = makeDb();
 

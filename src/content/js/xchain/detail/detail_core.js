@@ -103,6 +103,22 @@ function detailCore_dispatchBridgePanel(o){
     return false;
 }
 
+function detailCore_dispatchGovernanceAction(o){
+    var found = false;
+    if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
+    if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }
+    if(o.action=='COINPAY'){          found = true;  showCoinpayDetails(o);         }
+    if(o.action=='COINPAY_EXPIRE'){   found = true;  showCoinpayExpireDetails(o);   }
+    if(o.action=='ANCHOR'){           found = true;  showAnchorDetails(o);          }
+    if(o.action=='PRICE'){            found = true;  showPriceDetails(o);           }
+    if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
+    if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
+    if(o.action=='BET'){              found = true;  showBetDetails(o);             }
+    if(o.action=='BET_EDIT'){         found = true;  showBetDetails(o);             }
+    if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
+    return found;
+}
+
 function detailCore_dispatchAction(o){
     // Dispatch the matching action detail renderer.
     var found = false;
@@ -151,17 +167,7 @@ function detailCore_dispatchAction(o){
     if(o.action=='XEXEC'){            found = true;  showXexecDetails(o);           }
     if(detailCore_dispatchBridgePanel(o)) found = true;
     if(o.action=='CROSS_SETTLE'){     found = true;  showCrossSettleDetails(o);     }
-    if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
-    if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }
-    if(o.action=='COINPAY'){          found = true;  showCoinpayDetails(o);         }
-    if(o.action=='COINPAY_EXPIRE'){   found = true;  showCoinpayExpireDetails(o);   }
-    if(o.action=='ANCHOR'){           found = true;  showAnchorDetails(o);          }
-    if(o.action=='PRICE'){            found = true;  showPriceDetails(o);           }
-    if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
-    if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
-    if(o.action=='BET'){              found = true;  showBetDetails(o);             }
-    if(o.action=='BET_EDIT'){         found = true;  showBetDetails(o);             }
-    if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
+    if(detailCore_dispatchGovernanceAction(o)) found = true;
     return found;
 }
 

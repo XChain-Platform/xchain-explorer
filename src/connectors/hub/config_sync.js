@@ -245,7 +245,10 @@ class HubConfigSync {
     // refused proof reads. Mirrors XChainIndexer.checkHubConsensusHash, widened to
     // every coin and network because the explorer bundles and serves all three.
     checkHubConsensusHash(hubHashes){
-        if(!hubHashes || typeof hubHashes !== 'object') return;   // older hub: field absent
+        if(!hubHashes || typeof hubHashes !== 'object'){
+            this.recordHubConsensusHashStatus(null, []);
+            return;
+        }
         let mismatches = [];
         for(const network of coins.NETWORKS){
             let served = hubHashes[network];
@@ -258,6 +261,7 @@ class HubConfigSync {
                     mismatches.push(tick + '/' + network + ': hub ' + served[tick] + ' vs bundled ' + local[tick]);
             }
         }
+        this.recordHubConsensusHashStatus(mismatches.length > 0, mismatches);
         // This runs on every poll, so log only when the mismatch SET changes: a
         // standing divergence must not flood the log, and a drift that widens or
         // clears must still report.

@@ -27,6 +27,37 @@ const HubConfigSync = require('./hub/config_sync.js');
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+const statusReaders = require('../db/readers/entities/status.js');
+const HUB_CONSENSUS_HASH_STATE = Symbol.for('xchain.explorer.hubConsensusHashState');
+const HUB_CONSENSUS_HASH_STATUS_INSTALLED = Symbol.for('xchain.explorer.hubConsensusHashStatusInstalled');
+
+function hubConsensusHashStatusFields(){
+    const state = statusReaders[HUB_CONSENSUS_HASH_STATE];
+    return {
+        hub_consensus_hash_mismatch: state.mismatch,
+        hub_consensus_hash_mismatch_details: state.details.slice()
+    };
+}
+
+function installHubConsensusHashStatusFields(){
+    if(!statusReaders[HUB_CONSENSUS_HASH_STATE])
+        Object.defineProperty(statusReaders, HUB_CONSENSUS_HASH_STATE,
+            { value: { mismatch: null, details: [] } });
+    if(statusReaders[HUB_CONSENSUS_HASH_STATUS_INSTALLED]) return;
+    const descriptor = Object.getOwnPropertyDescriptor(statusReaders, 'getStatus');
+    const getStatus = descriptor.value;
+    descriptor.value = async function(config){
+        const result = await getStatus.call(this, config);
+        if(Array.isArray(result) && result[0] && typeof result[0] === 'object')
+            Object.assign(result[0], hubConsensusHashStatusFields());
+        return result;
+    };
+    Object.defineProperty(statusReaders, 'getStatus', descriptor);
+    Object.defineProperty(statusReaders, HUB_CONSENSUS_HASH_STATUS_INSTALLED, { value: true });
+}
+
+installHubConsensusHashStatusFields();
+
 // Environment reads go through config.js's live read-through view of process.env.
 // config.js requires this module at its top, before it has built its exports, so
 // the view is looked up each time a read runs and never captured at load.
@@ -156,11 +187,21 @@ class XChainHubConnector {
         // (initial / post-restart / old hub) requests the full tree.
         this.configs       = null;
         this.lastWatermark = 0;
+        this.hubConsensusHashMismatch = null;
+        this.hubConsensusHashMismatchDetails = [];
         // Endpoint index the cursor was obtained from. A wall-clock since_updated_at
         // cursor is only valid against the hub that produced it (each hub stamps
         // updated_at = NOW() at its own apply time of a PBFT-committed config), so on
         // failover to a different endpoint the cursor must be reset and re-fetched full.
         this._watermarkEndpointIdx = null;
+    }
+
+    recordHubConsensusHashStatus(mismatch, details){
+        this.hubConsensusHashMismatch = mismatch;
+        this.hubConsensusHashMismatchDetails = details.slice();
+        const state = statusReaders[HUB_CONSENSUS_HASH_STATE];
+        state.mismatch = mismatch;
+        state.details = details.slice();
     }
 
     // Internal: call a JSON-RPC method, trying each endpoint starting from the

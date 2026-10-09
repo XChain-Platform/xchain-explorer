@@ -339,6 +339,33 @@ async function captureDetail(action, actionFormat) {
     return { statements, result };
 }
 
+async function assertRendererContract(action, renderer) {
+    const selected = supplementFields(action);
+    const capturedDerived = new Set();
+    const formats = action === 'DEPLOY' ? [0, 4] : [0];
+    for(const format of formats) {
+        const capture = await captureDetail(action, format);
+        for(const field of Object.keys(capture.result)) {
+            if(!Object.prototype.hasOwnProperty.call(GENERIC_ROW, field)) capturedDerived.add(field);
+        }
+        for(const sql of capture.statements) {
+            for(const field of selectedFields(action, sql)) selected.add(field);
+        }
+    }
+
+    const derived = handlerSetFields(getHandler(action));
+    for(const field of capturedDerived) derived.add(field);
+    const missing = [...detailRendererFieldReads(renderer)]
+        .filter((fieldPath) => {
+            const topLevel = fieldPath.split('.')[0];
+            return !selected.has(topLevel) && !derived.has(topLevel);
+        })
+        .sort();
+
+    assert.deepStrictEqual(missing, [],
+        action + ' renderer reads fields absent from its SELECTs and handler: ' + missing.join(', '));
+}
+
 describe('action summary field contract: projection vs getActionDetails', function () {
     it('every field getActionDetails reads is in ACTION_SUMMARY_FIELDS', function () {
         const reads = rendererFieldReads();
@@ -421,30 +448,7 @@ describe('action detail field contract: handler output vs detail renderers', fun
 
     for(const { action, renderer } of actionRenderers()) {
         it(action + ' provides every field read by ' + renderer, async function () {
-            const selected = supplementFields(action);
-            const capturedDerived = new Set();
-            const formats = action === 'DEPLOY' ? [0, 4] : [0];
-            for(const format of formats) {
-                const capture = await captureDetail(action, format);
-                for(const field of Object.keys(capture.result)) {
-                    if(!Object.prototype.hasOwnProperty.call(GENERIC_ROW, field)) capturedDerived.add(field);
-                }
-                for(const sql of capture.statements) {
-                    for(const field of selectedFields(action, sql)) selected.add(field);
-                }
-            }
-
-            const derived = handlerSetFields(getHandler(action));
-            for(const field of capturedDerived) derived.add(field);
-            const missing = [...detailRendererFieldReads(renderer)]
-                .filter((fieldPath) => {
-                    const topLevel = fieldPath.split('.')[0];
-                    return !selected.has(topLevel) && !derived.has(topLevel);
-                })
-                .sort();
-
-            assert.deepStrictEqual(missing, [],
-                action + ' renderer reads fields absent from its SELECTs and handler: ' + missing.join(', '));
+            await assertRendererContract(action, renderer);
         });
     }
 

@@ -136,30 +136,6 @@ describe('action summary field contract: projection vs getActionDetails', functi
         expect(missing, 'getActionDetails reads fields the summary projection never carries').to.deep.equal([]);
     });
 
-    it('every persisted summary field resolves to the indexer schema', function () {
-        let checked = 0;
-        for(const field of Database.ACTION_SUMMARY_FIELDS) {
-            if(COMPUTED_SUMMARY_FIELDS.has(field)) continue;
-            const sources = summaryFieldSources(field);
-            assert.ok(sources.length, field + ' has no indexer schema source');
-            for(const source of sources) {
-                const [table, column] = source.split('.');
-                checked += assertIndexerQueryShape('SELECT ' + column + ' FROM ' + table, INDEXER_SCHEMA);
-            }
-        }
-        assert.ok(checked > 60, 'summary schema contract did not check the projected fields');
-    });
-
-    it('fails when an unqualified summary source field is absent from the indexer schema', function () {
-        const schema = new Map(INDEXER_SCHEMA);
-        schema.set('actions', new Set(INDEXER_SCHEMA.get('actions')));
-        schema.get('actions').delete('action_format');
-        assert.throws(
-            () => assertIndexerQueryShape('SELECT action_format FROM actions', schema),
-            /field absent from actions: action_format/
-        );
-    });
-
     it('[REGRESSION] staking/contract summary fields are projected', function () {
         const db = makeDb();
         const stake = db.projectActionSummary({ action: 'STAKE', status: 'valid', amount: '5', target_contract_index: 77 });
@@ -200,6 +176,32 @@ describe('action summary field contract: projection vs getActionDetails', functi
         const out = db.projectActionSummary({ action: 'ANCHOR', status: 'valid' });
         expect(out.details).to.equal(false);
         expect(out.status).to.equal('valid');
+    });
+});
+
+describe('action summary field contract: indexer schema', function () {
+    it('every persisted summary field resolves to the indexer schema', function () {
+        let checked = 0;
+        for(const field of Database.ACTION_SUMMARY_FIELDS) {
+            if(COMPUTED_SUMMARY_FIELDS.has(field)) continue;
+            const sources = summaryFieldSources(field);
+            assert.ok(sources.length, field + ' has no indexer schema source');
+            for(const source of sources) {
+                const [table, column] = source.split('.');
+                checked += assertIndexerQueryShape('SELECT ' + column + ' FROM ' + table, INDEXER_SCHEMA);
+            }
+        }
+        assert.ok(checked > 60, 'summary schema contract did not check the projected fields');
+    });
+
+    it('fails when an unqualified summary source field is absent from the indexer schema', function () {
+        const schema = new Map(INDEXER_SCHEMA);
+        schema.set('actions', new Set(INDEXER_SCHEMA.get('actions')));
+        schema.get('actions').delete('action_format');
+        assert.throws(
+            () => assertIndexerQueryShape('SELECT action_format FROM actions', schema),
+            /field absent from actions: action_format/
+        );
     });
 });
 

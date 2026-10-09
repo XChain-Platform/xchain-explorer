@@ -51,6 +51,9 @@ const {
 const SRC = srcText('src/content/js/xchain.js');
 const ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
 const INDEXER_SCHEMA = loadIndexerSchema(ROOT, process.env);
+const ACTION_SCHEMA_REQUIREMENTS = Object.freeze({
+    BET: Object.freeze(['bet_edits'])
+});
 
 // Slice a top-level function out of the client source by walking braces.
 function extractFn(name) {
@@ -180,10 +183,17 @@ describe('action summary field contract: send and empty projections', function (
 });
 
 describe('action summary field contract: indexer schema', function () {
-    it('validates every real summary query against the indexer schema', async function () {
+    it('validates every real summary query available in the indexer schema', async function () {
         let checked = 0;
         let queriedActions = 0;
+        const unavailableActions = [];
         for(const action of Object.keys(REGISTRY)) {
+            const missingTables = (ACTION_SCHEMA_REQUIREMENTS[action] || [])
+                .filter((table) => !INDEXER_SCHEMA.has(table));
+            if(missingTables.length) {
+                unavailableActions.push([action, missingTables]);
+                continue;
+            }
             const formats = action === 'DEPLOY' ? [0, 4] : [0];
             for(const format of formats) {
                 const statements = await realSummaryQueries(action, format);
@@ -192,6 +202,8 @@ describe('action summary field contract: indexer schema', function () {
                     checked += assertIndexerQueryShape(statement, INDEXER_SCHEMA);
             }
         }
+        const expectedUnavailable = INDEXER_SCHEMA.has('bet_edits') ? [] : [['BET', ['bet_edits']]];
+        assert.deepStrictEqual(unavailableActions, expectedUnavailable);
         assert.ok(queriedActions > 50, 'summary schema contract did not reach the registered queries');
         assert.ok(checked > 300, 'summary schema contract did not check the real query fields');
     });

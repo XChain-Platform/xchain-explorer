@@ -2194,7 +2194,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 307,
+    "count": 308,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2322,6 +2322,7 @@
       "getDebits",
       "getDecoderBlockTime",
       "getDecoderMempoolCount",
+      "getDecoderMempoolFeed",
       "getDecoderMempoolRows",
       "getDecoderMempoolSnapshot",
       "getDecoderTip",
@@ -2663,11 +2664,6 @@
         "Database#getData result cache serves a repeated identical getHolders request from cache",
         "Database#getData result cache serves a repeated identical getTokens request from cache",
         "Database#getData result cache serves nothing from cache when the tip probe fails"
-      ],
-      "07691b9d5c88c526": [
-        "hub-mirror list share vendored contract @regression ensureTables creates list_snapshots from the vendored directory",
-        "hub-mirror list share vendored contract @regression includes list_snapshots in CROSS_CHAIN_TABLES",
-        "hub-mirror list share vendored contract @regression vendors HUB_SCHEMA_VERSION 9"
       ],
       "079f3b47f967927a": [
         "broadcaster coin map contains exactly the supported coin keys",
@@ -3808,6 +3804,25 @@
         "checkpoint self_sync / hub-endpoint pairing resolveHubUrl() prefers the config-borne hub_url over the env",
         "checkpoint self_sync / hub-endpoint pairing resolveHubUrl() treats a whitespace-only value as absent"
       ],
+      "2a0cc571c8110ee0": [
+        "mempool change detector availability the change detector also keeps state when the direct row reader returns null",
+        "mempool change detector availability the change detector skips the poll and keeps state on null",
+        "mempool feed availability getMempool throws instead of answering an empty list",
+        "mempool feed availability reads decoder DB rows after a malformed endpoint reply",
+        "mempool feed availability reads the decoder DB when no endpoint is configured",
+        "mempool feed availability returns rows and read_ok_at for a fresh snapshot",
+        "mempool feed decoder selection decoder configured and unreachable",
+        "mempool feed decoder selection decoder not configured",
+        "mempool feed failure handling ages node_tx_count independently using node_updated_at",
+        "mempool feed failure handling does not cache a stale decoder reply as a successful refresh",
+        "mempool feed failure handling rejects a stale reply with no recent successful read",
+        "mempool feed failure handling returns null count and rows instead of falling back when a configured decoder is unavailable",
+        "mempool feed when the decoder is unavailable decoder configured and healthy",
+        "mempool feed when the decoder is unavailable decoder configured and malformed",
+        "mempool feed when the decoder is unavailable decoder configured with an empty malformed reply",
+        "mempool feed when the decoder is unavailable decoder configured with invalid rows",
+        "mempool feed when the decoder is unavailable uses the decoder DB for an unrecognized configured-decoder reply"
+      ],
       "2b7e2b712e3099ff": [
         "checkpoint.html signer list: renderCheckpointSigners @regression escapes a stored pubkey before rendering the signer item",
         "checkpoint.html signer list: renderCheckpointSigners @regression renders the entry number and missing field for each invalid signature item",
@@ -4811,6 +4826,34 @@
         "Oracle track record covers PRICE v1 publishers @regression reads the hub-mirror table and binds the publisher address",
         "Oracle track record covers PRICE v1 publishers @regression reports the publisher's rounds per pair, with counts and the publish window"
       ],
+      "550503f39ea96f53": [
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_margin_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/price_batching_floor_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list_refresh.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/list_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/remote_token_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
+      ],
       "55b980748b629a02": [
         "shared action-detail SQL builds a grouped ledger effects query for every action index",
         "shared action-detail SQL builds a single-action ledger effects query",
@@ -5224,14 +5267,6 @@
         "ROLLCALL detail version and consensus gates renders v1 from action_format and every published gate as a badge",
         "ROLLCALL detail version and consensus gates shows a dash when a v1 payload has no gates"
       ],
-      "65d5f9c691086822": [
-        "hub-mirror-migrate later hub columns adds the admission and chain identity columns to a cross_chain_matches built before them",
-        "hub-mirror-migrate later hub columns adds the price round batch clock and admission heights to a price_snapshots built before them",
-        "hub-mirror-migrate later hub columns covers every later hub column the twin DDL declares",
-        "hub-mirror-migrate later hub columns declares each later column with the exact type its twin file uses",
-        "hub-mirror-migrate later hub columns is a no-op on a table that already carries every twin column",
-        "hub-mirror-migrate later hub columns says nothing about a rebuild when only unstamped columns were added"
-      ],
       "65d6c70d53e3106b": [
         "xbridge-panels-render as a module builds per-chain rows sorted by chain and names the three payload states",
         "xbridge-panels-render as a module classifies an invariant delta and keeps a malformed one unknown",
@@ -5562,6 +5597,21 @@
         "ANCHOR action detail: section count and elision label snapshot block namespace never links the BTC snapshot height into the DOGE page it renders on",
         "ANCHOR action detail: section count and elision label snapshot block namespace renders a dash for an anchor carrying no snapshot block",
         "ANCHOR action detail: section count and elision label snapshot block namespace the shipped markup labels the row as a BTC height"
+      ],
+      "6fe4fb7059b13c2d": [
+        "foreignNetworkRowNames names remote token rows by the default id column",
+        "foreignNetworkRowNames reads bounded natural names and removes empty values",
+        "foreignNetworkRowNames returns no names when the bounded read fails",
+        "localMaxId queries the scoped maximum and converts it to a number",
+        "localMaxId returns zero for an empty result or a query failure",
+        "mirrorNetworkScope returns null when local column discovery fails",
+        "mirrorNetworkScope returns null when the consumer has not declared a usable network",
+        "mirrorNetworkScope returns null when the primed local schema lacks the network column",
+        "mirrorNetworkScope returns the declared network when the primed local schema has the column",
+        "purgeForeignNetworkRows deletes foreign rows, names them, and returns the affected count",
+        "purgeForeignNetworkRows returns zero when the delete has no usable affected-row count",
+        "refuseForeignNetworkRow counts foreign rows and reports no more than the name limit",
+        "refuseForeignNetworkRow does not refuse unscoped, same-network, or unnamed rows"
       ],
       "70378df04cfded7b": [
         "structure markers client: actionDetail_renderDisclosure falls back to a plain sentence for a payload with nothing to expand",
@@ -7343,6 +7393,14 @@
         "openapi.json route coverage operationIds are unique",
         "openapi.json route coverage the SDK producer still writes the documented byte order concatenates [iv][authTag][ciphertext]"
       ],
+      "9f38af097eecd9b6": [
+        "hub-mirror list share vendored contract @regression ensureTables creates list_snapshots from the vendored directory",
+        "hub-mirror list share vendored contract @regression ensureTables creates remote_token_snapshots from the vendored directory",
+        "hub-mirror list share vendored contract @regression includes list_snapshots in CROSS_CHAIN_TABLES",
+        "hub-mirror list share vendored contract @regression registers remote_token_snapshots for bootstrap, local ids, and retraction",
+        "hub-mirror list share vendored contract @regression vendors HUB_SCHEMA_VERSION 9",
+        "hub-mirror list share vendored contract @regression vendors remote_token_snapshots SQL byte-identical to the indexer copy"
+      ],
       "9faae2fa2817f069": [
         "Database#getSlashProposals (M3.6 dual-path data leg) RPC-first via HubOperationalCache maps type=pubkey to the validator_pubkey param and leaves status undefined",
         "Database#getSlashProposals (M3.6 dual-path data leg) RPC-first via HubOperationalCache maps type=status to the status param and leaves validator_pubkey undefined",
@@ -7752,6 +7810,13 @@
         "VOTE v1 ballot status @regression preserves an explicit status stored on the ballot rows",
         "VOTE v1 ballot status @regression reads indexed status with a valid fallback for a stored ballot",
         "VOTE v1 ballot status in lists @regression selects and renders the ballot row status"
+      ],
+      "b2ceeda7373824d4": [
+        "action summary system fields leaves details false when no summary field is present",
+        "action summary system fields projects BET_EXPIRE feed and refund fields",
+        "action summary system fields projects COINPAY_EXPIRE obligation action index",
+        "action summary system fields projects ROLLCALL epoch height without long or array fields",
+        "action summary system fields projects XBRIDGE routing fields and preserves nulls"
       ],
       "b307d5969c0cb116": [
         "content client: Artwork Information title an image entry title outranks an audio entry title",
@@ -8501,6 +8566,15 @@
         "source guard: a coin-built path goes through networkCoin the page loads network_coin.js ahead of formatters.js",
         "tokenUrl maps its coin through networkCoin keeps a mainnet page on mainnet",
         "tokenUrl maps its coin through networkCoin links the reported TDOGE market legs under /TDOGE/, not mainnet /DOGE/"
+      ],
+      "c63d858c41a8189b": [
+        "hub-mirror-migrate later hub columns adds the admission and chain identity columns to a cross_chain_matches built before them",
+        "hub-mirror-migrate later hub columns adds the finalizing view and chain identity to a legacy remote token snapshot table",
+        "hub-mirror-migrate later hub columns adds the price round batch clock and admission heights to a price_snapshots built before them",
+        "hub-mirror-migrate later hub columns covers every later hub column the twin DDL declares",
+        "hub-mirror-migrate later hub columns declares each later column with the exact type its twin file uses",
+        "hub-mirror-migrate later hub columns is a no-op on a table that already carries every twin column",
+        "hub-mirror-migrate later hub columns says nothing about a rebuild when only unstamped columns were added"
       ],
       "c6ec3d74c1eddb60": [
         "Security: Info Leakage: Custom headers default headers object is empty",
@@ -9515,20 +9589,6 @@
         "attestBatchLabel returns null for v0 and v1 attestation rows",
         "attestBatchLabel returns null when a required field is missing or non-numeric"
       ],
-      "e4faf7500d32e0cb": [
-        "foreignNetworkRowNames reads bounded natural names and removes empty values",
-        "foreignNetworkRowNames returns no names when the bounded read fails",
-        "localMaxId queries the scoped maximum and converts it to a number",
-        "localMaxId returns zero for an empty result or a query failure",
-        "mirrorNetworkScope returns null when local column discovery fails",
-        "mirrorNetworkScope returns null when the consumer has not declared a usable network",
-        "mirrorNetworkScope returns null when the primed local schema lacks the network column",
-        "mirrorNetworkScope returns the declared network when the primed local schema has the column",
-        "purgeForeignNetworkRows deletes foreign rows, names them, and returns the affected count",
-        "purgeForeignNetworkRows returns zero when the delete has no usable affected-row count",
-        "refuseForeignNetworkRow counts foreign rows and reports no more than the name limit",
-        "refuseForeignNetworkRow does not refuse unscoped, same-network, or unnamed rows"
-      ],
       "e55afde36345b87b": [
         "component registry and runtime (M2.1) load-order contract with xchain.js components.js does NOT mount on jQuery ready",
         "component registry and runtime (M2.1) load-order contract with xchain.js the shell loads formatters.js and components.js before xchain.js",
@@ -9783,33 +9843,6 @@
         "federation reads: refusals and the log line writes one log line per read with coin, method, verdict, tip and duration",
         "federation reads: routing and log helpers reads a refusal or an uncut roll-call window as undecided",
         "federation reads: routing and log helpers splits a path code into pool key, base coin and network"
-      ],
-      "ee9decf96098ab8d": [
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_margin_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/price_batching_floor_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list_refresh.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/list_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
       ],
       "eed4fc76083c6fc6": [
         "PRICE detail render: malformed pairs JSON keeps the per-round fallback for a batch row",
@@ -10161,8 +10194,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 363,
-        "titleCount": 6100,
+        "fileCount": 365,
+        "titleCount": 6128,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10372,6 +10405,7 @@
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "020e5cee8fdc2368",
           "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "ceeb3b770bc5d73b",
           "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "e889c65803fff411",
+          "test/unit/db/readers/actions/db_action_summary_system_fields.test.js": "b2ceeda7373824d4",
           "test/unit/db/readers/actions/sends_destroys_whole_action_paging.test.js": "4c8d99048b00614d",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
           "test/unit/db/readers/bets/db_bet_leg_status.test.js": "82bf43fea502fa27",
@@ -10390,6 +10424,7 @@
           "test/unit/db/readers/list_share/db_list_share_mirror.test.js": "0511b140e1bed140",
           "test/unit/db/readers/markets/db_orderbook_memoless.test.js": "ac459281d01e49b0",
           "test/unit/db/readers/markets/markets_native_coin_side.test.js": "edcfed4e5189ca51",
+          "test/unit/db/readers/mempool_unavailable.test.js": "2a0cc571c8110ee0",
           "test/unit/db/readers/oracle/db_oracle_fees.test.js": "848ec7b4eb6a7563",
           "test/unit/db/readers/oracle/db_oracle_price_record.test.js": "54a8fb5c0bb49270",
           "test/unit/db/readers/project_roster/project_roster_coin_items.test.js": "94de69b5f5aa2e24",
@@ -10454,7 +10489,7 @@
           "test/unit/hub/hub_db_sync/failover/move_reset.test.js": "59f7c444d240b0d2",
           "test/unit/hub/hub_db_sync/hub_selector.test.js": "58a411cd17b08a73",
           "test/unit/hub/hub_db_sync/live_events.test.js": "9b45bf5097d8d5fc",
-          "test/unit/hub/hub_db_sync/mirror_scope.test.js": "e4faf7500d32e0cb",
+          "test/unit/hub/hub_db_sync/mirror_scope.test.js": "6fe4fb7059b13c2d",
           "test/unit/hub/hub_db_sync/mirror_write.test.js": "39f71c373a99b732",
           "test/unit/hub/hub_db_sync/row_upserts.test.js": "2e37a415a4011e31",
           "test/unit/icons/fontawesome_icons.test.js": "bca6ff21bfcd9c1a",
@@ -10466,11 +10501,11 @@
           "test/unit/mirror/hub_db_sync.test.js": "634a78dff95f2041",
           "test/unit/mirror/hub_mirror_bridge_tables.test.js": "f22c4e1330eebd92",
           "test/unit/mirror/hub_mirror_charset_widen.test.js": "d531308aad6a4cd7",
-          "test/unit/mirror/hub_mirror_client_conformance.test.js": "ee9decf96098ab8d",
-          "test/unit/mirror/hub_mirror_list_share.test.js": "07691b9d5c88c526",
+          "test/unit/mirror/hub_mirror_client_conformance.test.js": "550503f39ea96f53",
+          "test/unit/mirror/hub_mirror_list_share.test.js": "9f38af097eecd9b6",
           "test/unit/mirror/hub_mirror_migrate.test.js": "9134d4bfe85fbeaa",
           "test/unit/mirror/hub_mirror_migrate_datetime.test.js": "9eedd185a4bd63fa",
-          "test/unit/mirror/hub_mirror_migrate_later_columns.test.js": "65d5f9c691086822",
+          "test/unit/mirror/hub_mirror_migrate_later_columns.test.js": "c63d858c41a8189b",
           "test/unit/mirror/hub_mirror_migrate_tick_width.test.js": "286e4cb43d7190ca",
           "test/unit/mirror/hub_mirror_pool.test.js": "950fcb2d3855471f",
           "test/unit/mirror/hub_mirror_selector_build.test.js": "50771260871b136d",

@@ -15,8 +15,9 @@
  * action with one sends[] row per leg and the summary flattens leg 0, so a
  * list row could not show that a send had four recipients; a BATCH parent
  * projected nothing and rendered as a bare name; a member's parent, derived
- * per history row, never reached the client. These pin the three markers
- * (leg_count, member_count, parent_batch_action_index) and that a single
+ * per history row, never reached the client. These pin the structure markers
+ * (leg_count, leg_total, mixed_tokens, member_count, parent_batch_action_index)
+ * and that a single
  * send, a lone destroy and a field-less action keep their exact prior shape.
  */
 'use strict';
@@ -46,7 +47,7 @@ describe('action summary structure markers: projectActionSummary', function () {
                 { destination: 'addrE', tick: 'P00P', amount: '4', status: 'valid' },
             ]
         });
-        expect(out.details.leg_count).to.equal(4);
+        expect(out.details).to.include({ leg_count: 4, leg_total: '10', mixed_tokens: false });
         expect(out.details).to.include({ destination: 'addrB', tick: 'P00P', amount: '1' });
         expect(out.status).to.equal('valid');
     });
@@ -62,13 +63,31 @@ describe('action summary structure markers: projectActionSummary', function () {
         expect(JSON.parse(JSON.stringify(out.details))).to.not.have.property('leg_count');
     });
 
-    it('a multi-destroy carries leg_count from destroys[]', function () {
+});
+
+describe('action summary structure markers: declared totals', function () {
+    it('a multi-destroy carries the declared total, including an invalid leg', function () {
         const out = makeDb().projectActionSummary({
             action: 'DESTROY', status: 'valid', tick: 'P00P', amount: '1',
-            destroys: [{ tick: 'P00P', amount: '1', status: 'valid' }, { tick: 'P00P', amount: '2', status: 'valid' }]
+            destroys: [{ tick: 'P00P', amount: '1.000000000000000001', status: 'valid' },
+                       { tick: 'P00P', amount: '2.000000000000000002', status: 'invalid: BALANCE' }]
         });
-        expect(out.details.leg_count).to.equal(2);
+        expect(out.details).to.include({
+            leg_count: 2, leg_total: '3.000000000000000003', mixed_tokens: false
+        });
         expect(out.details.tick).to.equal('P00P');
+    });
+
+    it('a mixed-token send names the mix and never adds unlike amounts', function () {
+        const out = makeDb().projectActionSummary({
+            action: 'SEND', source: 'addrA',
+            sends: [
+                { destination: 'addrB', tick: 'P00P', amount: '100', status: 'valid' },
+                { destination: 'addrC', tick: 'B00B', amount: '200', status: 'valid' }
+            ]
+        });
+        expect(out.details).to.include({ leg_count: 2, mixed_tokens: true });
+        expect(out.details).to.not.have.property('leg_total');
     });
 
     it('a lone destroy has no leg_count', function () {
@@ -99,7 +118,8 @@ describe('action summary structure markers: multi-leg AIRDROP', function () {
                 { tick: 'C00C', amount: '3', list_action_index: 8, status: 'invalid' },
             ]
         });
-        expect(out.details.leg_count).to.equal(3);
+        expect(out.details).to.include({ leg_count: 3, mixed_tokens: true });
+        expect(out.details).to.not.have.property('leg_total');
         expect(out.details.tick).to.equal('P00P');
     });
 
@@ -118,8 +138,8 @@ describe('action summary structure markers: the prior shape', function () {
         expect(out.details).to.equal(false);
     });
 
-    it('the three marker names are in ACTION_SUMMARY_FIELDS, so the renderer contract knows them', function () {
-        for (const name of ['leg_count', 'member_count', 'parent_batch_action_index'])
+    it('the structure marker names are in ACTION_SUMMARY_FIELDS, so the renderer contract knows them', function () {
+        for (const name of ['leg_count', 'leg_total', 'mixed_tokens', 'member_count', 'parent_batch_action_index'])
             expect(Database.ACTION_SUMMARY_FIELDS, name).to.include(name);
     });
 });

@@ -2194,10 +2194,11 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 308,
+    "count": 309,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
+      "addLegMarkers",
       "amountString",
       "assertCheckpointDbForServingCoins",
       "attachActionDestinations",
@@ -6205,26 +6206,6 @@
         "client decimal precision keeps exact depth amounts and notionals for chart tooltips",
         "client decimal precision renders token prices without narrowing decimal strings through numeral"
       ],
-      "87a04ccb3a00059c": [
-        "multi-leg actions: legs the page could not show AIRDROP legs collects every leg rather than one row",
-        "multi-leg actions: legs the page could not show AIRDROP legs hands the legs to the payload under their own key",
-        "multi-leg actions: legs the page could not show AIRDROP legs keeps each leg beside its own list, amount and memo",
-        "multi-leg actions: legs the page could not show AIRDROP legs renders one row per payout, in wire order",
-        "multi-leg actions: legs the page could not show AIRDROP legs renders the one leg a single-airdrop payload carries, from the header fields",
-        "multi-leg actions: legs the page could not show AIRDROP legs shows a REJECTED leg its own status instead of hiding it behind a valid one",
-        "multi-leg actions: legs the page could not show AIRDROP legs the leg query imposes no sort, so the legs keep the order they were written in",
-        "multi-leg actions: legs the page could not show AIRDROP legs the shipped markup carries a Status column, so a dropped one fails here",
-        "multi-leg actions: legs the page could not show DESTROY leg order renders the legs in the order the query returned them",
-        "multi-leg actions: legs the page could not show DESTROY leg order the leg query sorts on the recorded wire position and never on a value column",
-        "multi-leg actions: legs the page could not show MINT destination leaves the cell EMPTY for a mint with no destination, never the word null",
-        "multi-leg actions: legs the page could not show MINT destination renders the destination address and keeps the view link last",
-        "multi-leg actions: legs the page could not show MINT destination the shipped markup carries a Destination header and a matching colspan",
-        "multi-leg actions: legs the page could not show SEND per-leg memo escapes a memo rather than letting it reach the DOM as markup",
-        "multi-leg actions: legs the page could not show SEND per-leg memo keeps the leg fields beside the memo they belong to",
-        "multi-leg actions: legs the page could not show SEND per-leg memo renders an EMPTY memo cell for a leg that carries none, never the word null",
-        "multi-leg actions: legs the page could not show SEND per-leg memo renders each leg its own memo, in wire order",
-        "multi-leg actions: legs the page could not show SEND per-leg memo the shipped markup carries a Memo header for the cell to sit under"
-      ],
       "87aaa500e73ed3e4": [
         "formatters module (M2.1) behaviour carried across the move escapeHtml neutralises every character that can break out of markup",
         "formatters module (M2.1) behaviour carried across the move formatAmount leaves real amounts alone and groups thousands, zero included",
@@ -6570,6 +6551,22 @@
       "8f07c8b4794b7a91": [
         "BET websocket frame keys emits exactly the seven documented data keys on a BET",
         "BET websocket frame keys keeps all seven keys when the parent lookup fails and the format is absent"
+      ],
+      "9010ff13dd7b7339": [
+        "action summary structure markers: declared totals a BATCH parent carries member_count even though it projects no other field",
+        "action summary structure markers: declared totals a lone destroy has no leg_count",
+        "action summary structure markers: declared totals a mixed-token send names the mix and never adds unlike amounts",
+        "action summary structure markers: declared totals a multi-destroy carries the declared total, including an invalid leg",
+        "action summary structure markers: getActionSummaryData member rows a history row with a derived BATCH parent carries it inside details",
+        "action summary structure markers: getActionSummaryData member rows a member with no summary field still gets a details object for the mark",
+        "action summary structure markers: getActionSummaryData member rows a row with a null parent keeps details false, the shape every other list relies on",
+        "action summary structure markers: getActionSummaryData member rows a transaction row that never derived a parent is untouched",
+        "action summary structure markers: multi-leg AIRDROP a multi-leg airdrop carries leg_count from airdrops[]",
+        "action summary structure markers: multi-leg AIRDROP a single-leg airdrop has no leg_count",
+        "action summary structure markers: projectActionSummary a multi-send carries leg_count beside its leg-0 fields",
+        "action summary structure markers: projectActionSummary a single send has no leg_count value, not 1",
+        "action summary structure markers: the prior shape a field-less action still projects details false",
+        "action summary structure markers: the prior shape the structure marker names are in ACTION_SUMMARY_FIELDS, so the renderer contract knows them"
       ],
       "90f28c79a79c81e7": [
         "market charts draw under a CSP without unsafe-eval a fragment that regains a script is still injected without evaluating it",
@@ -7052,21 +7049,6 @@
         "db.mempoolRowMatchesAddress (shared REST/WS matcher) matches an exact literal segment but never a substring of one",
         "db.mempoolRowMatchesAddress (shared REST/WS matcher) matches the row source",
         "db.mempoolRowMatchesAddress (shared REST/WS matcher) returns false for a null row, a null address, or an empty address"
-      ],
-      "95dc2310ac8c4d0e": [
-        "action summary structure markers: getActionSummaryData member rows a history row with a derived BATCH parent carries it inside details",
-        "action summary structure markers: getActionSummaryData member rows a member with no summary field still gets a details object for the mark",
-        "action summary structure markers: getActionSummaryData member rows a row with a null parent keeps details false, the shape every other list relies on",
-        "action summary structure markers: getActionSummaryData member rows a transaction row that never derived a parent is untouched",
-        "action summary structure markers: multi-leg AIRDROP a multi-leg airdrop carries leg_count from airdrops[]",
-        "action summary structure markers: multi-leg AIRDROP a single-leg airdrop has no leg_count",
-        "action summary structure markers: projectActionSummary a BATCH parent carries member_count even though it projects no other field",
-        "action summary structure markers: projectActionSummary a lone destroy has no leg_count",
-        "action summary structure markers: projectActionSummary a multi-destroy carries leg_count from destroys[]",
-        "action summary structure markers: projectActionSummary a multi-send carries leg_count beside its leg-0 fields",
-        "action summary structure markers: projectActionSummary a single send has no leg_count value, not 1",
-        "action summary structure markers: the prior shape a field-less action still projects details false",
-        "action summary structure markers: the prior shape the three marker names are in ACTION_SUMMARY_FIELDS, so the renderer contract knows them"
       ],
       "972154035e45120c": [
         "action summary key-fields fixture BET_EXPIRE key fields come from detail SQL or its handler",
@@ -8738,6 +8720,30 @@
         "observability/patchConsole resolves printf format strings and keeps an Error stack, via util.format",
         "observability/patchConsole routes console.* through the shim, mapping log to info"
       ],
+      "cb10f8b778ea70cd": [
+        "multi-leg action summaries: declared totals never adds a mixed-token SEND",
+        "multi-leg action summaries: declared totals never aggregates mixed-token amounts from a raw SEND payload",
+        "multi-leg action summaries: declared totals renders a same-token SEND total instead of leg 0",
+        "multi-leg action summaries: declared totals renders declared DESTROY and AIRDROP totals before their leg badges",
+        "multi-leg actions: legs the page could not show AIRDROP legs collects every leg rather than one row",
+        "multi-leg actions: legs the page could not show AIRDROP legs hands the legs to the payload under their own key",
+        "multi-leg actions: legs the page could not show AIRDROP legs keeps each leg beside its own list, amount and memo",
+        "multi-leg actions: legs the page could not show AIRDROP legs renders one row per payout, in wire order",
+        "multi-leg actions: legs the page could not show AIRDROP legs renders the one leg a single-airdrop payload carries, from the header fields",
+        "multi-leg actions: legs the page could not show AIRDROP legs shows a REJECTED leg its own status instead of hiding it behind a valid one",
+        "multi-leg actions: legs the page could not show AIRDROP legs the leg query imposes no sort, so the legs keep the order they were written in",
+        "multi-leg actions: legs the page could not show AIRDROP legs the shipped markup carries a Status column, so a dropped one fails here",
+        "multi-leg actions: legs the page could not show DESTROY leg order renders the legs in the order the query returned them",
+        "multi-leg actions: legs the page could not show DESTROY leg order the leg query sorts on the recorded wire position and never on a value column",
+        "multi-leg actions: legs the page could not show MINT destination leaves the cell EMPTY for a mint with no destination, never the word null",
+        "multi-leg actions: legs the page could not show MINT destination renders the destination address and keeps the view link last",
+        "multi-leg actions: legs the page could not show MINT destination the shipped markup carries a Destination header and a matching colspan",
+        "multi-leg actions: legs the page could not show SEND per-leg memo escapes a memo rather than letting it reach the DOM as markup",
+        "multi-leg actions: legs the page could not show SEND per-leg memo keeps the leg fields beside the memo they belong to",
+        "multi-leg actions: legs the page could not show SEND per-leg memo renders an EMPTY memo cell for a leg that carries none, never the word null",
+        "multi-leg actions: legs the page could not show SEND per-leg memo renders each leg its own memo, in wire order",
+        "multi-leg actions: legs the page could not show SEND per-leg memo the shipped markup carries a Memo header for the cell to sit under"
+      ],
       "cbad35bf1daff99f": [
         "vendored regtest_env twin exports regtestTimeOverride",
         "vendored regtest_env twin reads the scratch variable when set and 0 when unset",
@@ -10215,7 +10221,7 @@
       },
       "test": {
         "fileCount": 367,
-        "titleCount": 6144,
+        "titleCount": 6149,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10226,7 +10232,7 @@
           "test/unit/action_detail/bridge/bridge_action_detail_hub_transfer.test.js": "8e37884a9d16ffee",
           "test/unit/action_detail/bridge/bridge_action_detail_schema_shapes.test.js": "f0b26372a9bde02a",
           "test/unit/action_detail/crosschain/xcall_request_lookup.test.js": "189c6500824d84b9",
-          "test/unit/action_detail/db_action_summary_markers.test.js": "95dc2310ac8c4d0e",
+          "test/unit/action_detail/db_action_summary_markers.test.js": "9010ff13dd7b7339",
           "test/unit/action_detail/dispense/db_dispense_dispenser_pointer.test.js": "ce6fead93e1597e8",
           "test/unit/action_detail/history/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/history/db_history_unmapped_actions.test.js": "381a93ad4ecc32fc",
@@ -10324,7 +10330,7 @@
           "test/unit/content/lists/content_client_artwork_title.test.js": "b307d5969c0cb116",
           "test/unit/content/lists/content_client_collectibles_gallery.test.js": "fe1d2bee2fe9022b",
           "test/unit/content/lists/content_client_governance_overview.test.js": "396cab381c3ef7ee",
-          "test/unit/content/lists/content_client_multileg_render.test.js": "87a04ccb3a00059c",
+          "test/unit/content/lists/content_client_multileg_render.test.js": "cb10f8b778ea70cd",
           "test/unit/content/lists/content_client_null_cell_render.test.js": "0b4078b9c7064f8e",
           "test/unit/content/lists/content_client_null_link_guard.test.js": "39167009f1ed0842",
           "test/unit/content/lists/content_client_price_list_row.test.js": "266000ecc0feeffe",

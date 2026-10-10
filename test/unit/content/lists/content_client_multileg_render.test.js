@@ -110,6 +110,59 @@ function renderAirdrop(payload){
     });
 }
 
+function renderSummary(action, details){
+    const { win } = bootClient('https://xchain.test/RDOGE/actions');
+    const html = win.getActionDetails(action, details);
+    return win.jQuery('<div>').html(html).text().trim().replace(/\s+/g, ' ');
+}
+
+describe('multi-leg action summaries: declared totals', function(){
+
+    it('renders a same-token SEND total instead of leg 0', function(){
+        const text = renderSummary('SEND', {
+            action_index: 1180, tick: 'CAMPB', amount: '2', destination: 'addrA',
+            leg_count: 3, leg_total: '6', mixed_tokens: false
+        });
+        expect(text).to.contain('6 CAMPB to 3 recipients');
+        expect(text).to.not.contain('2 CAMPB to');
+    });
+
+    it('never adds a mixed-token SEND', function(){
+        const text = renderSummary('SEND', {
+            action_index: 1180, tick: 'CAMPB', amount: '2', destination: 'addrA',
+            leg_count: 3, mixed_tokens: true
+        });
+        expect(text).to.contain('Multiple tokens to 3 recipients');
+        expect(text).to.not.contain('undefined');
+    });
+
+    it('never aggregates mixed-token amounts from a raw SEND payload', function(){
+        const { win } = bootClient('https://xchain.test/RDOGE/actions');
+        win.bcadd = function(){ throw new Error('mixed-token amounts must not be added'); };
+        const html = win.getActionDetails('SEND', {
+            sends: [
+                { tick: 'CAMPB', amount: '2', destination: 'addrA' },
+                { tick: 'XCHAIN', amount: '3', destination: 'addrB' }
+            ]
+        });
+        const text = win.jQuery('<div>').html(html).text().trim().replace(/\s+/g, ' ');
+        expect(text).to.contain('Multiple tokens to 2 recipients');
+    });
+
+    it('renders declared DESTROY and AIRDROP totals before their leg badges', function(){
+        const destroy = renderSummary('DESTROY', {
+            action_index: 1183, tick: 'CAMPB', amount: '2',
+            leg_count: 2, leg_total: '5', mixed_tokens: false
+        });
+        const airdrop = renderSummary('AIRDROP', {
+            action_index: 1176, tick: 'CAMPB', amount: '2', list_action_index: 1101,
+            leg_count: 2, leg_total: '5', mixed_tokens: false
+        });
+        expect(destroy).to.contain('5 CAMPB across 2 legs');
+        expect(airdrop).to.contain('5 CAMPB across 2 legs');
+    });
+});
+
 describe('multi-leg actions: legs the page could not show', function(){
 
     describe('SEND per-leg memo', function(){

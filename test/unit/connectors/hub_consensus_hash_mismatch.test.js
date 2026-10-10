@@ -65,6 +65,18 @@ describe('hub consensus hash mismatch status reporting', function(){
         ]);
     });
 
+    it('reports unknown when the hub served no hash for any bundled coin', function(){
+        connector.checkHubConsensusHash(trueHashes());
+        assert.strictEqual(connector.hubConsensusHashMismatch, false);
+
+        connector.checkHubConsensusHash({ mainnet: {}, testnet: { UNBUNDLED: 'a'.repeat(64) } });
+        assert.strictEqual(connector.hubConsensusHashMismatch, null);
+        assert.deepStrictEqual(connector.hubConsensusHashMismatchDetails, []);
+
+        connector.checkHubConsensusHash({});
+        assert.strictEqual(connector.hubConsensusHashMismatch, null);
+    });
+
     it('publishes unknown as the final two status keys', async function(){
         const status = await readStatus();
         assert.strictEqual(status.hub_consensus_hash_mismatch, null);

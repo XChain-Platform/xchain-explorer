@@ -168,7 +168,7 @@ class ActionSummaryReaders {
         // including an invalid leg: this is an action summary, while the disclosure
         // reports which legs took effect. Unlike tokens cannot be added, so
         // mixed_tokens replaces the total and makes the renderer say so.
-        details = this.addLegMarkers(info, details);
+        details = ActionSummaryReaders.prototype.addLegMarkers.call(this, info, details);
         if(info.action=='BATCH' && Array.isArray(info.actions) && info.actions.length > 0){
             if(!details) details = {};
             details.member_count = info.actions.length;

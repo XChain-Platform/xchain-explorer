@@ -104,7 +104,6 @@ function detailCore_dispatchBridgePanel(o){
 }
 
 function detailCore_dispatchAction(o){
-    // Dispatch the matching action detail renderer.
     var found = false;
     if(o.action=='ADDRESS'){          found = true;  showAddressDetails(o);         }
     if(o.action=='AIRDROP'){          found = true;  showAirdropDetails(o);         }

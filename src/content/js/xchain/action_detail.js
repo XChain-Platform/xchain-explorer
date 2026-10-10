@@ -114,32 +114,18 @@ function actionDetail_legTotalLead(info, coin, joiner){
     return formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.leg_total) + ' ' + joiner + ' ';
 }
 
-// /api/action/{idx} aliases BROADCAST's fee as broadcast_fee, and detail_simple.js's
-// showBroadcastDetails reads the same key. The address page's broadcast rows come from
-// /api/broadcasts/{addr}/address, a different shape with a positional `fee` column.
-function actionDetail_renderBroadcast(html, info, coin){
-    // Read broadcast_fee, never info.fee (a BATCH child's fee slot holds the protocol-fee record);
-    // FEE is optional, so emit the clause only when declared.
-    let percent = (isNumeric(info.broadcast_fee))
-        ? ' <b>Fee:</b> ' + bcmul(info.broadcast_fee, 100, 2) + '%'
-        : '';
-    // info.message / info.value are on-chain free text injected via .html(); escape them.
-    if(info.action_format==0){
-        html += escapeHtml(info.message);
-    } else if(info.action_format==1){
-        html += '<b>Oracle:</b> ' + escapeHtml(info.message) + ' = ' + formatAmount(info.value) + percent;
-    } else if(info.action_format==2){
-        html += '<b>Feed:</b> ' + escapeHtml(info.message) + percent;
-    } else if(info.action_format==3){
-        html += '<b>Feed Results:</b> ' + formatLink('/' + coin + '/action/' + info.broadcast_action_index, info.broadcast_action_index) + ' <b>Result:</b> ' + escapeHtml(String(info.value));
-    }
-    return html;
-}
-
+// /api/action/{idx} is the aliasing reader for BROADCAST's fee: it and
+// detail_simple.js's showBroadcastDetails both read info.broadcast_fee,
+// never info.fee (see the BROADCAST branch below for why). The address
+// page's broadcast rows come from a different endpoint, /api/broadcasts/
+// {addr}/address, whose plain positional `fee` column is read by
+// rows_actions_a.js's xcDatatableRenderBroadcastRow - an unrelated
+// renderer for an unrelated response shape, not a second copy of this key.
 function actionDetail_renderBasicActions(html, action, info, coin){
     // Render summaries for the initial transaction action families.
     if(action=='ADDRESS'){
-        // v1 is a controller bind, not a preferences edit.
+        // v1 is a controller bind, not a preferences edit: summarizing one with the preference
+        // defaults described an action it never took.
         if(info.action_format==1){
             let verb = (info.unbind==1) ? 'Unbind' : 'Bind';
             html += verb + ' ' + escapeHtml(String(info.action_class || '-')); // on-chain field into .html()
@@ -157,12 +143,38 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         if(lead !== null) html += lead;
         else {
             html += info.amount + formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' to ';
-            // list_action_index is the LIST action being paid out, so link /action/, not /token/.
+            // Route the list reference as an ACTION, not a token: airdrops.list_action_index is the
+            // index of the LIST action being paid out (indexer db.js createAirdrop), so a /token/ URL
+            // searched for a token named after a number. showAirdropDetails already links
+            // this same field through /action/.
             html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
         }
     }
-    if(action=='BROADCAST')
-        html = actionDetail_renderBroadcast(html, info, coin);
+    if(action=='BROADCAST'){
+        // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
+        // NOT info.fee: for a BATCH child `info` is a full getActionData result whose fee
+        // slot is overwritten with the protocol-fee record, and bcmul on that object threw
+        // and aborted the whole member-table render (same fix applied at the other call site).
+        // FEE is an OPTIONAL wire field on BROADCAST v1/v2 (xchain-indexer broadcast.js: a
+        // null FEE is not an error), so a feed broadcast without one stores NULL. Emitting
+        // the label anyway printed a bare `Fee: %` with nothing in front of it. Build the
+        // whole clause here so it disappears when there is no fee to state, rather than
+        // guessing at 0% - a fee this action never declared.
+        let percent = (isNumeric(info.broadcast_fee))
+            ? ' <b>Fee:</b> ' + bcmul(info.broadcast_fee, 100, 2) + '%'
+            : '';
+        // info.message / info.value are BROADCAST free text (on-chain,
+        // attacker-controlled) and this html is injected via .html(). Escape them.
+        if(info.action_format==0){
+            html += escapeHtml(info.message);
+        } else if(info.action_format==1){
+            html += '<b>Oracle:</b> ' + escapeHtml(info.message) + ' = ' + formatAmount(info.value) + percent;
+        } else if(info.action_format==2){
+            html += '<b>Feed:</b> ' + escapeHtml(info.message) + percent;
+        } else if(info.action_format==3){
+            html += '<b>Feed Results:</b> ' + formatLink('/' + coin + '/action/' + info.broadcast_action_index, info.broadcast_action_index) + ' <b>Result:</b> ' + escapeHtml(String(info.value));
+        }
+    }
     if(action=='CALLBACK'){
         html += formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' for ' ;
         html += formatLinkAmount(tokenUrl(coin, info.callback_tick), info.callback_tick, info.callback_tick, info.callback_amount);

@@ -2174,8 +2174,8 @@
     },
     {
       "path": "test/fixtures/template-baseline.html",
-      "bytes": 36118,
-      "sha256": "efff021c8c33603a9cda9ff1dd2c8e2de2f8f2b6577601e9ec832c1775b61b4d"
+      "bytes": 36207,
+      "sha256": "0913abfb78147e93fa06c62e51bdfe9a145186d490ae66b64820df4264fbff2d"
     }
   ],
   "coverage": {
@@ -8789,6 +8789,15 @@
       "ce6fead93e1597e8": [
         "DISPENSE action detail dispenser pointer returns dispenser 479 for DISPENSE action 480"
       ],
+      "ce78239c59ad2475": [
+        "client: system action summaries leaves an unrelated action unchanged",
+        "client: system action summaries leaves every sparse system action unchanged",
+        "client: system action summaries renders a bet expiry with plural refunds and a linked total",
+        "client: system action summaries renders a bridge destination with escaped external address text",
+        "client: system action summaries renders a roll call epoch",
+        "client: system action summaries renders an expired obligation link",
+        "client: system action summaries renders one refund without a total when no amount is present"
+      ],
       "ceeb3b770bc5d73b": [
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path fetches each distinct action_index exactly once",
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path preserves per-row info for duplicate action_index rows",
@@ -10211,8 +10220,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 366,
-        "titleCount": 6142,
+        "fileCount": 367,
+        "titleCount": 6144,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10328,6 +10337,7 @@
           "test/unit/content/lists/content_client_rich_list.test.js": "722aed88dddbe226",
           "test/unit/content/lists/content_client_send_summary_shape.test.js": "6e757d5406a33b25",
           "test/unit/content/lists/content_client_summary_fallback_set.test.js": "fabae0e78ed6d361",
+          "test/unit/content/lists/content_client_system_summaries.test.js": "ce78239c59ad2475",
           "test/unit/content/lists/content_client_token_linked_files.test.js": "15f7cbb223a61c3b",
           "test/unit/content/lists/content_client_transaction_empty_and_hash.test.js": "612f83af8994b9ac",
           "test/unit/content/lists/datatable/content_client_action_datatable.test.js": "2cf498add519da25",

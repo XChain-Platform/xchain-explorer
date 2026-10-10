@@ -104,7 +104,6 @@ function detailCore_dispatchBridgePanel(o){
 }
 
 function detailCore_dispatchAction(o){
-    // Dispatch the matching action detail renderer.
     var found = false;
     if(o.action=='ADDRESS'){          found = true;  showAddressDetails(o);         }
     if(o.action=='AIRDROP'){          found = true;  showAirdropDetails(o);         }
@@ -160,6 +159,7 @@ function detailCore_dispatchAction(o){
     if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
     if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
     if(o.action=='BET'){              found = true;  showBetDetails(o);             }
+    if(o.action=='BET_EDIT'){         found = true;  showBetDetails(o);             }
     if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
     return found;
 }

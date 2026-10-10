@@ -92,3 +92,23 @@ describe('hub consensus hash mismatch status reporting', function(){
         ]);
     });
 });
+
+describe('hub consensus hash compared flag', function(){
+    let connector;
+
+    beforeEach(function(){
+        connector = new XChainHubConnector([]);
+    });
+
+    it('reports unknown when the hub served no hash for any bundled coin', function(){
+        connector.checkHubConsensusHash(trueHashes());
+        assert.strictEqual(connector.hubConsensusHashMismatch, false);
+
+        connector.checkHubConsensusHash({ mainnet: {}, testnet: { UNBUNDLED: 'a'.repeat(64) } });
+        assert.strictEqual(connector.hubConsensusHashMismatch, null);
+        assert.deepStrictEqual(connector.hubConsensusHashMismatchDetails, []);
+
+        connector.checkHubConsensusHash({});
+        assert.strictEqual(connector.hubConsensusHashMismatch, null);
+    });
+});

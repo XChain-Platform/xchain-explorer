@@ -69,6 +69,9 @@ describe('shared gate row exports', function () {
     it('names UNARMED instead of spelling its numeric sentinel in shared gate rows', function () {
         const rows = [
             [PART_PATHS[0], 'archive_rollback_author_scope_activation.ARCHIVE_ROLLBACK_AUTHOR_SCOPE_ACTIVATION', 1],
+            [PART_PATHS[3], 'token_bridge_activation.TOKEN_BRIDGE_ACTIVATION', 2],
+            [PART_PATHS[4], 'token_policy_activation.TOKEN_POLICY_INHERITANCE_ACTIVATION', 2],
+            [PART_PATHS[4], 'train_activation.TRAIN_ACTIVATION', 3],
             [PART_PATHS[4], 'xchain_bridge_activation.XCHAIN_BRIDGE_ACTIVATION', 5],
             [PART_PATHS[4], 'list_share_producer_activation.LIST_SHARE_PRODUCER_ACTIVATION', 1],
             [PART_PATHS[4], 'list_share_consumer_activation.LIST_SHARE_CONSUMER_ACTIVATION', 2],

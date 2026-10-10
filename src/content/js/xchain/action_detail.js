@@ -249,9 +249,10 @@ function actionDetail_renderMessageActions(html, action, info, coin){
         if(lead !== null) html += lead;
         else if(sends && sends.length > 1){
             let sameTick = sends.every((s) => s.tick == sends[0].tick);
-            let total = sends.reduce((sum, s) => bcadd(sum, s.amount), '0');
-            html += sameTick ? formatLinkAmount(tokenUrl(coin, sends[0].tick), sends[0].tick, sends[0].tick, total) + ' to '
-                : 'Multiple tokens to ';
+            if(sameTick){
+                let total = sends.reduce((sum, s) => bcadd(sum, s.amount), '0');
+                html += formatLinkAmount(tokenUrl(coin, sends[0].tick), sends[0].tick, sends[0].tick, total) + ' to ';
+            } else html += 'Multiple tokens to ';
             html += sends.length + ' recipients';
         } else {
             let send = (sends && sends.length === 1) ? sends[0] : info;

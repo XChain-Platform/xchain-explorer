@@ -136,6 +136,19 @@ describe('multi-leg action summaries: declared totals', function(){
         expect(text).to.not.contain('undefined');
     });
 
+    it('never aggregates mixed-token amounts from a raw SEND payload', function(){
+        const { win } = bootClient('https://xchain.test/RDOGE/actions');
+        win.bcadd = function(){ throw new Error('mixed-token amounts must not be added'); };
+        const html = win.getActionDetails('SEND', {
+            sends: [
+                { tick: 'CAMPB', amount: '2', destination: 'addrA' },
+                { tick: 'XCHAIN', amount: '3', destination: 'addrB' }
+            ]
+        });
+        const text = win.jQuery('<div>').html(html).text().trim().replace(/\s+/g, ' ');
+        expect(text).to.contain('Multiple tokens to 2 recipients');
+    });
+
     it('renders declared DESTROY and AIRDROP totals before their leg badges', function(){
         const destroy = renderSummary('DESTROY', {
             action_index: 1183, tick: 'CAMPB', amount: '2',

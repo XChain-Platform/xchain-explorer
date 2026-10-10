@@ -2174,8 +2174,8 @@
     },
     {
       "path": "test/fixtures/template-baseline.html",
-      "bytes": 36118,
-      "sha256": "efff021c8c33603a9cda9ff1dd2c8e2de2f8f2b6577601e9ec832c1775b61b4d"
+      "bytes": 36207,
+      "sha256": "0913abfb78147e93fa06c62e51bdfe9a145186d490ae66b64820df4264fbff2d"
     }
   ],
   "coverage": {
@@ -5000,6 +5000,12 @@
         "market entity-key resolution keeps only two-element pairs",
         "market entity-key resolution refuses market params with neither supported shape",
         "market entity-key resolution resolves a singular tick pair"
+      ],
+      "5aa8107999ed6d0b": [
+        "hub consensus hash compared flag reports unknown when the hub served no hash for any bundled coin",
+        "hub consensus hash mismatch status reporting publishes mismatch details without changing existing status fields",
+        "hub consensus hash mismatch status reporting publishes unknown as the final two status keys",
+        "hub consensus hash mismatch status reporting records unknown, matching, and mismatching hash states"
       ],
       "5ac1aafe09d22c2e": [
         "composed page, end to end (M2) is still a faithful copy of the shipped html branch",
@@ -7894,50 +7900,6 @@
         "client: dispenser detail route parameters resolves the dispenser address into XC.query",
         "client: dispenser detail route parameters resolves the same way the sibling address-keyed routes do"
       ],
-      "b5f08dd1ca564cd2": [
-        "docs/openapi.json carries the schemas module publishes every component schema byte-for-byte as the module builds it",
-        "docs/openapi.json carries the schemas module types the 200 body of every route a schema is keyed to",
-        "openapi row schemas match the reader select lists covers every list reader the schemas module names",
-        "openapi row schemas match the reader select lists getActions selects exactly the Action properties",
-        "openapi row schemas match the reader select lists getAddresses selects exactly the Address properties",
-        "openapi row schemas match the reader select lists getAirdrops selects exactly the Airdrop properties",
-        "openapi row schemas match the reader select lists getBalances selects exactly the Balance properties",
-        "openapi row schemas match the reader select lists getBatches selects exactly the Batch properties",
-        "openapi row schemas match the reader select lists getBroadcasts selects exactly the Broadcast properties",
-        "openapi row schemas match the reader select lists getCallbacks selects exactly the Callback properties",
-        "openapi row schemas match the reader select lists getCredits selects exactly the Credit properties",
-        "openapi row schemas match the reader select lists getDebits selects exactly the Debit properties",
-        "openapi row schemas match the reader select lists getDestroys selects exactly the Destroy properties",
-        "openapi row schemas match the reader select lists getDispenserCancels selects exactly the DispenserCancel properties",
-        "openapi row schemas match the reader select lists getDispenserCloses selects exactly the DispenserClose properties",
-        "openapi row schemas match the reader select lists getDispenserEdits selects exactly the DispenserEdit properties",
-        "openapi row schemas match the reader select lists getDispenserExpires selects exactly the DispenserExpire properties",
-        "openapi row schemas match the reader select lists getDispensers selects exactly the Dispenser properties",
-        "openapi row schemas match the reader select lists getDispenses selects exactly the Dispense properties",
-        "openapi row schemas match the reader select lists getDividends selects exactly the Dividend properties",
-        "openapi row schemas match the reader select lists getEscrows selects exactly the Escrow properties",
-        "openapi row schemas match the reader select lists getFees selects exactly the Fee properties",
-        "openapi row schemas match the reader select lists getFiles selects exactly the File properties",
-        "openapi row schemas match the reader select lists getIssues selects exactly the Issue properties",
-        "openapi row schemas match the reader select lists getLinks selects exactly the Link properties",
-        "openapi row schemas match the reader select lists getLists selects exactly the List properties",
-        "openapi row schemas match the reader select lists getMessages selects exactly the Message properties",
-        "openapi row schemas match the reader select lists getMints selects exactly the Mint properties",
-        "openapi row schemas match the reader select lists getOrderCancels selects exactly the OrderCancel properties",
-        "openapi row schemas match the reader select lists getOrderEdits selects exactly the OrderEdit properties",
-        "openapi row schemas match the reader select lists getOrderExpires selects exactly the OrderExpire properties",
-        "openapi row schemas match the reader select lists getOrderMatches selects exactly the OrderMatch properties",
-        "openapi row schemas match the reader select lists getOrders selects exactly the Order properties",
-        "openapi row schemas match the reader select lists getSends selects exactly the Send properties",
-        "openapi row schemas match the reader select lists getSleeps selects exactly the Sleep properties",
-        "openapi row schemas match the reader select lists getSwapCancels selects exactly the SwapCancel properties",
-        "openapi row schemas match the reader select lists getSwapEdits selects exactly the SwapEdit properties",
-        "openapi row schemas match the reader select lists getSwapExpires selects exactly the SwapExpire properties",
-        "openapi row schemas match the reader select lists getSwapMatches selects exactly the SwapMatch properties",
-        "openapi row schemas match the reader select lists getSwaps selects exactly the Swap properties",
-        "openapi row schemas match the reader select lists getSweeps selects exactly the Sweep properties",
-        "openapi row schemas match the reader select lists getTokens selects exactly the TokenRow properties"
-      ],
       "b78828029c1b6221": [
         "UNSTAKE detail: Token row @regression hides both rows for an ordinary capability unstake",
         "UNSTAKE detail: Token row @regression shows the token on a cooldown completion that has no contract index",
@@ -8813,6 +8775,15 @@
       "ce6fead93e1597e8": [
         "DISPENSE action detail dispenser pointer returns dispenser 479 for DISPENSE action 480"
       ],
+      "ce78239c59ad2475": [
+        "client: system action summaries leaves an unrelated action unchanged",
+        "client: system action summaries leaves every sparse system action unchanged",
+        "client: system action summaries renders a bet expiry with plural refunds and a linked total",
+        "client: system action summaries renders a bridge destination with escaped external address text",
+        "client: system action summaries renders a roll call epoch",
+        "client: system action summaries renders an expired obligation link",
+        "client: system action summaries renders one refund without a total when no amount is present"
+      ],
       "ceeb3b770bc5d73b": [
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path fetches each distinct action_index exactly once",
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path preserves per-row info for duplicate action_index rows",
@@ -9574,6 +9545,51 @@
         "VOTE poll options parsing marker keeps dashing a genuinely empty options list",
         "VOTE poll options parsing marker keeps rendering a normal populated options list"
       ],
+      "e191d345abb2c3f1": [
+        "docs/openapi.json carries the schemas module publishes every component schema byte-for-byte as the module builds it",
+        "docs/openapi.json carries the schemas module publishes the ISSUE v7 bridge fields on getIssues rows",
+        "docs/openapi.json carries the schemas module types the 200 body of every route a schema is keyed to",
+        "openapi row schemas match the reader select lists covers every list reader the schemas module names",
+        "openapi row schemas match the reader select lists getActions selects exactly the Action properties",
+        "openapi row schemas match the reader select lists getAddresses selects exactly the Address properties",
+        "openapi row schemas match the reader select lists getAirdrops selects exactly the Airdrop properties",
+        "openapi row schemas match the reader select lists getBalances selects exactly the Balance properties",
+        "openapi row schemas match the reader select lists getBatches selects exactly the Batch properties",
+        "openapi row schemas match the reader select lists getBroadcasts selects exactly the Broadcast properties",
+        "openapi row schemas match the reader select lists getCallbacks selects exactly the Callback properties",
+        "openapi row schemas match the reader select lists getCredits selects exactly the Credit properties",
+        "openapi row schemas match the reader select lists getDebits selects exactly the Debit properties",
+        "openapi row schemas match the reader select lists getDestroys selects exactly the Destroy properties",
+        "openapi row schemas match the reader select lists getDispenserCancels selects exactly the DispenserCancel properties",
+        "openapi row schemas match the reader select lists getDispenserCloses selects exactly the DispenserClose properties",
+        "openapi row schemas match the reader select lists getDispenserEdits selects exactly the DispenserEdit properties",
+        "openapi row schemas match the reader select lists getDispenserExpires selects exactly the DispenserExpire properties",
+        "openapi row schemas match the reader select lists getDispensers selects exactly the Dispenser properties",
+        "openapi row schemas match the reader select lists getDispenses selects exactly the Dispense properties",
+        "openapi row schemas match the reader select lists getDividends selects exactly the Dividend properties",
+        "openapi row schemas match the reader select lists getEscrows selects exactly the Escrow properties",
+        "openapi row schemas match the reader select lists getFees selects exactly the Fee properties",
+        "openapi row schemas match the reader select lists getFiles selects exactly the File properties",
+        "openapi row schemas match the reader select lists getIssues selects exactly the Issue properties",
+        "openapi row schemas match the reader select lists getLinks selects exactly the Link properties",
+        "openapi row schemas match the reader select lists getLists selects exactly the List properties",
+        "openapi row schemas match the reader select lists getMessages selects exactly the Message properties",
+        "openapi row schemas match the reader select lists getMints selects exactly the Mint properties",
+        "openapi row schemas match the reader select lists getOrderCancels selects exactly the OrderCancel properties",
+        "openapi row schemas match the reader select lists getOrderEdits selects exactly the OrderEdit properties",
+        "openapi row schemas match the reader select lists getOrderExpires selects exactly the OrderExpire properties",
+        "openapi row schemas match the reader select lists getOrderMatches selects exactly the OrderMatch properties",
+        "openapi row schemas match the reader select lists getOrders selects exactly the Order properties",
+        "openapi row schemas match the reader select lists getSends selects exactly the Send properties",
+        "openapi row schemas match the reader select lists getSleeps selects exactly the Sleep properties",
+        "openapi row schemas match the reader select lists getSwapCancels selects exactly the SwapCancel properties",
+        "openapi row schemas match the reader select lists getSwapEdits selects exactly the SwapEdit properties",
+        "openapi row schemas match the reader select lists getSwapExpires selects exactly the SwapExpire properties",
+        "openapi row schemas match the reader select lists getSwapMatches selects exactly the SwapMatch properties",
+        "openapi row schemas match the reader select lists getSwaps selects exactly the Swap properties",
+        "openapi row schemas match the reader select lists getSweeps selects exactly the Sweep properties",
+        "openapi row schemas match the reader select lists getTokens selects exactly the TokenRow properties"
+      ],
       "e41e4f7fc8385a5e": [
         "change detector fork-point rewind re-emits same-height blocks and actions first seen at initialization",
         "change detector fork-point rewind rewinds only to the lowest replaced height",
@@ -10020,11 +10036,6 @@
         "settlement-anchor action detail handlers @regression registers XPOLICY and LIST_SHARE with no static query slots",
         "settlement-anchor action detail handlers @regression reports a missing settlement row as null without reading a snapshot"
       ],
-      "f845530ed29f5125": [
-        "hub consensus hash mismatch status reporting publishes mismatch details without changing existing status fields",
-        "hub consensus hash mismatch status reporting publishes unknown as the final two status keys",
-        "hub consensus hash mismatch status reporting records unknown, matching, and mismatching hash states"
-      ],
       "f9199ddce914d40b": [
         "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY query",
         "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY2 query",
@@ -10195,8 +10206,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 365,
-        "titleCount": 6129,
+        "fileCount": 366,
+        "titleCount": 6138,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10251,7 +10262,7 @@
           "test/unit/connectors/hub_config_hostile_keys.test.js": "cc51e1570a0be666",
           "test/unit/connectors/hub_connector.test.js": "dc67240bee778f9f",
           "test/unit/connectors/hub_consensus_hash.test.js": "acafd7633f12616b",
-          "test/unit/connectors/hub_consensus_hash_mismatch.test.js": "f845530ed29f5125",
+          "test/unit/connectors/hub_consensus_hash_mismatch.test.js": "5aa8107999ed6d0b",
           "test/unit/connectors/x_chain_decoder_connector.test.js": "2709cccf5e791788",
           "test/unit/connectors/x_chain_indexer_connector.test.js": "92aeb23d16a697b8",
           "test/unit/consensus/consensus_bound_rows.test.js": "1ae10423826a1c02",
@@ -10312,6 +10323,7 @@
           "test/unit/content/lists/content_client_rich_list.test.js": "722aed88dddbe226",
           "test/unit/content/lists/content_client_send_summary_shape.test.js": "6e757d5406a33b25",
           "test/unit/content/lists/content_client_summary_fallback_set.test.js": "fabae0e78ed6d361",
+          "test/unit/content/lists/content_client_system_summaries.test.js": "ce78239c59ad2475",
           "test/unit/content/lists/content_client_token_linked_files.test.js": "15f7cbb223a61c3b",
           "test/unit/content/lists/content_client_transaction_empty_and_hash.test.js": "612f83af8994b9ac",
           "test/unit/content/lists/datatable/content_client_action_datatable.test.js": "2cf498add519da25",
@@ -10476,7 +10488,7 @@
           "test/unit/http/locked_balance_proof.test.js": "82bea5d0f3a179b3",
           "test/unit/http/network_response_contract.test.js": "793e6681c7c1eb6f",
           "test/unit/http/openapi_coverage.test.js": "9f3031b849d948ae",
-          "test/unit/http/openapi_response_schemas.test.js": "b5f08dd1ca564cd2",
+          "test/unit/http/openapi_response_schemas.test.js": "e191d345abb2c3f1",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
           "test/unit/http/proof_server.test.js": "736f86a7b212dc70",
           "test/unit/http/rate_limit_log_span.test.js": "cbdd7ea0c7618b4b",

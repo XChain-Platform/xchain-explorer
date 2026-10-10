@@ -159,7 +159,7 @@ function detailCore_dispatchAction(o){
     if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
     if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
     if(o.action=='BET'){              found = true;  showBetDetails(o);             }
-    if(o.action=='BET_EDIT'){         found = true;  showBetDetails(o); $('#info-bet').removeClass('d-none'); }
+    if(o.action=='BET_EDIT'){         found = true;  showBetDetails(o);             }
     if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
     return found;
 }

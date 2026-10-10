@@ -25,6 +25,7 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SCRIPT = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_bet_stake.js'), 'utf8');
 const CORE = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_core.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(ROOT, 'src/content/html/action.html'), 'utf8');
+const BET_REVEAL = ACTION_HTML.match(/const detailBetShow = showBetDetails;\s*showBetDetails = function\(data\)\{[\s\S]*?\n\};/)[0];
 const JQUERY = fs.readFileSync(path.join(ROOT, 'src/content/js/jquery.min.js'), 'utf8');
 const LAYOUT = require('../../../src/content/layouts/action-detail-cards.json');
 const util = { isNull: value => value === null || value === undefined };
@@ -60,6 +61,7 @@ function renderEdit(data){
     win.eval(extractFn('detailBetStake_renderFeed'));
     win.eval(extractFn('detailBetStake_renderAction'));
     win.eval(extractFn('showBetDetails'));
+    win.eval(BET_REVEAL);
     win.detailCore_dispatchBridgePanel = () => false;
     win.eval(extractFn('detailCore_dispatchAction', CORE));
     win.detailCore_dispatchAction({ action: 'BET_EDIT', ...data });
@@ -158,7 +160,8 @@ describe('BET format 4 action detail rendering', function(){
 
     it('keeps the edit markup and layout registry in lockstep', function(){
         assert.match(panelHtml(), /<tbody[^>]*\bid="info-bet-edit"/);
-        assert.match(CORE, /if\(o\.action=='BET_EDIT'\)\{\s*found = true;\s*showBetDetails\(o\);\s*\$\('#info-bet'\)\.removeClass\('d-none'\);\s*\}/);
+        assert.match(CORE, /if\(o\.action=='BET_EDIT'\)\{\s*found = true;\s*showBetDetails\(o\);\s*\}/);
+        assert.match(BET_REVEAL, /showBetDetails = function\(data\)\{\s*detailBetShow\(data\);\s*if\(data\.bet_kind=='edit'\) \$\('#info-bet'\)\.removeClass\('d-none'\);\s*\}/);
         const rows = LAYOUT.cards.bet.rows.slice(-4);
         assert.deepEqual(rows, [
             { label: 'Market', cell: 'bet-edit-feed-ref' },

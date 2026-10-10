@@ -114,11 +114,18 @@ function actionDetail_legTotalLead(info, coin, joiner){
     return formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.leg_total) + ' ' + joiner + ' ';
 }
 
-// Action details alias BROADCAST's fee as broadcast_fee; address rows use a separate shape.
+// /api/action/{idx} is the aliasing reader for BROADCAST's fee: it and
+// detail_simple.js's showBroadcastDetails both read info.broadcast_fee,
+// never info.fee (see the BROADCAST branch below for why). The address
+// page's broadcast rows come from a different endpoint, /api/broadcasts/
+// {addr}/address, whose plain positional `fee` column is read by
+// rows_actions_a.js's xcDatatableRenderBroadcastRow - an unrelated
+// renderer for an unrelated response shape, not a second copy of this key.
 function actionDetail_renderBasicActions(html, action, info, coin){
     // Render summaries for the initial transaction action families.
     if(action=='ADDRESS'){
-        // v1 is a controller bind, not a preferences edit.
+        // v1 is a controller bind, not a preferences edit: summarizing one with the preference
+        // defaults described an action it never took.
         if(info.action_format==1){
             let verb = (info.unbind==1) ? 'Unbind' : 'Bind';
             html += verb + ' ' + escapeHtml(String(info.action_class || '-')); // on-chain field into .html()
@@ -136,16 +143,28 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         if(lead !== null) html += lead;
         else {
             html += info.amount + formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' to ';
-            // list_action_index identifies the LIST action being paid out.
+            // Route the list reference as an ACTION, not a token: airdrops.list_action_index is the
+            // index of the LIST action being paid out (indexer db.js createAirdrop), so a /token/ URL
+            // searched for a token named after a number. showAirdropDetails already links
+            // this same field through /action/.
             html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
         }
     }
     if(action=='BROADCAST'){
-        // BATCH children use info.fee for the protocol fee record; BROADCAST fees use the alias.
+        // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
+        // NOT info.fee: for a BATCH child `info` is a full getActionData result whose fee
+        // slot is overwritten with the protocol-fee record, and bcmul on that object threw
+        // and aborted the whole member-table render (same fix applied at the other call site).
+        // FEE is an OPTIONAL wire field on BROADCAST v1/v2 (xchain-indexer broadcast.js: a
+        // null FEE is not an error), so a feed broadcast without one stores NULL. Emitting
+        // the label anyway printed a bare `Fee: %` with nothing in front of it. Build the
+        // whole clause here so it disappears when there is no fee to state, rather than
+        // guessing at 0% - a fee this action never declared.
         let percent = (isNumeric(info.broadcast_fee))
             ? ' <b>Fee:</b> ' + bcmul(info.broadcast_fee, 100, 2) + '%'
             : '';
-        // BROADCAST text is on-chain input rendered through .html().
+        // info.message / info.value are BROADCAST free text (on-chain,
+        // attacker-controlled) and this html is injected via .html(). Escape them.
         if(info.action_format==0){
             html += escapeHtml(info.message);
         } else if(info.action_format==1){
@@ -252,7 +271,9 @@ function actionDetail_renderMessageActions(html, action, info, coin){
             if(sameTick){
                 let total = sends.reduce((sum, s) => bcadd(sum, s.amount), '0');
                 html += formatLinkAmount(tokenUrl(coin, sends[0].tick), sends[0].tick, sends[0].tick, total) + ' to ';
-            } else html += 'Multiple tokens to ';
+            } else {
+                html += 'Multiple tokens to ';
+            }
             html += sends.length + ' recipients';
         } else {
             let send = (sends && sends.length === 1) ? sends[0] : info;

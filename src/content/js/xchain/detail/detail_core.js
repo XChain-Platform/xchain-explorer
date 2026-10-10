@@ -138,6 +138,7 @@ function detailCore_dispatchAction(o){
     if(o.action=='SWAP_EXPIRE'){      found = true;  showSwapExpireDetails(o);      }
     if(o.action=='SWAP_MATCH'){       found = true;  showSwapMatchDetails(o);       }
     if(o.action=='SWEEP'){            found = true;  showSweepDetails(o);           }
+    return detailCore_dispatchActionTail(o, found); } function detailCore_dispatchActionTail(o, found){
     if(o.action=='ATTEST'){           found = true;  showAttestDetails(o);          }
     if(o.action=='STAKE'){            found = true;  showStakeDetails(o);           }
     if(o.action=='UNSTAKE'){          found = true;  showUnstakeDetails(o);         }

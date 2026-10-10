@@ -101,7 +101,8 @@ const ROWS = [
         ACTION_HEAD + ' tick:s max_supply:s max_mint:s decimals:s description:s mint_supply:s transfer:s transfer_supply:s'
             + ' lock_max_supply:s lock_mint:s lock_mint_supply:s lock_max_mint:s lock_description:s lock_sleep:s'
             + ' lock_callback:s callback_block:s callback_tick:s callback_amount:s allow_list:d block_list:d'
-            + ' mint_address_max:s mint_start_block:s mint_stop_block:s memo:s status:s ' + TX_TAIL],
+            + ' mint_address_max:s mint_start_block:s mint_stop_block:s bridge_chains:s min_depth:s lock_bridge:s'
+            + ' memo:s status:s ' + TX_TAIL],
     ['Link', 'getLinks', 'LINK action data',
         ACTION_HEAD + ' coin1:s coin1_action_index:d coin2:s coin2_action_index:d memo:s status:s ' + TX_TAIL],
     ['List', 'getLists', 'LIST action data',

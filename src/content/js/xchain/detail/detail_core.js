@@ -90,7 +90,7 @@ function showActionDetails(){
     // Display the correct ACTION section and hide the 'No information available' message
     if(found){
         let name  = String(o.action).replaceAll('_','-').toLowerCase();
-        mountActionDetailCard(name == 'bet-edit' ? 'bet' : name);
+        mountActionDetailCard(name);
         $('#additionalInfoNotAvailable').hide();
     }
 }
@@ -101,22 +101,6 @@ function detailCore_dispatchBridgePanel(o){
     if(o.action=='XPOLICY'){     $('#info-xpolicy').html(renderXpolicyAction(o));         return true; }
     if(o.action=='LIST_SHARE'){  $('#info-list-share').html(renderListShareAction(o));    return true; }
     return false;
-}
-
-function detailCore_dispatchGovernanceAction(o){
-    var found = false;
-    if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
-    if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }
-    if(o.action=='COINPAY'){          found = true;  showCoinpayDetails(o);         }
-    if(o.action=='COINPAY_EXPIRE'){   found = true;  showCoinpayExpireDetails(o);   }
-    if(o.action=='ANCHOR'){           found = true;  showAnchorDetails(o);          }
-    if(o.action=='PRICE'){            found = true;  showPriceDetails(o);           }
-    if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
-    if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
-    if(o.action=='BET'){              found = true;  showBetDetails(o);             }
-    if(o.action=='BET_EDIT'){         found = true;  showBetDetails(o);             }
-    if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
-    return found;
 }
 
 function detailCore_dispatchAction(o){
@@ -167,7 +151,17 @@ function detailCore_dispatchAction(o){
     if(o.action=='XEXEC'){            found = true;  showXexecDetails(o);           }
     if(detailCore_dispatchBridgePanel(o)) found = true;
     if(o.action=='CROSS_SETTLE'){     found = true;  showCrossSettleDetails(o);     }
-    if(detailCore_dispatchGovernanceAction(o)) found = true;
+    if(o.action=='VOTE'){             found = true;  showVoteDetails(o);            }
+    if(o.action=='SLASH'){            found = true;  showSlashDetails(o);           }
+    if(o.action=='COINPAY'){          found = true;  showCoinpayDetails(o);         }
+    if(o.action=='COINPAY_EXPIRE'){   found = true;  showCoinpayExpireDetails(o);   }
+    if(o.action=='ANCHOR'){           found = true;  showAnchorDetails(o);          }
+    if(o.action=='PRICE'){            found = true;  showPriceDetails(o);           }
+    if(o.action=='NODEPROOF'){        found = true;  showNodeproofDetails(o);       }
+    if(o.action=='ROLLCALL'){         found = true;  showRollcallDetails(o);        }
+    if(o.action=='BET'){              found = true;  showBetDetails(o);             }
+    if(o.action=='BET_EDIT'){         found = true;  showBetDetails(o); $('#info-bet').removeClass('d-none'); }
+    if(o.action=='BET_EXPIRE'){       found = true;  showBetExpireDetails(o);       }
     return found;
 }
 

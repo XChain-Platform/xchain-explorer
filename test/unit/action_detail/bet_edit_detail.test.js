@@ -154,8 +154,7 @@ describe('BET format 4 action detail rendering', function(){
 
     it('keeps the edit markup and layout registry in lockstep', function(){
         assert.match(panelHtml(), /<table[^>]*\bid="info-bet-edit"/);
-        assert.match(CORE, /mountActionDetailCard\(name\s*==\s*'bet-edit'\s*\?\s*'bet'\s*:\s*name\)/);
-        assert.match(CORE, /if\(detailCore_dispatchGovernanceAction\(o\)\) found = true;/);
+        assert.match(CORE, /if\(o\.action=='BET_EDIT'\)\{\s*found = true;\s*showBetDetails\(o\);\s*\$\('#info-bet'\)\.removeClass\('d-none'\);\s*\}/);
         const rows = LAYOUT.cards.bet.rows.slice(-4);
         assert.deepEqual(rows, [
             { label: 'Market', cell: 'bet-edit-feed-ref' },

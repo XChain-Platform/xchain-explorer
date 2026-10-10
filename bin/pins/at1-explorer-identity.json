@@ -7068,6 +7068,14 @@
         "action summary structure markers: the prior shape a field-less action still projects details false",
         "action summary structure markers: the prior shape the three marker names are in ACTION_SUMMARY_FIELDS, so the renderer contract knows them"
       ],
+      "972154035e45120c": [
+        "action summary key-fields fixture BET_EXPIRE key fields come from detail SQL or its handler",
+        "action summary key-fields fixture COINPAY_EXPIRE key fields come from detail SQL or its handler",
+        "action summary key-fields fixture ROLLCALL key fields come from detail SQL or its handler",
+        "action summary key-fields fixture XBRIDGE key fields come from detail SQL or its handler",
+        "action summary key-fields fixture names the four intended action types with nonempty, unique field lists",
+        "action summary key-fields fixture rejects a field absent from both the detail SQL and handler"
+      ],
       "9799067d395e6260": [
         "Database#getReorgs (M3.5 dual-path data leg) RPC-first via HubOperationalCache maps type=block to the reorg_height param and leaves status undefined",
         "Database#getReorgs (M3.5 dual-path data leg) RPC-first via HubOperationalCache maps type=status to the status param and leaves reorg_height undefined",
@@ -10206,8 +10214,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 366,
-        "titleCount": 6138,
+        "fileCount": 367,
+        "titleCount": 6144,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10411,6 +10419,7 @@
           "test/unit/db/query_sql/where_mirror_clauses.test.js": "fa8a6b93a504df6a",
           "test/unit/db/query_sql/where_vote_clauses.test.js": "c95c9f03a953fc82",
           "test/unit/db/reader_parts.test.js": "6427b7bf2f94fa4d",
+          "test/unit/db/readers/actions/action_summary_key_fields_fixture.test.js": "972154035e45120c",
           "test/unit/db/readers/actions/db_action_destinations.test.js": "5284c2c92b0f568a",
           "test/unit/db/readers/actions/db_action_detail_field_contract.test.js": "847a34f234a1bf06",
           "test/unit/db/readers/actions/db_action_ledger_ticks_real_ddl.test.js": "12b0ffb05d87eed8",

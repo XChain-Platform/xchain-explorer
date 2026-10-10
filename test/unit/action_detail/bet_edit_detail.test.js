@@ -23,19 +23,21 @@ const governance = require('../../../src/action-detail/governance.js');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SCRIPT = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_bet_stake.js'), 'utf8');
+const CORE = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_core.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(ROOT, 'src/content/html/action.html'), 'utf8');
+const BET_REVEAL = ACTION_HTML.match(/const detailBetShow = showBetDetails;\s*showBetDetails = function\(data\)\{[\s\S]*?\n\};/)[0];
 const JQUERY = fs.readFileSync(path.join(ROOT, 'src/content/js/jquery.min.js'), 'utf8');
 const LAYOUT = require('../../../src/content/layouts/action-detail-cards.json');
 const util = { isNull: value => value === null || value === undefined };
 
-function extractFn(name){
-    const start = SCRIPT.indexOf('function ' + name + '(');
+function extractFn(name, source = SCRIPT){
+    const start = source.indexOf('function ' + name + '(');
     if(start < 0) throw new Error('function not found: ' + name);
-    const brace = SCRIPT.indexOf('{', start);
+    const brace = source.indexOf('{', start);
     let depth = 0;
-    for(let i = brace; i < SCRIPT.length; i++){
-        if(SCRIPT[i] === '{') depth++;
-        if(SCRIPT[i] === '}' && --depth === 0) return SCRIPT.slice(start, i + 1);
+    for(let i = brace; i < source.length; i++){
+        if(source[i] === '{') depth++;
+        if(source[i] === '}' && --depth === 0) return source.slice(start, i + 1);
     }
     throw new Error('function not terminated: ' + name);
 }
@@ -59,9 +61,13 @@ function renderEdit(data){
     win.eval(extractFn('detailBetStake_renderFeed'));
     win.eval(extractFn('detailBetStake_renderAction'));
     win.eval(extractFn('showBetDetails'));
-    win.showBetDetails(data);
+    win.eval(BET_REVEAL);
+    win.detailCore_dispatchBridgePanel = () => false;
+    win.eval(extractFn('detailCore_dispatchAction', CORE));
+    win.detailCore_dispatchAction({ action: 'BET_EDIT', ...data });
     const $ = win.$;
     return {
+        panelHidden: $('#info-bet').hasClass('d-none'),
         hidden: $('#info-bet .bet-edit-fields').hasClass('d-none'),
         market: $('#info-bet .bet-edit-feed-ref').text().trim(),
         allow: $('#info-bet .bet-edit-allow-list').text().trim(),
@@ -73,6 +79,7 @@ function renderEdit(data){
 
 describe('BET format 4 action detail', function(){
     it('joins the edit row, its status, and parent market into the BET detail query', function(){
+        assert.strictEqual(governance.BET_EDIT, governance.BET);
         assert.match(governanceSql.BET_DETAIL,
             /LEFT\s+JOIN bet_edits\s+be ON \(be\.action_index=a1\.action_index\)/);
         assert.match(governanceSql.BET_DETAIL,
@@ -134,6 +141,7 @@ describe('BET format 4 action detail rendering', function(){
             bet_kind: 'edit', feed_ref: 41, edit_allow_list: null,
             edit_block_list: '000', status: 'valid'
         });
+        assert.equal(retained.panelHidden, false);
         assert.equal(retained.hidden, false);
         assert.equal(retained.market, '41');
         assert.equal(retained.allow, 'unchanged');
@@ -151,6 +159,9 @@ describe('BET format 4 action detail rendering', function(){
     });
 
     it('keeps the edit markup and layout registry in lockstep', function(){
+        assert.match(panelHtml(), /<tbody[^>]*\bid="info-bet-edit"/);
+        assert.match(CORE, /if\(o\.action=='BET_EDIT'\)\{\s*found = true;\s*showBetDetails\(o\);\s*\}/);
+        assert.match(BET_REVEAL, /showBetDetails = function\(data\)\{\s*detailBetShow\(data\);\s*if\(data\.bet_kind=='edit'\) \$\('#info-bet'\)\.removeClass\('d-none'\);\s*\}/);
         const rows = LAYOUT.cards.bet.rows.slice(-4);
         assert.deepEqual(rows, [
             { label: 'Market', cell: 'bet-edit-feed-ref' },

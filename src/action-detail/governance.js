@@ -257,6 +257,7 @@ const VOTE = {
 
 module.exports = {
     BET,
+    BET_EDIT: BET,
     BET_EXPIRE,
     VOTE
 };

@@ -717,7 +717,7 @@
                             <tbody class="bet-resolve-fields">
                             <tr><th>Declared Outcome</th><td class="bet-resolve-outcome"></td></tr>
                             </tbody>
-                            <tbody class="bet-edit-fields">
+                            <tbody class="bet-edit-fields" id="info-bet-edit">
                             <tr><th>Market</th><td class="bet-edit-feed-ref"></td></tr>
                             <tr><th>Allow List Edit</th><td class="bet-edit-allow-list"></td></tr>
                             <tr><th>Block List Edit</th><td class="bet-edit-block-list"></td></tr>
@@ -2105,6 +2105,12 @@
 <script type="application/json" id="xc-action-detail-cards">{DATA:action-detail-cards}</script>
 <script type="text/javascript" src="/js/xbridge_panels_render.js"></script>
 <script type="text/javascript">
+
+const detailBetShow = showBetDetails;
+showBetDetails = function(data){
+    detailBetShow(data);
+    if(data.bet_kind=='edit') $('#info-bet').removeClass('d-none');
+};
 
 // Render for the SPV action-proof widget. leaf/merkle_proof are the raw
 // verification material for an SDK client; the reader-facing summary is what

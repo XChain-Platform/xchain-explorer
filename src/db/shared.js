@@ -60,6 +60,8 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
     'contract_index', 'method_name', 'cooldown_blocks', 'chunk_index', 'total_chunks',                             // Contracts (deploy, execute, deposit, withdraw)
     'deployed_contract_index', 'contract_meta_name', 'contract_meta_version',                                      // Contracts: the identity the chain recorded, so history rows can print "Name vX (C:COIN:n)"
     'vote_kind',                                                                                                   // Governance
+    'feed_action_index', 'refund_count', 'refund_amount', 'epoch_height',                                           // System expiries and roll calls
+    'dest_chain', 'dest_address', 'bridge_kind', 'transfer_id', 'obligation_action_index',                          // Bridge legs and unpaid obligations
     'chain', 'network', 'checkpoint_seq', 'anchored_block_index',                                                  // Anchors
     'round_number', 'pair_count', 'fiat', 'batch_first_round', 'batch_last_round', 'round_count',                  // Prices
     'batch_window_start', 'batch_window_end', 'batch_row_count', 'batch_action_index',                            // Attestations

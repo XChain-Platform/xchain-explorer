@@ -308,6 +308,15 @@ with a different structure (a sidebar, for instance) without the platform
 shell (`template.html`'s `{NAV}` placeholder) or any other page needing to
 know or care which one is active.
 
+### Overriding component dimensions
+
+Console component sheets read their dimensions from tokens declared in the
+console theme's `tokens.css`. A theme that extends `console` can resize those
+components by redeclaring only the relevant `--xc-console-*` properties in its
+own `tokens.css`; it does not need to copy a component sheet or its selectors.
+The child token sheet loads after the inherited console sheet, so its values
+also reach rules imported by the parent's token sheet.
+
 ### Overriding behavior
 
 Every component's client-side `init.js` registers itself with the global

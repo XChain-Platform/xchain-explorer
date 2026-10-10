@@ -196,6 +196,13 @@ const MIRROR_MIGRATIONS = {
               ddl: 'MODIFY `meta` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' }
         ]
     },
+    remote_token_snapshots: {
+        columns: [
+            { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'btc_chain_id', ddl: 'ADD COLUMN btc_chain_id CHAR(64) NULL' }
+        ],
+        indexes: []
+    },
     list_snapshots: {
         columns: [
             { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },

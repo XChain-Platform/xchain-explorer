@@ -33,7 +33,49 @@
 
 const coinsRegistry = require('../../../coins');
 const { isMissingTableError } = require('../../schema_probe.js');
-
+const { DbQueryError } = require('../../shared.js');
+const DecoderConnector = require('../../../connectors/decoder.js'), decoderReaders = require('../health/decoder.js');
+const originalMempoolCount = decoderReaders.getDecoderMempoolCount, originalMempoolRows = decoderReaders.getDecoderMempoolRows;
+const NODE_MEMPOOL_MAX_AGE_MS = 2 * 60 * 1000;
+function decoderMempoolUrl(db, code, parsed){ return DecoderConnector.resolveDecoderUrl(parsed && parsed.coin, parsed && parsed.network, (db.decoderApiUrl || {})[code] || null); }
+function ageNodeMempoolCount(snapshot, now){
+    if(!snapshot || !Object.prototype.hasOwnProperty.call(snapshot, 'node_updated_at')) return snapshot;
+    const updatedAt = Number(snapshot.node_updated_at); return Number.isFinite(updatedAt) && updatedAt > 0 && now - updatedAt < NODE_MEMPOOL_MAX_AGE_MS ? snapshot : Object.assign({}, snapshot, { node_tx_count: null });
+}
+function snapshotValue(reply, now){
+    const reportedOkAt = Number(reply.read_ok_at), okAt = Number.isFinite(reportedOkAt) && reportedOkAt > 0 ? reportedOkAt : (reply.stale === true ? null : now);
+    const value = { node_tx_count: typeof reply.node_tx_count === 'number' && reply.node_tx_count >= 0 ? reply.node_tx_count : null, total: Number(reply.total) || 0, rows: reply.rows, read_ok_at: okAt };
+    if(Object.prototype.hasOwnProperty.call(reply, 'node_updated_at')) value.node_updated_at = reply.node_updated_at; return { okAt, value: ageNodeMempoolCount(value, now) };
+}
+async function getDecoderMempoolSnapshot(config){
+    const code = config.coin, ttl = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000, now = Date.now();
+    this._mempoolApiCache = this._mempoolApiCache || {};
+    const hit = this._mempoolApiCache[code];
+    if(hit && (now - hit.t) < ttl) return ageNodeMempoolCount(hit.v, now);
+    const url = decoderMempoolUrl(this, code, await this.parseCoinCode(code));
+    if(!url) return null;
+    try {
+        const reply = await new DecoderConnector(url).getmempool(500);
+        if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, malformed: true }).v;
+        const { okAt, value } = snapshotValue(reply, now);
+        if(reply.stale === true){ const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
+            return (this._mempoolApiCache[code] = { t: now - ttl, v: usable, okAt, stale: true, unavailable: usable === null }).v; }
+        return (this._mempoolApiCache[code] = { t: now, v: value, okAt }).v;
+    } catch(e){
+        const okAt = hit ? hit.okAt : undefined, stale = Boolean(hit && hit.stale);
+        const value = hit && hit.v && Number.isFinite(Number(okAt)) && now - Number(okAt) < 2 * ttl ? ageNodeMempoolCount(hit.v, now) : null;
+        return (this._mempoolApiCache[code] = { t: stale ? now - ttl : now, v: value, okAt, stale, unavailable: value === null }).v;
+    }
+}
+async function getDecoderMempoolCount(config){
+    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config), state = (this._mempoolApiCache || {})[config.coin];
+    return snapshot ? snapshot.total : decoderMempoolUrl(this, config.coin, parsed) && !(state && state.malformed) ? null : originalMempoolCount.call(this, config);
+}
+async function getDecoderMempoolRows(config, limit){
+    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config), state = (this._mempoolApiCache || {})[config.coin];
+    return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) && !(state && state.malformed) ? null : originalMempoolRows.call(this, config, limit);
+}
+for(const [name, value] of Object.entries({ getDecoderMempoolSnapshot, getDecoderMempoolCount, getDecoderMempoolRows })) Object.defineProperty(decoderReaders, name, Object.assign({}, Object.getOwnPropertyDescriptor(decoderReaders, name), { value }));
 // The coin identity and network this request is for, read off the loaded explorer
 // config rather than off the route code alone, so a re-tune of a chain's name,
 // ticker or prefix reaches the response without an edit here. A module function
@@ -237,7 +279,10 @@ class EntityNetworkReaders {
     async getMempool(config){
         let search = String(config.data.search || '');
         let type   = String(config.data.type || '').toLowerCase();
-        let rows   = await this.getDecoderMempoolRows(config, 500);
+        let feed   = await this.getDecoderMempoolFeed(config, 500);
+        if(feed === null)
+            throw new DbQueryError('DECODER_MEMPOOL_UNAVAILABLE: decoder mempool is configured but not answering for ' + config.coin);
+        let rows   = feed.rows;
         let out    = [];
         // Resolve the queried address to its index id ONCE per request, not once
         // per row: getExactAddressId is cached (per coin + reorg generation), but the
@@ -281,6 +326,16 @@ class EntityNetworkReaders {
         else if(config.type === 'explorer')
             offset = Number(config.data.query && config.data.query.start) || 0;
         return [out.slice(offset, offset + limit), null, total];
+    }
+
+    async getDecoderMempoolFeed(config, limit){
+        const code = config.coin, parsed = await this.parseCoinCode(code);
+        if(!decoderMempoolUrl(this, code, parsed)) return { rows: await this.getDecoderMempoolRows(config, limit), read_ok_at: Date.now() };
+        const ttl = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000, snap = await this.getDecoderMempoolSnapshot(config);
+        const hit = (this._mempoolApiCache || {})[code], okAt = snap && snap.read_ok_at ? snap.read_ok_at : hit && hit.okAt;
+        if(hit && hit.malformed) return { rows: await this.getDecoderMempoolRows(config, limit), read_ok_at: Date.now() };
+        if(!snap || !okAt || (Date.now() - okAt) >= 2 * ttl) return null;
+        return { rows: snap.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))), read_ok_at: okAt };
     }
 
     async getNetwork(config){

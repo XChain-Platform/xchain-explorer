@@ -18,7 +18,7 @@ const SHARED_ROWS_PATH = require.resolve('../../../../src/consensus/gate_registr
 const PART_PATHS = [1, 2, 3, 4, 5].map((part) => require.resolve(
     '../../../../src/consensus/gate_registry/shared_rows_' + part + '.js'
 ));
-const EXPECTED_ROW_COUNT = 111;
+const EXPECTED_ROW_COUNT = 112;
 const LISTS_MARKET_HEIGHT_KEYS = [
     'list_owner_activation.LIST_OWNER_ACTIVATION',
     'empty_allow_list_denies_activation.EMPTY_ALLOW_LIST_DENIES',
@@ -73,6 +73,7 @@ describe('shared gate row exports', function () {
             [PART_PATHS[4], 'token_policy_activation.TOKEN_POLICY_INHERITANCE_ACTIVATION', 2],
             [PART_PATHS[4], 'train_activation.TRAIN_ACTIVATION', 3],
             [PART_PATHS[4], 'xchain_bridge_activation.XCHAIN_BRIDGE_ACTIVATION', 5],
+            [PART_PATHS[4], 'attest_relay_response_deadline_activation.ATTEST_RELAY_RESPONSE_DEADLINE_ACTIVATION', 2],
             [PART_PATHS[4], 'bridge_row_fields_terminal_activation.BRIDGE_ROW_FIELDS_TERMINAL_ACTIVATION', 5],
             [PART_PATHS[4], 'list_share_producer_activation.LIST_SHARE_PRODUCER_ACTIVATION', 1],
             [PART_PATHS[4], 'list_share_consumer_activation.LIST_SHARE_CONSUMER_ACTIVATION', 2],

@@ -75,7 +75,8 @@ function rendererFieldReads() {
         + extractFn('actionDetail_renderMarketActions')
         + extractFn('actionDetail_renderMessageActions')
         + extractFn('actionDetail_renderContractActions')
-        + extractFn('actionDetail_renderConsensusActions')).replace(/\/\/[^\n]*/g, '');
+        + extractFn('actionDetail_renderConsensusActions')
+        + extractFn('actionDetail_renderSystemActions')).replace(/\/\/[^\n]*/g, '');
     const reads = new Set();
     for (const m of body.matchAll(/\binfo\.([a-zA-Z_][a-zA-Z0-9_]*)/g)) reads.add(m[1]);
     return reads;
@@ -144,6 +145,18 @@ describe('action summary field contract: projection vs getActionDetails', functi
         expect(vote.details.vote_kind).to.equal('yes');
         const slash = db.projectActionSummary({ action: 'SLASH', status: 'valid', amount: '1', capability: 'validator' });
         expect(slash.details.capability).to.equal('validator');
+    });
+
+    it('the system summaries actionDetail_renderSystemActions reads are projected', function () {
+        const body = extractFn('actionDetail_renderSystemActions').replace(/\/\/[^\n]*/g, '');
+        const reads = new Set([...body.matchAll(/\binfo\.([a-zA-Z_][a-zA-Z0-9_]*)/g)].map((m) => m[1]));
+        for (const f of ['feed_action_index', 'refund_count', 'refund_amount', 'epoch_height',
+            'dest_chain', 'dest_address', 'bridge_kind', 'obligation_action_index'])
+            expect(reads.has(f), 'actionDetail_renderSystemActions no longer reads ' + f).to.equal(true);
+        const missing = [...reads].filter((f) => !Database.ACTION_SUMMARY_FIELDS.includes(f));
+        expect(missing).to.deep.equal([]);
+        // getActionDetails is what the history rows call, so it must reach the system part.
+        expect(extractFn('getActionDetails')).to.include('actionDetail_renderSystemActions(');
     });
 
     it('SEND projects sends[0] and falls back to its status', function () {

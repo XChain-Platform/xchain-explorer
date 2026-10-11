@@ -5605,6 +5605,16 @@
         "ANCHOR action detail: section count and elision label snapshot block namespace renders a dash for an anchor carrying no snapshot block",
         "ANCHOR action detail: section count and elision label snapshot block namespace the shipped markup labels the row as a BTC height"
       ],
+      "6ed1812dbd031f51": [
+        "action summary field contract: indexer schema fails when a field in the real summary query is absent from the indexer schema",
+        "action summary field contract: indexer schema validates every real summary query against the indexer schema",
+        "action summary field contract: projection vs getActionDetails SEND projects sends[0] and falls back to its status",
+        "action summary field contract: projection vs getActionDetails [REGRESSION] BATCH members carry the projection under summary, never on details",
+        "action summary field contract: projection vs getActionDetails [REGRESSION] staking/contract summary fields are projected",
+        "action summary field contract: projection vs getActionDetails every field getActionDetails reads is in ACTION_SUMMARY_FIELDS",
+        "action summary field contract: projection vs getActionDetails returns details false when no summary field is present",
+        "action summary field contract: projection vs getActionDetails the system summaries actionDetail_renderSystemActions reads are projected"
+      ],
       "6fe4fb7059b13c2d": [
         "foreignNetworkRowNames names remote token rows by the default id column",
         "foreignNetworkRowNames reads bounded natural names and removes empty values",
@@ -8789,20 +8799,6 @@
       "ce6fead93e1597e8": [
         "DISPENSE action detail dispenser pointer returns dispenser 479 for DISPENSE action 480"
       ],
-      "ce78239c59ad2475": [
-        "client: system action summaries leaves an unrelated action unchanged",
-        "client: system action summaries leaves every sparse system action unchanged",
-        "client: system action summaries renders a bet expiry with plural refunds and a linked total",
-        "client: system action summaries renders a bridge destination with escaped external address text",
-        "client: system action summaries renders a roll call epoch",
-        "client: system action summaries renders an expired obligation link",
-        "client: system action summaries renders one refund without a total when no amount is present"
-      ],
-      "ceeb3b770bc5d73b": [
-        "getActionSummaryData: batched fetch is byte-equal to the old per-row path fetches each distinct action_index exactly once",
-        "getActionSummaryData: batched fetch is byte-equal to the old per-row path preserves per-row info for duplicate action_index rows",
-        "getActionSummaryData: batched fetch is byte-equal to the old per-row path produces identical enriched rows (status + details) across action types"
-      ],
       "d08e49017df36523": [
         "consensus-primitive conformance: activation predicate vectors @regression every group this repo runs is a non-empty list",
         "consensus-primitive conformance: activation predicate vectors @regression isEquivHeaderActive: a NaN snapshot block fails closed",
@@ -9793,15 +9789,6 @@
         "token-literal classifier (function-wrapped values) still honours the url() asset allowlist",
         "token-literal classifier (function-wrapped values) still reads a var() fallback as a legitimate degradation path"
       ],
-      "e889c65803fff411": [
-        "action summary field contract: indexer schema fails when a field in the real summary query is absent from the indexer schema",
-        "action summary field contract: indexer schema validates every real summary query against the indexer schema",
-        "action summary field contract: projection vs getActionDetails SEND projects sends[0] and falls back to its status",
-        "action summary field contract: projection vs getActionDetails [REGRESSION] BATCH members carry the projection under summary, never on details",
-        "action summary field contract: projection vs getActionDetails [REGRESSION] staking/contract summary fields are projected",
-        "action summary field contract: projection vs getActionDetails every field getActionDetails reads is in ACTION_SUMMARY_FIELDS",
-        "action summary field contract: projection vs getActionDetails returns details false when no summary field is present"
-      ],
       "ea1730e95b9cac39": [
         "Boundary: getPagingDataResults (API mode) a high page does not re-slice: API mode ignores page (SQL OFFSET already paged)",
         "Boundary: getPagingDataResults (API mode) getBalances default limit is 500",
@@ -9825,6 +9812,17 @@
         "Boundary: getPagingDataResults (Explorer mode) negative start=-1 (clamped to 0, returns 10 rows)",
         "Boundary: getPagingDataResults (Explorer mode) start beyond total rows returns empty",
         "Boundary: getPagingDataResults (Explorer mode) start=0 with length=10 on exactly 10 rows returns all"
+      ],
+      "ea7158b0632dfbee": [
+        "client: system action summaries getActionDetails keeps the humanized name for sparse system rows",
+        "client: system action summaries getActionDetails renders the populated system summaries",
+        "client: system action summaries leaves an unrelated action unchanged",
+        "client: system action summaries leaves every sparse system action unchanged",
+        "client: system action summaries renders a bet expiry with plural refunds and a linked total",
+        "client: system action summaries renders a bridge destination with escaped external address text",
+        "client: system action summaries renders a roll call epoch",
+        "client: system action summaries renders an expired obligation link",
+        "client: system action summaries renders one refund without a total when no amount is present"
       ],
       "ea85d7fc9231fd35": [
         "list-page datatable endpoints finds at least one page action to check",
@@ -10028,6 +10026,12 @@
         "M5.4 XCALL phase reads (spec row 35) getXcallInfo answers null for a call this chain has no row for",
         "M5.4 XCALL phase reads (spec row 35) getXcallInfo point-reads one call by id, valid row only, bounded to one row"
       ],
+      "f39210a98ed00fc2": [
+        "getActionSummaryData: batched fetch is byte-equal to the old per-row path carries the BET_EXPIRE, ROLLCALL, XBRIDGE and COINPAY_EXPIRE key fields identically",
+        "getActionSummaryData: batched fetch is byte-equal to the old per-row path fetches each distinct action_index exactly once",
+        "getActionSummaryData: batched fetch is byte-equal to the old per-row path preserves per-row info for duplicate action_index rows",
+        "getActionSummaryData: batched fetch is byte-equal to the old per-row path produces identical enriched rows (status + details) across action types"
+      ],
       "f4c74d2eccc02b65": [
         "pool DATETIME decode on a non-UTC host decodes UTC-literal values as UTC under TZ=America/Chicago",
         "pool DATETIME decode on a non-UTC host decodes UTC-literal values as UTC under TZ=Asia/Kolkata",
@@ -10221,7 +10225,7 @@
       },
       "test": {
         "fileCount": 367,
-        "titleCount": 6149,
+        "titleCount": 6153,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -10337,7 +10341,7 @@
           "test/unit/content/lists/content_client_rich_list.test.js": "722aed88dddbe226",
           "test/unit/content/lists/content_client_send_summary_shape.test.js": "6e757d5406a33b25",
           "test/unit/content/lists/content_client_summary_fallback_set.test.js": "fabae0e78ed6d361",
-          "test/unit/content/lists/content_client_system_summaries.test.js": "ce78239c59ad2475",
+          "test/unit/content/lists/content_client_system_summaries.test.js": "ea7158b0632dfbee",
           "test/unit/content/lists/content_client_token_linked_files.test.js": "15f7cbb223a61c3b",
           "test/unit/content/lists/content_client_transaction_empty_and_hash.test.js": "612f83af8994b9ac",
           "test/unit/content/lists/datatable/content_client_action_datatable.test.js": "2cf498add519da25",
@@ -10431,8 +10435,8 @@
           "test/unit/db/readers/actions/db_action_ledger_ticks_real_ddl.test.js": "12b0ffb05d87eed8",
           "test/unit/db/readers/actions/db_action_source_attribution.test.js": "38cd5b889e0e9bc9",
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "020e5cee8fdc2368",
-          "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "ceeb3b770bc5d73b",
-          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "e889c65803fff411",
+          "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "f39210a98ed00fc2",
+          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "6ed1812dbd031f51",
           "test/unit/db/readers/actions/db_action_summary_system_fields.test.js": "b2ceeda7373824d4",
           "test/unit/db/readers/actions/sends_destroys_whole_action_paging.test.js": "4c8d99048b00614d",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
@@ -10659,7 +10663,7 @@
       },
       "test:db": {
         "fileCount": 47,
-        "titleCount": 1484,
+        "titleCount": 1486,
         "files": {
           "test/unit/action_detail/history/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/history/db_history_unmapped_actions.test.js": "381a93ad4ecc32fc",
@@ -10693,8 +10697,8 @@
           "test/unit/db/mempool/db_mempool_listall_paging.test.js": "21dd83888010e79b",
           "test/unit/db/readers/actions/db_action_destinations.test.js": "5284c2c92b0f568a",
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "020e5cee8fdc2368",
-          "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "ceeb3b770bc5d73b",
-          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "e889c65803fff411",
+          "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "f39210a98ed00fc2",
+          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "6ed1812dbd031f51",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
           "test/unit/db/readers/bets/db_bet_leg_status.test.js": "82bf43fea502fa27",
           "test/unit/db/readers/db_checkpoint_hub_url_invariant.test.js": "296dd0840e4efd5d",

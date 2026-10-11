@@ -21,6 +21,16 @@ const shared = require('./shared.js');
 const orderSql = require('../db/action_detail/orders_sql.js');
 const swapSql = require('../db/action_detail/swaps_sql.js');
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 const ORDER = {
     queries({ action_index }) {
         let query  = null;
@@ -164,6 +174,11 @@ const SWAP_MATCH = {
         return { query, query2, query3 };
     },
 };
+
+// Every ORDER and SWAP format writes the same orders / swaps row the detail query
+// reads, so each user-encodable format is shown by the one page.
+declareFormats(ORDER, [0, 1, 2], {});
+declareFormats(SWAP,  [0, 1, 2], {});
 
 module.exports = {
     ORDER,

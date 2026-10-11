@@ -172,8 +172,8 @@ describe('ACTION manifest conformance: dispatch extraction credits a dispatch on
 // Every user-encodable format of a rendered action is either shown by its detail
 // handler or named as unshown with a reason, so a new wire format cannot land
 // silently on a page that ignores what it carries.
-describe('ACTION manifest conformance: misc, dispensers, tokens, markets and staking declare every user-encodable format @regression', function () {
-    for (const file of ['misc', 'dispensers', 'tokens', 'markets', 'staking']) {
+describe('ACTION manifest conformance: misc, dispensers, tokens, markets, staking, consensus, governance and contracts declare every user-encodable format @regression', function () {
+    for (const file of ['misc', 'dispensers', 'tokens', 'markets', 'staking', 'consensus', 'governance', 'contracts']) {
         const handlers = require('../../../src/action-detail/' + file + '.js');
         for (const [name, handler] of Object.entries(handlers)) {
             const entry = MANIFEST.actions[name];
@@ -200,5 +200,13 @@ describe('ACTION manifest conformance: misc, dispensers, tokens, markets and sta
         const { ISSUE } = require('../../../src/action-detail/tokens.js');
         assert.ok(ISSUE.renderedFormats.includes(7), 'ISSUE format 7 must be rendered');
         assert.ok(!Object.prototype.hasOwnProperty.call(ISSUE.unrenderedFormats, '7'));
+    });
+
+    // BET v4 edits a feed's allow and block lists and has its own edit card, so it
+    // must stay rendered rather than be parked as unshown.
+    it('governance.js BET renders format 4', function () {
+        const { BET } = require('../../../src/action-detail/governance.js');
+        assert.ok(BET.renderedFormats.includes(4), 'BET format 4 must be rendered');
+        assert.ok(!Object.prototype.hasOwnProperty.call(BET.unrenderedFormats, '4'));
     });
 });

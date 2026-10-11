@@ -110,6 +110,7 @@ function summary(action, info) {
         function escapeHtml(v){ return String(v); }
         function getNetworkIcon(){ return 'fa-bitcoin'; }
     `);
+    dom.window.eval(extractFn('actionDetail_legTotalLead'));
     dom.window.eval(extractFn('actionDetail_renderBasicActions'));
     dom.window.eval(extractFn('actionDetail_renderMarketActions'));
     dom.window.eval(extractFn('actionDetail_renderMessageActions'));

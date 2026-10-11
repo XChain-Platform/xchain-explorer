@@ -5605,16 +5605,6 @@
         "ANCHOR action detail: section count and elision label snapshot block namespace renders a dash for an anchor carrying no snapshot block",
         "ANCHOR action detail: section count and elision label snapshot block namespace the shipped markup labels the row as a BTC height"
       ],
-      "6ed1812dbd031f51": [
-        "action summary field contract: indexer schema fails when a field in the real summary query is absent from the indexer schema",
-        "action summary field contract: indexer schema validates every real summary query against the indexer schema",
-        "action summary field contract: projection vs getActionDetails SEND projects sends[0] and falls back to its status",
-        "action summary field contract: projection vs getActionDetails [REGRESSION] BATCH members carry the projection under summary, never on details",
-        "action summary field contract: projection vs getActionDetails [REGRESSION] staking/contract summary fields are projected",
-        "action summary field contract: projection vs getActionDetails every field getActionDetails reads is in ACTION_SUMMARY_FIELDS",
-        "action summary field contract: projection vs getActionDetails returns details false when no summary field is present",
-        "action summary field contract: projection vs getActionDetails the system summaries actionDetail_renderSystemActions reads are projected"
-      ],
       "6fe4fb7059b13c2d": [
         "foreignNetworkRowNames names remote token rows by the default id column",
         "foreignNetworkRowNames reads bounded natural names and removes empty values",
@@ -6092,6 +6082,16 @@
         "XChainExplorer#processFileRawRequest gated filename strips CR/LF from a hostile name so it cannot inject a second header",
         "XChainExplorer#processFileRawRequest plain filename never resolves a name for a non-gated FILE, which keeps its plain attachment",
         "XChainExplorer#processFileRawRequest plain filename safeAttachmentFilename answers null for a name that is empty after stripping"
+      ],
+      "84c7e7361606295e": [
+        "action summary field contract: indexer schema fails when a field in the real summary query is absent from the indexer schema",
+        "action summary field contract: indexer schema validates every real summary query against the indexer schema",
+        "action summary field contract: projection vs getActionDetails SEND projects sends[0] and falls back to its status",
+        "action summary field contract: projection vs getActionDetails [REGRESSION] BATCH members carry the projection under summary, never on details",
+        "action summary field contract: projection vs getActionDetails [REGRESSION] staking/contract summary fields are projected",
+        "action summary field contract: projection vs getActionDetails every field getActionDetails reads is in ACTION_SUMMARY_FIELDS",
+        "action summary field contract: projection vs getActionDetails returns details false when no summary field is present",
+        "action summary field contract: system summaries the system summaries actionDetail_renderSystemActions reads are projected"
       ],
       "84eff736b34fe428": [
         "ATTEST expiry: in-block correlation of the v2 expire action REFUSES to correlate when the block's two lists disagree, rather than naming the wrong request",
@@ -10436,7 +10436,7 @@
           "test/unit/db/readers/actions/db_action_source_attribution.test.js": "38cd5b889e0e9bc9",
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "020e5cee8fdc2368",
           "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "f39210a98ed00fc2",
-          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "6ed1812dbd031f51",
+          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "84c7e7361606295e",
           "test/unit/db/readers/actions/db_action_summary_system_fields.test.js": "b2ceeda7373824d4",
           "test/unit/db/readers/actions/sends_destroys_whole_action_paging.test.js": "4c8d99048b00614d",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
@@ -10698,7 +10698,7 @@
           "test/unit/db/readers/actions/db_action_destinations.test.js": "5284c2c92b0f568a",
           "test/unit/db/readers/actions/db_action_state_cache.test.js": "020e5cee8fdc2368",
           "test/unit/db/readers/actions/db_action_summary_batch_parity.test.js": "f39210a98ed00fc2",
-          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "6ed1812dbd031f51",
+          "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "84c7e7361606295e",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
           "test/unit/db/readers/bets/db_bet_leg_status.test.js": "82bf43fea502fa27",
           "test/unit/db/readers/db_checkpoint_hub_url_invariant.test.js": "296dd0840e4efd5d",

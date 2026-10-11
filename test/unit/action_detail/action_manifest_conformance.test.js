@@ -171,27 +171,38 @@ describe('ACTION manifest conformance: dispatch extraction credits a dispatch on
 
 // Every user-encodable format of a rendered action is either shown by its detail
 // handler or named as unshown with a reason, so a new wire format cannot land
-// silently on a page that ignores what it carries.
-describe('ACTION manifest conformance: misc, dispensers, tokens, markets, staking, consensus, governance and contracts declare every user-encodable format @regression', function () {
-    for (const file of ['misc', 'dispensers', 'tokens', 'markets', 'staking', 'consensus', 'governance', 'contracts']) {
-        const handlers = require('../../../src/action-detail/' + file + '.js');
-        for (const [name, handler] of Object.entries(handlers)) {
-            const entry = MANIFEST.actions[name];
-            if (!entry || !entry.explorerRender || !entry.userEncodableVersions) continue;
-            it(file + '.js ' + name + ' declares exactly its user-encodable formats', function () {
-                const rendered = handler.renderedFormats, unrendered = handler.unrenderedFormats;
-                assert.ok(Array.isArray(rendered), 'renderedFormats must be an array');
-                assert.ok(unrendered && typeof unrendered === 'object' && !Array.isArray(unrendered),
-                    'unrenderedFormats must be an object keyed by format');
-                for (const [format, reason] of Object.entries(unrendered))
-                    assert.ok(typeof reason === 'string' && reason.trim(), 'format ' + format + ' needs a reason');
-                const overlap = rendered.filter(f => Object.prototype.hasOwnProperty.call(unrendered, String(f)));
-                assert.deepStrictEqual(overlap, [], 'a format cannot be both rendered and unrendered');
-                const got  = [...rendered, ...Object.keys(unrendered).map(Number)].sort((a, b) => a - b);
-                const want = [...entry.userEncodableVersions].sort((a, b) => a - b);
-                assert.deepStrictEqual(got, want);
-            });
-        }
+// silently on a page that ignores what it carries. The set comes from the manifest
+// and each handler is the one the registry resolves, so a new family file, a
+// missing handler or a handler shadowed by registry precedence is still covered.
+describe('ACTION manifest conformance: every userEncodable explorerRender handler declares every user-encodable format @regression', function () {
+    const { REGISTRY } = require('../../../src/action-detail');
+    const encodable = Object.entries(MANIFEST.actions)
+        .filter(([, entry]) => entry.explorerRender && entry.userEncodableVersions);
+
+    it('the manifest has userEncodable explorerRender actions to check', function () {
+        assert.ok(encodable.length > 0, 'no explorerRender action declares userEncodableVersions');
+    });
+
+    for (const [name, entry] of encodable) {
+        it(name + ' declares exactly its user-encodable formats', function () {
+            const handler = REGISTRY[name];
+            assert.ok(handler, name + ' is userEncodable and explorerRender but has no registered detail handler');
+            const rendered = handler.renderedFormats, unrendered = handler.unrenderedFormats;
+            assert.ok(Array.isArray(rendered), 'renderedFormats must be an array');
+            assert.ok(rendered.every(Number.isInteger), 'renderedFormats must hold integer formats');
+            assert.strictEqual(new Set(rendered).size, rendered.length, 'renderedFormats must not repeat a format');
+            assert.ok(unrendered && typeof unrendered === 'object' && !Array.isArray(unrendered),
+                'unrenderedFormats must be an object keyed by format');
+            for (const [format, reason] of Object.entries(unrendered)) {
+                assert.ok(/^(0|[1-9][0-9]*)$/.test(format), 'unrenderedFormats key ' + format + ' must be an integer format');
+                assert.ok(typeof reason === 'string' && reason.trim(), 'format ' + format + ' needs a reason');
+            }
+            const overlap = rendered.filter(f => Object.prototype.hasOwnProperty.call(unrendered, String(f)));
+            assert.deepStrictEqual(overlap, [], 'a format cannot be both rendered and unrendered');
+            const got  = [...rendered, ...Object.keys(unrendered).map(Number)].sort((a, b) => a - b);
+            const want = [...entry.userEncodableVersions].sort((a, b) => a - b);
+            assert.deepStrictEqual(got, want, name + ' rendered and unrendered formats must union to its userEncodableVersions');
+        });
     }
 
     // ISSUE v7 opts a token into bridging and has its own card and afterMain read,

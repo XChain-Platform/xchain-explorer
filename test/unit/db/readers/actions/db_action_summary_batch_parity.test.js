@@ -97,6 +97,36 @@ function fixtureFor(action_index) {
             order_action_index: 2, source: 'addrC', type: 'ORDER'
         };
     }
+    if (idx === 4) {
+        // System expiry of a bet feed: feed link, refund count and refund total.
+        return {
+            action: 'BET_EXPIRE', status: 'valid', feed_action_index: 1193,
+            tick: 'DANK', refund_count: 2, refund_amount: '15.5',
+            source: 'addrE', type: 'BET_EXPIRE'
+        };
+    }
+    if (idx === 5) {
+        // Roll call: the epoch height rides the summary; the long and array fields do not.
+        return {
+            action: 'ROLLCALL', status: 'valid', epoch_height: 4200,
+            publisher: 'ab'.repeat(32), signers: [{ pubkey: 'p1' }], type: 'ROLLCALL'
+        };
+    }
+    if (idx === 6) {
+        // Bridge leg with a null kind and transfer id, which must survive as nulls.
+        return {
+            action: 'XBRIDGE', status: 'valid', action_format: 0, tick: 'DANK',
+            dest_chain: 'DOGE', dest_address: 'addrD', bridge_kind: null,
+            transfer_id: null, memo: 'm', type: 'XBRIDGE'
+        };
+    }
+    if (idx === 7) {
+        // Expired coin payment obligation.
+        return {
+            action: 'COINPAY_EXPIRE', status: 'valid', obligation_action_index: 77,
+            type: 'COINPAY_EXPIRE'
+        };
+    }
     // Sparse action with mostly-absent detailFields and a null status.
     return {
         action: 'ADDRESS', status: null,
@@ -139,6 +169,32 @@ describe('getActionSummaryData: batched fetch is byte-equal to the old per-row p
         const actual   = await db.getActionSummaryData({ coin: 'DANK' }, rows());
 
         expect(actual).to.deep.equal(expected);
+    });
+
+    it('carries the BET_EXPIRE, ROLLCALL, XBRIDGE and COINPAY_EXPIRE key fields identically', async function () {
+        const db = makeDb();
+        const systemRows = () => [
+            { action_index: 4, action: 'BET_EXPIRE' },
+            { action_index: 5, action: 'ROLLCALL' },
+            { action_index: 6, action: 'XBRIDGE' },
+            { action_index: 7, action: 'COINPAY_EXPIRE' }
+        ];
+
+        const expected = oldPath(systemRows(), (idx) => fixtureFor(idx));
+        const actual   = await db.getActionSummaryData({ coin: 'DANK' }, systemRows());
+
+        expect(actual).to.deep.equal(expected);
+        expect(actual[0].details).to.include({
+            feed_action_index: 1193, tick: 'DANK', refund_count: 2, refund_amount: '15.5'
+        });
+        expect(actual[1].details).to.include({ epoch_height: 4200 });
+        expect(actual[1].details).not.to.have.any.keys('publisher', 'signers');
+        expect(actual[2].details).to.include({
+            action_format: 0, tick: 'DANK', dest_chain: 'DOGE',
+            dest_address: 'addrD', bridge_kind: null, transfer_id: null
+        });
+        expect(actual[2].details).not.to.have.key('memo');
+        expect(actual[3].details).to.include({ obligation_action_index: 77 });
     });
 
     it('fetches each distinct action_index exactly once', async function () {

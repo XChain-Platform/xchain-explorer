@@ -39,6 +39,16 @@ const { columnsPresent, setColumnsAbsent, isUnknownColumnError } = require('../d
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 const ANCHOR = {
     // ANCHOR action (DOGE-only). The wire set restarted at v0: v0 is
     // the per-network checkpoint bundle, v1 the archive head (carries both its
@@ -299,6 +309,10 @@ const ROLLCALL = {
         data['gates'] = gates ? gates.split(',') : [];
     },
 };
+
+// PRICE v1 (the user TOKEN/FIAT oracle) writes the prices row the detail query reads;
+// the validator v0 snapshot and batch are not user-encodable.
+declareFormats(PRICE, [1], {});
 
 module.exports = {
     ANCHOR,

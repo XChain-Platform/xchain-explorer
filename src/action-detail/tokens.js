@@ -23,6 +23,16 @@ const bridgeSql = require('../db/action_detail/xbridge_sql.js');
 const { tablesPresent, setTablesAbsent, isMissingTableError,
         columnsPresent, setColumnsAbsent, isUnknownColumnError } = require('../db/schema_probe.js');
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 // Read every leg of a multi-leg SEND or DESTROY, in wire order when the connected
 // replica records leg_ordinal. A replica without it takes the unsorted read, which
 // is exactly what every replica got before the column existed.
@@ -308,6 +318,21 @@ function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
 
 const XPOLICY = settlementAnchor(bridgeSql.POLICY_SNAPSHOTS_TABLE, bridgeSql.POLICY_SNAPSHOT, 'policy_snapshot');
 const LIST_SHARE = settlementAnchor(bridgeSql.LIST_SNAPSHOTS_TABLE, bridgeSql.LIST_SNAPSHOT, 'list_snapshot');
+
+// AIRDROP, DESTROY and SEND show every leg in one table whatever format encoded it,
+// and each leg row carries the memo the later formats add. ISSUE switches on
+// action_format in the client: v1-v5 each reveal their own field group, v6 the
+// controller card and v7 the bridge card fed by the afterMain read above. XBRIDGE
+// labels every user leg (v0/v1 coin, v3/v4 token) by its version.
+declareFormats(AIRDROP,  [0, 1, 2, 3], {});
+declareFormats(DESTROY,  [0, 1, 2], {});
+declareFormats(DIVIDEND, [0], {});
+declareFormats(ISSUE,    [0, 1, 2, 3, 4, 5, 6, 7], {});
+declareFormats(LINK,     [0], {});
+declareFormats(MINT,     [0], {});
+declareFormats(SEND,     [0, 1, 2, 3], {});
+declareFormats(SWEEP,    [0], {});
+declareFormats(XBRIDGE,  [0, 1, 3, 4], {});
 
 module.exports = {
     AIRDROP,

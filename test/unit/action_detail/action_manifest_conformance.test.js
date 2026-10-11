@@ -168,3 +168,29 @@ describe('ACTION manifest conformance: dispatch extraction credits a dispatch on
         assert.deepStrictEqual(bridged.filter(name => after.includes(name)), []);
     });
 });
+
+// Every user-encodable format of a rendered action is either shown by its detail
+// handler or named as unshown with a reason, so a new wire format cannot land
+// silently on a page that ignores what it carries.
+describe('ACTION manifest conformance: misc and dispensers declare every user-encodable format @regression', function () {
+    for (const file of ['misc', 'dispensers']) {
+        const handlers = require('../../../src/action-detail/' + file + '.js');
+        for (const [name, handler] of Object.entries(handlers)) {
+            const entry = MANIFEST.actions[name];
+            if (!entry || !entry.explorerRender || !entry.userEncodableVersions) continue;
+            it(file + '.js ' + name + ' declares exactly its user-encodable formats', function () {
+                const rendered = handler.renderedFormats, unrendered = handler.unrenderedFormats;
+                assert.ok(Array.isArray(rendered), 'renderedFormats must be an array');
+                assert.ok(unrendered && typeof unrendered === 'object' && !Array.isArray(unrendered),
+                    'unrenderedFormats must be an object keyed by format');
+                for (const [format, reason] of Object.entries(unrendered))
+                    assert.ok(typeof reason === 'string' && reason.trim(), 'format ' + format + ' needs a reason');
+                const overlap = rendered.filter(f => Object.prototype.hasOwnProperty.call(unrendered, String(f)));
+                assert.deepStrictEqual(overlap, [], 'a format cannot be both rendered and unrendered');
+                const got  = [...rendered, ...Object.keys(unrendered).map(Number)].sort((a, b) => a - b);
+                const want = [...entry.userEncodableVersions].sort((a, b) => a - b);
+                assert.deepStrictEqual(got, want);
+            });
+        }
+    }
+});

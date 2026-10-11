@@ -120,10 +120,11 @@ const HUB_LOCAL_TABLES = [
 // values are deliberately arbitrary: the canary asserts the query is legal
 // against the real DDL, not that it matches a row.
 const PROBE_ARGS = {
-    // contract_state / contract balance reads key off the contract's index and
-    // its derived custody address respectively.
-    getContractState:   { search: '1' },
-    getContractBalance: { search: 'C:BTC:1' },
+    // contract_state / contract balance reads key off the contract's bare index,
+    // as the /contract/{QUERY} routes pass it; getContractBalance derives the
+    // C:<CHAIN>: custody address from it, so the probe must not carry the prefix.
+    getContractState:   { search: '1', type: 'contract' },
+    getContractBalance: { search: '1', type: 'contract' },
     // poll_results is keyed by the poll's creating action_index.
     getPollResults:     { search: '1' },
     // A single state checkpoint is keyed by block height.

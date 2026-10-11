@@ -20,6 +20,7 @@ const os     = require('os');
 const path   = require('path');
 
 const support = require('../../conformance/schema_conformance.test/support/dashboard_manifest.js');
+const seed    = require('../../conformance/schema_conformance.test/support/dashboard_manifest_seed.js');
 
 let tempDir;
 
@@ -199,6 +200,62 @@ function buildsReaderConfig() {
     assert.strictEqual(support.readerConfig('getContract').data.search, '1');
 }
 
+function probesContractReadersWithBareIndex() {
+    for (const reader of ['getContractState', 'getContractBalance']) {
+        const config = support.readerConfig(reader);
+        assert.strictEqual(config.data.type, 'contract', reader);
+        assert.strictEqual(config.data.search, '1', reader);
+    }
+}
+
+// getContractBalance prepends C:<CHAIN>: itself, so the seeded custody address
+// must carry a single C: prefix or the seed lands on a row the reader never reads.
+function seedsCustodyAddressWithSingleContractPrefix() {
+    const db = { baseCoin: { RBTC: 'BTC' } };
+    const probe = support.seedProbe(db, {});
+    assert.deepStrictEqual(probe, { stateContract: 1, balanceAddress: 'C:BTC:1' });
+
+    const conformance = { PROBE_ARGS: { getContractBalance: { search: '7', type: 'contract' } } };
+    assert.strictEqual(support.seedProbe(db, conformance).balanceAddress, 'C:BTC:7');
+}
+
+// A connection that interns nothing up front and hands out increasing insert ids.
+function recordingPool() {
+    const inserts = [];
+    let nextId = 1;
+    const conn = {
+        async query(sql, args) {
+            if (/^INSERT INTO (\S+)/.test(sql)) {
+                inserts.push([sql.match(/^INSERT INTO (\S+)/)[1], sql, args]);
+                return { insertId: nextId++ };
+            }
+            return [];
+        },
+        release() {},
+    };
+    return { inserts, pool: { async getConnection() { return conn; } } };
+}
+
+async function seedsSwapAndDispenserRows() {
+    const { inserts, pool } = recordingPool();
+    const made = await seed.seedManifestReaders(pool, 'indexer', { stateContract: 1, balanceAddress: 'C:BTC:1' });
+    const tables = inserts.map(([table]) => table);
+    for (const table of ['swaps', 'dispensers']) {
+        assert.strictEqual(tables.filter((name) => name === table).length, 1, table);
+        assert.ok(made.some(([name, key]) => name === table && key === 'action_index'), table);
+    }
+    // Each seeded action row carries its own action_index, and swaps and dispensers point at theirs.
+    const actionIndexes = inserts.filter(([table]) => table === 'actions').map(([, , args]) => args[0]);
+    for (const table of ['swaps', 'dispensers']) {
+        const [, sql, args] = inserts.find(([name]) => name === table);
+        const columns = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')')).split(', ');
+        assert.ok(actionIndexes.includes(args[columns.indexOf('action_index')]), table);
+    }
+    assert.strictEqual(new Set(actionIndexes).size, actionIndexes.length);
+    const custody = inserts.find(([table, , args]) => table === 'index_addresses' && args[0].startsWith('C:'));
+    assert.deepStrictEqual(custody[2], ['C:BTC:1']);
+}
+
 function registerTests() {
     afterEach(cleanupTempDir);
     it('resolves the dashboard client from the sibling root or environment override', resolvesDashboardClient);
@@ -214,6 +271,10 @@ function registerTests() {
     it('fails a reader with no served rows unless it is listed as unseeded', failsReaderWithNoRows);
     it('reports only absent manifest keys', reportsAbsentManifestKeys);
     it('builds an RBTC reader config with required and conformance probe arguments', buildsReaderConfig);
+    it('probes the contract state and balance readers with type contract and a bare index',
+        probesContractReadersWithBareIndex);
+    it('seeds the custody address with a single C: prefix', seedsCustodyAddressWithSingleContractPrefix);
+    it('seeds a swaps row and a dispensers row on their own actions', seedsSwapAndDispenserRows);
 }
 
 describe('dashboard manifest conformance support', registerTests);

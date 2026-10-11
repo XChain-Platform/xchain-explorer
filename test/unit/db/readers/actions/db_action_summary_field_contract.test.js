@@ -147,18 +147,6 @@ describe('action summary field contract: projection vs getActionDetails', functi
         expect(slash.details.capability).to.equal('validator');
     });
 
-    it('the system summaries actionDetail_renderSystemActions reads are projected', function () {
-        const body = extractFn('actionDetail_renderSystemActions').replace(/\/\/[^\n]*/g, '');
-        const reads = new Set([...body.matchAll(/\binfo\.([a-zA-Z_][a-zA-Z0-9_]*)/g)].map((m) => m[1]));
-        for (const f of ['feed_action_index', 'refund_count', 'refund_amount', 'epoch_height',
-            'dest_chain', 'dest_address', 'bridge_kind', 'obligation_action_index'])
-            expect(reads.has(f), 'actionDetail_renderSystemActions no longer reads ' + f).to.equal(true);
-        const missing = [...reads].filter((f) => !Database.ACTION_SUMMARY_FIELDS.includes(f));
-        expect(missing).to.deep.equal([]);
-        // getActionDetails is what the history rows call, so it must reach the system part.
-        expect(extractFn('getActionDetails')).to.include('actionDetail_renderSystemActions(');
-    });
-
     it('SEND projects sends[0] and falls back to its status', function () {
         const db = makeDb();
         const out = db.projectActionSummary({
@@ -174,6 +162,20 @@ describe('action summary field contract: projection vs getActionDetails', functi
         const out = db.projectActionSummary({ action: 'ANCHOR', status: 'valid' });
         expect(out.details).to.equal(false);
         expect(out.status).to.equal('valid');
+    });
+});
+
+describe('action summary field contract: system summaries', function () {
+    it('the system summaries actionDetail_renderSystemActions reads are projected', function () {
+        const body = extractFn('actionDetail_renderSystemActions').replace(/\/\/[^\n]*/g, '');
+        const reads = new Set([...body.matchAll(/\binfo\.([a-zA-Z_][a-zA-Z0-9_]*)/g)].map((m) => m[1]));
+        for (const f of ['feed_action_index', 'refund_count', 'refund_amount', 'epoch_height',
+            'dest_chain', 'dest_address', 'bridge_kind', 'obligation_action_index'])
+            expect(reads.has(f), 'actionDetail_renderSystemActions no longer reads ' + f).to.equal(true);
+        const missing = [...reads].filter((f) => !Database.ACTION_SUMMARY_FIELDS.includes(f));
+        expect(missing).to.deep.equal([]);
+        // getActionDetails is what the history rows call, so it must reach the system part.
+        expect(extractFn('getActionDetails')).to.include('actionDetail_renderSystemActions(');
     });
 });
 

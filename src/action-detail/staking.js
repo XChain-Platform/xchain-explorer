@@ -19,6 +19,16 @@
 
 const sql = require('../db/action_detail/staking_sql.js');
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 const COLLECT = {
     queries() {
         let query  = null;
@@ -129,6 +139,14 @@ const UNSTAKE = {
         }
     },
 };
+
+// DELEGATE v0/v2 read delegations and v1/v3 contract_delegations (revokes resolved in
+// afterMain); STAKE v1/v2 read stakes and v3 contract_stakes; UNSTAKE v0 reads unstakes
+// and v1 contract_unstakes. The synthetic UNSTAKE v2 is not user-encodable.
+declareFormats(COLLECT,  [0], {});
+declareFormats(DELEGATE, [0, 1, 2, 3], {});
+declareFormats(STAKE,    [1, 2, 3], {});
+declareFormats(UNSTAKE,  [0, 1], {});
 
 module.exports = {
     COLLECT,

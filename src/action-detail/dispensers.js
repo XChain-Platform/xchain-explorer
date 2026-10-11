@@ -21,6 +21,16 @@ const shared = require('./shared.js');
 // Statement text lives under src/db/ with the rest of the explorer's SQL.
 const sql = require('../db/action_detail/dispensers_sql.js');
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 // coin_amount/vout are the SETTLEMENT record's; when one transaction pays more
 // than one obligation, each row names the specific output that paid THAT
 // obligation, not the transaction's first output (mainnet not yet armed;
@@ -124,6 +134,9 @@ const DISPENSE = {
         return { query, query2, query3 };
     },
 };
+
+declareFormats(COINPAY,   [0], {});
+declareFormats(DISPENSER, [0, 1, 2], {});
 
 module.exports = {
     COINPAY,

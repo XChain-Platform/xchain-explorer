@@ -21,6 +21,16 @@
 // Statement text lives under src/db/ with the rest of the explorer's SQL.
 const sql = require('../db/action_detail/misc_sql.js');
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 const ADDRESS = {
     effects: { credits: false, debits: false, escrows: false },
     queries() {
@@ -193,6 +203,20 @@ const UNKNOWN = {
         return { query, query2, query3 };
     },
 };
+
+// ADDRESS, BROADCAST and MESSAGE switch on action_format in the client and show the
+// rows each format carries. LIST v3 names the transfer destination and v5 (rename) is
+// read through list_metas in attachListActionDetail; v4 has no branch of its own.
+declareFormats(ADDRESS,   [0, 1], {});
+declareFormats(BATCH,     [0], {});
+declareFormats(BROADCAST, [0, 1, 2, 3], {});
+declareFormats(CALLBACK,  [0], {});
+declareFormats(FILE,      [0], {});
+declareFormats(MESSAGE,   [0, 1, 2, 3], {});
+declareFormats(SLEEP,     [0, 1], {});
+declareFormats(LIST,      [0, 1, 2, 3, 5], {
+    4: 'no format-specific rendering exists for a v4 LIST: the page shows only the generic lists row and list metadata',
+});
 
 module.exports = {
     ADDRESS,

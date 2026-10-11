@@ -172,8 +172,8 @@ describe('ACTION manifest conformance: dispatch extraction credits a dispatch on
 // Every user-encodable format of a rendered action is either shown by its detail
 // handler or named as unshown with a reason, so a new wire format cannot land
 // silently on a page that ignores what it carries.
-describe('ACTION manifest conformance: misc and dispensers declare every user-encodable format @regression', function () {
-    for (const file of ['misc', 'dispensers']) {
+describe('ACTION manifest conformance: misc, dispensers and tokens declare every user-encodable format @regression', function () {
+    for (const file of ['misc', 'dispensers', 'tokens']) {
         const handlers = require('../../../src/action-detail/' + file + '.js');
         for (const [name, handler] of Object.entries(handlers)) {
             const entry = MANIFEST.actions[name];
@@ -193,4 +193,12 @@ describe('ACTION manifest conformance: misc and dispensers declare every user-en
             });
         }
     }
+
+    // ISSUE v7 opts a token into bridging and has its own card and afterMain read,
+    // so it must stay rendered rather than be parked as unshown.
+    it('tokens.js ISSUE renders format 7', function () {
+        const { ISSUE } = require('../../../src/action-detail/tokens.js');
+        assert.ok(ISSUE.renderedFormats.includes(7), 'ISSUE format 7 must be rendered');
+        assert.ok(!Object.prototype.hasOwnProperty.call(ISSUE.unrenderedFormats, '7'));
+    });
 });

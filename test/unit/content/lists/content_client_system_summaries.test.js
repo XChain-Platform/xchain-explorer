@@ -53,6 +53,22 @@ function makeWindow(){
     return dom.window;
 }
 
+// The list rows call getActionDetails, so boot it with every summary part it
+// dispatches to and confirm the system summaries reach the Details cell.
+function makeDetailsWindow(){
+    const win = makeWindow();
+    for(const name of ['getActionDetails', 'actionDetail_legTotalLead', 'attestBatchLabel',
+        'actionDetail_renderBasicActions', 'actionDetail_renderMarketActions',
+        'actionDetail_renderMessageActions', 'actionDetail_sleepSummary',
+        'actionDetail_renderContractActions', 'actionDetail_renderConsensusActions'])
+        win.eval(extractFn(name));
+    return win;
+}
+
+function details(type, info){
+    return makeDetailsWindow().getActionDetails(type, info);
+}
+
 function render(type, info, initial){
     return makeWindow().actionDetail_renderSystemActions(initial || '', type, info, 'TDOGE');
 }
@@ -101,5 +117,19 @@ describe('client: system action summaries', function(){
 
     it('leaves an unrelated action unchanged', function(){
         expect(render('SEND', { tick: 'DANK' }, 'keep')).to.equal('keep');
+    });
+
+    it('getActionDetails renders the populated system summaries', function(){
+        expect(details('ROLLCALL', { epoch_height: 4200 })).to.equal('Roll call for epoch 4200');
+        expect(details('COINPAY_EXPIRE', { obligation_action_index: 77 })).to.include('/TDOGE/action/77');
+        expect(details('BET_EXPIRE', { feed_action_index: 1193, refund_count: 1 })).to.include('1 refund');
+        expect(details('XBRIDGE', { tick: 'DANK', dest_chain: 'DOGE' })).to.include('to DOGE');
+    });
+
+    it('getActionDetails keeps the humanized name for sparse system rows', function(){
+        expect(details('BET_EXPIRE', {})).to.equal('Bet expire');
+        expect(details('ROLLCALL', {})).to.equal('Rollcall');
+        expect(details('XBRIDGE', {})).to.equal('Xbridge');
+        expect(details('COINPAY_EXPIRE', {})).to.equal('Coinpay expire');
     });
 });

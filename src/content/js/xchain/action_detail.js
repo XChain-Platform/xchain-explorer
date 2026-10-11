@@ -25,6 +25,11 @@ function getActionDetails(action, info){
     html = actionDetail_renderMessageActions(html, action, info, coin);
     html = actionDetail_renderContractActions(html, action, info, coin);
     html = actionDetail_renderConsensusActions(html, action, info, coin);
+    // The expiry, roll-call and bridge summaries live in action_system_summaries.js,
+    // loaded after this part. They run after the humanized fallback so a sparse row
+    // keeps its name, and a harness without that part keeps the fallback too.
+    if(typeof actionDetail_renderSystemActions === 'function')
+        html = actionDetail_renderSystemActions(html, action, info, coin);
     // The structure markers live in their own part (action_markers.js), loaded
     // after this one; a page or a test harness that has only this part still
     // gets the summary, without the count badge.

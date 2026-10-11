@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-11
+
+### Added
+- Added the mirror admission margin gate and rendered BET feed list edits and settlement anchors in action feeds.
+- Added XPOLICY and LIST_SHARE action detail panels and bare API list routes.
+- Reported hub consensus hash drift in status and returned the dispenser pointer in dispense details.
+
+### Changed
+- Refused unstamped hub mirror payloads and lowered the explorer rate limit defaults.
+- Made websocket subscribe batches all-or-nothing and the backpressure action row atomic.
+- Armed ANCHOR_EMPTY_FOLD_REJECT_ACTIVATION on BTC:testnet at 156230.
+- Armed ANCHOR_EMPTY_FOLD_REJECT_ACTIVATION on LTC:testnet at 4912984.
+- Armed ANCHOR_EMPTY_FOLD_REJECT_ACTIVATION on DOGE:testnet at 67989993.
+- Armed COOLDOWN_MATURITY_ESCROW_REVERSAL_ACTIVATION on BTC:testnet at 156230.
+- Armed COOLDOWN_MATURITY_ESCROW_REVERSAL_ACTIVATION on LTC:testnet at 4912984.
+- Armed COOLDOWN_MATURITY_ESCROW_REVERSAL_ACTIVATION on DOGE:testnet at 67989993.
+- Armed DISPENSER_REFILL_POLICY_ACTIVATION on BTC:testnet at 156230.
+- Armed DISPENSER_REFILL_POLICY_ACTIVATION on LTC:testnet at 4912984.
+- Armed DISPENSER_REFILL_POLICY_ACTIVATION on DOGE:testnet at 67989993.
+- Armed ATTEST_RELAY_RESPONSE_DEADLINE_ACTIVATION on BTC:testnet at 1791804379.
+- Armed ATTEST_RELAY_RESPONSE_DEADLINE_ACTIVATION on LTC:testnet at 1791804379.
+- Armed ATTEST_RELAY_RESPONSE_DEADLINE_ACTIVATION on DOGE:testnet at 1791804379.
+- Armed BRIDGE_ROW_FIELDS_TERMINAL_ACTIVATION on BTC:testnet at 156230.
+- Armed BRIDGE_ROW_FIELDS_TERMINAL_ACTIVATION on LTC:testnet at 4912984.
+- Armed BRIDGE_ROW_FIELDS_TERMINAL_ACTIVATION on DOGE:testnet at 67989993.
+- Armed ADMIT_CHAIN_MARGIN_ACTIVATION on DOGE:testnet at 67989993.
+- Armed ATTEST_BATCH_HEAD_STATE_HASH_ACTIVATION on BTC:testnet at 156230.
+- Armed ATTEST_BATCH_HEAD_STATE_HASH_ACTIVATION on LTC:testnet at 4912984.
+- Armed ATTEST_BATCH_HEAD_STATE_HASH_ACTIVATION on DOGE:testnet at 67989993.
+
+### Fixed
+- Rewound the websocket change detector to the fork point so same-height reorg replacements reach clients.
+- Decoded UTC-literal DATE and DATETIME values as UTC on non-UTC hosts.
+- Rendered malformed price, poll and anchor attestation payloads with explicit markers.
+
 ## [0.22.4] - 2026-10-05
 
 ### Changed

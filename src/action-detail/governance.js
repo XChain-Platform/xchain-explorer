@@ -46,6 +46,16 @@ function clearBetPlumbing(data){
     delete data['edit_feed_ref']; delete data['edit_status'];
 }
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 const BET = {
     // One BET action name covers five independently stored formats: format 0 owns
     // a bet_feeds row, format 1 a bet_cancels row, format 2 a bets row, format 3
@@ -254,6 +264,13 @@ const VOTE = {
         }
     },
 };
+
+// BET v0 feeds, v1 cancels, v2 wagers, v3 resolves and v4 edits each own a row the
+// joined detail query reads, and bet_kind picks the card for every one. VOTE v0 polls,
+// v1 ballots and v3 delegations each have their own vote_kind card; the synthetic
+// VOTE v2 finalization is not user-encodable. BET_EDIT shares the BET handler.
+declareFormats(BET,  [0, 1, 2, 3, 4], {});
+declareFormats(VOTE, [0, 1, 3], {});
 
 module.exports = {
     BET,

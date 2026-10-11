@@ -78,7 +78,8 @@ async function seedManifestReaders(pool, database, probe) {
         const ids = await seedIndexes(conn, made, probe.balanceAddress);
         const a = await seedSpine(conn, made, ids, {
             token: 'ISSUE', order: 'ORDER', contract: 'DEPLOY', execution: 'EXECUTE', stake: 'STAKE',
-            unstake: 'UNSTAKE', validator: 'STAKE', price: 'PRICE', attest: 'ATTEST',
+            unstake: 'UNSTAKE', validator: 'STAKE', price: 'PRICE', attest: 'ATTEST', swap: 'SWAP',
+            dispenser: 'DISPENSER',
         });
         const at = { block_index: BLOCK_INDEX, status_id: ids.valid };
         await insertRow(conn, made, 'tokens', {
@@ -127,6 +128,16 @@ async function seedManifestReaders(pool, database, probe) {
             action_index: a.attest, version: 1, request_id: 'cd'.repeat(32), provider_id: 'http_get',
             response_status: 'ok',
         }, at), 'action_index');
+        const trade = {
+            give_tick_id: ids.tick, give_amount: '1', give_ownership: 0, get_tick_id: ids.tick2, get_amount: '1',
+            get_address_id: ids.source, status_id: ids.valid,
+        };
+        await insertRow(conn, made, 'swaps', Object.assign({
+            action_index: a.swap, get_ownership: 0,
+        }, trade), 'action_index');
+        await insertRow(conn, made, 'dispensers', Object.assign({
+            action_index: a.dispenser, give_escrow: '1',
+        }, trade), 'action_index');
         return made;
     } catch (e) {
         await deleteSeeded(pool, database, made);

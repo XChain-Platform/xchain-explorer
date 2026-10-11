@@ -23,10 +23,12 @@ const { seedManifestReaders, deleteSeeded } = require('./dashboard_manifest_seed
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..', '..');
 const DASHBOARD_CLIENT = path.join('monitor', 'src', 'lib', 'explorer-client.js');
+// The contract readers take a bare contract index, as the /contract/{QUERY}
+// routes pass it: getContractBalance derives the C:<CHAIN>: custody prefix itself.
 const DASHBOARD_PROBE_ARGS = {
     getContract:        { search: '1' },
-    getContractState:   { search: '1' },
-    getContractBalance: { search: 'C:BTC:1' },
+    getContractState:   { search: '1', type: 'contract' },
+    getContractBalance: { search: '1', type: 'contract' },
 };
 
 function dashboardClientPath(env = process.env, repoRoot = REPO_ROOT) {
@@ -143,6 +145,7 @@ function seedProbe(db, conformance) {
     };
 }
 
+
 function registerDashboardManifest(runtime) {
     const conformance = require('../../schema_conformance.test.js');
     describe('dashboard explorer-reader manifest against the real schema', function () {
@@ -219,5 +222,6 @@ module.exports = {
     UNSEEDED_READERS,
     readerVerdict,
     readerConfig,
+    seedProbe,
     registerDashboardManifest,
 };

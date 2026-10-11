@@ -172,8 +172,8 @@ describe('ACTION manifest conformance: dispatch extraction credits a dispatch on
 // Every user-encodable format of a rendered action is either shown by its detail
 // handler or named as unshown with a reason, so a new wire format cannot land
 // silently on a page that ignores what it carries.
-describe('ACTION manifest conformance: misc, dispensers and tokens declare every user-encodable format @regression', function () {
-    for (const file of ['misc', 'dispensers', 'tokens']) {
+describe('ACTION manifest conformance: misc, dispensers, tokens, markets and staking declare every user-encodable format @regression', function () {
+    for (const file of ['misc', 'dispensers', 'tokens', 'markets', 'staking']) {
         const handlers = require('../../../src/action-detail/' + file + '.js');
         for (const [name, handler] of Object.entries(handlers)) {
             const entry = MANIFEST.actions[name];

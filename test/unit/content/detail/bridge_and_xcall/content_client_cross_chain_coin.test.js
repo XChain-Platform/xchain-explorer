@@ -76,6 +76,7 @@ function summary(action, info) {
         }
         function getNetworkIcon(){ return 'fa-bitcoin'; }
     `);
+    dom.window.eval(extractFn('actionDetail_legTotalLead'));
     dom.window.eval(extractFn('actionDetail_renderBasicActions'));
     dom.window.eval(extractFn('actionDetail_renderMarketActions'));
     dom.window.eval(extractFn('actionDetail_renderMessageActions'));

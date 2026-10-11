@@ -34,7 +34,7 @@ const JQUERY      = fs.readFileSync(path.join(CONTENT, 'js', 'jquery.min.js'), '
 
 // Types whose list row is the humanized name alone.
 const FALLBACK_ONLY = [
-    'BATCH', 'BET_EXPIRE', 'COINPAY', 'COINPAY_EXPIRE', 'CROSS_SETTLE', 'NODEPROOF',
+    'BATCH', 'BET_EDIT', 'BET_EXPIRE', 'COINPAY', 'COINPAY_EXPIRE', 'CROSS_SETTLE', 'NODEPROOF',
     'ROLLCALL', 'UNKNOWN', 'XBRIDGE', 'XCALL', 'XEXEC'
 ];
 

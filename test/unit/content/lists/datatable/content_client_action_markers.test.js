@@ -41,7 +41,7 @@ function extractFn(name) {
 }
 
 const RENDERERS = [
-    'getActionDetails',
+    'getActionDetails', 'actionDetail_legTotalLead',
     'actionDetail_renderBasicActions', 'actionDetail_renderMarketActions', 'actionDetail_renderMessageActions',
     'actionDetail_renderContractActions', 'actionDetail_renderConsensusActions',
     'actionDetail_renderStructureMarkers', 'actionDetail_disclosureToggle',

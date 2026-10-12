@@ -1,7 +1,7 @@
 {
   "note": "Classic-layout baseline for the console layout milestones M1 to M3, captured 2026-10-12 with headless Playwright from the testnet explorer.",
   "captured": "2026-10-12",
-  "venue": "test02 explorer :18080",
+  "venue": "testnet explorer",
   "pages": {
     "coin_home": {
       "status": [

@@ -117,7 +117,8 @@
  *
  **********************************************************************/
 
-window.__XC = (function () {
+(function (exporting) {
+const probe = (function () {
   const A = ['body','.footer','.footer a','.card','.card-header','.card-body','.navbar','.dropdown-menu',
     'table.dataTable','table.dataTable thead th','table.dataTable tbody td','table.dataTable tbody tr',
     '.btn','.btn-primary','a','h1','h2','.badge','.form-control','.form-select','input','select',
@@ -153,6 +154,10 @@ window.__XC = (function () {
   const fp = o => { const s = Object.keys(o).sort().map(k => k+'='+o[k]).join('\n');
     let h = 5381; for (let i=0;i<s.length;i++) h = ((h*33)^s.charCodeAt(i))>>>0;
     return { hash: h.toString(16).padStart(8,'0'), keys: Object.keys(o).length }; };
+  const censusHash = values => fp(values.reduce((o, value) => { o[value] = '1'; return o; }, {})).hash;
+  const schema = Object.freeze({ version: 1,
+    anchors: Object.freeze({ count: A.length, hash: censusHash(A) }),
+    properties: Object.freeze({ count: P.length, hash: censusHash(P) }) });
   const ruleSnap = () => {
     const snap = {}; let rules = 0, sheets = 0; const un = []; const seen = new Set();
     // Read one admitted sheet once; an unreadable one is recorded so health()
@@ -226,7 +231,7 @@ window.__XC = (function () {
   const witness = () => { const cs = getComputedStyle(document.body);
     return ['background-color','color','border-top-color']
       .map(p => cs.getPropertyValue(p).trim()).join(' | '); };
-  return function capture(tag, phase) {
+  const capture = function (tag, phase) {
     if (!document.body) return { invalid: ['the page has no body element to capture'] };
     // The application marks the mode on BODY (updateTheme() in
     // src/content/js/xchain.js), and themes/*/tokens.css declares the --xc-*
@@ -266,6 +271,21 @@ window.__XC = (function () {
       localStorage['__xc:'+phase+':'+tag+'|'+mode+'|rend'] = JSON.stringify(held[mode+'|rend']);
     }
     localStorage['__xcUn:'+phase+':'+tag] = JSON.stringify(held.light.un);
+    res.probe = schema;
+    localStorage['__xcResult:'+phase+':'+tag] = JSON.stringify({
+      url: location.pathname+location.search, probe: schema, light: res.light, dark: res.dark,
+    });
     return res;
   };
+  capture.schema = schema;
+  capture.export = phase => {
+    const prefix = '__xcResult:'+phase+':', pages = {};
+    for (const key of Object.keys(localStorage).sort())
+      if (key.indexOf(prefix) === 0) pages[key.slice(prefix.length)] = JSON.parse(localStorage[key]);
+    return { phase, probe: schema, pages };
+  };
+  return capture;
 })();
+if (typeof window !== 'undefined') window.__XC = probe;
+if (exporting) module.exports = probe.schema;
+})(typeof module !== 'undefined' && !!module.exports);

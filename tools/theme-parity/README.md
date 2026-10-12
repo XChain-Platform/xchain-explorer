@@ -48,6 +48,44 @@ matched no anchor, or where the two modes rendered identically. A rejected
 capture writes nothing to localStorage, so it cannot overwrite a good stored
 snapshot, and it must never be compared against a baseline.
 
+Every accepted capture also stores a compact result for baseline export. Use
+one phase name for all pages in the run. After capturing the final page, copy
+the phase manifest from the console:
+
+```js
+copy(JSON.stringify(__XC.export('before'), null, 2))
+```
+
+Save that text as `tmp/theme-parity-capture.json`, then build a dated baseline:
+
+```sh
+node tools/theme-parity/capture-baseline.js \
+  --input tmp/theme-parity-capture.json \
+  --date 2026-10-12 \
+  --venue "local regtest explorer" \
+  --output tools/theme-parity/baseline-2026-10-12.json
+```
+
+The output path must not already exist. The builder checks the probe schema on
+the manifest and every page, verifies both modes have the expected render-key
+count, and refuses to collapse mode-dependent rule results into the baseline's
+single rule hash. The probe schema identifies both census lists by count and
+hash, so even a same-size property substitution is incompatible. Run
+`node tools/theme-parity/capture-baseline.js --self-test` to exercise these
+guards.
+
+An existing baseline can be checked without changing it:
+
+```sh
+node tools/theme-parity/capture-baseline.js \
+  --check tools/theme-parity/baseline-2026-08-20.json
+```
+
+That command intentionally rejects the dated baseline with `Render census
+property count (23) incompatible with current probe (29)`. The file remains a
+historical record, but it cannot be supplied as evidence for the current
+29-property probe.
+
 When a hash does not reproduce, ask the page what moved rather than guessing:
 
 ```js

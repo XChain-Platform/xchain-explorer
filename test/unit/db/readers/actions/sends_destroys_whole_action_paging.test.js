@@ -113,3 +113,43 @@ describe('SEND and DESTROY whole-action paging', () => {
         assert.doesNotMatch(stopSql(ctx, '', 'DESC', 3), /DISTINCT m\.action_index/);
     });
 });
+
+// A replica from before leg_ordinal existed must still list SEND and DESTROY rows: the
+// list reads probe the column like the detail read does, instead of failing with 1054.
+describe('SEND and DESTROY lists against a replica without leg_ordinal', () => {
+    // A db whose schema probe reports whether the table carries leg_ordinal.
+    function probedDb(hasColumn){
+        const probes = [];
+        return { probes, async doQuery(_cfg, text, args){
+            probes.push({ text, args });
+            return hasColumn ? [{ COLUMN_NAME: 'leg_ordinal' }] : [];
+        } };
+    }
+
+    for(const [method, reader, table] of [
+        ['getSends', transfers.getSends, 'sends'],
+        ['getDestroys', tokens.getDestroys, 'destroys']
+    ]){
+        it(method + ' selects a constant leg_ordinal when the replica lacks the column', async () => {
+            const db = probedDb(false);
+            const cfg = Object.assign(config(method), { coin: 'BTC' });
+            const [query] = await reader.call(db, cfg);
+
+            assert.strictEqual(db.probes.length, 1);
+            assert.match(db.probes[0].text, /information_schema\.COLUMNS/);
+            assert.deepStrictEqual(db.probes[0].args, [table, 'leg_ordinal']);
+            assert.match(query, /s1\.status, 0 AS leg_ordinal\s+FROM/);
+            assert.doesNotMatch(query, /m1\.memo, s1\.status, m\.leg_ordinal/);
+        });
+
+        it(method + ' selects the stored leg_ordinal when the replica has the column', async () => {
+            const db = probedDb(true);
+            const cfg = Object.assign(config(method), { coin: 'BTC' });
+            const [query] = await reader.call(db, cfg);
+
+            assert.match(query, /s1\.status, m\.leg_ordinal\s+FROM/);
+            assert.doesNotMatch(query, /0 AS leg_ordinal/);
+            assert.match(query, /ORDER BY m\.action_index DESC, m\.leg_ordinal ASC/);
+        });
+    }
+});

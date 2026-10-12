@@ -20,6 +20,8 @@
 
 'use strict';
 
+const { columnsPresent } = require('../../schema_probe.js');
+
 const GET_ISSUES_COUNT_SQL = `SELECT
                         count(*) as total
                     FROM
@@ -197,6 +199,8 @@ class TokenReaders {
 
     async getDestroys(config){
         let sql   = config.data.sql;
+        // Read leg_ordinal only where the replica has it; an older one pages its legs unsorted, as readLegs does.
+        let legOrdinal = await columnsPresent(this, config, 'destroys', ['leg_ordinal']) ? 'm.leg_ordinal' : '0 AS leg_ordinal';
         let rawExplorerOffset = config.type=='explorer' &&
             !(config.data.offset && config.data.offset.action);
         let requestedOffset = (config.type=='api')
@@ -229,7 +233,7 @@ class TokenReaders {
                 WITH filtered_destroys AS (
                     SELECT a3.action, m.action_index, a1.action_format, a2.address as source,
                         t3.tick, m.amount, b1.block_index, b1.block_time as timestamp,
-                        t2.hash as tx_hash, t1.tx_index, m1.memo, s1.status, m.leg_ordinal
+                        t2.hash as tx_hash, t1.tx_index, m1.memo, s1.status, ` + legOrdinal + `
                     FROM ` + joins + ` WHERE ` + sql.where.data + sql.where.offset + `
                 ), page_actions AS (
                     SELECT DISTINCT action_index

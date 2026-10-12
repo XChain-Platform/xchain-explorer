@@ -250,6 +250,9 @@ describe('theme token-literal gate (M1 A3)', () => {
     assert.deepEqual(violations, [], `tokenize these before merging:\n${violations.join('\n')}`);
   });
 
+  // Covers every component.css as well as the two page-level sheets. The live identity pin freezes
+  // this title, so it becomes 'every var(--xc-*) the page and component stylesheets reference is
+  // defined in tokens.css' when that pin is next re-taken.
   it('every var(--xc-*) the two stylesheets reference is defined in tokens.css', () => {
     const tokensRaw = fs.readFileSync(TOKENS_FILE, 'utf8');
     const defined = new Set();

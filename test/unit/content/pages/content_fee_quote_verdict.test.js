@@ -44,21 +44,7 @@ const FEES_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src
 const XCHAIN_JS = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
 
-// Slice a top-level function out of a source string by walking braces, so the
-// test runs shipped code rather than a copy that can drift.
-function extractFn(src, name, where) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found in ' + where + ': ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../helpers/source_slice');
 
 // Run one shipped renderer against its own result node; `fn` names the function and
 // `nodeId` the element it writes into.

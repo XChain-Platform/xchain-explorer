@@ -80,9 +80,9 @@ const ROUTES = [
     ['/{COIN}/api/contracts', 'getContracts', null, 'Contracts', 'Deployed smart contracts'],
     ['/{COIN}/api/contract/{QUERY}', 'getContract', 'contract', 'Contracts', 'One contract (by action index)'],
     ['/{COIN}/api/contract/{QUERY}/state', 'getContractState', 'contract', 'Contracts', 'Contract state (all keys)'],
-    ['/{COIN}/api/contract/{QUERY}/state/{TYPE}', 'getContractState', 'contract', 'Contracts', 'Contract state (one key)'],
+    ['/{COIN}/api/contract/{QUERY}/state/{TYPE}', 'getContractState', 'contract', 'Contracts', 'Contract state (all keys; {TYPE} does not narrow it)'],
     ['/{COIN}/api/contract/{QUERY}/balance', 'getContractBalance', 'contract', 'Contracts', 'Contract token balances'],
-    ['/{COIN}/api/contract/{QUERY}/balance/{TYPE}', 'getContractBalance', 'contract', 'Contracts', 'Contract balance (one tick)'],
+    ['/{COIN}/api/contract/{QUERY}/balance/{TYPE}', 'getContractBalance', 'contract', 'Contracts', 'Contract token balances (all ticks; {TYPE} does not narrow it)'],
     ['/{COIN}/api/executions/{QUERY}/{TYPE}', 'getExecutions', ['block', 'address', 'contract'], 'Contracts', 'Contract executions, filtered'],
     ['/{COIN}/api/executions', 'getExecutions', null, 'Contracts', 'Contract executions'],
     ['/{COIN}/api/execution/{QUERY}', 'getExecution', 'execution', 'Contracts', 'One execution (by action index)'],
@@ -565,11 +565,17 @@ function pathParams(p, types) {
                 kinds.filter(Boolean).map((t) => `${t} = ${QUERY_DESC[t] || t}`).join('; '),
         });
     }
+    // Enumerate {TYPE} only where the route table lists its types; a single-type route
+    // accepts any trailing segment and does not narrow its answer by it.
     if (p.includes('{TYPE}'))
-        params.push({
+        params.push(Array.isArray(types) ? {
             name: 'TYPE', in: 'path', required: true,
             schema: { type: 'string', enum: types },
             description: 'How to interpret {QUERY}',
+        } : {
+            name: 'TYPE', in: 'path', required: true,
+            schema: { type: 'string' },
+            description: 'Any value is accepted; this route does not filter its result by it',
         });
     for (const extra of ['TICK1', 'TICK2', 'TICK', 'ADDRESS', 'ACTION_INDEX', 'BLOCK_INDEX', 'CONTRACT_INDEX', 'KEY'])
         if (p.includes(`{${extra}}`))

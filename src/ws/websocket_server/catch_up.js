@@ -82,6 +82,54 @@ function replayTargets(server, client, routeKeys, filter, channelKeys) {
     return targets;
 }
 
+// Each request key's replay ceiling, resolved now: its frozen ceiling, lowered to the
+// live mark if a reorg rewound the feed below it. null means unbounded for that key.
+// Returns null (nothing bounded) without keys or without a live detector.
+function resolveCeilings(server, client, channelKeys) {
+    const detector = server.broadcaster && server.broadcaster.changeDetector;
+    if (!channelKeys || !detector || typeof detector.liveActionMark !== 'function') return null;
+    const frozen = client.replayCeilings || new Map();
+    const mark   = detector.liveActionMark(client.coin);
+    const ceilings = new Map();
+    for (const key of channelKeys) {
+        // A key frozen while the coin was unseeded went live before the seed, so every row
+        // above the seed reached it live; still unseeded, no row it replays can repeat live.
+        let ceiling = frozen.has(key) ? frozen.get(key) : null;
+        if (frozen.has(key) && ceiling === null) ceiling = detector.seedActionMark(client.coin);
+        if (ceiling !== null && mark !== null && mark < ceiling) ceiling = mark;
+        ceilings.set(key, ceiling);
+    }
+    return ceilings;
+}
+
+// The read's inclusive upper bound: the highest key ceiling, or null when any key is unbounded.
+function replayUpperBound(ceilings) {
+    if (!ceilings) return null;
+    let bound = null;
+    for (const ceiling of ceilings.values()) {
+        if (ceiling === null) return null;
+        if (bound === null || ceiling > bound) bound = ceiling;
+    }
+    return bound;
+}
+
+// The request keys still owed this row: a key whose ceiling is below it gets the row live.
+function keysOwedRow(channelKeys, ceilings, action) {
+    if (!channelKeys || !ceilings) return channelKeys;
+    let index;
+    try {
+        index = BigInt(action.action_index);
+    } catch (e) {
+        return channelKeys;
+    }
+    const owed = new Set();
+    for (const key of channelKeys) {
+        const ceiling = ceilings.get(key);
+        if (ceiling === null || ceiling === undefined || index <= ceiling) owed.add(key);
+    }
+    return owed;
+}
+
 // The envelope of one replayed frame: the live envelope plus the catch_up flag, and the
 // stale marker when the replay is bounded by a tip that is behind.
 function replayEnvelope(type, info, tipStale, data) {
@@ -150,9 +198,10 @@ function sendToTargets(server, client, event, actionData, targets) {
 // Replays each missed row in live order: its NEW_ACTION, then each lifecycle event the
 // live detector derives from it, each to every subscribed channel it routes to. Returns
 // how many frames were sent.
-async function replayActions(server, client, actions, info, filter, tipStale, channelKeys) {
+async function replayActions(server, client, actions, info, filter, tipStale, requestKeys, ceilings) {
     let eventsReplayed = 0;
     for (const action of actions) {
+        const channelKeys = keysOwedRow(requestKeys, ceilings, action);
         const event = replayEnvelope('NEW_ACTION', info, tipStale, newActionData(action));
         const routes = actionChannelKeys(client.coin, action.source, action.destinations);
         eventsReplayed += sendToTargets(server, client, event, action,
@@ -280,10 +329,16 @@ async function runCatchUp(server, client, sinceBig, filter, requestId, keys) {
         return;
     }
 
-    const actions   = await db.getActionsSince(config, sinceBig, server.catchUpMaxEvents);
+    // Bounded by the keys' ceilings, so a row the live feed sends these keys is not
+    // replayed to them as well (exactly once per key; rows above arrive live).
+    const ceilings  = resolveCeilings(server, client, keys);
+    const upTo      = replayUpperBound(ceilings);
+    const actions   = upTo === null
+        ? await db.getActionsSince(config, sinceBig, server.catchUpMaxEvents)
+        : await db.getActionsSince(config, sinceBig, server.catchUpMaxEvents, upTo);
     const info      = server.getCoinInfo(client.coin);
     const truncated = actions.length >= server.catchUpMaxEvents;
-    const eventsReplayed = await replayActions(server, client, actions, info, filter, tipStale, keys);
+    const eventsReplayed = await replayActions(server, client, actions, info, filter, tipStale, keys, ceilings);
     server.send(client, catchUpComplete(info, actions, sinceBig, { eventsReplayed, truncated, tipStale }, requestId));
 }
 

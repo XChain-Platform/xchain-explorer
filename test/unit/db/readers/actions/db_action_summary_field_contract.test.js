@@ -52,20 +52,8 @@ const SRC = srcText('src/content/js/xchain.js');
 const ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
 const INDEXER_SCHEMA = loadIndexerSchema(ROOT, process.env);
 
-// Slice a top-level function out of the client source by walking braces.
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found in xchain.js: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return SRC.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
 
 // Every `info.<field>` the shipped summary renderer reads, comments stripped so
 // a prose mention (the BROADCAST note about info.fee) is not counted as a read.

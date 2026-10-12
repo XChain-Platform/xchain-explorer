@@ -44,25 +44,8 @@ const SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../../src/content/js/formatters.js'), 'utf8')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../../src/content/js/formatters/protocol.js'), 'utf8');
 
-// Slice a top-level `function NAME(...){ ... }` out of the source by walking
-// braces from its opening `{` to the matching `}`. The three target functions
-// keep their `{`/`}` balanced inside strings/regex (verified), so a plain depth
-// counter is sufficient and far less brittle than line offsets.
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found in xchain.js: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    const body = SRC.slice(start, i);
-    if (!/\}\s*$/.test(body)) throw new Error('failed to extract balanced body for ' + name);
-    return body;
-}
+const { extractFn: sliceFunction } = require('../../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
 
 // Slice a top-level numeric `var NAME = <number>;` out of the source, so the
 // resize-guard function under test runs against the SHIPPED limits.

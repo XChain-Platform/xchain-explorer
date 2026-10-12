@@ -116,11 +116,15 @@ class WebSocketWelcome {
         // handleCatchUp and sendSnapshots.
         const tipStale = await this.isCoinTipStale(client.coin);
 
+        // The marker rides the envelope, where every other frame carries it, so one
+        // `msg.stale` check covers the handshake too; `data.stale` stays beside the
+        // tip indices it qualifies for consumers that already read it there.
         const welcome = {
             type:      'WELCOME',
             chain:     client.chain,
             network:   client.network,
             timestamp: Date.now(),
+            ...(tipStale ? { stale: true } : {}),
             data: {
                 ...tipBlock(this, latestBlockIndex, latestActionIndex, tipStale),
                 ...schemaBlock(this)

@@ -130,8 +130,34 @@ function testLifecycleChannelKeys() {
     });
 }
 
+// Runs the real extractAddresses rather than a stub, so the routing set is the shipped one.
+function testExtractAddresses() {
+    describe('extractAddresses on the real broadcaster', () => {
+        const Broadcaster = require('../../../../src/ws/broadcaster.js');
+        const real = { lifecycleChannelEntityId: () => null, extractAddresses: Broadcaster.prototype.extractAddresses };
+
+        it('routes a lifecycle payload to each named party once, source first', () => {
+            const keys = lifecycleChannelKeys(real, 'XCP', {
+                data: { source: 'src', payer_address: 'payer', payee_address: 'src', address: 'addr' }
+            });
+
+            expect(keys).to.deep.equal([
+                'XCP:actions', 'XCP:address:src', 'XCP:address:payer', 'XCP:address:addr'
+            ]);
+        });
+
+        it('does not route on a singular destination field', () => {
+            const keys = lifecycleChannelKeys(real, 'XCP', { data: { source: 'src', destination: 'other' } });
+
+            expect(keys).to.deep.equal(['XCP:actions', 'XCP:address:src']);
+        });
+
+    });
+}
+
 describe('broadcaster action routes', () => {
     testActionChannelKeys();
     testCarriesActions();
     testLifecycleChannelKeys();
+    testExtractAddresses();
 });

@@ -106,7 +106,8 @@ answering from the data it has, and the answer is marked instead of refused:
 - `/{COIN}/api/status` publishes the verdict in `stale` beside `last_block`,
   `tip_age_seconds`, `indexer_state` and `replica_halted`, and a stale coin
   stays listed in `available`;
-- the WebSocket WELCOME, CATCH_UP, SNAPSHOT and live frames carry `stale: true`;
+- the WebSocket WELCOME, CATCH_UP, SNAPSHOT and live frames carry a top-level
+  `stale: true` (WELCOME also repeats it as `data.stale`);
 - the HTML pages show a banner naming the last confirmed block, how old it
   is, and why indexing is behind (catching up, a consensus wait on a
   future-dated block, or a halted replica), while every table underneath

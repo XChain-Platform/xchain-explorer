@@ -70,6 +70,9 @@
  *     selector matched an element, still returned stable hashes over an empty
  *     snapshot and 31 absence markers.
  *
+ * A browser with no CSS Typed OM (Element.prototype.computedStyleMap) is refused
+ * too: the render census would read its layout-derived keys as used values.
+ *
  * A capture that fails any of those checks returns { invalid: [reasons] } with
  * no hashes and writes NOTHING to localStorage, so a degenerate run can neither
  * be mistaken for evidence nor overwrite a good stored snapshot.
@@ -202,14 +205,17 @@ const probe = (function () {
     for (const sh of document.styleSheets) readSheet(sh);
     return { rules, snap, un: un.sort(), sheets };
   };
-  const rendSnap = () => { const o = {}; let n = 0;
+  // Count every layout key read as a used value because the browser has no Typed OM;
+  // health() refuses such a capture, and the count stays out of `o` so hashes do not move.
+  const rendSnap = () => { const o = {}; let n = 0, untyped = 0;
     for (const sel of A) { let el; try { el = document.querySelector(sel); } catch(e) {}
       if (!el) { o[sel+' | __absent'] = '1'; continue; }
       n++; const cs = getComputedStyle(el);
       const cm = el.computedStyleMap && el.computedStyleMap();
-      for (const p of P) o[sel+' | '+p] = (LAYOUT.has(p) && cm)
-        ? String(cm.get(p)).trim() : cs.getPropertyValue(p).trim(); }
-    return { o, n, total: A.length }; };
+      for (const p of P) { if (LAYOUT.has(p) && !cm) untyped++;
+        o[sel+' | '+p] = (LAYOUT.has(p) && cm)
+          ? String(cm.get(p)).trim() : cs.getPropertyValue(p).trim(); } }
+    return { o, n, total: A.length, untyped }; };
   // Everything a capture can be wrong ABOUT, asked of the capture itself. A
   // fingerprint of nothing is stable, so an empty snapshot and a healthy one
   // are indistinguishable downstream: a fresh before/after pair taken on a page
@@ -223,6 +229,9 @@ const probe = (function () {
     for (const k of Object.keys(R.snap)) if (k.indexOf('__UNREADABLE__ ') === 0)
       bad.push(mode+': unreadable stylesheet '+k.slice(15));
     if (!D.n) bad.push(mode+': the render census matched none of its '+D.total+' anchors');
+    // Refuse used-value layout keys: they drift with page content and read as a CSS change.
+    if (D.untyped) bad.push(mode+': the render census read '+D.untyped+' layout-derived keys through '
+      +'getComputedStyle because this browser has no CSS Typed OM computedStyleMap; use one that has it');
     return bad;
   };
   // The mode a capture actually rendered in, read off the element the census

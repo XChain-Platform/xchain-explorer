@@ -26,7 +26,8 @@ pasted, not loaded from a string.
 1. Reach the venue explorer. From this Mac:
    `ssh -N -L 18080:localhost:18080 <regtest-host>`
 2. Open a page under test, e.g. `http://localhost:18080/RDOGE`.
-3. Paste all of `parity-probe.js` into the devtools console.
+3. Paste all of `parity-probe.js` into the devtools console of a browser with
+   CSS Typed OM (`Element.prototype.computedStyleMap`); Chrome has it.
 4. Capture:
    - before any CSS change: `__XC('coin_home', 'before')`
    - after: `__XC('coin_home', 'after')`
@@ -44,7 +45,8 @@ A capture can also come back as `{ invalid: [reasons] }` with no hashes at
 all. That is not a failed comparison, it is a refusal to mint evidence: the
 probe rejects a run where no stylesheet matched `SHEET`, where a sheet was
 unreadable, where the rule snapshot came back empty, where the render census
-matched no anchor, or where the two modes rendered identically. A rejected
+matched no anchor, where the browser had no Typed OM `computedStyleMap` for the
+layout-derived keys, or where the two modes rendered identically. A rejected
 capture writes nothing to localStorage, so it cannot overwrite a good stored
 snapshot, and it must never be compared against a baseline.
 
@@ -137,7 +139,8 @@ captures with no CSS change. The rule layer resolves their DECLARED text
 through the element's custom properties (the mechanism state rules already
 use); the render census reads the Typed OM `computedStyleMap`, where an auto
 margin is still `auto`. The keys stay in the census: a real CSS change on
-them still flags (proven below), while content drift no longer can.
+them still flags (proven below), while content drift no longer can. Without
+Typed OM the probe refuses the capture instead of falling back to used values.
 
 Both layers are needed. The rule layer alone cannot see mode at all, so a
 dark-mode acceptance test riding on it would pass vacuously.

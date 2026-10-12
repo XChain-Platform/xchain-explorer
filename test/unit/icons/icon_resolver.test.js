@@ -73,6 +73,27 @@ describe('IconResolver json_url lane mirrors the token page scheme', function(){
     });
 });
 
+describe('IconResolver arweave_url lane mirrors the token page', function(){
+    // A bare arweave.net description may carry a ';<sha256>' suffix and the legacy
+    // '/x.json' tail; both sides must drop them to fetch the same document.
+    const TXID = 'jGxVm7yghVDfv39tJds8kRFFrIsGTsg3h-JgXHx_inw';
+    const base = 'https://arweave.net/' + TXID;
+    [[base, base],
+     [base + '/x.json', base],
+     [base + ';abc123sha', base],
+     [base + '/x.json;abc123sha', base],
+     [base + '/meta.json;abc123sha', base + '/meta.json'],
+     ['http://arweave.net/' + TXID + ';abc123sha', 'http://arweave.net/' + TXID]].forEach(([desc, expected]) => {
+        it(`"${desc}" resolves to the page's arweave URL`, function(){
+            const r = resolveDescriptionToSource(desc);
+            expect(r).to.be.an('object');
+            expect(r.scheme).to.equal('arweave_url');
+            expect(r.url).to.equal(expected);
+            expect(r.url).to.equal(tokenInfo_metadataUrl(desc));
+        });
+    });
+});
+
 describe('IconResolver json_url lane uses the token page JSON-link rule', function(){
     // Plain-URL descriptions only: arweave, ipfs:, ar:, ord: and action: forms take
     // earlier lanes on both sides.

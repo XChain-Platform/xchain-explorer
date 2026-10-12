@@ -81,10 +81,14 @@ function unreadableSheet(href) {
 
 const HEALTHY_SHEETS = [sheet(FIRST_PARTY, [rule('body', { 'background-color': 'var(--xc-surface-body-bg)' })])];
 
+// Read a Typed OM property as the element's computed value, the default stub's reading.
+const COMPUTED_TYPED_OM = (cs, p) => cs.getPropertyValue(p);
+
 // Builds a page, shadows document.styleSheets with the given stub list (jsdom's
 // own cascade is untouched, so getComputedStyle still resolves MODE_CSS), and
 // evaluates the probe into it.
-function page({ bodyMode = 'dark', sheets = HEALTHY_SHEETS, markup = '<div class="card">c</div>' } = {}) {
+function page({ bodyMode = 'dark', sheets = HEALTHY_SHEETS, markup = '<div class="card">c</div>',
+  typedOM = COMPUTED_TYPED_OM } = {}) {
   const bodyAttr = bodyMode === null ? '' : ` data-bs-theme="${bodyMode}"`;
   const dom = new JSDOM(
     `<!doctype html><html data-bs-theme="light"><head><style>${MODE_CSS}</style></head>` +
@@ -94,6 +98,13 @@ function page({ bodyMode = 'dark', sheets = HEALTHY_SHEETS, markup = '<div class
   Object.defineProperty(dom.window.document, 'styleSheets', {
     get() { return sheets; }, configurable: true,
   });
+  // Stub the Typed OM jsdom lacks: typedOM(cs, p) reads each property, and false leaves it absent.
+  if (typedOM) {
+    dom.window.Element.prototype.computedStyleMap = function computedStyleMap() {
+      const cs = dom.window.getComputedStyle(this);
+      return { get: (p) => typedOM(cs, p) };
+    };
+  }
   vm.runInContext(PROBE_SRC, dom.getInternalVMContext(), { filename: PROBE_FILE });
   return dom.window;
 }
@@ -336,6 +347,31 @@ describe('theme parity probe (behavioural)', () => {
       const a = cellPage('border-right: 1px solid red').__XC('coin_home', 'before');
       const b = cellPage('border-right: 4px solid red').__XC('coin_home', 'before');
       assert.notEqual(a.light.rend.hash, b.light.rend.hash);
+    });
+  });
+});
+
+describe('theme parity probe (behavioural)', () => {
+  // getComputedStyle returns the USED value for a margin, which moves with page content,
+  // so the census reads layout-derived keys through Typed OM or refuses the capture.
+  describe('the render census reads layout-derived keys through Typed OM', () => {
+    it('refuses a capture from a browser with no Typed OM computedStyleMap', () => {
+      const win = page({ typedOM: false });
+      const res = win.__XC('coin_home', 'before');
+
+      assert.ok(Array.isArray(res.invalid), 'a used-value layout capture returned hashes');
+      assert.match(res.invalid.join(' '), /Typed OM computedStyleMap/);
+      assert.deepEqual(xcKeys(win), [], 'a refused capture still wrote to localStorage');
+    });
+
+    it('records the Typed OM value for a layout key and the computed value for any other', () => {
+      const win = page({ typedOM: () => 'typed-om-value' });
+      const res = win.__XC('coin_home', 'before');
+
+      assert.ok(!res.invalid, `capture rejected: ${JSON.stringify(res.invalid)}`);
+      const rend = rendOf(win, 'before', 'coin_home', 'light');
+      assert.equal(rend['.card | margin-top'], 'typed-om-value');
+      assert.equal(rend['body | background-color'], 'rgb(255, 255, 255)');
     });
   });
 });

@@ -29,21 +29,8 @@ const vm   = require('vm');
 const { expect } = require('chai');
 const CLIENT = require('../../../helpers/content-source.js').clientSource();
 
-// Slice a top-level function out of xchain.js by walking braces, the same
-// technique the sibling content-client tests use.
-function extractFn(name){
-    const sig = 'function ' + name + '(';
-    const start = CLIENT.indexOf(sig);
-    if(start < 0) throw new Error('function not found in client source: ' + name);
-    const braceStart = CLIENT.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for(; i < CLIENT.length; i++){
-        const c = CLIENT[i];
-        if(c === '{') depth++;
-        else if(c === '}'){ depth--; if(depth === 0){ i++; break; } }
-    }
-    return CLIENT.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(CLIENT, name, 'client source');
 
 // The mapper leans on two formatters.js helpers (stripHtml, isNull); load them
 // from the same composed source so the slice runs as it does in the page.

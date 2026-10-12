@@ -51,19 +51,8 @@ const SRC       = srcText('src/content/js/xchain.js');
 
 const FRAGMENTS = ['line.html', 'candlestick.html', 'market-depth.html'];
 
-// Lift one top-level function out of xchain.js by brace matching. Same approach
-// the content-client unit tests use: the bundle is a browser script, not a
-// module, so there is nothing to require.
-function extractFn(name){
-    const start = SRC.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found in xchain.js: ' + name);
-    let depth = 0, i = SRC.indexOf('{', start);
-    for(; i < SRC.length; i++){
-        if(SRC[i] === '{') depth++;
-        else if(SRC[i] === '}'){ depth--; if(depth === 0){ i++; break; } }
-    }
-    return SRC.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
 
 // A page with jQuery loaded and eval() refused, the way the browser refuses it
 // under script-src without 'unsafe-eval'. Returns the window plus the eval

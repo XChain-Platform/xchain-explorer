@@ -27,16 +27,7 @@ const { srcText } = require('../../helpers/source_text');
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-function extractFn(src, name) {
-    const start = src.indexOf('function ' + name + '(');
-    if (start < 0) throw new Error('function not found: ' + name);
-    let depth = 0, i = src.indexOf('{', start);
-    for (; i < src.length; i++) {
-        if (src[i] === '{') depth++;
-        else if (src[i] === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../helpers/source_slice');
 
 function legsDom(legs) {
     const dom = new JSDOM('<!DOCTYPE html><body><div id="out"></div></body>', { runScripts: 'outside-only' });

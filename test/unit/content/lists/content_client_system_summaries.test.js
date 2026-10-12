@@ -25,21 +25,8 @@ const { expect } = require('chai');
 
 const SRC = srcText('src/content/js/xchain.js');
 
-function extractFn(name){
-    const start = SRC.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found in xchain.js: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0;
-    let i = braceStart;
-    for(; i < SRC.length; i++){
-        if(SRC[i] === '{') depth++;
-        else if(SRC[i] === '}'){
-            depth--;
-            if(depth === 0){ i++; break; }
-        }
-    }
-    return SRC.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
 
 function makeWindow(){
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });

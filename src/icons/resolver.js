@@ -203,7 +203,7 @@ function nonImageMediaSource(desc){
 // 4. Bare arweave URL: strip the legacy /x.json suffix that no longer works
 function arweaveUrlSource(desc){
     if(!/^https?:\/\/arweave\.net\//i.test(desc)) return undefined;
-    let url = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
+    let url = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json(?=;|$)/i, '$1');
     url = url.split(';')[0];   // strip ;hash suffix if any
     return { scheme: 'arweave_url', url };
 }

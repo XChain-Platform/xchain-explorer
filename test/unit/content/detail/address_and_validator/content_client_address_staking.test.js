@@ -70,19 +70,7 @@ const PAGE_HTML   = fs.readFileSync(path.join(SRC_DIR, 'html/address.html'), 'ut
 const JQUERY_SRC  = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8');
 const NUMERAL_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/numeral.js'), 'utf8');
 
-function extractFn(src, name) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../../helpers/source_slice');
 
 // address.html carries MORE than one inline script (the pre-existing loader for
 // the address stats and the SPV proof widgets, plus the staking loader added

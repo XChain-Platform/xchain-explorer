@@ -21,18 +21,7 @@ const NUMERAL = fs.readFileSync(path.join(CONTENT, 'js', 'numeral.js'), 'utf8');
 const VOTE_SRC = fs.readFileSync(path.join(CONTENT, 'js', 'xchain', 'detail_attest_vote.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(CONTENT, 'html', 'action.html'), 'utf8');
 
-function extractFn(src, name) {
-    const start = src.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0;
-    let end = braceStart;
-    for(; end < src.length; end++) {
-        if(src[end] === '{') depth++;
-        else if(src[end] === '}' && --depth === 0) return src.slice(start, end + 1);
-    }
-    throw new Error('unterminated function: ' + name);
-}
+const { extractFn } = require('../../../../helpers/source_slice');
 
 function votePanelHtml() {
     const start = ACTION_HTML.indexOf('<div class="d-none" id="info-vote">');

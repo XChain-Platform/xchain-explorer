@@ -31,19 +31,8 @@ const { expect } = require('chai');
 // slices shipped functions out of whichever of the two they landed in.
 const SRC = require('../../../helpers/content-source.js').clientSource();
 
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found in xchain.js: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return SRC.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
 
 function summary(action, info) {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });

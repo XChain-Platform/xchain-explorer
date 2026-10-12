@@ -198,3 +198,19 @@ describe('live feed readers against the REAL indexer DDL (sends union)', functio
         expect(db.doQuery.callCount).to.equal(2);
     });
 });
+
+describe('live feed readers against the REAL indexer DDL (replay ceiling)', function () {
+    before(loadRealSchema);
+    beforeEach(resetFixture);
+    afterEach(() => sinon.restore());
+
+    it('getActionsSince with an upper bound reads only rows at or below it, inclusive', async function () {
+        for (const index of [60, 61, 62, 63]) addAction(index, 600, null, 'XBRIDGE');
+
+        const bounded   = await db.getActionsSince(cfg, 59n, 100, 62n);
+        const unbounded = await db.getActionsSince(cfg, 59n, 100);
+
+        expect(bounded.map(r => Number(r.action_index))).to.deep.equal([60, 61, 62]);
+        expect(unbounded.map(r => Number(r.action_index))).to.deep.equal([60, 61, 62, 63]);
+    });
+});

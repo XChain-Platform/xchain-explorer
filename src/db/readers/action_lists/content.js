@@ -26,8 +26,8 @@ const GET_FILES_COUNT_SQL_1 = `SELECT
                             mappings_files m
                             INNER JOIN files              f1 ON (f1.action_index=m.action_index)
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
@@ -59,8 +59,8 @@ const GET_FILES_QUERY_SQL_1 = `SELECT
                             mappings_files m
                             INNER JOIN files              f1 ON (f1.action_index=m.action_index)
                             INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=f1.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=f1.status_id)
@@ -76,8 +76,8 @@ const GET_FILES_COUNT_SQL_2 = `SELECT
                         FROM
                             files m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -92,8 +92,8 @@ const GET_FILES_GATE_COUNT_SQL = `SELECT
                             files m
                             INNER JOIN gated_files        gf ON (gf.action_index=m.action_index)
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -123,8 +123,8 @@ const GET_FILES_QUERY_SQL_2 = `SELECT
                         FROM
                             files m
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                            INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                            INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                            INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                            LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                             LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                             LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                             LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -143,8 +143,8 @@ class ContentReaders {
                     FROM
                         broadcasts m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -169,8 +169,8 @@ class ContentReaders {
                     FROM
                         broadcasts m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -215,8 +215,8 @@ class ContentReaders {
                     FROM
                         links m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -243,8 +243,8 @@ class ContentReaders {
                     FROM
                         links m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -265,8 +265,8 @@ class ContentReaders {
                     FROM
                         lists m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -290,8 +290,8 @@ class ContentReaders {
                     FROM
                         lists m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -314,8 +314,8 @@ class ContentReaders {
                     FROM
                         messages m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -341,8 +341,8 @@ class ContentReaders {
                     FROM
                         messages m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)

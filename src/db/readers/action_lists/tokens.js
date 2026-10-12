@@ -27,8 +27,8 @@ const GET_ISSUES_COUNT_SQL = `SELECT
                     FROM
                         issues m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
@@ -80,8 +80,8 @@ const GET_ISSUES_QUERY_SQL = `SELECT
                     FROM
                         issues m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
@@ -98,8 +98,8 @@ const GET_TOKENS_COUNT_SQL = `SELECT
                     FROM
                         tokens m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -126,8 +126,8 @@ const GET_TOKENS_QUERY_SQL = `SELECT
                     FROM
                         tokens m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -155,8 +155,8 @@ class TokenReaders {
                     FROM
                         mints m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -182,8 +182,8 @@ class TokenReaders {
                     FROM
                         mints m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -216,8 +216,8 @@ class TokenReaders {
             config.data.offset.start = true;
         let joins = `destroys m
                     INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -258,8 +258,8 @@ class TokenReaders {
                     FROM
                         dividends m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -285,8 +285,8 @@ class TokenReaders {
                     FROM
                         dividends m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -358,8 +358,8 @@ class TokenReaders {
         let from  = `
                         tokens m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)`;

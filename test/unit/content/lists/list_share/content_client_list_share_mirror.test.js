@@ -24,18 +24,8 @@ const { expect } = require('chai');
 const SRC = srcText('src/content/js/xchain.js');
 const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '../../../../../src/content/html/action.html'), 'utf8');
 
-function extractFn(name){
-    const start = SRC.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0;
-    let end = braceStart;
-    for(; end < SRC.length; end++){
-        if(SRC[end] === '{') depth++;
-        if(SRC[end] === '}' && --depth === 0){ end++; break; }
-    }
-    return SRC.slice(start, end);
-}
+const { extractFn: sliceFunction } = require('../../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name);
 
 function listPanel(){
     const start = ACTION_HTML.indexOf('<div class="d-none" id="info-list">');

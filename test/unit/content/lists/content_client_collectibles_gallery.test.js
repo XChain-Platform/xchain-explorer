@@ -53,21 +53,7 @@ const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../sr
 const MATH_SRC   = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/math.min.js'), 'utf8');
 const BC_SRC     = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/xchain/network_status.js'), 'utf8');
 
-// Slice a top-level function out of the source by walking braces, so the test
-// runs shipped code rather than a copy that can drift.
-function extractFn(src, name) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../helpers/source_slice');
 
 // isNull, isNumeric, isNftToken and getTokenIcon are the REAL ones: the
 // classification verdict and the edition label are expressed through them, so a

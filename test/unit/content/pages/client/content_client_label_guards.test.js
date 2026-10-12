@@ -53,17 +53,7 @@ function bootPage(){
     return win;
 }
 
-// Slice a top-level function out of a source text by walking braces.
-function extractFn(src, name){
-    const start = src.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found: ' + name);
-    let depth = 0, i = src.indexOf('{', start);
-    for(; i < src.length; i++){
-        if(src[i] === '{') depth++;
-        else if(src[i] === '}'){ depth--; if(depth === 0){ i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../../helpers/source_slice');
 
 // Run one datatable row handler and read back the version cell.
 function rowVersionCell(win, fn, cells, data){

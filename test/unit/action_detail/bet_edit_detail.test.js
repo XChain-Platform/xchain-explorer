@@ -30,17 +30,8 @@ const JQUERY = fs.readFileSync(path.join(ROOT, 'src/content/js/jquery.min.js'), 
 const LAYOUT = require('../../../src/content/layouts/action-detail-cards.json');
 const util = { isNull: value => value === null || value === undefined };
 
-function extractFn(name, source = SCRIPT){
-    const start = source.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found: ' + name);
-    const brace = source.indexOf('{', start);
-    let depth = 0;
-    for(let i = brace; i < source.length; i++){
-        if(source[i] === '{') depth++;
-        if(source[i] === '}' && --depth === 0) return source.slice(start, i + 1);
-    }
-    throw new Error('function not terminated: ' + name);
-}
+const { extractFn: sliceFunction } = require('../../helpers/source_slice');
+const extractFn = (name, source = SCRIPT) => sliceFunction(source, name);
 
 function panelHtml(){
     const start = ACTION_HTML.indexOf('<div class="d-none" id="info-bet">');

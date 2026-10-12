@@ -144,6 +144,22 @@ function requestSnapshots(server, client, result, prevKeys, msg) {
     }
 }
 
+// Freezes each newly live key's replay ceiling at the live detector's mark, so a replay
+// for that key never reads a row the live feed also sends it. A key the client already
+// held keeps its first ceiling; null means the coin was unseeded (catch_up.js resolves it).
+function freezeReplayCeilings(server, client, prevKeys) {
+    const detector = server.broadcaster && server.broadcaster.changeDetector;
+    if (!detector || typeof detector.liveActionMark !== 'function') return;
+    const mark = detector.liveActionMark(client.coin);
+    if (!client.replayCeilings) client.replayCeilings = new Map();
+    for (const key of client.replayCeilings.keys()) {
+        if (!client.subscriptions.has(key)) client.replayCeilings.delete(key);
+    }
+    for (const key of client.subscriptions) {
+        if (!prevKeys.has(key)) client.replayCeilings.set(key, mark);
+    }
+}
+
 class WebSocketSubscriptions {
 
     // Handle incoming client message
@@ -199,6 +215,8 @@ class WebSocketSubscriptions {
         const prevKeys = new Set(client.subscriptions);
 
         const result = this.channelManager.subscribe(client, channels, params);
+        // Same turn as the subscribe above, with no await between: see freezeReplayCeilings.
+        freezeReplayCeilings(this, client, prevKeys);
 
         if (!result.success) {
             const err = result.error;

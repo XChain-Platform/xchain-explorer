@@ -109,6 +109,17 @@ describe('Database#getActionsSince', () => {
         expect(capturedArgs).to.deep.equal([5000, 25]);
     });
 
+    it('adds an inclusive upper bound, bound as a BigInt, only when one is given', async () => {
+        let captured = null;
+        let capturedArgs = null;
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { captured = q; capturedArgs = a; return []; });
+        await db.getActionsSince(cfg(), 5000n, 25, 5010n);
+        expect(captured).to.include('a1.action_index <= ?');
+        expect(capturedArgs).to.deep.equal([5000n, 5010n, 25]);
+        await db.getActionsSince(cfg(), 5000n, 25);
+        expect(captured).to.not.include('a1.action_index <= ?');
+    });
+
     it('query selects action_index, action, tx_hash, source', async () => {
         let captured = null;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => { captured = q; return []; });

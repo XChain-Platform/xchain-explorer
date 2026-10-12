@@ -30,7 +30,7 @@
 // The first pass of getActionsSince: the action rows themselves. `db` is the Database
 // instance the method runs on, passed in because this is a plain function rather than a
 // method, so the cut adds no name to Database.prototype.
-async function readActionsSinceRows(db, config, sinceActionIndex, limit){
+async function readActionsSinceRows(db, config, sinceActionIndex, limit, upToActionIndex){
     // Pass the cursor as a BigInt (or a Number below 2^53), NEVER a decimal
     // string: the connector quotes a string param, and MariaDB compares a
     // quoted literal against a BIGINT column as a DOUBLE, which reintroduces
@@ -57,6 +57,9 @@ async function readActionsSinceRows(db, config, sinceActionIndex, limit){
     // never fire ATTESTATION_RESPONSE on any subscriber. The block comes off the
     // action's own a1.block_index, so nothing here needs the transaction row;
     // tx_hash is simply NULL for a synthesized action, which is the honest answer.
+
+    // An inclusive upper bound is the catch-up replay's ceiling; the live feed passes none.
+    const bounded = upToActionIndex !== undefined && upToActionIndex !== null;
     let query = `SELECT
                         a1.action_index,
                         a3.action,
@@ -72,10 +75,12 @@ async function readActionsSinceRows(db, config, sinceActionIndex, limit){
                         LEFT  JOIN index_addresses    a4 ON (a4.id=a1.source_id)
                         LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE
-                        a1.action_index > ?
+                        a1.action_index > ?${bounded ? `
+                        AND a1.action_index <= ?` : ''}
                     ORDER BY a1.action_index ASC
                     LIMIT ?`;
-    let results = await db.doQuery(config, query, [sinceActionIndex, limit]);
+    let args = bounded ? [sinceActionIndex, upToActionIndex, limit] : [sinceActionIndex, limit];
+    let results = await db.doQuery(config, query, args);
     return results;
 }
 
@@ -153,8 +158,8 @@ class SyncFeedReaders {
         return results || [];
     }
 
-    async getActionsSince(config, sinceActionIndex, limit) {
-        let results = await readActionsSinceRows(this, config, sinceActionIndex, limit);
+    async getActionsSince(config, sinceActionIndex, limit, upToActionIndex) {
+        let results = await readActionsSinceRows(this, config, sinceActionIndex, limit, upToActionIndex);
         if(!results || !results.length) return [];
         // Destinations are attached in a SECOND pass rather than joined into the
         // query above, because nine LEFT JOINs would multiply the feed's rows (a

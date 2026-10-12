@@ -77,6 +77,30 @@ class CoinPass {
         // told the call it belonged to is finished.
         await this.checkXcallPhases(coin, config, currentBlockIndex, prev);
     }
+
+    // The coin's live-start mark: the action_index at or below which the live feed sends
+    // no further NEW_ACTION, or null while the coin is unseeded. A subscription key
+    // freezes it as its replay ceiling in the same turn it goes live.
+    liveActionMark(coin) {
+        const prev = this.state[coin];
+        return (prev && prev.initialized && prev.liveActionMark !== undefined) ? prev.liveActionMark : null;
+    }
+
+    // The mark this coin was seeded at, or null while it is unseeded: the ceiling of a key
+    // that went live before the first poll, every row above which the feed sends live.
+    seedActionMark(coin) {
+        const prev = this.state[coin];
+        return (prev && prev.initialized && prev.seedActionMark !== undefined) ? prev.seedActionMark : null;
+    }
+}
+
+// Moves the live-start mark to `index` (rows at or below it are never sent live again).
+function setLiveMark(prev, index) {
+    try {
+        prev.liveActionMark = BigInt(index);
+    } catch (e) {
+        // A malformed index is no mark: keep the last one, as nextCursor keeps the tip.
+    }
 }
 
 // The tip step: the reorg verdict and the two high-water marks, read in that order.
@@ -122,6 +146,9 @@ function seedCursors(prev, currentBlockIndex, currentActionIndex) {
     // Same seed rule for the XCALL phase cursor: every call that resolved at or
     // below the tip resolved before this process started.
     prev.xcallBlock  = currentBlockIndex;
+    // No row at or below the seed is ever sent live, so the seed is the first mark.
+    setLiveMark(prev, currentActionIndex);
+    prev.seedActionMark = prev.liveActionMark;
     // Every cursor now sits at the observed tip, so no rewind is owed.
     prev.pendingReorg = false;
     prev.initialized = true;
@@ -233,6 +260,10 @@ function rewindCursors(prev, fork, currentBlockIndex, currentActionIndex) {
     // be pushed again. Without the rewind that second resolution sits below the
     // high-water mark and is never emitted.
     if (prev.xcallBlock > currentBlockIndex) prev.xcallBlock = currentBlockIndex;
+    // Rows above the rewound action cursor are sent live again on the new chain, so the
+    // mark drops with it and a key going live now does not replay them as well.
+    if (prev.liveActionMark !== undefined && prev.liveActionMark > prev.actionIndex)
+        setLiveMark(prev, prev.actionIndex);
 }
 
 // The block step: one `block` emit per fetched row, then the block cursor advances.
@@ -279,6 +310,9 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
         // the typed lifecycle events its type maps to, entity updates for whatever
         // has a subscriber, and, for ATTEST only, the `attestation` channel.
         for (const action of newActions) {
+            // Advanced with no await before this row's NEW_ACTION, so a subscribe lands
+            // wholly before the row (gets it live) or after it (replays it).
+            setLiveMark(prev, action.action_index);
             detector.emit('action_row_start', coin, action);
             try {
                 detector.emit('action', coin, action);
@@ -294,6 +328,9 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
     // Same drain semantics as blocks (getActionsSince is action_index ASC,
     // capped at fetchLimit): advance to the last emitted action, not the tip.
     prev.actionIndex = detector.nextCursor(newActions, 'action_index', currentActionIndex);
+    // A cursor that moved past the last sent row skips indexes it will never send.
+    if (prev.liveActionMark === undefined || prev.liveActionMark < prev.actionIndex)
+        setLiveMark(prev, prev.actionIndex);
 }
 
 module.exports = CoinPass.prototype;

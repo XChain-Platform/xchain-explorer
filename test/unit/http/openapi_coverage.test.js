@@ -236,6 +236,26 @@ describe('openapi.json route coverage', () => {
             expect(param.schema.enum, `${route} TYPE enum`).to.have.members(types);
         }
     });
+
+    it('every enum in the spec is an array, as OpenAPI and JSON Schema require', () => {
+        const bad = [];
+        (function walk(node, at) {
+            if (!node || typeof node !== 'object') return;
+            if (Object.prototype.hasOwnProperty.call(node, 'enum') && !Array.isArray(node.enum)) bad.push(at);
+            for (const [k, v] of Object.entries(node)) walk(v, `${at}/${k}`);
+        })(SPEC, '#');
+        expect(bad, 'non-array enum locations').to.deep.equal([]);
+    });
+
+    it('the contract state and balance {TYPE} segments carry no enum, since neither route filters by it', () => {
+        for (const route of ['/{COIN}/api/contract/{QUERY}/state/{TYPE}', '/{COIN}/api/contract/{QUERY}/balance/{TYPE}']) {
+            expect(SRC, `${route} is a single-type route in the source table`).to.match(
+                new RegExp(`'${route.replace(/[{}/]/g, '\\$&')}'\\s*:\\s*\\[\\s*'[^']+'\\s*,\\s*'contract'\\s*\\]`));
+            const param = (SPEC.paths[route].get.parameters || []).find((p) => p.name === 'TYPE');
+            expect(param, `${route} TYPE param`).to.exist;
+            expect(param.schema, `${route} TYPE schema`).to.not.have.property('enum');
+        }
+    });
 });
 
 describe('openapi.json route coverage', () => {

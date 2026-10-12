@@ -26,21 +26,8 @@ const SRC = srcText('src/content/js/xchain.js')
 const ACTION_HTML = fs.readFileSync(
     path.resolve(__dirname, '../../../../../src/content/html/action.html'), 'utf8');
 
-function extractFn(name) {
-    const start = SRC.indexOf('function ' + name + '(');
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0;
-    let i = braceStart;
-    for (; i < SRC.length; i++) {
-        if (SRC[i] === '{') depth++;
-        else if (SRC[i] === '}') {
-            depth--;
-            if (depth === 0) return SRC.slice(start, i + 1);
-        }
-    }
-    throw new Error('unterminated function: ' + name);
-}
+const { extractFn: sliceFunction } = require('../../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name);
 
 function panelHtml() {
     const start = ACTION_HTML.indexOf('<div class="d-none" id="info-price">');

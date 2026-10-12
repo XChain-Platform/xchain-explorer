@@ -41,19 +41,8 @@ const { JSDOM } = require('jsdom');
 const SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/formatters.js'), 'utf8');
 
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return SRC.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name);
 
 function linker() {
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });

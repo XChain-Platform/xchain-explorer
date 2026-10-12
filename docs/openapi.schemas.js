@@ -526,7 +526,7 @@ const EXPLORER_STATUS = {
         },
         "decoder_health": {
             "type": "object",
-            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
             "additionalProperties": {
                 "type": "string"
             }

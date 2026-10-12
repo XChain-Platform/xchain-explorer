@@ -20,7 +20,7 @@
 
 'use strict';
 
-const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js');
+const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent, columnsPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js');
 delete contentReaders.getLists;
 class TransferReaders { async getLists(config){ return buildListsQuery(this, config, tablesPresent); }
     // Contract-emitted sends have no transaction. Join blocks from the action and
@@ -28,6 +28,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
     async getSends(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
+        // Read leg_ordinal only where the replica has it; an older one pages its legs unsorted, as readLegs does.
+        let legOrdinal = await columnsPresent(this, config, 'sends', ['leg_ordinal']) ? 'm.leg_ordinal' : '0 AS leg_ordinal';
         let rawExplorerOffset = config.type=='explorer' &&
             !(config.data.offset && config.data.offset.action);
         let requestedOffset = (config.type=='api')
@@ -65,7 +67,7 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     SELECT a4.action, m.action_index, a1.action_format, a2.address as source,
                         a3.address as destination, t3.tick, m.amount, b1.block_index,
                         b1.block_time as timestamp, t2.hash as tx_hash, t1.tx_index,
-                        m1.memo, s1.status, m.leg_ordinal
+                        m1.memo, s1.status, ` + legOrdinal + `
                     FROM ` + joins + ` WHERE ` + sql.where.data + sql.where.offset + `
                 ), page_actions AS (
                     SELECT DISTINCT action_index

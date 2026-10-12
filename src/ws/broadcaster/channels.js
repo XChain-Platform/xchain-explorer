@@ -149,11 +149,10 @@ class ChannelFanout {
         return projected;
     }
 
-    // Extract all address fields from an event data object
+    // Extract the address fields a lifecycle payload names (no producer sets a singular `destination`).
     extractAddresses(data) {
         const addrs = new Set();
         if (data.source)        addrs.add(data.source);
-        if (data.destination)   addrs.add(data.destination);
         if (data.payer_address) addrs.add(data.payer_address);
         if (data.payee_address) addrs.add(data.payee_address);
         if (data.address)       addrs.add(data.address);

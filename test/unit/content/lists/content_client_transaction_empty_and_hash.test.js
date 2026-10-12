@@ -37,21 +37,8 @@ const SRC      = srcText('src/content/js/xchain.js');
 const EXPLORER = srcText('src/XChainExplorer.js');
 const TX_HTML  = fs.readFileSync(path.join(ROOT, 'src/content/html/transaction.html'), 'utf8');
 
-// Slice a shipped function out of xchain.js by walking braces, the same technique
-// the sibling content-client tests use.
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found in xchain.js: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return SRC.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
 
 // The actions table exactly as transaction.html ships it, header and placeholder
 // both taken from the real file so a future markup edit is caught here.

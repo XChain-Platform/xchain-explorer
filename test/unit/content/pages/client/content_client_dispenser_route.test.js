@@ -38,22 +38,8 @@ const { expect } = require('chai');
 
 const SRC = srcText('src/content/js/xchain.js');
 
-// Slice a top-level function out of the source by walking braces (the same
-// technique the sibling content-client tests use) so this runs shipped code
-// rather than a copy that can drift.
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found in xchain.js: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return SRC.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
 
 // A real base58 check, not the market test's stub: this route's whole question
 // is whether an ADDRESS reaches XC.query, so stubbing the address test away

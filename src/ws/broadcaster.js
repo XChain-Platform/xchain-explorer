@@ -357,10 +357,10 @@ class Broadcaster {
             try {
                 if (msg && typeof msg === 'object' && msg.schema_version === undefined)
                     msg.schema_version = WS_SCHEMA_VERSION;
-                // Live frames for a coin whose indexed tip is stale carry the same
-                // additive `stale: true` marker WELCOME, CATCH_UP and SNAPSHOT do,
-                // so a subscriber never mistakes a replayed or lagging row for the
-                // chain tip. ChangeDetector maintains the set once per poll cycle.
+                // Live frames for a stale coin carry the same top-level `stale: true`
+                // WELCOME, CATCH_UP and SNAPSHOT do, so a subscriber never mistakes a
+                // replayed or lagging row for the chain tip. ChangeDetector maintains
+                // the set once per poll cycle.
                 if (msg && typeof msg === 'object' && msg.stale === undefined &&
                     this.changeDetector && this.changeDetector.staleCoins &&
                     this.changeDetector.staleCoins.has(client.coin))

@@ -28,25 +28,8 @@ const ACTION_HTML = fs.readFileSync(path.join(ROOT, 'src/content/html/action.htm
 const CARDS = JSON.parse(fs.readFileSync(
     path.join(ROOT, 'src/content/layouts/action-detail-cards.json'), 'utf8'));
 
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found in client source: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0;
-    let i = braceStart;
-    for (; i < SRC.length; i++) {
-        if (SRC[i] === '{') depth++;
-        else if (SRC[i] === '}') {
-            depth--;
-            if (depth === 0) {
-                i++;
-                break;
-            }
-        }
-    }
-    return SRC.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'client source');
 
 function panelHtml() {
     const start = ACTION_HTML.indexOf('<div class="d-none" id="info-rollcall">');

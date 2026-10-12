@@ -231,3 +231,65 @@ describe('Database#getStatus decoder health aggregation', () => {
         expect(urlsByCoin(post).sort()).to.deep.equal([CONFIG_URLS.BTC, 'http://generic:3001'].sort());
     });
 });
+
+// A decoder's REORG_HALT marker never reaches its own `status`, so a halted decoder
+// answers 'healthy' there; /status must read the halt fields and say so instead.
+describe('Database#getStatus decoder REORG_HALT reporting', () => {
+    beforeEach(() => {
+        db = makeDb();
+        saved = {};
+        for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k]; }
+        process.env.DECODER_API_URL = 'http://decoder:3001';
+    });
+
+    afterEach(() => {
+        for (const k of ENV_KEYS) {
+            if (saved[k] === undefined) delete process.env[k];
+            else process.env[k] = saved[k];
+        }
+        sinon.restore();
+    });
+
+    // Each coin's published reading for one stubbed health() reply.
+    async function statusFor(result) {
+        sinon.stub(axios, 'post').resolves({ data: { result } });
+        const [data] = await db.getStatus(cfg());
+        const codes = Object.keys(data.decoder_health);
+        expect(codes.length).to.be.greaterThan(0);
+        return codes.map((code) => ({
+            health: data.decoder_health[code], tip: data.chain_tip[code], lag: data.chain_lag_blocks[code],
+        }));
+    }
+
+    it('reports reorg-halted, not healthy, for a decoder carrying a latent halt marker', async () => {
+        const rows = await statusFor({ status: 'healthy', chainTipBlock: 900500, blockLag: 7,
+            reorg_halted: true, reorg_halt_parked: false, reorg_halt_reason: 'deep reorg' });
+        for (const row of rows) expect(row).to.deep.equal({ health: 'reorg-halted', tip: 900500, lag: 7 });
+    });
+
+    it('reports reorg-halt-parked for a decoder whose parse loop stopped on the halt', async () => {
+        const rows = await statusFor({ status: 'healthy', chainTipBlock: 900500, blockLag: 40,
+            reorg_halted: true, reorg_halt_parked: true });
+        for (const row of rows) expect(row).to.deep.equal({ health: 'reorg-halt-parked', tip: 900500, lag: 40 });
+    });
+
+    it('ranks the halt above node-stale and still nulls the frozen tip fields', async () => {
+        const rows = await statusFor({ status: 'healthy', chainTipBlock: 900500, blockLag: 0,
+            node_height_stale: true, reorg_halted: true, reorg_halt_parked: false });
+        for (const row of rows) expect(row).to.deep.equal({ health: 'reorg-halted', tip: null, lag: null });
+    });
+
+    it('reports node-stale with null tip fields when only the node height froze', async () => {
+        const rows = await statusFor({ status: 'healthy', chainTipBlock: 900500, blockLag: 0,
+            node_height_stale: true, reorg_halted: false });
+        for (const row of rows) expect(row).to.deep.equal({ health: 'node-stale', tip: null, lag: null });
+    });
+
+    it('keeps the decoder status when the halt fields are false or absent', async () => {
+        for (const extra of [{ reorg_halted: false, reorg_halt_parked: false }, {}]) {
+            sinon.restore();
+            const rows = await statusFor(Object.assign({ status: 'healthy', chainTipBlock: 900500, blockLag: 7 }, extra));
+            for (const row of rows) expect(row.health).to.equal('healthy');
+        }
+    });
+});

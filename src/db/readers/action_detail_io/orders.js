@@ -51,8 +51,8 @@ const ORDER_INFO_QUERY = `SELECT
                     FROM 
                         orders o1
                         INNER JOIN actions         a1 ON (a1.action_index=o1.action_index)
-                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks          b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
                         -- LEFT, not INNER: an order against the native coin carries a NULL

@@ -29,8 +29,8 @@
  * here, and no key, spelling or order in the block changes inside a window.
  *
  * REGTEST ARMING is applied WHEN A ROW IS READ (shared_rows.js registerRows
- * installs it as the core's read overlay): the block writes the five
- * venue-armed regtest entries UNPINNED, the registry stores that committed
+ * installs it as the core's read overlay): each block row REGTEST_ARMING
+ * lists commits a bare regtest entry, the registry stores that committed
  * table, and every get(), copy(), rows() and activeAt() arms the entry from
  * this process's environment as it stands at that moment. The overlay reads
  * through config.js's `env` (a live read-through view of process.env), never

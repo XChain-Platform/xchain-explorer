@@ -14,7 +14,7 @@
  *
  * BEHAVIOURAL cover for tools/theme-parity/parity-probe.js.
  *
- * theme-token-literal-gate.test.js already proves the probe PARSES and still
+ * theme_token_literal_gate.test.js already proves the probe PARSES and still
  * exports __XC. That is a static contract and it cannot see what the probe
  * measures, which is where both of this file's regressions lived: the probe
  * flipped data-bs-theme on documentElement while updateTheme() writes it on
@@ -235,6 +235,107 @@ describe('theme parity probe (behavioural)', () => {
       assert.ok(!res.invalid, `capture rejected: ${JSON.stringify(res.invalid)}`);
       const snap = JSON.parse(win.localStorage['__xc:before:coin_home|light|rule']);
       assert.ok('body | background-color' in snap, Object.keys(snap).join(','));
+    });
+  });
+});
+
+// A theme's tokens.css pulls its component overrides in with @import, and an
+// imported sheet never appears in document.styleSheets: it is reachable only
+// through the import rule's own .styleSheet. Stubs mirror Chrome's shape.
+const THEME_TOKENS = 'http://localhost:18080/themes/console/tokens.css';
+const NAV_SHEET = 'http://localhost:18080/themes/console/components/nav/component.css';
+const importRule = (href, styleSheet) => ({ href, styleSheet });
+
+// Capture a console page whose tokens.css imports the nav sheet as given.
+function captureWithNavImport(styleSheet) {
+  const win = page({
+    sheets: [sheet(THEME_TOKENS, [
+      importRule('./components/nav/component.css', styleSheet),
+      rule('body', { 'background-color': '#123456' }),
+    ])],
+  });
+  return { win, res: win.__XC('coin_home', 'before') };
+}
+
+// Assert a capture was refused over the nav import and persisted nothing.
+function assertRefusedOverNav({ win, res }) {
+  assert.ok(Array.isArray(res.invalid), 'a failed imported sheet was fingerprinted as evidence');
+  assert.match(res.invalid.join(' '), /components\/nav\/component\.css/);
+  assert.equal(xcKeys(win).length, 0, 'a refused capture still wrote to localStorage');
+}
+
+describe('theme parity probe (behavioural)', () => {
+  describe('a theme\'s @import-ed sheets reach the rule layer', () => {
+    it('reads the rules of a first-party sheet a theme imports', () => {
+      const { win, res } = captureWithNavImport(sheet(NAV_SHEET, [rule('.card', { color: 'rgb(1, 2, 3)' })]));
+
+      assert.ok(!res.invalid, `capture rejected: ${JSON.stringify(res.invalid)}`);
+      const snap = JSON.parse(win.localStorage['__xc:before:coin_home|light|rule']);
+      assert.ok('.card | color' in snap, `the imported sheet was never read: ${Object.keys(snap).join(',')}`);
+    });
+
+    it('still skips a vendor sheet reached through an import', () => {
+      const win = page({
+        sheets: [sheet(THEME_TOKENS, [
+          importRule('../../css/bootstrap.min.css',
+            sheet(VENDOR, [rule('.card', { color: 'rgb(1, 2, 3)' })])),
+          rule('body', { 'background-color': '#123456' }),
+        ])],
+      });
+      win.__XC('coin_home', 'before');
+      const snap = JSON.parse(win.localStorage['__xc:before:coin_home|light|rule']);
+      assert.ok(!('.card | color' in snap), 'a vendor sheet entered the rule layer through an import');
+    });
+
+  });
+
+  describe('a first-party import that failed refuses the capture', () => {
+    it('refuses an import that came back empty (Chrome\'s 404 shape)', () => {
+      assertRefusedOverNav(captureWithNavImport(sheet(NAV_SHEET, [])));
+    });
+
+    it('refuses an import with a null styleSheet', () => {
+      assertRefusedOverNav(captureWithNavImport(null));
+    });
+  });
+});
+
+describe('theme parity probe (behavioural)', () => {
+  // The render census is a hand-written property list, so a side it omits is a
+  // side no capture can see. The table-cell anchor declares padding-right and its
+  // edge cells set border-left-width and border-right-width.
+  describe('the render census reads every box property on all four sides', () => {
+    const CELL = 'table.dataTable tbody td';
+    const cellPage = (style) => page({
+      markup: `<table class="dataTable"><tbody><tr><td style="${style}">x</td></tr></tbody></table>`,
+    });
+
+    it('records padding, margin, border width and border colour for each side', () => {
+      const win = cellPage('padding-right: 3px');
+      const res = win.__XC('coin_home', 'before');
+      assert.ok(!res.invalid, `capture rejected: ${JSON.stringify(res.invalid)}`);
+      const rend = rendOf(win, 'before', 'coin_home', 'light');
+      const missing = [];
+      for (const side of ['top', 'right', 'bottom', 'left']) {
+        for (const p of [`padding-${side}`, `margin-${side}`, `border-${side}-width`, `border-${side}-color`]) {
+          if (!(`${CELL} | ${p}` in rend)) missing.push(p);
+        }
+      }
+      assert.deepEqual(missing, []);
+      assert.equal(rend[`${CELL} | padding-right`], '3px');
+    });
+
+    it('changes the render hash when only the cell padding-right changes', () => {
+      const a = cellPage('padding-right: 3px').__XC('coin_home', 'before');
+      const b = cellPage('padding-right: 9px').__XC('coin_home', 'before');
+      assert.notEqual(a.light.rend.hash, b.light.rend.hash);
+      assert.notEqual(a.dark.rend.hash, b.dark.rend.hash);
+    });
+
+    it('changes the render hash when only the cell border-right-width changes', () => {
+      const a = cellPage('border-right: 1px solid red').__XC('coin_home', 'before');
+      const b = cellPage('border-right: 4px solid red').__XC('coin_home', 'before');
+      assert.notEqual(a.light.rend.hash, b.light.rend.hash);
     });
   });
 });

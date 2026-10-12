@@ -1,13 +1,13 @@
 .table-stats tbody {
     display: grid;
-    gap: 1px;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--xc-console-stat-card-gap);
+    grid-template-columns: repeat(auto-fit, minmax(var(--xc-console-stat-card-min-width), 1fr));
 }
 
 .table-stats tr {
     background: var(--xc-console-panel-raised);
     display: grid;
-    grid-template-columns: minmax(7rem, 1fr) auto;
+    grid-template-columns: minmax(var(--xc-console-stat-card-label-min-width), 1fr) auto;
 }
 
 .table-stats th,

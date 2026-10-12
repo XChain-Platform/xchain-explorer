@@ -111,6 +111,10 @@ class BetLatchCursor {
         }
         if (rows.length >= this.fetchLimit && last < max)
             return (typeof currentMax === 'bigint') ? last : Number(last);
+        // Never fall below an emitted row: the fetch has no upper bound, so a row the
+        // indexer committed after the tip read is already sent and must not be re-sent.
+        if (last > max)
+            return (typeof currentMax === 'bigint') ? last : Number(last);
         return currentMax;
     }
 }

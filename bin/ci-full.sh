@@ -81,6 +81,8 @@ CI_TIER_FULL_ONLY=(
   "db fixture for perf (mariadb on 3307)"
   "perf (test:performance)"
   "coverage ratchet (coverage:check)"
+  "chaos (test:chaos)"
+  "mutation (test:mutation)"
 )
 DEFERRED=""
 ci_tier_deferred() {
@@ -99,6 +101,7 @@ ci_tier_deferred() {
 # >>> ci-tier timer (generated block; re-run the tier wirer to update) >>>
 run_tier() {
   ci_tier_deferred "$1" && return 0  # ci-tier guard (generated)
+  if [ "${CI_TIER:-full}" = "fast" ] && [ -n "${FAILED:-}" ]; then echo; echo "ci:full ===== $1 NOT RUN (a push stops at its first red tier, its verdict already red; the full sweep runs it) ====="; return 0; fi  # ci-tier stop (generated)
   local name="$1"; shift
   local __ci_tier_t0=$SECONDS
   echo; echo "ci:full ===== $name ====="
@@ -202,6 +205,9 @@ fi
 if [ "${CI_TIER:-full}" = "fast" ]; then
   run_tier "fast-tier selector self-test" ./node_modules/.bin/mocha --no-config --timeout 20000 --exit bin/test/ci_fast_select.test.js
 fi
+run_tier "fuzz (test:fuzz)" npm run test:fuzz
+run_tier "smoke unit (test:smoke:unit)" npm run test:smoke:unit
+run_tier "P0 regression unit (test:regression:p0:unit)" npm run test:regression:p0:unit
 
 # --- job: perf (needs: ci) -------------------------------------------------
 run_tier "db fixture for perf (mariadb on 3307)" db_fixture_reset
@@ -214,6 +220,10 @@ db_tier "perf (test:performance)" npm run test:performance
 run_tier "db fixture for integration (mariadb on 3307)" db_fixture_reset
 db_tier "integration (test:integration)" npm run test:integration
 
+run_tier "db fixture for e2e and boundary (mariadb on 3307)" db_fixture_reset
+db_tier "e2e (test:e2e)" npm run test:e2e
+db_tier "boundary integration (test:boundary:integration)" npm run test:boundary:integration
+
 # --- job: conformance (needs: ci) ------------------------------------------
 # Loads the REAL indexer, hub and decoder DDL from the sibling checkouts (the
 # suite resolves them as ../xchain-*/src/sql, which is why the layout above is
@@ -224,6 +234,19 @@ db_tier "conformance: schema canary (test:conformance)" npm run test:conformance
 
 npm run test:integration:down >/dev/null 2>&1
 echo "ci:full: db fixture torn down (no DB tiers remain)"
+
+# --- chaos and mutation tiers -----------------------------------------------
+# Chaos brings up its own compose fixture; mutation is the long Stryker run.
+# Both are full-sweep tiers.
+chaos_tier() {
+  npm run test:chaos:down >/dev/null 2>&1
+  npm run test:chaos:up || { npm run test:chaos:down >/dev/null 2>&1; return 1; }
+  npm run test:chaos; local rc=$?
+  npm run test:chaos:down >/dev/null 2>&1
+  return $rc
+}
+run_tier "chaos (test:chaos)" chaos_tier
+run_tier "mutation (test:mutation)" npm run test:mutation
 
 # --- job: drift-guards -----------------------------------------------------
 # Run FROM the parent so the sync scripts see the canonical + vendored pair the

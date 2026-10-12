@@ -51,12 +51,17 @@ const BET_DETAIL = `SELECT
                     br.feed_action_index as resolve_feed_ref,
                     -- Aliased: the bare outcome name is the wager's column above, which shape disambiguation reads
                     br.outcome as resolve_outcome,
+                    -- feed membership-list edit (format 4)
+                    be.feed_action_index as edit_feed_ref,
+                    be.allow_list as edit_allow_list,
+                    be.block_list as edit_block_list,
                     COALESCE(ft.tick, bt2.tick) as tick,
                     b1.block_index,
                     b1.block_time as timestamp,
                     t2.hash as tx_hash,
                     t1.tx_index,
-                    COALESCE(fs.status, bs.status, bcs.status, brs.status) as status
+                    COALESCE(fs.status, bs.status, bcs.status, brs.status) as status,
+                    bes.status as edit_status
                 FROM
                     actions a1
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
@@ -76,7 +81,9 @@ const BET_DETAIL = `SELECT
                     LEFT  JOIN index_statuses     bcs ON (bcs.id=bc.status_id)
                     LEFT  JOIN bet_resolves       br ON (br.action_index=a1.action_index)
                     LEFT  JOIN index_statuses     brs ON (brs.id=br.status_id)
-                    LEFT  JOIN bet_feeds          pf ON (pf.action_index=COALESCE(bt.feed_action_index, bc.feed_action_index, br.feed_action_index))
+                    LEFT  JOIN bet_edits          be ON (be.action_index=a1.action_index)
+                    LEFT  JOIN index_statuses     bes ON (bes.id=be.status_id)
+                    LEFT  JOIN bet_feeds          pf ON (pf.action_index=COALESCE(bt.feed_action_index, bc.feed_action_index, br.feed_action_index, be.feed_action_index))
                 WHERE
                     a1.action_index=?
                 LIMIT 1`;

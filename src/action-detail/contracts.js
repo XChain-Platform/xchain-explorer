@@ -28,6 +28,16 @@ const {
     depositWithdrawDetail
 } = require('../db/action_detail/contracts_sql');
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 const DEPLOY = {
     // DEPLOY action. The chunk carrier (v4) and the actual deploy (v0-v3) share the
     // DEPLOY action name but live in different tables, so pick the detail query by the
@@ -129,17 +139,8 @@ const DEPOSIT_WITHDRAW = {
     },
 };
 
-module.exports = {
-    DEPLOY,
-    EXECUTE,
-    // One handler, two action names: DEPOSIT and WITHDRAW share a row shape.
-    DEPOSIT:  DEPOSIT_WITHDRAW,
-    WITHDRAW: DEPOSIT_WITHDRAW
-};
-
-Object.defineProperty(module.exports, 'feeRows', {
-    value: function feeRows(){
-        return `(SELECT
+function persistedFeeRows(){
+    return `(SELECT
                         m.action_index,
                         m.tick_id,
                         m.amount,
@@ -157,7 +158,11 @@ Object.defineProperty(module.exports, 'feeRows', {
                         m.fee_version,
                         NULL as source_id
                     FROM
-                        fees m
+                        fees m`;
+}
+
+function inferredContractFeeRows(){
+    return `
                     UNION ALL
                     SELECT
                         ce.action_index,
@@ -192,5 +197,25 @@ Object.defineProperty(module.exports, 'feeRows', {
                         )
                     GROUP BY
                         ce.action_index, ce.gas_used, ce.status_id, ce.caller_id)`;
+}
+
+// DEPLOY v0-v3 read contracts and the v4 chunk carrier reads deploy_chunks (plus any
+// contract it completed); EXECUTE, DEPOSIT and WITHDRAW each have a single format.
+// DEPOSIT and WITHDRAW share one handler, so one declaration covers both.
+declareFormats(DEPLOY,           [0, 1, 2, 3, 4], {});
+declareFormats(EXECUTE,          [0], {});
+declareFormats(DEPOSIT_WITHDRAW, [0], {});
+
+module.exports = {
+    DEPLOY,
+    EXECUTE,
+    // One handler, two action names: DEPOSIT and WITHDRAW share a row shape.
+    DEPOSIT:  DEPOSIT_WITHDRAW,
+    WITHDRAW: DEPOSIT_WITHDRAW
+};
+
+Object.defineProperty(module.exports, 'feeRows', {
+    value: function feeRows(){
+        return persistedFeeRows() + inferredContractFeeRows();
     }
 });

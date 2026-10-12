@@ -31,7 +31,7 @@
 const acorn = require('acorn');
 const walk  = require('acorn-walk');
 
-// Must match CONTRACT_ECMA_VERSION in xchain-vm/src/lint-core.js: contracts
+// Must match CONTRACT_ECMA_VERSION in xchain-vm/src/metering.js: contracts
 // are validated at deploy time against ES2020, so we parse the same dialect.
 const CONTRACT_ECMA_VERSION = 2020;
 

@@ -27,12 +27,15 @@
 //   2. IDENTITY  - the local copy is byte-identical to the xchain-documentation copy.
 // (1) catches a logic change that happens to pass the local unit suite; (2)
 // catches ANY edit to one copy that was not propagated to the others. When the
-// sibling xchain-documentation repo is not checked out (standalone deploy), skip
-// rather than fail, matching the existing cross-repo guard convention.
+// sibling xchain-documentation repo is absent or refused by siblingCheckout(), the
+// committed fallback vectors keep the behavioral guard and its suite identity
+// available; a byte-identity block below keeps that fallback from going stale.
 
 const assert = require('assert');
+const childProcess = require('child_process');
 const fs     = require('fs');
 const path   = require('path');
+const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
 
 const swq   = require('../../../src/consensus/stake_weighted_quorum.js');
 const equiv = require('../../../src/consensus/equivocation_header.js');
@@ -42,19 +45,54 @@ const LOCAL_DIR = path.join(__dirname, '..', '..', '..', 'src');
 // sets XCHAIN_DOCS_DIR to wherever it checked the sibling out, because actions/checkout
 // cannot write a path above the job workspace (the dev/bin/ci-all.sh sibling layout is
 // one level above each repo). Fall back to that sibling layout for local + dev runs.
-// When neither resolves (standalone deploy), the guards below skip rather than fail.
+// When neither resolves (standalone deploy), the identity guard skips unless the
+// run declared sibling coverage mandatory with XCHAIN_REQUIRE_SIBLINGS=1.
 const DOCS_DIR  = process.env.XCHAIN_DOCS_DIR || path.join(__dirname, '..', '..', '..', '..', 'xchain-documentation');
 const CANON_DIR = path.join(DOCS_DIR, 'protocol', 'reference-impl');
 const VEC_DIR   = path.join(DOCS_DIR, 'protocol', 'test-vectors');
+const FALLBACK_VEC_DIR = path.join(__dirname, '..', '..', 'fixtures', 'consensus');
+const VEC_VERDICT = siblingCheckout(__dirname, VEC_DIR);
+const ACTIVE_VEC_DIR = VEC_VERDICT.usable ? VEC_DIR : FALLBACK_VEC_DIR;
+const CANON_VERDICT = siblingCheckout(__dirname, CANON_DIR);
+const PINNED_DOCS_COMMIT = '158bf56834ac741da3de6069cdf395fd59c57cc5';
+const DOCS_COMMIT = (() => {
+    if(VEC_VERDICT.usable && CANON_VERDICT.usable) return null;
+    try {
+        childProcess.execFileSync(
+            'git', ['-C', DOCS_DIR, 'cat-file', '-e', PINNED_DOCS_COMMIT + '^{commit}'],
+            { stdio: ['ignore', 'ignore', 'ignore'] }
+        );
+        return PINNED_DOCS_COMMIT;
+    } catch(e) {
+        return null;
+    }
+})();
 
-let quorumVec = null, equivVec = null, activationVec = null;
-try {
-    quorumVec     = require(path.join(VEC_DIR, 'stake_weighted_quorum.json'));
-    equivVec      = require(path.join(VEC_DIR, 'equivocation_header.json'));
-    activationVec = require(path.join(VEC_DIR, 'activation_predicates.json'));
-} catch(e){ /* sibling xchain-documentation absent */ }
+function docsFile(verdict, absolutePath, relativePath){
+    if(verdict.usable) return fs.readFileSync(absolutePath, 'utf8');
+    if(!DOCS_COMMIT) throw new Error('no committed xchain-documentation checkout is available');
+    return childProcess.execFileSync(
+        'git', ['-C', DOCS_DIR, 'show', DOCS_COMMIT + ':' + relativePath],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    );
+}
 
-const CANON_PRESENT = fs.existsSync(CANON_DIR);
+function docsFiles(verdict, absoluteDir, relativeDir){
+    if(verdict.usable)
+        return fs.readdirSync(absoluteDir).filter((f) => f.endsWith('.js')).sort();
+    if(!DOCS_COMMIT) throw new Error('no committed xchain-documentation checkout is available');
+    const prefix = relativeDir + '/';
+    return childProcess.execFileSync(
+        'git', ['-C', DOCS_DIR, 'ls-tree', '-r', '--name-only', DOCS_COMMIT, '--', relativeDir],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
+    ).trim().split('\n').filter((f) =>
+        f.startsWith(prefix) && !f.slice(prefix.length).includes('/') && f.endsWith('.js')
+    ).map((f) => f.slice(prefix.length)).sort();
+}
+
+const quorumVec     = require(path.join(ACTIVE_VEC_DIR, 'stake_weighted_quorum.json'));
+const equivVec      = require(path.join(ACTIVE_VEC_DIR, 'equivocation_header.json'));
+const activationVec = require(path.join(ACTIVE_VEC_DIR, 'activation_predicates.json'));
 
 // Every copy now shares ONE signature: meetsStakeThreshold(validators, signers),
 // and every copy exports totalStake(). No per-repo adapter remains.
@@ -69,8 +107,6 @@ function vecValidators(c){
 function meets(c){ return swq.meetsStakeThreshold(vecValidators(c), c.signers); }
 
 describe('consensus-primitive conformance: canonical vectors @regression', function(){
-    before(function(){ if(!quorumVec || !equivVec){ if(process.env.XCHAIN_REQUIRE_SIBLINGS==='1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but consensus test-vectors not found (sibling xchain-documentation missing)'); this.skip(); } });
-
     describe('stake_weighted_quorum.meetsStakeThreshold', function(){
         (quorumVec ? quorumVec.meetsStakeThreshold : []).forEach(function(c){
             it(c.name, function(){ assert.strictEqual(meets(c), c.expected); });
@@ -119,7 +155,6 @@ function decodeSnapshotBlock(v){
 // The activation boundaries run through THIS repo's carriers and so its own gate registry,
 // which byte identity never reaches; no snapshot_reorg_buffer.js here, so no burial group.
 describe('consensus-primitive conformance: activation predicate vectors @regression', function(){
-    before(function(){ if(!activationVec){ if(process.env.XCHAIN_REQUIRE_SIBLINGS==='1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but activation_predicates.json not found (sibling xchain-documentation missing)'); this.skip(); } });
     const groups = activationVec || {};
 
     it('every group this repo runs is a non-empty list', function(){
@@ -139,7 +174,10 @@ describe('consensus-primitive conformance: activation predicate vectors @regress
 });
 
 describe('consensus-primitive conformance: byte-identity to canonical source @regression', function(){
-    before(function(){ if(!CANON_PRESENT){ if(process.env.XCHAIN_REQUIRE_SIBLINGS==='1') throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but canonical reference-impl dir not found at ' + CANON_DIR); this.skip(); } });
+    before(function(){
+        if(!CANON_VERDICT.usable && !DOCS_COMMIT)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical consensus-primitive identity guard');
+    });
 
     // The two carriers sit under consensus/ on both sides since W5 (the same tail in
     // every repo), so the compare is a raw byte compare of src/consensus/<f> against
@@ -147,10 +185,72 @@ describe('consensus-primitive conformance: byte-identity to canonical source @re
     ['stake_weighted_quorum.js', 'equivocation_header.js'].forEach(function(f){
         it(f + ' is byte-identical to xchain-documentation/protocol/reference-impl', function(){
             const local = fs.readFileSync(path.join(LOCAL_DIR, 'consensus', f), 'utf8');
-            const canon = fs.readFileSync(path.join(CANON_DIR, 'consensus', f), 'utf8');
+            const canon = docsFile(
+                CANON_VERDICT,
+                path.join(CANON_DIR, 'consensus', f),
+                path.posix.join('protocol', 'reference-impl', 'consensus', f)
+            );
             assert.strictEqual(local, canon,
                 'this repo\'s consensus/' + f + ' has drifted from the canonical source; ' +
                 'edit xchain-indexer/src/consensus/' + f + ' and re-run reconcile-twins.sh to re-vendor every copy.');
+        });
+    });
+});
+
+describe('consensus-primitive conformance: gate_registry row parts byte-identity @regression', function(){
+    before(function(){
+        if(!CANON_VERDICT.usable && !DOCS_COMMIT)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical gate_registry identity guard');
+    });
+
+    const LOCAL_ONLY = ['local_rows.js'];
+    const localParts = () => fs.readdirSync(path.join(LOCAL_DIR, 'consensus', 'gate_registry')).filter((f) => f.endsWith('.js')).sort();
+    const canonParts = () => docsFiles(
+        CANON_VERDICT,
+        path.join(CANON_DIR, 'consensus', 'gate_registry'),
+        path.posix.join('protocol', 'reference-impl', 'consensus', 'gate_registry')
+    );
+
+    it('gate_registry/ file set equals the canonical set plus the local-only rows', function(){
+        assert.deepStrictEqual(
+            localParts().filter((f) => !LOCAL_ONLY.includes(f)),
+            canonParts(),
+            'the vendored gate_registry/ file set has drifted from xchain-documentation/protocol/reference-impl/consensus/gate_registry/');
+    });
+
+    it('every vendored gate_registry/ part is byte-identical to the canonical copy', function(){
+        const parts = canonParts();
+        assert.ok(parts.length > 0, 'canonical gate_registry/ is empty');
+        for(const f of parts){
+            const local = fs.readFileSync(path.join(LOCAL_DIR, 'consensus', 'gate_registry', f), 'utf8');
+            const canon = docsFile(
+                CANON_VERDICT,
+                path.join(CANON_DIR, 'consensus', 'gate_registry', f),
+                path.posix.join('protocol', 'reference-impl', 'consensus', 'gate_registry', f)
+            );
+            assert.strictEqual(local, canon, 'consensus/gate_registry/' + f + ' has drifted from the canonical source; re-vendor it from xchain-indexer.');
+        }
+    });
+});
+
+describe('consensus-primitive conformance: fallback vectors byte-identical to canonical @regression', function(){
+    before(function(){
+        if(!VEC_VERDICT.usable && !DOCS_COMMIT)
+            return skipOrFail(this, VEC_VERDICT, 'the fallback test-vector identity guard');
+    });
+
+    // Compare the committed fallback to canonical so a standalone run never judges stale vectors.
+    ['stake_weighted_quorum.json', 'equivocation_header.json', 'activation_predicates.json'].forEach(function(f){
+        it('fixtures/consensus/' + f + ' is byte-identical to xchain-documentation/protocol/test-vectors', function(){
+            const fallback = fs.readFileSync(path.join(FALLBACK_VEC_DIR, f), 'utf8');
+            const canon    = docsFile(
+                VEC_VERDICT,
+                path.join(VEC_DIR, f),
+                path.posix.join('protocol', 'test-vectors', f)
+            );
+            assert.strictEqual(fallback, canon,
+                'test/fixtures/consensus/' + f + ' has drifted from the canonical vectors; ' +
+                'copy xchain-documentation/protocol/test-vectors/' + f + ' over it.');
         });
     });
 });

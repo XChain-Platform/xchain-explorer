@@ -42,16 +42,24 @@ const SIBLING_GATES = [
 ].map(([source, testFile = source]) => ({ source, testFile }));
 
 const REQUIRED_VM_GUARD = 'test/unit/contract/vm_query.test/support/consensus.js';
+const REQUIRED_SIBLING_TESTS = new Set([
+    'test/unit/config/coins_conformance.test.js',
+    'test/unit/contract/vm_query.test.js',
+    'test/unit/db/core/db_reorg_real_ddl.test.js',
+    'test/unit/db/mempool/db_mempool_address_case.test.js',
+    'test/unit/http/contract_state_proof.test.js',
+    'test/unit/http/locked_balance_proof.test.js',
+    'test/unit/mirror/hub_mirror_client_conformance.test.js'
+]);
 
 function repoRelative(file) {
     return path.relative(REPO_ROOT, path.resolve(file)).split(path.sep).join('/');
 }
 
 function pendingSiblingTests(rootSuite) {
-    const guardedFiles = new Set(SIBLING_GATES.map(gate => gate.testFile));
     const pending = [];
     rootSuite.eachTest((test) => {
-        if(test.pending && test.file && guardedFiles.has(repoRelative(test.file)))
+        if(test.pending && test.file && REQUIRED_SIBLING_TESTS.has(repoRelative(test.file)))
             pending.push(test.fullTitle());
     });
     return pending.sort();
@@ -69,7 +77,7 @@ after(function () {
 });
 
 describe('sibling gate policy', function () {
-    it('catalogs all fifteen centrally enforced sibling-gated suites', function () {
+    it('catalogs all fifteen sibling-gated suites', function () {
         assert.strictEqual(SIBLING_GATES.length, 15);
         for(const gate of SIBLING_GATES) {
             const source = path.join(REPO_ROOT, gate.source);
@@ -78,6 +86,16 @@ describe('sibling gate policy', function () {
             assert.ok(fs.existsSync(testFile), 'missing owning test file ' + gate.testFile);
             assert.match(fs.readFileSync(source, 'utf8'), /this\.skip\(\)|skipOrFail/,
                 gate.source + ' no longer contains the sibling gate this policy monitors');
+        }
+    });
+
+    it('requires only the seven targeted sibling-gated suites', function () {
+        assert.strictEqual(REQUIRED_SIBLING_TESTS.size, 7);
+        for(const testFile of REQUIRED_SIBLING_TESTS) {
+            const gate = SIBLING_GATES.find(candidate => candidate.testFile === testFile);
+            assert.ok(gate, 'missing sibling gate for required suite ' + testFile);
+            assert.match(fs.readFileSync(path.join(REPO_ROOT, gate.source), 'utf8'), /skipOrFail/,
+                gate.source + ' must fail rather than pend when required sibling coverage is missing');
         }
     });
 
@@ -92,18 +110,27 @@ describe('sibling gate policy', function () {
     it('allows standalone skips but rejects guarded pending tests in strict mode', function () {
         const guarded = {
             pending: true,
-            file: path.join(REPO_ROOT, SIBLING_GATES[0].testFile),
+            file: path.join(REPO_ROOT, [...REQUIRED_SIBLING_TESTS][0]),
             fullTitle: () => 'guarded parity case'
+        };
+        const optional = {
+            pending: true,
+            file: path.join(REPO_ROOT, SIBLING_GATES[0].testFile),
+            fullTitle: () => 'optional sibling case'
         };
         const ordinary = {
             pending: true,
             file: path.join(REPO_ROOT, 'test/unit/example.test.js'),
             fullTitle: () => 'unrelated optional case'
         };
-        const root = { eachTest: callback => [ordinary, guarded].forEach(callback) };
+        const optionalRoot = { eachTest: callback => [ordinary, optional].forEach(callback) };
+        const guardedRoot = { eachTest: callback => [ordinary, optional, guarded].forEach(callback) };
 
-        assert.doesNotThrow(() => enforceSiblingCoverage(root, {}));
-        assert.throws(() => enforceSiblingCoverage(root, { XCHAIN_REQUIRE_SIBLINGS: '1' }),
+        assert.doesNotThrow(() => enforceSiblingCoverage(guardedRoot, {}));
+        assert.doesNotThrow(() => enforceSiblingCoverage(optionalRoot,
+            { XCHAIN_REQUIRE_SIBLINGS: '1' }));
+        assert.throws(() => enforceSiblingCoverage(guardedRoot,
+            { XCHAIN_REQUIRE_SIBLINGS: '1' }),
             /guarded parity case/);
     });
 });

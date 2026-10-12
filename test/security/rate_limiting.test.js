@@ -140,7 +140,7 @@ describe('Security: Rate Limiting: compute-bound route limiters', function () {
 
     it('the merkle action-proof route carries its dedicated limiter', function () {
         // Proof recompute hashes every leaf in the target block per request;
-        // without a route limiter it runs at the platform-wide 1080rpm default.
+        // without a route limiter it runs at the platform-wide 180rpm default.
         expect(explorerSource).to.match(/proof\/action\/:actionIndex',\s*actionProofLimiter/);
         expect(explorerSource).to.include('EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM');
     });
@@ -279,16 +279,14 @@ describe('Security: Rate Limiting: Rate limiter config', function () {
         // || <default>`) wherever api.js puts it, rather than a `limit:` line that
         // happens to carry `||` on the same line: the old shape passed only while
         // the ceiling stayed inline in the limiter's options, and any other way of
-        // resolving it would have matched nothing. The default is 1080 because that
-        // is the measured requirement of a five-address wallet's worst minute with
-        // retries and 3x headroom, not a round number picked for comfort; a default
-        // above it would be room nothing on the wallet's path asked for, and one
-        // below it would refuse an honest wallet. rate-limit-pins.test.js holds the
-        // same number against the deploy drop-in.
+        // resolving it would have matched nothing. The default is 180 because that
+        // is the measured requirement of a five-address wallet using batch reads,
+        // including retries and shared-NAT headroom. rate-limit-pins.test.js holds
+        // the same number against the deploy drop-in.
         const resolved = apiSource.match(/parseInt\(configInfo\.env\.EXPLORER_RATE_LIMIT_RPM,\s*10\)\s*\|\|\s*(\d+)/g) || [];
         expect(resolved, 'exactly one resolution of the app-wide ceiling').to.have.lengthOf(1);
         const maxRequests = parseInt(resolved[0].match(/\|\|\s*(\d+)/)[1], 10);
-        expect(maxRequests).to.equal(1080);
+        expect(maxRequests).to.equal(180);
     });
 });
 

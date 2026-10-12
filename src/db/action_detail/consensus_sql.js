@@ -95,8 +95,20 @@ const ANCHOR_SECTIONS = `SELECT
                     m.action_index=?
                 ORDER BY m.section_index ASC`;
 
+// The attests batch columns two additive indexer migrations add; a replica takes
+// them on the operator's schedule, so the detail read names them only once present.
+const ATTEST_BATCH_DETAIL_COLUMNS = [
+    'batch_action_index', 'batch_window_start', 'batch_window_end', 'batch_row_count',
+    'batch_btc_block_height', 'batch_crc32', 'batch_total_chunks', 'batch_chunk_index'
+];
+
 // Read one ATTEST row, every version's columns included (see the ATTEST handler).
-const ATTEST_DETAIL = `SELECT
+// A pre-batch replica gets NULL under the same keys, so the payload shape holds.
+function attestDetailQuery(withBatch){
+    const batch = ATTEST_BATCH_DETAIL_COLUMNS
+        .map((name) => (withBatch ? 'm.' + name : 'NULL as ' + name) + ',')
+        .join('\n                    ');
+    return `SELECT
                     a2.action,
                     a1.action_format,
                     m.action_index,
@@ -118,14 +130,7 @@ const ATTEST_DETAIL = `SELECT
                     m.meta,
                     m.validator_signatures,
                     m.callback_execute_action_index,
-                    m.batch_action_index,
-                    m.batch_window_start,
-                    m.batch_window_end,
-                    m.batch_row_count,
-                    m.batch_btc_block_height,
-                    m.batch_crc32,
-                    m.batch_total_chunks,
-                    m.batch_chunk_index,
+                    ${batch}
                     m.payload,
                     m.callback_params_json,
                     a3.address as source,
@@ -148,6 +153,9 @@ const ATTEST_DETAIL = `SELECT
                 WHERE
                     m.action_index=?
                 LIMIT 1`;
+}
+const ATTEST_DETAIL = attestDetailQuery(true);
+const ATTEST_DETAIL_PRE_BATCH = attestDetailQuery(false);
 
 // Read the verdict-level NODEPROOF fields from any one full_node_verifications row.
 const NODEPROOF_DETAIL = `SELECT
@@ -252,8 +260,7 @@ const ROLLCALL_DETAIL = `SELECT
                     m.block_index,
                     b1.block_time as timestamp,
                     t2.hash as tx_hash,
-                    t1.tx_index,
-                    m.gates
+                    t1.tx_index
                 FROM
                     rollcall_signers m
                     INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -265,6 +272,15 @@ const ROLLCALL_DETAIL = `SELECT
                 WHERE
                     m.action_index=?
                 LIMIT 1`;
+
+// Read the GATES this ROLLCALL action carried, from any one of its rows. Kept apart
+// from ROLLCALL_DETAIL because the column arrives by a later indexer migration, and
+// the handler reads it behind a schema probe so an older replica still renders.
+const ROLLCALL_GATES = `SELECT
+                    m.gates
+             FROM rollcall_signers m
+             WHERE m.action_index=?
+             LIMIT 1`;
 
 // List the signers this ROLLCALL action carried, ordered by pubkey (the table has no id column).
 const ROLLCALL_SIGNERS = `SELECT
@@ -279,10 +295,13 @@ module.exports = {
     ANCHOR_BUNDLE_VERSIONS,
     ANCHOR_DETAIL,
     ANCHOR_SECTIONS,
+    ATTEST_BATCH_DETAIL_COLUMNS,
     ATTEST_DETAIL,
+    ATTEST_DETAIL_PRE_BATCH,
     NODEPROOF_DETAIL,
     NODEPROOF_VERIFICATIONS,
     PRICE_DETAIL,
     ROLLCALL_DETAIL,
+    ROLLCALL_GATES,
     ROLLCALL_SIGNERS
 };

@@ -273,6 +273,28 @@ function xbridgeRecordRows(d, row){
     return html;
 }
 
+// Format a protocol-time instant (unix seconds) as UTC, or a dash when it is not one.
+function xbUtc(seconds){
+    var n = Number(seconds);
+    return (isFinite(n) && n > 0) ? new Date(n * 1000).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC') : '-';
+}
+
+// The Settlement row of a user leg, from the hub-mirrored transfer the handler read.
+// Hub finality is not the destination credit, so a finalized row says when it applies;
+// in flight means the mirror was read and holds no transfer for this leg yet.
+function xbridgeUserLegSettlement(d, row){
+    var state = String(d.bridge_transfer_status || '').toLowerCase(), dest = d.dest_chain || (d.bridge_transfer || {}).dest_chain;
+    var badge = function(cls, text, note){
+        return row('Settlement', '<span class="badge xc-bridge-state ' + cls + '">' + text + '</span> <span class="small text-muted">' + note + '</span>');
+    };
+    // A refused leg moved nothing, so nothing will ever settle for it.
+    if(/^invalid/i.test(String(d.status || ''))) return row('Settlement', '<span class="small text-muted">none: the action was refused</span>');
+    if(state === 'finalized')
+        return badge('xc-bridge-state-ok', 'finalized', 'applies on ' + xbEsc(xbDash(dest)) + ' at ' + xbEsc(xbUtc(d.bridge_effective_time)));
+    if(state === 'retracted') return badge('xc-bridge-state-deficit', 'retracted', 'the federation withdrew this transfer');
+    return d.bridge_pending ? badge('xc-bridge-state-unknown', 'in flight', 'settles on the destination chain') : '';
+}
+
 // The XBRIDGE detail card. `d` is the getActionData row: action_format is the
 // version, and the xbridges record fields, bridge_settlement and bridge_pending
 // come from the explorer's XBRIDGE handler (src/action-detail/tokens.js).
@@ -296,15 +318,7 @@ function renderXbridgeAction(d){
         html += row('Settled in block', xbEsc(xbDash(s.block_index)));
     } else if(d && !info.injected){
         html += xbridgeRecordRows(d, row);
-        if(d.bridge_pending && /^invalid/i.test(String(d.status || ''))){
-            // A refused leg moved nothing, so nothing will ever settle for it.
-            html += row('Settlement', '<span class="small text-muted">none: the action was refused</span>');
-        } else if(d.bridge_pending){
-            // In flight, not missing: the settle for this leg is applied on the OTHER
-            // chain, so this node has no record of it by construction.
-            html += row('Settlement', '<span class="badge xc-bridge-state xc-bridge-state-unknown">in flight</span> '
-                + '<span class="small text-muted">settles on the destination chain</span>');
-        }
+        html += xbridgeUserLegSettlement(d, row);
     }
     html += '</tbody></table>';
     return html;
@@ -316,6 +330,62 @@ function renderXbridgeAction(d){
     }
 }
 
+function anchorRowBuilder(){
+    return function(label, value){
+        return '<tr><th class="text-muted fw-normal">' + xbEsc(label) + '</th>'
+             + '<td class="xc-anchor-' + xbEsc(String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-')) + '">'
+             + value + '</td></tr>';
+    };
+}
+
+function anchorCount(v){
+    if(v === null || v === undefined || v === '') return null;
+    var a = v;
+    if(typeof v === 'string'){
+        try { a = JSON.parse(v); } catch(e){ return null; }
+    }
+    return Array.isArray(a) ? a.length : null;
+}
+
+// XPOLICY: a finalized bridged-token policy snapshot.
+function renderXpolicyAction(d){
+    var s    = (d && (d.policy_snapshot || d.snapshot)) || d || {};
+    var row  = anchorRowBuilder();
+    var html = '<table class="table table-sm table-striped table-bordered mb-0 no-outer-borders xc-anchor-action" data-anchor="xpolicy"><tbody>';
+    html += row('Format', 'Policy snapshot (XPOLICY)');
+    html += row('Token', xbEsc(xbDash(s.tick)));
+    html += row('Origin chain', xbEsc(xbDash(s.origin_chain)));
+    html += row('Policy sequence', xbEsc(xbDash(s.policy_seq)));
+    html += row('Snapshot block', xbEsc(xbDash(s.snapshot_block)));
+    html += row('Origin block', xbEsc(xbDash(s.origin_block)));
+    var allow = anchorCount(s.allow_list), block = anchorCount(s.block_list);
+    html += row('Allow list', allow === null ? 'none' : xbEsc(allow) + ' addresses');
+    html += row('Block list', block === null ? 'none' : xbEsc(block) + ' addresses');
+    html += row('Sleeping', Number(s.sleeping) === 1 ? 'yes' : 'no');
+    html += row('Policy hash', xbEsc(xbDash(s.policy_hash)));
+    html += '</tbody></table>';
+    return html;
+}
+
+// LIST_SHARE: a finalized shared-list version.
+function renderListShareAction(d){
+    var s    = (d && (d.list_snapshot || d.snapshot)) || d || {};
+    var row  = anchorRowBuilder();
+    var html = '<table class="table table-sm table-striped table-bordered mb-0 no-outer-borders xc-anchor-action" data-anchor="list-share"><tbody>';
+    html += row('Format', 'Shared list version (LIST_SHARE)');
+    html += row('Home chain', xbEsc(xbDash(s.home_chain)));
+    html += row('Home list', xbEsc(xbDash(s.home_list_index)));
+    html += row('Version', xbEsc(xbDash(s.seq)) + (s.kind ? ' (' + xbEsc(s.kind) + ')' : ''));
+    html += row('Snapshot block', xbEsc(xbDash(s.snapshot_block)));
+    var added = anchorCount(s.added), removed = anchorCount(s.removed);
+    html += row('Added', added === null ? '-' : xbEsc(added));
+    html += row('Removed', removed === null ? '-' : xbEsc(removed));
+    if(s.name) html += row('Name', xbEsc(s.name));
+    html += row('Members hash', xbEsc(xbDash(s.members_hash)));
+    html += '</tbody></table>';
+    return html;
+}
+
 // Node-side export for the unit tier, the same shape formatters.js ships: the
 // browser defines the globals above and ignores this block.
 if(typeof module !== 'undefined' && module.exports){
@@ -324,6 +394,7 @@ if(typeof module !== 'undefined' && module.exports){
         bridgeDeltaState: bridgeDeltaState, renderBridgeCopies: renderBridgeCopies, xbDash: xbDash,
         renderBridgeTransfers: renderBridgeTransfers, renderBridgeOrigin: renderBridgeOrigin,
         renderBridgePolicy: renderBridgePolicy, xbridgeVersionInfo: xbridgeVersionInfo,
-        renderXbridgeAction: renderXbridgeAction
+        renderXbridgeAction: renderXbridgeAction,
+        renderXpolicyAction: renderXpolicyAction, renderListShareAction: renderListShareAction
     };
 }

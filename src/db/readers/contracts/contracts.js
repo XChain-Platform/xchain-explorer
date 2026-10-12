@@ -75,18 +75,22 @@ const CONTRACT_DETAIL_SELECT = `SELECT
 // objects every contract-bearing response serves. A module function rather than a
 // method: Database.prototype carries the family's public readers and nothing else,
 // so a cut made for length adds no name to it. Same for the two below.
+function parsePermissions(db, raw){
+    if(db.util.isNull(raw)) return { permissions: null, permissions_error: false };
+    try { return { permissions: JSON.parse(raw), permissions_error: false }; }
+    catch(e){ return { permissions: null, permissions_error: true }; }
+}
+
 function attachContractPermissions(db, row){
     // Permissions manifest (protocol/controller-bound-tokens.md): the
     // declared emission allowlist + per-contract fee cap. permissions is
     // stored as a JSON array (NULL = unrestricted / no manifest); parse
-    // it, falling back to null on absence or malformed JSON. max_take_bps
+    // it; null on absence, and null with permissions_error true on malformed JSON so
+    // an unreadable manifest is not mistaken for an unrestricted one. max_take_bps
     // is NULL when the global cap applies.
-    let permissions = null;
-    if(!db.util.isNull(row.permissions)){
-        try { permissions = JSON.parse(row.permissions); }
-        catch(e){ permissions = null; }
-    }
-    row.permissions  = permissions;
+    let parsed = parsePermissions(db, row.permissions);
+    row.permissions       = parsed.permissions;
+    row.permissions_error = parsed.permissions_error;
     row.max_take_bps = db.util.isNull(row.max_take_bps) ? null : Number(row.max_take_bps);
     // Contract identity manifest (spec contract-meta-manifest 2.1): the three
     // extracted columns ride flat beside permissions, and the whole declared
@@ -292,7 +296,7 @@ class ContractDetailReaders {
     // Get a contract's permissions manifest (protocol/controller-bound-tokens.md):
     // the declared emission allowlist + per-contract fee cap, or null when the
     // contract declared no manifest. permissions is a JSON array on the wire
-    // (NULL = unrestricted); parse it, falling back to null on malformed JSON.
+    // (NULL = unrestricted); parse it, adding permissions_error true on malformed JSON.
     async getContractManifest(config, contractIndex){
         if(this.util.isNull(contractIndex)) return null;
         let query = `SELECT permissions, max_take_bps
@@ -302,15 +306,13 @@ class ContractDetailReaders {
         let rows = await this.doQuery(config, query, [contractIndex]);
         if(!rows || !rows.length) return null;
         let row = rows[0];
-        let permissions = null;
-        if(!this.util.isNull(row.permissions)){
-            try { permissions = JSON.parse(row.permissions); }
-            catch(e){ permissions = null; }
-        }
-        return {
-            permissions:  permissions,
+        let parsed = parsePermissions(this, row.permissions);
+        let manifest = {
+            permissions:  parsed.permissions,
             max_take_bps: this.util.isNull(row.max_take_bps) ? null : Number(row.max_take_bps)
         };
+        if(parsed.permissions_error) manifest.permissions_error = true;
+        return manifest;
     }
 }
 

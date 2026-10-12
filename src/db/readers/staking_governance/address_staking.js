@@ -153,13 +153,11 @@ async function addressRewardRows(db, config, address, limit){
     return rewards;
 }
 
-// Slash exposure, reached through the pubkeys this address staked with: each family
-// is scoped by the ledger it actually burns from, never by one ledger for both.
-async function addressSlashSections(db, config, address, limit){
-    // Row shape matches getCapabilitySlashEvents and the validator page's slash
-    // leg (slashed key + submitter + destination), so the same slash reads
-    // identically wherever it surfaces.
-    let capabilitySlashes = await db.doQuery(config,
+// Row shape matches getCapabilitySlashEvents and the validator page's slash
+// leg (slashed key + submitter + destination), so the same slash reads
+// identically wherever it surfaces.
+function addressCapabilitySlashRows(db, config, address, limit){
+    return db.doQuery(config,
         `SELECT
                 m.id,
                 m.slash_action_index,
@@ -185,8 +183,10 @@ async function addressSlashSections(db, config, address, limit){
                 WHERE sa.address=?)
             ORDER BY m.id DESC
             LIMIT ` + limit, [address]);
+}
 
-    let contractSlashes = await db.doQuery(config,
+function addressContractSlashRows(db, config, address, limit){
+    return db.doQuery(config,
         `SELECT
                 m.id,
                 m.execution_index,
@@ -209,6 +209,13 @@ async function addressSlashSections(db, config, address, limit){
                 WHERE sa.address=?)
             ORDER BY m.id DESC
             LIMIT ` + limit, [address]);
+}
+
+// Slash exposure, reached through the pubkeys this address staked with: each family
+// is scoped by the ledger it actually burns from, never by one ledger for both.
+async function addressSlashSections(db, config, address, limit){
+    let capabilitySlashes = await addressCapabilitySlashRows(db, config, address, limit);
+    let contractSlashes = await addressContractSlashRows(db, config, address, limit);
     return { capabilitySlashes, contractSlashes };
 }
 

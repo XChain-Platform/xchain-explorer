@@ -1,5 +1,5 @@
 .dataTables_wrapper {
-    font-size: 0.82rem;
+    font-size: var(--xc-console-data-table-font-size);
 }
 
 .dataTables_wrapper table.dataTable {
@@ -10,7 +10,7 @@
     background: var(--xc-console-panel-raised);
     border-bottom-color: var(--xc-console-accent);
     color: var(--xc-console-accent-strong);
-    font-size: 0.72rem;
+    font-size: var(--xc-console-data-table-heading-font-size);
 }
 
 .dataTables_wrapper table.dataTable tbody tr:hover > * {
@@ -20,7 +20,7 @@
 .dataTables_wrapper .dataTables_filter input,
 .dataTables_wrapper .dataTables_length select {
     background: var(--xc-console-panel-bg);
-    border: 1px solid var(--xc-console-border);
+    border: var(--xc-console-control-border-width) solid var(--xc-console-border);
     color: var(--xc-console-text);
 }
 

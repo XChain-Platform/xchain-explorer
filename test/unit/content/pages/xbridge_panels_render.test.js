@@ -154,3 +154,28 @@ describe('xbridge-panels-render as a module', function(){
         assert.match(refused, /the action was refused/);
     });
 });
+
+describe('xbridge-panels-render user leg settlement state', function(){
+
+    it('renders a finalized user leg as finalized with the time it applies, never in flight', function(){
+        const html = R.renderXbridgeAction({ action_format: 0, tick: 'XCHAIN', transfer_id: 'a'.repeat(64),
+            bridge_pending: false, bridge_transfer_status: 'finalized', bridge_effective_time: 1700000600,
+            dest_chain: 'DOGE', status: 'valid' });
+        assert.match(html, /xc-bridge-state-ok">finalized</);
+        assert.match(html, /applies on DOGE at 2023-11-14 22:23:20 UTC/);
+        assert.match(html, new RegExp('xc-bridge-transfer">' + 'a'.repeat(64) + '<'), 'the Transfer row names it');
+        assert.doesNotMatch(html, /in flight/);
+        assert.doesNotMatch(html, /Settled in block/, 'hub finality is not the destination credit');
+    });
+
+    it('renders a retracted user leg as retracted, and no settlement row when nothing was read', function(){
+        const retracted = R.renderXbridgeAction({ action_format: 4, bridge_pending: false,
+            bridge_transfer_status: 'retracted', bridge_effective_time: 1700000600 });
+        assert.match(retracted, /xc-bridge-state-deficit">retracted</);
+        assert.doesNotMatch(retracted, /in flight/);
+        const unread = R.renderXbridgeAction({ action_format: 0, tick: 'XCHAIN', status: 'valid' });
+        assert.doesNotMatch(unread, /xc-bridge-settlement/, 'an unread mirror asserts no state at all');
+        const refused = R.renderXbridgeAction({ action_format: 0, status: 'invalid: insufficient funds' });
+        assert.match(refused, /the action was refused/, 'a refusal is the leg own verdict, read locally');
+    });
+});

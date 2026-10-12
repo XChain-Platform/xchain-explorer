@@ -45,8 +45,9 @@ INSERT INTO index_transactions (id, hash) VALUES
 (213, 'ledger_hash_block_204_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
 (214, 'ledger_hash_block_205_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
 
+-- The baseline owns ids 1 to 10 (9 is XCALL), so ORDER_MATCH takes 200.
 INSERT INTO index_actions (id, action) VALUES
-(9, 'ORDER_MATCH');
+(200, 'ORDER_MATCH');
 
 -- ============================================================
 -- 2. Additional blocks
@@ -197,7 +198,7 @@ INSERT INTO transactions (tx_index, block_index, tx_hash_id, source_id) VALUES
 (209, 204, 209, 1);
 
 INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format) VALUES
-(209, 204, 209, 0, 9, 1);  -- ORDER_MATCH
+(209, 204, 209, 0, 200, 1);  -- ORDER_MATCH
 
 INSERT INTO order_matches (action_index, give_action_index, give_coin_id, give_tick_id, give_amount,
     get_action_index, get_coin_id, get_tick_id, get_amount, status_id) VALUES

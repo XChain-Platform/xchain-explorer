@@ -33,7 +33,49 @@
 
 const coinsRegistry = require('../../../coins');
 const { isMissingTableError } = require('../../schema_probe.js');
-
+const { DbQueryError } = require('../../shared.js');
+const DecoderConnector = require('../../../connectors/decoder.js'), decoderReaders = require('../health/decoder.js');
+const originalMempoolCount = decoderReaders.getDecoderMempoolCount, originalMempoolRows = decoderReaders.getDecoderMempoolRows;
+const NODE_MEMPOOL_MAX_AGE_MS = 2 * 60 * 1000;
+function decoderMempoolUrl(db, code, parsed){ return DecoderConnector.resolveDecoderUrl(parsed && parsed.coin, parsed && parsed.network, (db.decoderApiUrl || {})[code] || null); }
+function ageNodeMempoolCount(snapshot, now){
+    if(!snapshot || !Object.prototype.hasOwnProperty.call(snapshot, 'node_updated_at')) return snapshot;
+    const updatedAt = Number(snapshot.node_updated_at); return Number.isFinite(updatedAt) && updatedAt > 0 && now - updatedAt < NODE_MEMPOOL_MAX_AGE_MS ? snapshot : Object.assign({}, snapshot, { node_tx_count: null });
+}
+function snapshotValue(reply, now){
+    const reportedOkAt = Number(reply.read_ok_at), okAt = Number.isFinite(reportedOkAt) && reportedOkAt > 0 ? reportedOkAt : (reply.stale === true ? null : now);
+    const value = { node_tx_count: typeof reply.node_tx_count === 'number' && reply.node_tx_count >= 0 ? reply.node_tx_count : null, total: Number(reply.total) || 0, rows: reply.rows, read_ok_at: okAt };
+    if(Object.prototype.hasOwnProperty.call(reply, 'node_updated_at')) value.node_updated_at = reply.node_updated_at; return { okAt, value: ageNodeMempoolCount(value, now) };
+}
+async function getDecoderMempoolSnapshot(config){
+    const code = config.coin, ttl = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000, now = Date.now();
+    this._mempoolApiCache = this._mempoolApiCache || {};
+    const hit = this._mempoolApiCache[code];
+    if(hit && (now - hit.t) < ttl) return ageNodeMempoolCount(hit.v, now);
+    const url = decoderMempoolUrl(this, code, await this.parseCoinCode(code));
+    if(!url) return null;
+    try {
+        const reply = await new DecoderConnector(url).getmempool(500);
+        if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, malformed: true }).v;
+        const { okAt, value } = snapshotValue(reply, now);
+        if(reply.stale === true){ const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
+            return (this._mempoolApiCache[code] = { t: now - ttl, v: usable, okAt, stale: true, unavailable: usable === null }).v; }
+        return (this._mempoolApiCache[code] = { t: now, v: value, okAt }).v;
+    } catch(e){
+        const okAt = hit ? hit.okAt : undefined, stale = Boolean(hit && hit.stale);
+        const value = hit && hit.v && Number.isFinite(Number(okAt)) && now - Number(okAt) < 2 * ttl ? ageNodeMempoolCount(hit.v, now) : null;
+        return (this._mempoolApiCache[code] = { t: stale ? now - ttl : now, v: value, okAt, stale, unavailable: value === null }).v;
+    }
+}
+async function getDecoderMempoolCount(config){
+    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config), state = (this._mempoolApiCache || {})[config.coin];
+    return snapshot ? snapshot.total : decoderMempoolUrl(this, config.coin, parsed) && !(state && state.malformed) ? null : originalMempoolCount.call(this, config);
+}
+async function getDecoderMempoolRows(config, limit){
+    const parsed = await this.parseCoinCode(config.coin), snapshot = await this.getDecoderMempoolSnapshot(config), state = (this._mempoolApiCache || {})[config.coin];
+    return snapshot ? snapshot.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))) : decoderMempoolUrl(this, config.coin, parsed) && !(state && state.malformed) ? null : originalMempoolRows.call(this, config, limit);
+}
+for(const [name, value] of Object.entries({ getDecoderMempoolSnapshot, getDecoderMempoolCount, getDecoderMempoolRows })) Object.defineProperty(decoderReaders, name, Object.assign({}, Object.getOwnPropertyDescriptor(decoderReaders, name), { value }));
 // The coin identity and network this request is for, read off the loaded explorer
 // config rather than off the route code alone, so a re-tune of a chain's name,
 // ticker or prefix reaches the response without an edit here. A module function
@@ -67,6 +109,50 @@ async function resolveCoinIdentity(db, config){
     return { coinName, coinTick, reqNetwork };
 }
 
+function buildNetworkState(block, blockTime, unconfirmed, unconfirmedNode){
+    // Network information: block/time are the real indexer tip for this coin.
+    return {
+        block : block,
+        time  : blockTime,
+        // Real mempool size: count of unconfirmed XChain-carrying txs for
+        // this coin (0 if neither the decoder API nor DB is reachable).
+        unconfirmed: unconfirmed,
+        // The coin node's TOTAL mempool tx count (XChain or not), from
+        // the decoder API. null when no decoder API resolves for this
+        // coin (a DB-only deployment cannot know it); clients hide it.
+        unconfirmed_node: unconfirmedNode,
+    };
+}
+
+function buildCoinState(coinName, coinTick, coinPriceUsd){
+    // Read coin identity from the per-coin chain config.
+    // Use live USD prices for mainnet coins and $0.00 for testnet/regtest,
+    // where no market price exists.
+
+    // Keep price.btc at 1.0 until a coin/BTC cross is available.
+    return {
+        name: coinName,
+        symbol: coinTick,
+        price: {
+            btc: '1.00000000',
+            usd: coinPriceUsd != null ? coinPriceUsd : '0.00'
+        }
+    };
+}
+
+function buildXchainState(){
+    // XChain token info: price is a PLACEHOLDER pending XCHAIN issuance + a
+    // market (it must be DEX-derived, not an external feed).
+    return {
+        name: 'XChain',
+        symbol: 'XCHAIN',
+        price: {
+            btc: '0.00000000',
+            usd: '0.00'
+        }
+    };
+}
+
 // The /api/network response body, assembled from values their own readers already
 // produced. Kept apart from those reads so the shape this endpoint promises is one
 // legible object rather than a tail on a sequence of awaits.
@@ -75,44 +161,13 @@ function buildNetworkSummary(config, reqNetwork, parts){
     return {
         // Per-action-type record counts (real; populated below).
         totals : {},
-        // Network information: block/time are the real indexer tip for this coin.
-        network: {
-            block : block,
-            time  : blockTime,
-            // Real mempool size: count of unconfirmed XChain-carrying txs for
-            // this coin (0 if neither the decoder API nor DB is reachable).
-            unconfirmed: unconfirmed,
-            // The coin node's TOTAL mempool tx count (XChain or not), from
-            // the decoder API. null when no decoder API resolves for this
-            // coin (a DB-only deployment cannot know it); clients hide it.
-            unconfirmed_node: unconfirmedNode,
-        },
+        network: buildNetworkState(block, blockTime, unconfirmed, unconfirmedNode),
         // Suggested fee tiers (sat/vByte) from this coin's encoder, which reads
         // the node's estimatesmartfee. Falls back to {1,2,3} when no encoder is
         // configured (ENCODER_URL) or it's unreachable. See getFeeEstimate().
         fee: fee,
-        // Coin identity is REAL (from the per-coin chain config). usd price is
-        // REAL for mainnet coins (from the xchain-hub oracle); testnet/regtest
-        // keep the $0.00 placeholder (no market). price.btc stays the identity
-        // 1.0 (coin priced in itself); a coin/BTC cross is future work.
-        coin: {
-            name: coinName,
-            symbol: coinTick,
-            price: {
-                btc: '1.00000000',
-                usd: coinPriceUsd != null ? coinPriceUsd : '0.00'
-            }
-        },
-        // XChain token info: price is a PLACEHOLDER pending XCHAIN issuance + a
-        // market (it must be DEX-derived, not an external feed).
-        xchain: {
-            name: 'XChain',
-            symbol: 'XCHAIN',
-            price: {
-                btc: '0.00000000',
-                usd: '0.00'
-            }
-        },
+        coin: buildCoinState(coinName, coinTick, coinPriceUsd),
+        xchain: buildXchainState(),
         // Same-chain finality guidance (display/UX only). The indexer processes
         // actions at the chain tip, so this is a recommended "treat a receipt as
         // final after N confirmations" value per chain, not a gate. Sourced from
@@ -224,7 +279,10 @@ class EntityNetworkReaders {
     async getMempool(config){
         let search = String(config.data.search || '');
         let type   = String(config.data.type || '').toLowerCase();
-        let rows   = await this.getDecoderMempoolRows(config, 500);
+        let feed   = await this.getDecoderMempoolFeed(config, 500);
+        if(feed === null)
+            throw new DbQueryError('DECODER_MEMPOOL_UNAVAILABLE: decoder mempool is configured but not answering for ' + config.coin);
+        let rows   = feed.rows;
         let out    = [];
         // Resolve the queried address to its index id ONCE per request, not once
         // per row: getExactAddressId is cached (per coin + reorg generation), but the
@@ -268,6 +326,16 @@ class EntityNetworkReaders {
         else if(config.type === 'explorer')
             offset = Number(config.data.query && config.data.query.start) || 0;
         return [out.slice(offset, offset + limit), null, total];
+    }
+
+    async getDecoderMempoolFeed(config, limit){
+        const code = config.coin, parsed = await this.parseCoinCode(code);
+        if(!decoderMempoolUrl(this, code, parsed)) return { rows: await this.getDecoderMempoolRows(config, limit), read_ok_at: Date.now() };
+        const ttl = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000, snap = await this.getDecoderMempoolSnapshot(config);
+        const hit = (this._mempoolApiCache || {})[code], okAt = snap && snap.read_ok_at ? snap.read_ok_at : hit && hit.okAt;
+        if(hit && hit.malformed) return { rows: await this.getDecoderMempoolRows(config, limit), read_ok_at: Date.now() };
+        if(!snap || !okAt || (Date.now() - okAt) >= 2 * ttl) return null;
+        return { rows: snap.rows.slice(0, Math.max(1, Math.min(Number(limit) || 200, 500))), read_ok_at: okAt };
     }
 
     async getNetwork(config){

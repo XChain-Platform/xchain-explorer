@@ -14,7 +14,7 @@
  * action_markers.js
  *
  * Structure markers for the compact action summaries: the count badge on a
- * multi-leg SEND or DESTROY and on a BATCH parent, the in-batch mark on a
+ * multi-leg SEND, DESTROY or AIRDROP and on a BATCH parent, the in-batch mark on a
  * member, and the disclosure row that opens the legs or members under a
  * list row. Split from action_detail.js, which renders the one-line summary
  * the marker is appended to.
@@ -49,7 +49,7 @@ function actionDetail_disclosureToggle(action_index, label){
 
 // Open or close the legs/members under a list row. The list feed carries only
 // the count, so the first open fetches the action itself (one request, cached
-// by the browser) and renders its sends[], destroys[] or actions[]. Inside a
+// by the browser) and renders its sends[], destroys[], airdrops[] or actions[]. Inside a
 // DataTable the content is a child row, which paging clears; elsewhere it is a
 // plain sibling row.
 function actionDetail_toggleDisclosure(el){
@@ -116,6 +116,9 @@ function actionDetail_renderDisclosure(o){
                 + '<td>' + escapeHtml(d.status) + '</td>'
                 + '</tr>';
         });
+    } else if(o && o.action=='AIRDROP' && Array.isArray(o.airdrops)){
+        head = '<th>#</th><th>Token</th><th>Amount</th><th>List</th><th>Memo</th><th>Status</th>';
+        rows = actionDetail_renderAirdropLegs(o.airdrops, coin);
     } else if(o && o.action=='BATCH' && Array.isArray(o.actions)){
         head = '<th>#</th><th>Action</th><th>Details</th><th>Status</th><th></th>';
         o.actions.forEach(function(m, i){
@@ -135,6 +138,23 @@ function actionDetail_renderDisclosure(o){
         return '<span class="text-muted">Nothing to expand</span>';
     }
     return '<table class="table table-sm table-borderless mb-0 xc-legs-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+// One row per AIRDROP leg. The list is an ACTION index, so it links to the
+// action page, never through tokenUrl.
+function actionDetail_renderAirdropLegs(legs, coin){
+    let rows = '';
+    legs.forEach(function(a, i){
+        rows += '<tr class="' + actionDetail_statusClass(a.status) + '">'
+            + '<td>' + (i + 1) + '</td>'
+            + '<td>' + formatLink(tokenUrl(coin, a.tick), a.tick, a.tick) + '</td>'
+            + '<td>' + formatAmount(a.amount) + '</td>'
+            + '<td>' + formatLink('/' + coin + '/action/' + a.list_action_index, a.list_action_index) + '</td>'
+            + '<td>' + escapeHtml(a.memo) + '</td>'
+            + '<td>' + escapeHtml(a.status) + '</td>'
+            + '</tr>';
+    });
+    return rows;
 }
 
 function actionDetail_statusClass(status){

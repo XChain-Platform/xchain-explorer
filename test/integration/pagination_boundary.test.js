@@ -98,6 +98,16 @@ describe('Pagination Boundary Conditions', function () {
         expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
 
+    it('explorer start beyond SEND actions returns empty data', async function () {
+        const res = await request.get(
+            `/RBTC/explorer/sends/${ADDR1}/address?start=999999&length=10`
+        );
+
+        expect(res.status).to.equal(200);
+        expect(res.body).to.have.property('recordsTotal', 7);
+        expect(res.body.data).to.be.an('array').with.lengthOf(0);
+    });
+
     it('balances default sort is ASC by tick', async function () {
         // addr1 has balances for TOKENONE, TOKENTWO, and XCHAIN
         // ASC alphabetical order: TOKENONE < TOKENTWO < XCHAIN

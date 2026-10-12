@@ -19,11 +19,13 @@ const runtime = require('./runtime.js');
 const reads = require('./reads.js');
 const feeds = require('./feeds.js');
 const fixture = require('./fixture_parity.js');
+const dashboardManifest = require('./dashboard_manifest.js');
 
 describe('Real-schema conformance canary (real DDL on real MariaDB)', function () {
     this.timeout(120000);
     before(runtime.setupConformance);
     after(runtime.teardownConformance);
+    dashboardManifest.registerDashboardManifest(runtime);
     reads.registerRoutedReadPaths(runtime);
     reads.registerMirroredListRoutes(runtime);
     reads.registerDetailReads(runtime);

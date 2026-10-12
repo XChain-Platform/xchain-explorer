@@ -38,6 +38,7 @@ const assert = require('assert');
 const M      = require('../../../src/consensus/merkle.js');
 const ProofServer = require('../../../src/http/proof_server.js');
 const XChainExplorer = require('../../../src/XChainExplorer.js');
+const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
 
 const EMPTY_ROOT = M.toHex(M.EMPTY_SMT_ROOT);
 const EMPTY0_HEX = M.toHex(M.EMPTY[0]);
@@ -223,29 +224,28 @@ describe('SPV Stage A: contractStateProof @regression', function () {
     });
 });
 
-// Strongest available check short of a live venue: the server's actual response
-// is fed to the SDK's client-side verifier, so the two independent
-// implementations of "what does this proof mean" have to agree. Skipped rather
-// than failed when the sibling repo is absent (standalone checkout).
-// The SDK's layout pass moved src/light.js to src/protocol/light_client.js,
-// so a sibling checkout sits on one side of that move or the other. Pinning
-// one spelling leaves `light` null against the other side, which skips every
-// assertion below while the suite still reports green.
+// Feed the actual server response to the SDK verifier and support both module
+// locations across its layout change. A standalone checkout uses the sibling gate.
 let light = null;
-for (const spec of ['../../../../xchain-sdk/src/protocol/light_client.js',
-                    '../../../../xchain-sdk/src/light.js']) {
-    try { light = require(spec); break; }
-    catch (e) {
-        // Only an unresolvable module falls through: to the next spelling, or
-        // to the skip below in a standalone checkout with no sibling SDK. A
-        // verifier that is present and throws while loading is a real error.
-        if (e.code !== 'MODULE_NOT_FOUND') throw e;
+let SDK_VERDICT = siblingCheckout(__dirname, '../../../../xchain-sdk');
+if (SDK_VERDICT.usable) {
+    for (const spec of ['../../../../xchain-sdk/src/protocol/light_client.js',
+                        '../../../../xchain-sdk/src/light.js']) {
+        try { light = require(spec); break; }
+        catch (e) {
+            // Only an unresolvable module falls through: to the next spelling, or
+            // to the skip below in a standalone checkout with no sibling SDK. A
+            // verifier that is present and throws while loading is a real error.
+            if (e.code !== 'MODULE_NOT_FOUND') throw e;
+        }
     }
+    if (!light)
+        SDK_VERDICT = { usable: false, reason: 'SDK verifier module absent under ' + SDK_VERDICT.path };
 }
 
 describe('SPV Stage A: contractStateProof verifies through the real SDK verifier @regression', function () {
     it('a membership proof verifies and yields the raw stored value', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK contract-state verifier guard');
         const { server, stateRoot } = makeArmed();
         const r = await server.contractStateProof({ coin: COIN }, CHAIN, NET, CIDX, KEY, HEIGHT);
         const v = light.verifyContractStateProof(r.proof, stateRoot, CHAIN, NET);
@@ -256,7 +256,7 @@ describe('SPV Stage A: contractStateProof verifies through the real SDK verifier
     });
 
     it('a non-inclusion proof verifies as "not in the committed tree"', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK contract-state verifier guard');
         const { server, stateRoot } = makeArmed();
         const r = await server.contractStateProof({ coin: COIN }, CHAIN, NET, CIDX, 'absent', HEIGHT);
         const v = light.verifyContractStateProof(r.proof, stateRoot, CHAIN, NET);
@@ -265,7 +265,7 @@ describe('SPV Stage A: contractStateProof verifies through the real SDK verifier
     });
 
     it('rejects a proof whose key does not match the requested identity', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK contract-state verifier guard');
         const { server, stateRoot } = makeArmed();
         const r = await server.contractStateProof({ coin: COIN }, CHAIN, NET, CIDX, KEY, HEIGHT);
         // Same proof, re-labelled as a different contract: the key no longer derives.
@@ -279,7 +279,7 @@ describe('SPV Stage A: contractStateProof verifies through the real SDK verifier
 
 describe('SPV Stage A: contractStateProof verifies through the real SDK verifier @regression', function () {
     it('rejects a value that does not preimage the committed leaf', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK contract-state verifier guard');
         const { server, stateRoot } = makeArmed();
         const r = await server.contractStateProof({ coin: COIN }, CHAIN, NET, CIDX, KEY, HEIGHT);
         const lying = Object.assign({}, r.proof, { state_value: '"9999"' });
@@ -287,7 +287,7 @@ describe('SPV Stage A: contractStateProof verifies through the real SDK verifier
     });
 
     it('rejects a proof bound against the wrong sub-root slot', async function () {
-        if (!light) return this.skip();
+        if (!light) return skipOrFail(this, SDK_VERDICT, 'the SDK contract-state verifier guard');
         // The attack the slot pin exists for: slots 2 and 3 are constant EMPTY, so a
         // path built for one of them would let a server "prove" any key absent.
         const { server, stateRoot } = makeArmed();

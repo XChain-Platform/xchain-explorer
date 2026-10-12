@@ -267,9 +267,15 @@ function actionOffsetSource(ctx){
                                 WHERE la.action_format = 5) m`;
 }
 
+function actionOffsetProjection(ctx){
+    return (['getSends','getDestroys'].includes(ctx.method))
+        ? 'DISTINCT m.action_index'
+        : 'm.action_index';
+}
+
 function firstLastActionsSql(ctx, where, order, limit){
     return `SELECT
-                            m.action_index as offset_index
+                            ` + actionOffsetProjection(ctx) + ` as offset_index
                         FROM
                             ` + actionOffsetSource(ctx) + `
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -352,7 +358,7 @@ function stopSql(ctx, where, order, limit){
                         LIMIT ` + limit;
     }
     return `SELECT
-                            m.action_index as offset_index
+                            ` + actionOffsetProjection(ctx) + ` as offset_index
                         FROM
                             ` + actionOffsetSource(ctx) + `
                             INNER JOIN actions            a1 ON (a1.action_index=m.action_index)

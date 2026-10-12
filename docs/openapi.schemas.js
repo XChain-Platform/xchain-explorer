@@ -101,7 +101,8 @@ const ROWS = [
         ACTION_HEAD + ' tick:s max_supply:s max_mint:s decimals:s description:s mint_supply:s transfer:s transfer_supply:s'
             + ' lock_max_supply:s lock_mint:s lock_mint_supply:s lock_max_mint:s lock_description:s lock_sleep:s'
             + ' lock_callback:s callback_block:s callback_tick:s callback_amount:s allow_list:d block_list:d'
-            + ' mint_address_max:s mint_start_block:s mint_stop_block:s memo:s status:s ' + TX_TAIL],
+            + ' mint_address_max:s mint_start_block:s mint_stop_block:s bridge_chains:s min_depth:s lock_bridge:s'
+            + ' memo:s status:s ' + TX_TAIL],
     ['Link', 'getLinks', 'LINK action data',
         ACTION_HEAD + ' coin1:s coin1_action_index:d coin2:s coin2_action_index:d memo:s status:s ' + TX_TAIL],
     ['List', 'getLists', 'LIST action data',
@@ -287,6 +288,17 @@ const ADDRESS_INFO = {
     required: ['address', 'balances', 'utxos', 'estimated_value', 'tracker_available', 'controllers', 'info'],
 };
 
+const CONTRACT = {
+    type: 'object',
+    description: 'One deployed contract with its permissions manifest. `permissions` is the declared emission allowlist, null when the contract declared none; `permissions_error` is true when the stored manifest JSON is unreadable, so a null `permissions` then means unknown rather than unrestricted.',
+    properties: {
+        max_take_bps: { type: ['integer', 'null'], description: 'Per-contract fee cap in basis points; null when the global cap applies' },
+        permissions: { type: ['array', 'null'], items: {} },
+        permissions_error: { type: 'boolean', description: 'True when the stored permissions JSON could not be parsed' },
+    },
+    required: ['permissions', 'permissions_error'],
+};
+
 const BOOL_MAP = (names) => Object.fromEntries(names.map((n) => [n, { type: 'boolean' }]));
 const NUMBER = { type: 'number' };
 
@@ -341,7 +353,7 @@ const EXPLORER_STATUS = {
     "properties": {
         "available": {
             "type": "object",
-            "description": "Coin networks this instance serves as CURRENT data, keyed by coin ticker. Starts from the configured availability map and then drops every coin the tip-age gate marks stale (see 'stale'), so this map varies per request and a delisted coin still appears in 'supported'. Read this to decide whether to query a coin; read 'supported' to learn which coins the instance knows about at all.",
+            "description": "Coin networks this instance serves, keyed by coin ticker, starting from the configured availability map. By default a coin the tip-age gate marks stale stays listed here, because it is still served with a freshness marker, so being in this map does NOT mean the data is current; read 'stale' and 'tip_age_seconds' for that. Only a deployment that sets EXPLORER_STALE_FAIL_CLOSED=1 (its data routes then answer 503 COIN_DATA_STALE for that coin) removes a stale coin from this map, per request, while the coin still appears in 'supported'. Read this to decide whether to query a coin; read 'supported' to learn which coins the instance knows about at all.",
             "additionalProperties": {
                 "type": "string"
             }
@@ -360,6 +372,20 @@ const EXPLORER_STATUS = {
                 "null"
             ],
             "description": "Seconds since the last successful hub-config fetch. A climbing value means the served hub-derived config is stale. null until the first successful fetch."
+        },
+        "hub_consensus_hash_mismatch": {
+            "type": [
+                "boolean",
+                "null"
+            ],
+            "description": "Whether the hub's per-network coin-registry consensus hashes disagree with this explorer's bundled registry. true means at least one mismatch, false means every advertised hash matches, and null means the hub did not advertise hashes."
+        },
+        "hub_consensus_hash_mismatch_details": {
+            "type": "array",
+            "description": "One diagnostic string per hub consensus-hash mismatch. Empty when no mismatch is known.",
+            "items": {
+                "type": "string"
+            }
         },
         "last_block": {
             "type": "object",
@@ -463,14 +489,14 @@ const EXPLORER_STATUS = {
         },
         "stale": {
             "type": "object",
-            "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate), and also true when tip_future_seconds has passed that coin's max future skew. Fails closed, so a missing or unreadable block_time also reads true. A true entry is removed from 'available' and left in 'supported'. Only coins this instance measures appear here.",
+            "description": "Tip-freshness verdict per coin ticker: true when tip_age_seconds has passed that coin's max tip age (EXPLORER_TIP_MAX_AGE_S_<COIN>, else EXPLORER_TIP_MAX_AGE_S, default 21600; 0 disables the gate), and also true when tip_future_seconds has passed that coin's max future skew. Fails closed, so a missing or unreadable block_time also reads true. A true entry stays in 'available' by default (the coin is still served, with a freshness marker) and is removed from 'available' only when the deployment sets EXPLORER_STALE_FAIL_CLOSED=1; it always stays in 'supported'. Read this map, not 'available', to judge freshness. Only coins this instance measures appear here.",
             "additionalProperties": {
                 "type": "boolean"
             }
         },
         "replica_halted": {
             "type": "object",
-            "description": "Durable consensus-divergence halt verdict per coin ticker, read from xchain-sync's sync_halt tables on the indexer and decoder replicas (true = either database has an active, uncleared halt row). A halted replica keeps reporting a small lag until its source mints past it, so this is detectable neither by 'stale' nor by tip_age_seconds; it composes with 'stale' rather than replacing it (immediate detection here, eventual removal from 'available' there). true/false only when both tables were read successfully; null when the signal could not be determined (table absent, e.g. a DB not built by the sync client, or the read failed) and is never coerced to false. Only coins this instance measures appear here.",
+            "description": "Durable consensus-divergence halt verdict per coin ticker, read from xchain-sync's sync_halt tables on the indexer and decoder replicas (true = either database has an active, uncleared halt row). A halted replica keeps reporting a small lag until its source mints past it, so this is detectable neither by 'stale' nor by tip_age_seconds; it composes with 'stale' rather than replacing it (immediate detection here, eventual detection there). true/false only when both tables were read successfully; null when the signal could not be determined (table absent, e.g. a DB not built by the sync client, or the read failed) and is never coerced to false. Only coins this instance measures appear here.",
             "additionalProperties": {
                 "type": [
                     "boolean",
@@ -507,7 +533,7 @@ const EXPLORER_STATUS = {
         },
         "supported": {
             "type": "object",
-            "description": "Every coin network the XChain platform defines for this instance, keyed by coin ticker with a display name as the value. Static per config: the tip-age gate never removes a coin from here, only from 'available'.",
+            "description": "Every coin network the XChain platform defines for this instance, keyed by coin ticker with a display name as the value. Static per config: the tip-age gate never removes a coin from here, and removes a stale coin from 'available' only under EXPLORER_STALE_FAIL_CLOSED=1.",
             "additionalProperties": {
                 "type": "string"
             }
@@ -539,7 +565,7 @@ HOLDER.description = 'Token holder data';
 const COMPONENT_SCHEMAS = Object.assign(
     Object.fromEntries(ROWS.map(([name, , description, spec, notes]) => [name, rowSchema(description, spec, notes)])),
     {
-        ActionDetail: ACTION_DETAIL, AddressInfo: ADDRESS_INFO, Block: BLOCK, ExplorerStatus: EXPLORER_STATUS,
+        ActionDetail: ACTION_DETAIL, AddressInfo: ADDRESS_INFO, Block: BLOCK, Contract: CONTRACT, ExplorerStatus: EXPLORER_STATUS,
         History: HISTORY, Holder: HOLDER, HolderRow: rowSchema('One holder of a token', 'address:s amount:s'),
         Market: MARKET, MarketHistory: MARKET_HISTORY, MarketOrder: MARKET_ORDER, Orderbook: ORDERBOOK,
         Token: TOKEN, Transaction: TRANSACTION,
@@ -558,7 +584,7 @@ const LIST_EXTRAS = {
 
 // db method -> component schema of its whole 200 body.
 const BODY_SCHEMAS = {
-    getAction: 'ActionDetail', getAddress: 'AddressInfo', getBlock: 'Block', getHolders: 'Holder',
+    getAction: 'ActionDetail', getAddress: 'AddressInfo', getBlock: 'Block', getContract: 'Contract', getHolders: 'Holder',
     getOrderbook: 'Orderbook', getStatus: 'ExplorerStatus', getToken: 'Token', getTransaction: 'Transaction',
 };
 

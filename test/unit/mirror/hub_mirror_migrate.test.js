@@ -68,14 +68,14 @@ function fakeShapeDb(shapes) {
 const LEGACY_SHAPES = {
     oracle_prices: {
         columns: ['id', 'source_address', 'source_chain', 'coin', 'tick', 'fiat', 'value',
-            'fee', 'memo', 'block_time', 'effective_at', 'action_index', 'created_at'],
+            'fee', 'memo', 'block_time', 'effective_at', 'action_index', 'created_at', 'admit_block'],
         indexes: ['PRIMARY', 'idx_oracle_action']
     },
     cross_chain_matches: {
         columns: ['id', 'match_id', 'snapshot_block', 'network', 'a_chain', 'a_action_index',
             'a_amount', 'a_payout_addr', 'b_chain', 'b_action_index', 'b_amount',
             'b_payout_addr', 'effective_time', 'validator_signatures', 'status',
-            'batch_root', 'anchor_txid', 'created_at'],
+            'batch_root', 'anchor_txid', 'created_at', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
         indexes: ['PRIMARY', 'uq_match_id']
     },
     cross_chain_calls: {
@@ -83,7 +83,7 @@ const LEGACY_SHAPES = {
             'source_action_index', 'source_contract_index', 'target_chain',
             'target_contract_index', 'method', 'params_json', 'gas_limit', 'cross_hops',
             'effective_time', 'status', 'result_status', 'return_payload_b64',
-            'validator_signatures', 'created_at'],
+            'validator_signatures', 'created_at', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
         indexes: ['PRIMARY', 'call_phase']
     }
 };
@@ -102,7 +102,7 @@ function fakeCapDb(uqCols) {
             if (/^SHOW TABLES LIKE/i.test(sql))
                 return Promise.resolve(params[0] === 'capability_snapshots' ? [{ t: params[0] }] : []);
             if (/^SHOW COLUMNS/i.test(sql))
-                return Promise.resolve(['id', 'snapshot_block', 'capability', 'signing_pubkey', 'amount', 'source'].map((c) => ({ Field: c })));
+                return Promise.resolve(['id', 'snapshot_block', 'capability', 'signing_pubkey', 'amount', 'source', 'btc_chain_id'].map((c) => ({ Field: c })));
             if (/^SHOW INDEX/i.test(sql))
                 return Promise.resolve([{ Key_name: 'PRIMARY', Column_name: 'id' }].concat(
                     uqCols.map((c) => ({ Key_name: 'uq_cap_snap', Column_name: c }))));
@@ -119,7 +119,8 @@ const LEGACY_COLUMNS = [
     'block_timestamp', 'validator_count', 'consensus_round', 'consensus_proof',
     'status', 'created_at'
 ];
-const CURRENT_COLUMNS = LEGACY_COLUMNS.concat(['source_chain', 'source_action_index', 'push_generation']);
+const CURRENT_COLUMNS = LEGACY_COLUMNS.concat(['source_chain', 'source_action_index', 'push_generation',
+    'batch_block_time', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge']);
 const CURRENT_INDEXES = ['PRIMARY', 'idx_round_pair', 'idx_pair_block', 'idx_pair_timestamp',
     'idx_status', 'idx_source_chain', 'idx_status_block_round'];
 
@@ -130,7 +131,7 @@ function fakeAttestDb(uqCols) {
     const executed = [];
     const cols = ['id', 'network', 'request_id', 'request_action_index', 'request_block_index',
         'provider_id', 'status', 'response_payload', 'response_hash', 'meta', 'effective_time',
-        'signer_pubkeys', 'signatures', 'widen', 'batch_action_index', 'finalized_at'];
+        'signer_pubkeys', 'signatures', 'widen', 'batch_action_index', 'finalized_at', 'admit_block_btc'];
     return {
         executed,
         doQuery(sql, params) {

@@ -37,6 +37,9 @@
 
 const { MUTABLE_ACTION_FIELDS } = require('../shared.js');
 
+// Name the ANCHOR wire versions whose status a later chunk can restamp (see isCacheableAction).
+const ANCHOR_RESTAMPED_VERSIONS = [1, 3];
+
 class DatabaseCache {
     async init(){
         await this.setupConnectionPools()
@@ -93,10 +96,23 @@ class DatabaseCache {
     // MUTABLE_ACTION_FIELDS, because that list is matched by PRESENCE: the field
     // is on every DEPLOY response, so listing it would uncache every settled
     // deploy forever for a mutation only the pending case has.
+    //
+    // The match covers every `pending` spelling, not only `pending:`: a COINPAY
+    // order match is stored `pending_coinpay` and the settling COINPAY later
+    // rewrites that same order_matches row to `valid`.
+    //
+    // The fifth is a status a LATER action restamps in place. An ANCHOR archive
+    // head (v1, or any v3 bundle, since its section 0 header cannot show whether
+    // the bundle carries an archive) is stored valid, and the continuation chunk
+    // that completes its archive can rewrite every row of that action to
+    // invalid_archive when the reassembled body fails its CRC or match count.
+    // Those two versions are exactly the ones the indexer picks as a chunk's
+    // parent; v0 bundles and v2 chunks are never restamped.
     isCacheableAction(data){
         if(this.util.isNull(data) || this.util.isNull(data['action_index'])) return false;
         if(!this.util.isNull(data['state'])) return false;
-        if(!this.util.isNull(data['status']) && /^pending:/i.test(String(data['status']))) return false;
+        if(!this.util.isNull(data['status']) && /^pending/i.test(String(data['status']))) return false;
+        if(data['action'] === 'ANCHOR' && ANCHOR_RESTAMPED_VERSIONS.includes(Number(data['version']))) return false;
         for(let field of MUTABLE_ACTION_FIELDS)
             if(Object.prototype.hasOwnProperty.call(data, field)) return false;
         return true;

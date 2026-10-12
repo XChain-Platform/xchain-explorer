@@ -162,17 +162,43 @@ class ActionSummaryReaders {
         // projected no field at all and rendered as a bare name. leg_count and
         // member_count let a list row mark itself without carrying the legs (the
         // disclosure fetches the action). Both are absent, not 0 or 1, when there
-        // is nothing to mark, so single sends keep their exact prior shape.
-        let legs = (info.action=='SEND') ? info.sends : (info.action=='DESTROY') ? info.destroys : null;
-        if(Array.isArray(legs) && legs.length > 1){
-            if(!details) details = {};
-            details.leg_count = legs.length;
-        }
+        // is nothing to mark, so single sends keep their exact prior shape. A
+        // multi-leg AIRDROP (formats 1-3, one airdrops[] row per leg) is marked the same way.
+        // For one token, leg_total is the exact DECLARED total across every leg,
+        // including an invalid leg: this is an action summary, while the disclosure
+        // reports which legs took effect. Unlike tokens cannot be added, so
+        // mixed_tokens replaces the total and makes the renderer say so.
+        details = ActionSummaryReaders.prototype.addLegMarkers.call(this, info, details);
         if(info.action=='BATCH' && Array.isArray(info.actions) && info.actions.length > 0){
             if(!details) details = {};
             details.member_count = info.actions.length;
         }
+        // An ATTEST v5 head or v6 chunk keeps its batch key in request_id and has no
+        // request of its own, so the summary names it a batch key rather than
+        // leaving a reader to take it for a request id.
+        if(info.action=='ATTEST' && [5, 6].includes(Number(info.action_format)) && !this.util.isNull(info.request_id)){
+            if(!details) details = {};
+            details.batch_key = info.request_id;
+        }
         return { details, status };
+    }
+
+    // Multi-leg markers for SEND (sends[]), DESTROY (destroys[]) and AIRDROP (airdrops[]):
+    // leg_count always, then either leg_total (one token) or mixed_tokens (unlike tokens).
+    addLegMarkers(info, details){
+        let legs = (info.action=='SEND') ? info.sends : (info.action=='DESTROY') ? info.destroys
+                 : (info.action=='AIRDROP') ? info.airdrops : null;
+        if(!Array.isArray(legs) || legs.length < 2) return details;
+        if(!details) details = {};
+        details.leg_count = legs.length;
+        details.mixed_tokens = legs.some((leg) => String(leg.tick) !== String(legs[0].tick));
+        if(!details.mixed_tokens){
+            let total = '0';
+            for(let leg of legs)
+                total = this.util.bcadd(total, leg.amount, 18);
+            details.leg_total = String(total);
+        } else delete details.leg_total;
+        return details;
     }
 
     async getActionSummaryData(config, actions){

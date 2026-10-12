@@ -147,7 +147,7 @@ function xcDatatableRenderValidatorRow(context){
                    : (hub_status=='unregistered') ? 'secondary'
                    : 'light text-dark';
     $('td', row).eq(4).html(formatHash(pubkey));
-    $('td', row).eq(5).text('v' + version);
+    $('td', row).eq(5).text(isNull(version) ? '-' : ('v' + version));
     $('td', row).eq(6).html(formatAmount(amount));
     $('td', row).eq(7).text(isNull(hub_addr) ? '-' : hub_addr);
     $('td', row).eq(8).text(isNull(hub_chains) ? '-' : hub_chains);
@@ -167,7 +167,7 @@ function xcDatatableRenderStakeRow(context){
     let version = data[5];
     let amount  = data[6];
     $('td', row).eq(4).html(formatHash(pubkey));
-    $('td', row).eq(5).text('v' + version);
+    $('td', row).eq(5).text(isNull(version) ? '-' : ('v' + version));
     $('td', row).eq(6).html(formatAmount(amount));
     $('td', row).eq(7).html(action_link);
 

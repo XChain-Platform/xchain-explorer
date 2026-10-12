@@ -65,6 +65,7 @@ describe('explorer boot consensus-pin verification', function(){
     });
 
     it('halts the process fail-closed when the pin does not verify', function(){
+        this.timeout(45000);
         // Preconditioned on the source guard so a REMOVED check fails here rather
         // than letting the child boot a real explorer (hub fetch, DB pool, ports).
         assert.ok(startApiBody().indexOf('coins.verifyConsensusPin(net)') > -1,

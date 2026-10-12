@@ -884,7 +884,7 @@ $(document).ready(function(){
                     label: 'Indexed block', value: numeral(o.network.block).format('0,0'), icon: 'fa-cube'
                 });
                 XCComponents.mount('home-stat-unconfirmed', 'stat-tile', {
-                    label: 'Unconfirmed XChain', value: numeral(o.network.unconfirmed).format('0,0'), icon: 'fa-clock'
+                    label: 'Unconfirmed XChain', value: formatUnconfirmedCount(o.network.unconfirmed), icon: 'fa-clock'
                 });
                 XCComponents.mount('home-stat-actions', 'stat-tile', {
                     label: 'Actions indexed', value: numeral(actionTotal).format('0,0'), icon: 'fa-list-check'
@@ -919,9 +919,11 @@ $(document).ready(function(){
             // XChain-carrying subset ("<node> / <xchain>"), linked to the
             // mempool page. unconfirmed_node is null on deployments with no
             // decoder API endpoint; show just the XChain count there.
-            var unconfirmedXchain = numeral(o.network.unconfirmed).format('0,0');
+            var unconfirmedXchain = formatUnconfirmedCount(o.network.unconfirmed);
             var unconfirmedText   = unconfirmedXchain;
-            var unconfirmedTitle  = unconfirmedXchain + ' unconfirmed XChain transactions';
+            var unconfirmedTitle  = isNumeric(o.network.unconfirmed)
+                ? unconfirmedXchain + ' unconfirmed XChain transactions'
+                : 'XChain mempool count unavailable';
             if(isNumeric(o.network.unconfirmed_node)){
                 unconfirmedText  = numeral(o.network.unconfirmed_node).format('0,0') + ' / ' + unconfirmedXchain;
                 unconfirmedTitle = numeral(o.network.unconfirmed_node).format('0,0') + ' unconfirmed ' + XC.name + ' transactions / ' + unconfirmedTitle;

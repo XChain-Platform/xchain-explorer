@@ -46,7 +46,7 @@ const log = getLogger();
 //     what the wallet's incoming-receipt notification means. It is also the only
 //     destination-ish column not named `destination_id`, which is how a naive grep
 //     sweeps it back in; do not add it.
-//   - Three of the join keys are NOT `action_index`. `slash_events` keys on
+//   - Two of the join keys are NOT `action_index`. `slash_events` keys on
 //     `execution_index` (FK to contract_executions.action_index) and
 //     `capability_slash_events` on `slash_action_index` (FK to actions.action_index).
 //     Joining either on `action_index` silently matches nothing, since neither table
@@ -57,9 +57,12 @@ const log = getLogger();
 // reach the wire. That is why the lookup below collects a LIST per action rather
 // than a single value.
 //
-// `bridge_settlements` stores its recipient as an address STRING (`address`), not a
+// `bridge_settlements` stores its recipient as an address STRING (`dest_address`), not a
 // destination_id: a source-less XBRIDGE v2/v5 settle leg reaches its credited address
 // only through it, and `where` drops the kind='policy' rows, which credit nobody.
+//
+// `list_transfers.destination_id` is the LIST's new owner. The indexer writes a row only
+// for a valid format-3 transfer, so that family needs no status filter.
 //
 // These table/column names and the `where` fragment are compile-time literals
 // interpolated as SQL (a placeholder cannot bind an identifier). No caller can reach
@@ -74,6 +77,7 @@ const ACTION_DESTINATION_FAMILIES = [
     { table: 'fees',                    key: 'action_index'       },
     { table: 'slash_events',            key: 'execution_index'    },
     { table: 'capability_slash_events', key: 'slash_action_index' },
+    { table: 'list_transfers',          key: 'action_index'       },
     { table: 'bridge_settlements',      key: 'action_index', address: 'dest_address', where: "m.kind='transfer'" }
 ];
 
@@ -84,13 +88,13 @@ class ActionDestinationReaders {
     // routing branch has been permanently inert and the wallet's incoming-receipt
     // notification has never fired for anyone.
     //
-    // SHAPE: ONE round trip for the whole batch, a UNION ALL over the nine
+    // SHAPE: ONE round trip for the whole batch, a UNION ALL over the ten
     // destination-bearing families (ACTION_DESTINATION_FAMILIES) filtered by the
     // action_index values ACTUALLY FETCHED. This feed drives the 5s ChangeDetector
     // poll, so a per-row lookup would cost up to `limit` (100) round trips every
-    // five seconds per coin; a per-family lookup would cost nine. The IN list is
+    // five seconds per coin; a per-family lookup would cost ten. The IN list is
     // built from the fetched rows rather than from the cursor range, so a catch-up
-    // burst binds exactly as many parameters as it has actions (<= limit * 9), and
+    // burst binds exactly as many parameters as it has actions (<= limit * 10), and
     // an EMPTY batch issues no query at all.
     //
     // FAILURE MODE, deliberately soft: a failed lookup degrades every row to
@@ -140,7 +144,7 @@ class ActionDestinationReaders {
         } catch(e){
             // The union is all-or-nothing: one absent table (an older deployment
             // without capability_slash_events, say) loses the destinations of all
-            // nine families. Retry family by family so the rest still resolve, and
+            // ten families. Retry family by family so the rest still resolve, and
             // QUARANTINE only the ones that fail for a schema reason, so the steady
             // state on such a deployment is back to one query per poll rather than
             // ten. A transient failure (connection lost) is deliberately NOT

@@ -35,6 +35,7 @@ const { expect } = require('chai');
 const Utility    = require('../../../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
+const { siblingCheckout, skipOrFail } = require('../../../helpers/sibling_checkout.js');
 
 const Database = proxyquire('../../../../src/db/index.js', {
     './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
@@ -71,7 +72,9 @@ function loadRealSchema() {
     // Skip only when this checkout is the standalone explorer repo without
     // the sibling indexer (the platform monorepo + bin/ci-all.sh have it).
     for (const f of DDL_FILES) {
-        if (!fs.existsSync(path.join(INDEXER_SQL_DIR, f))) this.skip();
+        const verdict = siblingCheckout(__dirname, path.join(INDEXER_SQL_DIR, f));
+        if (!verdict.usable)
+            return skipOrFail(this, verdict, 'the real indexer DDL reorg guard');
     }
     let DatabaseSync;
     try { ({ DatabaseSync } = require('node:sqlite')); }

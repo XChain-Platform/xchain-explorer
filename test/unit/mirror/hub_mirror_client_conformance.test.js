@@ -22,10 +22,11 @@
 const fs     = require('fs');
 const path   = require('path');
 const assert = require('assert');
+const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
 
 const LOCAL_SRC  = path.join(__dirname, '..', '../../src');
 const CANON_SRC  = path.join(__dirname, '..', '../../../xchain-indexer/src');
-const CANON_PRESENT = fs.existsSync(path.join(CANON_SRC, 'hub', 'hub_db_sync.js'));
+const CANON_VERDICT = siblingCheckout(__dirname, path.join(CANON_SRC, 'hub', 'hub_db_sync.js'));
 
 const SQL_DIR    = path.join(LOCAL_SRC, 'sql', 'hub-mirror');
 const SYNC_SCRIPT = path.join(CANON_SRC, '..', 'bin', 'sync-hub-mirror-client.sh');
@@ -50,9 +51,10 @@ const HUB_FILES = [
 // one, so its case keeps that title while comparing the renamed file; the entry drops out
 // of this map when a later grant re-takes the pin.
 const PINNED_TITLE_NAME = { 'hub_schema_version.js': 'hub-schema-version.js' };
-// The two gate modules the client reaches with ../../consensus/gates/, vendored at the
+// The three gate modules the client reaches with ../../consensus/gates/, vendored at the
 // same tail every repo carries the W5 twins at (src-relative, directory included).
-const DEP_FILES = ['consensus/gates/price_batching_floor_gate.js', 'consensus/gates/mirror_admission_gate.js'];
+const DEP_FILES = ['consensus/gates/price_batching_floor_gate.js', 'consensus/gates/mirror_admission_gate.js',
+    'consensus/gates/mirror_admission_margin_gate.js'];
 
 // The client entry installs a directory of parts (src/hub/hub_db_sync/, subdirectories
 // included), vendored as a SET by the sync script's HUB_DIRS= line. Both sides are walked
@@ -142,7 +144,10 @@ function scriptHubDirs(){ return scriptFileList('HUB_DIRS'); }
 const TWIN_FILES = ['consensus/gates/state_subtree_gate.js', 'consensus/equivocation_header.js', 'consensus/stake_weighted_quorum.js'];
 
 describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
-    before(function(){ if(!CANON_PRESENT) this.skip(); });
+    before(function(){
+        if(!CANON_VERDICT.usable)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical hub-mirror client guard');
+    });
 
     [['hub', HUB_FILES], ['', DEP_FILES]].forEach(function(pair){
         const sub = pair[0], names = pair[1];
@@ -168,7 +173,10 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
 });
 
 describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
-    before(function(){ if(!CANON_PRESENT) this.skip(); });
+    before(function(){
+        if(!CANON_VERDICT.usable)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical hub-mirror sync-list guard');
+    });
 
     it('the HUB_FILES list matches the sync script HUB_FILES list', function(){
         assert.deepStrictEqual([...HUB_FILES].sort(), scriptHubFiles(),
@@ -215,7 +223,10 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
 });
 
 describe('hub-mirror client conformance: byte-identity to canonical source @regression', function(){
-    before(function(){ if(!CANON_PRESENT) this.skip(); });
+    before(function(){
+        if(!CANON_VERDICT.usable)
+            return skipOrFail(this, CANON_VERDICT, 'the canonical hub-mirror SQL guard');
+    });
 
     SQL_FILES.forEach(function(f){
         it('sql/hub-mirror/' + f + ' is byte-identical to xchain-indexer/src/sql', function(){

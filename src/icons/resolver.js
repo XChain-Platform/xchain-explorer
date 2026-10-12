@@ -125,7 +125,7 @@ function actionSource(desc){
     return undefined;
 }
 
-// 1. stamp:base64data: embedded image bytes
+// 6. stamp:base64data: embedded image bytes
 function stampSource(desc){
     if(!/^stamp:/i.test(desc)) return undefined;
     const b64 = desc.replace(/^stamp:/i, '').trim();
@@ -142,7 +142,7 @@ function stampSource(desc){
     return { scheme: 'stamp', data: b64 };
 }
 
-// 2. ord:HASH: Ordinals inscription, resolved via the inscription decoder
+// 1. ord:HASH: Ordinals inscription, resolved via the inscription decoder
 function ordSource(desc){
     if(!/^ord:/i.test(desc)) return undefined;
     let hash = desc.replace(/^ord:/i, '').trim();
@@ -156,7 +156,7 @@ function ordSource(desc){
     return { scheme: 'ord', url: 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash };
 }
 
-// 3. ipfs:HASH or ipfs://HASH: IPFS gateway
+// 2. ipfs:HASH or ipfs://HASH: IPFS gateway
 function ipfsSource(desc){
     if(!/^ipfs:/i.test(desc)) return undefined;
     const hash = desc.replace(/^ipfs:(\/\/)?/i, '').trim();
@@ -164,7 +164,7 @@ function ipfsSource(desc){
     return { scheme: 'ipfs', url: IPFS_GATEWAY + hash };
 }
 
-// 4. ar:HASH: Arweave gateway
+// 3. ar:HASH: Arweave gateway
 function arweaveSource(desc){
     if(!/^ar:/i.test(desc)) return undefined;
     const hash = desc.replace(/^ar:/i, '').trim();
@@ -172,7 +172,7 @@ function arweaveSource(desc){
     return { scheme: 'arweave', url: 'https://arweave.net/' + hash };
 }
 
-// 5. imgur formats. Accepts:
+// 7. imgur formats. Accepts:
 //   imgur/<image>[;<title>]
 //   imgur.com/<image>
 //   imgur.com/a/<image>           (album short)
@@ -194,13 +194,13 @@ function imgurSource(desc){
     return { scheme: 'imgur', url: 'https://i.imgur.com/' + name };
 }
 
-// 6. Pointers to non-image media: can't generate an icon from these
+// 8. Pointers to non-image media: can't generate an icon from these
 function nonImageMediaSource(desc){
     if(/^(youtube|soundcloud)\//i.test(desc)) return null;
     return undefined;
 }
 
-// 7. Bare arweave URL: strip the legacy /x.json suffix that no longer works
+// 4. Bare arweave URL: strip the legacy /x.json suffix that no longer works
 function arweaveUrlSource(desc){
     if(!/^https?:\/\/arweave\.net\//i.test(desc)) return undefined;
     let url = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
@@ -208,7 +208,7 @@ function arweaveUrlSource(desc){
     return { scheme: 'arweave_url', url };
 }
 
-// 8. URL ending in .json (optional ";<sha256>" suffix), by the page's tokenInfo_jsonPattern
+// 5. URL ending in .json (optional ";<sha256>" suffix), by the page's tokenInfo_jsonPattern
 function jsonUrlSource(desc){
     if(!tokenInfo_jsonPattern().test(desc)) return undefined;
     let url = desc.split(';')[0];
@@ -239,13 +239,12 @@ function imageUrlSource(desc){
     return undefined;
 }
 
-// The branches in priority order. This order IS the page's priority chain
-// (tokenInfo_getJsonUrl in content/js/xchain/token_info.js, then
-// tokenContent_parseDescription in token_content.js); reordering it makes the
-// two pick different sources.
+// Branches in the page's order: action:, then the metadata lanes tokenInfo_getJsonUrl
+// (content/js/xchain/token_info.js) fetches first, then the forms it never fetches as
+// metadata; reordering this makes the listing icon and the page pick different sources.
 const DESCRIPTION_BRANCHES = [
-    actionSource, stampSource, ordSource, ipfsSource, arweaveSource, imgurSource,
-    nonImageMediaSource, arweaveUrlSource, jsonUrlSource, imageUrlSource,
+    actionSource, ordSource, ipfsSource, arweaveSource, arweaveUrlSource, jsonUrlSource,
+    stampSource, imgurSource, nonImageMediaSource, imageUrlSource,
 ];
 
 /**

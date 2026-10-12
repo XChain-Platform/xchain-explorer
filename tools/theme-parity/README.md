@@ -70,14 +70,25 @@ The probe picks those sheets out of `document.styleSheets` with a hand-written
 does not name is read by nothing. The component sheets sat in exactly that gap
 between 2026-09-02 and the pattern being widened; `theme-token-literal-gate`
 now checks the pattern against `template.html`'s own link list so the next one
-fails the suite instead of vanishing. The `baseline-2026-08-20.json` capture
+fails the suite instead of vanishing. A theme's `tokens.css` can also pull sheets
+in with `@import` (the console theme imports four component overrides), and an
+imported sheet never appears in `document.styleSheets`: the probe follows each
+import rule's own `styleSheet` under the same `SHEET` test, refuses a capture
+whose first-party import came back empty or missing (Chrome hands a 404 import
+an empty sheet, not a null one), and the gate checks the pattern against
+every `themes/*/tokens.css` import target too. The `baseline-2026-08-20.json` capture
 predates the component layer: its per-page `cssRules` counts are one revision
 behind, and its hashes are not, because those component rules match no element
 on a healthy page.
 
-**rend** - a fixed census of 31 anchor selectors x 23 properties, read
+**rend** - a fixed census of 31 anchor selectors x 29 properties, read
 regardless of which stylesheet won. This layer does differ between modes, so it
-is the one that can catch a dark-mode regression.
+is the one that can catch a dark-mode regression. The census covers every box
+property on all four sides. It held 23 properties when the 2026-08-20 baseline
+was captured, so a rend capture taken before that change is not comparable with
+one taken after it; compare only pairs captured with the same probe. The six
+properties added on 2026-10-07 are `border-right-color`, `border-left-width`,
+`border-right-width`, `padding-right`, `margin-left` and `margin-right`.
 
 **Layout-derived keys** (widths, heights, margins, offsets) are read
 layout-independently in both layers: `getComputedStyle` returns the USED
@@ -164,7 +175,7 @@ Two consequences for anyone reading older evidence:
   `baseline-<date>.json` with the corrected probe before treating a light/dark
   comparison as evidence**, and do that before the pending pre-prod
   theme-parity re-record rather than after it.
-- `test/unit/theme-parity-probe.test.js` executes the probe in jsdom and pins
+- `test/unit/content/components/theme_parity_probe.test.js` executes the probe in jsdom and pins
   both behaviours: the light and dark captures of a page marked dark must
   render differently, the same page must yield the same hash pair whichever
   mode it arrived in, and a degenerate capture must return `invalid` and write

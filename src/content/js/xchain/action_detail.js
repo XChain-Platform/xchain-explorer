@@ -25,6 +25,11 @@ function getActionDetails(action, info){
     html = actionDetail_renderMessageActions(html, action, info, coin);
     html = actionDetail_renderContractActions(html, action, info, coin);
     html = actionDetail_renderConsensusActions(html, action, info, coin);
+    // The expiry, roll-call and bridge summaries live in action_system_summaries.js,
+    // loaded after this part. They run after the humanized fallback so a sparse row
+    // keeps its name, and a harness without that part keeps the fallback too.
+    if(typeof actionDetail_renderSystemActions === 'function')
+        html = actionDetail_renderSystemActions(html, action, info, coin);
     // The structure markers live in their own part (action_markers.js), loaded
     // after this one; a page or a test harness that has only this part still
     // gets the summary, without the count badge.
@@ -104,18 +109,21 @@ function attestListSummary(data){
     return { batch: batch, key: data[14], label: label, type: type };
 }
 
-// /api/action/{idx} is the aliasing reader for BROADCAST's fee: it and
-// detail_simple.js's showBroadcastDetails both read info.broadcast_fee,
-// never info.fee (see the BROADCAST branch below for why). The address
-// page's broadcast rows come from a different endpoint, /api/broadcasts/
-// {addr}/address, whose plain positional `fee` column is read by
-// rows_actions_a.js's xcDatatableRenderBroadcastRow - an unrelated
-// renderer for an unrelated response shape, not a second copy of this key.
+// Lead text for a multi-leg SEND, DESTROY or AIRDROP summary: the declared total of one token,
+// or a mixed-token note; null when the summary carries no multi-leg marker.
+function actionDetail_legTotalLead(info, coin, joiner){
+    if(!(Number(info.leg_count) > 1 && (info.mixed_tokens === true || !isNull(info.leg_total))))
+        return null;
+    if(info.mixed_tokens === true)
+        return 'Multiple tokens ' + joiner + ' ';
+    return formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.leg_total) + ' ' + joiner + ' ';
+}
+
+// Action details alias BROADCAST's fee as broadcast_fee; address rows use a separate shape.
 function actionDetail_renderBasicActions(html, action, info, coin){
     // Render summaries for the initial transaction action families.
     if(action=='ADDRESS'){
-        // v1 is a controller bind, not a preferences edit: summarizing one with the preference
-        // defaults described an action it never took.
+        // v1 is a controller bind, not a preferences edit.
         if(info.action_format==1){
             let verb = (info.unbind==1) ? 'Unbind' : 'Bind';
             html += verb + ' ' + escapeHtml(String(info.action_class || '-')); // on-chain field into .html()
@@ -129,28 +137,20 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         }
     }
     if(action=='AIRDROP'){
-        html += info.amount + formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' to ';
-        // Route the list reference as an ACTION, not a token: airdrops.list_action_index is the
-        // index of the LIST action being paid out (indexer db.js createAirdrop), so a /token/ URL
-        // searched for a token named after a number. showAirdropDetails already links
-        // this same field through /action/.
-        html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
+        let lead = actionDetail_legTotalLead(info, coin, 'across');
+        if(lead !== null) html += lead;
+        else {
+            html += info.amount + formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' to ';
+            // list_action_index identifies the LIST action being paid out.
+            html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
+        }
     }
     if(action=='BROADCAST'){
-        // Read the broadcast's own fee fraction from its aliased column (broadcast_fee),
-        // NOT info.fee: for a BATCH child `info` is a full getActionData result whose fee
-        // slot is overwritten with the protocol-fee record, and bcmul on that object threw
-        // and aborted the whole member-table render (same fix applied at the other call site).
-        // FEE is an OPTIONAL wire field on BROADCAST v1/v2 (xchain-indexer broadcast.js: a
-        // null FEE is not an error), so a feed broadcast without one stores NULL. Emitting
-        // the label anyway printed a bare `Fee: %` with nothing in front of it. Build the
-        // whole clause here so it disappears when there is no fee to state, rather than
-        // guessing at 0% - a fee this action never declared.
+        // BATCH children use info.fee for the protocol fee record; BROADCAST fees use the alias.
         let percent = (isNumeric(info.broadcast_fee))
             ? ' <b>Fee:</b> ' + bcmul(info.broadcast_fee, 100, 2) + '%'
             : '';
-        // info.message / info.value are BROADCAST free text (on-chain,
-        // attacker-controlled) and this html is injected via .html(). Escape them.
+        // BROADCAST text is on-chain input rendered through .html().
         if(info.action_format==0){
             html += escapeHtml(info.message);
         } else if(info.action_format==1){
@@ -207,6 +207,17 @@ function actionDetail_renderMarketActions(html, action, info, coin){
         let type2   = XC.list_types[info.type] || 'Unknown';
         html = action3 + ' ' + type2 + ' List';
     }
+    // Name the BET shape from its record format, the one shape key every summary
+    // surface projects; a row with no format keeps the generic name.
+    if(action=='BET'){
+        let fmt = isNull(info.action_format) ? null : Number(info.action_format);
+        let shapes = { 0: 'Create bet feed', 1: 'Cancel bet feed', 3: 'Resolve bet feed', 4: 'Edit bet feed lists' };
+        if(fmt === 2)
+            html = (isNull(info.tick) || isNull(info.amount)) ? 'Wager'
+                : 'Wager ' + formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
+        else if(fmt !== null && shapes[fmt])
+            html = shapes[fmt];
+    }
     return html;
 }
 
@@ -239,7 +250,9 @@ function actionDetail_renderMessageActions(html, action, info, coin){
         // sends[]; the summary producers flatten sends[0], but tolerate the nested
         // shape too so a raw payload never renders as ' to ' plus an empty link.
         let sends = (isNull(info.tick) && isNull(info.destination) && Array.isArray(info.sends)) ? info.sends : null;
-        if(sends && sends.length > 1){
+        let lead = actionDetail_legTotalLead(info, coin, 'to');
+        if(lead !== null) html += lead;
+        else if(sends && sends.length > 1){
             let sameTick = sends.every((s) => s.tick == sends[0].tick);
             if(sameTick){
                 let total = sends.reduce((sum, s) => bcadd(sum, s.amount), '0');
@@ -276,8 +289,10 @@ function actionDetail_renderContractActions(html, action, info, coin){
     // Render staking and contract family summaries.
     // Compact summaries for the staking / contract families. Field names
     // mirror each type's show*Details() renderer.
-    if(action=='DESTROY')
-        html = formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
+    if(action=='DESTROY'){
+        html = actionDetail_legTotalLead(info, coin, 'across')
+            || formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount);
+    }
     if(action=='STAKE'){
         html = formatAmount(info.amount);
         html += isNull(info.target_contract_index)
@@ -370,11 +385,13 @@ function actionDetail_renderConsensusActions(html, action, info, coin){
         if(batchLabel !== null)
             html = escapeHtml(batchLabel);
     }
-    // Never render a blank Details cell: any type without an explicit summary
-    // above (BATCH, XCALL, XEXEC, CROSS_SETTLE, NODEPROOF, ATTEST, COINPAY,
-    // ... and any FUTURE type) falls back to a humanized action name, so a new
-    // action type can no longer silently summarize as empty while being fully
-    // supported everywhere else.
+    if(action=='XPOLICY')
+        html = 'Policy snapshot (XPOLICY)';
+    if(action=='LIST_SHARE')
+        html = 'Shared list version (LIST_SHARE)';
+    // Never render a blank Details cell: a type with no summary branch falls back to
+    // its humanized name. The fallback-only set is pinned by a test, so a new type
+    // must either get a branch or join that list on purpose.
     if(html === ''){
         let words = String(action).toLowerCase().split('_');
         html = words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');

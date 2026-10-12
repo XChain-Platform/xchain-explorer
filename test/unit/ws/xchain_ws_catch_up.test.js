@@ -148,6 +148,47 @@ describe('xchain_ws.js reconnect catch-up: cursor, continuation and refusal', fu
         expect(events[0].since_action_index).to.equal('500');
         expect(catchUps(ws)).to.have.lengthOf(2);
     });
+
+    // The server refuses a cursor above its tip rather than COMPLETE on it; the page
+    // must hear that as a resync, not as a caught-up replay.
+    it('reports a CATCH_UP_AHEAD_OF_TIP refusal to the page as resync_required', function () {
+        const ws = loadClient();
+        const events = [];
+        ws.on('resync_required', (m) => events.push(m.data));
+        reconnectWith(ws, '500', [{ channels: ['actions'], params: {} }]);
+        const id = catchUps(ws)[0].id;
+        recv(ws, { type: 'error', id, data: { code: 'CATCH_UP_AHEAD_OF_TIP', message: 'resync via REST' } });
+
+        expect(events.map(e => [e.code, e.since_action_index])).to.deep.equal([['CATCH_UP_AHEAD_OF_TIP', '500']]);
+        expect(ws.lastActionIndex).to.equal('500');
+    });
+});
+
+describe('xchain_ws.js reconnect catch-up: not_replayed', function () {
+
+    it('dispatches the types CATCH_UP_COMPLETE says were not replayed', function () {
+        const ws = loadClient();
+        const events = [];
+        ws.on('not_replayed', (m) => events.push(m.data));
+        reconnectWith(ws, '500', [{ channels: ['actions'], params: {} }]);
+        const id = catchUps(ws)[0].id;
+        recv(ws, complete(id, '600', { not_replayed: ['BET_CLOSED', 'XCALL_EXPIRED'] }));
+
+        expect(events).to.have.lengthOf(1);
+        expect(events[0].types).to.deep.equal(['BET_CLOSED', 'XCALL_EXPIRED']);
+        expect(events[0].channels).to.deep.equal(['actions']);
+        expect(events[0].since_action_index).to.equal('500');
+    });
+
+    it('dispatches nothing when the list is absent or empty', function () {
+        const ws = loadClient();
+        const events = [];
+        ws.on('not_replayed', (m) => events.push(m.data));
+        reconnectWith(ws, '500', [{ channels: ['actions'], params: {} }, { channels: ['address'], params: { address: 'X' } }]);
+        recv(ws, complete(catchUps(ws)[0].id, '600'));
+        recv(ws, complete(catchUps(ws)[1].id, '600', { not_replayed: [] }));
+        expect(events).to.have.lengthOf(0);
+    });
 });
 
 describe('xchain_ws.js reconnect catch-up: backstops', function () {
@@ -204,5 +245,48 @@ describe('xchain_ws.js reconnect catch-up: backstops', function () {
         recv(ws, complete(catchUps(ws)[0].id, '600', { truncated: true, events_replayed: 1 }));
         expect(catchUps(ws)).to.have.lengthOf(1);
         expect(ws._catchUp).to.equal(null);
+    });
+});
+
+describe('xchain_ws.js reconnect catch-up: which frames move the cursor', function () {
+
+    // Frames whose data.action_index names an entity (a dispenser, a bet feed, an
+    // xcall's origin) rather than an action row this client has received.
+    const ENTITY_FRAMES = [
+        { type: 'SUBSCRIBED',       data: { channel: 'dispenser', action_index: '900000' } },
+        { type: 'UNSUBSCRIBED',     data: { channel: 'bet_feed', action_index: '900000' } },
+        { type: 'SNAPSHOT',         data: { channel: 'dispenser', action_index: '900000' } },
+        { type: 'DISPENSER_UPDATE', data: { channel: 'dispenser', action_index: '900000' } },
+        { type: 'BET_CLOSED',       data: { action_index: '900000' } },
+        { type: 'XCALL_COMPLETED',  data: { action_index: '900000' } }
+    ];
+
+    it('an idle client ignores entity ids and still advances on NEW_ACTION', function () {
+        const ws = loadClient();
+        ws.lastActionIndex = '500';
+        for (const frame of ENTITY_FRAMES) recv(ws, frame);
+        expect(ws.lastActionIndex).to.equal('500');
+        recv(ws, { type: 'NEW_ACTION', data: { action_index: '510' } });
+        expect(ws.lastActionIndex).to.equal('510');
+    });
+
+    it('an entity id seen during a replay is not applied when the replay closes', function () {
+        const ws = loadClient();
+        reconnectWith(ws, '500', [{ channels: ['actions'], params: {} }]);
+        const id = catchUps(ws)[0].id;
+        for (const frame of ENTITY_FRAMES) recv(ws, frame);
+        recv(ws, complete(id, '600'));
+        expect(ws.lastActionIndex).to.equal('600');
+
+        ws.sent = [];
+        ws._resubscribe();
+        expect(catchUps(ws)[0].params.since_action_index).to.equal('600');
+    });
+
+    it('a CATCH_UP_COMPLETE outside a replay still advances the cursor', function () {
+        const ws = loadClient();
+        ws.lastActionIndex = '500';
+        recv(ws, complete('late', '640'));
+        expect(ws.lastActionIndex).to.equal('640');
     });
 });

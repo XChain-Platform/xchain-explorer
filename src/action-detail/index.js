@@ -89,10 +89,15 @@ function getHandler(type) {
 // Sorted so the manifest-conformance guard and the golden generator both see a
 // stable order regardless of require order.
 const ACTION_TYPES = Object.keys(REGISTRY).sort();
+// Registered handlers the manifest does not mark explorerRender. Empty since the
+// canonical manifest gained the settlement-anchor category, which marks XPOLICY
+// and LIST_SHARE explorerRender.
+const ACTION_DETAIL_ONLY_TYPES = Object.freeze([]);
 
 module.exports = {
     REGISTRY,
     ACTION_TYPES,
+    ACTION_DETAIL_ONLY_TYPES,
     getHandler,
     // The two pipeline steps that are the same for every action.
     deblankBaseline:     shared.deblankBaseline,

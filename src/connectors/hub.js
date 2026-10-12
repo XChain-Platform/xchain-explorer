@@ -27,6 +27,37 @@ const HubConfigSync = require('./hub/config_sync.js');
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+const statusReaders = require('../db/readers/entities/status.js');
+const HUB_CONSENSUS_HASH_STATE = Symbol.for('xchain.explorer.hubConsensusHashState');
+const HUB_CONSENSUS_HASH_STATUS_INSTALLED = Symbol.for('xchain.explorer.hubConsensusHashStatusInstalled');
+
+function hubConsensusHashStatusFields(){
+    const state = statusReaders[HUB_CONSENSUS_HASH_STATE];
+    return {
+        hub_consensus_hash_mismatch: state.mismatch,
+        hub_consensus_hash_mismatch_details: state.details.slice()
+    };
+}
+
+function installHubConsensusHashStatusFields(){
+    if(!statusReaders[HUB_CONSENSUS_HASH_STATE])
+        Object.defineProperty(statusReaders, HUB_CONSENSUS_HASH_STATE,
+            { value: { mismatch: null, details: [] } });
+    if(statusReaders[HUB_CONSENSUS_HASH_STATUS_INSTALLED]) return;
+    const descriptor = Object.getOwnPropertyDescriptor(statusReaders, 'getStatus');
+    const getStatus = descriptor.value;
+    descriptor.value = async function(config){
+        const result = await getStatus.call(this, config);
+        if(Array.isArray(result) && result[0] && typeof result[0] === 'object')
+            Object.assign(result[0], hubConsensusHashStatusFields());
+        return result;
+    };
+    Object.defineProperty(statusReaders, 'getStatus', descriptor);
+    Object.defineProperty(statusReaders, HUB_CONSENSUS_HASH_STATUS_INSTALLED, { value: true });
+}
+
+installHubConsensusHashStatusFields();
+
 // Environment reads go through config.js's live read-through view of process.env.
 // config.js requires this module at its top, before it has built its exports, so
 // the view is looked up each time a read runs and never captured at load.
@@ -156,11 +187,21 @@ class XChainHubConnector {
         // (initial / post-restart / old hub) requests the full tree.
         this.configs       = null;
         this.lastWatermark = 0;
+        this.hubConsensusHashMismatch = null;
+        this.hubConsensusHashMismatchDetails = [];
         // Endpoint index the cursor was obtained from. A wall-clock since_updated_at
         // cursor is only valid against the hub that produced it (each hub stamps
         // updated_at = NOW() at its own apply time of a PBFT-committed config), so on
         // failover to a different endpoint the cursor must be reset and re-fetched full.
         this._watermarkEndpointIdx = null;
+    }
+
+    recordHubConsensusHashStatus(mismatch, details){
+        this.hubConsensusHashMismatch = mismatch;
+        this.hubConsensusHashMismatchDetails = details.slice();
+        const state = statusReaders[HUB_CONSENSUS_HASH_STATE];
+        state.mismatch = mismatch;
+        state.details = details.slice();
     }
 
     // Internal: call a JSON-RPC method, trying each endpoint starting from the
@@ -173,6 +214,9 @@ class XChainHubConnector {
     // are last-call-wins on a process-wide connector, so a caller that branches on
     // the answer (HubOperationalCache's -32601 capability-gap throw) must read
     // `out` or it can read a concurrent call's error across its own await.
+    // `out.allEndpointsAnswered` is true only when the final pass got a
+    // protocol-level answer from EVERY endpoint, the one case where an rpcError
+    // is definitive for the whole fleet rather than one endpoint's word.
     async call(data, { timeout = 5000, attempts = this.maxAttempts, delayMs = this.retryDelayMs, out = null } = {}){
         // A reachable-but-unhealthy hub responds with a non-2xx status (e.g. the
         // 503 "degraded" health body returned when its DB pool is down) that
@@ -183,7 +227,7 @@ class XChainHubConnector {
         // only surface it if no endpoint comes back healthy.
         const state = { degraded: null };
         this.lastRpcError = null;
-        if(out){ out.rpcError = null; out.failures = []; }
+        if(out){ out.rpcError = null; out.failures = []; out.allEndpointsAnswered = false; }
         for(let attempt = 1; attempt <= attempts; attempt++){
             // Reset each pass so lastFailures reflects the final attempt's
             // outcome rather than accumulating duplicates across retries.
@@ -197,7 +241,10 @@ class XChainHubConnector {
             // unreachable): the outcome is deterministic for this request, so
             // backoff cannot change it and the unreachable warning below would
             // misname a live hub as down. Give up without retrying.
-            if(pass.rpcAnswered === this.urls.length) break;
+            if(pass.rpcAnswered === this.urls.length){
+                if(out) out.allEndpointsAnswered = true;
+                break;
+            }
             // All endpoints failed this pass. Back off before the next unless
             // this was the final attempt.
             if(attempt < attempts){

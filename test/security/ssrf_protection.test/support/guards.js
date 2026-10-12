@@ -83,6 +83,39 @@ describe('Security: SSRF: canonical range classifier (ssrf-guard.js)', function 
             expect(isPrivateAddress(ip), ip).to.be.false;
     });
 
+    // A NAT64 gateway or a 6to4 relay forwards these to the IPv4 address they
+    // embed, so a private IPv4 inside one is as reachable as the bare literal.
+    it('blocks NAT64 and 6to4 addresses that embed a private IPv4', function () {
+        for (const ip of ['64:ff9b::a9fe:a9fe', '64:ff9b::169.254.169.254', '64:ff9b::7f00:1',
+                          '64:ff9b::a00:5', '64:ff9b:0:0:0:0:c0a8:101', '[64:ff9b::7f00:1]',
+                          '2002:a9fe:a9fe::', '2002:7f00:1::1', '2002:a00:5:1::1', '2002:c0a8:101::'])
+            expect(isPrivateAddress(ip), ip).to.be.true;
+        const host = new URL('http://[64:ff9b::169.254.169.254]/x').hostname.replace(/^\[|\]$/g, '');
+        expect(host).to.equal('64:ff9b::a9fe:a9fe');
+        expect(isPrivateAddress(host), host).to.be.true;
+    });
+
+    // The local-use 64:ff9b:1::/48 lets the operator pick where the IPv4 sits,
+    // so no fixed extraction reads it; the rest of 64:ff9b::/32 is unallocated.
+    it('refuses NAT64 space outside the well-known /96, whatever it embeds', function () {
+        for (const ip of ['64:ff9b:1::a00:5', '64:ff9b:1:a00:5::', '64:ff9b:1::808:808', '64:ff9b:2::1'])
+            expect(isPrivateAddress(ip), ip).to.be.true;
+    });
+
+    it('leaves NAT64 and 6to4 addresses that embed a public IPv4 alone', function () {
+        for (const ip of ['64:ff9b::808:808', '64:ff9b::5db8:d822', '2002:808:808::1', '2002:5db8:d822::'])
+            expect(isPrivateAddress(ip), ip).to.be.false;
+    });
+
+    it('makeSafeLookup rejects a hostname resolving to a NAT64 address of a private IPv4', function (done) {
+        const dnsStub = { lookup: (h, o, cb) => { if (typeof o === 'function') { cb = o; } cb(null, '64:ff9b::a9fe:a9fe', 6); } };
+        makeSafeLookup(dnsStub)('metadata.attacker.example', {}, (err) => {
+            expect(err).to.be.an('error');
+            expect(err.code).to.equal('RELAY_DENIED');
+            done();
+        });
+    });
+
     it('makeSafeLookup rejects a hostname resolving to a private address', function (done) {
         const dnsStub = { lookup: (h, o, cb) => { if (typeof o === 'function') { cb = o; } cb(null, '10.0.0.5', 4); } };
         makeSafeLookup(dnsStub)('internal.attacker.example', {}, (err) => {

@@ -37,7 +37,7 @@
  *           tokenization is done correctly the two modes should still agree
  *           here, with the difference living in the render layer below.
  *
- *   rend  - a fixed census of 31 anchor selectors x 23 properties, read as
+ *   rend  - a fixed census of 31 anchor selectors x 29 properties, read as
  *           computed values no matter which stylesheet won. This proves the
  *           RENDERED result is unchanged, and unlike the rule layer it DOES
  *           differ between light and dark, so it is the layer that can
@@ -123,13 +123,18 @@ window.__XC = (function () {
     '.btn','.btn-primary','a','h1','h2','.badge','.form-control','.form-select','input','select',
     '#market-info','.market-header','.table-stats th','.table-market-stats th','.dataTables_wrapper',
     '.dataTables_wrapper .dataTables_paginate .paginate_button','.bg-green td','.bg-red td','.pagination'];
+  // Every box property on all four sides: the table-cell anchor declares padding-right
+  // and its first and last cells set border-left-width and border-right-width.
   const P = ['color','background-color','background-image','border-top-color','border-bottom-color',
-    'border-left-color','border-top-width','border-bottom-width','border-radius','box-shadow','font-family',
-    'font-size','font-weight','line-height','letter-spacing','padding-top','padding-left','padding-bottom',
-    'margin-top','margin-bottom','opacity','text-decoration-line','text-transform'];
+    'border-left-color','border-right-color','border-top-width','border-bottom-width','border-left-width',
+    'border-right-width','border-radius','box-shadow','font-family','font-size','font-weight','line-height',
+    'letter-spacing','padding-top','padding-right','padding-left','padding-bottom','margin-top','margin-right',
+    'margin-bottom','margin-left','opacity','text-decoration-line','text-transform'];
   // Admit every FIRST-PARTY sheet and no vendor one. The component alternative is
   // here because that layer landed later and fell straight through the pattern.
-  // Checked against template.html's own link list by theme-token-literal-gate.
+  // Checked by theme-token-literal-gate against template.html's own link list and
+  // against every themes/*/tokens.css @import target; walk() follows those imports,
+  // which document.styleSheets never lists.
   const SHEET = /\/(xchain|xchain-charts)\.css|\/themes\/|\/components\/[^\/]+\/component\.css/;
   const STATE = /:{1,2}(hover|visited|active|focus|focus-visible|focus-within|target)\b/;
   const ELEM  = /::(before|after|placeholder|marker|selection|first-line|first-letter)\b/;
@@ -149,8 +154,25 @@ window.__XC = (function () {
     let h = 5381; for (let i=0;i<s.length;i++) h = ((h*33)^s.charCodeAt(i))>>>0;
     return { hash: h.toString(16).padStart(8,'0'), keys: Object.keys(o).length }; };
   const ruleSnap = () => {
-    const snap = {}; let rules = 0, sheets = 0; const un = [];
-    const walk = r => {
+    const snap = {}; let rules = 0, sheets = 0; const un = []; const seen = new Set();
+    // Read one admitted sheet once; an unreadable one is recorded so health()
+    // rejects the capture rather than fingerprinting a partial rule layer.
+    const readSheet = sh => { if (!sh || !sh.href || !SHEET.test(sh.href) || seen.has(sh)) return;
+      seen.add(sh); sheets++;
+      let rs; try { rs = sh.cssRules; } catch(e) { snap['__UNREADABLE__ '+sh.href] = String(e); return; }
+      for (const r of rs) walk(r, sh.href); };
+    const walk = (r, base) => {
+      // An @import rule carries its sheet in .styleSheet, the only way to reach it.
+      // Chrome hands a 404 import an EMPTY sheet; a null styleSheet is recorded too.
+      if (typeof r.href === 'string' && 'styleSheet' in r) {
+        if (r.styleSheet) { const sh = r.styleSheet; readSheet(sh);
+          let n = -1; try { n = sh.cssRules.length; } catch(e) {}
+          if (n === 0 && sh.href && SHEET.test(sh.href)) snap['__UNREADABLE__ '+sh.href] = 'import loaded no rules';
+          return; }
+        let url; try { url = new URL(r.href, base || location.href).href; } catch(e) { url = r.href; }
+        if (SHEET.test(url)) snap['__UNREADABLE__ '+url] = 'import did not load';
+        return;
+      }
       if (r.selectorText && r.style) { rules++;
         const props = Array.from(r.style).filter(p => !p.startsWith('--'));
         if (props.length) for (const raw of r.selectorText.split(',')) {
@@ -170,12 +192,9 @@ window.__XC = (function () {
                 (m,n,fb) => cs.getPropertyValue(n).trim() || (fb||'').trim())
             : cs.getPropertyValue(p).trim();
         } }
-      if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c);
+      if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, base);
     };
-    for (const sh of document.styleSheets) { if (!sh.href || !SHEET.test(sh.href)) continue;
-      sheets++;
-      let rs; try { rs = sh.cssRules; } catch(e) { snap['__UNREADABLE__ '+sh.href] = String(e); continue; }
-      for (const r of rs) walk(r); }
+    for (const sh of document.styleSheets) readSheet(sh);
     return { rules, snap, un: un.sort(), sheets };
   };
   const rendSnap = () => { const o = {}; let n = 0;

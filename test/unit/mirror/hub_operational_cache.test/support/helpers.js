@@ -44,6 +44,8 @@ function loadCache({ callResult, rpcError, env = {} } = {}) {
                 // The real connector writes the answer onto the caller's
                 // call-scoped sink as well; getRows now reads only that.
                 if (opts && opts.out) opts.out.rpcError = rpc.error;
+                // One endpoint, so an error answer is every endpoint answering.
+                if (opts && opts.out) opts.out.allEndpointsAnswered = !!rpc.error;
                 return callStub(data, opts);
             };
         }

@@ -16,6 +16,9 @@ const { stripComments } = require('./theme_token_literal_gate.test/support/helpe
 // was left behind for it to miss.
 const CSS_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'css');
 const THEME_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'themes');
+// Resolve the shared sheets against classic only, on purpose; theme tokens and theme-owned
+// sheets sit outside this file's literal check. Per-theme resolution, @imported sheets
+// included, is lintThemeTokens in tools/theme-parity/theme-lint.js, required at the bottom.
 const TOKENS_FILE = path.join(THEME_DIR, 'classic', 'tokens.css');
 const CSS_FILES = ['xchain.css', 'xchain-charts.css'];
 // Component stylesheets are held to the same rule as the page-level sheets, and
@@ -369,3 +372,5 @@ describe('theme parity probe (static contract)', () => {
 require('../../../../tools/theme-parity/theme-lint-tests.js');
 
 require('./theme_token_literal_gate.test/support/bootstrap_surface_bridge.js');
+
+require('./theme_token_literal_gate.test/support/theme_import_targets.js');

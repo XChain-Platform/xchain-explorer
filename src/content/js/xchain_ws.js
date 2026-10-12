@@ -37,13 +37,18 @@ function xcWsTrackCursor(client, msg) {
         if (client.lastActionIndex === null) client._advanceCursor(msg.data.latest_action_index);
         return;
     }
+    // Only NEW_ACTION and CATCH_UP_COMPLETE report a delivered action row. Other frames
+    // reuse action_index for an entity id (a dispenser, a bet feed), and moving the
+    // cursor to one would make the next reconnect skip rows this client never received.
+    var raw;
+    if (msg.type === 'NEW_ACTION') raw = msg.data.action_index;
+    else if (msg.type === 'CATCH_UP_COMPLETE') raw = msg.data.latest_action_index;
+    else return;
     if (client._catchUp) {
-        client._catchUp.maxSeen = xcWsMaxIndex(client._catchUp.maxSeen, msg.data.action_index);
-        client._catchUp.maxSeen = xcWsMaxIndex(client._catchUp.maxSeen, msg.data.latest_action_index);
+        client._catchUp.maxSeen = xcWsMaxIndex(client._catchUp.maxSeen, raw);
         return;
     }
-    client._advanceCursor(msg.data.action_index);
-    client._advanceCursor(msg.data.latest_action_index);
+    client._advanceCursor(raw);
 }
 
 // The larger of two action indexes, compared as BigInt and kept as the wire's decimal

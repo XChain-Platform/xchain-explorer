@@ -22,12 +22,16 @@ const {
     ANCHOR_DETAIL,
     ANCHOR_SECTIONS,
     ATTEST_DETAIL,
+    ATTEST_DETAIL_PRE_BATCH,
     NODEPROOF_DETAIL,
     NODEPROOF_VERIFICATIONS,
     PRICE_DETAIL,
     ROLLCALL_DETAIL,
+    ROLLCALL_GATES,
     ROLLCALL_SIGNERS
 } = require('../db/action_detail/consensus_sql');
+const { attestBatchColumnsPresent } = require('../db/shared.js');
+const { columnsPresent, setColumnsAbsent, isUnknownColumnError } = require('../db/schema_probe.js');
 
 // One logger for the whole service, cached at require time per the
 // observability contract: getLogger() returns a lazy singleton that resolves to
@@ -35,12 +39,24 @@ const {
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
+
 const ANCHOR = {
     // ANCHOR action (DOGE-only). The wire set restarted at v0: v0 is
     // the per-network checkpoint bundle, v1 the archive head (carries both its
     // own checkpoint fields and the match archive, plus a publisher-attestation
     // tail that may legitimately be empty, D4), v2 the archive continuation
-    // chunk. Every row mined below ANCHOR_ACTIVATION for its network reused
+    // chunk (no publisher tail), v3 the folded checkpoint + archive bundle (with a
+    // publisher tail, valid only at or above ANCHOR_FOLD_ACTIVATION); v4 and up are
+    // unknown versions. Every row mined below ANCHOR_ACTIVATION for its network reused
     // these same version bytes under an older, unrelated meaning; this query has
     // no version filter and selects every row identically regardless of version
     // or activation, so a legacy row's columns come back exactly as stored and
@@ -84,14 +100,14 @@ const ANCHOR = {
         if(blocks.length) data['snapshot_block'] = Math.max(...blocks);
     },
     // Expand the inlined publisher-attestation JSON on ANCHOR responses that
-    // carry a publisher tail (today's v0 bundle and v1 archive head; formerly
-    // v4/v5/v6 before the wire set restarted) into a structured array
+    // carry a publisher tail (the v0 bundle, the v1 archive head and the v3 folded
+    // bundle; v4 and up are unknown versions) into a structured array
     // the action-detail page can render. NULL/absent on every other row, which
     // yields an empty array so the client leaves the publisher row hidden.
     afterMain({ action_index }, data) {
         if(data['publisher_attestations']){
             try { data['publisher_attestations'] = JSON.parse(data['publisher_attestations']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ANCHOR', field: 'publisher_attestations', action_index, err: _.message }); data['publisher_attestations'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ANCHOR', field: 'publisher_attestations', action_index, err: _.message }); data['publisher_attestations_unparseable'] = true; data['publisher_attestations'] = []; }
         } else {
             data['publisher_attestations'] = [];
         }
@@ -109,11 +125,16 @@ const ATTEST = {
     // holds the batch key there and provider_id is the empty string. batch_chunk_b64
     // is omitted for the same reason ANCHOR omits archive_b64 above: it is large and
     // only the reassembler reads it.
-    queries() {
+    //
+    // Ask the schema first: a replica may lack the additive batch columns, and one
+    // missing column fails the whole statement (1054) with no recovery on this path.
+    // A confirmed absence is cached and re-probed; a failed probe degrades only this
+    // request, uncached and logged. Its six columns share one ALTER with the rest.
+    async queries({ db, config }) {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        query = ATTEST_DETAIL;
+        query = (await attestBatchColumnsPresent(db, config)) ? ATTEST_DETAIL : ATTEST_DETAIL_PRE_BATCH;
         return { query, query2, query3 };
     },
     // Expand the inlined validator-signature JSON on ATTEST responses into
@@ -121,7 +142,7 @@ const ATTEST = {
     async afterMain({ db, config, action_index }, data) {
         if(data['validator_signatures']){
             try { data['signatures'] = JSON.parse(data['validator_signatures']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ATTEST', field: 'validator_signatures', action_index, err: _.message }); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'ATTEST', field: 'validator_signatures', action_index, err: _.message }); data['signatures'] = []; data['signatures_unparseable'] = true; }
         } else {
             data['signatures'] = [];
         }
@@ -214,21 +235,37 @@ const PRICE = {
     afterMain({ action_index }, data) {
         if(data['pairs_json']){
             try { data['pairs'] = JSON.parse(data['pairs_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'pairs_json', action_index, err: _.message }); data['pairs'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'pairs_json', action_index, err: _.message }); data['pairs'] = []; data['pairs_unparseable'] = true; }
         }
         if(data['sigs_json']){
             try { data['signatures'] = JSON.parse(data['sigs_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'sigs_json', action_index, err: _.message }); data['signatures'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'sigs_json', action_index, err: _.message }); data['signatures'] = []; data['signatures_unparseable'] = true; }
         }
         if(data['rounds_json']){
             try { data['rounds'] = JSON.parse(data['rounds_json']); }
-            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'rounds_json', action_index, err: _.message }); data['rounds'] = []; }
+            catch(_) { log.warn('ACTION_DETAIL_JSON_PARSE_FAILED', { action: 'PRICE', field: 'rounds_json', action_index, err: _.message }); data['rounds'] = []; data['rounds_unparseable'] = true; }
         }
         delete data['pairs_json'];
         delete data['sigs_json'];
         delete data['rounds_json'];
     },
 };
+
+// Read the GATES a ROLLCALL action carried, or null on a replica that has not taken
+// the rollcall_signers.gates migration yet, which reads exactly like a v0 row.
+async function readRollcallGates(db, config, action_index){
+    const columns = ['gates'];
+    if(!(await columnsPresent(db, config, 'rollcall_signers', columns))) return null;
+    try {
+        const rows = await db.doQuery(config, ROLLCALL_GATES, [action_index]);
+        return (rows && rows.length) ? rows[0].gates : null;
+    } catch(e) {
+        // The net under a probe that answered wrong: record the real shape, read no gates.
+        if(!isUnknownColumnError(e)) throw e;
+        setColumnsAbsent(db, config, 'rollcall_signers', columns);
+        return null;
+    }
+}
 
 const ROLLCALL = {
     // ROLLCALL action (liveness roll call, DOGE-only, validator-broadcast).
@@ -268,9 +305,14 @@ const ROLLCALL = {
         // '<module>.<EXPORT>' consensus-gate keys, `rollcall_signers.gates`); NULL
         // on every v0 row, so the client badges v0 without a gates list and v1 as
         // 'ROLLCALL v1' with the parsed list (action_format already selected above).
-        data['gates'] = data['gates'] ? data['gates'].split(',') : [];
+        let gates = await readRollcallGates(db, config, action_index);
+        data['gates'] = gates ? gates.split(',') : [];
     },
 };
+
+// PRICE v1 (the user TOKEN/FIAT oracle) writes the prices row the detail query reads;
+// the validator v0 snapshot and batch are not user-encodable.
+declareFormats(PRICE, [1], {});
 
 module.exports = {
     ANCHOR,

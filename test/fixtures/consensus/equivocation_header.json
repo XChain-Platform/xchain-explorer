@@ -1,0 +1,119 @@
+{
+  "_description": "Canonical conformance vectors for the equivocation header builder (EQUIV_HEADER / WI-2 bump 2). The builder's canonical source is xchain-indexer/src/consensus/equivocation_header.js; the platform's twin reconciler vendors byte-identical copies into xchain-hub, xchain-explorer, xchain-sdk, xchain-sync and this repo's protocol/reference-impl/consensus/equivocation_header.js. The signed preimage is EQUIV|<ENGINE_TAG>|<ROUND_ID>|<VIEW>||<CONTENT>; both the key and the content may themselves contain '|', so the '||' is the only key/content boundary. A divergence in these bytes forks the chain. Each repo's conformance test runs these vectors against its local copy. Single source of truth; do not fork.",
+  "engineTags": {
+    "DEX": "XDEX",
+    "XCALL": "XCALL",
+    "ATTEST": "XATTEST",
+    "ORACLE": "XORACLE",
+    "ORACLE_BATCH": "XORACLEB",
+    "CHECKPOINT": "XCHECKPOINT",
+    "CONFIG": "XCONFIG",
+    "NODEPROOF": "XNODEPROOF",
+    "ROLLCALL": "XROLLCALL",
+    "BRIDGE": "XBRIDGE",
+    "POLICY": "XPOLICY",
+    "LIST_SHARE": "XLISTSHARE"
+  },
+  "equivKey": [
+    { "name": "basic", "engineTag": "XDEX", "roundId": "r1", "view": "0", "expected": "XDEX|r1|0" },
+    {
+      "name": "a pipe-containing round id is preserved verbatim",
+      "engineTag": "XCHECKPOINT",
+      "roundId": "BTC|mainnet|800000|3",
+      "view": "2",
+      "expected": "XCHECKPOINT|BTC|mainnet|800000|3|2"
+    },
+    {
+      "name": "LIST_SHARE: snapshot_id is the round id",
+      "engineTag": "XLISTSHARE",
+      "roundId": "c0e9a6b57adfc25378343388363aad10498fd201a36cd32dddb1ee35da265f21",
+      "view": "0",
+      "expected": "XLISTSHARE|c0e9a6b57adfc25378343388363aad10498fd201a36cd32dddb1ee35da265f21|0"
+    }
+  ],
+  "equivPrefix": [
+    { "name": "basic", "key": "XDEX|r1|0", "expected": "EQUIV|XDEX|r1|0||" }
+  ],
+  "buildEquivCanonical": [
+    {
+      "name": "basic, pipe-containing content preserved",
+      "engineTag": "XDEX",
+      "roundId": "r1",
+      "view": "0",
+      "content": "a|b|c",
+      "expected": "EQUIV|XDEX|r1|0||a|b|c"
+    },
+    {
+      "name": "pipe-heavy checkpoint round and content",
+      "engineTag": "XCHECKPOINT",
+      "roundId": "BTC|mainnet|800000|3",
+      "view": "1",
+      "content": "root|prev",
+      "expected": "EQUIV|XCHECKPOINT|BTC|mainnet|800000|3|1||root|prev"
+    },
+    {
+      "name": "empty content still carries the full header and boundary",
+      "engineTag": "XORACLE",
+      "roundId": "round-7",
+      "view": "0",
+      "content": "",
+      "expected": "EQUIV|XORACLE|round-7|0||"
+    },
+    {
+      "name": "PRICE batch: composite anchor|first|last round id survives verbatim",
+      "engineTag": "XORACLEB",
+      "roundId": "963000|1200|1205",
+      "view": "0",
+      "content": "{\"first_round\":1200,\"last_round\":1205}",
+      "expected": "EQUIV|XORACLEB|963000|1200|1205|0||{\"first_round\":1200,\"last_round\":1205}"
+    },
+    {
+      "name": "PRICE batch: a different split at the same anchor is a DIFFERENT key, not equivocation",
+      "engineTag": "XORACLEB",
+      "roundId": "963000|1200|1202",
+      "view": "0",
+      "content": "{\"first_round\":1200,\"last_round\":1202}",
+      "expected": "EQUIV|XORACLEB|963000|1200|1202|0||{\"first_round\":1200,\"last_round\":1202}"
+    },
+    {
+      "name": "ROLLCALL: the epoch height is the round id, view is always 0",
+      "engineTag": "XROLLCALL",
+      "roundId": "151200",
+      "view": "0",
+      "content": "testnet|151200|3b1f8c0e5a47d29e6b04f7a1c8d35e92074b6af18c2d9e35017a4bc6d8e2f309",
+      "expected": "EQUIV|XROLLCALL|151200|0||testnet|151200|3b1f8c0e5a47d29e6b04f7a1c8d35e92074b6af18c2d9e35017a4bc6d8e2f309"
+    },
+    {
+      "name": "ROLLCALL: regtest epoch 0 is a real epoch, not a falsy skip",
+      "engineTag": "XROLLCALL",
+      "roundId": "0",
+      "view": "0",
+      "content": "regtest|0|0000000000000000000000000000000000000000000000000000000000000000",
+      "expected": "EQUIV|XROLLCALL|0|0||regtest|0|0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "BRIDGE: transfer_id is the round id, the finalizing view is the view, and the pipe-separated transfer canonical survives the || boundary",
+      "engineTag": "XBRIDGE",
+      "roundId": "3b1f8c0e5a47d29e6b04f7a1c8d35e92074b6af18c2d9e35017a4bc6d8e2f309",
+      "view": "3",
+      "content": "XBRIDGE|3b1f8c0e5a47d29e6b04f7a1c8d35e92074b6af18c2d9e35017a4bc6d8e2f309|151200|XCHAIN|8|BTC|4211|bcrt1qsourceaddress|DOGE|ndestinationaddress|12.50000000|1757620800|regtest",
+      "expected": "EQUIV|XBRIDGE|3b1f8c0e5a47d29e6b04f7a1c8d35e92074b6af18c2d9e35017a4bc6d8e2f309|3||XBRIDGE|3b1f8c0e5a47d29e6b04f7a1c8d35e92074b6af18c2d9e35017a4bc6d8e2f309|151200|XCHAIN|8|BTC|4211|bcrt1qsourceaddress|DOGE|ndestinationaddress|12.50000000|1757620800|regtest"
+    },
+    {
+      "name": "POLICY: snapshot_id is the round id, and a policy snapshot under its own tag never collides with a transfer at the same view",
+      "engineTag": "XPOLICY",
+      "roundId": "5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d",
+      "view": "3",
+      "content": "XPOLICY|5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d|151200|BTC|FUFU|1|151140|0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9|1757620800|regtest",
+      "expected": "EQUIV|XPOLICY|5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d|3||XPOLICY|5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d|151200|BTC|FUFU|1|151140|0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9|1757620800|regtest"
+    },
+    {
+      "name": "LIST_SHARE: snapshot_id is the round id, snapshot_block is content field 2, and the shared-list canonical survives the || boundary",
+      "engineTag": "XLISTSHARE",
+      "roundId": "c0e9a6b57adfc25378343388363aad10498fd201a36cd32dddb1ee35da265f21",
+      "view": "0",
+      "content": "XLISTSHARE|c0e9a6b57adfc25378343388363aad10498fd201a36cd32dddb1ee35da265f21|160000|DOGE|880001|2|1|full|68000000|ff0e5a860d907b646255b7ab798db5057319b71c20facd02b9856b9a956320cb|testnet|BTC:160010,DOGE:68000010,LTC:4905000",
+      "expected": "EQUIV|XLISTSHARE|c0e9a6b57adfc25378343388363aad10498fd201a36cd32dddb1ee35da265f21|0||XLISTSHARE|c0e9a6b57adfc25378343388363aad10498fd201a36cd32dddb1ee35da265f21|160000|DOGE|880001|2|1|full|68000000|ff0e5a860d907b646255b7ab798db5057319b71c20facd02b9856b9a956320cb|testnet|BTC:160010,DOGE:68000010,LTC:4905000"
+    }
+  ]
+}

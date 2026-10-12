@@ -262,6 +262,18 @@ describe('ChangeDetector', function () {
             expect(evs[0].data.last_action_index).to.equal(11);
         });
 
+        it('emits TOKEN_UPDATE for a subscribed tick on a SWEEP action', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedTicks.returns(new Set(['GOLD']));
+            det.db.getTokenInfo.resolves({ supply: '90', holders: 3 });
+            let evs = collect(det);
+            await det.emitEntityUpdates('BTC', {}, { action: 'SWEEP', source: 'addrS', destinations: ['addrD'], action_index: 13 });
+            expect(evs.map(e => e.type)).to.deep.equal(['TOKEN_UPDATE']);
+            expect(evs[0].data.tick).to.equal('GOLD');
+            expect(evs[0].data.holders).to.equal(3);
+            expect(evs[0].data.last_action_index).to.equal(13);
+        });
+
         it('stamps MARKET_UPDATE with the subscribed tick spelling, not getMarketInfo canonical ticks', async function () {
             let det = mk();
             det.channelManager.getSubscribedMarkets.returns([{ tick1: 'xcp', tick2: 'btc' }]);

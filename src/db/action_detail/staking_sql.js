@@ -102,7 +102,9 @@ const DELEGATE_CAPABILITY_REVOKE_PARENT = `SELECT d.activation_block, d.deactiva
                           WHERE a.address=? AND pk.pubkey=?
                           ORDER BY d.action_index DESC LIMIT 1`;
 
-// Read one SLASH proof with the slash event it produced.
+// Read one SLASH proof with the slash event it produced. The indexer stores no
+// SLASH status, but writes an event row for a valid proof and only for one, so
+// the event row's presence is the verdict (a rejection's reason is not kept).
 const SLASH_DETAIL = `SELECT
                     a2.action,
                     a1.action_format,
@@ -119,7 +121,8 @@ const SLASH_DETAIL = `SELECT
                     b1.block_index,
                     b1.block_time as timestamp,
                     t2.hash as tx_hash,
-                    t1.tx_index
+                    t1.tx_index,
+                    CASE WHEN m.slash_action_index IS NULL THEN 'invalid' ELSE 'valid' END as status
                 FROM
                     actions a1
                     INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)

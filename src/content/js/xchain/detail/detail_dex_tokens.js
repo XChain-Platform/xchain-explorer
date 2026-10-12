@@ -1,0 +1,371 @@
+/*********************************************************************
+ *
+ * Copyright © 2025–2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available -
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
+ * xchain.js
+ *
+ * Custom javascript for xchain explorer
+ */
+
+// Display ISSUE action information
+function showIssueDetails(data){
+    $('#info-issue .issue-transfer').html(isNull(data.transfer) ? '' : formatLink('/' + XC.coin + '/address/' + data.transfer, data.transfer));
+    $('#info-issue .issue-ticker').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
+    $('#info-issue .issue-decimals').text(nullToBlank(data.decimals));
+    $('#info-issue .issue-max-supply').text(formatZeroSentinel(data.max_supply, 'No cap declared'));
+    $('#info-issue .issue-max-mint').text(formatZeroSentinel(data.max_mint, 'No per-transaction cap'));
+    $('#info-issue .issue-mint-supply').text(formatAmount(data.mint_supply));
+    $('#info-issue .issue-transfer-supply').html(isNull(data.transfer_supply) ? '' : formatLink('/' + XC.coin + '/address/' + data.transfer_supply, data.transfer_supply));
+    $('#info-issue .issue-callback-block').text(nullToBlank(data.callback_block));
+    $('#info-issue .issue-callback-tick').text(nullToBlank(data.callback_tick));
+    $('#info-issue .issue-callback-amount').text(formatAmount(data.callback_amount));
+    $('#info-issue .issue-description').text(nullToBlank(data.description));
+    let isPolicyUpdate = (Number(data.action_format) === 5);
+    $('#info-issue .issue-allow-list').html(formatListReference(XC.coin, data.allow_list, isPolicyUpdate));
+    $('#info-issue .issue-block-list').html(formatListReference(XC.coin, data.block_list, isPolicyUpdate));
+    $('#info-issue .issue-memo').text(nullToBlank(data.memo));
+    $('#info-issue .issue-mint-address-max').text(formatZeroSentinel(data.mint_address_max, 'No per-address cap'));
+    $('#info-issue .issue-mint-start-block').text(formatZeroSentinel(data.mint_start_block, 'No start restriction'));
+    $('#info-issue .issue-mint-stop-block').text(formatZeroSentinel(data.mint_stop_block, 'No stop restriction'));
+    for(const field of ['max-supply','max-mint','mint','mint-supply','description','sleep','callback'])
+        $('#info-issue .issue-lock-' + field).text(formatBinaryFlag(data['lock_' + field.replaceAll('-', '_')], 'Locked', 'Unlocked'));
+    showIssueFieldGroups(data.action_format);
+    // ISSUE v6 binds (or unbinds) a guard contract as the token's controller for one
+    // action class. Those four wire fields are null on every other ISSUE format, so
+    // the card is shown only for format 6 rather than adding four blank rows to the
+    // v0-v5 shape; without it a v6 action page had nothing binding-specific at all.
+    let isController = (Number(data.action_format) === 6);
+    $('#info-issue .issue-controller-card').toggleClass('d-none', !isController);
+    if(isController){
+        $('#info-issue .issue-controller').html(isNull(data.controller) ? '-' :
+            formatLink('/' + XC.coin + '/contract/' + data.controller, data.controller));
+        $('#info-issue .issue-action-class').text(isNull(data.action_class) ? '-' : data.action_class);
+        $('#info-issue .issue-cooldown-blocks').text(isNull(data.cooldown_blocks) ? '-' :
+            numeral(data.cooldown_blocks).format('0,0') + ' blocks');
+        // Bind and unbind are the same wire format and differ only in this flag, so it
+        // is rendered as the row's headline rather than a bare 0/1.
+        $('#info-issue .issue-unbind').html(Number(data.unbind) === 1
+            ? '<span class="badge text-bg-warning text-dark">Unbind</span>'
+            : '<span class="badge text-bg-info text-white">Bind</span>');
+    }
+    showIssueBridgeCard(data);
+}
+
+// ISSUE v7 opts the token into bridging. Its three fields are null on every other
+// format, so they get their own card, shown only for format 7.
+function showIssueBridgeCard(data){
+    let isBridge = (Number(data.action_format) === 7);
+    $('#info-issue .issue-bridge-card').toggleClass('d-none', !isBridge);
+    if(!isBridge) return;
+    // '-' on the wire is the explicit "no destination chains" value.
+    let chains = isNull(data.bridge_chains) ? '-'
+        : (String(data.bridge_chains) === '-' ? 'None' : String(data.bridge_chains).split(',').join(', '));
+    $('#info-issue .issue-bridge-chains').text(chains);
+    // MIN_DEPTH only raises the platform depth, so 0 means no raise.
+    $('#info-issue .issue-min-depth').text(isNull(data.min_depth) ? '-'
+        : (Number(data.min_depth) === 0 ? 'Platform default' : numeral(data.min_depth).format('0,0') + ' confirmations'));
+    $('#info-issue .issue-lock-bridge').text(isNull(data.lock_bridge) ? '-'
+        : formatBinaryFlag(data.lock_bridge, 'Locked', 'Unlocked'));
+}
+
+function showIssueFieldGroups(actionFormat){
+    let format = Number(actionFormat);
+    let groups = [
+        [['.issue-description'], [0,1]],
+        [['.issue-decimals','.issue-max-supply','.issue-mint-supply','.issue-transfer-supply','.issue-transfer'], [0]],
+        [['.issue-allow-list','.issue-block-list'], [0,5]],
+        [['.issue-max-mint','.issue-mint-address-max','.issue-mint-start-block','.issue-mint-stop-block'], [0,2]],
+        [['.issue-callback-block','.issue-callback-tick','.issue-callback-amount'], [0,4]],
+        [['.issue-lock-max-supply','.issue-lock-max-mint','.issue-lock-mint','.issue-lock-mint-supply',
+          '.issue-lock-description','.issue-lock-sleep','.issue-lock-callback'], [0,3]]
+    ];
+    groups.forEach(function(group){
+        group[0].forEach(function(selector){
+            $('#info-issue ' + selector).closest('tr').toggleClass('d-none', !group[1].includes(format));
+        });
+    });
+}
+
+// Display LINK action information
+function showLinkDetails(data){
+    $('#info-link .link-coin1').text(data.coin1);
+    $('#info-link .link-coin1-action-index').html(formatLink('/' + networkCoin(data.coin1) + '/action/' + data.coin1_action_index, formatAmount(data.coin1_action_index)));
+    $('#info-link .link-coin2').text(data.coin2);
+    $('#info-link .link-coin2-action-index').html(formatLink('/' + networkCoin(data.coin2) + '/action/' + data.coin2_action_index, formatAmount(data.coin2_action_index)));
+    $('#info-link .link-memo').text(nullToBlank(data.memo));
+}
+
+// Display LIST action information
+function showListDetails(data){
+    if(!data.edit)
+        data.edit = 0;
+    let list_type = XC.list_types[data.type];
+    let type = (data.type) ? (data.type + ' - ' + list_type) : '';
+    let edit = (isNumeric(data.edit)) ? (data.edit + ' - ' + XC.list_edit_types[data.edit]) : '';
+    $('#info-list .list-type').text(type);
+    $('#info-list .list-edit-type').text(edit);
+    $('#info-list .list-action-index').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
+    $('#info-list .list-memo').text((data.memo == null) ? '' : data.memo);
+    // A format 3 LIST transfers the list, so name the address it went to.
+    let isTransfer = (Number(data.action_format) === 3);
+    $('#info-list .list-destination-row').toggleClass('d-none', !isTransfer);
+    $('#info-list .list-destination').html(!isTransfer || isNull(data.destination) ? '-'
+        : formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    // Add header columns
+    $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th></tr>');
+    $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th><th>Status</th></tr>');
+    showActionDatatable('list-edits', data.edits, list_type, false);
+    // `list` is what THIS action wrote; edits land under their own action
+    // index, so on a create with later edits it is a create-time snapshot. Show
+    // current membership (state.current_list) whenever the chain resolves the edit
+    // chain, and name the action that set it, because consumers pin a list by its
+    // CREATE index and this is the page a market's "who may bet" link lands on.
+    let state   = data.state || {};
+    let current = (state.edit_resolution_active && Array.isArray(state.current_list)) ? state.current_list : null;
+    let head    = state.membership_action_index;
+    let edited  = current && isNumeric(head) && Number(head) !== Number(data.action_index);
+    $('#info-list .list-membership-row').toggleClass('d-none', !edited);
+    if(edited)
+        $('#info-list .list-membership-action-index').html(formatLink('/' + XC.coin + '/action/' + head, formatAmount(head)));
+    let mirror = state.share_mirror;
+    let mirrorRow = $('#info-list .list-mirror-row');
+    let mirrorInfo = $('#info-list .list-mirror-info');
+    mirrorRow.toggleClass('d-none', !mirror).attr('aria-hidden', mirror ? 'false' : 'true');
+    if(mirror)
+        mirrorInfo.html('mirror of ' + $('<span>').text(mirror.home_chain).html() + ' list '
+            + formatLink('/' + networkCoin(mirror.home_chain) + '/action/' + mirror.home_list_index, formatAmount(mirror.home_list_index))
+            + ', version ' + $('<span>').text(mirror.version).html());
+    else
+        mirrorInfo.empty();
+    $('#list-items-tab').html('<i class="fa fa-lg fa-list"></i> ' + (current ? 'Current List' : 'Full List'));
+    showActionDatatable('list-items', current || data.list, list_type, false);
+
+}
+
+// Display MESSAGE action information
+function showMessageDetails(data){
+    let encryption_method = (XC.encryption_methods[data.encryption_method]) ? (data.encryption_method + ' - ' + XC.encryption_methods[data.encryption_method]) : '';
+    $('#info-message .message-method').text(encryption_method);
+    let format = Number(data.action_format);
+    $('#info-message .message-key').text(nullToBlank(data.encryption_key));
+    $('#info-message .message-plaintext').text(nullToBlank(data.plaintext_message));
+    $('#info-message .message-encrypted').text(nullToBlank(data.encrypted_message));
+    $('#info-message .message-method').closest('tr').toggleClass('d-none', ![0,1].includes(format));
+    $('#info-message .message-key').closest('tr').toggleClass('d-none', ![0,1].includes(format));
+    $('#info-message .message-encrypted').closest('tr').toggleClass('d-none', format !== 2);
+    $('#info-message .message-plaintext').closest('tr').toggleClass('d-none', format !== 3);
+    // Link the destination on ITS own chain (messages.coin), not the broadcast chain.
+    $('#info-message .message-destination').html(formatLink('/' + networkCoin(data.coin || XC.coin) + '/address/' + data.destination, data.destination));
+}
+
+// Display MINT action information
+function showMintDetails(data){
+    $('#info-mint .mint-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
+    $('#info-mint .mint-amount').html(formatAmount(data.amount));
+    $('#info-mint .mint-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    $('#info-mint .mint-memo').text(nullToBlank(data.memo));
+}
+
+// Display ORDER action information
+// Map an offer lifecycle status (ORDER, SWAP, DISPENSER) to a badge colour.
+// Separate from the bet renderer's lookalike, whose vocabulary is a market's.
+// cancelling/expiring are still in flight, so they warn rather than fail.
+function offerStatusClass(status){
+    if(status=='complete')                       return 'success';
+    if(status=='cancelled' || status=='expired') return 'danger';
+    if(status=='cancelling' || status=='expiring') return 'warning text-dark';
+    return 'primary';
+}
+
+function showOrderDetails(data){
+    let isOwnershipGive = (Number(data.give_ownership || 0) == 1);
+    let isOwnershipGet  = (Number(data.get_ownership  || 0) == 1);
+    $('#info-order .order-give-coin').text(data.give_coin);
+    $('#info-order .order-give-tick').html(
+        formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick)
+        + (isOwnershipGive ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-order .order-give-amount').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.give_amount));
+    $('#info-order .order-get-coin').text(data.get_coin);
+    $('#info-order .order-get-tick').html(
+        formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick)
+        + (isOwnershipGet ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-order .order-get-amount').html(isOwnershipGet ? ownershipBadge() : formatAmount(data.get_amount));
+    $('#info-order .order-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
+    if(data.expiration)
+        $('#info-order .order-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-order .order-allow-list').html(formatListReference(XC.coin, data.allow_list));
+    $('#info-order .order-block-list').html(formatListReference(XC.coin, data.block_list));
+    $('#info-order .order-memo').text(nullToBlank(data.memo));
+    // Order Status Details
+    // Render the ORDER's lifecycle status; the Action Status row above is the
+    // action's parse validity and reads valid for a filled order and an open one
+    // alike. Dashed when absent so a missing status stays visible.
+    $('#info-order .order-state-status').html(
+        isNull(data.state.status)
+            ? '-'
+            : '<span class="badge text-bg-' + offerStatusClass(data.state.status) + '">' + escapeHtml(data.state.status) + '</span>'
+    );
+    $('#info-order .order-state-get-remaining').html(isOwnershipGet  ? ownershipBadge() : formatAmount(data.state.get_remaining));
+    $('#info-order .order-state-give-remaining').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.state.give_remaining));
+    if(data.state.expiration)
+        $('#info-order .order-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-order .order-state-allow-list').html(formatListReference(XC.coin, data.state.allow_list));
+    $('#info-order .order-state-block-list').html(formatListReference(XC.coin, data.state.block_list));
+    $('#info-order .order-state').text(data.state.status);
+}
+
+// Display ORDER_CANCEL action information
+function showOrderCancelDetails(data){
+    $('#info-order-cancel .order-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    $('#info-order-cancel .order-cancel-memo').text(nullToBlank(data.memo));
+}
+
+// Display ORDER_EDIT action information
+function showOrderEditDetails(data){
+    $('#info-order-edit .order-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    if(!isNull(data.expiration))
+        $('#info-order-edit .order-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-order-edit .order-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
+    $('#info-order-edit .order-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
+    $('#info-order-edit .order-edit-memo').text(nullToBlank(data.memo));
+}
+
+// Display ORDER_EXPIRE action information
+function showOrderExpireDetails(data){
+    $('#info-order-expire .order-expire-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+}
+
+// Display ORDER_MATCH action information
+function showOrderMatchDetails(data){
+    $('#info-order-match .order-match-give-action-index').html(formatLink('/' + networkCoin(data.give_coin) + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
+    $('#info-order-match .order-match-get-action-index').html(formatLink('/' + networkCoin(data.get_coin) + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
+    $('#info-order-match .order-match-give-coin').text(data.give_coin);
+    $('#info-order-match .order-match-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
+    $('#info-order-match .order-match-give-amount').text(data.give_amount);
+    $('#info-order-match .order-match-get-coin').text(data.get_coin);
+    $('#info-order-match .order-match-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
+    $('#info-order-match .order-match-get-amount').text(data.get_amount);
+    $('#info-order-match .order-match-settlement-type').text(isNull(data.settlement_type) ? '-' : data.settlement_type);
+}
+
+// Display SEND action information
+function showSendDetails(data){
+    showActionDatatable('send',data.sends);
+}
+
+// Display SLEEP action information
+function showSleepDetails(data){
+    let sleep_type = data.type + ' - Sleep ' + XC.sleep_types[data.type];
+    $('#info-sleep .sleep-type').text(sleep_type);
+    $('#info-sleep .sleep-tick').html(formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
+    $('#info-sleep .sleep-resume-block').html(formatResumeBlock(XC.coin, data.resume_block));
+    $('#info-sleep .sleep-memo').text(nullToBlank(data.memo));
+}
+
+// Display SWAP action information
+function showSwapDetails(data){
+    let isOwnershipGive = (Number(data.give_ownership || 0) == 1);
+    let isOwnershipGet  = (Number(data.get_ownership  || 0) == 1);
+    $('#info-swap .swap-give-coin').text(data.give_coin);
+    $('#info-swap .swap-give-tick').html(
+        formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick)
+        + (isOwnershipGive ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-swap .swap-give-amount').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.give_amount));
+    $('#info-swap .swap-get-coin').text(data.get_coin);
+    $('#info-swap .swap-get-tick').html(
+        formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick)
+        + (isOwnershipGet ? ' ' + ownershipBadge() : '')
+    );
+    $('#info-swap .swap-get-amount').html(isOwnershipGet ? ownershipBadge() : formatAmount(data.get_amount));
+    $('#info-swap .swap-get-address').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.get_address, data.get_address));
+    if(!isNull(data.expiration))
+        $('#info-swap .swap-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-swap .swap-allow-list').html(formatListReference(XC.coin, data.allow_list));
+    $('#info-swap .swap-block-list').html(formatListReference(XC.coin, data.block_list));
+    $('#info-swap .swap-memo').text(nullToBlank(data.memo));
+    // Swap Status Details
+    $('#info-swap .swap-state-get-remaining').html(isOwnershipGet  ? ownershipBadge() : formatAmount(data.state.get_remaining));
+    $('#info-swap .swap-state-give-remaining').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.state.give_remaining));
+    if(data.state.expiration)
+        $('#info-swap .swap-state-expiration').html(data.state.expiration + ' - ' + formatLivestamp(data.state.expiration) + ' (' + moment.unix(data.state.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-swap .swap-state-allow-list').html(formatListReference(XC.coin, data.state.allow_list));
+    $('#info-swap .swap-state-block-list').html(formatListReference(XC.coin, data.state.block_list));
+    $('#info-swap .swap-state').text(data.state.status);
+}
+
+// Display SWAP_CANCEL action information
+function showSwapCancelDetails(data){
+    $('#info-swap-cancel .swap-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+    $('#info-swap-cancel .swap-cancel-memo').text(nullToBlank(data.memo));
+}
+
+// Display SWAP_EDIT action information
+function showSwapEditDetails(data){
+    $('#info-swap-edit .swap-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+    if(!isNull(data.expiration))
+        $('#info-swap-edit .swap-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
+    $('#info-swap-edit .swap-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
+    $('#info-swap-edit .swap-edit-block-list').html(formatListReference(XC.coin, data.block_list, true));
+    $('#info-swap-edit .swap-edit-memo').text(nullToBlank(data.memo));
+}
+
+// Display SWAP_EXPIRE action information
+function showSwapExpireDetails(data){
+    $('#info-swap-expire .swap-expire-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+}
+
+
+// Display SWAP_MATCH action information
+function showSwapMatchDetails(data){
+    $('#info-swap-match .swap-match-give-action-index').html(formatLink('/' + networkCoin(data.give_coin) + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
+    $('#info-swap-match .swap-match-get-action-index').html(formatLink('/' + networkCoin(data.get_coin) + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
+    $('#info-swap-match .swap-match-give-coin').text(data.give_coin);
+    $('#info-swap-match .swap-match-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
+    $('#info-swap-match .swap-match-give-amount').text(data.give_amount);
+    $('#info-swap-match .swap-match-get-coin').text(data.get_coin);
+    $('#info-swap-match .swap-match-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
+    $('#info-swap-match .swap-match-get-amount').text(data.get_amount);
+}
+
+// Display SWEEP action information
+function showSweepDetails(data){
+    $('#info-sweep .sweep-balances').text(formatBinaryFlag(data.balances, 'Yes', 'No'));
+    $('#info-sweep .sweep-ownerships').text(formatBinaryFlag(data.ownerships, 'Yes', 'No'));
+    $('#info-sweep .sweep-orders').text(formatBinaryFlag(data.orders, 'Yes', 'No'));
+    $('#info-sweep .sweep-swaps').text(formatBinaryFlag(data.swaps, 'Yes', 'No'));
+    $('#info-sweep .sweep-dispensers').text(formatBinaryFlag(data.dispensers, 'Yes', 'No'));
+    $('#info-sweep .sweep-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    $('#info-sweep .sweep-memo').text(nullToBlank(data.memo));
+}
+
+// Display COINPAY action information (native-coin settlement payment for an
+// obligation). coin_amount/vout name the specific output that paid THIS
+// obligation: when one transaction pays more than one obligation, they no
+// longer default to the transaction's first output (mainnet not yet armed;
+// testnet/regtest already this way). Labels stay as-is since "Coin Amount" /
+// "Vout" remain accurate names either way - see components/indexer/database.md.
+function showCoinpayDetails(data){
+    $('#info-coinpay .coinpay-obligation').html(isNull(data.obligation_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.obligation_action_index, numeral(data.obligation_action_index).format('0,0')));
+    $('#info-coinpay .coinpay-coin-amount').html(isNull(data.coin_amount) ? '-' : formatAmount(data.coin_amount));
+    $('#info-coinpay .coinpay-txid').html(isNull(data.txid) ? '-' : formatHash(data.txid, 32));
+    $('#info-coinpay .coinpay-vout').text(isNull(data.vout) ? '-' : data.vout);
+    $('#info-coinpay .coinpay-status').text(isNull(data.status) ? '-' : data.status);
+}
+
+// Display COINPAY_EXPIRE action information (obligation settlement window lapsed)
+function showCoinpayExpireDetails(data){
+    $('#info-coinpay-expire .coinpay-expire-obligation').html(isNull(data.obligation_action_index) ? '-' : formatLink('/' + XC.coin + '/action/' + data.obligation_action_index, numeral(data.obligation_action_index).format('0,0')));
+    $('#info-coinpay-expire .coinpay-expire-status').text(isNull(data.status) ? '-' : data.status);
+}

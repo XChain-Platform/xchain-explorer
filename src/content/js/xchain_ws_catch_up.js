@@ -19,7 +19,8 @@
  * overlapping one, so each subscription that can carry NEW_ACTION replays
  * from the reconnect-time cursor in turn. A truncated replay is continued
  * from where it stopped; a refused or unanswered one dispatches
- * `resync_required` so the page can reload over REST.
+ * `resync_required` so the page can reload over REST. A completed replay whose
+ * CATCH_UP_COMPLETE lists `not_replayed` types dispatches `not_replayed` with them.
  *
  ********************************************************************/
 
@@ -121,6 +122,13 @@ Object.assign(XChainWS, {
             return;
         }
         this._clearCatchUpTimer();
+        if (Array.isArray(data.not_replayed) && data.not_replayed.length > 0) {
+            this._dispatch('not_replayed', {
+                types:              data.not_replayed.slice(),
+                channels:           state.current.sub.channels,
+                since_action_index: state.current.since
+            });
+        }
         this._nextCatchUp();
     },
 

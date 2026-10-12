@@ -142,4 +142,26 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
         expect(data.block_index).to.equal('880123');
         expect(data.block_index).to.equal(data.latest_block_index);
     });
+
+    it('the token SNAPSHOT keeps the subscribed tick spelling, as TOKEN_UPDATE does', async function () {
+        const s = serverWithEntityDb();
+        s.explorer.db.getTokenInfo = sinon.stub().resolves({ tick: 'PEPE', supply: '1' });
+        const client = spyClient();
+
+        await s.sendSnapshots(client, [{ channel: 'token', tick: 'pepe' }]);
+
+        const data = framesOf(client, 'SNAPSHOT')[0].data;
+        expect(data).to.include({ channel: 'token', tick: 'pepe', supply: '1' });
+    });
+
+    it('the market SNAPSHOT keeps the subscribed pair spelling, as MARKET_UPDATE does', async function () {
+        const s = serverWithEntityDb();
+        s.explorer.db.getMarketInfo = sinon.stub().resolves({ tick1: 'PEPE', tick2: 'BTC', last_price: '1.5' });
+        const client = spyClient();
+
+        await s.sendSnapshots(client, [{ channel: 'market', tick1: 'pepe', tick2: 'btc' }]);
+
+        const data = framesOf(client, 'SNAPSHOT')[0].data;
+        expect(data).to.include({ channel: 'market', tick1: 'pepe', tick2: 'btc', last_price: '1.5' });
+    });
 });

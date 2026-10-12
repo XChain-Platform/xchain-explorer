@@ -43,6 +43,26 @@ describe('theme lint', () => {
     assert.deepEqual(report.missing, ['--xc-missing']);
   });
 
+  it('resolves tokens used by sheets a theme tokens.css @imports, and reports bad imports', () => {
+    // The imported sheets ship with the theme but no shared-sheet scan reads them, so a
+    // typo there passed every check and failed silently in the browser.
+    const { report, errors } = fixtures.withFixtureImportingTheme((directory) => ({
+      report: themeLint.themeTokenReport(directory, 'child', new Set()),
+      errors: themeLint.lintThemeTokens(directory, new Set()),
+    }));
+    assert.deepEqual(report.missing, ['--xc-import-typo', '--xc-nested-typo']);
+    assert.deepEqual(report.badImports, [
+      { theme: 'child', from: 'tokens.css', target: './components/absent/component.css', reason: 'does not exist' },
+      { theme: 'child', from: 'tokens.css', target: '../base/tokens.css', reason: 'is outside the theme directory' },
+    ]);
+    assert.deepEqual(errors, [
+      'child: tokens.css imports ./components/absent/component.css, which does not exist',
+      'child: tokens.css imports ../base/tokens.css, which is outside the theme directory',
+      'child leaves --xc-import-typo unresolved in its token inheritance chain',
+      'child leaves --xc-nested-typo unresolved in its token inheritance chain',
+    ]);
+  });
+
   it('rejects an html route whose file exists but has no schema', () => {
     const collected = themeLint.collectRouteEntries();
     assert.equal(

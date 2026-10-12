@@ -1,0 +1,28 @@
+{
+  "_description": "Canonical conformance vectors for the activation predicates used by stake-weighted quorum, equivocation headers, and snapshot burial. The expected results pin the boundaries and fail-closed behavior specified by protocol/constants.js and protocol/protocol-activation.md. A snapshotBlock object with special 'nan' or 'undefined' represents the corresponding JavaScript value, which JSON cannot encode directly.",
+  "isStakeWeightedQuorumActive": [
+    { "name": "mainnet is inactive one block below the flag day", "snapshotBlock": 960999, "network": "mainnet", "expected": false },
+    { "name": "mainnet activates at the flag day", "snapshotBlock": 961000, "network": "mainnet", "expected": true },
+    { "name": "testnet is active from genesis", "snapshotBlock": 0, "network": "testnet", "expected": true },
+    { "name": "a NaN snapshot block fails closed", "snapshotBlock": { "special": "nan" }, "network": "mainnet", "expected": false },
+    { "name": "an unknown network fails closed", "snapshotBlock": 961000, "network": "unknown", "expected": false }
+  ],
+  "isEquivHeaderActive": [
+    { "name": "mainnet is inactive one block below the flag day", "snapshotBlock": 960999, "network": "mainnet", "expected": false },
+    { "name": "mainnet activates at the flag day", "snapshotBlock": 961000, "network": "mainnet", "expected": true },
+    { "name": "regtest is active from genesis", "snapshotBlock": 0, "network": "regtest", "expected": true },
+    { "name": "a NaN snapshot block fails closed", "snapshotBlock": { "special": "nan" }, "network": "mainnet", "expected": false },
+    { "name": "an unknown network fails closed", "snapshotBlock": 961000, "network": "unknown", "expected": false }
+  ],
+  "snapshotBurial": [
+    { "name": "mainnet is active at its genesis boundary and clamps the buried height to zero", "snapshotBlock": 0, "network": "mainnet", "active": true, "buriedSnapshotBlock": 0 },
+    { "name": "an active height inside the buffer clamps to zero", "snapshotBlock": 5, "network": "mainnet", "active": true, "buriedSnapshotBlock": 0 },
+    { "name": "an active height above the buffer subtracts the canonical depth", "snapshotBlock": 7, "network": "mainnet", "active": true, "buriedSnapshotBlock": 1 },
+    { "name": "null fails closed and is returned verbatim", "snapshotBlock": null, "network": "mainnet", "active": false, "buriedSnapshotBlock": null },
+    { "name": "an empty string fails closed and is returned verbatim", "snapshotBlock": "", "network": "mainnet", "active": false, "buriedSnapshotBlock": "" },
+    { "name": "a boolean fails closed and is returned verbatim", "snapshotBlock": false, "network": "mainnet", "active": false, "buriedSnapshotBlock": false },
+    { "name": "undefined fails closed and is returned verbatim", "snapshotBlock": { "special": "undefined" }, "network": "mainnet", "active": false, "buriedSnapshotBlock": { "special": "undefined" } },
+    { "name": "a NaN snapshot block fails closed and is returned verbatim", "snapshotBlock": { "special": "nan" }, "network": "mainnet", "active": false, "buriedSnapshotBlock": { "special": "nan" } },
+    { "name": "an unknown network fails closed and returns the declared height", "snapshotBlock": 7, "network": "unknown", "active": false, "buriedSnapshotBlock": 7 }
+  ]
+}

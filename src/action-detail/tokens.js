@@ -12,7 +12,7 @@
  *
  **********************************************************************
  * Detail handlers for the token-supply and transfer actions: AIRDROP, DESTROY,
- * DIVIDEND, ISSUE, LINK, MINT, SEND and SWEEP.
+ * DIVIDEND, ISSUE, LINK, LIST_SHARE, MINT, SEND, SWEEP and XPOLICY.
  ********************************************************************/
 
 'use strict';
@@ -22,6 +22,16 @@ const sql = require('../db/action_detail/tokens_sql.js');
 const bridgeSql = require('../db/action_detail/xbridge_sql.js');
 const { tablesPresent, setTablesAbsent, isMissingTableError,
         columnsPresent, setColumnsAbsent, isUnknownColumnError } = require('../db/schema_probe.js');
+
+// Declare which user-encodable wire formats this handler's page renders, and why any
+// other format is left unrendered. Non-enumerable, so the declaration is not mistaken
+// for a getActionData hook by anything walking a handler's keys.
+function declareFormats(handler, renderedFormats, unrenderedFormats) {
+    Object.defineProperties(handler, {
+        renderedFormats:   { value: Object.freeze(renderedFormats) },
+        unrenderedFormats: { value: Object.freeze(unrenderedFormats) },
+    });
+}
 
 // Read every leg of a multi-leg SEND or DESTROY, in wire order when the connected
 // replica records leg_ordinal. A replica without it takes the unsorted read, which
@@ -87,7 +97,30 @@ const ISSUE = {
         query = sql.ISSUE_QUERY;
         return { query, query2, query3 };
     },
+    // Attach the format 7 bridge opt-in fields; every other format reads nothing more.
+    async afterMain(ctx, data) {
+        if(ctx.db.util.isNull(data['action_format']) || Number(data['action_format']) !== 7) return;
+        const row = await readIssueBridge(ctx);
+        data.bridge_chains = row ? row.bridge_chains : null;
+        data.min_depth     = row ? row.min_depth : null;
+        data.lock_bridge   = row ? row.lock_bridge : null;
+    },
 };
+
+// Read one ISSUE's bridge columns, or null on a replica that predates them.
+async function readIssueBridge({ db, config, action_index }){
+    const columns = sql.ISSUE_BRIDGE_COLUMNS;
+    if(!await columnsPresent(db, config, 'issues', columns)) return null;
+    try {
+        const rows = await db.doQuery(config, sql.ISSUE_BRIDGE_QUERY, [action_index]);
+        return (rows && rows.length) ? rows[0] : null;
+    } catch(e) {
+        // The net under a probe that answered wrong: record the real shape and show no bridge fields.
+        if(!isUnknownColumnError(e)) throw e;
+        setColumnsAbsent(db, config, 'issues', columns);
+        return null;
+    }
+}
 
 const LINK = {
     queries() {
@@ -157,10 +190,12 @@ const SWEEP = {
 //     the table the settle pass writes, so v2/v5 resolve their transfer_id,
 //     kind, the source leg they close and the destination they credited;
 //   - a user leg's settlement is applied on the OTHER chain (a BTC lock settles
-//     on DOGE, a DOGE burn settles on BTC), so this chain holds no settlement
-//     row for it and `bridge_settlement` is null until the far leg lands. That
-//     null is the in-flight state, not a missing record, which is why it is
-//     reported as an explicit `bridge_pending` flag rather than left blank;
+//     on DOGE, a DOGE burn settles on BTC), so this chain never holds a settlement
+//     row for it and `bridge_settlement` stays null. Its state is the hub-mirrored
+//     bridge_transfers row keyed by its source ref, read from the co-located hub DB:
+//     a finalized or retracted row ends the in-flight state and names the transfer,
+//     no row is the in-flight state (`bridge_pending: true`), and a hub DB that
+//     cannot be read leaves `bridge_pending` omitted, because nothing was read;
 //   - a replica that has not taken the indexer's bridge-tables migration holds
 //     neither table, so this node knows NOTHING about the leg. Every key above is
 //     then omitted rather than nulled: absence reads as unknown, while
@@ -177,10 +212,10 @@ const XBRIDGE_RECORD_KEYS = ['dest_chain', 'dest_address', 'decimals', 'min_dept
 // Read one bridge table only when the connected schema carries it: on a replica that
 // never took the bridge migration the statement is error 1146 for the whole action
 // page, and the page is worth more than the section. Answers null when nothing was read.
-async function readBridgeTable({ db, config, action_index }, table, statement){
+async function readBridgeTable({ db, config, action_index }, table, statement, args = [action_index]){
     if(!await tablesPresent(db, config, [table])) return null;
     try {
-        return await db.doQuery(config, statement, [action_index]);
+        return await db.doQuery(config, statement, args);
     } catch(e) {
         // The net under a probe that answered wrong (it failed, or the table went
         // away under a live explorer). A failure that is not a missing table is a
@@ -211,6 +246,42 @@ function attachXbridgeSettlement(data, settle){
     data['bridge_pending'] = (row) ? false : true;
 }
 
+// The mirror-injected formats (v2/v5): their source ref names a leg on another chain.
+const XBRIDGE_INJECTED_FORMATS = [2, 5];
+
+// Read the transfer a user leg opened from the co-located hub DB, never a replica's
+// stale copy. Null when that DB is not configured or lacks the table.
+async function readUserLegTransfer({ db, config, action_index }){
+    if(typeof db.bridgeTransferSource !== 'function') return null;
+    let src;
+    // The resolver refuses only a missing or unsafe hub DB entry, which is unknown here.
+    try { src = db.bridgeTransferSource(config); } catch(e) { return null; }
+    try {
+        return await db.doQuery(config, bridgeSql.xbridgeTransferBySrc(src.table),
+            [src.chain, action_index, src.network]);
+    } catch(e) {
+        // Same net as readBridgeTable: only a missing table degrades to unknown.
+        if(!isMissingTableError(e)) throw e;
+        return null;
+    }
+}
+
+// Settle a user leg from its mirrored transfer; an unread mirror drops the pending claim.
+function attachUserLegTransfer(data, transfers){
+    if(transfers === null){
+        delete data['bridge_pending'];
+        return;
+    }
+    const row = transfers.length ? transfers[0] : null;
+    data['bridge_pending']  = !row;
+    // Present even while null: the hub moves it later, so the action LRU must skip it.
+    data['bridge_transfer'] = row;
+    if(!row) return;
+    data['transfer_id']            = row.transfer_id;
+    data['bridge_transfer_status'] = row.status;
+    data['bridge_effective_time']  = row.effective_time;
+}
+
 const XBRIDGE = {
     // No static detail query: both bridge reads are probe-guarded, so they run in
     // afterMain, and the de-blank baseline is the main row.
@@ -220,9 +291,48 @@ const XBRIDGE = {
     async afterMain(ctx, data) {
         attachXbridgeRecord(data, await readBridgeTable(ctx, bridgeSql.XBRIDGES_TABLE, bridgeSql.XBRIDGE_RECORD));
         const settle = await readBridgeTable(ctx, bridgeSql.BRIDGE_SETTLEMENTS_TABLE, bridgeSql.XBRIDGE_SETTLEMENT);
-        if(settle !== null) attachXbridgeSettlement(data, settle);
+        if(settle === null) return;
+        attachXbridgeSettlement(data, settle);
+        if(!data['bridge_settlement'] && !XBRIDGE_INJECTED_FORMATS.includes(Number(data.action_format)))
+            attachUserLegTransfer(data, await readUserLegTransfer(ctx));
     },
 };
+
+function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
+    return {
+        queries() {
+            return { query: null, query2: null, query3: null };
+        },
+        async afterMain(ctx, data) {
+            const settle = await readBridgeTable(ctx, bridgeSql.BRIDGE_SETTLEMENTS_TABLE, bridgeSql.XBRIDGE_SETTLEMENT);
+            if(settle === null) return;
+            const row = settle.length ? settle[0] : null;
+            data['bridge_settlement'] = row;
+            data['snapshot_id'] = row ? row.transfer_id : null;
+            if(!row) return;
+            const snap = await readBridgeTable(ctx, snapshotTable, snapshotSql, [row.transfer_id]);
+            if(snap !== null) data[snapshotKey] = snap.length ? snap[0] : null;
+        },
+    };
+}
+
+const XPOLICY = settlementAnchor(bridgeSql.POLICY_SNAPSHOTS_TABLE, bridgeSql.POLICY_SNAPSHOT, 'policy_snapshot');
+const LIST_SHARE = settlementAnchor(bridgeSql.LIST_SNAPSHOTS_TABLE, bridgeSql.LIST_SNAPSHOT, 'list_snapshot');
+
+// AIRDROP, DESTROY and SEND show every leg in one table whatever format encoded it,
+// and each leg row carries the memo the later formats add. ISSUE switches on
+// action_format in the client: v1-v5 each reveal their own field group, v6 the
+// controller card and v7 the bridge card fed by the afterMain read above. XBRIDGE
+// labels every user leg (v0/v1 coin, v3/v4 token) by its version.
+declareFormats(AIRDROP,  [0, 1, 2, 3], {});
+declareFormats(DESTROY,  [0, 1, 2], {});
+declareFormats(DIVIDEND, [0], {});
+declareFormats(ISSUE,    [0, 1, 2, 3, 4, 5, 6, 7], {});
+declareFormats(LINK,     [0], {});
+declareFormats(MINT,     [0], {});
+declareFormats(SEND,     [0, 1, 2, 3], {});
+declareFormats(SWEEP,    [0], {});
+declareFormats(XBRIDGE,  [0, 1, 3, 4], {});
 
 module.exports = {
     AIRDROP,
@@ -230,8 +340,10 @@ module.exports = {
     DIVIDEND,
     ISSUE,
     LINK,
+    LIST_SHARE,
     MINT,
     SEND,
     SWEEP,
-    XBRIDGE
+    XBRIDGE,
+    XPOLICY
 };

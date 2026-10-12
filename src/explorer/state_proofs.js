@@ -28,6 +28,7 @@
 
 const IndexerConnector = require('../connectors/indexer.js');
 const vmQuery          = require('../contract/vm_query.js');
+const { sendProofError } = require('./proof_errors.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -78,8 +79,7 @@ class StateProofs {
                             NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
                             ACTION_LEAF_NOT_FOUND: [500, 'Action row not present in its block leaf set'],
                             PROOF_BLOCK_MERKLE_MISMATCH: [500, 'Committed block_merkle_root does not match the local block tree'] };
-                let m = map[result.error] || [500, 'Server error'];
-                return res.status(m[0]).json({ error: m[1], code: result.error });
+                return sendProofError(res, map, result.error);
             }
             return res.json(result);
         } catch(e){
@@ -134,8 +134,7 @@ class StateProofs {
                 // included, back to the client in `code`. Every other code here is
                 // suffix-free, so its prefix is the whole string and its response is byte-identical.
                 let code = String(result.error).split(':')[0];
-                let m = map[code] || [500, 'Server error'];
-                return res.status(m[0]).json({ error: m[1], code: code });
+                return sendProofError(res, map, code, result.error);
             }
             return res.json(result);
         } catch(e){
@@ -203,8 +202,7 @@ class StateProofs {
                             CONTRACT_STATE_NOT_COMMITTED: [409, 'contract_state_root is not committed at this height (the slot is EMPTY here, so absence cannot be proven)'],
                             NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
                             PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
-                let m = map[result.error] || [500, 'Server error'];
-                return res.status(m[0]).json({ error: m[1], code: result.error });
+                return sendProofError(res, map, result.error);
             }
             return res.json(result);
         } catch(e){
@@ -249,8 +247,7 @@ class StateProofs {
                             ESCROW_LEAF_NOT_COMMITTED: [409, 'The locked-balance leaf is not committed at this height (balances_root does not cover the XCHAIN_ESC domain here, so absence cannot be proven)'],
                             NO_STATE_TREE: [501, 'This server does not hold the state tree (point a full indexer DB at the proof server)'],
                             PROOF_STATE_ROOT_MISMATCH: [500, 'Committed state_root does not match the local state tree'] };
-                let m = map[result.error] || [500, 'Server error'];
-                return res.status(m[0]).json({ error: m[1], code: result.error });
+                return sendProofError(res, map, result.error);
             }
             return res.json(result);
         } catch(e){

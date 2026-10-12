@@ -44,6 +44,7 @@ const path   = require('path');
 
 function resolvePlatformRoot(repoRoot) {
     const dotGit = path.join(repoRoot, '.git');
+    if (!fs.existsSync(dotGit)) return path.dirname(repoRoot);
     if (fs.lstatSync(dotGit).isDirectory()) return path.dirname(repoRoot);
 
     const gitdir = /^gitdir:\s*(.+)\s*$/m.exec(fs.readFileSync(dotGit, 'utf8'));
@@ -81,6 +82,12 @@ describe('hub-mirror bridge tables: sibling checkout resolution @regression', fu
     it('resolves the platform root from a main checkout', function () {
         const repoRoot = path.join(fixture, 'xchain-explorer');
         fs.mkdirSync(path.join(repoRoot, '.git'), { recursive: true });
+        assert.equal(resolvePlatformRoot(repoRoot), fixture);
+    });
+
+    it('resolves the platform root from a standalone archive without git metadata', function () {
+        const repoRoot = path.join(fixture, 'xchain-explorer');
+        fs.mkdirSync(repoRoot, { recursive: true });
         assert.equal(resolvePlatformRoot(repoRoot), fixture);
     });
 

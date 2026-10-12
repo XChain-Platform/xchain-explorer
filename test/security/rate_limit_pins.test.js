@@ -79,6 +79,23 @@ function comparePinsToSource(pins, sourceDefaults) {
     return { unpinned, orphaned, drifted };
 }
 
+const ENV_EXAMPLE_PATH = path.join(__dirname, '../../.env.example');
+const README_PATH      = path.join(__dirname, '../../README.md');
+
+// The app-wide limit .env.example states twice: the commented assignment and
+// the "(default N)" in the comment line just above it. Null where absent.
+function parseEnvExampleAppWide(envText) {
+    const m = envText.match(/^#[^\n]*\(default (\d+)\)\.?\s*\n#\s*EXPLORER_RATE_LIMIT_RPM=(\d+)\s*$/m);
+    return m ? { stated: parseInt(m[1], 10), assigned: parseInt(m[2], 10) } : null;
+}
+
+// The number the README's rate-limiting feature bullet quotes, or null when
+// the bullet quotes none (a link-only bullet cannot drift).
+function parseReadmeAppWide(readmeText) {
+    const m = readmeText.match(/^- \*\*Rate limiting\*\*:[^\n]*?\bdefault (\d+)/m);
+    return m ? parseInt(m[1], 10) : null;
+}
+
 function collectJsFiles(dir) {
     const out = [];
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -119,9 +136,9 @@ describe('Security: Rate Limiting: pinned drop-in matches source defaults (rows 
             .to.deep.equal([]);
     });
 
-    it('keeps the app-wide fallback equal to the derived 1080 (row 32)', function () {
-        expect(sourceDefaults.get('EXPLORER_RATE_LIMIT_RPM')).to.equal(1080);
-        expect(pins.get('EXPLORER_RATE_LIMIT_RPM')).to.equal(1080);
+    it('keeps the app-wide fallback equal to the derived 180 (row 32)', function () {
+        expect(sourceDefaults.get('EXPLORER_RATE_LIMIT_RPM')).to.equal(180);
+        expect(pins.get('EXPLORER_RATE_LIMIT_RPM')).to.equal(180);
     });
 
     it('keeps every source default equal to its pinned value, naming any drift (row 32)', function () {
@@ -132,6 +149,39 @@ describe('Security: Rate Limiting: pinned drop-in matches source defaults (rows 
     });
 });
 
+describe('Security: Rate Limiting: operator template and README quote the source default', function () {
+
+    // An operator who uncomments a stale template line pins a limit the source
+    // abandoned, so the copies follow the source value rather than a literal.
+    const sourceDefault = parseSourceLimits(
+        fs.readFileSync(path.join(SRC_DIR, 'http/api_boot/rate_limits.js'), 'utf8')
+    ).get('EXPLORER_RATE_LIMIT_RPM');
+
+    it('reads an app-wide default from the source (sanity: the parser matched)', function () {
+        expect(sourceDefault).to.be.a('number');
+    });
+
+    it('.env.example states and assigns the source app-wide default', function () {
+        const env = parseEnvExampleAppWide(fs.readFileSync(ENV_EXAMPLE_PATH, 'utf8'));
+        expect(env, '.env.example: no commented EXPLORER_RATE_LIMIT_RPM line under a (default N) comment').to.not.equal(null);
+        expect(env, `.env.example: stated=${env.stated} assigned=${env.assigned} source=${sourceDefault}`)
+            .to.deep.equal({ stated: sourceDefault, assigned: sourceDefault });
+    });
+
+    it('README rate-limiting bullet quotes the source default when it quotes one', function () {
+        const quoted = parseReadmeAppWide(fs.readFileSync(README_PATH, 'utf8'));
+        if (quoted !== null)
+            expect(quoted, `README.md: quoted=${quoted} source=${sourceDefault}`).to.equal(sourceDefault);
+    });
+
+    it('parses a stale template and README figure, so a drift cannot read as absent', function () {
+        const env = parseEnvExampleAppWide('# Optional: limit per IP (default 500).\n# EXPLORER_RATE_LIMIT_RPM=500\n');
+        expect(env).to.deep.equal({ stated: 500, assigned: 500 });
+        expect(parseReadmeAppWide('- **Rate limiting**: configurable (default 500 req/min)\n')).to.equal(500);
+        expect(parseReadmeAppWide('- **Rate limiting**: see [configuration](x.md)\n')).to.equal(null);
+    });
+});
+
 describe('Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures)', function () {
 
     // These feed the same parse/compare helpers crafted text instead of the
@@ -139,9 +189,9 @@ describe('Security: Rate Limiting: pin-vs-source comparison helper (falsificatio
     // proven to actually surface, not just assumed from reading the code.
 
     it('names an unpinned variable when the source reads one the conf lacks', function () {
-        const pins = parsePinnedLimits('Environment=EXPLORER_RATE_LIMIT_RPM=1080\n');
+        const pins = parsePinnedLimits('Environment=EXPLORER_RATE_LIMIT_RPM=180\n');
         const sourceDefaults = parseSourceLimits(
-            "limit: parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080,\n" +
+            "limit: parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 180,\n" +
             "limit: parseInt(process.env.EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM, 10) || 120,\n"
         );
         const { unpinned, orphaned, drifted } = comparePinsToSource(pins, sourceDefaults);
@@ -152,11 +202,11 @@ describe('Security: Rate Limiting: pin-vs-source comparison helper (falsificatio
 
     it('names an orphaned pin when the conf keeps one the source no longer reads', function () {
         const pins = parsePinnedLimits(
-            'Environment=EXPLORER_RATE_LIMIT_RPM=1080\n' +
+            'Environment=EXPLORER_RATE_LIMIT_RPM=180\n' +
             'Environment=EXPLORER_RETIRED_RATE_LIMIT_RPM=30\n'
         );
         const sourceDefaults = parseSourceLimits(
-            "parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 1080"
+            "parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 180"
         );
         const { unpinned, orphaned, drifted } = comparePinsToSource(pins, sourceDefaults);
         expect(orphaned).to.deep.equal(['EXPLORER_RETIRED_RATE_LIMIT_RPM']);
@@ -165,7 +215,7 @@ describe('Security: Rate Limiting: pin-vs-source comparison helper (falsificatio
     });
 
     it('names a drifted default when the source default no longer equals the pin', function () {
-        const pins = parsePinnedLimits('Environment=EXPLORER_RATE_LIMIT_RPM=1080\n');
+        const pins = parsePinnedLimits('Environment=EXPLORER_RATE_LIMIT_RPM=180\n');
         const sourceDefaults = parseSourceLimits(
             "parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 500"
         );
@@ -173,12 +223,12 @@ describe('Security: Rate Limiting: pin-vs-source comparison helper (falsificatio
         expect(unpinned).to.deep.equal([]);
         expect(orphaned).to.deep.equal([]);
         expect(drifted).to.deep.equal([
-            { name: 'EXPLORER_RATE_LIMIT_RPM', defaultValue: 500, pinnedValue: 1080 }
+            { name: 'EXPLORER_RATE_LIMIT_RPM', defaultValue: 500, pinnedValue: 180 }
         ]);
     });
 
     it('reports a missing pin and a value drift together, not just the first one found', function () {
-        const pins = parsePinnedLimits('Environment=EXPLORER_RATE_LIMIT_RPM=1080\n');
+        const pins = parsePinnedLimits('Environment=EXPLORER_RATE_LIMIT_RPM=180\n');
         const sourceDefaults = parseSourceLimits(
             "parseInt(process.env.EXPLORER_RATE_LIMIT_RPM, 10) || 500\n" +
             "parseInt(process.env.EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM, 10) || 120"
@@ -186,7 +236,7 @@ describe('Security: Rate Limiting: pin-vs-source comparison helper (falsificatio
         const { unpinned, orphaned, drifted } = comparePinsToSource(pins, sourceDefaults);
         expect(unpinned).to.deep.equal(['EXPLORER_FEE_QUOTE_RATE_LIMIT_RPM']);
         expect(drifted).to.deep.equal([
-            { name: 'EXPLORER_RATE_LIMIT_RPM', defaultValue: 500, pinnedValue: 1080 }
+            { name: 'EXPLORER_RATE_LIMIT_RPM', defaultValue: 500, pinnedValue: 180 }
         ]);
     });
 });

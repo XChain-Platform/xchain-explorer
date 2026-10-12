@@ -79,16 +79,21 @@ function rememberRows(cache, key, at, rows){
 
 // The answer for a read the hub did not satisfy with rows: throw on a capability
 // gap, else the cached rows while they are inside the stale ceiling, else null.
-function settleMissedRead(method, result, rpcErr, hit, after, staleMaxMs){
-    // A -32601 (Method not found) is a definitive answer from a live hub:
-    // this hub build does not serve the method. That is a capability gap,
-    // not an outage, so neither the stale-cache bridge below nor db/index.js's
+function settleMissedRead(method, result, call, hit, after, staleMaxMs){
+    const rpcErr = call.rpcError;
+    // A -32601 (Method not found) from EVERY configured endpoint is a definitive
+    // answer: no hub build in the fleet serves the method. That is a capability
+    // gap, not an outage, so neither the stale-cache bridge below nor db/index.js's
     // unreachable-past-ceiling diagnosis applies; both would misname a
     // version mismatch as downtime.
-    if(rpcErr && Number(rpcErr.code) === -32601)
+    if(rpcErr && Number(rpcErr.code) === -32601 && call.allEndpointsAnswered === true)
         throw new Error("Hub JSON-RPC method '" + method + "' is not supported by the " +
             'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +
             'upgrade it to a build that serves ' + method + '.');
+    // Only some endpoints answered -32601: an unreachable or degraded one may be the
+    // upgraded hub that serves the method, so this is an outage and takes the bridge.
+    if(rpcErr && Number(rpcErr.code) === -32601)
+        log.warn('HUB_OPERATIONAL_PARTIAL_CAPABILITY', { method, failures: call.failures });
     if(result && result.error)
         log.warn('HUB_OPERATIONAL_READ_ERROR', { method, err: result.error });
     // Hub unreachable or degraded: serve the last-known rows while they
@@ -170,7 +175,7 @@ class HubOperationalCache {
             rememberRows(this._cache, key, now, result);
             return result;
         }
-        return settleMissedRead(method, result, call.rpcError, hit, after, this.staleMaxMs);
+        return settleMissedRead(method, result, call, hit, after, this.staleMaxMs);
     }
 
     getValidatorCapabilities({ capability, signing_pubkey } = {}){

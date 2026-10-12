@@ -60,6 +60,7 @@ function summary(action, info) {
     `);
     dom.window.eval(extractFn('actionDetail_renderBasicActions'));
     dom.window.eval(extractFn('actionDetail_renderMarketActions'));
+    dom.window.eval(extractFn('actionDetail_legTotalLead'));
     dom.window.eval(extractFn('actionDetail_renderMessageActions'));
     dom.window.eval(extractFn('actionDetail_renderContractActions'));
     dom.window.eval(extractFn('actionDetail_renderConsensusActions'));

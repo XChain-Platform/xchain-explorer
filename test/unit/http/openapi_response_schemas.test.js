@@ -129,6 +129,20 @@ describe('openapi row schemas match the reader select lists', function () {
 });
 
 describe('docs/openapi.json carries the schemas module', function () {
+    it('publishes the ISSUE v7 bridge fields on getIssues rows', function () {
+        const expected = { type: ['string', 'null'] };
+        for (const field of ['bridge_chains', 'min_depth', 'lock_bridge']) {
+            expect(SCHEMAS.COMPONENT_SCHEMAS.Issue.properties[field], `module Issue.${field}`)
+                .to.deep.equal(expected);
+            expect(SPEC.components.schemas.Issue.properties[field], `published Issue.${field}`)
+                .to.deep.equal(expected);
+        }
+
+        const items = SPEC.paths['/{COIN}/api/issues/{QUERY}/{TYPE}'].get.responses['200']
+            .content['application/json'].schema.properties.data.items;
+        expect(items.$ref).to.equal('#/components/schemas/Issue');
+    });
+
     it('publishes every component schema byte-for-byte as the module builds it', function () {
         for (const [name, schema] of Object.entries(SCHEMAS.COMPONENT_SCHEMAS))
             expect(SPEC.components.schemas[name], `${name} (run: node docs/openapi.build.js)`).to.deep.equal(schema);

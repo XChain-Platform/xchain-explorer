@@ -154,22 +154,71 @@ function sharedStylesheetRefs() {
   return refs;
 }
 
+function importTargets(css) {
+  const targets = [];
+  for (const match of stripComments(css).matchAll(/@import\s+(?:url\(\s*)?["']?([^"')\s;]+)["']?\s*\)?/g)) {
+    targets.push(match[1]);
+  }
+  return targets;
+}
+
+// Read a theme's tokens.css plus every sheet it @imports, nested imports included, since
+// the browser loads those with the theme. Only files inside the theme's own directory are
+// followed; any other target is returned in badImports instead of being read.
+function themeSheets(themesDir, themeName) {
+  const themeDir = path.join(themesDir, themeName);
+  const sheets = [];
+  const badImports = [];
+  const visited = new Set();
+  const pending = [path.join(themeDir, 'tokens.css')];
+  while (pending.length) {
+    const file = pending.shift();
+    if (visited.has(file)) continue;
+    visited.add(file);
+    const css = fs.readFileSync(file, 'utf8');
+    sheets.push(css);
+    const from = path.relative(themeDir, file).split(path.sep).join('/');
+    for (const target of importTargets(css)) {
+      // Absolute paths and URL schemes point outside the repo, so nothing here can read them.
+      if (/^(?:[a-z][a-z0-9+.-]*:|\/)/i.test(target)) {
+        badImports.push({ theme: themeName, from, target, reason: 'is not a relative path' });
+        continue;
+      }
+      const resolved = path.resolve(path.dirname(file), target);
+      const inside = path.relative(themeDir, resolved);
+      if (inside.startsWith('..') || path.isAbsolute(inside)) {
+        badImports.push({ theme: themeName, from, target, reason: 'is outside the theme directory' });
+      } else if (!fs.existsSync(resolved)) {
+        badImports.push({ theme: themeName, from, target, reason: 'does not exist' });
+      } else {
+        pending.push(resolved);
+      }
+    }
+  }
+  return { sheets, badImports };
+}
+
 function themeTokenReport(themesDir, themeName, sharedRefs) {
   const resolve = require(path.join(SRC_DIR, 'content', 'themes', 'resolve.js'));
   const chain = resolve.resolveChain(themesDir, themeName);
-  if (!chain) return { theme: themeName, chainBroken: true, missing: [] };
+  if (!chain) return { theme: themeName, chainBroken: true, missing: [], badImports: [] };
 
   const definedVars = new Set();
   const referencedVars = new Set(sharedRefs);
+  const badImports = [];
   for (const name of chain) {
-    const css = fs.readFileSync(path.join(themesDir, name, 'tokens.css'), 'utf8');
-    for (const token of xcVarDefs(css)) definedVars.add(token);
-    for (const token of xcVarRefs(css)) referencedVars.add(token);
+    const loaded = themeSheets(themesDir, name);
+    badImports.push(...loaded.badImports);
+    for (const css of loaded.sheets) {
+      for (const token of xcVarDefs(css)) definedVars.add(token);
+      for (const token of xcVarRefs(css)) referencedVars.add(token);
+    }
   }
   return {
     theme: themeName,
     chainBroken: false,
     missing: unresolvedTokens(definedVars, referencedVars),
+    badImports,
   };
 }
 
@@ -184,6 +233,11 @@ function lintThemeTokens(themesDir, sharedRefs) {
     if (report.chainBroken) {
       errors.push(`${themeName}: extends chain does not resolve`);
       continue;
+    }
+    // Each theme reports its parents' imports too, so name a bad import once, by its owner.
+    for (const bad of report.badImports) {
+      const line = `${bad.theme}: ${bad.from} imports ${bad.target}, which ${bad.reason}`;
+      if (!errors.includes(line)) errors.push(line);
     }
     for (const token of report.missing) {
       errors.push(`${themeName} leaves ${token} unresolved in its token inheritance chain`);

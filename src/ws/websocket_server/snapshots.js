@@ -69,13 +69,15 @@ const SNAPSHOTS = new Map([
         shape: (sub, [balances, maxAction]) =>
             ({ channel: 'address', address: sub.address, balances: balances || [], last_action_index: String(maxAction || 0) })
     }],
+    // The subscribed tick spelling is set after the row, which carries the
+    // canonical one, so SNAPSHOT keys match TOKEN_UPDATE / MARKET_UPDATE (change_detector/entities.js).
     ['token', {
         reads: [(db, config, sub) => db.getTokenInfo(config, sub.tick)],
-        shape: (sub, [tokenInfo]) => ({ channel: 'token', tick: sub.tick, ...(tokenInfo || {}) })
+        shape: (sub, [tokenInfo]) => ({ channel: 'token', ...(tokenInfo || {}), tick: sub.tick })
     }],
     ['market', {
         reads: [(db, config, sub) => db.getMarketInfo(config, sub.tick1, sub.tick2)],
-        shape: (sub, [marketInfo]) => ({ channel: 'market', tick1: sub.tick1, tick2: sub.tick2, ...(marketInfo || {}) })
+        shape: (sub, [marketInfo]) => ({ channel: 'market', ...(marketInfo || {}), tick1: sub.tick1, tick2: sub.tick2 })
     }],
     ['dispenser', {
         reads: [(db, config, sub) => db.getDispenserInfo(config, sub.action_index)],

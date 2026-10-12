@@ -76,6 +76,9 @@ describe('Database#getAttestationsSince / getAttestationByActionIndex expose pay
     it('getAttestationsSince (WebSocket feed) selects both columns', async () => {
         const config = makeActionConfig('getAttestationsSince');
         await db.getAttestationsSince(config, 0, 100);
+        // Drop the batch-column schema probe: a failed probe is no longer cached, so
+        // whether it runs here depends on test order, not on the feed's own query.
+        captured = captured.filter((q) => !q.includes('information_schema'));
         expect(captured).to.have.lengthOf(1);
         expect(captured[0]).to.include('attests m');
         expect(captured[0]).to.include('m.payload');

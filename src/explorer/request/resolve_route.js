@@ -205,13 +205,11 @@ function matchUrl(explorer, st, url, parts, info){
         ({ match, searchType } = matchDataRoute(explorer, st, parts, info));
     }
 
-    // List-all explorer requests (the home-page tabs) carry no QUERY/TYPE, so the
-    // request path is exactly 3 segments (/{COIN}/explorer/{ACTION}) while the route
-    // declares optional {QUERY}/{TYPE} placeholders and is longer. The length-equality
-    // gate above rejects that pairing, so match it here: action segment lines up and
-    // every remaining route segment is a placeholder. Limited to 3-segment paths, so it
-    // can't swallow a deeper route (the shadowing case the length check guards against).
-    if(!match && st.cfg.type=='explorer' && st.urlPath.length==3 &&
+    // Three-segment list requests omit the optional QUERY/TYPE placeholders.
+    // Bare API aliases are limited to the readers whose contract declares them.
+    const apiListAll = st.cfg.type=='api' &&
+        ['getTokens', 'getOrders', 'getSwaps', 'getDispensers'].includes(info[0]);
+    if(!match && (st.cfg.type=='explorer' || apiListAll) && st.urlPath.length==3 &&
         parts[1]==String(st.urlPath[1]).toLowerCase() &&
         parts[2]==String(st.urlPath[2]).toLowerCase() &&
         parts.slice(3).every(p => String(p).startsWith('{'))){

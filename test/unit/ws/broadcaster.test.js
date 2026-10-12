@@ -86,3 +86,4 @@ module.exports = { sinon, expect, createMockWs, createClient, createHarness };
 require('./broadcaster.test/support/block_and_action_events.js');
 require('./broadcaster.test/support/routing_and_lifecycle.js');
 require('./broadcaster.test/support/entity_updates.js');
+require('./broadcaster.test/support/network_stats_rollback.js');

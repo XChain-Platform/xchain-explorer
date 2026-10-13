@@ -116,7 +116,7 @@ describe('token action clause builders', function(){
 
         assert.strictEqual(build('getCollectibles', 'unknown'), base);
         assert.strictEqual(build('getCollectibles', 'block'),
-            `${base} AND b1.block_index=?`);
+            `${base} AND a1.block_index=?`);
         assert.strictEqual(build('getCollectibles', 'address'),
             `${base} AND a2.address=?`);
     });

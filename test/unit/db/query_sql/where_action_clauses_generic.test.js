@@ -17,6 +17,8 @@
 const assert = require('assert');
 const { genericClause } = require('../../../../src/db/query_sql/where_action_clauses.js');
 
+const SOURCE = ' AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))';
+
 function build(method, type, sql = 'WHERE anchor') {
     return genericClause({}, { data: { method, type } }, sql);
 }
@@ -45,12 +47,19 @@ describe('genericClause address and block lanes', function(){
             build('getCoinpayObligations', 'block'),
             'WHERE anchor AND m.block_index=?'
         );
-        assert.strictEqual(build('getMessages', 'block'), 'WHERE anchor AND b1.block_index=?');
+        assert.strictEqual(build('getMessages', 'block'), 'WHERE anchor AND a1.block_index=?');
+        assert.strictEqual(build('getSleeps', 'block'), 'WHERE anchor AND b1.block_index=?');
+    });
+
+    it('filters coinpays, coinpay expires and links on the action source, not an a2 alias', function(){
+        for (const method of ['getCoinpays', 'getCoinpayExpires', 'getLinks', 'getIssues'])
+            assert.strictEqual(build(method, 'address'), `WHERE anchor${SOURCE}`);
     });
 
     it('appends the destination and source address predicates', function(){
         assert.strictEqual(build('getMessages', 'destination'), 'WHERE anchor AND a3.address=?');
-        assert.strictEqual(build('getMessages', 'source'), 'WHERE anchor AND a2.address=?');
+        assert.strictEqual(build('getMessages', 'source'), `WHERE anchor${SOURCE}`);
+        assert.strictEqual(build('getDelegations', 'source'), 'WHERE anchor AND a2.address=?');
     });
 
     it('filters both match participants through indexed UNION lookups', function(){

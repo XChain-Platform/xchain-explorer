@@ -66,9 +66,11 @@ function addressBoundaryWhere(method, id){
         where = ` AND m.type_id=2 AND m.id=?`;
         whereArgs.push(id);
     } else {
-        // Match the action's source fallback used by every corresponding row query.
-        where = ` AND COALESCE(a1.source_id, t1.source_id)=?`;
-        whereArgs.push(id);
+        // Match the action's source fallback used by every corresponding row query,
+        // as the same row set as COALESCE(a1.source_id, t1.source_id)=id in the
+        // form the source_id index on actions can serve.
+        where = ` AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))`;
+        whereArgs.push(id, id);
     }
     return { where, whereArgs };
 }

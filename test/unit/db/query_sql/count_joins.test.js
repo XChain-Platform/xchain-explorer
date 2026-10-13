@@ -65,11 +65,10 @@ describe('pruneCountJoins: list lanes', function(){
         expect(await prunedFor('getIssues')).to.equal(flat(ISSUES_BASE + ' WHERE m.action_index IS NOT NULL'));
     });
 
-    it('keeps the address join and the transactions join its ON reads', async function(){
+    it('keeps the transactions join the indexed source predicate reads and drops the address join', async function(){
         expect(await prunedFor('getIssues', 'address')).to.equal(flat(ISSUES_BASE +
             ' LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)' +
-            ' LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))' +
-            ' WHERE m.action_index IS NOT NULL AND a2.address=?'));
+            ' WHERE m.action_index IS NOT NULL AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))'));
     });
 
     it('keeps only the ticker join for the token lane', async function(){
@@ -78,9 +77,9 @@ describe('pruneCountJoins: list lanes', function(){
             ' WHERE m.action_index IS NOT NULL AND t3.tick=?'));
     });
 
-    it('keeps the inner blocks join the block lane filters on', async function(){
+    it('keeps the inner blocks join while the block lane filters on the action block', async function(){
         expect(await prunedFor('getIssues', 'block')).to.equal(flat(ISSUES_BASE +
-            ' WHERE m.action_index IS NOT NULL AND b1.block_index=?'));
+            ' WHERE m.action_index IS NOT NULL AND a1.block_index=?'));
     });
 
     it('counts the raw action feed over actions and blocks only', async function(){

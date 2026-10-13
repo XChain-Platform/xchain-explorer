@@ -28,15 +28,17 @@
 
 'use strict';
 
+const { sourceAddressClause, blockClause } = require('./where_source_lanes.js');
+
 function pollsClause(db, config, sql){
     let type = config.data.type;
     // polls (VOTE v0) joins the actions/transactions/blocks chain (b1 via t1) like
     // getAttestations. tick joins index_tickers (pt) on m.tick_id; source is the poll
     // creator (a2 via the action source); status filters the poll lifecycle enum directly.
-    if(type=='block')  sql += ' AND b1.block_index=?';
+    if(type=='block')  sql += blockClause(config);
     if(type=='tick')   sql += ' AND pt.tick=?';
     if(type=='status') sql += ' AND m.poll_status=?';
-    if(type=='source') sql += ' AND a2.address=?';
+    if(type=='source') sql += sourceAddressClause(config);
     return sql;
 }
 
@@ -57,9 +59,9 @@ function votesClause(db, config, sql){
     let type = config.data.type;
     // votes (VOTE v1 ballots) joins the actions/transactions/blocks chain; the voter IS
     // the source that cast the ballot (a2 via the action source), so address filters on a2.
-    if(type=='address') sql += ' AND a2.address=?';
+    if(type=='address') sql += sourceAddressClause(config);
     if(type=='poll')    sql += ' AND m.poll_index=?';
-    if(type=='block')   sql += ' AND b1.block_index=?';
+    if(type=='block')   sql += blockClause(config);
     return sql;
 }
 
@@ -90,8 +92,8 @@ function betFeedsClause(db, config, sql){
     if(type=='block')   sql += ' AND b1.block_index=?';
     if(type=='token')   sql += ' AND pt.tick=?';
     if(type=='status')  sql += ' AND fs.status=?';
-    if(type=='source')  sql += ' AND a2.address=?';
-    if(type=='address') sql += ' AND a2.address=?';
+    if(type=='source')  sql += sourceAddressClause(config);
+    if(type=='address') sql += sourceAddressClause(config);
     return sql;
 }
 
@@ -106,7 +108,7 @@ function betsClause(db, config, sql){
     // bets (BET format 2 ballots-equivalent) joins the actions/transactions/blocks
     // chain; the bettor IS the source that placed the wager (a2 via the action source).
     // 'feed' filters to one market, matching getVotes' 'poll'.
-    if(type=='address') sql += ' AND a2.address=?';
+    if(type=='address') sql += sourceAddressClause(config);
     if(type=='feed')    sql += ' AND m.feed_action_index=?';
     if(type=='token')   sql += ' AND pt.tick=?';
     if(type=='status')  sql += ' AND bs.status=?';

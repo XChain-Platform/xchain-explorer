@@ -28,6 +28,8 @@
 
 'use strict';
 
+const { TWO_PARTY_ADDRESS_METHODS, sourceAddressClause, blockClause } = require('./where_source_lanes.js');
+
 function historyClause(db, config, sql){
     let type = config.data.type;
     // Only the address/token feeds drive off mappings_actions (alias m); the
@@ -100,7 +102,7 @@ function collectiblesClause(db, config, sql){
     // sdk.nft.isNft, so the gallery classifies exactly what the token page's own
     // NFT badge classifies rather than introducing a second definition.
     sql += ' AND m.decimals=0 AND m.lock_max_supply=1';
-    if(type=='block')   sql += ' AND b1.block_index=?';
+    if(type=='block')   sql += blockClause(config);
     if(type=='address') sql += ' AND a2.address=?';
     return sql;
 }
@@ -176,12 +178,12 @@ function genericClause(db, config, sql){
     if(type=='address'){
         if(['getOrderMatches','getSwapMatches'].includes(method)){
             sql += matchAddressClause(method);
-        } else if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
+        } else if(TWO_PARTY_ADDRESS_METHODS.has(method)){
             sql += ' AND (a2.address=? OR a3.address=?)';
         } else if(method=='getCoinpayObligations'){
             sql += ' AND (a1.address=? OR a2.address=?)';
         } else {
-            sql += ' AND a2.address=?';
+            sql += sourceAddressClause(config);
         }
     }
     if(type=='block'){
@@ -189,12 +191,12 @@ function genericClause(db, config, sql){
         // blocks join (b1); every other action query resolves the
         // block through its actions/blocks joins. Without this branch
         // the block lane 500s with an unknown-column error (PC-16).
-        sql += (method=='getCoinpayObligations') ? ' AND m.block_index=?' : ' AND b1.block_index=?';
+        sql += (method=='getCoinpayObligations') ? ' AND m.block_index=?' : blockClause(config);
     }
     if(type=='destination')
         sql += ' AND a3.address=?';
     if(type=='source')
-        sql += ' AND a2.address=?';
+        sql += sourceAddressClause(config);
     // getDelegations only: the delegations holding one signing pubkey (a3 joins
     // index_pubkeys on m.signing_pubkey_id); the reader binds the key lowercased.
     if(type=='pubkey' && method=='getDelegations')

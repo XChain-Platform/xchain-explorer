@@ -74,8 +74,9 @@ function contractListTests() {
 
     it('leaves the other contract lanes exactly as they were', async function(){
         const db = makeDb();
+        db.doQuery = async () => [];
         const sql = await db.getQueryWhereSql(makeConfig({ data: { method: 'getContracts', type: 'source' } }));
-        expect(sql).to.include('a2.address=?');
+        expect(sql).to.include('(a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
         expect(sql).to.not.include('MATCH');
     });
 

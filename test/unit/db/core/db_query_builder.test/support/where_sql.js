@@ -75,8 +75,13 @@ function registerWhereSqlCases1() {
         expect(sql).to.equal('m.id IS NOT NULL');
     });
 
-    it('type=address on a standard method: appends AND a2.address=?', async () => {
+    it('type=address on an action-source method: appends the indexed source predicate', async () => {
         const sql = await db.getQueryWhereSql(cfg('getIssues', 'address'));
+        expect(sql).to.equal('m.action_index IS NOT NULL AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
+    });
+
+    it('type=address on an owner-keyed method: appends AND a2.address=?', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getStakes', 'address'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND a2.address=?');
     });
 
@@ -119,8 +124,13 @@ function registerWhereSqlCases2() {
         expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
     });
 
-    it('type=block on a standard method: appends AND b1.block_index=?', async () => {
+    it('type=block on a method whose blocks join is the action block: appends AND a1.block_index=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getIssues', 'block'));
+        expect(sql).to.equal('m.action_index IS NOT NULL AND a1.block_index=?');
+    });
+
+    it('type=block on a method whose blocks join is the transaction block: appends AND b1.block_index=?', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getSleeps', 'block'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND b1.block_index=?');
     });
 
@@ -130,9 +140,9 @@ function registerWhereSqlCases2() {
         expect(sql).to.equal('b1.block_index IS NOT NULL');
     });
 
-    it('type=source on a standard method: appends AND a2.address=?', async () => {
+    it('type=source on an action-source method: appends the indexed source predicate', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispensers', 'source'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND a2.address=?');
+        expect(sql).to.equal('m.action_index IS NOT NULL AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
     });
 
 }
@@ -268,7 +278,9 @@ function registerWhereSqlCases5() {
 }
 
 describe('Database#getQueryWhereSql', () => {
-    before(() => { db = makeQueryBuilderDb(); });
+    // The indexed source lane resolves its address id through doQuery; no
+    // database answers here, so every address resolves as unknown.
+    before(() => { db = makeQueryBuilderDb(); db.doQuery = async () => []; });
     registerWhereSqlCases1();
     registerWhereSqlCases2();
     registerWhereSqlCases3();

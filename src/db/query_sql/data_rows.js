@@ -46,8 +46,15 @@ const { countTotal } = require('./data_totals.js');
 // set" on any install with the mandatory checkpoint schema actually configured.
 // On the list-all path the seeded search is null/undefined by construction, so
 // filtering nulls removes exactly the phantom and nothing a method meant to bind.
+//
+// A data-WHERE that declared its own binds (the indexed source lane, which
+// takes the resolved address id twice in place of the address once) is bound
+// with exactly those, whatever the method seeded.
 function listQueryArgs(db, config, args){
     let baseArgs;
+    let where   = config.data.sql && config.data.sql.where;
+    if(where && Array.isArray(where.dataArgs))
+        return [...where.dataArgs];
     let listAll = !config.data.search && !config.data.type;
     if(Array.isArray(args))
         baseArgs = listAll ? args.filter(a => !db.util.isNull(a)) : args;

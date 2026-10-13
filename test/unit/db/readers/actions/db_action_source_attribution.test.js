@@ -87,7 +87,10 @@ describe('an action\'s source is the ACTION\'s source, not the transaction\'s', 
             const src = fs.readFileSync(path.join(SRC, rel), 'utf8');
             const lines = src.split('\n');
             lines.forEach((l, i) => {
-                if (/t1\.source_id\s*=\s*\?/.test(l)) offenders.push(`${rel}:${i + 1}`);
+                // The indexed fallback form reads the transaction sender only for an
+                // action that names no source of its own, so it is not an offender.
+                if (/(?<!a1\.source_id IS NULL AND )t1\.source_id\s*=\s*\?/.test(l))
+                    offenders.push(`${rel}:${i + 1}`);
             });
         }
         // A paging boundary that filters differently from the row query it pages makes an

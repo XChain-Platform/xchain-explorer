@@ -102,7 +102,11 @@ async function boundaryWhere(db, config){
             where = ` AND m.oracle_address_id=?`;
             whereArgs.push(id);
         } else if(type=='block' && !db.util.isNull(config.data.search)){
-            where = ` AND b1.block_index=?`;
+            // Every boundary query below joins `actions a1` except the blocks
+            // listing, and naming a1's own block lets actions.block_index drive
+            // instead of a scan through the blocks join. Where b1 joins through
+            // transactions, an action's block_index is its transaction's block.
+            where = (method=='getBlocks') ? ` AND b1.block_index=?` : ` AND a1.block_index=?`;
             whereArgs.push(db.util.sanitizeInt(config.data.search));
         } else if(type=='token'){
             ({ where, whereArgs } = tokenBoundaryWhere(method, id));

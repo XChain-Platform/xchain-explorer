@@ -18,17 +18,19 @@
 
 'use strict';
 
+const { sourceAddressClause } = require('./where_source_lanes.js');  // indexed action-source predicate where the reader joins a2 on the action source
+
 function protocolLifecycleClause(db, config, sql){
     let type = config.data.type;
     if(type=='block')   sql += ' AND a1.block_index=?';
-    if(type=='address') sql += ' AND a2.address=?';
+    if(type=='address') sql += sourceAddressClause(config);
     return sql;
 }
 
 function rollcallsClause(db, config, sql){
     let type = config.data.type;
     if(type=='block')   sql += ' AND m.block_index=?';
-    if(type=='address') sql += ' AND a2.address=?';
+    if(type=='address') sql += sourceAddressClause(config);
     return sql;
 }
 

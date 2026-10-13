@@ -233,7 +233,7 @@ describe('db.getHistoryData: the all-activity feed is not gated on mappings_acti
         }});
         await db.getQueryOffsets(config, false, 10);
         expect(boundaryQuery).to.not.include('mappings_actions');
-        expect(boundaryQuery).to.include('b1.block_index=?');
+        expect(boundaryQuery).to.include('a1.block_index=?');
     });
 
     it('the address-feed boundary still reads mappings_actions, which is its filter', async () => {

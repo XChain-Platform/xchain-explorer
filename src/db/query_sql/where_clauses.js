@@ -26,6 +26,9 @@
  *   - where_mirror_clauses.js   standalone and hub-mirrored tables
  *   - where_protocol_clauses.js consensus and lifecycle action lists
  *   - where_vote_clauses.js     polls, votes and bets
+ *   - where_source_lanes.js     the indexed address and block predicates the
+ *                               action and vote families share, and the
+ *                               address-id binds the address one takes
  *
  * The dispatch is exactly what the `else if` chain did: a method's own builder
  * answers for it, and only a method with no builder (getBlocks excepted, which
@@ -45,6 +48,7 @@ const { ACTION_CLAUSE_BUILDERS, genericClause } = require('./where_action_clause
 const { MIRROR_CLAUSE_BUILDERS } = require('./where_mirror_clauses.js');
 const { PROTOCOL_CLAUSE_BUILDERS } = require('./where_protocol_clauses.js');
 const { VOTE_CLAUSE_BUILDERS } = require('./where_vote_clauses.js');
+const { bindActionSource } = require('./where_source_lanes.js');
 
 // One lookup over the family tables. Built once at require time, and by
 // Object.assign rather than by repeated lookups, so a method that two
@@ -62,26 +66,34 @@ function clauseBuilder(method){
         : null;
 }
 
+// The data-WHERE text for one request; getQueryWhereSql adds the binds the
+// indexed source lane needs once the text is known.
+function whereSql(db, config){
+    let method = config.data.method;
+    // Contract custody lives in the standard `balances` table keyed by the
+    // contract's derived address C:<CHAIN>:<action_index> (the legacy
+    // contract_balances table was removed), so filter by that address like a
+    // normal balance lookup. Early-return so the type=='contract' branch
+    // below doesn't append a contract_index clause balances has no column for.
+    if(method=='getContractBalance')
+        return `m.address_id IS NOT NULL AND a2.address=?`;
+    let sql   = whereAnchor(method);
+    let build = clauseBuilder(method);
+    if(build)
+        return build(db, config, sql);
+    // getBlocks is the one list with no filter of its own: its anchor IS the
+    // whole clause, which is why the chain this dispatcher replaces excluded
+    // it from the generic lanes by name.
+    if(['getBlocks'].includes(method))
+        return sql;
+    return genericClause(db, config, sql);
+}
+
 class QueryWhereClauses {
     async getQueryWhereSql(config){
-        let method = config.data.method;
-        // Contract custody lives in the standard `balances` table keyed by the
-        // contract's derived address C:<CHAIN>:<action_index> (the legacy
-        // contract_balances table was removed), so filter by that address like a
-        // normal balance lookup. Early-return so the type=='contract' branch
-        // below doesn't append a contract_index clause balances has no column for.
-        if(method=='getContractBalance')
-            return `m.address_id IS NOT NULL AND a2.address=?`;
-        let sql   = whereAnchor(method);
-        let build = clauseBuilder(method);
-        if(build)
-            return build(this, config, sql);
-        // getBlocks is the one list with no filter of its own: its anchor IS the
-        // whole clause, which is why the chain this dispatcher replaces excluded
-        // it from the generic lanes by name.
-        if(['getBlocks'].includes(method))
-            return sql;
-        return genericClause(this, config, sql);
+        let sql = whereSql(this, config);
+        await bindActionSource(this, config, sql);
+        return sql;
     }
 }
 

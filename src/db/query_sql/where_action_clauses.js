@@ -201,6 +201,11 @@ function genericClause(db, config, sql){
     // index_pubkeys on m.signing_pubkey_id); the reader binds the key lowercased.
     if(type=='pubkey' && method=='getDelegations')
         sql += ' AND a3.pubkey=?';
+    // /api/execution/{QUERY}: contract_executions is keyed by the EXECUTE action's
+    // action_index. getExecution binds the id first, so without this placeholder the
+    // id lands on nothing, or on the OFFSET placeholder a ?page= request appends.
+    if(type=='execution' && method=='getExecution')
+        sql += ' AND m.action_index=?';
     sql = dispenserLaneClause(db, config, sql);
     return entityClause(db, config, sql);
 }

@@ -37,6 +37,7 @@
 
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
+const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
 const { buildFeeQuoteLimiter, buildPreflightPostLimiter, buildBatchLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
 
@@ -100,12 +101,12 @@ class RouteMounts {
         // test/unit/fontawesome-icons.test.js keeps template icon names inside
         // the Free set (plus the v4 shims and the local xchain.css glyphs).
         const faDir = path.dirname(require.resolve('@fortawesome/fontawesome-free/package.json'));
-        this.app.use('/fontawesome/css',      express.static(path.join(faDir, 'css')));
-        this.app.use('/fontawesome/webfonts', express.static(path.join(faDir, 'webfonts')));
+        this.app.use('/fontawesome/css',      express.static(path.join(faDir, 'css'), STATIC_OPTIONS));
+        this.app.use('/fontawesome/webfonts', express.static(path.join(faDir, 'webfonts'), STATIC_OPTIONS));
 
         // Listeners for static file requests, one mount per directory in the static table.
         for(let directory of urls['static'])
-            this.app.use('/' + directory, express.static(path.join(__dirname, '..', 'content', directory)))
+            this.app.use('/' + directory, express.static(path.join(__dirname, '..', 'content', directory), STATIC_OPTIONS))
     }
 
     // The one redirect the explorer serves.

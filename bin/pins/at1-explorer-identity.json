@@ -8095,6 +8095,12 @@
         "hub DB sync live row events refuses an event from a different hub schema version",
         "hub DB sync pending price events stops at the cap and forces a failed flush"
       ],
+      "9bf3b4e752d10319": [
+        "Database#getContracts name lane without the meta_search FULLTEXT index answers the empty page and runs no MATCH on the api route",
+        "Database#getContracts name lane without the meta_search FULLTEXT index answers the empty page and runs no MATCH on the explorer route",
+        "Database#getContracts name lane without the meta_search FULLTEXT index keeps the MATCH, bound to the sanitized term, when the index exists",
+        "Database#getContracts name lane without the meta_search FULLTEXT index probes the contracts table once per coin, not once per request"
+      ],
       "9c5dfd7e2915588a": [
         "@p0 @core Address API regression GET /RBTC/api/address/{addr}: returns address summary",
         "@p0 @core Balances API regression GET /RBTC/api/balances/{address}: returns all token balances",
@@ -11248,6 +11254,12 @@
         "pruneCountJoins: shapes it must not prune leaves a derived table, a comma join or a non-count statement alone",
         "pruneCountJoins: shapes it must not prune returns the same string when every join is needed"
       ],
+      "f97206c42ef35a94": [
+        "Database#getExecution binds the execution id binds one arg per placeholder at page=101",
+        "Database#getExecution binds the execution id binds one arg per placeholder at page=2",
+        "Database#getExecution binds the execution id binds one arg per placeholder at page=undefined",
+        "Database#getExecution binds the execution id filters the WHERE on the execution action_index"
+      ],
       "f97a1dd4b082340f": [
         "client: token metadata URL rule shared with the relay derives an ordinary JSON host to the URL itself",
         "client: token metadata URL rule shared with the relay derives the same URL on the page and in Node for \"The first JSON token;XChain\"",
@@ -11414,8 +11426,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 405,
-        "titleCount": 7143,
+        "fileCount": 407,
+        "titleCount": 7151,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11593,6 +11605,7 @@
           "test/unit/db/core/db_blocks_paging.test.js": "b12a894f829e191b",
           "test/unit/db/core/db_connection.test.js": "7c9836278ad0ead1",
           "test/unit/db/core/db_data_methods.test.js": "3eff20c8fcf4fe49",
+          "test/unit/db/core/db_execution_single_record.test.js": "f97206c42ef35a94",
           "test/unit/db/core/db_files_name_mode.test.js": "c1cd80da64ceab63",
           "test/unit/db/core/db_list_meta_counts.test.js": "c9647c420a36d7aa",
           "test/unit/db/core/db_live_feed_real_ddl.test.js": "0aa217bb4415aa95",
@@ -11668,6 +11681,7 @@
           "test/unit/db/readers/oracle/db_oracle_price_record.test.js": "54a8fb5c0bb49270",
           "test/unit/db/readers/project_roster/project_roster_coin_items.test.js": "94de69b5f5aa2e24",
           "test/unit/db/readers/project_roster/project_roster_items.test.js": "c963715ecba4937c",
+          "test/unit/db/readers/search/contracts_name_fulltext_missing.test.js": "9bf3b4e752d10319",
           "test/unit/db/readers/search/search_fulltext_index_missing.test.js": "1e8012403a6f5857",
           "test/unit/db/readers/search/search_token_panel.test.js": "7d41d7cd293ca09b",
           "test/unit/db/readers/status_barrier_hold/status_barrier_hold.test.js": "13ef9434f1e196bb",

@@ -106,8 +106,11 @@ describe('blocks paging: a blocks listing pages over blocks, not over actions', 
         const db = makeDb();
         await db.getQueryOffsets(cfg('getSends', 'block', '2900'), 0, 10);
         const sql = boundarySql(db);
-        assert.ok(/m\.action_index as offset_index/.test(sql),
+        // The block lane drives from actions, so the cursor reads as a1's, which
+        // the join equates to the sends row's own action_index.
+        assert.ok(/a1\.action_index as offset_index/.test(sql),
             'a sends listing stopped paging by action_index:\n' + sql);
+        assert.ok(!/block_index as offset_index/.test(sql), 'a sends listing paged by block_index');
         assert.ok(/\bactions\b/.test(sql), 'a sends listing stopped joining actions');
     });
 });

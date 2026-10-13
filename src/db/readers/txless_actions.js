@@ -14,6 +14,8 @@
 
 'use strict';
 
+const { prunedBoundarySql } = require('../query_sql/page_ids.js');
+
 const EMITTABLE_ACTIONS = new Set([
     'SEND', 'DESTROY', 'ISSUE', 'MINT', 'ORDER', 'DISPENSER', 'DIVIDEND',
     'AIRDROP', 'CALLBACK', 'FILE', 'LIST', 'COINPAY', 'SWEEP', 'LINK',
@@ -47,6 +49,15 @@ function optionalTransactionSql(sql){
             'INNER JOIN blocks$1$2 ON ($2.block_index=' + actionAlias + '.block_index)');
 }
 
+// A boundary statement with its transaction made optional. A transactions join
+// the pruner keeps while it is INNER is a LEFT join after the rewrite, dropped
+// when the boundary names none of its columns, so the statement goes through
+// the pruner again.
+function optionalBoundarySql(sql){
+    let optional = optionalTransactionSql(sql);
+    return (optional === sql) ? sql : prunedBoundarySql(optional);
+}
+
 function optionalTransactionQueries(queries){
     let out = { ...queries };
     for(const key of ['query', 'query2', 'query3'])
@@ -70,7 +81,7 @@ function installTxlessBoundaryReads(queryBuilder){
             get(target, property){
                 if(property !== 'doQuery') return Reflect.get(target, property, target);
                 return (queryConfig, sql, args) => target.doQuery(
-                    queryConfig, optionalTransactionSql(sql), args);
+                    queryConfig, optionalBoundarySql(sql), args);
             }
         });
         return original.call(proxy, config, offset1, length);

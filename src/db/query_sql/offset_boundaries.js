@@ -21,9 +21,11 @@
  * opens a jump-to-newest or jump-to-oldest page, and the stop query that decides
  * whether there is another page after this one.
  *
- * The SQL text is the load-bearing part of this file: every statement below is
- * byte-identical to the one the single-file builder emitted, indentation of the
- * template literals included, because these statements are pinned.
+ * The builders below write each statement over the list's own join shape; the
+ * statement sent is that text passed through prunedBoundarySql (page_ids.js),
+ * which drops the joins that cannot change the row set and drives a block lane
+ * from actions, as the list's ids leg does. A shape it does not read (blocks,
+ * tokens by id, the lists rename union) is sent as written.
  *
  * Plain functions, not a class body: they take the Database as `db` (for
  * doQuery and this.util) and nothing here reaches Database.prototype.
@@ -33,6 +35,7 @@
 'use strict';
 
 const { addressBoundaryWhere, tokenBoundaryWhere } = require('./boundary_filters.js');
+const { prunedBoundarySql } = require('./page_ids.js');
 
 // WHICH TABLE getHistory's PAGE BOUNDARY is computed over. This must agree with
 // getHistoryData's own choice, because the number resolved here is the cursor
@@ -127,7 +130,7 @@ async function firstLastOffset(db, config, ctx, offset1, offset){
         order = 'ASC';
         limit = db.util.bcadd(ctx.length,1);
     }
-    let sql  = firstLastSql(ctx, order, limit);
+    let sql  = prunedBoundarySql(firstLastSql(ctx, order, limit));
     let rows = await db.doQuery(config, sql, ctx.whereArgs.length ? ctx.whereArgs : undefined);
     if(rows.length>0){
         for(let row of rows){
@@ -271,7 +274,7 @@ async function stopOffset(db, config, ctx, offset1){
             stopWhereArgs.push(offset1);
         }
     }
-    let sql  = stopSql(ctx, where, order, limit);
+    let sql  = prunedBoundarySql(stopSql(ctx, where, order, limit));
     let rows = await db.doQuery(config, sql, stopWhereArgs.length ? stopWhereArgs : undefined);
     // Only set the stop offset when we have more data to show
     if(rows.length>0 && rows.length == limit){

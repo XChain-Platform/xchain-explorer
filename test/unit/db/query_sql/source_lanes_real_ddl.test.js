@@ -32,6 +32,7 @@ const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
 const { runListQuery }         = require('../../../../src/db/query_sql/data_rows.js');
 const { ACTION_SOURCE_SQL }    = require('../../../../src/db/query_sql/where_source_lanes.js');
+const { runOnSqlite }          = require('../../../helpers/indexer_ddl_sqlite.js');
 
 const Database = proxyquire('../../../../src/db/index.js', {
     './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
@@ -111,7 +112,7 @@ function resetFixture() {
     for (const t of DDL_FILES) sqlite.exec('DELETE FROM ' + t + ';');
     seed();
     sinon.stub(db, 'doQuery').callsFake(async (config, query, args) =>
-        sqlite.prepare(query).all(...(args || [])));
+        runOnSqlite(sqlite, query, args));
 }
 
 // One list request through the path getData takes: getQuery, then runListQuery.

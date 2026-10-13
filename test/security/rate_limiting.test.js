@@ -332,6 +332,6 @@ describe('Security: Rate Limiting: CORS configuration', function () {
     });
 
     it('allows only GET and POST methods', function () {
-        expect(apiSource).to.include("methods: ['GET', 'POST']");
+        expect(apiSource).to.match(/methods:\s*\['GET', 'POST'\]/);
     });
 });

@@ -78,7 +78,7 @@ function openIndexerTables(ctx, tables) {
 
 /** Run one reader statement the way doQuery would, minus MariaDB-only hints. */
 function runOnSqlite(sqlite, query, args) {
-    const lite = String(query).replace(/\bSELECT\s+(DISTINCT\s+)?STRAIGHT_JOIN\b/g, 'SELECT $1');
+    const lite = String(query).replace(/\bSELECT\s+STRAIGHT_JOIN\b/g, 'SELECT');
     return sqlite.prepare(lite).all(...(args || []));
 }
 

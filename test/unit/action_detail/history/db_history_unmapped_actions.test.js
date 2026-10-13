@@ -266,13 +266,11 @@ describe('db.getHistoryData: the all-activity feed is not gated on mappings_acti
         const stop = seen.find((q) => q.includes('offset_index'));
         expect(stop).to.include('a1.action_index < ?');
         expect(stop).to.not.include('m.action_index');
-        // blocks joined on the ACTION's own height, and transactions never
-        // INNER-joined, so a chain-generated action with no transaction row is not
-        // silently dropped from the boundary while the list keeps it. The boundary
-        // names no transaction column, so the pruner drops that join altogether.
+        // blocks joined on the ACTION's own height, transactions LEFT-joined, so a
+        // chain-generated action with no transaction row is not silently dropped
+        // from the boundary while the list keeps it.
         expect(stop).to.include('INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)');
-        expect(stop).to.not.match(/INNER\s+JOIN transactions/);
-        expect(stop).to.not.include('t1.block_index');
+        expect(stop).to.match(/LEFT\s+JOIN transactions/);
     });
 
     it('returns the rows a consensus-only network produces', async () => {

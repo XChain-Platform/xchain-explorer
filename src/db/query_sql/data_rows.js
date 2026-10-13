@@ -27,6 +27,8 @@
 
 'use strict';
 
+const { countTotal } = require('./data_totals.js');
+
 // Align the data-WHERE bind args with their placeholders. getQueryWhereSql only
 // adds a data-WHERE placeholder when a TYPE (address/token/block/...) is set, so a
 // pure list-all request (no QUERY and no TYPE) has none. Many action methods still
@@ -77,13 +79,13 @@ async function runListQuery(db, config, query, args, count){
         data = await db.doQuery(config, query, queryArgs);
     // Count query uses only base args (no offset/limit placeholders). A reader
     // whose count drops placeholders the row query carries returns it as a
-    // [sql, args] pair; those args take the same list-all null filter.
+    // [sql, args] pair; those args take the same list-all null filter. See
+    // data_totals.js for which totals are pruned and cached per tip.
     if(count){
         let [countSql, countArgs] = Array.isArray(count)
             ? [count[0], listQueryArgs(db, config, count[1])]
             : [count, baseArgs];
-        let rows = await db.doQuery(config, countSql, countArgs);
-        total = (rows) ? Number(rows[0].total) : 0;
+        total = await countTotal(db, config, countSql, countArgs);
     }
     return [data, total];
 }

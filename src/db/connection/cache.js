@@ -133,8 +133,8 @@ class DatabaseCache {
         this._reorgGen[coin] = (this._reorgGen[coin] || 0) + 1;
     }
 
-    // Generation token for the getData result cache: the coin's current indexed
-    // tip height.
+    // Generation token for the getData result cache and the list totals cache
+    // (query_sql/data_totals.js): the coin's current indexed tip height.
     //
     // The cached list methods (getBalances/getHolders/getTokens) read tables the
     // indexer only rewrites when it applies a block, so a cached answer stays

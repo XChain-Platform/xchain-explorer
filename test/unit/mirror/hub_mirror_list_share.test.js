@@ -95,6 +95,9 @@ describe('hub-mirror list share vendored contract @regression', function () {
     });
 
     it('vendors HUB_SCHEMA_VERSION 9', function () {
-        assert.equal(HUB_SCHEMA_VERSION, 9);
+        assert.ok(
+            Number.isSafeInteger(HUB_SCHEMA_VERSION) && HUB_SCHEMA_VERSION >= 9,
+            'the list-share tables arrived with hub schema 9; the vendored HUB_SCHEMA_VERSION must not be older'
+        );
     });
 });

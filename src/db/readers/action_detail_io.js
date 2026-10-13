@@ -63,6 +63,7 @@
 
 const actionDetail = require('../../action-detail');
 const { composeReaderParts } = require('../reader_parts.js');
+const { isEmittableAction, optionalTransactionQueries } = require('./txless_actions.js');
 
 // The parts this entry composes. A name two parts both declare throws at require
 // time (composeReaderParts), so a method can never be defined in two of them.
@@ -182,6 +183,8 @@ class ActionDetailReaders {
             let handler = actionDetail.getHandler(type);
             let ctx     = { db: this, config, coinConfigs, action_index, type, util: this.util };
             let built   = (handler.queries) ? await handler.queries(ctx) : {};
+            if(isEmittableAction(type) && this.pools)
+                built = optionalTransactionQueries(built);
             data = await runHandlerQueries(this, config, handler, ctx, built, action_index, data);
             await attachActionTail(this, config, handler, ctx, type, action_index, data, pre);
         }

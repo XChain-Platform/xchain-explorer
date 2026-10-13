@@ -48,8 +48,8 @@ function homeRowsSql(){
             FROM lists share
                 INNER JOIN actions share_action ON (share_action.action_index=share.action_index)
                 INNER JOIN index_statuses share_status ON (share_status.id=share.status_id)
-                INNER JOIN transactions share_tx ON (share_tx.tx_index=share_action.tx_index)
-                INNER JOIN blocks share_block ON (share_block.block_index=share_tx.block_index)
+                INNER JOIN blocks share_block ON (share_block.block_index=share_action.block_index)
+                LEFT JOIN transactions share_tx ON (share_tx.tx_index=share_action.tx_index)
                 INNER JOIN lists root ON (root.action_index=share.list_action_index)
             WHERE share_action.action_format=2
                 AND share_status.status='valid'

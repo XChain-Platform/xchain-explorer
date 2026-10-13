@@ -20,9 +20,9 @@
 
 'use strict';
 
-const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent, columnsPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js');
+const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent, columnsPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js'), { optionalTransactionSql } = require('../txless_actions.js');
 delete contentReaders.getLists;
-class TransferReaders { async getLists(config){ return buildListsQuery(this, config, tablesPresent); }
+class TransferReaders { async getLists(config){ let out=await buildListsQuery(this, config, tablesPresent); out[0]=optionalTransactionSql(out[0]); out[2]=optionalTransactionSql(out[2]); return out; }
     // Contract-emitted sends have no transaction. Join blocks from the action and
     // keep the transaction optional so those actions remain visible in the feed.
     async getSends(config){
@@ -96,8 +96,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     FROM
                         sweeps m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -125,8 +125,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     FROM
                         sweeps m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -146,8 +146,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     FROM
                         airdrops m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -172,8 +172,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     FROM
                         airdrops m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)

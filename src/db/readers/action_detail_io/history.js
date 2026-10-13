@@ -29,6 +29,8 @@
 
 'use strict';
 
+const { optionalTransactionSql } = require('../txless_actions.js');
+
 const actionDetail = require('../../../action-detail');
 
 // Which table the feed reads, and the paging column and FROM clause that go with it.
@@ -269,6 +271,7 @@ class ActionHistoryReaders {
                         LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE
                         f1.action_index IN (${ph})`;
+        if(this.pools) query = optionalTransactionSql(query);
         let results = await this.doQuery(config, query, [...action_indexes]);
         for(let row of (results || [])){
             let key = Number(row._group_index);

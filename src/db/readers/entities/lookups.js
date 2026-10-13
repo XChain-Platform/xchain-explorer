@@ -225,8 +225,8 @@ class EntityLookupReaders {
                     FROM
                         dispensers d
                         INNER JOIN actions            a1 ON (a1.action_index=d.action_index)
-                        INNER JOIN transactions        t3 ON (t3.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t3.source_id)
+                        LEFT  JOIN transactions       t3 ON (t3.tx_index=a1.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t3.source_id))
                         LEFT  JOIN index_tickers      t1 ON (t1.id=d.give_tick_id)
                         LEFT  JOIN index_tickers      t2 ON (t2.id=d.get_tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=d.status_id)

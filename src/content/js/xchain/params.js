@@ -59,8 +59,8 @@ function setXChainParams(coin){
            (type=='dispenser' && isNumeric(query)) ||
            // A validator resolves by signing pubkey OR by staking address, and an xcall by
            // its 64-hex call_id, so neither can use the numeric check above.
-           (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||
-           (['token','rich_list'].includes(type) && params_hasTextDetailQuery(query))){
+           (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length && path.length>3) ||
+           (['token','rich_list'].includes(type) && params_hasTextDetailQuery(query, path))){
             XC.type = type; XC.query = query;
         }
         // Set type to either tx_index or tx_hash for transactions
@@ -87,10 +87,12 @@ function setXChainParams(coin){
 }
 
 // Keep text route policy separate from the detail-page dispatch.
-function params_hasTextDetailQuery(query){
+function params_hasTextDetailQuery(query, path){
     // rich_list is keyed by TICK, exactly like the token page it is reached
     // from, so it takes the same string branch rather than the numeric one.
-    return typeof(query)=='string';
+    // A bare /COIN/type path has no query segment: its last segment is the type
+    // name itself, which must not be read back as a tick.
+    return typeof(query)=='string' && query.length>0 && (!Array.isArray(path) || path.length>3);
 }
 
 // Function to return XChain param data for a given coin

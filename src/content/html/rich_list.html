@@ -46,6 +46,17 @@
 <script type="text/javascript">
 $(document).ready(function() {
 
+    // A bare /COIN/rich_list carries no tick, so there is nothing to request.
+    if(isNull(XC.query)){
+        XC.pageInfo.title       = 'Rich Lists';
+        XC.pageInfo.description = 'Largest holders of a token on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network.';
+        XC.pageInfo.canonical   = '/' + XC.coin + '/rich_list';
+        updatePageInfo();
+        $('#rich-list-supply').html('<tr><td class="text-muted rich-list-prompt">Choose a token to see its rich list: open it from the <a href="/' + XC.coin + '/tokens">token list</a>, then follow its rich list link.</td></tr>');
+        $('#rich-list-holders').html('<span class="text-muted">No token selected.</span>');
+        return;
+    }
+
     $('#rich-list-tick').text(XC.query);
 
     XC.pageInfo.title       = XC.query + ' Rich List';

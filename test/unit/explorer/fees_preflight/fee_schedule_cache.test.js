@@ -81,6 +81,13 @@ describe('FeeScheduleCache', function () {
         expect(answers).to.deep.equal([SCHEDULE, SCHEDULE, SCHEDULE]);
     });
 
+});
+
+describe('FeeScheduleCache: keys and failures', function () {
+    let restoreEnv;
+    beforeEach(() => { restoreEnv = withEnv({ EXPLORER_FEESCHEDULE_CACHE_MS: '15000', EXPLORER_FEESCHEDULE_STALE_MAX_MS: '120000' }); });
+    afterEach(() => { restoreEnv(); sinon.restore(); });
+
     it('keeps one entry per indexer URL', async function () {
         const { cache } = clockedCache();
         const fetchA = sinon.stub().resolves(SCHEDULE);
@@ -116,6 +123,13 @@ describe('FeeScheduleCache', function () {
         expect(await cache.get(URL_A, fetch)).to.equal(SCHEDULE);
         expect(fetch.callCount).to.equal(3);
     });
+
+});
+
+describe('FeeScheduleCache: the stale bridge', function () {
+    let restoreEnv;
+    beforeEach(() => { restoreEnv = withEnv({ EXPLORER_FEESCHEDULE_CACHE_MS: '15000', EXPLORER_FEESCHEDULE_STALE_MAX_MS: '120000' }); });
+    afterEach(() => { restoreEnv(); sinon.restore(); });
 
     it('bridges a failing indexer with the last good answer inside the stale ceiling', async function () {
         const { cache, clock } = clockedCache();

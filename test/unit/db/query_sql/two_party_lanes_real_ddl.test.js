@@ -205,6 +205,13 @@ describe('two-party address lane against the REAL indexer DDL', function () {
         expect((await list('getSends', 'A')).total).to.equal(5);
     });
 
+});
+
+describe('two-party address lane against the REAL indexer DDL: edges, counts and paging', function () {
+    before(loadRealSchema);
+    beforeEach(resetFixture);
+    afterEach(() => sinon.restore());
+
     it('answers an unknown address with an empty page and a zero total', async () => {
         for (const method of METHODS) {
             const result = await list(method, 'nobody');

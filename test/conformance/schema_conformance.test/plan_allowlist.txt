@@ -16,14 +16,12 @@ getBetEdits all count bet_edits scan | an unfiltered count covers every bet_edit
 getBetFeeds all count actions scan | an unfiltered count covers every actions row
 getBetResolves all count bet_resolves scan | an unfiltered count covers every bet_resolves row
 getBets all count bets scan | an unfiltered count covers every bets row
-getCoinpayExpires address - - error | the reader fails: Unknown column 'a2.address' in 'WHERE'
 getCoinpayObligations address count coinpay_statuses dependent-count | the count runs a correlated subquery on coinpay_statuses once per counted row
 getCoinpayObligations address count coinpay_statuses scan | the optimizer reads all of coinpay_statuses although action_index,coinpay_action_index,status_id exist
 getCoinpayObligations all count coinpay_statuses dependent-count | the count runs a correlated subquery on coinpay_statuses once per counted row
 getCoinpayObligations all count coinpay_statuses scan | an unfiltered count covers every coinpay_statuses row
 getCoinpayObligations block count coinpay_statuses dependent-count | the count runs a correlated subquery on coinpay_statuses once per counted row
 getCoinpayObligations block count coinpay_statuses scan | the optimizer reads all of coinpay_statuses although action_index,coinpay_action_index,status_id exist
-getCoinpays address - - error | the reader fails: Unknown column 'a2.address' in 'WHERE'
 getCollects all count reward_claims scan | an unfiltered count covers every reward_claims row
 getCommitments all row state_tree_roots scan | a derived table or CTE reads all of state_tree_roots before the page is cut
 getContractDelegations all count actions scan | an unfiltered count covers every actions row
@@ -44,7 +42,6 @@ getDelegations all count delegations scan | an unfiltered count covers every del
 getDeployChunks all count actions scan | an unfiltered count covers every actions row
 getDeposits all count deposits scan | an unfiltered count covers every deposits row
 getDestroys all row destroys scan | a derived table or CTE reads all of destroys before the page is cut
-getDispensers address row dispensers scan | the address filter walks dispensers in index order because no index drives it
 getEmissions all count contract_emissions scan | an unfiltered count covers every contract_emissions row
 getEscrows all count escrows scan | an unfiltered count covers every escrows row
 getEscrows all row escrows scan | an unfiltered sorted read covers every escrows row
@@ -71,8 +68,6 @@ getGovernanceProposals status row - unjudged | the probe value matches no seeded
 getLinks token count links dependent-count | the count runs a correlated subquery on links once per counted row
 getLinks token count links scan | the optimizer reads all of links although action_index exist
 getLinks token row links scan | the token filter walks links in index order because no index drives it
-getMessages address row messages scan | the address filter walks messages in index order because no index drives it
-getMints address row mints scan | the address filter walks mints in index order because no index drives it
 getOraclePrices all count oracle_prices scan | an unfiltered count covers every oracle_prices row
 getOraclePrices token count oracle_prices scan | the token filter walks oracle_prices in index order because no index drives it
 getOraclePrices token row oracle_prices scan | the token filter walks oracle_prices in index order because no index drives it
@@ -83,7 +78,6 @@ getOrderMatches address row order_matches scan | the address filter walks order_
 getOrderMatches token count actions scan | the optimizer reads all of actions although action_index,block_index exist
 getOrderMatches token count order_matches dependent-count | the count runs a correlated subquery on order_matches once per counted row
 getOrderMatches token row order_matches scan | the token filter walks order_matches in index order because no index drives it
-getOrders address row orders scan | the address filter walks orders in index order because no index drives it
 getPolls all count actions scan | an unfiltered count covers every actions row
 getPolls status count - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
 getPolls status row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
@@ -95,7 +89,6 @@ getReorgs status count - unjudged | the probe value matches no seeded row, so EX
 getReorgs status row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
 getRollcalls all count rollcall_signers scan | an unfiltered count covers every rollcall_signers row
 getRollcalls all row rollcall_signers scan | an unfiltered sorted read covers every rollcall_signers row
-getSends address row sends scan | a derived table or CTE reads all of sends before the page is cut
 getSends all row sends scan | a derived table or CTE reads all of sends before the page is cut
 getSlashProposals status count - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
 getSlashProposals status row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
@@ -108,7 +101,6 @@ getSwapMatches address row swap_matches scan | the address filter walks swap_mat
 getSwapMatches token count actions scan | the optimizer reads all of actions although action_index,block_index exist
 getSwapMatches token count swap_matches dependent-count | the count runs a correlated subquery on swap_matches once per counted row
 getSwapMatches token row swap_matches scan | the token filter walks swap_matches in index order because no index drives it
-getSweeps address row sweeps scan | the address filter walks sweeps in index order because no index drives it
 getTokens token row index_tickers scan | the optimizer reads all of index_tickers although PRIMARY exist
 getUnstakes all count unstakes scan | an unfiltered count covers every unstakes row
 getVoteDelegations all count vote_delegations dependent-count | the count runs a correlated subquery on vote_delegations once per counted row

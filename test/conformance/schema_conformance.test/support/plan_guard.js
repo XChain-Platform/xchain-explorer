@@ -100,11 +100,11 @@ function report(result) {
         if (list.length) console.log('plan guard: ' + label + ':\n  ' + list.join('\n  '));
 }
 
-// The allowlist is taken on one MariaDB version and the CI venue may run another
-// whose planner differs, so the reconcile verdicts enforce only with
-// PLAN_GUARD_ENFORCE=1. Without it they print the lines to add and remove under a
-// PLAN_GUARD_DIFF marker, for taking the allowlist on the CI venue's version.
-const ENFORCE = process.env.PLAN_GUARD_ENFORCE === '1';
+// The allowlist is taken on the CI venue's MariaDB 10.11, and the reconcile
+// verdicts enforce by default. PLAN_GUARD_ENFORCE=0 turns them into a printed
+// diff under a PLAN_GUARD_DIFF marker, for retaking the list on a venue whose
+// planner differs.
+const ENFORCE = process.env.PLAN_GUARD_ENFORCE !== '0';
 
 function reconcileVerdict(lines, message) {
     if (ENFORCE) {

@@ -41,8 +41,11 @@ function historyClause(db, config, sql){
         sql += ' AND m.type_id=1 AND m.id=?';
     } else {
         sql = 'a1.action_index IS NOT NULL';
+        // The action's own height, which the feed's blocks join equates with
+        // b1.block_index; naming a1 keeps the filter valid in the history count,
+        // which checks blocks through EXISTS and has no b1 in scope.
         if(type=='block')
-            sql += ' AND b1.block_index=?';
+            sql += ' AND a1.block_index=?';
     }
     return sql;
 }

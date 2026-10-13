@@ -170,7 +170,12 @@ const CURSOR_PAGED_METHODS = [
     // getQueryOffsetSql are armed rather than exercised: they exist so that
     // registering an /explorer feed later cannot silently page this method on
     // the wrong column, which is the failure the cursor list itself documents.
-    'getCollectibles'
+    'getCollectibles',
+    // getActions -> 'actions' is not in ACTION_TABLES (it is every action, not one
+    // typed table), so without this entry the inbound cursor is dropped: page 2
+    // and the last page re-read the newest rows, which the page window discards,
+    // and answer no rows. The raw feed ORDERs BY m.action_index, the default.
+    'getActions'
 ];
 
 module.exports = { ACTION_TABLES, CURSOR_PAGED_METHODS, buildListsQuery };

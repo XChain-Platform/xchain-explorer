@@ -179,8 +179,11 @@ function firstLastTokensSql(where, order, limit){
                         LIMIT ` + limit;
 }
 
+// STRAIGHT_JOIN keeps the feed's own table first in both history statements, so
+// the ORDER BY ... LIMIT reads its index in order; a block filter otherwise lets
+// the optimizer start from blocks and sort every action in the block.
 function firstLastHistorySql(hCursor, hSource, where, order, limit){
-    return `SELECT
+    return `SELECT STRAIGHT_JOIN
                             ` + hCursor + ` as offset_index
                         FROM
                             ` + hSource + `
@@ -285,7 +288,7 @@ function stopSql(ctx, where, order, limit){
         // transactions instead would drop every chain-generated action that
         // has no transaction row, so the stop marker would describe a
         // shorter list than the one being paged.
-        return `SELECT
+        return `SELECT STRAIGHT_JOIN
                             ` + hCursor + ` as offset_index
                         FROM
                             ` + hSource + `

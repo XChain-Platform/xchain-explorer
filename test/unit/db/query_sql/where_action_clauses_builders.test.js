@@ -55,7 +55,7 @@ describe('ACTION_CLAUSE_BUILDERS', function(){
             `${anchor} AND m.type_id=1 AND m.id=?`
         );
         assert.strictEqual(build('getHistory', 'block'),
-            'a1.action_index IS NOT NULL AND b1.block_index=?');
+            'a1.action_index IS NOT NULL AND a1.block_index=?');
         assert.strictEqual(build('getHistory', 'unknown'),
             'a1.action_index IS NOT NULL');
     });

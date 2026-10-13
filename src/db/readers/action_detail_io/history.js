@@ -30,6 +30,7 @@
 'use strict';
 
 const { optionalTransactionSql } = require('../txless_actions.js');
+const { historyPageRows } = require('./history_page.js');
 
 const actionDetail = require('../../../action-detail');
 
@@ -80,19 +81,20 @@ async function presetHistoryTotal(db, config, q){
     }
 }
 
-// The COUNT leg, over the same source and WHERE the row query below pages.
+// The COUNT leg, over the same source and WHERE the page is drawn from. Only the
+// INNER joins decide which action_index values qualify: a LEFT join never drops a
+// row and a DISTINCT count never sees the copies one adds, so the decorating
+// joins the page selects through are left out, and the blocks join becomes an
+// EXISTS, which counts the same ids and lets MariaDB check each block once
+// (a semi-join) instead of joining every action to its block row.
 async function historyTotalCount(db, config, cursor, source, where, args){
     let total = 0;
-    // Get total number of matching records for this type of action and add to grand total
     let count = `SELECT
                         count(DISTINCT(` + cursor + `)) as count
                     FROM
                         ` + source + `
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where;
+                    WHERE ` + where + `
+                        AND EXISTS (SELECT 1 FROM blocks b1 WHERE b1.block_index=a1.block_index)`;
     let results = await db.doQuery(config, count, args);
     if(results && results.length)
         // bcadd returns a decimal STRING (mathjs bignumber formatting), which is
@@ -100,56 +102,6 @@ async function historyTotalCount(db, config, cursor, source, where, args){
         // integer far below 2^53, so narrow it here.
         total = Number(db.util.bcadd(total, results[0].count, 0));
     return total;
-}
-
-function historyParentBatchIndexSql(){
-    // Parenthood is derived because batches stores no parent column. The scalar
-    // lookup preserves one feed row per action, unlike a join that can duplicate it.
-    return `(
-                            SELECT bpx.action_index
-                            FROM actions apx
-                            INNER JOIN batches bpx ON (bpx.action_index=apx.action_index)
-                            WHERE apx.tx_index=a1.tx_index
-                                AND apx.tx_vout=a1.tx_vout
-                                AND apx.action_index!=a1.action_index
-                            LIMIT 1
-                        )`;
-}
-
-function historyPageQuery(sql, cursor, source, where){
-    return `SELECT
-                        DISTINCT(` + cursor + `) as action_index,
-                        a2.action,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        ` + historyParentBatchIndexSql() + ` as parent_batch_action_index
-                    FROM
-                        ` + source + `
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY ` + cursor + ` ` + sql.order + `
-                    LIMIT ` + sql.limit;
-}
-
-function historyRows(results){
-    let history = [];
-    if(results && results.length){
-        for(let row of results)
-            history.push(row);
-    }
-    return history;
-}
-
-// One page of the feed, rows in cursor order.
-async function historyPageRows(db, config, sql, cursor, source, where, args){
-    let query = historyPageQuery(sql, cursor, source, where);
-    let results = await db.doQuery(config, query, args);
-    return historyRows(results);
 }
 
 class ActionHistoryReaders {

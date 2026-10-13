@@ -246,9 +246,9 @@ function registerWhereSqlCases4() {
     // The block and untyped feeds anchor on a1, not m: getHistoryData drives them
     // off `actions` directly, because mappings_actions carries no row for an action
     // that moved no ledger entry (see db.history-unmapped-actions.test.js).
-    it('getHistory + type=block: anchors on a1 and appends AND b1.block_index=?', async () => {
+    it('getHistory + type=block: anchors on a1 and appends AND a1.block_index=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getHistory', 'block'));
-        expect(sql).to.equal('a1.action_index IS NOT NULL AND b1.block_index=?');
+        expect(sql).to.equal('a1.action_index IS NOT NULL AND a1.block_index=?');
     });
 
     it('getHistory + no type: returns base a1.action_index IS NOT NULL only', async () => {

@@ -160,7 +160,9 @@ function reference(config, total){
     return { rows, count: Number(countRows[0].count) };
 }
 
-describe('db.getHistoryData: ids-first page against the real indexer DDL', function () {
+// Shared hooks for the two suites below: a seeded SQLite copy of the real
+// indexer tables behind db.doQuery, recording every statement sent.
+function useSeededHistoryDb(){
     before(function () {
         sqlite = openIndexerTables(this, TABLES);
     });
@@ -175,6 +177,10 @@ describe('db.getHistoryData: ids-first page against the real indexer DDL', funct
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, rows) => rows);
     });
     afterEach(() => sinon.restore());
+}
+
+describe('db.getHistoryData: ids-first page against the real indexer DDL', function () {
+    useSeededHistoryDb();
 
     for(const [type, search] of FEEDS){
         for(const page of PAGES){
@@ -192,6 +198,10 @@ describe('db.getHistoryData: ids-first page against the real indexer DDL', funct
             });
         }
     }
+});
+
+describe('db.getHistoryData: ids-first edge cases against the real indexer DDL', function () {
+    useSeededHistoryDb();
 
     it('a page past the API OFFSET is empty, not the first page again', async () => {
         const config = await historyConfig('address', 'addr1', PAGES[5]);

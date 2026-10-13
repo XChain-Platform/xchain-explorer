@@ -2,13 +2,15 @@
 
 const { expect, makeExplorer, request, state } = require('../routes/explorer_routing.test/support/helpers.js');
 
-describe('bare singular detail paths', function () {
-
+// Each suite builds its own explorer, so the three can run in any order.
+function useExplorer(){
     before(function () {
         state.explorer = makeExplorer();
     });
+}
 
-    describe('with a list page of the same type', function () {
+    describe('bare singular detail paths with a list page of the same type', function () {
+        useExplorer();
         const cases = [
             ['poll', 'polls'], ['token', 'tokens'], ['address', 'addresses'], ['contract', 'contracts'],
             ['anchor', 'anchors'], ['checkpoint', 'checkpoints'], ['execution', 'executions'],
@@ -34,7 +36,8 @@ describe('bare singular detail paths', function () {
         });
     });
 
-    describe('with no list page of that type', function () {
+    describe('bare singular detail paths with no list page of that type', function () {
+        useExplorer();
         for (const singular of ['oracle', 'transaction']) {
             it(`/BTC/${singular} answers the 404 page with status 404`, async function () {
                 const { res } = await request(state.explorer, '/BTC/' + singular);
@@ -51,7 +54,8 @@ describe('bare singular detail paths', function () {
         });
     });
 
-    describe('left untouched', function () {
+    describe('bare singular detail paths left untouched', function () {
+        useExplorer();
         it('serves a detail path that names a record', async function () {
             const { res } = await request(state.explorer, '/BTC/poll/abc');
             expect(res._redirect).to.equal(null);
@@ -87,4 +91,3 @@ describe('bare singular detail paths', function () {
             expect(cfg.type).to.equal('api');
         });
     });
-});

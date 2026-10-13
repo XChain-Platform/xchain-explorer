@@ -73,6 +73,11 @@ describe('cache control: successful answers through the real app', function () {
         expect(again.status).to.equal(304);
         expect(again.headers['cache-control']).to.equal(CACHE_CLASSES.document);
     });
+});
+
+describe('cache control: successful answers that are never cached', function () {
+    beforeEach(() => { state.getDataResult = [ROWS, ROWS.length]; state.getDataError = null; });
+    afterEach(() => sinon.restore());
 
     it('never caches a fee quote, even a successful one', async () => {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://indexer.invalid:1');

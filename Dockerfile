@@ -27,6 +27,13 @@ COPY ./docs /XChainExplorer/docs
 # byte-identical to canonical; a second copy would be a drift surface it does not know.
 COPY ./test/fixtures/action-manifest.json /XChainExplorer/test/fixtures/action-manifest.json
 
+# The explorer binds loopback by default (src/http/api_boot/bind_host.js), which
+# inside a container would leave the published port unreachable while the
+# in-container healthcheck on 127.0.0.1 stays green. Every launch path builds
+# this image (docker-compose.yml, and xchain-node's docker build plus docker run),
+# so the image carries the override; `-e EXPLORER_BIND_HOST=...` still wins.
+ENV EXPLORER_BIND_HOST=0.0.0.0
+
 # Exec-form node, not `npm run api` (which is this exact command). npm builds an
 # npm -> sh -c -> node tree and no wrapper forwards signals, so `docker stop`
 # kills npm while node is never told anything (measured on the regtest encoder,

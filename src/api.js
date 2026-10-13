@@ -19,7 +19,6 @@
  ********************************************************************/
 
 const dotenv         = require('dotenv');
-const http           = require('http');
 const express        = require('express');
 const XChainExplorer = require('./XChainExplorer.js');
 const configInfo     = require('./config.js');
@@ -39,7 +38,9 @@ const { applySecurityHeaders, applyProxyTrust } = require('./http/api_boot/secur
 const { applyCors }          = require('./http/api_boot/cors.js');
 const { applyRateLimits }    = require('./http/api_boot/rate_limits.js');
 const { applyObservability } = require('./http/api_boot/observability.js');
+const { startHttpListener }  = require('./http/api_boot/http_listener.js');
 const { startTlsListener }   = require('./http/api_boot/tls.js');
+const { resolveBindHost }    = require('./http/api_boot/bind_host.js');
 const { mountJsonRpc }       = require('./http/api_boot/json_rpc.js');
 const { startWebsockets }    = require('./http/api_boot/websocket.js');
 const { createBridgePanelHandlers, mountBridgePanelRoutes, bridgeHubEndpoints } = require('./http/bridge_panel_routes.js');
@@ -65,6 +66,8 @@ const xchainHubConnector = require('./connectors/hub');
 const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP  = configInfo.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = configInfo.env.EXPLORER_API_PORT_HTTPS || 8081;
+// Loopback unless the deployment widens it; see src/http/api_boot/bind_host.js.
+const EXPLORER_BIND_HOST      = resolveBindHost(configInfo.env);
 
 // Everything the shutdown drain has to take down, published from startApi() as it
 // is built. Module scope because the signal handler is registered at load, before
@@ -145,27 +148,6 @@ function createJsonRpcController(getExplorer, requestGate){
     }
 }
 
-// The plain HTTP listener, the primary serving socket; HTTPS is optional.
-function startHttpListener(app){
-    const httpServer = http.createServer(app);
-    // A listen() that fails (EADDRINUSE when a second instance grabs the port, EACCES
-    // on a privileged port) surfaces as an async 'error' event, not a throw, so a
-    // try/catch can't catch it; without a handler Node crashes with an unhandled-error
-    // stack dump. The HTTP server is the primary serving socket: log one clear line and
-    // exit non-zero so the supervisor (systemd) reports and restarts cleanly.
-    httpServer.on('error', (err) => {
-        log.error('HTTP_LISTEN_FAILED', { port: EXPLORER_API_PORT_HTTP, code: err.code, err: err.message });
-        process.exit(1);
-    });
-    httpServer.listen(EXPLORER_API_PORT_HTTP, () => {
-        log.info('HTTP_SERVER_LISTENING', { port: EXPLORER_API_PORT_HTTP });
-    });
-    // Published as soon as it exists, not at the end of startApi(): a SIGTERM
-    // arriving mid-boot must still be able to close a listener already bound.
-    runtime.httpServer = httpServer;
-    return httpServer;
-}
-
 function createApp(options = {}){
     const appConfigInfo = options.configInfo || configInfo;
     const hubEndpoints = Object.prototype.hasOwnProperty.call(options, 'hubEndpoints')
@@ -212,11 +194,11 @@ async function startApi(){
     const built = createApp({ app, configInfo, hubEndpoints: HUB_ENDPOINTS });
     const explorer = built.explorer;
 
-    const httpServer = startHttpListener(app);
+    const httpServer = startHttpListener(app, runtime, EXPLORER_API_PORT_HTTP, EXPLORER_BIND_HOST, log);
     // Secondary and optional. Both the drain and the WS upgrade below read
     // runtime.httpsServer, which a bind failure clears, so neither ever holds a
     // listener that never bound.
-    startTlsListener(app, config, runtime, EXPLORER_API_PORT_HTTPS, log);
+    startTlsListener(app, config, runtime, EXPLORER_API_PORT_HTTPS, EXPLORER_BIND_HOST, log);
 
     // Published before init(): init() is what builds the pools, and a signal landing
     // partway through it must still reach db.close() for whatever was built so far.

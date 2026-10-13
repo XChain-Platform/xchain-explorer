@@ -14,9 +14,9 @@
  *
  * XChain Explorer - the optional HTTPS listener
  *
- * One boot step of src/api.js. The plain HTTP listener is the primary serving
- * socket and stays on the entry; this is the secondary one, which exists only
- * where the deployment ships its own certificates.
+ * One boot step of src/api.js. The plain HTTP listener (http_listener.js) is
+ * the primary serving socket; this is the secondary one, which exists only
+ * where the deployment ships its own certificates. Both bind the same host.
  *
  ********************************************************************/
 
@@ -32,10 +32,11 @@ const https = require('https');
  * @param {object} config the explorer config (API.ssl decides)
  * @param {object} runtime the drain's published pieces, written in place
  * @param {number|string} port the HTTPS port to bind
+ * @param {string} host the interface to bind, shared with the HTTP listener
  * @param {object} log the service logger
  * @returns {object|null} the listener, or null when there is nothing to start
  */
-function startTlsListener(app, config, runtime, port, log){
+function startTlsListener(app, config, runtime, port, host, log){
     if (!config.API.ssl)
         return null;
 
@@ -45,14 +46,14 @@ function startTlsListener(app, config, runtime, port, log){
     // process down: log a warning and keep serving over HTTP. Same async-'error'
     // caveat as the HTTP listener, so attach the handler before listen().
     httpsServer.on('error', (err) => {
-        log.warn('HTTPS_LISTEN_FAILED', { port: port, code: err.code, err: err.message, detail: 'continuing HTTP-only' });
+        log.warn('HTTPS_LISTEN_FAILED', { host: host, port: port, code: err.code, err: err.message, detail: 'continuing HTTP-only' });
         httpsServer = null;
         // Cleared here too: a listener that never bound must not be handed to
         // the drain, which would wait on a close() callback that never fires.
         runtime.httpsServer = null;
     });
-    httpsServer.listen(port, () => {
-        log.info('HTTPS_SERVER_LISTENING', { port: port });
+    httpsServer.listen(port, host, () => {
+        log.info('HTTPS_SERVER_LISTENING', { host: host, port: port });
     });
     runtime.httpsServer = httpsServer;
 

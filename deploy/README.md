@@ -58,6 +58,12 @@ The logrotate half needs no restart and no window: `copytruncate` truncates the
 files in place while the explorer keeps writing. Install it first if you only
 have time for one.
 
+The unit sets no `EXPLORER_BIND_HOST`, so the explorer listens on `127.0.0.1`
+only, which is where the fronting Apache proxies (`http://127.0.0.1:18080`).
+Keep it that way: the API trusts one proxy hop, so a port reachable from
+anywhere else would let a caller forge `X-Forwarded-For` past the per-IP
+limits.
+
 A deployment will also have drop-ins of its own under the unit's
 `.service.d/` directory holding per-coin upstream endpoints. That wiring is
 specific to wherever those services run, so it is not reproduced here, and

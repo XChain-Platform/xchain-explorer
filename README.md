@@ -90,6 +90,24 @@ curl http://localhost:8080/BTC/api/market/TOKENA/TOKENB/orderbook
 curl http://localhost:8080/BTC/api/status
 ```
 
+## Listening interface
+
+Both API listeners (HTTP and the optional HTTPS one) bind `EXPLORER_BIND_HOST`,
+default `127.0.0.1`. The API trusts one proxy hop when it reads the client
+address for its per-IP rate limits, so it expects a reverse proxy on the same
+host to be the only peer: a port any other caller can reach directly would let
+that caller forge `X-Forwarded-For` and choose its own rate-limit bucket.
+
+- A host install behind Apache or nginx on the same box needs nothing: proxy
+  to `http://127.0.0.1:<EXPLORER_API_PORT_HTTP>`.
+- The Docker image sets `EXPLORER_BIND_HOST=0.0.0.0`, because a container must
+  listen on its own interface for a published port to reach it. Publish the
+  port on the host's loopback (`-p 127.0.0.1:8080:8080`) when a host proxy
+  fronts the container.
+- To serve other machines directly from a host install, set
+  `EXPLORER_BIND_HOST=0.0.0.0` (or `::`) and put no untrusted network between
+  the explorer and its proxy.
+
 ## Data freshness
 
 The explorer always serves what its database holds. When a coin's indexer

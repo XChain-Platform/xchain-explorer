@@ -38,7 +38,7 @@ const { pruneCountJoins } = require('./count_joins.js');
 // transaction: every action-list reader plus the raw action feed. Their COUNT is
 // also pruned of display-only joins (see count_joins.js).
 const TIP_TOTAL_METHODS = new Set([
-    'getActions',
+    'getActions', 'getHistory',
     'getAddresses', 'getAirdrops', 'getBatches', 'getBroadcasts', 'getCallbacks',
     'getCoinpays', 'getCoinpayExpires', 'getCoinpayObligations', 'getCollectibles',
     'getDestroys', 'getDispensers', 'getDispenserCancels', 'getDispenserCloses',

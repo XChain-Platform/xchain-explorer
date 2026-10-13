@@ -2631,6 +2631,10 @@
       "not_a_test_script": 11
     },
     "title_sets": {
+      "0057a5c1523de213": [
+        "pruned list COUNT against the REAL indexer DDL answers every list lane with the same total before and after pruning",
+        "pruned list COUNT against the REAL indexer DDL finds every pruned join key unique in the indexer DDL"
+      ],
       "00a1da571ab37b99": [
         "channel manager type names against the action manifest does not exempt a name that already has a manifest entry",
         "channel manager type names against the action manifest gives every admitted action name a manifest entry",
@@ -2957,12 +2961,6 @@
         "SM-07: Database connection succeeds getConnection() returns a live connection for RBTC",
         "SM-08: Database connection failure is bounded getConnection() does not hang on unreachable pool",
         "SM-08: Database connection failure is bounded getConnection() returns null for a non-configured coin"
-      ],
-      "0da8be62489dd14a": [
-        "Database#getSearch without a contract FULLTEXT index empties the contract panel when its page query raises errno 1191",
-        "Database#getSearch without a contract FULLTEXT index keeps the other totals when the contract count raises errno 1191",
-        "Database#getSearch without a contract FULLTEXT index propagates a non-1191 contract count error",
-        "Database#getSearch without a contract FULLTEXT index propagates a non-1191 contract page error"
       ],
       "0e5834c6c5a78468": [
         "expire-feed COUNT queries count the same set as their list queries getDispenserCloses serves the close reason, joined on the CLOSE's own action index",
@@ -3333,6 +3331,18 @@
         "whereAnchor exports exactly 29 own method mappings",
         "whereAnchor returns the anchor mapped to each representative query method",
         "whereAnchor uses the default for names inherited from Object.prototype"
+      ],
+      "1e8012403a6f5857": [
+        "Database#getSearch asks the schema probe before the contract MATCH asks the probe once per coin while the index is present",
+        "Database#getSearch asks the schema probe before the contract MATCH probes STATISTICS for the schema the read lands in, bound by table name",
+        "Database#getSearch asks the schema probe before the contract MATCH runs no contract statement when the replica has no FULLTEXT index",
+        "Database#getSearch asks the schema probe before the contract MATCH treats a FULLTEXT index over a different column set as absent",
+        "Database#getSearch when the probe answer is wrong runs the MATCH when the probe itself fails, leaving 1191 as the backstop",
+        "Database#getSearch when the probe answer is wrong skips the MATCH on the next search after a count raised errno 1191",
+        "Database#getSearch without a contract FULLTEXT index empties the contract panel when its page query raises errno 1191",
+        "Database#getSearch without a contract FULLTEXT index keeps the other totals when the contract count raises errno 1191",
+        "Database#getSearch without a contract FULLTEXT index propagates a non-1191 contract count error",
+        "Database#getSearch without a contract FULLTEXT index propagates a non-1191 contract page error"
       ],
       "2089d84c37c520b7": [
         "hub-schema-version HUB_SCHEMA_VERSION is a positive safe integer",
@@ -4305,6 +4315,33 @@
         "LIST list-page metadata adds current name and description without listing format 5 rows",
         "LIST list-page metadata keeps list_metas outside the generic action table registry",
         "LIST list-page metadata omits metadata columns when list_metas is absent"
+      ],
+      "34ab87dccb387ff1": [
+        "Database#getCommitments (M3.8 data leg) LEFT JOINs the co-located hub-mirror state_checkpoints schema, aliased sc, in the list query only",
+        "Database#getCommitments (M3.8 data leg) LEFT JOINs the local anchor_actions table, aliased an, in the list query only",
+        "Database#getCommitments (M3.8 data leg) args: the (chain,network) filterParams four times (checkpoint outer + checkpoint latest + anchor outer + anchor latest)",
+        "Database#getCommitments (M3.8 data leg) both mirror legs are LEFT JOINs, never INNER: a missing checkpoint or ANCHOR must not drop the row",
+        "Database#getCommitments (M3.8 data leg) emits the seam-contract column list, in order, under the exact names",
+        "Database#getCommitments (M3.8 data leg) getMaxMethodResults falls back to the platform default of 100 (no per-method override)",
+        "Database#getCommitments (M3.8 data leg) getQueryOffsetSql gives getCommitments the m.block_index cursor field (not m.id)",
+        "Database#getCommitments (M3.8 data leg) getQueryWhereSql adds m.block_index=? only when type=block, matching getAnchors' shape",
+        "Database#getCommitments (M3.8 data leg) getQueryWhereSql anchors getCommitments on m.id IS NOT NULL (no action_index column)",
+        "Database#getCommitments (M3.8 data leg) honours the offset cursor fragment from config.data.sql.where.offset, inside the page derived table",
+        "Database#getCommitments (M3.8 data leg) is registered in cursorPagedMethods so next/prev preserve the client cursor",
+        "Database#getCommitments (M3.8 data leg) no checkpoint hub DB configured -> fails loud (no silent empty local mirror)",
+        "Database#getCommitments (M3.8 data leg) no unbounded GROUP BY anywhere: latest-per-height is a correlated MAX for BOTH mirror legs",
+        "Database#getCommitments (M3.8 data leg) reads state_tree_roots unqualified (this coin's own default schema), aliased m",
+        "Database#getCommitments (M3.8 data leg) rejects an unsafe hub DB identifier by failing loud, without leaking it",
+        "Database#getCommitments (M3.8 data leg) returns a 3-element array",
+        "Database#getCommitments (M3.8 data leg) the anchor leg is scoped by chain/network: block_index alone is not globally unique across chains",
+        "Database#getCommitments (M3.8 data leg) the checkpoint leg is scoped by chain/network on both the outer join and the correlated subquery",
+        "Database#getCommitments (M3.8 data leg) the count reads state_tree_roots alone, with no join and no correlated subquery",
+        "Database#getCommitments (M3.8 data leg) the page derived table carries a LIMIT sourced from config.data.sql.limit, ahead of both legs",
+        "Database#getCommitments (M3.8 data leg) type=block binds the height FIRST, inside the page derived table, and alone in the count",
+        "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity correlates the pin on the joined row only, so it adds no placeholders",
+        "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity filters both the latest-seq lookup and the pin to the checkpoint-bearing versions",
+        "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity pins the anchor leg to one row, so the joinless count still counts one row per height",
+        "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity ranks checkpoint sections before archive heads, then newest, then section_index"
       ],
       "36a8962bc0ef6ca8": [
         "explorer mount limiters action-proof calls limitedHandler exactly once for its name",
@@ -5712,6 +5749,23 @@
         "Broadcaster NEW_ACTION destination fan-out (M1.4) sends an action with NO destination only to its source, with destinations []",
         "Broadcaster NEW_ACTION destination fan-out (M1.4) still routes to the SOURCE address channel, with destinations attached"
       ],
+      "5eb9515fce2860a3": [
+        "list totals cache: keying counts once for repeated requests at one tip",
+        "list totals cache: keying keeps coins, methods and bind arguments apart",
+        "list totals cache: keying re-counts after a reorg bumps the coin generation at the same tip",
+        "list totals cache: keying re-counts once the indexed tip moves",
+        "list totals cache: keying serves every page of one list from a single count through getData",
+        "list totals cache: keying serves the explorer first, next and last pages from a single count",
+        "list totals cache: lifetime bypasses the cache when the tip probe fails",
+        "list totals cache: lifetime caps the map and evicts the oldest entry",
+        "list totals cache: lifetime does not cache a failed count",
+        "list totals cache: lifetime expires an entry on the TTL ceiling at an unmoved tip",
+        "list totals cache: lifetime shares one count between simultaneous cold requests",
+        "list totals cache: which methods caches price snapshot totals unpruned on the shorter mirror TTL",
+        "list totals cache: which methods lists only methods the Database answers",
+        "list totals cache: which methods prunes the COUNT of a tip-bound list and leaves its page query whole",
+        "list totals cache: which methods runs the COUNT as built, every time, for a method outside both sets"
+      ],
       "5f7b1fb9e3851a00": [
         "Database#getCapabilitySnapshotRows (existing raw reader, unchanged) selects exactly signing_pubkey, amount, source (no id/created_at) -- the verify path's narrower shape",
         "Database#getCapabilitySnapshotRows (existing raw reader, unchanged) still binds [String(capability), Number(snapshotBlock)] positionally, unaffected by the new routed method",
@@ -5921,33 +5975,6 @@
         "Security: global in-flight concurrency cap refuses the (cap+1)th concurrent request with 429, though every request has a distinct IP",
         "Security: global in-flight concurrency cap resolveLimit honours an explicit value and treats <= 0 as disabled",
         "Security: global in-flight concurrency cap resolveLimit keeps the caller default when the env var is unset or unparseable"
-      ],
-      "66ababb4adcca4e1": [
-        "Database#getCommitments (M3.8 data leg) LEFT JOINs the co-located hub-mirror state_checkpoints schema, aliased sc, in both queries",
-        "Database#getCommitments (M3.8 data leg) LEFT JOINs the local anchor_actions table, aliased an, in both queries",
-        "Database#getCommitments (M3.8 data leg) args: reuses the (chain,network) filterParams three times (checkpoint outer + checkpoint latest + anchor outer + anchor latest = 4 pairs)",
-        "Database#getCommitments (M3.8 data leg) both mirror legs are LEFT JOINs, never INNER: a missing checkpoint or ANCHOR must not drop the row",
-        "Database#getCommitments (M3.8 data leg) count and list share identical FROM+JOIN text so one args array binds correctly against both",
-        "Database#getCommitments (M3.8 data leg) emits the seam-contract column list, in order, under the exact names",
-        "Database#getCommitments (M3.8 data leg) getMaxMethodResults falls back to the platform default of 100 (no per-method override)",
-        "Database#getCommitments (M3.8 data leg) getQueryOffsetSql gives getCommitments the m.block_index cursor field (not m.id)",
-        "Database#getCommitments (M3.8 data leg) getQueryWhereSql adds m.block_index=? only when type=block, matching getAnchors' shape",
-        "Database#getCommitments (M3.8 data leg) getQueryWhereSql anchors getCommitments on m.id IS NOT NULL (no action_index column)",
-        "Database#getCommitments (M3.8 data leg) honours the offset cursor fragment from config.data.sql.where.offset, placed after the correlated predicates",
-        "Database#getCommitments (M3.8 data leg) is registered in cursorPagedMethods so next/prev preserve the client cursor",
-        "Database#getCommitments (M3.8 data leg) no checkpoint hub DB configured -> fails loud (no silent empty local mirror)",
-        "Database#getCommitments (M3.8 data leg) no unbounded GROUP BY anywhere: latest-per-height is a correlated MAX for BOTH mirror legs",
-        "Database#getCommitments (M3.8 data leg) reads state_tree_roots unqualified (this coin's own default schema), aliased m",
-        "Database#getCommitments (M3.8 data leg) rejects an unsafe hub DB identifier by failing loud, without leaking it",
-        "Database#getCommitments (M3.8 data leg) returns a 3-element array",
-        "Database#getCommitments (M3.8 data leg) the anchor leg is scoped by chain/network: block_index alone is not globally unique across chains",
-        "Database#getCommitments (M3.8 data leg) the checkpoint leg is scoped by chain/network on both the outer join and the correlated subquery",
-        "Database#getCommitments (M3.8 data leg) the list query carries a LIMIT sourced from config.data.sql.limit",
-        "Database#getCommitments (M3.8 data leg) type=block appends the bound height as the LAST arg, after every join placeholder",
-        "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity correlates the pin on the joined row only, so it adds no placeholders",
-        "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity filters both the latest-seq lookup and the pin to the checkpoint-bearing versions",
-        "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity pins the anchor leg to one row in both the list and the count query",
-        "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity ranks checkpoint sections before archive heads, then newest, then section_index"
       ],
       "66cd3cb942505c74": [
         "XChainExplorer.getPagingDataResults API pagination API getHolders strips all fields except address and amount",
@@ -6293,28 +6320,6 @@
         "ATTEST v5 batch head rendering labels v5 and v6 legs as batch legs carrying the batch key",
         "ATTEST v5 batch head rendering marks an ATTEST v5 summary with its batch key and leaves other actions alone"
       ],
-      "722aed88dddbe226": [
-        "rich list and supply stats (M5.2) holder ranking escapes a hostile address instead of executing it",
-        "rich list and supply stats (M5.2) holder ranking keeps a page-2 rank instead of renumbering from 1",
-        "rich list and supply stats (M5.2) holder ranking keeps every digit of a large holder balance",
-        "rich list and supply stats (M5.2) holder ranking renders an explicit empty state for a token nobody holds",
-        "rich list and supply stats (M5.2) holder ranking renders one row per ranked holder, carrying the server rank",
-        "rich list and supply stats (M5.2) holder ranking says it is showing ALL holders when nothing was truncated",
-        "rich list and supply stats (M5.2) holder ranking says the ranking is a TOP-N when the census is larger",
-        "rich list and supply stats (M5.2) supply panel marks a locked ceiling as locked and an unlocked one as able to rise",
-        "rich list and supply stats (M5.2) supply panel renders a zero maximum supply as no declared cap",
-        "rich list and supply stats (M5.2) supply panel says the top-ten concentration was NOT MEASURED rather than showing zero",
-        "rich list and supply stats (M5.2) supply panel shows a supply disagreement instead of smoothing it away",
-        "rich list and supply stats (M5.2) the shipped page accepts the {total,data} envelope as well as a bare object",
-        "rich list and supply stats (M5.2) the shipped page decodes a chain-valid fragment ticker before rebuilding rich-list URLs",
-        "rich list and supply stats (M5.2) the shipped page renders a transport failure as an error, not as an empty token",
-        "rich list and supply stats (M5.2) the shipped page renders an explicit not-found for a tick that was never issued",
-        "rich list and supply stats (M5.2) the shipped page renders supply, ranking and the coverage note together",
-        "rich list and supply stats (M5.2) the shipped page requests the rich list for the page tick",
-        "rich list supply panel precision keeps supply digits above the safe integer boundary and exposes a one-unit mismatch",
-        "rich list supply panel precision renders an unmeasurable largest-holder share as n/a, never as 0%",
-        "rich list supply panel precision shows no mismatch when the two figures differ only in trailing zeros"
-      ],
       "722fe65d2b44f89e": [
         "oracle.html PRICE v1 track record render @regression a genuine zero record renders as 0 / None",
         "oracle.html PRICE v1 track record render @regression a hostile TICK reaches the DOM as text, never as markup",
@@ -6502,6 +6507,21 @@
       "7cec30338161fbc6": [
         "XChainExplorer#ssrfSafeLookup shared guard delegates to ssrf_guard.makeSafeLookup built from the host dns binding",
         "XChainExplorer#ssrfSafeLookup shared guard refuses to install without a dns binding instead of falling back to the real module"
+      ],
+      "7d41d7cd293ca09b": [
+        "Database#getSearch token description probe joins the description branch for a B-tree prefix index leading with description",
+        "Database#getSearch token description probe skips the description branch for a FULLTEXT index on description",
+        "Database#getSearch token description probe skips the description branch for description as the second column of a B-tree index",
+        "Database#getSearch token hit lists never carry the TEXT tick with tokenDescription=false",
+        "Database#getSearch token hit lists never carry the TEXT tick with tokenDescription=true",
+        "Database#getSearch token panel binds one value per placeholder with tokenDescription=false",
+        "Database#getSearch token panel binds one value per placeholder with tokenDescription=true",
+        "Database#getSearch token panel with a description index clamps every member LIMIT to 100 when the pager asks for more",
+        "Database#getSearch token panel with a description index counts the UNION of bounded tick and description hits, each member capped",
+        "Database#getSearch token panel with a description index pages the top hits of each branch in tick order, then orders the union again",
+        "Database#getSearch token panel without a description index counts tick prefix matches through index_tickers, with no OR and no description scan",
+        "Database#getSearch token panel without a description index never names the description column in any statement",
+        "Database#getSearch token panel without a description index pages tick prefix matches in tick order, bounded by the page limit"
       ],
       "7e2cef27cb90df9e": [
         "parseDeclaredColumns ignores comments and rejects SQL without declared columns",
@@ -7975,6 +7995,30 @@
         "BET feed reads apply the bet_edits list overlay getBetFeeds selects the created lists on a replica without bet_edits",
         "BET feed reads apply the bet_edits list overlay getBetFeeds selects the overlaid lists but leaves the count query plain"
       ],
+      "a1ccbb8b747aa17a": [
+        "rich list and supply stats (M5.2) holder ranking escapes a hostile address instead of executing it",
+        "rich list and supply stats (M5.2) holder ranking keeps a page-2 rank instead of renumbering from 1",
+        "rich list and supply stats (M5.2) holder ranking keeps every digit of a large holder balance",
+        "rich list and supply stats (M5.2) holder ranking renders an explicit empty state for a token nobody holds",
+        "rich list and supply stats (M5.2) holder ranking renders one row per ranked holder, carrying the server rank",
+        "rich list and supply stats (M5.2) holder ranking says it is showing ALL holders when nothing was truncated",
+        "rich list and supply stats (M5.2) holder ranking says the ranking is a TOP-N when the census is larger",
+        "rich list and supply stats (M5.2) supply panel marks a locked ceiling as locked and an unlocked one as able to rise",
+        "rich list and supply stats (M5.2) supply panel renders a zero maximum supply as no declared cap",
+        "rich list and supply stats (M5.2) supply panel says the top-ten concentration was NOT MEASURED rather than showing zero",
+        "rich list and supply stats (M5.2) supply panel shows a supply disagreement instead of smoothing it away",
+        "rich list and supply stats (M5.2) the shipped page accepts the {total,data} envelope as well as a bare object",
+        "rich list and supply stats (M5.2) the shipped page decodes a chain-valid fragment ticker before rebuilding rich-list URLs",
+        "rich list and supply stats (M5.2) the shipped page makes no request and prompts for a token on a bare path",
+        "rich list and supply stats (M5.2) the shipped page reads a trailing slash as a bare path too",
+        "rich list and supply stats (M5.2) the shipped page renders a transport failure as an error, not as an empty token",
+        "rich list and supply stats (M5.2) the shipped page renders an explicit not-found for a tick that was never issued",
+        "rich list and supply stats (M5.2) the shipped page renders supply, ranking and the coverage note together",
+        "rich list and supply stats (M5.2) the shipped page requests the rich list for the page tick",
+        "rich list supply panel precision keeps supply digits above the safe integer boundary and exposes a one-unit mismatch",
+        "rich list supply panel precision renders an unmeasurable largest-holder share as n/a, never as 0%",
+        "rich list supply panel precision shows no mismatch when the two figures differ only in trailing zeros"
+      ],
       "a1f62ebd773c03f5": [
         "Security: .npmrc hygiene carries no registry credential",
         "Security: .npmrc hygiene detectors accepts an env-var reference, which leaks nothing",
@@ -8497,6 +8541,24 @@
         "Database#getXcalls query reads xcalls and joins the actions/transactions/blocks chain",
         "Database#getXcalls returns a 3-element array"
       ],
+      "b7226ec9e1553dcc": [
+        "pruneCountJoins: list lanes counts list-all issues over the base table and its two inner joins",
+        "pruneCountJoins: list lanes counts the raw action feed over actions and blocks only",
+        "pruneCountJoins: list lanes keeps only the ticker join for the token lane",
+        "pruneCountJoins: list lanes keeps the DISTINCT count expression of a multi-leg table",
+        "pruneCountJoins: list lanes keeps the address join and the transactions join its ON reads",
+        "pruneCountJoins: list lanes keeps the inner blocks join the block lane filters on",
+        "pruneCountJoins: list lanes keeps the transaction chain a txid filter reaches through",
+        "pruneCountJoins: list lanes leaves the tick subquery lane of the action feed untouched",
+        "pruneCountJoins: shapes it must not prune does not mistake SQL words or qualified columns for unqualified ones",
+        "pruneCountJoins: shapes it must not prune keeps a LEFT join on a non-unique key",
+        "pruneCountJoins: shapes it must not prune keeps a join whose ON binds a placeholder, so the args stay aligned",
+        "pruneCountJoins: shapes it must not prune keeps a unique-key join whose ON is written the other way round or carries a second term",
+        "pruneCountJoins: shapes it must not prune keeps an INNER join nothing else names, even on a unique key",
+        "pruneCountJoins: shapes it must not prune keeps every join when the WHERE holds a subquery or an unqualified column",
+        "pruneCountJoins: shapes it must not prune leaves a derived table, a comma join or a non-count statement alone",
+        "pruneCountJoins: shapes it must not prune returns the same string when every join is needed"
+      ],
       "b78828029c1b6221": [
         "UNSTAKE detail: Token row @regression hides both rows for an ordinary capability unstake",
         "UNSTAKE detail: Token row @regression shows the token on a cooldown completion that has no contract index",
@@ -8543,6 +8605,16 @@
         "graceful shutdown createShutdown runs the drain and exits zero when it completes",
         "graceful shutdown resolveTimeoutMs prefers an explicit budget, then the env var, then the default",
         "graceful shutdown resolveTimeoutMs stays under Docker's 10s default stop grace"
+      ],
+      "bbe02ed916d7a772": [
+        "getCommitments bound through runListQuery api offset is clamped to the 100k ceiling and ignored on the explorer transport",
+        "getCommitments bound through runListQuery api page>1: the offset splices into the page derived table and no trailing OFFSET ? is appended",
+        "getCommitments bound through runListQuery explorer cursor: the cursor binds inside the page, before every join placeholder, and once",
+        "getCommitments bound through runListQuery list-all: the row query binds the identity alone, the count binds nothing",
+        "getCommitments bound through runListQuery type=block: the height binds first in the row query and alone in the count",
+        "getCommitments decoration and getData through runListQuery a plain string count still binds the shared base args",
+        "getCommitments decoration and getData through runListQuery getData on /api/commitments?page=101 pages inside the derived table and counts joinless",
+        "getCommitments decoration and getData through runListQuery the decoration legs and their correlated subqueries sit outside the paged derived table"
       ],
       "bc2882037053726b": [
         "Security: Rate Limiting: operator template and README quote the source default .env.example states and assigns the source app-wide default",
@@ -10957,8 +11029,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 375,
-        "titleCount": 6746,
+        "fileCount": 380,
+        "titleCount": 6808,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11071,7 +11143,7 @@
           "test/unit/content/lists/content_client_null_cell_render.test.js": "0b4078b9c7064f8e",
           "test/unit/content/lists/content_client_null_link_guard.test.js": "39167009f1ed0842",
           "test/unit/content/lists/content_client_price_list_row.test.js": "266000ecc0feeffe",
-          "test/unit/content/lists/content_client_rich_list.test.js": "722aed88dddbe226",
+          "test/unit/content/lists/content_client_rich_list.test.js": "a1ccbb8b747aa17a",
           "test/unit/content/lists/content_client_send_summary_shape.test.js": "6e757d5406a33b25",
           "test/unit/content/lists/content_client_summary_fallback_set.test.js": "fabae0e78ed6d361",
           "test/unit/content/lists/content_client_system_summaries.test.js": "ea7158b0632dfbee",
@@ -11154,7 +11226,10 @@
           "test/unit/db/mempool/db_mempool_reader_ownership.test.js": "1571701800a32267",
           "test/unit/db/mempool/decoder_mempool_reply_contract.test.js": "71e23443944752dd",
           "test/unit/db/mempool/mempool.test.js": "8bc5ff64b8859343",
+          "test/unit/db/query_sql/count_joins.test.js": "b7226ec9e1553dcc",
+          "test/unit/db/query_sql/count_joins_real_ddl.test.js": "0057a5c1523de213",
           "test/unit/db/query_sql/data_cache.test.js": "3eae330fe921766d",
+          "test/unit/db/query_sql/data_totals.test.js": "5eb9515fce2860a3",
           "test/unit/db/query_sql/delegations_pubkey_lane.test.js": "1d614256799a055f",
           "test/unit/db/query_sql/offset_cursors.test.js": "164464e8e311a31e",
           "test/unit/db/query_sql/where_action_clauses_builders.test.js": "b3ec2f54fe0c224b",
@@ -11198,7 +11273,8 @@
           "test/unit/db/readers/oracle/db_oracle_price_record.test.js": "54a8fb5c0bb49270",
           "test/unit/db/readers/project_roster/project_roster_coin_items.test.js": "94de69b5f5aa2e24",
           "test/unit/db/readers/project_roster/project_roster_items.test.js": "c963715ecba4937c",
-          "test/unit/db/readers/search/search_fulltext_index_missing.test.js": "0da8be62489dd14a",
+          "test/unit/db/readers/search/search_fulltext_index_missing.test.js": "1e8012403a6f5857",
+          "test/unit/db/readers/search/search_token_panel.test.js": "7d41d7cd293ca09b",
           "test/unit/db/readers/status_barrier_hold/status_barrier_hold.test.js": "13ef9434f1e196bb",
           "test/unit/db/schema_probe/schema_probe.test.js": "180445d38720eaff",
           "test/unit/db/utc_decode_non_utc_host.test.js": "f4c74d2eccc02b65",
@@ -11212,7 +11288,8 @@
           "test/unit/explorer/explorer_relay.test.js": "56d48d89dc4b7c2c",
           "test/unit/explorer/explorer_reorgs.test.js": "9799067d395e6260",
           "test/unit/explorer/feeds/explorer_capability_snapshots.test.js": "5f7b1fb9e3851a00",
-          "test/unit/explorer/feeds/explorer_commitments.test.js": "66ababb4adcca4e1",
+          "test/unit/explorer/feeds/explorer_commitments.test.js": "34ab87dccb387ff1",
+          "test/unit/explorer/feeds/explorer_commitments_binding.test.js": "bbe02ed916d7a772",
           "test/unit/explorer/feeds/explorer_emissions.test.js": "9fb26656b70a86c1",
           "test/unit/explorer/feeds/explorer_feed_shaping_branches.test.js": "af7981f422df163c",
           "test/unit/explorer/mount/limiters.test.js": "36a8962bc0ef6ca8",
@@ -11480,7 +11557,7 @@
           "test/unit/explorer/explorer_relay.test.js": "56d48d89dc4b7c2c",
           "test/unit/explorer/explorer_reorgs.test.js": "9799067d395e6260",
           "test/unit/explorer/feeds/explorer_capability_snapshots.test.js": "5f7b1fb9e3851a00",
-          "test/unit/explorer/feeds/explorer_commitments.test.js": "66ababb4adcca4e1",
+          "test/unit/explorer/feeds/explorer_commitments.test.js": "34ab87dccb387ff1",
           "test/unit/explorer/feeds/explorer_emissions.test.js": "9fb26656b70a86c1",
           "test/unit/explorer/paging_response/explorer_paging.test.js": "66cd3cb942505c74",
           "test/unit/explorer/paging_response/explorer_response.test.js": "897c3ea1f7482d23",

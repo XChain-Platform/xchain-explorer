@@ -67,7 +67,8 @@ async function resultCacheLookup(db, config){
         } else {
             cacheKey = [config.coin, db._reorgGen[config.coin] || 0, gen,
                         config.type, config.data.type, config.data.search,
-                        q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action].join('|');
+                        q.page, q.limit, q.sortorder, q.offset, q.start, q.length, q.action,
+                        q.before, q.after].join('|');
             const ttl = parseInt(db.configInfo.env[envPrefix + '_MS'], 10) || 15000;
             if(!db[cacheName]) db[cacheName] = new Map();
             const hit = db[cacheName].get(cacheKey);

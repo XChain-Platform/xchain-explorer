@@ -20,7 +20,7 @@
  * four steps in order, each in a sibling file: the result-cache lookup
  * (data_cache.js), the row and count queries with their bind arguments
  * (data_rows.js), the per-page post-passes (data_post.js), and the cache store.
- * getQuery clamps the transport's paging (query_limits.js), resolves the
+ * getQuery clamps the transport's paging (query_limits.js, keyset.js), resolves the
  * data-WHERE, and then calls the reader method itself.
  *
  * A method that runs its own reads and returns [object] (getXcall, getPoll, the
@@ -38,6 +38,7 @@ const { resultCacheLookup, resultCacheStore } = require('./data_cache.js');
 const { runListQuery } = require('./data_rows.js');
 const { applyPostPasses } = require('./data_post.js');
 const { apiPageOffset, explorerLimits, explorerOffsets } = require('./query_limits.js');
+const { apiKeyset } = require('./keyset.js');
 
 const CANONICAL_TICKERS = Symbol('canonicalTickers');
 const TICK_FILTER_TYPES = new Set(['token', 'tick', 'gate']);
@@ -105,6 +106,7 @@ class QueryData {
         let order         = (q && q.sortorder && ['ASC','DESC'].includes(String(q.sortorder).toUpperCase())) ? String(q.sortorder).toUpperCase() : default_order;
         if(config.type=='api'){
             apiPageOffset(this, config, q, limit);
+            apiKeyset(this, config, q);
         }
         if(config.type=='explorer'){
             ({ limit, order } = explorerLimits(this, config, q, max, limit, order));

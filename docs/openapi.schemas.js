@@ -588,11 +588,18 @@ const BODY_SCHEMAS = {
     getOrderbook: 'Orderbook', getStatus: 'ExplorerStatus', getToken: 'Token', getTransaction: 'Transaction',
 };
 
-// The typed 200 schema for a route calling `method`, or null for the generic one.
-function responseSchema(method) {
+// The next-page cursor a keyset-paged list carries beside total and data.
+const KEYSET_FIELDS = {
+    next_after: { type: 'string', pattern: '^[0-9]+$', description: 'On an ascending keyset-paged list: the last row\'s cursor, to pass as `after` for the next page. Absent on an empty page' },
+    next_before: { type: 'string', pattern: '^[0-9]+$', description: 'On a descending keyset-paged list: the last row\'s cursor, to pass as `before` for the next page. Absent on an empty page' },
+};
+
+// The typed 200 schema for a route calling `method`, or null for the generic one;
+// `extra` adds body fields the caller knows the route carries (the keyset cursor).
+function responseSchema(method, extra) {
     if (BODY_SCHEMAS[method]) return { $ref: '#/components/schemas/' + BODY_SCHEMAS[method] };
-    if (ROW_SCHEMAS[method]) return listBody(ROW_SCHEMAS[method], LIST_EXTRAS[method]);
+    if (ROW_SCHEMAS[method]) return listBody(ROW_SCHEMAS[method], Object.assign({}, LIST_EXTRAS[method], extra));
     return null;
 }
 
-module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status', 'price_stale'] }, responseSchema };
+module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, KEYSET_FIELDS, POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status', 'price_stale'] }, responseSchema };

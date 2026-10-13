@@ -89,8 +89,9 @@ class SwapReaders {
     async getSwaps(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
-        // Support searching by both source or destination address and both sides of swap for a specific token
-        if(['address','token'].includes(config.data.type))
+        // Support searching by both source or destination address. The token lane is the
+        // one t3.tick=? placeholder, so a second token arg would take the cursor's place.
+        if(config.data.type=='address')
             args.push(config.data.search);
         let count = GET_SWAPS_COUNT_SQL + sql.where.data;
         let query = GET_SWAPS_QUERY_SQL + sql.where.data + sql.where.offset +`

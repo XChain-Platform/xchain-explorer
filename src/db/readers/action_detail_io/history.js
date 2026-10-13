@@ -148,6 +148,11 @@ class ActionHistoryReaders {
                 args.push(start);
             }
         }
+        // An API ?before=/?after= bound (keyset.js), on whichever column drives the feed.
+        if(sql.keyset){
+            where += ' AND ' + cursor + ' ' + sql.keyset.op + ' ?';
+            args.push(sql.keyset.value);
+        }
         if(total)
             history = await historyPageRows(this, config, sql, cursor, source, where, args);
         // Get summary data for actions

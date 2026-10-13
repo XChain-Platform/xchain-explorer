@@ -22,9 +22,10 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { COMPONENT_SCHEMAS, responseSchema } = require('./openapi.schemas.js');
+const { COMPONENT_SCHEMAS, KEYSET_FIELDS, responseSchema } = require('./openapi.schemas.js');
 const { api } = require('../src/explorer/routes/api_methods.js');
 const { supportsBareApiList } = require('../src/explorer/request/resolve_route.js');
+const { KEYSET_METHODS } = require('../src/db/query_sql/keyset.js');
 
 const COINS = ['BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC', 'DOGE', 'TDOGE', 'RDOGE'];
 
@@ -650,6 +651,9 @@ function operation([p, method, types, tag, summary], opts) {
         { $ref: '#/components/parameters/page' },
         { $ref: '#/components/parameters/limit' },
         { $ref: '#/components/parameters/sortorder' });
+    if (isList && KEYSET_METHODS.has(method)) params.push(
+        { $ref: '#/components/parameters/before' },
+        { $ref: '#/components/parameters/after' });
     for (const q of o.query || []) params.push(Object.assign({ in: 'query' }, q));
     const responses = {
         200: o.response200 || {
@@ -657,7 +661,7 @@ function operation([p, method, types, tag, summary], opts) {
             content: {
                 'application/json': {
                     schema: o.schema
-                        || responseSchema(method)
+                        || responseSchema(method, KEYSET_METHODS.has(method) ? KEYSET_FIELDS : null)
                         || { $ref: isList ? '#/components/schemas/ListResponse' : '#/components/schemas/ObjectResponse' },
                 },
             },
@@ -731,7 +735,9 @@ const spec = {
             + 'the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay '
             + 'exact above 2^53. List responses '
             + 'are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters '
-            + '(limit max 100; balances/holders max 500). Errors are '
+            + '(limit max 100; balances/holders max 500). Lists that document `before`/`after` also '
+            + 'page by cursor: pass the response\'s `next_before` (or `next_after` when ascending) to '
+            + 'read the next page at the same cost at any depth, where a deep `page` slows with depth. Errors are '
             + '`{error: "message", code: "STABLE_CODE"}`. See the error-code registry at '
             + 'https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at '
             + '/{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\n'
@@ -761,6 +767,19 @@ const spec = {
             page: { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 }, description: 'Page number' },
             limit: { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 500, default: 10 }, description: 'Rows per page (max 100; balances/holders max 500)' },
             sortorder: { name: 'sortorder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] }, description: 'Sort order' },
+            before: {
+                name: 'before', in: 'query', schema: { type: 'string', pattern: '^[0-9]+$' },
+                description: 'Keyset paging: only rows whose cursor is below this value, in `sortorder`. '
+                    + 'The cursor is `action_index` (`block_index` on commitments). Pass a descending '
+                    + 'page\'s `next_before` to read the next page at index cost whatever its depth; '
+                    + '`page` is ignored. Not combinable with `after`; a non-numeric value answers 400.',
+            },
+            after: {
+                name: 'after', in: 'query', schema: { type: 'string', pattern: '^[0-9]+$' },
+                description: 'Keyset paging: only rows whose cursor is above this value, in `sortorder`. '
+                    + 'Pass an ascending page\'s `next_after` to read the next page; `page` is ignored. '
+                    + 'Not combinable with `before`; a non-numeric value answers 400.',
+            },
         },
         schemas: {
             ListResponse: {
@@ -769,6 +788,7 @@ const spec = {
                     total: { type: 'integer', description: 'Total matching rows' },
                     data: { type: 'array', items: { type: 'object' }, description: 'Result rows (fields vary per endpoint; amounts are decimal strings)' },
                     runtime: { type: 'string', description: 'Amount of time to execute and return the data' },
+                    ...KEYSET_FIELDS,
                 },
                 required: ['total', 'data'],
             },

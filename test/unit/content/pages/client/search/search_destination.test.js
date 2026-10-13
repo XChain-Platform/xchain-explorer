@@ -67,6 +67,13 @@ describe('search destination by query class', () => {
         expect(win.searchDestination('0', 'TBTC', 156400)).to.equal('/TBTC/block/0');
     });
 
+});
+
+describe('search destination by query class (continued)', () => {
+
+    let win;
+    beforeEach(() => { ({ win } = bootClient('https://xchain.test/BTC/search')); });
+
     it('sends a number above the tip to the action page', () => {
         expect(win.searchDestination('156401', 'TBTC', 156400)).to.equal('/TBTC/action/156401');
         expect(win.searchDestination('9000000', 'TBTC', '156400')).to.equal('/TBTC/action/9000000');
@@ -160,6 +167,27 @@ describe('search destination with a live tip', () => {
         expect(resolve(win, 'TBTC', '156402')).to.equal('/TBTC/block/156402');
         expect(calls).to.deep.equal([false, true]);
     });
+
+});
+
+describe('search destination with a live tip (continued)', () => {
+
+    // getExplorerStatusInfo answers from the cached /status unless forced; the
+    // stub records each call's force flag and answers with the next body.
+    function withStatus(win, bodies){
+        const calls = [];
+        win.getExplorerStatusInfo = function(cb, force){
+            calls.push(force === true);
+            cb(bodies[Math.min(calls.length - 1, bodies.length - 1)]);
+        };
+        return calls;
+    }
+
+    function resolve(win, coin, query){
+        let out;
+        win.resolveSearchDestination(coin, query, (dest) => { out = dest; });
+        return out;
+    }
 
     it('opens the action page when the fresh tip confirms the number is past it', () => {
         const { win } = bootClient('https://xchain.test/TBTC/search');

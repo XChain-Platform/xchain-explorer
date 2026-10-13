@@ -118,6 +118,9 @@ describe('detail pages answer 404 when their record cannot exist', function () {
         });
     });
 
+});
+
+describe('detail pages answer 404 when their record cannot exist (continued)', function () {
     describe('action when the high-water read fails', function () {
         useExplorer({ actionThrows: true });
         it('leaves the page at 200', async function () {

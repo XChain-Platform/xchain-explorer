@@ -135,6 +135,10 @@ describe('header search box agrees with the search page', () => {
         expect(win.jQuery('#coin-search').val()).to.equal('TBTC');
     });
 
+});
+
+describe('header search box agrees with the search page (continued)', () => {
+
     it('lets the search page decide a number past the cached tip', () => {
         // The search page re-reads the tip before calling a number an action
         // index; the header box has only the cached one, so it defers.

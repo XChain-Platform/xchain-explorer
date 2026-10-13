@@ -1,0 +1,198 @@
+{
+    "blocking": [
+        "/js/jquery.min.js",
+        "/js/browser_logger.js",
+        "/js/network_coin.js",
+        "/js/formatters.js",
+        "/js/components.js",
+        "/js/xchain.js"
+    ],
+    "groups": {
+        "core": {
+            "assets": [
+                "/css/bootstrap.min.css",
+                "/themes/classic/tokens.css",
+                "/fontawesome/css/all.min.css",
+                "/fontawesome/css/v4-shims.min.css",
+                "/css/xchain.css",
+                "/components/data-table/component.css",
+                "/components/nav/component.css",
+                "/components/search-box/component.css",
+                "/components/footer/component.css",
+                "/components/theme-toggle/component.css",
+                "/js/jquery.min.js",
+                "/js/bootstrap.bundle.min.js",
+                "/js/browser_logger.js",
+                "/js/network_coin.js",
+                "/js/formatters.js",
+                "/js/components.js",
+                "/js/xchain.js",
+                "/js/xchain/params.js",
+                "/js/xchain/address_utils.js",
+                "/js/xchain/network_status.js",
+                "/js/xchain/api_proof.js",
+                "/js/xchain/search_market.js",
+                "/components/nav/init.js",
+                "/components/search-box/init.js",
+                "/components/footer/init.js",
+                "/components/theme-toggle/init.js",
+                "/js/moment.min.js",
+                "/js/livestamp.min.js",
+                "/js/numeral.js"
+            ]
+        },
+        "math": {
+            "assets": ["/js/math.min.js"]
+        },
+        "datatable": {
+            "requires": ["math"],
+            "assets": [
+                "/css/jquery.dataTables.min.css",
+                "/js/jquery.dataTables.js",
+                "/js/formatters/protocol.js",
+                "/js/xchain/datatable/rows_actions_a.js",
+                "/js/xchain/datatable/rows_actions_b.js",
+                "/js/xchain/datatable/rows_protocol_a.js",
+                "/js/xchain/datatable/rows_protocol_b.js",
+                "/js/xchain/datatable/rows_protocol_c.js",
+                "/js/xchain/datatable/request.js",
+                "/js/xchain/datatable.js",
+                "/js/xchain/action_detail.js",
+                "/js/xchain/action_markers.js",
+                "/js/xchain/action_system_summaries.js"
+            ]
+        },
+        "data-table": {
+            "requires": ["datatable"],
+            "assets": ["/components/data-table/columns.js", "/components/data-table/init.js"]
+        },
+        "detail": {
+            "requires": ["datatable"],
+            "assets": ["/js/xchain/detail/detail_core.js"]
+        },
+        "detail-card": {
+            "assets": ["/components/detail-card/component.css", "/components/detail-card/init.js"]
+        },
+        "action-detail": {
+            "requires": ["detail", "detail-card", "anchor-price"],
+            "assets": [
+                "/js/xchain/detail/detail_simple.js",
+                "/js/xchain/detail_attest_vote.js",
+                "/js/xchain/detail/detail_bet_stake.js",
+                "/js/xchain/detail/detail_contracts_xcall.js",
+                "/js/xchain/detail/detail_dex_tokens.js"
+            ]
+        },
+        "anchor-price": {
+            "assets": ["/js/xchain/detail_anchor_price.js"]
+        },
+        "token-info": {
+            "requires": ["math"],
+            "assets": ["/js/xchain/token_media.js", "/js/xchain/token_info.js"]
+        },
+        "token": {
+            "requires": ["token-info", "anchor-price"],
+            "assets": ["/js/xchain/token_content.js", "/js/xchain/token_legacy.js"]
+        },
+        "market": {
+            "requires": ["datatable", "charts"],
+            "assets": ["/js/xchain/market_updates.js"]
+        },
+        "charts": {
+            "requires": ["math"],
+            "assets": [
+                "/css/xchain-charts.css",
+                "/js/chart.umd.js",
+                "/js/chartjs-adapter-moment.js",
+                "/js/chartjs-chart-financial.js",
+                "/js/xchain_charts/data.js",
+                "/js/xchain_charts/configs.js",
+                "/js/xchain_charts/browser.js",
+                "/js/xchain_charts.js"
+            ]
+        },
+        "qr": {
+            "assets": ["/js/jquery.qrcode.min.js"]
+        },
+        "highlight": {
+            "assets": ["/css/highlight-github.min.css", "/js/highlight.min.js"]
+        },
+        "swagger": {
+            "assets": ["/css/swagger-ui.css"]
+        },
+        "timeline": {
+            "assets": ["/components/timeline/component.css", "/components/timeline/item.js", "/components/timeline/init.js"]
+        },
+        "countdown": {
+            "assets": ["/components/countdown/component.css", "/components/countdown/init.js"]
+        },
+        "badge-list": {
+            "assets": ["/components/badge-list/component.css", "/components/badge-list/init.js"]
+        },
+        "stat-tile": {
+            "assets": ["/components/stat-tile/component.css", "/components/stat-tile/init.js"]
+        },
+        "stat-card": {
+            "assets": ["/components/stat-card/component.css", "/components/stat-card/init.js"]
+        },
+        "tab-panel": {
+            "assets": ["/components/tab-panel/component.css", "/components/tab-panel/init.js"]
+        },
+        "qr-card": {
+            "requires": ["qr"],
+            "assets": ["/components/qr-card/component.css", "/components/qr-card/init.js"]
+        },
+        "chart": {
+            "requires": ["charts"],
+            "assets": ["/components/chart/component.css", "/components/chart/init.js"]
+        },
+        "websocket": {
+            "assets": ["/js/xchain_ws.js", "/js/xchain_ws_catch_up.js"]
+        },
+        "throttle": {
+            "assets": ["/js/throttle-debounce-fn.min.js"]
+        }
+    },
+    "listPage": ["data-table"],
+    "pages": {
+        "404.html": [],
+        "about.html": [],
+        "action.html": ["action-detail"],
+        "address.html": ["datatable", "token-info", "qr"],
+        "addresses.html": ["datatable"],
+        "anchor.html": [],
+        "api.html": ["swagger"],
+        "attestation.html": ["timeline"],
+        "bet_feed.html": ["datatable"],
+        "bet_feeds.html": ["datatable"],
+        "block.html": ["datatable"],
+        "capability_snapshots.html": ["datatable"],
+        "checkpoint.html": ["timeline"],
+        "checkpoints.html": ["datatable"],
+        "coin_home.html": ["datatable", "countdown", "stat-tile"],
+        "coin_unavailable.html": [],
+        "collectibles.html": ["math"],
+        "contract.html": ["datatable", "highlight"],
+        "dispenser.html": ["datatable"],
+        "execution.html": [],
+        "fees.html": ["datatable"],
+        "governance.html": [],
+        "home.html": [],
+        "market.html": ["market"],
+        "mempool.html": [],
+        "oracle.html": ["datatable"],
+        "poll.html": ["datatable"],
+        "polls.html": ["datatable"],
+        "privacy.html": [],
+        "rich_list.html": ["math"],
+        "search.html": ["datatable"],
+        "slash_proposals.html": ["datatable"],
+        "terms.html": [],
+        "token.html": ["datatable", "token"],
+        "transaction.html": ["detail", "anchor-price"],
+        "validator.html": ["countdown", "badge-list"],
+        "validators.html": ["datatable"],
+        "vote_delegations.html": ["datatable"],
+        "xcall.html": ["timeline"]
+    }
+}

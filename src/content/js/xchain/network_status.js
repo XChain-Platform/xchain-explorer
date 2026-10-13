@@ -283,14 +283,6 @@ function setupActionListeners(){
             }
         });
     }
-    // Handle setting up listeners on chart dropdowns 
-    if(!isNull(XC.charts)){
-        for(let chart of XC.charts){
-            $('#chart-dropdown-' + chart).click(function(){
-                loadMarketChart(chart);
-            });
-        }
-    }
 }
 
 // Handle setting up collapsible headers and restoring the last known state

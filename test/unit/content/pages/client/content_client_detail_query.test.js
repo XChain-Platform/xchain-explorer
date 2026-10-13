@@ -126,7 +126,7 @@ describe('detail pages resolve XC.query', function () {
         // validator (pubkey OR address) and xcall (64-hex call_id) cannot use the
         // numeric check, so they need their own branch. Without one they would fall
         // through with XC.query unset, which is the exact failure this file exists for.
-        const branch = CLIENT.match(/\(\[([^\]]*)\]\.includes\(type\) && typeof\(query\)=='string' && query\.length\)/);
+        const branch = CLIENT.match(/\(\[([^\]]*)\]\.includes\(type\) && typeof\(query\)=='string' && query\.length(?: && path\.length>3)?\)/);
         expect(branch, 'no non-numeric validation branch found for pubkey/hash-keyed detail types').to.not.equal(null);
         const nonNumeric = branch[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
         expect(nonNumeric).to.include('validator');

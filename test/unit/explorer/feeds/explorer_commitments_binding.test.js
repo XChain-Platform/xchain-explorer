@@ -120,6 +120,10 @@ describe('getCommitments bound through runListQuery', () => {
         explorer.data.sql.apiOffset = 10000;
         expect((await bind(explorer)).rowSql).to.not.include('OFFSET');
     });
+});
+
+describe('getCommitments decoration and getData through runListQuery', () => {
+    afterEach(() => sinon.restore());
 
     it('the decoration legs and their correlated subqueries sit outside the paged derived table', async () => {
         const { rowSql, countSql } = await bind(cfg(null, null));

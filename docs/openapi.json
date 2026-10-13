@@ -1480,7 +1480,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -1490,7 +1490,8 @@
               "type": "string",
               "enum": [
                 "block",
-                "address"
+                "address",
+                "token"
               ]
             },
             "description": "How to interpret {QUERY}"
@@ -2238,7 +2239,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -2247,7 +2248,9 @@
             "schema": {
               "type": "string",
               "enum": [
-                "block"
+                "block",
+                "address",
+                "token"
               ]
             },
             "description": "How to interpret {QUERY}"
@@ -3106,7 +3109,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -3115,7 +3118,9 @@
             "schema": {
               "type": "string",
               "enum": [
-                "block"
+                "block",
+                "address",
+                "token"
               ]
             },
             "description": "How to interpret {QUERY}"
@@ -4465,6 +4470,72 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/validators/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "validators_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Active validators and their capabilities, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
           },
           {
             "$ref": "#/components/parameters/page"

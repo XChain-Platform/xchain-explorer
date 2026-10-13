@@ -21,6 +21,7 @@
 'use strict';
 
 const { columnsPresent } = require('../../schema_probe.js');
+const { idsFirstPage } = require('../../query_sql/page_ids.js');
 
 const GET_ISSUES_COUNT_SQL = `SELECT
                         count(*) as total
@@ -135,13 +136,17 @@ const GET_TOKENS_QUERY_SQL = `SELECT
 
 class TokenReaders {    
 
+    // A busy block or address puts every issue behind a dozen display joins
+    // and a sort, so the page is picked by id first and only those rows are
+    // decorated; the single statement stays as the fallback.
     async getIssues(config){
         let sql   = config.data.sql;
         let count = GET_ISSUES_COUNT_SQL + sql.where.data;
         let query = GET_ISSUES_QUERY_SQL + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-        return [query, null, count];
+        let page  = idsFirstPage(count + sql.where.offset, GET_ISSUES_QUERY_SQL, 'm', sql.order, sql.limit);
+        return [query, null, count, page];
     }
 
     async getMints(config){

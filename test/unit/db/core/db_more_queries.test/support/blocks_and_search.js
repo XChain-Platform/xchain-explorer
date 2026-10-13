@@ -297,7 +297,7 @@ describe('Database#getHistoryData', () => {
 
     it('returns [data, total] for block type with total from count query', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 3 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 3 }];
             return mockResults.historyRows();
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -318,7 +318,7 @@ describe('Database#getHistoryData', () => {
         // Large counts come back from the driver as strings, which is what put
         // total: "124159" on the live /history/recent/recent envelope.
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: '124159' }];
+            if(q && q.includes('count(*) as count')) return [{ count: '124159' }];
             return mockResults.historyRows();
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -351,7 +351,7 @@ describe('Database#getHistoryData', () => {
     it('skips count query when q.total is already set', async () => {
         let countCalled = false;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) { countCalled = true; return [{ count: 5 }]; }
+            if(q && q.includes('count(*) as count')) { countCalled = true; return [{ count: 5 }]; }
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -366,7 +366,7 @@ describe('Database#getHistoryData', () => {
     it('uses address id for address type', async () => {
         sinon.stub(db, 'getAddressId').resolves(42);
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 0 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 0 }];
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -380,7 +380,7 @@ describe('Database#getHistoryData', () => {
     it('uses tick id for token type', async () => {
         sinon.stub(db, 'getTickId').resolves(7);
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 0 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 0 }];
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);

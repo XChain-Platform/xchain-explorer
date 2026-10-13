@@ -76,7 +76,7 @@ async function capture(db, config, rows = []) {
     let countArgs  = null;
     let listArgs   = null;
     sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => {
-        if(q && q.includes('count(DISTINCT')){ countQuery = q; countArgs = a; return [{ count: rows.length || 1 }]; }
+        if(q && q.includes('count(*) as count')){ countQuery = q; countArgs = a; return [{ count: rows.length || 1 }]; }
         // The full-history shortcut probes for the highest action_index first.
         if(q && q.includes('ORDER BY action_index DESC')) return [];
         listQuery = q; listArgs = a;
@@ -89,8 +89,7 @@ async function capture(db, config, rows = []) {
 
 // The table the statement's OUTER FROM clause drives off. The outer FROM is the
 // one that ends its line; every subquery FROM is inline (`FROM actions apx
-// INNER JOIN batches` in the parent lookup, `FROM blocks b1 WHERE` in the
-// count's EXISTS), so it never matches here.
+// INNER JOIN batches` in the parent lookup), so it never matches here.
 function drivingTable(sql) {
     const m = String(sql).match(/FROM[ \t]*\n\s*([a-z_]+)\s/i);
     return m ? m[1] : null;

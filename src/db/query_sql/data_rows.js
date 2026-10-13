@@ -29,6 +29,7 @@
 
 const { countTotal } = require('./data_totals.js');
 const { resolveActionSource, laneStatement } = require('./where_source_lanes.js');  // the indexed lane's address id and form, decided at run time
+const { idsFirstRows } = require('./page_ids.js');
 
 // Align the data-WHERE bind args with their placeholders. getQueryWhereSql only
 // adds a data-WHERE placeholder when a TYPE (address/token/block/...) is set, so a
@@ -71,12 +72,14 @@ function listQueryArgs(db, config, args){
 // Runs the row query and, when the method built one, the count query. Returns
 // the [data, total] pair getData carries on to its post-passes. Both statements
 // take the form the resolved address lane chose before they bind, so the count
-// is cached under the text it actually ran.
-async function runListQuery(db, config, query, args, count){
+// is cached under the text it actually ran. A reader's page plan (page_ids.js)
+// picks the rows by id first, with the row query's own bind arguments.
+async function runListQuery(db, config, query, args, count, page){
     let data  = [];
     let total = null;
     await resolveActionSource(db, config);
     query = laneStatement(config, query);
+    let idsSql = page ? laneStatement(config, page.ids) : null;
     count = Array.isArray(count) ? [laneStatement(config, count[0]), count[1]] : laneStatement(config, count);
     let baseArgs   = listQueryArgs(db, config, args);
     let queryArgs  = [...baseArgs];
@@ -86,9 +89,12 @@ async function runListQuery(db, config, query, args, count){
     // Append SQL OFFSET for API pagination (page > 1)
     if(config.type == 'api' && config.data.sql.apiOffset > 0){
         query += ' OFFSET ?';
+        idsSql = idsSql && idsSql + ' OFFSET ?';
         queryArgs.push(config.data.sql.apiOffset);
     }
-    if(query!='')
+    if(idsSql)
+        data = await idsFirstRows(db, config, page, idsSql, query, queryArgs);
+    else if(query!='')
         data = await db.doQuery(config, query, queryArgs);
     // Count query uses only base args (no offset/limit placeholders). A reader
     // whose count drops placeholders the row query carries returns it as a

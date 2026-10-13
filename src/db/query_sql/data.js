@@ -77,13 +77,13 @@ class QueryData {
         let { cacheName, cacheKey, hit } = await resultCacheLookup(this, config);
         if(hit)
             return hit;
-        let [query, args, count] = await this.getQuery(config);
+        let [query, args, count, page] = await this.getQuery(config);
         if(typeof query === 'object'){
             data = query;
             if(this.util.isNumeric(count))
                 total = count;
         } else {
-            [data, total] = await runListQuery(this, config, query, args, count);
+            [data, total] = await runListQuery(this, config, query, args, count, page);
         }
         data = await applyPostPasses(this, config, data);
         resultCacheStore(this, config, cacheName, cacheKey, data, total);
@@ -95,6 +95,7 @@ class QueryData {
         let count = '';
         let query = '';
         let args  = null;
+        let page  = null;
         let data  = config.data;
         let q     = (data.query) ? data.query : false;
         let max   = this.getMaxMethodResults(data.method);
@@ -113,8 +114,9 @@ class QueryData {
         config.data.sql.order = order
         config.data.sql.limit = limit;
         if(typeof this[data.method] === 'function')
-            [query, args, count] = await this[data.method](config);
-        return [query, args, count];
+            [query, args, count, page] = await this[data.method](config);
+        // A page plan is the optional fourth element, returned only when built.
+        return page ? [query, args, count, page] : [query, args, count];
     }
 }
 

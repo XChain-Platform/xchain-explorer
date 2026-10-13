@@ -184,7 +184,7 @@ describe('list totals cache: which methods', function(){
 
     it('prunes the COUNT of a tip-bound list and leaves its page query whole', async function(){
         await db.getData(cfg('getIssues', { type: 'api' }));
-        const [pageSql] = stub.getCalls().map(c => c.args[1]).filter(sql => /ORDER BY/.test(sql));
+        const [pageSql] = stub.getCalls().map(c => c.args[1]).filter(sql => /\bm1\.memo\b/.test(sql));
         expect(pageSql).to.match(/LEFT\s+JOIN index_memos\s+m1/);
         expect(state.counts[0]).to.not.match(/index_memos/);
         expect(state.counts[0]).to.match(/^SELECT count\(\*\) as total FROM issues m INNER JOIN actions/);

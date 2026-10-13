@@ -17,7 +17,8 @@
  * query it stands in for, so every feed type and paging direction is shown to
  * return the same rows and the same total. A duplicated mapping or blocks row
  * is seeded too: there the ids leg repeats an id and the page must fall back
- * to the DISTINCT statement.
+ * to the DISTINCT statement. The seed holds no mapping row without its action
+ * and no action without its block, since the indexer writes them together.
  */
 
 'use strict';
@@ -80,11 +81,10 @@ function seed(){
     const name = {};
     for(const a of ['SEND', 'BATCH', 'ANCHOR'])
         name[a] = Number(sqlite.prepare('INSERT INTO index_actions (action) VALUES (?)').run(a).lastInsertRowid);
-    for(const b of [100, 101, 102, 103])
+    for(const b of [100, 101, 102, 103, 104])
         sqlite.prepare('INSERT INTO blocks (block_index, block_time) VALUES (?, ?)').run(b, 1700000000 + b);
-    // Actions 1..20 over blocks 100..104; block 104 has no blocks row, so action 20
-    // is outside every feed. Action 9 is tx-less. Action 12 is a BATCH whose
-    // children 13 and 14 share its (tx_index, tx_vout).
+    // Actions 1..20 over blocks 100..104. Action 9 is tx-less. Action 12 is a
+    // BATCH whose children 13 and 14 share its (tx_index, tx_vout).
     for(let i = 1; i <= 20; i++){
         const block = (i === 20) ? 104 : 100 + Math.floor((i - 1) / 5);
         const tx    = (i === 9) ? null : ([13, 14].includes(i) ? 12 : i);
@@ -97,8 +97,7 @@ function seed(){
             .run(i, block, tx, (tx === null) ? null : 0, action);
     }
     sqlite.prepare('INSERT INTO batches (action_index) VALUES (12)').run();
-    // Address rows include an action with no blocks row (20) and one with no action (25).
-    for(const i of [2, 3, 5, 8, 12, 13, 14, 17, 19, 20, 25])
+    for(const i of [2, 3, 5, 8, 12, 13, 14, 17, 19, 20])
         mapping(i, 2, ADDRESS_ID);
     for(const i of [3, 6, 13, 18])
         mapping(i, 1, TICK_ID);
@@ -207,15 +206,15 @@ describe('db.getHistoryData: ids-first edge cases against the real indexer DDL',
         const config = await historyConfig('address', 'addr1', PAGES[5]);
         const [rows, total] = await db.getHistoryData(config);
         expect(rows).to.deep.equal([]);
-        expect(total).to.equal(9);
+        expect(total).to.equal(10);
     });
 
     it('a duplicated mapping row repeats an id, and the page falls back to the DISTINCT statement', async () => {
         mapping(13, 2, ADDRESS_ID);
-        const config = await historyConfig('address', 'addr1', { transport: 'explorer', order: 'DESC', limit: 5 });
+        const config = await historyConfig('address', 'addr1', { transport: 'explorer', order: 'DESC', limit: 6 });
         const [rows] = await db.getHistoryData(config);
         expect(rows).to.deep.equal(reference(config).rows);
-        expect(rows.map((r) => r.action_index)).to.deep.equal([19, 17, 14, 13, 12]);
+        expect(rows.map((r) => r.action_index)).to.deep.equal([20, 19, 17, 14, 13, 12]);
         expect(seen.some((q) => q.includes('DISTINCT(m.action_index) as action_index'))).to.equal(true);
     });
 
@@ -250,7 +249,7 @@ describe('db.getHistoryData: the SQL each leg sends', function () {
     async function capture(page){
         const legs = {};
         sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => {
-            if(q.includes('count(DISTINCT')){ legs.count = { q, a }; return [{ count: 3 }]; }
+            if(q.includes('count(*)')){ legs.count = { q, a }; return [{ count: 3 }]; }
             if(q.includes('IN (')){ legs.rows = { q, a }; return []; }
             legs.ids = { q, a };
             return [{ action_index: 9 }, { action_index: 8 }, { action_index: 7 }];
@@ -278,10 +277,9 @@ describe('db.getHistoryData: the SQL each leg sends', function () {
         expect(rows.q).to.not.include('LIMIT 10');
     });
 
-    it('the count keeps the membership joins, checks blocks through EXISTS and drops the LEFT joins', async () => {
+    it('the count reads the mapping table alone, with no join, EXISTS or DISTINCT', async () => {
         const { count } = await capture({ transport: 'explorer', order: 'DESC', limit: 10 });
-        expect(count.q).to.match(/^SELECT\s+count\(DISTINCT\(m\.action_index\)\) as count\s+FROM\s+mappings_actions m\s+INNER JOIN actions\s+a1 ON \(a1\.action_index=m\.action_index\)\s+WHERE m\.action_index IS NOT NULL AND m\.type_id=2 AND m\.id=\?\s+AND EXISTS \(SELECT 1 FROM blocks b1 WHERE b1\.block_index=a1\.block_index\)$/);
-        expect(count.q).to.not.match(/LEFT\s+JOIN/);
+        expect(count.q).to.match(/^SELECT\s+count\(\*\) as count\s+FROM\s+mappings_actions m\s+WHERE m\.action_index IS NOT NULL AND m\.type_id=2 AND m\.id=\?$/);
         expect(count.a).to.deep.equal([ADDRESS_ID]);
     });
 

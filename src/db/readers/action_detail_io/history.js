@@ -81,20 +81,18 @@ async function presetHistoryTotal(db, config, q){
     }
 }
 
-// The COUNT leg, over the same source and WHERE the page is drawn from. Only the
-// INNER joins decide which action_index values qualify: a LEFT join never drops a
-// row and a DISTINCT count never sees the copies one adds, so the decorating
-// joins the page selects through are left out, and the blocks join becomes an
-// EXISTS, which counts the same ids and lets MariaDB check each block once
-// (a semi-join) instead of joining every action to its block row.
-async function historyTotalCount(db, config, cursor, source, where, args){
+// The COUNT counts the driving table alone; every feed WHERE names only it. The
+// indexer writes an action, its block row and at most one mapping row per address
+// or tick in one block transaction, and a reorg deletes them together, so the
+// page's joins and DISTINCT drop nothing here.
+async function historyTotalCount(db, config, type, where, args){
     let total = 0;
+    let table = (['address','token'].includes(type)) ? 'mappings_actions m' : 'actions a1';
     let count = `SELECT
-                        count(DISTINCT(` + cursor + `)) as count
+                        count(*) as count
                     FROM
-                        ` + source + `
-                    WHERE ` + where + `
-                        AND EXISTS (SELECT 1 FROM blocks b1 WHERE b1.block_index=a1.block_index)`;
+                        ` + table + `
+                    WHERE ` + where;
     let results = await db.doQuery(config, count, args);
     if(results && results.length)
         // bcadd returns a decimal STRING (mathjs bignumber formatting), which is
@@ -139,7 +137,7 @@ class ActionHistoryReaders {
         if(q && q.total){
             total = Number(q.total);
         } else {
-            total = await historyTotalCount(this, config, cursor, source, where, args);
+            total = await historyTotalCount(this, config, type, where, args);
         }
         if(action && start){
             if(action=='prev'){

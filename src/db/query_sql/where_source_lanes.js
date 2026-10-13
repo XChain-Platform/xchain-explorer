@@ -20,10 +20,13 @@
  * the whole family table. These lanes name the indexed `actions` column the
  * join resolves to instead, for exactly the readers whose join makes the two
  * forms select the same rows. The two-party address lists match either party,
- * and drive from a UNION of indexed id sets instead of an OR across two joins.
+ * and drive from a UNION of indexed id sets instead of an OR across two joins,
+ * except for an address dense enough that walking the ordered index to the
+ * page LIMIT is cheaper than building its whole id set.
  *
- * Plain functions: the clause builders take `config` alone, and the one
- * lookup takes the Database as `db` for doQuery.
+ * Plain functions: the clause builders take `config` alone and stay
+ * database-free; the run-time lookups (the address id, then the bounded
+ * density estimate) take the Database as `db` for doQuery.
  *
  ********************************************************************/
 
@@ -126,11 +129,59 @@ function twoPartyRowSql(method){
     return ` AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?) OR m.${column}=?)`;
 }
 
+// A bounded estimate of how many rows the address takes part in, each side
+// capped at the threshold so it reads at most two threshold-sized index ranges:
+// the actions it sources across every family (actions.source_id, index-only),
+// or for getDispenses the fills of the dispensers it owns, plus the family rows
+// that name it as counterparty. The transaction-source leg is left out; it only
+// serves actions with no source of their own.
+function twoPartyDenseSql(method){
+    let [table, column] = TWO_PARTY_COUNTERPARTS[method];
+    let sourceSide = (method=='getDispenses')
+        ? `SELECT 1 FROM dispensers pd
+                INNER JOIN dispenses px ON (px.dispenser_action_index=pd.action_index)
+                WHERE pd.get_address_id=? LIMIT ?`
+        : `SELECT 1 FROM actions pa WHERE pa.source_id=? LIMIT ?`;
+    return `SELECT (SELECT COUNT(*) FROM (${sourceSide}) ps)
+            + (SELECT COUNT(*) FROM (SELECT 1 FROM ${table} px WHERE px.${column}=? LIMIT ?) pc) AS total`;
+}
+
 const TWO_PARTY_ADDRESS_SQL  = {};
 const TWO_PARTY_BOUNDARY_SQL = {};
+const TWO_PARTY_ROW_SQL      = {};
+const TWO_PARTY_DENSE_SQL    = {};
 for(let method of TWO_PARTY_ADDRESS_METHODS){
     TWO_PARTY_BOUNDARY_SQL[method] = twoPartyIdSetSql(method);
+    TWO_PARTY_ROW_SQL[method]      = twoPartyRowSql(method);
     TWO_PARTY_ADDRESS_SQL[method]  = twoPartyIdSetSql(method) + twoPartyRowSql(method);
+    TWO_PARTY_DENSE_SQL[method]    = twoPartyDenseSql(method);
+}
+
+// An address at or over this many rows of a two-party family pages through the
+// ordered-walk form: the per-row check alone, which walks the family's
+// action_index index newest first and stops at the LIMIT. The id set is built
+// whole before the LIMIT applies, about 0.9 us per id on the measured replica
+// (116 ms for a 124k-row address), while the walk costs about 0.85 us per row
+// visited (104 ms to walk 124k rows for a 1-row address) and visits about
+// 100 x family / matches rows for a 100-row page. The two meet where
+// matches^2 is about 90 x family rows, so 10,000 balances a family of about
+// 1.1M rows, caps the id-set page at about 9 ms, and keeps the walk for an
+// address at the threshold near 1 ms on a 124k-row family. The estimate itself
+// reads at most two 10,000-entry index ranges. EXPLORER_TWO_PARTY_DENSE_ROWS
+// moves it.
+const DEFAULT_DENSE_ROWS = 10000;
+
+function denseThreshold(db){
+    let env   = (db.configInfo && db.configInfo.env) || {};
+    let value = parseInt(env.EXPLORER_TWO_PARTY_DENSE_ROWS, 10);
+    return Number.isFinite(value) && value > 0 ? value : DEFAULT_DENSE_ROWS;
+}
+
+async function isDenseAddress(db, config, id){
+    let limit = denseThreshold(db);
+    let rows  = await db.doQuery(config, TWO_PARTY_DENSE_SQL[config.data.method], [id, limit, id, limit]);
+    let total = (rows && rows.length) ? Number(rows[0].total) : 0;
+    return total >= limit;
 }
 
 function placeholderCount(sql){
@@ -186,13 +237,20 @@ function markActionSource(config, sql){
     delete where.dataArgs;
     delete where.actionSourceAddress;
     delete where.actionSourceBinds;
+    delete where.twoPartyLane;
+    delete where.orderedWalk;
     let binds = laneBinds(config, sql);
     if(binds){
         where.actionSourceAddress = config.data.search;
         where.actionSourceBinds   = binds;
+        where.twoPartyLane = TWO_PARTY_ADDRESS_METHODS.has(config.data.method)
+            && String(sql).includes(TWO_PARTY_ADDRESS_SQL[config.data.method]);
     }
 }
 
+// A two-party lane whose address is dense runs in the ordered-walk form, so it
+// binds the per-row check alone; an unknown address keeps the id-set form,
+// which answers empty either way.
 async function resolveActionSource(db, config){
     let where = config.data.sql && config.data.sql.where;
     if(!where || !Object.prototype.hasOwnProperty.call(where, 'actionSourceAddress'))
@@ -200,17 +258,35 @@ async function resolveActionSource(db, config){
     let rows  = await db.doQuery(config, ADDRESS_ID_SQL, [where.actionSourceAddress]);
     let id    = (rows && rows.length) ? Number(rows[0].id) : null;
     let binds = where.actionSourceBinds || placeholderCount(ACTION_SOURCE_SQL);
+    let twoParty = where.twoPartyLane;
     delete where.actionSourceAddress;
     delete where.actionSourceBinds;
+    delete where.twoPartyLane;
+    if(twoParty && id !== null && await isDenseAddress(db, config, id)){
+        where.orderedWalk = true;
+        binds = placeholderCount(TWO_PARTY_ROW_SQL[config.data.method]);
+    }
     where.dataArgs = new Array(binds).fill(id);
 }
 
-// Marks and resolves in one step, for a caller that builds and runs at once.
+// The statement as the resolved lane runs it: the ordered-walk form takes the
+// id set out of the row and count text and keeps the per-row check after it.
+function laneStatement(config, sql){
+    let where = config.data.sql && config.data.sql.where;
+    if(!where || !where.orderedWalk || typeof sql !== 'string')
+        return sql;
+    return sql.split(TWO_PARTY_BOUNDARY_SQL[config.data.method]).join('');
+}
+
+// Marks and resolves in one step, for a caller that builds and runs at once,
+// and returns the statement to run.
 async function bindActionSource(db, config, sql){
     markActionSource(config, sql);
     await resolveActionSource(db, config);
+    return laneStatement(config, sql);
 }
 
 module.exports = { ACTION_SOURCE_METHODS, TWO_PARTY_ADDRESS_METHODS, ACTION_BLOCK_METHODS,
-    ACTION_SOURCE_SQL, TWO_PARTY_ADDRESS_SQL, TWO_PARTY_BOUNDARY_SQL, usesActionSource, sourceAddressClause,
-    twoPartyAddressClause, placeholderCount, blockClause, markActionSource, resolveActionSource, bindActionSource };
+    ACTION_SOURCE_SQL, TWO_PARTY_ADDRESS_SQL, TWO_PARTY_BOUNDARY_SQL, TWO_PARTY_ROW_SQL, TWO_PARTY_DENSE_SQL,
+    DEFAULT_DENSE_ROWS, usesActionSource, sourceAddressClause, twoPartyAddressClause, placeholderCount,
+    blockClause, markActionSource, resolveActionSource, laneStatement, bindActionSource };

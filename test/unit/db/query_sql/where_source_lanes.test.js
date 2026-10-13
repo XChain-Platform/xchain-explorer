@@ -258,6 +258,74 @@ describe('two-party address lane: shape and binds', function () {
     });
 });
 
+// A Database whose density estimate answers `total` for every two-party method.
+function makeDenseDb(total) {
+    const db = makeDb();
+    const lookup = db.doQuery;
+    db.doQuery = async (config, sql, args) => {
+        db.ran = (db.ran || []).concat([[sql, args]]);
+        return Object.values(lanes.TWO_PARTY_DENSE_SQL).includes(sql) ? [{ total }] : lookup(config, sql, args);
+    };
+    return db;
+}
+
+describe('two-party address lane: the ordered-walk form for a dense address', function () {
+    it('estimates on indexed columns only, each side capped by a bound LIMIT', function () {
+        for (const method of lanes.TWO_PARTY_ADDRESS_METHODS) {
+            const sql = lanes.TWO_PARTY_DENSE_SQL[method];
+            expect(placeholders(sql), method).to.equal(4);
+            expect(sql.match(/LIMIT \?/g).length, method).to.equal(2);
+            const filters = [...sql.matchAll(/WHERE ([\w.]+)=\?/g)].map((m) => m[1]);
+            expect(filters, method).to.have.length(2);
+            for (const column of filters) expect(INDEXED_FILTERS.has(column), `${method} ${column}`).to.equal(true);
+            expect(sql, method).to.not.match(/ORDER BY|OFFSET/);
+        }
+    });
+
+    it('binds the threshold as the cap and keeps the id set below it', async function () {
+        const db = makeDenseDb(lanes.DEFAULT_DENSE_ROWS - 1);
+        const built = await build(db, 'getSends', 'address');
+        await lanes.resolveActionSource(db, built.config);
+        const estimate = db.ran.find(([sql]) => sql === lanes.TWO_PARTY_DENSE_SQL.getSends);
+        expect(estimate[1]).to.deep.equal([ADDRESS_ID, lanes.DEFAULT_DENSE_ROWS, ADDRESS_ID, lanes.DEFAULT_DENSE_ROWS]);
+        expect(lanes.laneStatement(built.config, built.query)).to.equal(built.query);
+        expect(listQueryArgs(db, built.config, built.args)).to.have.length(6);
+    });
+
+    it('drops the id set and binds the per-row check alone at the threshold, in the row and the count query', async function () {
+        const db = makeDenseDb(lanes.DEFAULT_DENSE_ROWS);
+        for (const method of lanes.TWO_PARTY_ADDRESS_METHODS) {
+            const built = await build(db, method, 'address');
+            await lanes.resolveActionSource(db, built.config);
+            const bound = listQueryArgs(db, built.config, built.args);
+            expect(bound, method).to.deep.equal(new Array(method === 'getDispenses' ? 2 : 3).fill(ADDRESS_ID));
+            for (const sql of readerSql(built)) {
+                const walk = lanes.laneStatement(built.config, sql);
+                expect(walk, method).to.not.include(lanes.TWO_PARTY_BOUNDARY_SQL[method]);
+                expect(walk, method).to.include(lanes.TWO_PARTY_ROW_SQL[method]);
+                expect(placeholders(walk), method).to.equal(bound.length);
+            }
+        }
+    });
+
+    it('skips the estimate for an address the index does not know', async function () {
+        const db = makeDenseDb(lanes.DEFAULT_DENSE_ROWS);
+        db.doQuery = async (config, sql) => { db.ran = (db.ran || []).concat([[sql]]); return []; };
+        const built = await build(db, 'getMints', 'address');
+        await lanes.resolveActionSource(db, built.config);
+        expect(db.ran.map(([sql]) => sql)).to.not.include(lanes.TWO_PARTY_DENSE_SQL.getMints);
+        expect(listQueryArgs(db, built.config, built.args)).to.deep.equal(new Array(6).fill(null));
+    });
+
+    it('never estimates for a single-party source lane', async function () {
+        const db = makeDenseDb(lanes.DEFAULT_DENSE_ROWS);
+        const built = await build(db, 'getSends', 'source');
+        await lanes.resolveActionSource(db, built.config);
+        expect(db.ran.map(([sql]) => sql)).to.not.include(lanes.TWO_PARTY_DENSE_SQL.getSends);
+        expect(listQueryArgs(db, built.config, built.args)).to.deep.equal([ADDRESS_ID, ADDRESS_ID]);
+    });
+});
+
 describe('explorer paging boundaries take the same indexed predicates', function () {
     let db;
     beforeEach(() => { db = makeDb(); });

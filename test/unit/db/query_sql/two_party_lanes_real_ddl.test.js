@@ -18,7 +18,9 @@
  * explorer boundary is compared with the one the (a2.address=? OR
  * a3.address=?) form selects on the same data, including an action whose
  * source comes only from its transaction, an address on both sides of one
- * action, and a multi-send whose legs pay different addresses.
+ * action, and a multi-send whose legs pay different addresses. Both run-time
+ * forms of the lane, the id set and the ordered walk a dense address takes,
+ * are run on the same data, an address over the default threshold included.
  *
  ********************************************************************/
 
@@ -34,7 +36,9 @@ const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
 const { runListQuery }         = require('../../../../src/db/query_sql/data_rows.js');
 const { pruneCountJoins }      = require('../../../../src/db/query_sql/count_joins.js');
-const { TWO_PARTY_ADDRESS_METHODS, TWO_PARTY_ADDRESS_SQL } = require('../../../../src/db/query_sql/where_source_lanes.js');
+const { TIP_TOTAL_METHODS }    = require('../../../../src/db/query_sql/data_totals.js');
+const { TWO_PARTY_ADDRESS_METHODS, TWO_PARTY_ADDRESS_SQL, TWO_PARTY_BOUNDARY_SQL, TWO_PARTY_ROW_SQL,
+    DEFAULT_DENSE_ROWS } = require('../../../../src/db/query_sql/where_source_lanes.js');
 
 const Database = proxyquire('../../../../src/db/index.js', {
     './connection.js': proxyquire('../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
@@ -164,6 +168,33 @@ async function firstBoundary(method, search) {
 
 const indexes = (rows) => rows.map((r) => Number(r.action_index));
 
+// The statements the stubbed connection ran that carry the lane's row check:
+// the row query first, then the count when it was not served from the cache.
+const laneRuns = (method) => db.doQuery.getCalls().map((c) => c.args[1])
+    .filter((sql) => sql.includes(TWO_PARTY_ROW_SQL[method]));
+
+// One list request at a density threshold (null for the default), and whether
+// its row query ran in the ordered-walk form, without the id set. The config
+// env is a read-through view of process.env, so the threshold is set there.
+async function listAt(threshold, method, search) {
+    if (threshold === null) delete process.env.EXPLORER_TWO_PARTY_DENSE_ROWS;
+    else process.env.EXPLORER_TWO_PARTY_DENSE_ROWS = String(threshold);
+    db.doQuery.resetHistory();
+    const result = await list(method, search);
+    return { ...result, walked: !laneRuns(method)[0].includes(TWO_PARTY_BOUNDARY_SQL[method]) };
+}
+
+// Gives A `extra` chain-generated actions of its own, each one message and one
+// send leg paying D, so A is dense as the source and D as the counterparty.
+function seedDenseSource(extra) {
+    const action  = sqlite.prepare('INSERT INTO actions (action_index, block_index, tx_index, action_id, source_id) VALUES (?, 100, NULL, 1, 1)');
+    const message = sqlite.prepare('INSERT INTO messages (action_index, destination_id) VALUES (?, 4)');
+    const send    = sqlite.prepare('INSERT INTO sends (action_index, leg_ordinal, destination_id) VALUES (?, 0, 4)');
+    sqlite.exec('BEGIN');
+    for (let ai = 1000; ai < 1000 + extra; ai++) { action.run(ai); message.run(ai); send.run(ai); }
+    sqlite.exec('COMMIT');
+}
+
 describe('two-party address lane against the REAL indexer DDL', function () {
     before(loadRealSchema);
     beforeEach(resetFixture);
@@ -220,6 +251,13 @@ describe('two-party address lane against the REAL indexer DDL: edges, counts and
         }
     });
 
+});
+
+describe('two-party address lane against the REAL indexer DDL: counts and boundaries', function () {
+    before(loadRealSchema);
+    beforeEach(resetFixture);
+    afterEach(() => sinon.restore());
+
     it('counts over the joins the lane reads once display joins are pruned', async () => {
         for (const method of METHODS) {
             const pruned = pruneCountJoins((await list(method, 'A')).count);
@@ -236,6 +274,63 @@ describe('two-party address lane against the REAL indexer DDL: edges, counts and
                 const newest = Math.max(...indexes((await listOldForm(method, address)).rows));
                 expect(await firstBoundary(method, address), `${method} ${address}`).to.equal(newest + 1);
             }
+        }
+    });
+});
+
+describe('two-party address lane against the REAL indexer DDL: id-set and ordered-walk forms', function () {
+    const saved = process.env.EXPLORER_TWO_PARTY_DENSE_ROWS;
+    before(loadRealSchema);
+    beforeEach(resetFixture);
+    afterEach(() => {
+        sinon.restore();
+        if (saved === undefined) delete process.env.EXPLORER_TWO_PARTY_DENSE_ROWS;
+        else process.env.EXPLORER_TWO_PARTY_DENSE_ROWS = saved;
+    });
+
+    it('returns the same rows and total in both forms for every address', async () => {
+        for (const method of METHODS) {
+            for (const address of ADDRESSES) {
+                const idSet = await listAt(1e9, method, address);
+                const walk  = await listAt(1, method, address);
+                const old   = await listOldForm(method, address);
+                expect(idSet.walked, `${method} ${address}`).to.equal(false);
+                if (address === 'A' || address === 'nobody')
+                    expect(walk.walked, `${method} ${address}`).to.equal(address === 'A');
+                expect(walk.rows, `${method} ${address}`).to.deep.equal(idSet.rows);
+                expect(walk.rows, `${method} ${address}`).to.deep.equal(old.rows);
+                expect(walk.total, `${method} ${address}`).to.equal(idSet.total);
+                expect(walk.total, `${method} ${address}`).to.equal(old.total);
+            }
+        }
+    });
+
+    it('walks for an address over the default threshold on either side and keeps the id set for a sparse one', async () => {
+        seedDenseSource(DEFAULT_DENSE_ROWS);
+        for (const method of ['getMessages', 'getSends']) {
+            for (const [address, dense] of [['A', true], ['D', true], ['B', false]]) {
+                const fast  = await listAt(null, method, address);
+                const idSet = await listAt(1e9, method, address);
+                const old   = await listOldForm(method, address);
+                expect(fast.walked, `${method} ${address}`).to.equal(dense);
+                expect(fast.rows, `${method} ${address}`).to.deep.equal(idSet.rows);
+                expect(fast.rows, `${method} ${address}`).to.deep.equal(old.rows);
+                expect(fast.total, `${method} ${address}`).to.equal(old.total);
+            }
+            expect((await listAt(null, method, 'A')).rows, method).to.have.length(100);
+            expect((await listAt(null, method, 'D')).total, method).to.be.at.least(DEFAULT_DENSE_ROWS);
+        }
+    });
+
+    it('serves a dense address total from the tip totals cache on the next request', async () => {
+        expect([...TWO_PARTY_ADDRESS_METHODS].filter((m) => !TIP_TOTAL_METHODS.has(m))).to.deep.equal([]);
+        for (const method of METHODS) {
+            const first = await listAt(1, method, 'A');
+            expect(first.walked, method).to.equal(true);
+            expect(laneRuns(method), method).to.have.length(2);
+            const again = await listAt(1, method, 'A');
+            expect(laneRuns(method), method).to.have.length(1);
+            expect(again.total, method).to.equal(first.total);
         }
     });
 });

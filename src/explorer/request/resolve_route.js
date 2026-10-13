@@ -28,6 +28,8 @@
 
 'use strict';
 
+const { resolveBareDetail } = require('./bare_detail.js');
+
 // Keep routes that require a lookup subject out of the list-all matcher even
 // though their TYPE choices use the same array declaration as filtered lists.
 const API_LIST_SUBJECT_REQUIRED = new Set(['getProjectTokens', 'getSearch', 'getTransaction']);
@@ -273,6 +275,7 @@ async function resolveRoute(explorer, req, st){
     readPath(explorer, req, st);
     await readFreshness(explorer, st);
     matchRoute(explorer, req, st);
+    resolveBareDetail(explorer, req, st);
 }
 
 module.exports = { resolveRoute, supportsBareApiList };

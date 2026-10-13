@@ -50,6 +50,11 @@ async function runRequest(explorer, req, res, host){
 
     await resolveRoute(explorer, req, st);
 
+    if(st.redirect){
+        res.redirect(st.redirect.code, st.redirect.url);
+        return;
+    }
+
     // With a method named and the coin available, read the data from the database.
     if(!explorer.util.isNull(st.cfg.data.method) && st.validDataRequest){
         if(!validateParams(explorer, st))

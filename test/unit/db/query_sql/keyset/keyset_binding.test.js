@@ -154,6 +154,22 @@ describe('API keyset paging: history, issues and commitments', function () {
         expect(hit.sql).to.not.match(/OFFSET/);
     });
 
+});
+
+describe('API keyset paging: history, issues and commitments (continued)', function () {
+    for (const [type, cursor] of [['address', 'm.action_index'], ['token', 'm.action_index'],
+        ['block', 'a1.action_index'], ['recent', 'a1.action_index']]) {
+        it('history ' + type + ' bounds the ids leg on ' + cursor + ' and not the count', async function () {
+            const { calls } = await run('getHistory', type, { before: '500', page: '101' });
+            const [hit] = boundAt(calls, ' AND ' + cursor + ' < ?');
+            expect(hit.value).to.equal(500);
+            expect(hit.sql).to.match(/LIMIT 100$/);
+            expect(hit.sql).to.include('ORDER BY ' + cursor + ' DESC');
+            const count = calls.find((c) => /count\(\*\)/.test(c.sql));
+            expect(count.sql).to.not.include(' < ?');
+        });
+    }
+
     it('before= with the same order a page uses: DESC by default, the cursor bounding the top', async function () {
         const page = await run('getMints', 'block', { page: '2' });
         const keyset = await run('getMints', 'block', { before: '500' });

@@ -17,13 +17,14 @@
  * One part of src/db/query_sql.js (the entry composes it through
  * composeReaderParts). getQueryWhereSql was one long switch per method; it is
  * now a dispatcher over a method-keyed table of clause builders, grouped by
- * family into three sibling files:
+ * family into sibling files:
  *
  *   - where_anchors.js          the first term of the clause, per method
  *   - where_action_clauses.js   the actions chain: history, markets, tokens,
  *                               and the GENERIC address/block/contract/token
  *                               lanes every method without a builder falls to
  *   - where_mirror_clauses.js   standalone and hub-mirrored tables
+ *   - where_protocol_clauses.js consensus and lifecycle action lists
  *   - where_vote_clauses.js     polls, votes and bets
  *
  * The dispatch is exactly what the `else if` chain did: a method's own builder
@@ -42,14 +43,15 @@
 const { whereAnchor } = require('./where_anchors.js');
 const { ACTION_CLAUSE_BUILDERS, genericClause } = require('./where_action_clauses.js');
 const { MIRROR_CLAUSE_BUILDERS } = require('./where_mirror_clauses.js');
+const { PROTOCOL_CLAUSE_BUILDERS } = require('./where_protocol_clauses.js');
 const { VOTE_CLAUSE_BUILDERS } = require('./where_vote_clauses.js');
 
-// One lookup over the three family tables. Built once at require time, and by
-// Object.assign rather than by three lookups per call, so a method that two
+// One lookup over the family tables. Built once at require time, and by
+// Object.assign rather than by repeated lookups, so a method that two
 // families both claimed would be visible here as a silent overwrite rather than
 // as a resolution that depends on which table is consulted first.
 const CLAUSE_BUILDERS = Object.assign({}, ACTION_CLAUSE_BUILDERS,
-    MIRROR_CLAUSE_BUILDERS, VOTE_CLAUSE_BUILDERS);
+    MIRROR_CLAUSE_BUILDERS, PROTOCOL_CLAUSE_BUILDERS, VOTE_CLAUSE_BUILDERS);
 
 // Read through hasOwnProperty for the same reason whereAnchor does: the method
 // name is a plain string off the request, and an inherited Object.prototype key

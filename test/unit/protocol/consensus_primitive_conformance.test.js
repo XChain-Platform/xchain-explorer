@@ -54,7 +54,7 @@ const FALLBACK_VEC_DIR = path.join(__dirname, '..', '..', 'fixtures', 'consensus
 const VEC_VERDICT = siblingCheckout(__dirname, VEC_DIR);
 const ACTIVE_VEC_DIR = VEC_VERDICT.usable ? VEC_DIR : FALLBACK_VEC_DIR;
 const CANON_VERDICT = siblingCheckout(__dirname, CANON_DIR);
-const PINNED_DOCS_COMMIT = '158bf56834ac741da3de6069cdf395fd59c57cc5';
+const PINNED_DOCS_COMMIT = 'e61eed715f68f684ea8e70670a53f69da0ff01d3';
 const DOCS_COMMIT = (() => {
     if(VEC_VERDICT.usable && CANON_VERDICT.usable) return null;
     try {

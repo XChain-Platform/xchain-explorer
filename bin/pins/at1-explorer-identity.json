@@ -3283,6 +3283,12 @@
         "list-page composition (M2.3) the mount manifest each page ships ships as JSON data, not as code, and cannot close its own script element",
         "list-page composition (M2.3) the mount manifest each page ships validates against the data-table prop table"
       ],
+      "1a6a8f027010b9f2": [
+        "page asset groups: deferred scripts run in a safe order catches a page that reads a deferred global while the parser runs it",
+        "page asset groups: deferred scripts run in a safe order keeps the action page's showBetDetails wrap out of parse time",
+        "page asset groups: deferred scripts run in a safe order never reads a global before its script has run, on any page",
+        "page asset groups: deferred scripts run in a safe order registers xchain.js's ready handler before any page's own"
+      ],
       "1a7da10d92f47219": [
         "BET_EXPIRE action detail @regression joins the feed terms through bet_feeds, not through a bet_expires table (there is none)",
         "BET_EXPIRE action detail @regression keeps the widest stake precision and never flips to exponent notation",
@@ -3490,6 +3496,16 @@
         "explorer FILE decompression resolveServedBytes serves an unmarked FILE untouched (every historical payload)",
         "explorer FILE decompression round trip with the encoder (sibling-gated) the two vendored ratio caps agree",
         "explorer FILE decompression round trip with the encoder (sibling-gated) what the encoder emits, the explorer serves back byte-for-byte"
+      ],
+      "250861b21b9e6338": [
+        "cache control: express listener classification classifies every registered express GET listener exactly once",
+        "cache control: express listener classification names no express route that the app does not register",
+        "cache control: express listener classification resolves each express listener to its own entry, not to a family",
+        "cache control: express listener classification uses only the declared classes",
+        "cache control: route-table classification answers every route-table template with the class its family names",
+        "cache control: route-table classification classifies every route-table template through exactly one family entry",
+        "cache control: route-table classification lets no express listener claim a route-table path ahead of the catch-all",
+        "cache control: route-table classification names no family that the route tables do not register"
       ],
       "266000ecc0feeffe": [
         "/{COIN}/prices list row [REGRESSION] describes a validator batch instead of rendering an empty row",
@@ -4351,6 +4367,18 @@
         "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity filters both the latest-seq lookup and the pin to the checkpoint-bearing versions",
         "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity pins the anchor leg to one row, so the joinless count still counts one row per height",
         "Database#getCommitments when a v0 section and a v1 archive head share one checkpoint identity ranks checkpoint sections before archive heads, then newest, then section_index"
+      ],
+      "365e6eb3af36f30f": [
+        "plan guard allowlist: parsing reads keys and reasons, skipping comments and blank lines",
+        "plan guard allowlist: parsing refuses a line without a reason, a short key and a repeated key",
+        "plan guard allowlist: parsing ships a well-formed allowlist file",
+        "plan guard allowlist: the ratchet names a new offender with a copy-ready line",
+        "plan guard allowlist: the ratchet names an entry that stopped offending as stale",
+        "plan guard allowlist: the ratchet rewrites the list from the run, keeping the reasons already written",
+        "plan guard probes probes every declared filter plus all, and bare routes as all",
+        "plan guard probes tags the row and count statements of a getQuery triple",
+        "plan guard seed builds one INSERT IGNORE from the sequence, skipping generated columns",
+        "plan guard seed fills numbers, strings and times from the row number and leaves enums to their default"
       ],
       "36a8962bc0ef6ca8": [
         "explorer mount limiters action-proof calls limitedHandler exactly once for its name",
@@ -5335,6 +5363,12 @@
         "hub mirror selector network defaults expands the default testnet seeds",
         "hub mirror selector network defaults refuses default seeds for regtest",
         "hub mirror selector randomness passes the injected randomInt to the selector shuffle"
+      ],
+      "507e386ceeabdbcc": [
+        "page asset groups: every reachable global is loaded loads the policy scripts on every page",
+        "page asset groups: every reachable global is loaded loads, on each page, every script that page can reach",
+        "page asset groups: every reachable global is loaded resolves every global each page reads to some script",
+        "page asset groups: every reachable global is loaded sees through the scan: dropping a needed group is caught"
       ],
       "5284c2c92b0f568a": [
         "db.getActionsSince destinations (M1.4) QUARANTINES only the missing family, so the next poll is back to one query",
@@ -7200,6 +7234,50 @@
         "dispenser page wiring renders no fabricated balances, prices or token names",
         "dispenser page wiring renders the address it was asked about"
       ],
+      "8ed41781f596e1d7": [
+        "page asset groups: what each page is sent 404.html",
+        "page asset groups: what each page is sent about.html",
+        "page asset groups: what each page is sent action.html",
+        "page asset groups: what each page is sent address.html",
+        "page asset groups: what each page is sent addresses.html",
+        "page asset groups: what each page is sent anchor.html",
+        "page asset groups: what each page is sent api.html",
+        "page asset groups: what each page is sent attestation.html",
+        "page asset groups: what each page is sent bet_feed.html",
+        "page asset groups: what each page is sent bet_feeds.html",
+        "page asset groups: what each page is sent block.html",
+        "page asset groups: what each page is sent capability_snapshots.html",
+        "page asset groups: what each page is sent checkpoint.html",
+        "page asset groups: what each page is sent checkpoints.html",
+        "page asset groups: what each page is sent coin_home.html",
+        "page asset groups: what each page is sent coin_unavailable.html",
+        "page asset groups: what each page is sent collectibles.html",
+        "page asset groups: what each page is sent contract.html",
+        "page asset groups: what each page is sent dispenser.html",
+        "page asset groups: what each page is sent execution.html",
+        "page asset groups: what each page is sent fees.html",
+        "page asset groups: what each page is sent governance.html",
+        "page asset groups: what each page is sent home.html",
+        "page asset groups: what each page is sent keeps the heavy libraries off the pages that never call them",
+        "page asset groups: what each page is sent market.html",
+        "page asset groups: what each page is sent mempool.html",
+        "page asset groups: what each page is sent oracle.html",
+        "page asset groups: what each page is sent pins every page fragment",
+        "page asset groups: what each page is sent poll.html",
+        "page asset groups: what each page is sent polls.html",
+        "page asset groups: what each page is sent privacy.html",
+        "page asset groups: what each page is sent rich_list.html",
+        "page asset groups: what each page is sent search.html",
+        "page asset groups: what each page is sent sends every list page the same assets",
+        "page asset groups: what each page is sent slash_proposals.html",
+        "page asset groups: what each page is sent terms.html",
+        "page asset groups: what each page is sent token.html",
+        "page asset groups: what each page is sent transaction.html",
+        "page asset groups: what each page is sent validator.html",
+        "page asset groups: what each page is sent validators.html",
+        "page asset groups: what each page is sent vote_delegations.html",
+        "page asset groups: what each page is sent xcall.html"
+      ],
       "8f07c8b4794b7a91": [
         "BET websocket frame keys emits exactly the seven documented data keys on a BET",
         "BET websocket frame keys keeps all seven keys when the parent lookup fails and the format is absent"
@@ -8076,6 +8154,22 @@
         "BET feed reads apply the bet_edits list overlay getBetFeeds selects the created lists on a replica without bet_edits",
         "BET feed reads apply the bet_edits list overlay getBetFeeds selects the overlaid lists but leaves the count query plain"
       ],
+      "a1a5502637f8668d": [
+        "plan guard verdict: alias mapping keeps every table an alias stands for when a statement reuses it",
+        "plan guard verdict: alias mapping maps aliases, bare tables and schema-qualified tables to base names",
+        "plan guard verdict: counts and unjudgeable plans flags a dependent subquery on a large table inside a count",
+        "plan guard verdict: counts and unjudgeable plans lets the same dependent subquery pass in a LIMIT-bounded row query",
+        "plan guard verdict: counts and unjudgeable plans reports a plan settled from const tables instead of passing it",
+        "plan guard verdict: keys and reasons derives a reason from the plan evidence",
+        "plan guard verdict: keys and reasons keys a finding by method, filter, kind, table and finding",
+        "plan guard verdict: scans flags a filtered request that walks the driving table in order",
+        "plan guard verdict: scans flags a scan inside a derived block even when the outer query has a LIMIT",
+        "plan guard verdict: scans flags an index scan that feeds a filesort",
+        "plan guard verdict: scans flags an unfiltered count as a scan of its driving table",
+        "plan guard verdict: scans ignores scans of tables that are small in production",
+        "plan guard verdict: scans passes an ordered PRIMARY walk cut by LIMIT on the outer driving table",
+        "plan guard verdict: scans passes the same ordered walk when the request is unfiltered"
+      ],
       "a1ccbb8b747aa17a": [
         "rich list and supply stats (M5.2) holder ranking escapes a hostile address instead of executing it",
         "rich list and supply stats (M5.2) holder ranking keeps a page-2 rank instead of renumbering from 1",
@@ -8250,6 +8344,18 @@
         "ChangeDetector start() / stop() is idempotent when already running",
         "ChangeDetector start() / stop() preserves existing coin state across a restart",
         "ChangeDetector start() / stop() seeds per-coin state, polls immediately, and schedules the interval"
+      ],
+      "a76b70ddd521cdcc": [
+        "page asset groups: the page as sent emits assets in template order",
+        "page asset groups: the page as sent leaves the theme stylesheet link byte-identical, so the theme resolver still finds it",
+        "page asset groups: the page as sent versions every emitted script and stylesheet the way it did before",
+        "page asset groups: the selector defers every script but the blocking chain, a fragment's own scripts included",
+        "page asset groups: the selector drops the grouped assets a page does not load, line and all",
+        "page asset groups: the table declares groups for every page fragment, and only groups that exist",
+        "page asset groups: the table follows requires, and always includes core",
+        "page asset groups: the table gives a page with no entry every group, so it can only lose speed",
+        "page asset groups: the table keeps the blocking scripts in core and in template order",
+        "page asset groups: the table puts every template asset in exactly one group, and names nothing the template lacks"
       ],
       "a76ec0bdf3924d67": [
         "local gate registry rows refuses to register any local row twice",
@@ -9116,6 +9222,20 @@
       ],
       "ce6fead93e1597e8": [
         "DISPENSE action detail dispenser pointer returns dispenser 479 for DISPENSE action 480"
+      ],
+      "cf937012411274f7": [
+        "cache control: mount order mounts the stamp in createApp before every guard that can refuse",
+        "cache control: scope leaves pages, static files and the docs page outside the API classes",
+        "cache control: scope makes an API path no table names no-store",
+        "cache control: scope makes every non-GET request no-store, wherever it lands",
+        "cache control: scope makes the relay no-store under its mount",
+        "cache control: scope matches the namespace and family case-insensitively",
+        "cache control: status rules keeps the class on a 304 so revalidation does not evict the stored copy",
+        "cache control: status rules leaves a success outside the API exactly as its handler set it",
+        "cache control: status rules stamps no-store on a redirect inside the API and leaves one outside alone",
+        "cache control: status rules stamps no-store on every error, whatever the class or a handler set",
+        "cache control: status rules stamps no-store without Vary on a no-store success",
+        "cache control: status rules varies a shared-cacheable answer on Origin and Accept-Encoding"
       ],
       "d08e49017df36523": [
         "consensus-primitive conformance: activation predicate vectors @regression every group this repo runs is a non-empty list",
@@ -10926,6 +11046,20 @@
         "Broadcaster mempool fan-out resolves addresses byte-exactly delivers a compacted ^<id> destination to the address itself",
         "Broadcaster mempool fan-out resolves addresses byte-exactly never reaches for the case-insensitive resolver"
       ],
+      "f761c855dcd23cf7": [
+        "cache control: error answers through the real app never caches a bridge route that cannot reach its source",
+        "cache control: error answers through the real app never caches a database failure on a cacheable route",
+        "cache control: error answers through the real app never caches a rate-limit refusal answered before any route",
+        "cache control: error answers through the real app never caches an error page outside the API either",
+        "cache control: error answers through the real app never caches the JSON 404 for an unmatched API path",
+        "cache control: successful answers that are never cached caches a pre-wildcard listener by its own entry, not its family",
+        "cache control: successful answers that are never cached never caches a fee quote, even a successful one",
+        "cache control: successful answers that are never cached never caches the mempool",
+        "cache control: successful answers through the real app caches a table route briefly and varies it on Origin",
+        "cache control: successful answers through the real app caches an explorer feed with the same tip class",
+        "cache control: successful answers through the real app serves the OpenAPI document with the document class, on a 304 too",
+        "cache control: successful answers through the real app varies on Origin when an allowlist refuses the caller and CORS adds no header"
+      ],
       "f81f741af76d25ba": [
         "settlement-anchor action detail handlers @regression LIST_SHARE reads the list snapshot, not the policy one",
         "settlement-anchor action detail handlers @regression XPOLICY reads the settlement by its own index, then the policy snapshot by transfer_id",
@@ -11036,6 +11170,11 @@
         "attestBatchColumnsPresent does not cache a failed probe as absence, so the next request probes again",
         "attestBatchColumnsPresent warns about failed probes at most once per TTL"
       ],
+      "fce94108f48fa1fe": [
+        "Rocket Loader opt-out leaves a tag that already names data-cfasync and anything that is not a script tag",
+        "Rocket Loader opt-out marks external, deferred and inline script tags",
+        "Rocket Loader opt-out reaches every script tag on a rendered list page and a rendered detail page"
+      ],
       "fe1d2bee2fe9022b": [
         "collectibles gallery (M5.1) classification drops a DIVISIBLE token the server should never have served",
         "collectibles gallery (M5.1) classification drops an indivisible token whose ceiling is NOT locked",
@@ -11131,8 +11270,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 385,
-        "titleCount": 6900,
+        "fileCount": 395,
+        "titleCount": 7019,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11185,6 +11324,8 @@
           "test/unit/config/resolve_coins.test.js": "bdab718683313f36",
           "test/unit/config/validate.test.js": "39d38d610943e3e4",
           "test/unit/conformance/dashboard_manifest_support.test.js": "3859c1b638eaebc0",
+          "test/unit/conformance/plan_guard_allowlist.test.js": "365e6eb3af36f30f",
+          "test/unit/conformance/plan_guard_verdict.test.js": "a1a5502637f8668d",
           "test/unit/connectors/hub_config_hostile_keys.test.js": "cc51e1570a0be666",
           "test/unit/connectors/hub_connector.test.js": "dc67240bee778f9f",
           "test/unit/connectors/hub_consensus_hash.test.js": "acafd7633f12616b",
@@ -11421,6 +11562,9 @@
           "test/unit/federation/federation_public_reads.test.js": "fb661a3bc9b784fa",
           "test/unit/federation/price_batches.test.js": "39b81da21d0230a3",
           "test/unit/helpers/source_slice.test.js": "4b7b0941e0e9456b",
+          "test/unit/http/cache_control/cache_control_requests.test.js": "f761c855dcd23cf7",
+          "test/unit/http/cache_control/cache_control_routes.test.js": "250861b21b9e6338",
+          "test/unit/http/cache_control/cache_control_stamp.test.js": "cf937012411274f7",
           "test/unit/http/compression.test.js": "24c2ed622aad4c9d",
           "test/unit/http/contract_state_proof.test.js": "09a5bd038de2012d",
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
@@ -11480,7 +11624,12 @@
           "test/unit/render/asset_version.test.js": "88587be102882ad9",
           "test/unit/render/html_templates_exist.test.js": "4bb485c7d8e7ff43",
           "test/unit/render/list_page_composition.test.js": "19b278e7eb66d5bf",
+          "test/unit/render/page_assets/page_asset_globals.test.js": "507e386ceeabdbcc",
+          "test/unit/render/page_assets/page_asset_order.test.js": "1a6a8f027010b9f2",
+          "test/unit/render/page_assets/page_asset_sets.test.js": "8ed41781f596e1d7",
+          "test/unit/render/page_assets/page_assets.test.js": "a76b70ddd521cdcc",
           "test/unit/render/platform_links.test.js": "ad6f9701f490c718",
+          "test/unit/render/rocket_loader_optout.test.js": "fce94108f48fa1fe",
           "test/unit/repo/coverage_thresholds_sync.test.js": "3dab76fc6e7219a0",
           "test/unit/repo/engines_node_ceiling.test.js": "67835353c924205c",
           "test/unit/repo/fixture_ports.test.js": "dc378898866ff01a",

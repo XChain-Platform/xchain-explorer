@@ -74,19 +74,9 @@ function blockActionCountSql(db, blockIndexes){
     return [query, args];
 }
 
-// Turns the rows of a block-list page into the shape the feed serves, with each
-// block's per-action-type counts folded in. A block with no actions keeps the empty
-// `actions` object it was seeded with, so a quiet block still renders as a row.
-async function attachBlockActionCounts(db, config, rows){
-    let blockIndexes = rows.map(r => r.block_index);
-    let blockMap = {};
-    for(let row of rows){
-        blockMap[row.block_index] = {
-            block_index: row.block_index,
-            timestamp: row.block_time,
-            actions: {}
-        };
-    }
+// Reads the per-action-type counts for the given blocks into blockMap: the action
+// table UNION, then the LIST renames carried as format 5 list_metas rows.
+async function readBlockActionCounts(db, config, blockMap, blockIndexes){
     let [query2, blockArgs] = blockActionCountSql(db, blockIndexes);
     let results2 = await db.doQuery(config, query2, blockArgs);
     if(results2 && results2.length){
@@ -118,6 +108,46 @@ async function attachBlockActionCounts(db, config, rows){
             let bIdx = Number(row.block_index);
             if(blockMap[bIdx])
                 blockMap[bIdx].actions.lists = Number(blockMap[bIdx].actions.lists || 0) + Number(row.count);
+        }
+    }
+}
+
+// The height below which a block's counts may be cached, or null to cache nothing.
+// Rows for the indexed tip can still be landing, so only a block with a later block
+// indexed above it is final. The tip comes from the same probe that keys the result
+// cache; a failed probe or an empty chain answers null.
+async function cacheableBelow(db, config){
+    const tip = await db.resultCacheGeneration(config);
+    return (tip !== null && /^[0-9]+$/.test(tip)) ? Number(tip) : null;
+}
+
+// Turns the rows of a block-list page into the shape the feed serves, with each
+// block's per-action-type counts folded in. A block with no actions keeps the empty
+// `actions` object it was seeded with, so a quiet block still renders as a row.
+//
+// Counts come from _blockCountsCache where held, and only the blocks it misses go
+// into the count queries. The keys are taken before any query runs, so a reorg
+// generation bump during the read files the new entries under the retired
+// generation, where nothing reads them. A failed read throws before any write.
+async function attachBlockActionCounts(db, config, rows){
+    let blockMap = {};
+    let keys     = {};
+    let misses   = [];
+    for(let row of rows){
+        blockMap[row.block_index] = { block_index: row.block_index, timestamp: row.block_time, actions: {} };
+        keys[row.block_index] = db.cacheKey(config.coin, 'block_counts:' + row.block_index);
+        const held = db.cacheGet(db._blockCountsCache, keys[row.block_index]);
+        if(held === undefined) misses.push(row.block_index);
+        else blockMap[row.block_index].actions = structuredClone(held);
+    }
+    if(misses.length){
+        const below = await cacheableBelow(db, config);
+        await readBlockActionCounts(db, config, blockMap, misses);
+        if(below !== null){
+            for(let bIdx of misses){
+                if(Number(bIdx) < below)
+                    db.cacheSet(db._blockCountsCache, keys[bIdx], structuredClone(blockMap[bIdx].actions), db._blockCountsCacheMax);
+            }
         }
     }
     return rows.map(r => blockMap[r.block_index]);

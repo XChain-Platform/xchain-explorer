@@ -126,6 +126,11 @@ class Database {
         // the sha256 we compute from the code itself (two deploys of identical
         // source share one entry; the stored code_hash column is unverified).
         this._methodsCache    = new Map();
+        // Per-block action counts for the blocks list (readers/entities/blocks.js),
+        // keyed through cacheKey so a reorg generation bump retires them. A block's
+        // counts are fixed once a later block is indexed above it.
+        this._blockCountsCache    = new Map();
+        this._blockCountsCacheMax = 5000;
 
         // Fresh copies of the two method tables (src/db/method_tables.js), so each
         // instance owns its own arrays and a push onto one never reaches another.

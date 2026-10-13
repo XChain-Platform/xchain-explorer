@@ -129,6 +129,10 @@ describe('blocks list per-block action count cache', function(){
             'the tip block was served from the cache while its rows may still be landing');
     });
 
+});
+
+describe('blocks list per-block action count cache (continued)', function(){
+
     it('caches nothing when the tip probe fails or the chain is empty', async function(){
         for(const tip of [null, undefined]){
             const db = makeDb({ tip, page: [12, 11, 10] });

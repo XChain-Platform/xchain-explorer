@@ -127,6 +127,10 @@ describe('API listeners: EXPLORER_BIND_HOST', function(){
         });
     });
 
+});
+
+describe('API listeners: EXPLORER_BIND_HOST (continued)', function(){
+
     describe('startTlsListener()', function(){
 
         it('binds the host it is given', async function(){

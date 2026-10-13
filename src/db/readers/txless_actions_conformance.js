@@ -32,6 +32,7 @@ const TX_ACTION  = 900;
 const EMIT_SEND  = 901;
 const EMIT_BURN  = 902;
 const EMITTER    = 'C:BTC:txless-emitter';
+const DATABASE_MODULE = '../index.js';
 
 let adminPool;
 let db;
@@ -114,37 +115,40 @@ function sends(search, type, transport, query, offset){
     }));
 }
 
+async function setupConformance(){
+    const Database = require(DATABASE_MODULE);
+    adminPool = mariadb.createPool({
+        ...connection,
+        multipleStatements: true,
+        connectionLimit: 4,
+        connectTimeout: 4000
+    });
+    await adminQuery('SELECT 1');
+    await loadSchema();
+    schemaLoaded = true;
+    await seed();
+    db = makeDb(Database);
+    await db.init();
+}
+
+async function teardownConformance(){
+    if(db && db.pools){
+        for(const key in db.pools){
+            const pool = db.pools[key] && db.pools[key].pool;
+            if(pool && typeof pool.end === 'function') await pool.end();
+        }
+    }
+    if(adminPool){
+        if(schemaLoaded) await adminQuery('DROP DATABASE IF EXISTS `' + DATABASE + '`');
+        await adminPool.end();
+    }
+}
+
 describe('contract-emittable reader conformance over transactionless rows', function () {
     this.timeout(120000);
 
-    before(async function () {
-        const Database = require('../index.js');
-        adminPool = mariadb.createPool({
-            ...connection,
-            multipleStatements: true,
-            connectionLimit: 4,
-            connectTimeout: 4000
-        });
-        await adminQuery('SELECT 1');
-        await loadSchema();
-        schemaLoaded = true;
-        await seed();
-        db = makeDb(Database);
-        await db.init();
-    });
-
-    after(async function () {
-        if(db && db.pools){
-            for(const key in db.pools){
-                const pool = db.pools[key] && db.pools[key].pool;
-                if(pool && typeof pool.end === 'function') await pool.end();
-            }
-        }
-        if(adminPool){
-            if(schemaLoaded) await adminQuery('DROP DATABASE IF EXISTS `' + DATABASE + '`');
-            await adminPool.end();
-        }
-    });
+    before(setupConformance);
+    after(teardownConformance);
 
     it('lists the emitted row and includes it in the total', async function () {
         const [rows, total] = await sends();

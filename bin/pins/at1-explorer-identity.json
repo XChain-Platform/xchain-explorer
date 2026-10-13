@@ -2824,6 +2824,16 @@
         "broadcaster coin map contains exactly the supported coin keys",
         "broadcaster coin map maps each coin key to its chain and network"
       ],
+      "08236356a08c7d82": [
+        "blocks list per-block action count cache caches nothing when the tip probe fails or the chain is empty",
+        "blocks list per-block action count cache counts only the blocks the cache misses",
+        "blocks list per-block action count cache evicts the oldest block past the size cap",
+        "blocks list per-block action count cache hands out copies, so a caller edit never reaches the cache",
+        "blocks list per-block action count cache misses every entry after a reorg generation bump",
+        "blocks list per-block action count cache never caches a failed read",
+        "blocks list per-block action count cache never caches the indexed tip block",
+        "blocks list per-block action count cache serves the same feed rows from the cache as from the count queries"
+      ],
       "0826667f38c148d2": [
         "explorer paging boundaries take the same indexed predicates filters a block boundary on the action block, and the blocks listing on b1",
         "explorer paging boundaries take the same indexed predicates filters a single-party address boundary on the action source, binding the id twice",
@@ -6139,6 +6149,18 @@
         "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys on the edge when Apache appended the edge address",
         "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys on the visitor when mod_remoteip resolved CF-Connecting-IP",
         "Security: Proxy spoofing: req.ip through Cloudflare and Apache never reads CF-Connecting-IP itself"
+      ],
+      "61297313782c996a": [
+        "API listeners: EXPLORER_BIND_HOST resolveBindHost() defaults to the literal loopback address",
+        "API listeners: EXPLORER_BIND_HOST resolveBindHost() passes an explicit host through",
+        "API listeners: EXPLORER_BIND_HOST resolveBindHost() treats an empty or blank value as unset, never as every interface",
+        "API listeners: EXPLORER_BIND_HOST startHttpListener() binds the host it is given and publishes the server for the drain",
+        "API listeners: EXPLORER_BIND_HOST startHttpListener() on the default host, refuses a peer that reaches this machine on a non-loopback interface",
+        "API listeners: EXPLORER_BIND_HOST startTlsListener() binds the host it is given",
+        "API listeners: EXPLORER_BIND_HOST startTlsListener() starts nothing without SSL config",
+        "API listeners: EXPLORER_BIND_HOST wiring src/api.js hands that host to both listeners",
+        "API listeners: EXPLORER_BIND_HOST wiring src/api.js resolves the host through the config env view",
+        "API listeners: EXPLORER_BIND_HOST wiring the Docker image widens the bind so its published port reaches the server"
       ],
       "612f83af8994b9ac": [
         "transaction page: an empty action list renders instead of throwing [REGRESSION] showActionDatatable clears the placeholder row when there are no actions",
@@ -11476,8 +11498,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 408,
-        "titleCount": 7199,
+        "fileCount": 410,
+        "titleCount": 7217,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11713,6 +11735,7 @@
           "test/unit/db/readers/bets/db_bet_leg_status.test.js": "82bf43fea502fa27",
           "test/unit/db/readers/bridge_panels.test.js": "4572f66ebe0af844",
           "test/unit/db/readers/db_attest_batch_probe.test.js": "fce077957ca91145",
+          "test/unit/db/readers/db_block_counts_cache.test.js": "08236356a08c7d82",
           "test/unit/db/readers/db_checkpoint_hub_url_invariant.test.js": "296dd0840e4efd5d",
           "test/unit/db/readers/db_coin_price_usd.test.js": "6b3ae77833b6e51f",
           "test/unit/db/readers/db_contract_meta.test.js": "da4e55b1318bd44f",
@@ -11780,6 +11803,7 @@
           "test/unit/federation/federation_public_reads.test.js": "fb661a3bc9b784fa",
           "test/unit/federation/price_batches.test.js": "39b81da21d0230a3",
           "test/unit/helpers/source_slice.test.js": "4b7b0941e0e9456b",
+          "test/unit/http/api_boot/listen_host.test.js": "61297313782c996a",
           "test/unit/http/cache_control/cache_control_requests.test.js": "f761c855dcd23cf7",
           "test/unit/http/cache_control/cache_control_routes.test.js": "250861b21b9e6338",
           "test/unit/http/cache_control/cache_control_stamp.test.js": "cf937012411274f7",

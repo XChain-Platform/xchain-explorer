@@ -3100,6 +3100,9 @@
       "12b0ffb05d87eed8": [
         "getActionLedgerTicks against the REAL indexer DDL names the ticks each action credited, debited or escrowed"
       ],
+      "1350bbd1148fa068": [
+        "HTTP CORS rate-limit headers exposes rate-limit headers on normal and rate-limited responses"
+      ],
       "13dfdbaefb6250f2": [
         "Security: bundled sibling lockfile snapshots @regression @tier4 SNAP-1: package.json still declares the bundled siblings as local paths",
         "Security: bundled sibling lockfile snapshots @regression @tier4 SNAP-2: the lockfile snapshot of xchain-vm records the version the sibling carries",
@@ -11411,8 +11414,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 404,
-        "titleCount": 7142,
+        "fileCount": 405,
+        "titleCount": 7143,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11717,6 +11720,7 @@
           "test/unit/http/cache_control/cache_control_stamp.test.js": "cf937012411274f7",
           "test/unit/http/compression.test.js": "24c2ed622aad4c9d",
           "test/unit/http/contract_state_proof.test.js": "09a5bd038de2012d",
+          "test/unit/http/cors_rate_limit_headers.test.js": "1350bbd1148fa068",
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
           "test/unit/http/feequote_route.test.js": "7138f42fd5de3a0b",
           "test/unit/http/jsonrpc_batch_cap.test.js": "499b1161f24ec495",

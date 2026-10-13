@@ -48,7 +48,7 @@ const { ACTION_CLAUSE_BUILDERS, genericClause } = require('./where_action_clause
 const { MIRROR_CLAUSE_BUILDERS } = require('./where_mirror_clauses.js');
 const { PROTOCOL_CLAUSE_BUILDERS } = require('./where_protocol_clauses.js');
 const { VOTE_CLAUSE_BUILDERS } = require('./where_vote_clauses.js');
-const { bindActionSource } = require('./where_source_lanes.js');
+const { markActionSource } = require('./where_source_lanes.js');
 
 // One lookup over the family tables. Built once at require time, and by
 // Object.assign rather than by repeated lookups, so a method that two
@@ -92,7 +92,7 @@ function whereSql(db, config){
 class QueryWhereClauses {
     async getQueryWhereSql(config){
         let sql = whereSql(this, config);
-        await bindActionSource(this, config, sql);
+        markActionSource(config, sql);
         return sql;
     }
 }

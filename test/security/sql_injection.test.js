@@ -208,7 +208,9 @@ describe('Security: SQL Injection: WHERE clause parameterization', function () {
             }
         });
         const sql = await db.getQueryWhereSql(config);
-        expect(sql).to.include('a2.address=?');
+        // getAddresses takes the indexed source lane: the address is resolved
+        // to an id through a bound lookup and both predicates bind that id.
+        expect(sql).to.include('(a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
         expect(sql).to.not.include('DROP');
     });
 

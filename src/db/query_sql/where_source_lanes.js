@@ -98,20 +98,36 @@ function blockClause(config){
 }
 
 // The binds follow the predicate text, so a builder that did not emit it never
-// leaves a second bind behind. The address is resolved once here and both
-// placeholders take its id; an unknown address binds NULL, which matches no
-// row, so the list and its count answer empty rather than failing.
-async function bindActionSource(db, config, sql){
+// leaves a second bind behind. Building the SQL only records the address to
+// resolve; resolveActionSource looks it up once when the query runs, so a
+// caller that only builds SQL needs no database. An unknown address binds NULL,
+// which matches no row, so the list and its count answer empty rather than
+// failing.
+function markActionSource(config, sql){
     let where = config.data.sql && config.data.sql.where;
     if(!where)
         return;
     delete where.dataArgs;
-    if(!String(sql).includes(ACTION_SOURCE_SQL))
+    delete where.actionSourceAddress;
+    if(String(sql).includes(ACTION_SOURCE_SQL))
+        where.actionSourceAddress = config.data.search;
+}
+
+async function resolveActionSource(db, config){
+    let where = config.data.sql && config.data.sql.where;
+    if(!where || !Object.prototype.hasOwnProperty.call(where, 'actionSourceAddress'))
         return;
-    let rows = await db.doQuery(config, ADDRESS_ID_SQL, [config.data.search]);
+    let rows = await db.doQuery(config, ADDRESS_ID_SQL, [where.actionSourceAddress]);
     let id   = (rows && rows.length) ? Number(rows[0].id) : null;
+    delete where.actionSourceAddress;
     where.dataArgs = [id, id];
 }
 
+// Marks and resolves in one step, for a caller that builds and runs at once.
+async function bindActionSource(db, config, sql){
+    markActionSource(config, sql);
+    await resolveActionSource(db, config);
+}
+
 module.exports = { ACTION_SOURCE_METHODS, TWO_PARTY_ADDRESS_METHODS, ACTION_BLOCK_METHODS,
-    ACTION_SOURCE_SQL, usesActionSource, sourceAddressClause, blockClause, bindActionSource };
+    ACTION_SOURCE_SQL, usesActionSource, sourceAddressClause, blockClause, markActionSource, resolveActionSource, bindActionSource };

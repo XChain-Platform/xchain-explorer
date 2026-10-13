@@ -188,6 +188,7 @@ describe('indexed lanes bind exactly their placeholders', function () {
         for (const [method, type] of PAIRS) {
             const built = await build(db, method, type);
             if (!built.where.includes(lanes.ACTION_SOURCE_SQL)) continue;
+            await lanes.resolveActionSource(db, built.config);
             const bound = listQueryArgs(db, built.config, built.args);
             expect(bound, method).to.deep.equal([ADDRESS_ID, ADDRESS_ID]);
             for (const sql of readerSql(built))

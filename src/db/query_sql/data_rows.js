@@ -28,6 +28,7 @@
 'use strict';
 
 const { countTotal } = require('./data_totals.js');
+const { resolveActionSource } = require('./where_source_lanes.js');  // the indexed source lane's address id, looked up at run time
 
 // Align the data-WHERE bind args with their placeholders. getQueryWhereSql only
 // adds a data-WHERE placeholder when a TYPE (address/token/block/...) is set, so a
@@ -72,6 +73,7 @@ function listQueryArgs(db, config, args){
 async function runListQuery(db, config, query, args, count){
     let data  = [];
     let total = null;
+    await resolveActionSource(db, config);
     let baseArgs   = listQueryArgs(db, config, args);
     let queryArgs  = [...baseArgs];
     let offsetArgs = config.data.sql.where.offsetArgs;

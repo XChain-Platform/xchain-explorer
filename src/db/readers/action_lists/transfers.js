@@ -205,7 +205,7 @@ class TransferReaders { async getLists(config){ let out=await buildListsQuery(th
      * /{COIN}/api/fees/{QUERY}/{TYPE}               getFees             block, address, token, source, destination
      * /{COIN}/api/files/{QUERY}/{TYPE}              getFiles            block, address, token, name, gate
      * /{COIN}/api/issues/{QUERY}/{TYPE}             getIssues           block, address, token
-     * /{COIN}/api/links/{QUERY}/{TYPE}              getLinks            block, address
+     * /{COIN}/api/links/{QUERY}/{TYPE}              getLinks            block, address, token
      * /{COIN}/api/lists/{QUERY}/{TYPE}              getLists            block, address
      * /{COIN}/api/messages/{QUERY}/{TYPE}           getMessages         block, address, token, source, destination
      * /{COIN}/api/mints/{QUERY}/{TYPE}              getMints            block, address, token, source, destination
@@ -213,14 +213,14 @@ class TransferReaders { async getLists(config){ let out=await buildListsQuery(th
      * /{COIN}/api/order_cancels/{QUERY}/{TYPE}      getOrderCancels     block, address
      * /{COIN}/api/order_edits/{QUERY}/{TYPE}        getOrderEdits       block, address
      * /{COIN}/api/order_expires/{QUERY}/{TYPE}      getOrderExpires     block, address
-     * /{COIN}/api/order_matches/{QUERY}/{TYPE}      getOrderMatches     block 
+     * /{COIN}/api/order_matches/{QUERY}/{TYPE}      getOrderMatches     block, address, token
      * /{COIN}/api/sends/{QUERY}/{TYPE}              getSends            block, address, token, source, destination
      * /{COIN}/api/sleeps/{QUERY}/{TYPE}             getSleeps           block, address, token
      * /{COIN}/api/swaps/{QUERY}/{TYPE}              getSwaps            block, address, token
      * /{COIN}/api/swap_cancels/{QUERY}/{TYPE}       getSwapCancels      block, address
      * /{COIN}/api/swap_edits/{QUERY}/{TYPE}         getSwapEdits        block, address
      * /{COIN}/api/swap_expires/{QUERY}/{TYPE}       getSwapExpires      block, address
-     * /{COIN}/api/swap_matches/{QUERY}/{TYPE}       getSwapMatches      block 
+     * /{COIN}/api/swap_matches/{QUERY}/{TYPE}       getSwapMatches      block, address, token
      * /{COIN}/api/sweeps/{QUERY}/{TYPE}             getSweeps           block, address
      ******************************************************************/
 

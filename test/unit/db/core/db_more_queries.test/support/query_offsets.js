@@ -59,6 +59,40 @@ const {
     stubForType,
     qoCfg
 } = require('./helpers.js');
+const {
+    addressBoundaryWhere,
+    tokenBoundaryWhere
+} = require('../../../../../../src/db/query_sql/offset_boundaries.js');
+
+describe('match and LINK paging boundaries', () => {
+    it('uses indexed UNION lookups for both match participants', () => {
+        const order = addressBoundaryWhere('getOrderMatches', 7);
+        const swap = addressBoundaryWhere('getSwapMatches', 7);
+
+        expect(order.where).to.include('om.give_action_index=o.action_index');
+        expect(order.where).to.include(' UNION\n');
+        expect(order.where).to.include('om.get_action_index=o.action_index');
+        expect(order.whereArgs).to.deep.equal([7, 7]);
+        expect(swap.where).to.include('sm.give_action_index=s.action_index');
+        expect(swap.where).to.include(' UNION\n');
+        expect(swap.where).to.include('sm.get_action_index=s.action_index');
+        expect(swap.whereArgs).to.deep.equal([7, 7]);
+    });
+
+    it('uses indexed UNION lookups for both match token legs and LINK coin legs', () => {
+        for (const [method, first, second] of [
+            ['getOrderMatches', 'give_tick_id', 'get_tick_id'],
+            ['getSwapMatches', 'give_tick_id', 'get_tick_id'],
+            ['getLinks', 'coin1_id', 'coin2_id']
+        ]) {
+            const result = tokenBoundaryWhere(method, 9);
+            expect(result.where).to.include(first + '=?');
+            expect(result.where).to.include(' UNION\n');
+            expect(result.where).to.include(second + '=?');
+            expect(result.whereArgs).to.deep.equal([9, 9]);
+        }
+    });
+});
 
 
 describe('Database#getQueryOffsets', () => {
@@ -172,6 +206,17 @@ describe('Database#getQueryOffsets', () => {
         const config = qoCfg('getOrders', 'token', 'next', 'XCHAIN');
         const result = await db.getQueryOffsets(config, false, 10);
         expect(result).to.be.an('array');
+    });
+
+    it('resolves LINK token paging through the indexed coin dictionary', async () => {
+        sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+            if(q.includes('FROM index_coins')) return [{ id: 3 }];
+            return [];
+        });
+        const config = qoCfg('getLinks', 'token', 'next', 'BTC');
+        const result = await db.getQueryOffsets(config, false, 10);
+        expect(result).to.be.an('array');
+        expect(db.doQuery.firstCall.args[1]).to.include('FROM index_coins');
     });
 });
 

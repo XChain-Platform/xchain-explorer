@@ -32,6 +32,8 @@
 
 'use strict';
 
+const { addressBoundaryWhere, tokenBoundaryWhere } = require('./boundary_filters.js');
+
 // WHICH TABLE getHistory's PAGE BOUNDARY is computed over. This must agree with
 // getHistoryData's own choice, because the number resolved here is the cursor
 // that query then pages on: if the boundary is computed over a narrower set than
@@ -83,7 +85,9 @@ async function boundaryWhere(db, config){
         if(type=='address' || type=='oracle')
             sql = `SELECT id FROM index_addresses WHERE address=? LIMIT 1`;
         if(type=='token')
-            sql = `SELECT id FROM index_tickers WHERE tick=? LIMIT 1`;
+            sql = (method=='getLinks')
+                ? `SELECT id FROM index_coins WHERE coin=? LIMIT 1`
+                : `SELECT id FROM index_tickers WHERE tick=? LIMIT 1`;
         if(sql){
             let rows = await db.doQuery(config, sql, [config.data.search]);
             if(rows.length>0)
@@ -103,57 +107,6 @@ async function boundaryWhere(db, config){
         } else if(type=='token'){
             ({ where, whereArgs } = tokenBoundaryWhere(method, id));
         }
-    }
-    return { where, whereArgs };
-}
-
-// The address lane: which column holds the address depends on what the method lists.
-function addressBoundaryWhere(method, id){
-    let where     = '';
-    let whereArgs = [];
-    if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
-        where = ` AND (COALESCE(a1.source_id, t1.source_id)=? OR m.destination_id=?)`;
-        whereArgs.push(id, id);
-    } else if(['getTokens'].includes(method)){
-        where = ` AND m.owner_id=?`;
-        whereArgs.push(id);
-    } else if(method=='getCoinpayObligations'){
-        where = ` AND (m.payer_address_id=? OR m.payee_address_id=?)`;
-        whereArgs.push(id, id);
-    } else if(['getCredits','getDebits','getEscrows'].includes(method)){
-        where = ` AND m.address_id=?`;
-        whereArgs.push(id);
-    } else if(['getHistory'].includes(method)){
-        where = ` AND m.type_id=2 AND m.id=?`;
-        whereArgs.push(id);
-    } else {
-        // Paging boundaries must filter on the same source the row query joins on
-        // (the ACTION's own source, falling back to the transaction's), or an
-        // emitted action pages differently from how it lists. Every boundary query
-        // below joins `actions a1`, so the alias is always in scope here.
-        where = ` AND COALESCE(a1.source_id, t1.source_id)=?`;
-        whereArgs.push(id);
-    }
-    return { where, whereArgs };
-}
-
-// The token lane: an order/swap pages over either side of the pair, a dispenser
-// over the token it gives out, history and files over the mapping row.
-function tokenBoundaryWhere(method, id){
-    let where     = '';
-    let whereArgs = [];
-    if(['getOrders','getSwaps'].includes(method)){
-        where = ` AND (m.get_tick_id=? OR m.give_tick_id=?)`;
-        whereArgs.push(id, id);
-    } else if(['getDispensers','getDispenses'].includes(method)){
-        where = ` AND m.get_tick_id=?`;
-        whereArgs.push(id);
-    } else if(['getHistory','getFiles'].includes(method)){
-        where = ` AND m.type_id=1 AND m.id=?`;
-        whereArgs.push(id);
-    } else {
-        where = ` AND m.tick_id=?`;
-        whereArgs.push(id);
     }
     return { where, whereArgs };
 }

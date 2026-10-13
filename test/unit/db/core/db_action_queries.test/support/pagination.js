@@ -79,6 +79,27 @@ describe('ACTION query methods: sql.order and sql.limit interpolation', () => {
         const [query] = await db.getIssues(config);
         expect(query).to.include('LIMIT 10');
     });
+
+    for (const [method, type] of [
+        ['getLinks', 'token'],
+        ['getOrderMatches', 'address'],
+        ['getOrderMatches', 'token'],
+        ['getSwapMatches', 'address'],
+        ['getSwapMatches', 'token']
+    ]) {
+        it(`${method} ${type} keeps its UNION filter parameterized and bounded`, async () => {
+            const config = makeActionConfig(method, type);
+            config.data.sql.where.data = await db.getQueryWhereSql(config);
+            const [query, args, count] = await db[method](config);
+
+            expect(query).to.include(' UNION\n');
+            expect(query).to.include('ORDER BY m.action_index DESC');
+            expect(query).to.include('LIMIT 100');
+            expect((query.match(/\?/g) || []).length).to.equal(args.length);
+            expect((count.match(/\?/g) || []).length).to.equal(args.length);
+            expect(query).to.not.include(SEARCH_ADDR);
+        });
+    }
 });
 
 describe('ACTION query methods: sql.where.offset appended to query', () => {

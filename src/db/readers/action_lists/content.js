@@ -210,6 +210,9 @@ class ContentReaders {
 
     async getLinks(config){
         let sql   = config.data.sql;
+        let args  = (config.data.type=='token')
+            ? [config.data.search, config.data.search]
+            : null;
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -255,7 +258,7 @@ class ContentReaders {
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-        return [query, null, count];
+        return [query, args, count];
     }    
 
     async getLists(config){

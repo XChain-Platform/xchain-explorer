@@ -175,6 +175,11 @@ describe('Database#getLinks', () => {
         expect(args).to.be.null;
         expect(count).to.include(WHERE_DATA);
     });
+
+    it('binds the token once for each LINK coin leg', async () => {
+        const [, args] = await db.getLinks(makeActionConfig('getLinks', 'token'));
+        expect(args).to.deep.equal([SEARCH_ADDR, SEARCH_ADDR]);
+    });
 });
 
 describe('Database#getLists', () => {

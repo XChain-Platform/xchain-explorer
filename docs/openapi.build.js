@@ -48,7 +48,7 @@ const ROUTES = [
     // 'name' (by-discovery-name lookup) added alongside block/address/token (M1.7).
     ['/{COIN}/api/files/{QUERY}/{TYPE}', 'getFiles', ['block', 'address', 'token', 'name', 'gate'], 'Files', 'FILE actions, including discovery by gate ticker'],
     ['/{COIN}/api/issues/{QUERY}/{TYPE}', 'getIssues', ['block', 'address', 'token'], 'Tokens', 'ISSUE actions (token issuances)'],
-    ['/{COIN}/api/links/{QUERY}/{TYPE}', 'getLinks', ['block', 'address'], 'Action history', 'LINK actions'],
+    ['/{COIN}/api/links/{QUERY}/{TYPE}', 'getLinks', ['block', 'address', 'token'], 'Action history', 'LINK actions'],
     ['/{COIN}/api/lists/{QUERY}/{TYPE}', 'getLists', ['block', 'address'], 'Action history', 'LIST actions'],
     ['/{COIN}/api/shared_lists', 'getSharedLists', null, 'Action history', 'Shared LIST directory'],
     ['/{COIN}/api/messages/{QUERY}/{TYPE}', 'getMessages', ['block', 'address', 'source', 'destination'], 'Action history', 'MESSAGE actions (encrypted messaging)'],
@@ -57,7 +57,7 @@ const ROUTES = [
     ['/{COIN}/api/order_expires/{QUERY}/{TYPE}', 'getOrderExpires', ['block', 'address'], 'Markets', 'Order expirations'],
     ['/{COIN}/api/order_edits/{QUERY}/{TYPE}', 'getOrderEdits', ['block', 'address'], 'Markets', 'Order edits'],
     ['/{COIN}/api/order_cancels/{QUERY}/{TYPE}', 'getOrderCancels', ['block', 'address'], 'Markets', 'Order cancellations'],
-    ['/{COIN}/api/order_matches/{QUERY}/{TYPE}', 'getOrderMatches', ['block'], 'Markets', 'Order matches (fills), filtered'],
+    ['/{COIN}/api/order_matches/{QUERY}/{TYPE}', 'getOrderMatches', ['block', 'address', 'token'], 'Markets', 'Order matches (fills), filtered'],
     ['/{COIN}/api/order_matches', 'getOrderMatches', null, 'Markets', 'Order matches (fills)'],
     ['/{COIN}/api/coinpays/{QUERY}/{TYPE}', 'getCoinpays', ['block', 'address'], 'Markets', 'COINPAY actions (native-coin payment legs)'],
     ['/{COIN}/api/coinpay_expires/{QUERY}/{TYPE}', 'getCoinpayExpires', ['block', 'address'], 'Markets', 'COINPAY expirations'],
@@ -68,7 +68,7 @@ const ROUTES = [
     ['/{COIN}/api/swap_edits/{QUERY}/{TYPE}', 'getSwapEdits', ['block', 'address'], 'Markets', 'Swap edits'],
     ['/{COIN}/api/swap_expires/{QUERY}/{TYPE}', 'getSwapExpires', ['block', 'address'], 'Markets', 'Swap expirations'],
     ['/{COIN}/api/swap_cancels/{QUERY}/{TYPE}', 'getSwapCancels', ['block', 'address'], 'Markets', 'Swap cancellations'],
-    ['/{COIN}/api/swap_matches/{QUERY}/{TYPE}', 'getSwapMatches', ['block'], 'Markets', 'Swap matches, filtered'],
+    ['/{COIN}/api/swap_matches/{QUERY}/{TYPE}', 'getSwapMatches', ['block', 'address', 'token'], 'Markets', 'Swap matches, filtered'],
     ['/{COIN}/api/swap_matches', 'getSwapMatches', null, 'Markets', 'Swap matches'],
     ['/{COIN}/api/sweeps/{QUERY}/{TYPE}', 'getSweeps', ['block', 'address', 'source', 'destination'], 'Action history', 'SWEEP actions'],
     // ── Prices ────────────────────────────────────────────────────────────
@@ -96,6 +96,7 @@ const ROUTES = [
     // ── Staking ───────────────────────────────────────────────────────────
     ['/{COIN}/api/stakes/{QUERY}/{TYPE}', 'getStakes', ['block', 'address', 'source'], 'Staking', 'Capability stakes, filtered'],
     ['/{COIN}/api/stakes', 'getStakes', null, 'Staking', 'Capability stakes (validator staking)'],
+    ['/{COIN}/api/validators/{QUERY}/{TYPE}', 'getValidators', ['block', 'address'], 'Staking', 'Active validators and their capabilities, filtered'],
     ['/{COIN}/api/validators', 'getValidators', null, 'Staking', 'Active validators and their capabilities'],
     // Compositions, not filters: the list methods above expose only an address type, so
     // neither of these could be assembled by a caller paging the plural routes.

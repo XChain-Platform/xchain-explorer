@@ -52,6 +52,18 @@ describe('genericClause address and block lanes', function(){
         assert.strictEqual(build('getMessages', 'destination'), 'WHERE anchor AND a3.address=?');
         assert.strictEqual(build('getMessages', 'source'), 'WHERE anchor AND a2.address=?');
     });
+
+    it('filters both match participants through indexed UNION lookups', function(){
+        const orderSql = build('getOrderMatches', 'address');
+        const swapSql = build('getSwapMatches', 'address');
+
+        assert.match(orderSql, /FROM orders o\s+INNER JOIN order_matches om ON \(om\.give_action_index=o\.action_index\)/);
+        assert.match(orderSql, /UNION\s+SELECT om\.action_index\s+FROM orders o\s+INNER JOIN order_matches om ON \(om\.get_action_index=o\.action_index\)/);
+        assert.match(swapSql, /FROM swaps s\s+INNER JOIN swap_matches sm ON \(sm\.give_action_index=s\.action_index\)/);
+        assert.match(swapSql, /UNION\s+SELECT sm\.action_index\s+FROM swaps s\s+INNER JOIN swap_matches sm ON \(sm\.get_action_index=s\.action_index\)/);
+        assert.strictEqual((orderSql.match(/\?/g) || []).length, 2);
+        assert.strictEqual((swapSql.match(/\?/g) || []).length, 2);
+    });
 });
 
 describe('genericClause scoped lanes', function(){
@@ -95,6 +107,23 @@ describe('genericClause entity lanes', function(){
     it('uses the file-specific and default token predicates', function(){
         assert.strictEqual(build('getFiles', 'token'), 'WHERE anchor AND m.type_id=1 AND t4.tick=?');
         assert.strictEqual(build('getMessages', 'token'), 'WHERE anchor AND t3.tick=?');
+    });
+
+    it('filters either match token leg through indexed UNION lookups', function(){
+        const orderSql = build('getOrderMatches', 'token');
+        const swapSql = build('getSwapMatches', 'token');
+
+        assert.match(orderSql, /order_matches om\s+WHERE om\.give_tick_id=.*UNION\s+SELECT om\.action_index FROM order_matches om\s+WHERE om\.get_tick_id=/s);
+        assert.match(swapSql, /swap_matches sm\s+WHERE sm\.give_tick_id=.*UNION\s+SELECT sm\.action_index FROM swap_matches sm\s+WHERE sm\.get_tick_id=/s);
+        assert.strictEqual((orderSql.match(/\?/g) || []).length, 2);
+        assert.strictEqual((swapSql.match(/\?/g) || []).length, 2);
+    });
+
+    it('filters either LINK coin leg through indexed UNION lookups', function(){
+        const sql = build('getLinks', 'token');
+
+        assert.match(sql, /links lm\s+WHERE lm\.coin1_id=.*UNION\s+SELECT lm\.action_index FROM links lm\s+WHERE lm\.coin2_id=/s);
+        assert.strictEqual((sql.match(/\?/g) || []).length, 2);
     });
 
     it('limits the gate predicate to files', function(){

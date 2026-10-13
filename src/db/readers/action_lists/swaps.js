@@ -230,6 +230,9 @@ class SwapReaders {
 
     async getSwapMatches(config){
         let sql   = config.data.sql;
+        let args  = (['address','token'].includes(config.data.type))
+            ? [config.data.search, config.data.search]
+            : null;
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -267,7 +270,7 @@ class SwapReaders {
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-         return [query, null, count];
+         return [query, args, count];
     }
 }
 

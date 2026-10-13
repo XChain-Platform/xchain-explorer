@@ -102,6 +102,68 @@ function collectiblesClause(db, config, sql){
     return sql;
 }
 
+function matchAddressClause(method){
+    if(method=='getOrderMatches'){
+        return ` AND m.action_index IN (
+            SELECT om.action_index
+            FROM orders o
+            INNER JOIN order_matches om ON (om.give_action_index=o.action_index)
+            WHERE o.get_address_id=(SELECT id FROM index_addresses WHERE address=?)
+            UNION
+            SELECT om.action_index
+            FROM orders o
+            INNER JOIN order_matches om ON (om.get_action_index=o.action_index)
+            WHERE o.get_address_id=(SELECT id FROM index_addresses WHERE address=?)
+        )`;
+    }
+    if(method=='getSwapMatches'){
+        return ` AND m.action_index IN (
+            SELECT sm.action_index
+            FROM swaps s
+            INNER JOIN swap_matches sm ON (sm.give_action_index=s.action_index)
+            WHERE s.get_address_id=(SELECT id FROM index_addresses WHERE address=?)
+            UNION
+            SELECT sm.action_index
+            FROM swaps s
+            INNER JOIN swap_matches sm ON (sm.get_action_index=s.action_index)
+            WHERE s.get_address_id=(SELECT id FROM index_addresses WHERE address=?)
+        )`;
+    }
+    return '';
+}
+
+function matchTokenClause(method){
+    if(method=='getOrderMatches'){
+        return ` AND m.action_index IN (
+            SELECT om.action_index FROM order_matches om
+            WHERE om.give_tick_id=(SELECT id FROM index_tickers WHERE tick=?)
+            UNION
+            SELECT om.action_index FROM order_matches om
+            WHERE om.get_tick_id=(SELECT id FROM index_tickers WHERE tick=?)
+        )`;
+    }
+    if(method=='getSwapMatches'){
+        return ` AND m.action_index IN (
+            SELECT sm.action_index FROM swap_matches sm
+            WHERE sm.give_tick_id=(SELECT id FROM index_tickers WHERE tick=?)
+            UNION
+            SELECT sm.action_index FROM swap_matches sm
+            WHERE sm.get_tick_id=(SELECT id FROM index_tickers WHERE tick=?)
+        )`;
+    }
+    return '';
+}
+
+function linkTokenClause(){
+    return ` AND m.action_index IN (
+        SELECT lm.action_index FROM links lm
+        WHERE lm.coin1_id=(SELECT id FROM index_coins WHERE coin=?)
+        UNION
+        SELECT lm.action_index FROM links lm
+        WHERE lm.coin2_id=(SELECT id FROM index_coins WHERE coin=?)
+    )`;
+}
+
 // The generic lanes: every list method without a builder of its own (getBlocks
 // excepted, which the entry answers with its anchor alone) narrows by the
 // requested TYPE here.
@@ -109,7 +171,9 @@ function genericClause(db, config, sql){
     let type   = config.data.type;
     let method = config.data.method;
     if(type=='address'){
-        if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
+        if(['getOrderMatches','getSwapMatches'].includes(method)){
+            sql += matchAddressClause(method);
+        } else if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
             sql += ' AND (a2.address=? OR a3.address=?)';
         } else if(method=='getCoinpayObligations'){
             sql += ' AND (a1.address=? OR a2.address=?)';
@@ -178,6 +242,10 @@ function entityClause(db, config, sql){
     if(type=='token'){
         if(method=='getFiles'){
             sql += ' AND m.type_id=1 AND t4.tick=?';
+        } else if(['getOrderMatches','getSwapMatches'].includes(method)){
+            sql += matchTokenClause(method);
+        } else if(method=='getLinks'){
+            sql += linkTokenClause();
         } else {
             sql += ' AND t3.tick=?';
         }

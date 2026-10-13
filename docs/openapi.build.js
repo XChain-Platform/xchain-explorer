@@ -7,9 +7,9 @@
  *
  * Generates docs/openapi.json (OpenAPI 3.1) for the explorer's public REST API.
  *
- * ROUTES below deliberately mirrors the `api` table in src/XChainExplorer.js
- * key-for-key (same path templates, same {TYPE} enums) plus the special
- * pre-wildcard routes registered in setupUrls(). The unit test
+ * ROUTES below mirrors the `api` table in src/XChainExplorer.js, including the
+ * bare list aliases derived by the resolver, plus the special pre-wildcard
+ * routes registered in setupUrls(). The unit test
  * test/unit/http/openapi_coverage.test.js fails if the two drift apart, so edits to
  * either side must land together. The /{COIN}/explorer/* datatable routes are
  * an internal surface for the web UI and are intentionally NOT documented.
@@ -23,6 +23,8 @@
 const fs = require('fs');
 const path = require('path');
 const { COMPONENT_SCHEMAS, responseSchema } = require('./openapi.schemas.js');
+const { api } = require('../src/explorer/routes/api_methods.js');
+const { supportsBareApiList } = require('../src/explorer/request/resolve_route.js');
 
 const COINS = ['BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC', 'DOGE', 'TDOGE', 'RDOGE'];
 
@@ -264,6 +266,17 @@ const ROUTES = [
     ['/{COIN}/api/market/{TICK1}/{TICK2}/orders/{ADDRESS}', 'getMarketOrders', null, 'Markets', 'Open orders for a pair, one address'],
     ['/{COIN}/api/market/{TICK1}/{TICK2}/orderbook', 'getOrderbook', null, 'Markets', 'Aggregated order book for a pair'],
 ];
+
+// Document the three-segment aliases resolved from filtered list declarations.
+// Explicit bare routes already in the table retain their tailored summaries.
+const declaredRoutePaths = new Set(ROUTES.map(route => route[0]));
+for(const route of [...ROUTES]){
+    if(!supportsBareApiList(api[route[0]] || [])) continue;
+    const barePath = route[0].replace('/{QUERY}/{TYPE}', '');
+    if(barePath == route[0] || declaredRoutePaths.has(barePath)) continue;
+    ROUTES.push([barePath, route[1], null, route[3], route[4] + ', unfiltered']);
+    declaredRoutePaths.add(barePath);
+}
 
 // Mirrors MAX_PREFLIGHT_PARAMS_LENGTH in src/XChainExplorer.js, which is the protocol's
 // own action-payload ceiling (ENVELOPE_MAX_PAYLOAD). Declared here rather than required
@@ -507,6 +520,7 @@ const SPECIAL = [
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
             },
             post: {
+                operationId: 'post_coinpay_obligations',
                 requestBody: {
                     required: true,
                     content: {
@@ -660,14 +674,17 @@ const paths = {};
 // passes, for a route whose 200 body the table conventions cannot describe.
 for (const r of ROUTES) paths[r[0]] = operation(r, r[5]);
 for (const [p, tag, summary, description, opts] of SPECIAL) {
-    paths[p] = operation([p, 'special_' + opId(p), null, tag, summary], opts);
+    const specialPath = operation([p, 'special_' + opId(p), null, tag, summary], opts);
+    const tablePath = paths[p];
+    paths[p] = Object.assign({}, tablePath, specialPath);
     // Optional 4th element: prose that does not fit a one-line summary. Added
     // for oraclefeequote, whose entry had been hand-written into the generated
     // file WITH a description the generator could not express, so regenerating
     // silently dropped it. Attached to whichever operation exists: a {noGet} entry
     // (contract-call) has only `post`, everything else here still only has `get`.
     if (description) (paths[p].get || paths[p].post).description = description;
-    paths[p]['x-registered'] = 'express';   // direct app.get()/app.post(), not the urls.api table
+    // A path can combine a route-table GET with a directly registered POST.
+    paths[p]['x-registered'] = tablePath ? 'table+express' : 'express';
 }
 
 const spec = {

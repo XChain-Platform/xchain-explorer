@@ -24,6 +24,8 @@ const { srcText } = require('../../helpers/source_text');
 const fs         = require('fs');
 const path       = require('path');
 const { expect } = require('chai');
+const { api } = require('../../../src/explorer/routes/api_methods.js');
+const { supportsBareApiList } = require('../../../src/explorer/request/resolve_route.js');
 
 const SRC  = srcText('src/XChainExplorer.js');
 const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '../../docs/openapi.json'), 'utf8'));
@@ -32,6 +34,10 @@ const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '../../docs/o
 function sourceApiRoutes() {
     const out = new Set();
     for (const m of SRC.matchAll(/'(\/\{COIN\}\/api\/[^']*)'\s*:/g)) out.add(m[1]);
+    for(const [route, info] of Object.entries(api)){
+        if(supportsBareApiList(info))
+            out.add(route.replace('/{QUERY}/{TYPE}', ''));
+    }
     return out;
 }
 
@@ -51,8 +57,11 @@ function sourceSpecialRoutes() {
 
 const specTable   = new Set();
 const specSpecial = new Set();
-for (const [p, def] of Object.entries(SPEC.paths))
-    (def['x-registered'] === 'express' ? specSpecial : specTable).add(p);
+for (const [p, def] of Object.entries(SPEC.paths)){
+    const registered = def['x-registered'];
+    if(registered !== 'express') specTable.add(p);
+    if(registered) specSpecial.add(p);
+}
 
 function registerRouteTableTests() {
 

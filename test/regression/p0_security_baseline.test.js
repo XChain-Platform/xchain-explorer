@@ -104,7 +104,9 @@ describe('@p0 @security SQL injection WHERE clause regression', function () {
             }
         });
         const sql = await db.getQueryWhereSql(config);
-        expect(sql).to.include('a2.address=?');
+        // getAddresses takes the indexed source lane, which binds the resolved
+        // address id twice; the address itself never reaches the SQL text.
+        expect(sql).to.include('(a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
         expect(sql).to.not.include('DROP');
     });
 

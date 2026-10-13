@@ -47,7 +47,8 @@ function makeDatabase(calls){
     db.doQuery = async function(_config, sql, args){
         calls.push({ sql, args: args || [] });
         if(/count\(DISTINCT\(/i.test(sql)) return [{ count: 1 }];
-        if(/count\(\*\)/i.test(sql)) return [{ total: 1 }];
+        // The history count reads `count`; every other list count reads `total`.
+        if(/count\(\*\)/i.test(sql)) return [{ total: 1, count: 1 }];
         return [];
     };
     return db;

@@ -318,8 +318,14 @@ const SPECIAL = [
                 '*/*':                      { schema: { type: 'string', format: 'binary' } },
             } } }],
     ['/{COIN}/api/bridge-invariant/{TICK}', 'Cross-chain',
-        'Per-chain escrow, supply, in-flight amount, and policy sequence for a bridged token',
-        null, { schema: { type: 'object', additionalProperties: { type: 'object' } } }],
+        'Per-chain escrow, supply, in-flight amount, and policy sequence for a bridged token; ' +
+        '{ available: false, reason } when this explorer has no hub to ask or the hub lacks the read',
+        null, { schema: { oneOf: [
+            { type: 'object', additionalProperties: { type: 'object' } },
+            { type: 'object', required: ['available', 'reason'], additionalProperties: false, properties: {
+                available: { const: false },
+                reason:    { type: 'string', enum: ['HUB_NOT_CONFIGURED', 'HUB_METHOD_MISSING'] } } }
+        ] } }],
     ['/{COIN}/api/bridge-transfers/{TICK}', 'Cross-chain',
         'Newest bridge transfers involving this chain and token, capped at 100 rows',
         null, { schema: { type: 'array', maxItems: 100, items: { type: 'object' } } }],

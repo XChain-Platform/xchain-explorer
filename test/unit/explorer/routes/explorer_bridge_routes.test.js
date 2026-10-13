@@ -92,6 +92,6 @@ describe('token page bridge route coverage', function () {
         expect(tokenRoute).to.deep.equal(['getToken', 'token']);
         expect(Database.prototype[tokenRoute[0]]).to.be.a('function');
         expect(TOKEN_PAGE).to.contain("loadApiData(XC.coin, 'token', XC.query");
-        expect(TOKEN_LIFECYCLE).to.match(/loadApiData[\s\S]*loadBridgePanels\(tick\)/);
+        expect(TOKEN_LIFECYCLE).to.match(/loadApiData[\s\S]*loadBridgePanels\(tick, o\.info\)/);
     });
 });

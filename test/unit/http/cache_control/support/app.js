@@ -51,6 +51,7 @@ const XChainExplorer = proxyquire('../../../../../src/XChainExplorer.js', {
  * @param {object} [options]
  * @param {number} [options.rateLimitRpm] mount the app-wide limiter at this ceiling
  * @param {string} [options.corsOrigin] an EXPLORER_CORS_ORIGIN allowlist
+ * @param {object} [options.hub] the hub connector the bridge routes read through
  * @returns {{app: object, explorer: object}}
  */
 function buildApp(options = {}) {
@@ -60,7 +61,7 @@ function buildApp(options = {}) {
     if (options.rateLimitRpm)
         applyRateLimits(app, { env: { EXPLORER_RATE_LIMIT_RPM: String(options.rateLimitRpm) } }, () => false);
     let explorer = null;
-    mountBridgePanelRoutes(app, () => explorer, null);
+    mountBridgePanelRoutes(app, () => explorer, options.hub || null);
     explorer = new XChainExplorer(app, createConfigInfoStub());
     return { app, explorer };
 }

@@ -143,7 +143,7 @@ describe('cache control: error answers through the real app', function () {
     });
 
     it('never caches a bridge route that cannot reach its source', async () => {
-        const { app } = buildApp();
+        const { app } = buildApp({ hub: { call: async () => null } });
         const res = await request(app).get('/BTC/api/bridge-invariant/FUFU');
         expect(res.status).to.equal(503);
         expect(res.headers['cache-control']).to.equal('no-store');

@@ -76,13 +76,13 @@ function bridgeOriginOf(tick, coins){
 
 // Per-chain rows for one tick out of a getbridgeinvariant payload.
 // Returns { state, rows }:
-//   state 'unavailable' - no payload reached us (hub down, read refused). The
-//                         caller must say so rather than render an empty table.
+//   state 'unavailable' - no payload reached us (hub down, read refused) or the route
+//                         answered { available: false }. The caller says so, never an empty table.
 //   state 'none'        - a payload arrived and carries no chain for this tick.
 //   state 'ok'          - rows, one per chain, sorted by chain name so two
 //                         readers of the same token see the same order.
 function buildBridgeCopies(invariant, tick){
-    if(invariant === null || invariant === undefined) return { state: 'unavailable', rows: [] };
+    if(invariant === null || invariant === undefined || invariant.available === false) return { state: 'unavailable', rows: [] };
     var byTick = invariant[String(tick)];
     if(byTick === null || byTick === undefined) return { state: 'none', rows: [] };
     var chains = Object.keys(byTick).sort();

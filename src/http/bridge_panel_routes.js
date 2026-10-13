@@ -54,26 +54,40 @@ function createBridgePanelHandlers(getExplorer, hubConnector){
 }
 
 function bridgeInvariantHandler(hubConnector, tickParam, error, nativeTickFor){
+    // The two by-design gaps answer 200 so a token page logs no error; the
+    // panel reads `available: false` as "could not ask", never as "no copies".
+    const notAvailable = (res, reason) => res.json({ available: false, reason });
     return async function invariant(req, res){
         const tick = tickParam(req, res);
         if(tick === null) return;
+        // No hub endpoint at all: a standalone explorer cannot ask, which is not a fault.
         if(!hubConnector)
-            return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
+            return notAvailable(res, 'HUB_NOT_CONFIGURED');
         const routeCoin = String((req.params && req.params.coin) || '').toUpperCase();
         const chain = coins.ALLOWED_COINS.find(coin =>
             routeCoin === coin || routeCoin === 'T' + coin || routeCoin === 'R' + coin);
         if(!chain)
             return error(res, 404, 'Unknown coin.', 'UNKNOWN_COIN');
         const nativeTick = nativeTickFor(tick, chain);
+        // Call-scoped diagnostics: the connector's own last-error fields are shared
+        // by every request in flight, so this request reads its answer from `out`.
+        const out = {};
         try {
             const result = await hubConnector.call({
                 jsonrpc: '2.0', method: 'getbridgeinvariant', params: { tick: nativeTick }, id: 1
-            }, { attempts: 1 });
-            if(result === null || result === undefined)
+            }, { attempts: 1, out });
+            // Every hub endpoint answered "method not found": its build predates the read.
+            if((result === null || result === undefined) && out.allEndpointsAnswered &&
+               out.rpcError && out.rpcError.code === -32601)
+                return notAvailable(res, 'HUB_METHOD_MISSING');
+            // Unreachable, refused, or a degraded health body (DB down) in place of a result.
+            if(result === null || result === undefined || typeof result !== 'object' ||
+               result.status === 'degraded'){
+                log.warn('BRIDGE_INVARIANT_READ_FAILED', { failures: out.failures, rpcError: out.rpcError });
                 return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
+            }
             // Rename the hub's native key to the rooted spelling the page displays.
-            if(nativeTick !== tick && result && typeof result === 'object' &&
-               Object.prototype.hasOwnProperty.call(result, nativeTick))
+            if(nativeTick !== tick && Object.prototype.hasOwnProperty.call(result, nativeTick))
                 return res.json({ [tick]: result[nativeTick] });
             return res.json(result);
         } catch(err){
@@ -142,6 +156,15 @@ function appliedPolicyHandler(getExplorer, tickParam, error, nativeTickFor){
     };
 }
 
+// Hub endpoints for the invariant read. NO_HUB only moves config onto the local
+// file; HUB_URL still names the hub for reads (the price oracle uses it too), so
+// a standalone explorer with HUB_URL set can still ask for the invariant.
+function bridgeHubEndpoints(hubEndpoints, env){
+    if(Array.isArray(hubEndpoints) && hubEndpoints.length) return hubEndpoints;
+    const hubUrl = String((env && env.HUB_URL) || '').trim();
+    return /^https?:\/\//.test(hubUrl) ? [hubUrl] : null;
+}
+
 function mountBridgePanelRoutes(app, getExplorer, hubConnector){
     const handlers = createBridgePanelHandlers(getExplorer, hubConnector);
     app.get('/:coin/api/bridge-invariant/:tick', (req, res) => handlers.invariant(req, res));
@@ -149,4 +172,4 @@ function mountBridgePanelRoutes(app, getExplorer, hubConnector){
     app.get('/:coin/api/applied-policy/:tick', (req, res) => handlers.appliedPolicy(req, res));
 }
 
-module.exports = { createBridgePanelHandlers, mountBridgePanelRoutes };
+module.exports = { createBridgePanelHandlers, mountBridgePanelRoutes, bridgeHubEndpoints };

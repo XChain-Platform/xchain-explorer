@@ -43,7 +43,7 @@ describe('explorer bridge panel routes', function(){
         expect(res.body).to.deep.equal(pagePayload);
         expect(calls).to.deep.equal([{
             body: { jsonrpc: '2.0', method: 'getbridgeinvariant', params: { tick: 'FUFU' }, id: 1 },
-            options: { attempts: 1 }
+            options: { attempts: 1, out: {} }
         }]);
     });
 
@@ -135,7 +135,8 @@ describe('explorer bridge panel routes, HEAD and failures', function(){
     });
 
     it('fails unavailable sources as JSON without falling through to HTML', async function(){
-        const app = buildApp({}, null);
+        // A configured hub that does not answer; a missing hub is not a failure.
+        const app = buildApp({}, { call: async () => null });
         const invariant = await request(app).get('/BTC/api/bridge-invariant/FUFU');
         const transfers = await request(app).get('/BTC/api/bridge-transfers/FUFU');
         const policy = await request(app).get('/BTC/api/applied-policy/DOGE.FUFU');

@@ -42,7 +42,7 @@ const { applyObservability } = require('./http/api_boot/observability.js');
 const { startTlsListener }   = require('./http/api_boot/tls.js');
 const { mountJsonRpc }       = require('./http/api_boot/json_rpc.js');
 const { startWebsockets }    = require('./http/api_boot/websocket.js');
-const { createBridgePanelHandlers, mountBridgePanelRoutes } = require('./http/bridge_panel_routes.js');
+const { createBridgePanelHandlers, mountBridgePanelRoutes, bridgeHubEndpoints } = require('./http/bridge_panel_routes.js');
 
 // Read the .env file before anything below reads an environment variable.
 dotenv.config();
@@ -182,8 +182,9 @@ function createApp(options = {}){
 
     let explorer = null;
     const jsonRpcController = createJsonRpcController(() => explorer, requestGate);
+    const bridgeHub = bridgeHubEndpoints(hubEndpoints, appConfigInfo.env);
     mountBridgePanelRoutes(app, () => explorer,
-        hubEndpoints ? new xchainHubConnector(hubEndpoints) : null);
+        bridgeHub ? new xchainHubConnector(bridgeHub) : null);
 
     explorer = new XChainExplorer(app, appConfigInfo);
     mountJsonRpc(app, appConfigInfo, jsonRpcController);

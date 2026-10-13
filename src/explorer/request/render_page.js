@@ -34,6 +34,7 @@ const listPage     = require('../../render/list_page.js');
 const componentTpl = require('../../render/component_templates.js');
 const { versionAssetUrls } = require('../../render/asset_version.js');
 const { selectAssets }     = require('../../render/page_assets.js');
+const { optOutOfRocketLoader } = require('../../render/rocket_loader_optout.js');  // data-cfasync="false" on every script tag
 
 // Inject plain JSON because browser scripts cannot load the Node registry.
 // Escape less-than signs so a future string value cannot close the script tag.
@@ -93,6 +94,8 @@ async function renderPage(explorer, st){
         // Keep only the scripts and stylesheets this page's groups name
         // (content/layouts/page-assets.json) and defer the scripts that can wait.
         pageContent     = selectAssets(pageContent, cfg.file, listPage.has(cfg.file));
+        // Keep the edge's Rocket Loader from re-sequencing the scripts chosen above.
+        pageContent     = optOutOfRocketLoader(pageContent);
         // Last, so asset URLs from every slot above get a content version and a
         // deploy never serves a new page beside a cached old script.
         pageContent     = versionAssetUrls(pageContent);

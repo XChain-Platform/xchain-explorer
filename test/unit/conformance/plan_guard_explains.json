@@ -1,0 +1,261 @@
+{
+  "_note": "EXPLAIN rows recorded from MariaDB 12.3.2-MariaDB over 1000-row seeded tables (20 rows in index_memos), exactly as the mariadb driver returns them with BIGINT columns as numbers.",
+  "orderedLimitDriver": {
+    "kind": "row",
+    "sql": "SELECT m.action_index, a2.address FROM sends m INNER JOIN actions a1 ON (a1.action_index=m.action_index) LEFT JOIN index_addresses a2 ON (a2.id=a1.source_id) WHERE m.action_index IS NOT NULL ORDER BY m.action_index DESC LIMIT 10",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "m",
+        "type": "index",
+        "possible_keys": "PRIMARY",
+        "key": "PRIMARY",
+        "key_len": "4",
+        "ref": null,
+        "rows": "10",
+        "Extra": "Using where"
+      },
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "a1",
+        "type": "eq_ref",
+        "possible_keys": "PRIMARY",
+        "key": "PRIMARY",
+        "key_len": "4",
+        "ref": "plan_fixture.m.action_index",
+        "rows": "1",
+        "Extra": ""
+      },
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "a2",
+        "type": "eq_ref",
+        "possible_keys": "PRIMARY",
+        "key": "PRIMARY",
+        "key_len": "4",
+        "ref": "plan_fixture.a1.source_id",
+        "rows": "1",
+        "Extra": "Using where"
+      }
+    ]
+  },
+  "unindexedFilter": {
+    "kind": "row",
+    "sql": "SELECT m.action_index FROM sends m INNER JOIN actions a1 ON (a1.action_index=m.action_index) WHERE m.destination_id=? ORDER BY a1.block_index DESC LIMIT 10",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "a1",
+        "type": "index",
+        "possible_keys": "PRIMARY",
+        "key": "block_index",
+        "key_len": "5",
+        "ref": null,
+        "rows": "10",
+        "Extra": "Using index"
+      },
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "m",
+        "type": "eq_ref",
+        "possible_keys": "PRIMARY",
+        "key": "PRIMARY",
+        "key_len": "4",
+        "ref": "plan_fixture.a1.action_index",
+        "rows": "1",
+        "Extra": "Using where"
+      }
+    ]
+  },
+  "unindexedFilterPk": {
+    "kind": "row",
+    "sql": "SELECT m.action_index FROM sends m WHERE m.memo_id=? ORDER BY m.action_index DESC LIMIT 10",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "m",
+        "type": "index",
+        "possible_keys": null,
+        "key": "PRIMARY",
+        "key_len": "4",
+        "ref": null,
+        "rows": "10",
+        "Extra": "Using where"
+      }
+    ]
+  },
+  "indexScanFilesort": {
+    "kind": "row",
+    "sql": "SELECT m.tick_id, COUNT(*) AS n FROM sends m GROUP BY m.tick_id ORDER BY n DESC LIMIT 10",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "m",
+        "type": "index",
+        "possible_keys": null,
+        "key": "tick_id",
+        "key_len": "5",
+        "ref": null,
+        "rows": "1000",
+        "Extra": "Using index; Using temporary; Using filesort"
+      }
+    ]
+  },
+  "derivedScan": {
+    "kind": "row",
+    "sql": "SELECT m.action_index FROM (WITH filtered AS (SELECT s.action_index, s.memo_id FROM sends s WHERE s.action_index IS NOT NULL), page AS (SELECT DISTINCT action_index FROM filtered ORDER BY action_index DESC LIMIT 10) SELECT f.action_index FROM filtered f INNER JOIN page p ON (p.action_index=f.action_index)) m ORDER BY m.action_index DESC",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "PRIMARY",
+        "table": "<derived3>",
+        "type": "ALL",
+        "possible_keys": null,
+        "key": null,
+        "key_len": null,
+        "ref": null,
+        "rows": "10",
+        "Extra": "Using where; Using filesort"
+      },
+      {
+        "id": 1,
+        "select_type": "PRIMARY",
+        "table": "s",
+        "type": "eq_ref",
+        "possible_keys": "PRIMARY",
+        "key": "PRIMARY",
+        "key_len": "4",
+        "ref": "p.action_index",
+        "rows": "1",
+        "Extra": ""
+      },
+      {
+        "id": 3,
+        "select_type": "DERIVED",
+        "table": "s",
+        "type": "index",
+        "possible_keys": "PRIMARY",
+        "key": "PRIMARY",
+        "key_len": "4",
+        "ref": null,
+        "rows": "1000",
+        "Extra": "Using where"
+      }
+    ]
+  },
+  "unfilteredCount": {
+    "kind": "count",
+    "sql": "SELECT count(*) as total FROM sends m INNER JOIN actions a1 ON (a1.action_index=m.action_index) WHERE m.action_index IS NOT NULL",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "m",
+        "type": "index",
+        "possible_keys": "PRIMARY",
+        "key": "tick_id",
+        "key_len": "5",
+        "ref": null,
+        "rows": "1000",
+        "Extra": "Using where; Using index"
+      },
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "a1",
+        "type": "eq_ref",
+        "possible_keys": "PRIMARY",
+        "key": "PRIMARY",
+        "key_len": "4",
+        "ref": "plan_fixture.m.action_index",
+        "rows": "1",
+        "Extra": ""
+      }
+    ]
+  },
+  "smallTableScan": {
+    "kind": "row",
+    "sql": "SELECT m.action_index, m1.memo FROM sends m LEFT JOIN index_memos m1 ON (m1.memo=CAST(m.memo_id AS CHAR)) WHERE m.tick_id=? ORDER BY m.action_index DESC LIMIT 10",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "m",
+        "type": "ref",
+        "possible_keys": "tick_id",
+        "key": "tick_id",
+        "key_len": "5",
+        "ref": "const",
+        "rows": "1",
+        "Extra": "Using temporary; Using filesort"
+      },
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": "m1",
+        "type": "ALL",
+        "possible_keys": null,
+        "key": null,
+        "key_len": null,
+        "ref": null,
+        "rows": "20",
+        "Extra": "Using where; Using join buffer (flat, BNL join)"
+      }
+    ]
+  },
+  "dependentCount": {
+    "kind": "count",
+    "sql": "SELECT count(*) as total FROM sends m WHERE m.tick_id=? AND (SELECT COUNT(*) FROM order_matches om WHERE om.give_tick_id=m.tick_id AND om.give_action_index > m.action_index) > 0",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "PRIMARY",
+        "table": "m",
+        "type": "ref",
+        "possible_keys": "tick_id",
+        "key": "tick_id",
+        "key_len": "5",
+        "ref": "const",
+        "rows": "1",
+        "Extra": "Using where; Using index"
+      },
+      {
+        "id": 2,
+        "select_type": "DEPENDENT SUBQUERY",
+        "table": "om",
+        "type": "ref",
+        "possible_keys": "give_tick_id",
+        "key": "give_tick_id",
+        "key_len": "5",
+        "ref": "plan_fixture.m.tick_id",
+        "rows": "1",
+        "Extra": "Using where"
+      }
+    ]
+  },
+  "impossibleWhere": {
+    "kind": "row",
+    "sql": "SELECT m.action_index FROM sends m INNER JOIN index_addresses a2 ON (a2.id=m.destination_id) WHERE a2.address=? ORDER BY m.action_index DESC LIMIT 10",
+    "rows": [
+      {
+        "id": 1,
+        "select_type": "SIMPLE",
+        "table": null,
+        "type": null,
+        "possible_keys": null,
+        "key": null,
+        "key_len": null,
+        "ref": null,
+        "rows": null,
+        "Extra": "Impossible WHERE noticed after reading const tables"
+      }
+    ]
+  }
+}

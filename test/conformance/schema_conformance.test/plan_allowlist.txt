@@ -1,0 +1,250 @@
+# Query-plan guard allowlist: plans that read a production-large table whole.
+# Line shape: <method> <filter> <kind> <table> <finding> | <reason>
+# Findings: scan, dependent-count; error and unjudged mark probes the guard could not judge.
+# Fix a plan and its line must go; add a line only with a reason the plan cannot be indexed.
+# PLAN_GUARD_WRITE=1 npm run test:conformance rewrites this file from the current run.
+getActions all count actions scan | an unfiltered count covers every actions row
+getAddresses address count addresses scan | the optimizer reads all of addresses although action_index exist
+getAddresses address row addresses scan | the address filter walks addresses in index order because no index drives it
+getAddresses all count addresses scan | an unfiltered count covers every addresses row
+getAirdrops address count airdrops scan | the optimizer reads all of airdrops although action_index exist
+getAirdrops address row airdrops scan | the address filter walks airdrops in index order because no index drives it
+getAirdrops all count airdrops scan | an unfiltered count covers every airdrops row
+getAnchors all count anchor_actions scan | an unfiltered count covers every anchor_actions row
+getAnchors all row anchor_actions scan | an unfiltered sorted read covers every anchor_actions row
+getAnchors network count anchor_actions scan | the optimizer reads all of anchor_actions although PRIMARY exist
+getAnchors network row anchor_actions scan | the optimizer reads all of anchor_actions although PRIMARY exist
+getAnchors status count anchor_actions scan | the optimizer reads all of anchor_actions although PRIMARY exist
+getAnchors status row anchor_actions scan | the optimizer reads all of anchor_actions although PRIMARY exist
+getAttestations address count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getAttestations address row attests scan | the address filter walks attests in index order because no index drives it
+getAttestations all count actions scan | an unfiltered count covers every actions row
+getBatches address count batches scan | the address filter walks batches in index order because no index drives it
+getBatches address row batches scan | the address filter walks batches in index order because no index drives it
+getBatches all count batches scan | an unfiltered count covers every batches row
+getBetCancels address count bet_cancels scan | the optimizer reads all of bet_cancels although action_index exist
+getBetCancels address row bet_cancels scan | the address filter walks bet_cancels in index order because no index drives it
+getBetCancels all count bet_cancels scan | an unfiltered count covers every bet_cancels row
+getBetEdits address count bet_edits scan | the optimizer reads all of bet_edits although action_index exist
+getBetEdits address row bet_edits scan | the address filter walks bet_edits in index order because no index drives it
+getBetEdits all count bet_edits scan | an unfiltered count covers every bet_edits row
+getBetFeeds address count actions scan | the optimizer reads all of actions although action_index,tx_index exist
+getBetFeeds address row bet_feeds scan | the address filter walks bet_feeds in index order because no index drives it
+getBetFeeds all count actions scan | an unfiltered count covers every actions row
+getBetFeeds source count actions scan | the optimizer reads all of actions although action_index,tx_index exist
+getBetFeeds source row bet_feeds scan | the source filter walks bet_feeds in index order because no index drives it
+getBetResolves address count bet_resolves scan | the optimizer reads all of bet_resolves although action_index exist
+getBetResolves address row bet_resolves scan | the address filter walks bet_resolves in index order because no index drives it
+getBetResolves all count bet_resolves scan | an unfiltered count covers every bet_resolves row
+getBets address count bets scan | the optimizer reads all of bets although action_index exist
+getBets address row bets scan | the address filter walks bets in index order because no index drives it
+getBets all count bets scan | an unfiltered count covers every bets row
+getBroadcasts address count broadcasts scan | the optimizer reads all of broadcasts although action_index exist
+getBroadcasts address row broadcasts scan | the address filter walks broadcasts in index order because no index drives it
+getBroadcasts all count broadcasts scan | an unfiltered count covers every broadcasts row
+getCallbacks address count callbacks scan | the optimizer reads all of callbacks although action_index exist
+getCallbacks address row callbacks scan | the address filter walks callbacks in index order because no index drives it
+getCallbacks all count callbacks scan | an unfiltered count covers every callbacks row
+getCoinpayExpires address - - error | the reader fails: Unknown column 'a2.address' in 'WHERE'
+getCoinpayExpires all count coinpay_expires scan | an unfiltered count covers every coinpay_expires row
+getCoinpayObligations address count coinpay_statuses dependent-count | the count runs a correlated subquery on coinpay_statuses once per counted row
+getCoinpayObligations address count coinpay_statuses scan | the optimizer reads all of coinpay_statuses although action_index,coinpay_action_index,status_id exist
+getCoinpayObligations address row coinpay_statuses scan | the address filter walks coinpay_statuses in index order because no index drives it
+getCoinpayObligations all count coinpay_statuses dependent-count | the count runs a correlated subquery on coinpay_statuses once per counted row
+getCoinpayObligations all count coinpay_statuses scan | an unfiltered count covers every coinpay_statuses row
+getCoinpayObligations block count coinpay_statuses dependent-count | the count runs a correlated subquery on coinpay_statuses once per counted row
+getCoinpayObligations block count coinpay_statuses scan | the optimizer reads all of coinpay_statuses although action_index,coinpay_action_index,status_id exist
+getCoinpayObligations block row coinpay_statuses scan | the block filter walks coinpay_statuses in index order because no index drives it
+getCoinpays address - - error | the reader fails: Unknown column 'a2.address' in 'WHERE'
+getCoinpays all count coinpays scan | an unfiltered count covers every coinpays row
+getCollects all count reward_claims scan | an unfiltered count covers every reward_claims row
+getCommitments all count anchor_actions dependent-count | the count runs a correlated subquery on anchor_actions once per counted row
+getCommitments all count state_tree_roots scan | an unfiltered count covers every state_tree_roots row
+getCommitments block count anchor_actions dependent-count | the count runs a correlated subquery on anchor_actions once per counted row
+getContractDelegations all count actions scan | an unfiltered count covers every actions row
+getContractStakes all count actions scan | an unfiltered count covers every actions row
+getContractUnstakes all count actions scan | an unfiltered count covers every actions row
+getContracts address count contracts scan | the address filter walks contracts in index order because no index drives it
+getContracts address row contracts scan | the address filter walks contracts in index order because no index drives it
+getContracts all count contracts scan | an unfiltered count covers every contracts row
+getContracts source count contracts scan | the source filter walks contracts in index order because no index drives it
+getContracts source row contracts scan | the source filter walks contracts in index order because no index drives it
+getControllers all count address_controllers scan | an unfiltered count covers every address_controllers row
+getControllers all row address_controllers scan | an unfiltered sorted read covers every address_controllers row
+getCredits all count credits scan | an unfiltered count covers every credits row
+getCrossChainMatches match count - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getCrossChainMatches match row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getCrossChainSettlements all count cross_chain_settlements scan | an unfiltered count covers every cross_chain_settlements row
+getDebits all count debits scan | an unfiltered count covers every debits row
+getDelegations all count delegations scan | an unfiltered count covers every delegations row
+getDeployChunks all count actions scan | an unfiltered count covers every actions row
+getDeposits all count deposits scan | an unfiltered count covers every deposits row
+getDestroys address count destroys scan | the optimizer reads all of destroys although action_leg,action_index exist
+getDestroys address row destroys scan | a derived table or CTE reads all of destroys before the page is cut
+getDestroys all count destroys scan | an unfiltered count covers every destroys row
+getDestroys all row destroys scan | a derived table or CTE reads all of destroys before the page is cut
+getDispenserCancels address count dispenser_cancels scan | the optimizer reads all of dispenser_cancels although action_index exist
+getDispenserCancels address row dispenser_cancels scan | the address filter walks dispenser_cancels in index order because no index drives it
+getDispenserCancels all count dispenser_cancels scan | an unfiltered count covers every dispenser_cancels row
+getDispenserCloses all count dispenser_closes scan | an unfiltered count covers every dispenser_closes row
+getDispenserEdits address count dispenser_edits scan | the optimizer reads all of dispenser_edits although action_index exist
+getDispenserEdits address row dispenser_edits scan | the address filter walks dispenser_edits in index order because no index drives it
+getDispenserEdits all count dispenser_edits scan | an unfiltered count covers every dispenser_edits row
+getDispenserExpires address count dispenser_expires scan | the optimizer reads all of dispenser_expires although action_index,dispenser_action_index exist
+getDispenserExpires address row dispenser_expires scan | the address filter walks dispenser_expires in index order because no index drives it
+getDispenserExpires all count dispenser_expires scan | an unfiltered count covers every dispenser_expires row
+getDispensers address count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getDispensers address row dispensers scan | the address filter walks dispensers in index order because no index drives it
+getDispensers all count actions scan | an unfiltered count covers every actions row
+getDispensers source count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getDispensers source row dispensers scan | the source filter walks dispensers in index order because no index drives it
+getDispenses address count actions scan | the optimizer reads all of actions although action_index,tx_index exist
+getDispenses address row dispenses scan | the address filter walks dispenses in index order because no index drives it
+getDispenses all count actions scan | an unfiltered count covers every actions row
+getDividends address count dividends scan | the optimizer reads all of dividends although action_index exist
+getDividends address row dividends scan | the address filter walks dividends in index order because no index drives it
+getDividends all count dividends scan | an unfiltered count covers every dividends row
+getEmissions all count contract_emissions scan | an unfiltered count covers every contract_emissions row
+getEscrows all count escrows scan | an unfiltered count covers every escrows row
+getExecutions all count actions scan | an unfiltered count covers every actions row
+getFees address count fees dependent-count | the count runs a correlated subquery on fees once per counted row
+getFees address count fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees address row fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees all count fees dependent-count | the count runs a correlated subquery on fees once per counted row
+getFees all count fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees all row fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees block count fees dependent-count | the count runs a correlated subquery on fees once per counted row
+getFees block count fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees block row fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees destination count fees dependent-count | the count runs a correlated subquery on fees once per counted row
+getFees destination count fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees destination row fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees source count fees dependent-count | the count runs a correlated subquery on fees once per counted row
+getFees source count fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees source row fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees token count fees dependent-count | the count runs a correlated subquery on fees once per counted row
+getFees token count fees scan | a derived table or CTE reads all of fees before the page is cut
+getFees token row fees scan | a derived table or CTE reads all of fees before the page is cut
+getFiles address count files scan | the optimizer reads all of files although action_index exist
+getFiles address row files scan | the address filter walks files in index order because no index drives it
+getFiles all count files scan | an unfiltered count covers every files row
+getFullNodeVerifications all count full_node_verifications scan | an unfiltered count covers every full_node_verifications row
+getGovernanceProposals status count - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getGovernanceProposals status row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getIssues address count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getIssues address row issues scan | the address filter walks issues in index order because no index drives it
+getIssues all count actions scan | an unfiltered count covers every actions row
+getLinks address count links scan | the optimizer reads all of links although action_index exist
+getLinks address row links scan | the address filter walks links in index order because no index drives it
+getLinks all count links scan | an unfiltered count covers every links row
+getLinks token count links dependent-count | the count runs a correlated subquery on links once per counted row
+getLinks token count links scan | the optimizer reads all of links although action_index exist
+getLinks token row links scan | the token filter walks links in index order because no index drives it
+getLists address count lists scan | the optimizer reads all of lists although action_index exist
+getLists address row lists scan | the address filter walks lists in index order because no index drives it
+getLists all count lists scan | an unfiltered count covers every lists row
+getMessages address count messages scan | the optimizer reads all of messages although action_index exist
+getMessages address row messages scan | the address filter walks messages in index order because no index drives it
+getMessages all count messages scan | an unfiltered count covers every messages row
+getMessages source count messages scan | the optimizer reads all of messages although action_index exist
+getMessages source row messages scan | the source filter walks messages in index order because no index drives it
+getMints address count mints scan | the optimizer reads all of mints although action_index exist
+getMints address row mints scan | the address filter walks mints in index order because no index drives it
+getMints all count mints scan | an unfiltered count covers every mints row
+getMints source count mints scan | the optimizer reads all of mints although action_index exist
+getMints source row mints scan | the source filter walks mints in index order because no index drives it
+getOraclePrices all count oracle_prices scan | an unfiltered count covers every oracle_prices row
+getOraclePrices token count oracle_prices scan | the token filter walks oracle_prices in index order because no index drives it
+getOraclePrices token row oracle_prices scan | the token filter walks oracle_prices in index order because no index drives it
+getOrderCancels address count order_cancels scan | the optimizer reads all of order_cancels although action_index exist
+getOrderCancels address row order_cancels scan | the address filter walks order_cancels in index order because no index drives it
+getOrderCancels all count order_cancels scan | an unfiltered count covers every order_cancels row
+getOrderEdits address count order_edits scan | the optimizer reads all of order_edits although action_index exist
+getOrderEdits address row order_edits scan | the address filter walks order_edits in index order because no index drives it
+getOrderEdits all count order_edits scan | an unfiltered count covers every order_edits row
+getOrderExpires address count order_expires scan | the optimizer reads all of order_expires although action_index,order_action_index exist
+getOrderExpires address row order_expires scan | the address filter walks order_expires in index order because no index drives it
+getOrderExpires all count order_expires scan | an unfiltered count covers every order_expires row
+getOrderMatches address count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getOrderMatches address count order_matches dependent-count | the count runs a correlated subquery on order_matches once per counted row
+getOrderMatches address count orders dependent-count | the count runs a correlated subquery on orders once per counted row
+getOrderMatches address row order_matches scan | the address filter walks order_matches in index order because no index drives it
+getOrderMatches all count actions scan | an unfiltered count covers every actions row
+getOrderMatches token count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getOrderMatches token count order_matches dependent-count | the count runs a correlated subquery on order_matches once per counted row
+getOrderMatches token row order_matches scan | the token filter walks order_matches in index order because no index drives it
+getOrders address count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getOrders address row orders scan | the address filter walks orders in index order because no index drives it
+getOrders all count actions scan | an unfiltered count covers every actions row
+getPolls all count actions scan | an unfiltered count covers every actions row
+getPolls source count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getPolls source row polls scan | the source filter walks polls in index order because no index drives it
+getPolls status count - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getPolls status row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getPriceSnapshots all count price_snapshots scan | an unfiltered count covers every price_snapshots row
+getPriceSnapshots status count - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getPriceSnapshots status row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getPrices all count actions scan | an unfiltered count covers every actions row
+getReorgs status count - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getReorgs status row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getRollcalls address count rollcall_signers scan | the optimizer reads all of rollcall_signers although idx_rollcall_signers_action,idx_rollcall_signers_block exist
+getRollcalls address row rollcall_signers scan | the optimizer reads all of rollcall_signers although idx_rollcall_signers_action,idx_rollcall_signers_block exist
+getRollcalls all count rollcall_signers scan | an unfiltered count covers every rollcall_signers row
+getRollcalls all row rollcall_signers scan | an unfiltered sorted read covers every rollcall_signers row
+getSends address count sends scan | the optimizer reads all of sends although action_index,action_leg exist
+getSends address row sends scan | a derived table or CTE reads all of sends before the page is cut
+getSends all count sends scan | an unfiltered count covers every sends row
+getSends all row sends scan | a derived table or CTE reads all of sends before the page is cut
+getSends source count sends scan | the optimizer reads all of sends although action_index,action_leg exist
+getSends source row sends scan | a derived table or CTE reads all of sends before the page is cut
+getSlashProposals status count - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getSlashProposals status row - unjudged | the probe value matches no seeded row, so EXPLAIN settles the WHERE at plan time and shows no plan
+getSleeps address count sleeps scan | the optimizer reads all of sleeps although action_index exist
+getSleeps address row sleeps scan | the address filter walks sleeps in index order because no index drives it
+getSleeps all count sleeps scan | an unfiltered count covers every sleeps row
+getStakeKeyRevocations all count stake_key_revocations scan | an unfiltered count covers every stake_key_revocations row
+getStakes all count stakes scan | an unfiltered count covers every stakes row
+getSwapCancels address count swap_cancels scan | the optimizer reads all of swap_cancels although action_index exist
+getSwapCancels address row swap_cancels scan | the address filter walks swap_cancels in index order because no index drives it
+getSwapCancels all count swap_cancels scan | an unfiltered count covers every swap_cancels row
+getSwapEdits address count swap_edits scan | the optimizer reads all of swap_edits although action_index exist
+getSwapEdits address row swap_edits scan | the address filter walks swap_edits in index order because no index drives it
+getSwapEdits all count swap_edits scan | an unfiltered count covers every swap_edits row
+getSwapExpires address count swap_expires scan | the optimizer reads all of swap_expires although action_index,swap_action_index exist
+getSwapExpires address row swap_expires scan | the address filter walks swap_expires in index order because no index drives it
+getSwapExpires all count swap_expires scan | an unfiltered count covers every swap_expires row
+getSwapMatches address count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getSwapMatches address count swap_matches dependent-count | the count runs a correlated subquery on swap_matches once per counted row
+getSwapMatches address count swaps dependent-count | the count runs a correlated subquery on swaps once per counted row
+getSwapMatches address row swap_matches scan | the address filter walks swap_matches in index order because no index drives it
+getSwapMatches all count actions scan | an unfiltered count covers every actions row
+getSwapMatches token count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getSwapMatches token count swap_matches dependent-count | the count runs a correlated subquery on swap_matches once per counted row
+getSwapMatches token row swap_matches scan | the token filter walks swap_matches in index order because no index drives it
+getSwaps address count actions scan | the optimizer reads all of actions although action_index,tx_index exist
+getSwaps address row swaps scan | the address filter walks swaps in index order because no index drives it
+getSwaps all count actions scan | an unfiltered count covers every actions row
+getSweeps address count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getSweeps address row sweeps scan | the address filter walks sweeps in index order because no index drives it
+getSweeps all count actions scan | an unfiltered count covers every actions row
+getSweeps source count actions scan | the optimizer reads all of actions although action_index,block_index exist
+getSweeps source row sweeps scan | the source filter walks sweeps in index order because no index drives it
+getTokens all count tokens scan | an unfiltered count covers every tokens row
+getTokens token count tokens scan | the optimizer reads all of tokens although tick_id,action_index exist
+getUnstakes all count unstakes scan | an unfiltered count covers every unstakes row
+getVoteDelegations all count vote_delegations dependent-count | the count runs a correlated subquery on vote_delegations once per counted row
+getVoteDelegations all count vote_delegations scan | an unfiltered count covers every vote_delegations row
+getVoteDelegations block count vote_delegations dependent-count | the count runs a correlated subquery on vote_delegations once per counted row
+getVoteDelegations delegate count vote_delegations dependent-count | the count runs a correlated subquery on vote_delegations once per counted row
+getVoteDelegations delegate count vote_delegations scan | the optimizer reads all of vote_delegations although action_index exist
+getVoteDelegations delegate row vote_delegations scan | the delegate filter walks vote_delegations in index order because no index drives it
+getVoteDelegations delegator count vote_delegations dependent-count | the count runs a correlated subquery on vote_delegations once per counted row
+getVoteDelegations delegator count vote_delegations scan | the optimizer reads all of vote_delegations although action_index exist
+getVoteDelegations delegator row vote_delegations scan | the delegator filter walks vote_delegations in index order because no index drives it
+getVoteDelegations tick count vote_delegations dependent-count | the count runs a correlated subquery on vote_delegations once per counted row
+getVotes address count votes scan | the optimizer reads all of votes although action_index exist
+getVotes address row votes scan | the address filter walks votes in index order because no index drives it
+getVotes all count votes scan | an unfiltered count covers every votes row
+getWithdrawals all count withdrawals scan | an unfiltered count covers every withdrawals row
+getXcalls all count actions scan | an unfiltered count covers every actions row
+getXexecs all count cross_chain_call_executions scan | an unfiltered count covers every cross_chain_call_executions row

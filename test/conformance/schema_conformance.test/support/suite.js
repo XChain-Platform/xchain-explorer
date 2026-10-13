@@ -20,6 +20,7 @@ const reads = require('./reads.js');
 const feeds = require('./feeds.js');
 const fixture = require('./fixture_parity.js');
 const dashboardManifest = require('./dashboard_manifest.js');
+const planGuard = require('./plan_guard.js');
 
 describe('Real-schema conformance canary (real DDL on real MariaDB)', function () {
     this.timeout(120000);
@@ -32,4 +33,7 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
     feeds.registerWebSocketFeed(runtime);
     feeds.registerDecoderMempool(runtime);
     fixture.registerFixtureParity(runtime);
+    // A nested suite runs after every test above, which it must: it seeds the
+    // tables they expect near-empty.
+    planGuard.registerPlanGuard(runtime);
 });

@@ -4713,6 +4713,15 @@
         "ATTEST batch detail card renders the window, response count, publisher, chunks, responses and duplicates",
         "ATTEST batch detail card switches the shipped detail page from request lifecycle cards to the batch card"
       ],
+      "47b771f0ea3c66c4": [
+        "two-party address lane against the REAL indexer DDL covers exactly the methods the lane names",
+        "two-party address lane against the REAL indexer DDL keeps only the legs a multi-send pays to an address that is not its source",
+        "two-party address lane against the REAL indexer DDL lists the transaction-only source, the counterparty, and a both-sides action once",
+        "two-party address lane against the REAL indexer DDL returns the same rows and total as the two-join OR form for every address",
+        "two-party address lane against the REAL indexer DDL: edges, counts and paging answers an unknown address with an empty page and a zero total",
+        "two-party address lane against the REAL indexer DDL: edges, counts and paging counts over the joins the lane reads once display joins are pruned",
+        "two-party address lane against the REAL indexer DDL: edges, counts and paging opens the explorer feed one past the newest action the list selects"
+      ],
       "493471329034b3fc": [
         "mixinReaders installs every extracted method non-enumerably found methods to check (the walk itself is not silently empty)",
         "mixinReaders installs every extracted method non-enumerably installs a real function with its arity intact",
@@ -4832,15 +4841,6 @@
         "Database#getValidator (M4 composed validator detail) scopes the active-stake aggregate to ONE pubkey and to live rows, with no GROUP BY",
         "Database#getValidator (M4 composed validator detail) serves capabilities over hub JSON-RPC when a hub is configured, and never touches the co-located schema",
         "Database#getValidator (M4 composed validator detail) treats an unreachable federation registry as UNKNOWN, not as unregistered"
-      ],
-      "4b1fccfb4fc7c98c": [
-        "two-party address lane against the REAL indexer DDL answers an unknown address with an empty page and a zero total",
-        "two-party address lane against the REAL indexer DDL counts over the joins the lane reads once display joins are pruned",
-        "two-party address lane against the REAL indexer DDL covers exactly the methods the lane names",
-        "two-party address lane against the REAL indexer DDL keeps only the legs a multi-send pays to an address that is not its source",
-        "two-party address lane against the REAL indexer DDL lists the transaction-only source, the counterparty, and a both-sides action once",
-        "two-party address lane against the REAL indexer DDL opens the explorer feed one past the newest action the list selects",
-        "two-party address lane against the REAL indexer DDL returns the same rows and total as the two-join OR form for every address"
       ],
       "4b7b0941e0e9456b": [
         "shared source slicer is the only slicer of its name under test/, so suites share one walker",
@@ -7923,6 +7923,19 @@
         "ACTION manifest conformance: explorer explorerRender set @regression every render-dispatch branch has a matching info-* panel (no dangling dispatch)",
         "ACTION manifest conformance: explorer explorerRender set @regression getActionData branches exactly equal the manifest explorerRender slice"
       ],
+      "99f0e1cb22b10854": [
+        "FeeScheduleCache asks the indexer again once the lifetime has passed",
+        "FeeScheduleCache collapses concurrent misses on one URL into one indexer read",
+        "FeeScheduleCache serves a second read inside the lifetime without asking the indexer",
+        "FeeScheduleCache: keys and failures keeps one entry per indexer URL",
+        "FeeScheduleCache: keys and failures never stores a thrown upstream failure",
+        "FeeScheduleCache: keys and failures never stores the indexer's own error result, and passes it on unchanged",
+        "FeeScheduleCache: the stale bridge bridges a failing indexer with the last good answer inside the stale ceiling",
+        "FeeScheduleCache: the stale bridge hands every concurrent waiter the same failure, then retries on the next read",
+        "FeeScheduleCache: the stale bridge lets the failure through once the last good answer is past the stale ceiling",
+        "GET /{COIN}/api/feeschedule reads through the fee schedule cache answers 502 when the indexer fails and no good answer is held",
+        "GET /{COIN}/api/feeschedule reads through the fee schedule cache answers repeat requests from one indexer read"
+      ],
       "9a05de2ab259255b": [
         "detail pages resolve XC.query address-keyed detail types are validated as addresses",
         "detail pages resolve XC.query detail route action is in the client allowlist",
@@ -8672,19 +8685,6 @@
         "content client: top-level title provenance a native TIS document drops the undeclared top-level title and titles from its entries",
         "content client: top-level title provenance a native TIS document with no entry titles falls through to the entry name",
         "content client: top-level title provenance classifies by legacy-only fields: each one alone marks the document legacy"
-      ],
-      "b32443b94dab5b03": [
-        "FeeScheduleCache asks the indexer again once the lifetime has passed",
-        "FeeScheduleCache bridges a failing indexer with the last good answer inside the stale ceiling",
-        "FeeScheduleCache collapses concurrent misses on one URL into one indexer read",
-        "FeeScheduleCache hands every concurrent waiter the same failure, then retries on the next read",
-        "FeeScheduleCache keeps one entry per indexer URL",
-        "FeeScheduleCache lets the failure through once the last good answer is past the stale ceiling",
-        "FeeScheduleCache never stores a thrown upstream failure",
-        "FeeScheduleCache never stores the indexer's own error result, and passes it on unchanged",
-        "FeeScheduleCache serves a second read inside the lifetime without asking the indexer",
-        "GET /{COIN}/api/feeschedule reads through the fee schedule cache answers 502 when the indexer fails and no good answer is held",
-        "GET /{COIN}/api/feeschedule reads through the fee schedule cache answers repeat requests from one indexer read"
       ],
       "b3297f92d0dd7e3d": [
         "docs/openapi.json, the spec the API docs page loads is an OpenAPI 3.x document with the sections the docs page renders",
@@ -11525,7 +11525,7 @@
           "test/unit/db/query_sql/delegations_pubkey_lane.test.js": "1d614256799a055f",
           "test/unit/db/query_sql/offset_cursors.test.js": "164464e8e311a31e",
           "test/unit/db/query_sql/source_lanes_real_ddl.test.js": "1eedfbabce422479",
-          "test/unit/db/query_sql/two_party_lanes_real_ddl.test.js": "4b1fccfb4fc7c98c",
+          "test/unit/db/query_sql/two_party_lanes_real_ddl.test.js": "47b771f0ea3c66c4",
           "test/unit/db/query_sql/where_action_clauses_builders.test.js": "b3ec2f54fe0c224b",
           "test/unit/db/query_sql/where_action_clauses_generic.test.js": "caed491a7a766ae3",
           "test/unit/db/query_sql/where_anchors.test.js": "1d8184e028d7d9ff",
@@ -11588,7 +11588,7 @@
           "test/unit/explorer/feeds/explorer_commitments_binding.test.js": "bbe02ed916d7a772",
           "test/unit/explorer/feeds/explorer_emissions.test.js": "9fb26656b70a86c1",
           "test/unit/explorer/feeds/explorer_feed_shaping_branches.test.js": "af7981f422df163c",
-          "test/unit/explorer/fees_preflight/fee_schedule_cache.test.js": "b32443b94dab5b03",
+          "test/unit/explorer/fees_preflight/fee_schedule_cache.test.js": "99f0e1cb22b10854",
           "test/unit/explorer/mount/limiters.test.js": "36a8962bc0ef6ca8",
           "test/unit/explorer/paging_response/explorer_paging.test.js": "66cd3cb942505c74",
           "test/unit/explorer/paging_response/explorer_response.test.js": "897c3ea1f7482d23",

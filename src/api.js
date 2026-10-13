@@ -34,6 +34,7 @@ const { buildFederationRpc } = require('./federation');         // the five keye
 // whatever it needs from this entry, so no step requires a module the api
 // suites stub here, and the order the service comes up in stays readable in
 // startApi() itself.
+const { applyCacheControl }  = require('./http/cache_control.js');
 const { applySecurityHeaders, applyProxyTrust } = require('./http/api_boot/security_headers.js');
 const { applyCors }          = require('./http/api_boot/cors.js');
 const { applyRateLimits }    = require('./http/api_boot/rate_limits.js');
@@ -171,6 +172,8 @@ function createApp(options = {}){
         ? options.hubEndpoints : HUB_ENDPOINTS;
     const app = options.app || express();
 
+    // First, so the refusals the guards below answer are stamped no-store too.
+    applyCacheControl(app);
     applySecurityHeaders(app, appConfigInfo, XChainExplorer);
     applyCors(app, appConfigInfo);
     const requestGate = applyRateLimits(app, appConfigInfo, isStaticAsset);

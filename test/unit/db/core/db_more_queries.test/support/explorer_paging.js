@@ -326,7 +326,7 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         expect(stopQuery).to.include('owner_id');
     });
 
-    it('builds default source_id where for getOrders + address type (lines 650-653)', async () => {
+    it('builds the two-party id-set where for getOrders + address type', async () => {
         // Provide offset1 directly so stop-offset query runs
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             if(q.includes('FROM index_addresses')) return [{ id: 15 }];
@@ -337,10 +337,12 @@ describe('Database#getQueryOffsets: remaining branches', () => {
         config.data.query  = { limit: 10, length: 10, start: 500, offset: false, total: 50, action: 'next' };
         const result = await db.getQueryOffsets(config, 500, 10);
         expect(result).to.be.an('array');
-        // Orders take the default address filter, so the stop query uses t1.source_id.
+        // Orders list either party, so the stop query pages over the same two-party
+        // id set: the action source, its transaction's, and the order's get address.
         const queries = db.doQuery.args.map(a => a[1] || '');
         const stopQuery = queries.find(q => q.includes('offset_index') && q.includes('orders m'));
-        expect(stopQuery).to.include('t1.source_id');
+        expect(stopQuery).to.include('pt.source_id');
+        expect(stopQuery).to.include('px.get_address_id=?');
     });
 });
 

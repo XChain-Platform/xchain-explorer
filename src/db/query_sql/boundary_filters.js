@@ -21,6 +21,8 @@
 
 'use strict';
 
+const { TWO_PARTY_ADDRESS_METHODS, TWO_PARTY_BOUNDARY_SQL, placeholderCount } = require('./where_source_lanes.js');
+
 function addressBoundaryWhere(method, id){
     let where     = '';
     let whereArgs = [];
@@ -50,9 +52,12 @@ function addressBoundaryWhere(method, id){
             WHERE s.get_address_id=?
         )`;
         whereArgs.push(id, id);
-    } else if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
-        where = ` AND (COALESCE(a1.source_id, t1.source_id)=? OR m.destination_id=?)`;
-        whereArgs.push(id, id);
+    } else if(TWO_PARTY_ADDRESS_METHODS.has(method)){
+        // The list's own two-party id set, so the feed opens at the newest
+        // action either party took part in, for every method the list serves
+        // that way.
+        where = TWO_PARTY_BOUNDARY_SQL[method];
+        whereArgs.push(...new Array(placeholderCount(where)).fill(id));
     } else if(['getTokens'].includes(method)){
         where = ` AND m.owner_id=?`;
         whereArgs.push(id);

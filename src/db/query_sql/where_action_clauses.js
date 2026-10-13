@@ -28,7 +28,7 @@
 
 'use strict';
 
-const { TWO_PARTY_ADDRESS_METHODS, sourceAddressClause, blockClause } = require('./where_source_lanes.js');
+const { TWO_PARTY_ADDRESS_METHODS, sourceAddressClause, twoPartyAddressClause, blockClause } = require('./where_source_lanes.js');
 
 function historyClause(db, config, sql){
     let type = config.data.type;
@@ -179,7 +179,7 @@ function genericClause(db, config, sql){
         if(['getOrderMatches','getSwapMatches'].includes(method)){
             sql += matchAddressClause(method);
         } else if(TWO_PARTY_ADDRESS_METHODS.has(method)){
-            sql += ' AND (a2.address=? OR a3.address=?)';
+            sql += twoPartyAddressClause(config);
         } else if(method=='getCoinpayObligations'){
             sql += ' AND (a1.address=? OR a2.address=?)';
         } else {

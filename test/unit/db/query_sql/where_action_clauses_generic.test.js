@@ -16,6 +16,7 @@
 
 const assert = require('assert');
 const { genericClause } = require('../../../../src/db/query_sql/where_action_clauses.js');
+const { TWO_PARTY_ADDRESS_SQL } = require('../../../../src/db/query_sql/where_source_lanes.js');
 
 const SOURCE = ' AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))';
 
@@ -24,14 +25,14 @@ function build(method, type, sql = 'WHERE anchor') {
 }
 
 describe('genericClause address and block lanes', function(){
-    it('uses both action addresses for methods with two address roles', function(){
+    it('drives methods with two address roles from their indexed two-party id set', function(){
         const methods = [
             'getMessages', 'getMints', 'getOrders', 'getSends',
             'getSweeps', 'getDispensers', 'getDispenses'
         ];
 
         for (const method of methods)
-            assert.strictEqual(build(method, 'address'), 'WHERE anchor AND (a2.address=? OR a3.address=?)');
+            assert.strictEqual(build(method, 'address'), 'WHERE anchor' + TWO_PARTY_ADDRESS_SQL[method]);
     });
 
     it('uses the method-specific or default address aliases', function(){

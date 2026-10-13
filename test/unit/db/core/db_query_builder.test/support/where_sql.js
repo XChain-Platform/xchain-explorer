@@ -24,6 +24,7 @@
 const { expect, cfg } = require('../../db_query_builder.test.js');
 
 const { makeQueryBuilderDb } = require('./helpers.js');
+const { TWO_PARTY_ADDRESS_SQL } = require('../../../../../../src/db/query_sql/where_source_lanes.js');
 
 let db;
 
@@ -89,39 +90,39 @@ function registerWhereSqlCases1() {
 
 function registerWhereSqlCases2() {
 
-    it('type=address on getMessages: appends dual-address OR clause', async () => {
+    it('type=address on getMessages: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMessages', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getMessages);
     });
 
-    it('type=address on getMints: appends dual-address OR clause', async () => {
+    it('type=address on getMints: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMints', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getMints);
     });
 
-    it('type=address on getOrders: appends dual-address OR clause', async () => {
+    it('type=address on getOrders: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getOrders', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getOrders);
     });
 
-    it('type=address on getSends: appends dual-address OR clause', async () => {
+    it('type=address on getSends: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getSends', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getSends);
     });
 
-    it('type=address on getSweeps: appends dual-address OR clause', async () => {
+    it('type=address on getSweeps: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getSweeps', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getSweeps);
     });
 
-    it('type=address on getDispensers: appends dual-address OR clause', async () => {
+    it('type=address on getDispensers: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispensers', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getDispensers);
     });
 
-    it('type=address on getDispenses: appends dual-address OR clause', async () => {
+    it('type=address on getDispenses: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispenses', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getDispenses);
     });
 
     it('type=block on a method whose blocks join is the action block: appends AND a1.block_index=?', async () => {

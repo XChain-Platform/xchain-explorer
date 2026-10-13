@@ -112,16 +112,39 @@ function namesAlias(text, alias){
     return new RegExp('(?:^|[^\\w.])' + alias + '\\.', 'i').test(text);
 }
 
-function hasBareColumn(where){
-    for(const m of where.slice(5).matchAll(BARE_COLUMN_RE))
+function hasBareColumn(text){
+    for(const m of text.matchAll(BARE_COLUMN_RE))
         if(!SQL_WORDS.has(m[1].toUpperCase())) return true;
     return false;
 }
 
-// The WHERE shapes the reference scan can read reliably: no subquery (whose
-// own names could shadow an outer alias), no quoted identifiers, no UNION.
-function whereIsReadable(where){
-    return !/\bSELECT\b|\bUNION\b|`/i.test(where) && !hasBareColumn(where);
+// The WHERE with each subquery cut out, or null when a subquery could reach a
+// join of the outer statement: one that names an outer join alias, or holds an
+// unqualified column that might resolve to one. A subquery that passes reads
+// only its own tables, so no join it sits beside is one it depends on.
+function outerWhere(where, aliases){
+    const open = /\(\s*SELECT\b/gi;
+    let out = '';
+    let pos = 0;
+    let m;
+    while((m = open.exec(where))){
+        const close = closingParen(where, m.index);
+        if(close < 0) return null;
+        const inner = where.slice(m.index + 1, close);
+        if(inner.includes('`') || hasBareColumn(inner) || aliases.some(alias => namesAlias(inner, alias)))
+            return null;
+        out += where.slice(pos, m.index) + '()';
+        pos = close + 1;
+        open.lastIndex = pos;
+    }
+    return out + where.slice(pos);
+}
+
+// The WHERE shapes the reference scan can read reliably: no subquery beyond
+// the self-contained ones outerWhere cuts out, no quoted identifiers, no UNION.
+function whereIsReadable(where, aliases){
+    const outer = outerWhere(where, aliases);
+    return outer !== null && !/\bSELECT\b|\bUNION\b|`/i.test(outer) && !hasBareColumn(outer.slice(5));
 }
 
 function droppableJoin(join){
@@ -157,7 +180,7 @@ function keptJoins(parsed){
 function pruneCountJoins(sql){
     if(typeof sql !== 'string') return sql;
     const parsed = parseCountSql(sql);
-    if(!parsed || !whereIsReadable(parsed.where)) return sql;
+    if(!parsed || !whereIsReadable(parsed.where, parsed.joins.map(j => j.alias))) return sql;
     const kept = keptJoins(parsed);
     if(kept.length === parsed.joins.length) return sql;
     return ['SELECT ' + parsed.select + ' as total FROM ' + parsed.table + ' ' + parsed.alias]

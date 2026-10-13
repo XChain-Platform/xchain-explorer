@@ -213,6 +213,51 @@ describe('indexed lanes bind exactly their placeholders', function () {
     });
 });
 
+// Indexed columns, per the indexer DDL, each id set member may filter on.
+const INDEXED_FILTERS = new Set(['pa.source_id', 'pt.source_id', 'pd.get_address_id',
+    'px.destination_id', 'px.get_address_id']);
+
+describe('two-party address lane: shape and binds', function () {
+    let db;
+    beforeEach(() => { db = makeDb(); });
+
+    it('filters every id set member on an indexed column and names the table its a3 join reads', async function () {
+        for (const method of lanes.TWO_PARTY_ADDRESS_METHODS) {
+            const idSet   = lanes.TWO_PARTY_BOUNDARY_SQL[method];
+            const filters = [...idSet.matchAll(/WHERE ([\w.]+)(?:=\?| IS NULL AND ([\w.]+)=\?)/g)]
+                .flatMap((m) => [m[1], m[2]].filter(Boolean));
+            expect(filters.length, method).to.be.greaterThan(1);
+            for (const column of filters) expect(INDEXED_FILTERS.has(column), `${method} ${column}`).to.equal(true);
+            expect(idSet, method).to.match(/^ AND m\.action_index IN \(SELECT pu\.action_index FROM \(/);
+            const built = await build(db, method, 'address');
+            const a3 = /a3 ON \(a3\.id=m\.(\w+)\)/.exec(built.count)[1];
+            expect(idSet, method).to.include(`px.${a3}=?`);
+        }
+    });
+
+    it('binds the resolved id once per placeholder, in the row and the count query', async function () {
+        for (const method of lanes.TWO_PARTY_ADDRESS_METHODS) {
+            const built = await build(db, method, 'address');
+            expect(built.where, method).to.include(lanes.TWO_PARTY_ADDRESS_SQL[method]);
+            await lanes.resolveActionSource(db, built.config);
+            const bound = listQueryArgs(db, built.config, built.args);
+            expect(bound.length, method).to.equal(method === 'getDispenses' ? 4 : 6);
+            expect(new Set(bound), method).to.deep.equal(new Set([ADDRESS_ID]));
+            for (const sql of readerSql(built))
+                expect(placeholders(sql), method).to.equal(bound.length);
+        }
+    });
+
+    it('takes the action-level id set for the paging boundary, binding the id once per placeholder', async function () {
+        for (const method of lanes.TWO_PARTY_ADDRESS_METHODS) {
+            const config = makeConfig({ data: { method, type: 'address', search: 'ADDR' } });
+            const { where, whereArgs } = await boundaryWhere(db, config);
+            expect(where, method).to.equal(lanes.TWO_PARTY_BOUNDARY_SQL[method]);
+            expect(whereArgs, method).to.deep.equal(new Array(placeholders(where)).fill(ADDRESS_ID));
+        }
+    });
+});
+
 describe('explorer paging boundaries take the same indexed predicates', function () {
     let db;
     beforeEach(() => { db = makeDb(); });

@@ -101,9 +101,12 @@ describe('pruneCountJoins: list lanes', function(){
             'INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index) WHERE m.action_index IS NOT NULL'));
     });
 
-    it('leaves the tick subquery lane of the action feed untouched', async function(){
-        const count = await countFor('getActions', null, { tick: 'XCH' });
-        expect(pruneCountJoins(count)).to.equal(count);
+    it('drops the transaction chain beside the tick lane, whose subquery reads only its own tables', async function(){
+        const count = flat(await countFor('getActions', null, { tick: 'XCH' }));
+        const where = count.slice(count.indexOf(' WHERE '));
+        expect(where).to.include('SELECT ma.action_index FROM mappings_actions ma');
+        expect(await prunedFor('getActions', null, { tick: 'XCH' })).to.equal(flat('SELECT count(*) as total FROM actions m ' +
+            'INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)' + where));
     });
 });
 
@@ -161,5 +164,20 @@ describe('pruneCountJoins: shapes it must not prune', function(){
             expect(pruneCountJoins(sql)).to.equal(sql);
         expect(parseCountSql(comma)).to.equal(null);
         expect(pruneCountJoins(undefined)).to.equal(undefined);
+    });
+});
+
+describe('pruneCountJoins: self-contained subqueries', function(){
+    const join = 'SELECT count(*) as total FROM sends m LEFT JOIN index_memos m1 ON (m1.id=m.memo_id) WHERE ';
+
+    it('reads past a subquery that names only its own tables', function(){
+        const own = join + 'm.action_index IN (SELECT pu.action_index FROM (SELECT px.action_index FROM sends px' +
+            ' WHERE px.destination_id=? UNION SELECT px.action_index FROM sends px WHERE px.tick_id=?) pu)';
+        expect(flat(pruneCountJoins(own))).to.equal(flat(own.replace(' LEFT JOIN index_memos m1 ON (m1.id=m.memo_id)', '')));
+    });
+
+    it('keeps every join when a subquery names an outer join alias', function(){
+        const outer = join + 'm.action_index IN (SELECT px.action_index FROM sends px WHERE px.memo_id=m1.id)';
+        expect(pruneCountJoins(outer)).to.equal(outer);
     });
 });

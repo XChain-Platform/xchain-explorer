@@ -2273,8 +2273,8 @@
     },
     {
       "path": "test/fixtures/list-page-baseline.json",
-      "bytes": 143161,
-      "sha256": "fbe4e0f59e0655bc24cd636034c624490b76987f1f2004968b8d0e88c56cb43c"
+      "bytes": 143156,
+      "sha256": "549d8c86cef9ed18f98e220fe10cb4561c7b8ca91754ba560e94ec2c67701d0b"
     },
     {
       "path": "test/fixtures/template-baseline.html",
@@ -2801,6 +2801,27 @@
         "broadcaster coin map contains exactly the supported coin keys",
         "broadcaster coin map maps each coin key to its chain and network"
       ],
+      "0826667f38c148d2": [
+        "explorer paging boundaries take the same indexed predicates filters a block boundary on the action block, and the blocks listing on b1",
+        "explorer paging boundaries take the same indexed predicates filters a single-party address boundary on the action source, binding the id twice",
+        "indexed block lane: which readers take it every method in the lane joins blocks on the action block in both queries",
+        "indexed block lane: which readers take it every reader that joins blocks on the action block takes the indexed lane",
+        "indexed block lane: which readers take it names only methods the route tables accept a block filter for",
+        "indexed lanes bind exactly their placeholders binds the block once for the block lane, in the row and the count query",
+        "indexed lanes bind exactly their placeholders binds the resolved id twice for the source lane, in the row and the count query",
+        "indexed lanes: scope leaves out only hub-only readers, none of which is in a lane",
+        "indexed source lane: which readers take it every method in the lane reaches the address through the action and its transaction",
+        "indexed source lane: which readers take it every reader whose source join is the action source takes the indexed lane",
+        "indexed source lane: which readers take it fixes the coinpays and coinpay expires address lanes, which have no a2 address join",
+        "two-party address lane: shape and binds binds the resolved id once per placeholder, in the row and the count query",
+        "two-party address lane: shape and binds filters every id set member on an indexed column and names the table its a3 join reads",
+        "two-party address lane: shape and binds takes the action-level id set for the paging boundary, binding the id once per placeholder",
+        "two-party address lane: the ordered-walk form for a dense address binds the threshold as the cap and keeps the id set below it",
+        "two-party address lane: the ordered-walk form for a dense address drops the id set and binds the per-row check alone at the threshold, in the row and the count query",
+        "two-party address lane: the ordered-walk form for a dense address estimates on indexed columns only, each side capped by a bound LIMIT",
+        "two-party address lane: the ordered-walk form for a dense address never estimates for a single-party source lane",
+        "two-party address lane: the ordered-walk form for a dense address skips the estimate for an address the index does not know"
+      ],
       "09a5bd038de2012d": [
         "SPV Stage A: contract-state request validation @regression accepts an ordinary key and reaches the proof server",
         "SPV Stage A: contract-state request validation @regression forwards a percent-bearing key BYTE FOR BYTE, never decoding what Express already decoded",
@@ -2997,6 +3018,18 @@
         "shared-list explorer route registers the no-query route against the composed reader",
         "shared-list explorer route returns home and mirror rows in the public shape",
         "shared-list explorer route returns the newest valid name for each local shared list"
+      ],
+      "11551f5849b9610f": [
+        "two-party address lane against the REAL indexer DDL covers exactly the methods the lane names",
+        "two-party address lane against the REAL indexer DDL keeps only the legs a multi-send pays to an address that is not its source",
+        "two-party address lane against the REAL indexer DDL lists the transaction-only source, the counterparty, and a both-sides action once",
+        "two-party address lane against the REAL indexer DDL returns the same rows and total as the two-join OR form for every address",
+        "two-party address lane against the REAL indexer DDL: counts and boundaries counts over the joins the lane reads once display joins are pruned",
+        "two-party address lane against the REAL indexer DDL: counts and boundaries opens the explorer feed one past the newest action the list selects",
+        "two-party address lane against the REAL indexer DDL: edges, counts and paging answers an unknown address with an empty page and a zero total",
+        "two-party address lane against the REAL indexer DDL: id-set and ordered-walk forms returns the same rows and total in both forms for every address",
+        "two-party address lane against the REAL indexer DDL: id-set and ordered-walk forms serves a dense address total from the tip totals cache on the next request",
+        "two-party address lane against the REAL indexer DDL: id-set and ordered-walk forms walks for an address over the default threshold on either side and keeps the id set for a sparse one"
       ],
       "116141af1654c3e7": [
         "explorer boot consensus-pin verification halts the process fail-closed when the pin does not verify",
@@ -3297,6 +3330,11 @@
         "BET_EXPIRE action detail @regression returns a structured-cloneable payload, which the LRU cache requires",
         "BET_EXPIRE action detail @regression tallies the refunds off bet_statuses, exactly, in bignumber space"
       ],
+      "1a9bd91dce5e08a0": [
+        "token page for a tick with no token routes the 404 to the errback with the parsed body",
+        "token page for a tick with no token wires the token fetch failure to the not-found render",
+        "token page for a tick with no token writes nothing to the console outside debug mode"
+      ],
       "1ae10423826a1c02": [
         "consensus-bound registry rows resolves the anchor bundle order activation table",
         "consensus-bound registry rows resolves the rollcall activation row exactly once",
@@ -3304,6 +3342,19 @@
         "price scale registry rows pins the PRICE v1 canonical rows",
         "price scale registry rows pins the price scale activation and decimal limit",
         "price scale registry rows registers each price scale row exactly once"
+      ],
+      "1bdc23226d82798c": [
+        "server address shape agrees with the address page BTC returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page DOGE returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page LTC returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page RBTC returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page RDOGE returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page RLTC returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page TBTC returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page TDOGE returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page TLTC returns the browser verdict on every corpus input",
+        "server address shape agrees with the address page answers null for a coin code the config does not name",
+        "server address shape agrees with the address page builds the BIP-173 reference address from its encoder"
       ],
       "1c31b3f297b71629": [
         "Broadcaster mempool destination fan-out (M1.1) MEMPOOL_REMOVED reaches the same address channels, carrying source + destinations",
@@ -3375,6 +3426,29 @@
         "db.getMempool: paging honors sql.limit (M1.2) /explorer requests slice by query.start (DataTables row offset) and cap at sql.limit",
         "db.getMempool: paging honors sql.limit (M1.2) a page past the end of the matched set returns an empty page, not an error",
         "db.getMempool: paging honors sql.limit (M1.2) without a request-shaped sql/limit (minimal internal config), returns the full matched set unsliced"
+      ],
+      "223d6cf7bc41cc2e": [
+        "detail pages answer 404 when their record cannot exist action answers 200 at and below it",
+        "detail pages answer 404 when their record cannot exist action answers 404 above the highest action index",
+        "detail pages answer 404 when their record cannot exist action answers 404 for an index that is not a decimal integer, without a read",
+        "detail pages answer 404 when their record cannot exist action when the high-water read fails leaves the page at 200",
+        "detail pages answer 404 when their record cannot exist address answers 200 for base58 and bech32 addresses on this coin",
+        "detail pages answer 404 when their record cannot exist address answers 404 for a segment that is not an address on this coin",
+        "detail pages answer 404 when their record cannot exist block answers 200 at the tip and below it, without a live read",
+        "detail pages answer 404 when their record cannot exist block answers 200 for a block indexed after the snapshot was taken",
+        "detail pages answer 404 when their record cannot exist block answers 404 above the indexed tip",
+        "detail pages answer 404 when their record cannot exist block answers 404 for a height that is not a decimal integer",
+        "detail pages answer 404 when their record cannot exist block compares heights past 2^53 exactly",
+        "detail pages answer 404 when their record cannot exist block while the tip cannot be vouched for stale tip leaves a height above it at 200",
+        "detail pages answer 404 when their record cannot exist block while the tip cannot be vouched for unknown tip leaves a height at 200",
+        "detail pages answer 404 when their record cannot exist requests the check leaves alone a detail path with a segment past the record",
+        "detail pages answer 404 when their record cannot exist requests the check leaves alone a detail type with no cheap check",
+        "detail pages answer 404 when their record cannot exist requests the check leaves alone a supported coin this instance does not serve",
+        "detail pages answer 404 when their record cannot exist requests the check leaves alone the api route for the same record, which answers through its own reader",
+        "detail pages answer 404 when their record cannot exist transaction answers 200 for a 64-hex hash in either case and for a decimal index",
+        "detail pages answer 404 when their record cannot exist transaction answers 404 for a query that is neither a hash nor a tx_index",
+        "the 404 page answers 404 at its own /404 route",
+        "the 404 page answers 404 for a path no route claims"
       ],
       "2247f143d2d27245": [
         "file mount predicate leaves the unlimited image exemption exactly as it was",
@@ -4713,15 +4787,6 @@
         "ATTEST batch detail card renders the window, response count, publisher, chunks, responses and duplicates",
         "ATTEST batch detail card switches the shipped detail page from request lifecycle cards to the batch card"
       ],
-      "47b771f0ea3c66c4": [
-        "two-party address lane against the REAL indexer DDL covers exactly the methods the lane names",
-        "two-party address lane against the REAL indexer DDL keeps only the legs a multi-send pays to an address that is not its source",
-        "two-party address lane against the REAL indexer DDL lists the transaction-only source, the counterparty, and a both-sides action once",
-        "two-party address lane against the REAL indexer DDL returns the same rows and total as the two-join OR form for every address",
-        "two-party address lane against the REAL indexer DDL: edges, counts and paging answers an unknown address with an empty page and a zero total",
-        "two-party address lane against the REAL indexer DDL: edges, counts and paging counts over the joins the lane reads once display joins are pruned",
-        "two-party address lane against the REAL indexer DDL: edges, counts and paging opens the explorer feed one past the newest action the list selects"
-      ],
       "493471329034b3fc": [
         "mixinReaders installs every extracted method non-enumerably found methods to check (the walk itself is not silently empty)",
         "mixinReaders installs every extracted method non-enumerably installs a real function with its arity intact",
@@ -4729,6 +4794,24 @@
         "mixinReaders installs every extracted method non-enumerably installs no method as an enumerable property of the prototype",
         "mixinReaders installs every extracted method non-enumerably leaves Object.keys and for-in over the prototype empty",
         "mixinReaders installs every extracted method non-enumerably yields no method name from a for-in over a constructed instance"
+      ],
+      "4994e66b81ba22c4": [
+        "header search box agrees with the search page defers a number to the search page while no status is cached",
+        "header search box agrees with the search page lands every query where the search page does, with a cached status",
+        "header search box agrees with the search page lands every query where the search page does, with no cached status",
+        "header search box agrees with the search page lets the search page decide a number past the cached tip",
+        "header search box agrees with the search page opens the record page directly for a query that names one record",
+        "header search box agrees with the search page posts a token query to the search page for the coin being viewed",
+        "search page routes a query that names one record keeps a token search on the page and loads the token feed as before",
+        "search page routes a query that names one record leaves a bare search page without a query alone",
+        "search page routes a query that names one record publishes the same canonical for ?q= as for ?query=",
+        "search page routes a query that names one record replaces itself with the record page for a block height",
+        "search page routes a query that names one record replaces itself with the record page for a number past the tip",
+        "search page routes a query that names one record replaces itself with the record page for a transaction hash",
+        "search page routes a query that names one record replaces itself with the record page for an address",
+        "search page routes a query that names one record replaces itself with the record page for the ?q= alias",
+        "search page routes a query that names one record replaces itself with the record page for the header form post",
+        "search page routes a query that names one record runs the token search for a ?q= query too"
       ],
       "49992a3e9860e255": [
         "openapi.json route coverage declares the checkpoint routes with their real body and params",
@@ -8285,6 +8368,26 @@
         "client: native coin market legs renders the real action 3051 summary as an unlinked DOGE payment",
         "client: native coin market legs returns no token destination for every absent tick shape"
       ],
+      "a19328d037f1e064": [
+        "search destination by query class keeps a number on the block page when the tip is unknown",
+        "search destination by query class leaves token text, partial hashes and empty input as a token search",
+        "search destination by query class returns null for a coin this client does not know",
+        "search destination by query class sends a 64-hex string to the transaction page, all-digit or not",
+        "search destination by query class sends a number above the tip to the action page",
+        "search destination by query class sends a number at or below the tip to the block page",
+        "search destination by query class sends a valid address for the coin to its address page",
+        "search destination by query class trims surrounding whitespace before classifying",
+        "search destination by query class uses address fixtures the client itself accepts for their own coin",
+        "search destination by query class validates the address against the searched coin, not the page coin",
+        "search destination with a live tip decides addresses and hashes without reading the status",
+        "search destination with a live tip falls back to the cached tip when the fresh read fails",
+        "search destination with a live tip opens a block at or below the cached tip with one status read",
+        "search destination with a live tip opens the action page when the fresh tip confirms the number is past it",
+        "search destination with a live tip opens the block page when no status is available at all",
+        "search destination with a live tip re-reads a fresh tip before calling a number an action index",
+        "search tip and query parameters accepts ?q= as an alias of ?query=, with ?query= winning",
+        "search tip and query parameters reads the tip for the coin from a /status body"
+      ],
       "a19575774b26a247": [
         "BET feed reads apply the bet_edits list overlay getBetFeedInfo reads the created lists on a replica without bet_edits",
         "BET feed reads apply the bet_edits list overlay getBetFeedInfo reads the latest valid edit per list when bet_edits exists",
@@ -8979,22 +9082,6 @@
         "resolve_coins fallback and missing handling uses legacy service keys and skips a missing coin configuration",
         "resolve_coins preferred service resolution resolves a coin using the preferred service keys",
         "resolve_coins repeated networks keeps the first entry for a repeated coin and network"
-      ],
-      "beef1ddcc72655de": [
-        "explorer paging boundaries take the same indexed predicates filters a block boundary on the action block, and the blocks listing on b1",
-        "explorer paging boundaries take the same indexed predicates filters a single-party address boundary on the action source, binding the id twice",
-        "indexed block lane: which readers take it every method in the lane joins blocks on the action block in both queries",
-        "indexed block lane: which readers take it every reader that joins blocks on the action block takes the indexed lane",
-        "indexed block lane: which readers take it names only methods the route tables accept a block filter for",
-        "indexed lanes bind exactly their placeholders binds the block once for the block lane, in the row and the count query",
-        "indexed lanes bind exactly their placeholders binds the resolved id twice for the source lane, in the row and the count query",
-        "indexed lanes: scope leaves out only hub-only readers, none of which is in a lane",
-        "indexed source lane: which readers take it every method in the lane reaches the address through the action and its transaction",
-        "indexed source lane: which readers take it every reader whose source join is the action source takes the indexed lane",
-        "indexed source lane: which readers take it fixes the coinpays and coinpay expires address lanes, which have no a2 address join",
-        "two-party address lane: shape and binds binds the resolved id once per placeholder, in the row and the count query",
-        "two-party address lane: shape and binds filters every id set member on an indexed column and names the table its a3 join reads",
-        "two-party address lane: shape and binds takes the action-level id set for the paging boundary, binding the id once per placeholder"
       ],
       "c02294c909b16034": [
         "explorer ping empty-pool guard no longer guards the SELECT 1 behind a truthy-coin branch",
@@ -10972,6 +11059,12 @@
         "SWAP detail: remaining amounts on a terminal swap applyTerminalOfferState leaves a payload without state alone",
         "SWAP detail: remaining amounts on a terminal swap the terminal whitelist is exactly complete / cancelled / expired"
       ],
+      "f20102761cae28d0": [
+        "blocks list action slots XC.actions lists every action table in ACTION_TABLES order",
+        "blocks list action slots draws a count and an icon for each type the block carries",
+        "blocks list action slots packs one slot per action table, each count in its table's slot",
+        "blocks list action slots says the block carries no XChain actions when every slot is empty"
+      ],
       "f22c4e1330eebd92": [
         "hub-mirror bridge tables: ensureTables creates them @regression creates bridge_transfers and policy_snapshots from the vendored directory",
         "hub-mirror bridge tables: ensureTables creates them @regression skips a table that already exists, so a restart does not re-run its DDL",
@@ -11318,8 +11411,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 398,
-        "titleCount": 7061,
+        "fileCount": 404,
+        "titleCount": 7142,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11421,6 +11514,7 @@
           "test/unit/content/detail/poll/content_client_poll_detail.test.js": "c8abd7dec6ab652e",
           "test/unit/content/detail/poll/content_client_poll_winning_option.test.js": "442821ec9fe9713e",
           "test/unit/content/detail/protocol_sentinels/content_client_protocol_sentinels.test.js": "852e82ad8bc84098",
+          "test/unit/content/detail/token_missing_tick_console.test.js": "1a9bd91dce5e08a0",
           "test/unit/content/detail/unparseable/content_client_anchor_publisher_attestations_unparseable.test.js": "d7e0718516e9b2fd",
           "test/unit/content/detail/unparseable/content_client_attest_signatures_unparseable.test.js": "6040916952368853",
           "test/unit/content/detail/unparseable/content_client_price_pairs_unparseable.test.js": "eed4fc76083c6fc6",
@@ -11468,6 +11562,8 @@
           "test/unit/content/pages/client/content_client_search_empty_query.test.js": "86408b397e17bc49",
           "test/unit/content/pages/client/content_client_search_null_render.test.js": "77bf9501ade114ae",
           "test/unit/content/pages/client/content_client_xss.test.js": "d64ac316072379c5",
+          "test/unit/content/pages/client/search/search_destination.test.js": "a19328d037f1e064",
+          "test/unit/content/pages/client/search/search_entry_points.test.js": "4994e66b81ba22c4",
           "test/unit/content/pages/content_bet_pools_and_order_status.test.js": "3353aa6f5c8140f5",
           "test/unit/content/pages/content_client_api_endpoints.test.js": "b3e2bff72762fc63",
           "test/unit/content/pages/content_dispenser_page_wiring.test.js": "8ecd6b73eb3f5ae1",
@@ -11525,13 +11621,13 @@
           "test/unit/db/query_sql/delegations_pubkey_lane.test.js": "1d614256799a055f",
           "test/unit/db/query_sql/offset_cursors.test.js": "164464e8e311a31e",
           "test/unit/db/query_sql/source_lanes_real_ddl.test.js": "1eedfbabce422479",
-          "test/unit/db/query_sql/two_party_lanes_real_ddl.test.js": "47b771f0ea3c66c4",
+          "test/unit/db/query_sql/two_party_lanes_real_ddl.test.js": "11551f5849b9610f",
           "test/unit/db/query_sql/where_action_clauses_builders.test.js": "b3ec2f54fe0c224b",
           "test/unit/db/query_sql/where_action_clauses_generic.test.js": "caed491a7a766ae3",
           "test/unit/db/query_sql/where_anchors.test.js": "1d8184e028d7d9ff",
           "test/unit/db/query_sql/where_clauses.test.js": "ba686bb3d8e86c4a",
           "test/unit/db/query_sql/where_mirror_clauses.test.js": "fa8a6b93a504df6a",
-          "test/unit/db/query_sql/where_source_lanes.test.js": "beef1ddcc72655de",
+          "test/unit/db/query_sql/where_source_lanes.test.js": "0826667f38c148d2",
           "test/unit/db/query_sql/where_vote_clauses.test.js": "c95c9f03a953fc82",
           "test/unit/db/reader_parts.test.js": "6427b7bf2f94fa4d",
           "test/unit/db/readers/actions/action_summary_key_fields_fixture.test.js": "972154035e45120c",
@@ -11590,10 +11686,13 @@
           "test/unit/explorer/feeds/explorer_feed_shaping_branches.test.js": "af7981f422df163c",
           "test/unit/explorer/fees_preflight/fee_schedule_cache.test.js": "99f0e1cb22b10854",
           "test/unit/explorer/mount/limiters.test.js": "36a8962bc0ef6ca8",
+          "test/unit/explorer/paging_response/block_action_slots.test.js": "f20102761cae28d0",
           "test/unit/explorer/paging_response/explorer_paging.test.js": "66cd3cb942505c74",
           "test/unit/explorer/paging_response/explorer_response.test.js": "897c3ea1f7482d23",
           "test/unit/explorer/relay/explorer_relay_shared_lookup.test.js": "7cec30338161fbc6",
+          "test/unit/explorer/request/address_shape.test.js": "1bdc23226d82798c",
           "test/unit/explorer/request/bare_detail.test.js": "a94445f3f95eaca1",
+          "test/unit/explorer/request/detail_record.test.js": "223d6cf7bc41cc2e",
           "test/unit/explorer/request/load_data.test.js": "0fb440fe8ab93be0",
           "test/unit/explorer/request/send_response.test.js": "23809e480c3c6ebd",
           "test/unit/explorer/request/state.test.js": "88979ff09b9cd523",

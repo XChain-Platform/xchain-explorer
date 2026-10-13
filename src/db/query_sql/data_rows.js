@@ -18,7 +18,7 @@
  * the rows getData shapes. It assembles the bind arguments in the strict
  * left-to-right order the placeholders appear in (data-WHERE args, then the
  * offset args, then the API OFFSET), runs the row query, and runs the count
- * query on the base args alone.
+ * query on the base args alone, or on the args a reader paired with it.
  *
  * Plain functions, not a class body: they take the Database as `db` for
  * doQuery and this.util, and nothing here reaches Database.prototype.
@@ -75,9 +75,14 @@ async function runListQuery(db, config, query, args, count){
     }
     if(query!='')
         data = await db.doQuery(config, query, queryArgs);
-    // Count query uses only base args (no offset/limit placeholders)
+    // Count query uses only base args (no offset/limit placeholders). A reader
+    // whose count drops placeholders the row query carries returns it as a
+    // [sql, args] pair; those args take the same list-all null filter.
     if(count){
-        let rows = await db.doQuery(config, count, baseArgs);
+        let [countSql, countArgs] = Array.isArray(count)
+            ? [count[0], listQueryArgs(db, config, count[1])]
+            : [count, baseArgs];
+        let rows = await db.doQuery(config, countSql, countArgs);
         total = (rows) ? Number(rows[0].total) : 0;
     }
     return [data, total];

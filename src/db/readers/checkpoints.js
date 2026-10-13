@@ -36,6 +36,7 @@
  *                                 balances, and the canonical block leaf rows
  *   - checkpoints/sync_feeds.js   capability snapshots, the since-cursor feeds,
  *                                 and the hub operational-state pages
+ *   - checkpoints/bridge_panels.js token-page transfer and applied-policy reads
  *
  * HOW THIS ATTACHES
  *
@@ -57,11 +58,13 @@
 
 const { composeReaderParts } = require('../reader_parts.js');
 
-// The four method parts. composeReaderParts throws at require time if two of them
+// The method parts. composeReaderParts throws at require time if two of them
 // declare the same name, so a method moved between parts cannot shadow another.
-const sourceMethods     = require('./checkpoints/sources.js');
-const checkpointMethods = require('./checkpoints/checkpoints.js');
-const stateMethods      = require('./checkpoints/state.js');
-const syncFeedMethods   = require('./checkpoints/sync_feeds.js');
+const sourceMethods      = require('./checkpoints/sources.js');
+const checkpointMethods  = require('./checkpoints/checkpoints.js');
+const stateMethods       = require('./checkpoints/state.js');
+const syncFeedMethods    = require('./checkpoints/sync_feeds.js');
+const bridgePanelMethods = require('./checkpoints/bridge_panels.js');
 
-module.exports = composeReaderParts(sourceMethods, checkpointMethods, stateMethods, syncFeedMethods);
+module.exports = composeReaderParts(sourceMethods, checkpointMethods, stateMethods, syncFeedMethods,
+    bridgePanelMethods);

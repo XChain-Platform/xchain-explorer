@@ -1159,6 +1159,7 @@
                 XC.pageInfo.canonical   = tokenUrl(XC.coin, tick)
                 updatePageInfo();
 
+                loadBridgePanels(tick);
                 setupActionListeners();
                 $('#tab-dropdown-info').click();
             } else {

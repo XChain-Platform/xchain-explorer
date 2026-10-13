@@ -28,6 +28,8 @@ const { api } = require('../../../src/explorer/routes/api_methods.js');
 const { supportsBareApiList } = require('../../../src/explorer/request/resolve_route.js');
 
 const SRC  = srcText('src/XChainExplorer.js');
+const API_ENTRY = srcText('src/api.js');
+const BRIDGE_ROUTES = srcText('src/http/bridge_panel_routes.js');
 const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '../../docs/openapi.json'), 'utf8'));
 
 // '/{COIN}/api/...' object keys inside the urls.api table in the source.
@@ -48,7 +50,8 @@ function sourceApiRoutes() {
 // GET-only extractor cannot see (row M1.8).
 function sourceSpecialRoutes() {
     const out = new Set();
-    for (const m of SRC.matchAll(/app\.(?:get|post)\('(\/:coin\/api\/[^']*)'/g)) {
+    const sources = SRC + '\n' + API_ENTRY + '\n' + BRIDGE_ROUTES;
+    for (const m of sources.matchAll(/app\.(?:get|post)\('(\/:coin\/api\/[^']*)'/g)) {
         out.add(m[1].replace(/:([A-Za-z]+)/g, (_s, name) =>
             '{' + name.replace(/([A-Z])/g, '_$1').toUpperCase() + '}'));
     }

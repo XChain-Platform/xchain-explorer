@@ -15,62 +15,10 @@
 'use strict';
 
 const express    = require('express');
-const proxyquire = require('proxyquire');
 const request    = require('supertest');
 const sinon      = require('sinon');
 const { expect } = require('chai');
-
-function loadRouteMount(){
-    const appStub = {
-        use(){}, get(){}, post(){}, set(){}, disable(){}
-    };
-    const serverStub = { on(){ return this; }, listen(_port, cb){ if(cb) cb(); return this; } };
-    class ExplorerStub {
-        constructor(){ this.db = { pools: {} }; }
-        async init(){}
-        static getSlowRequests(){ return 0; }
-        static getLatencyStats(){ return {}; }
-    }
-    class HubStub {
-        static parseEndpoints(){ return null; }
-    }
-    const noop = () => {};
-    const api = proxyquire.noCallThru().load('../../../../src/api.js', {
-        dotenv: { config: noop },
-        http: { createServer: () => serverStub },
-        express: Object.assign(() => appStub, { json: () => noop }),
-        './XChainExplorer.js': ExplorerStub,
-        './config.js': {
-            env: {}, getConfig: async () => ({}), startSync: noop,
-            stopSync: noop, onConfigChanged: noop
-        },
-        './contract/vm_query.js': { isEnabled: () => false, consensusFault: () => null },
-        './http/static_mounts.js': { isStaticAsset: () => false },
-        './http/shutdown.js': {
-            createExplorerDrain: () => noop,
-            createShutdown: () => noop
-        },
-        './observability': {
-            patchConsole: noop,
-            getLogger: () => ({ info: noop, warn: noop, error: noop })
-        },
-        './coins': { NETWORKS: [], ALLOWED_COINS: ['BTC', 'LTC', 'DOGE'], verifyConsensusPin: noop },
-        './connectors/hub': HubStub,
-        './federation': { buildFederationRpc: () => ({}) },
-        './http/api_boot/security_headers.js': { applySecurityHeaders: noop, applyProxyTrust: noop },
-        './http/api_boot/cors.js': { applyCors: noop },
-        './http/api_boot/rate_limits.js': {
-            applyRateLimits: () => ({ getStats: () => ({}) })
-        },
-        './http/api_boot/observability.js': { applyObservability: noop },
-        './http/api_boot/tls.js': { startTlsListener: noop },
-        './http/api_boot/json_rpc.js': { mountJsonRpc: noop },
-        './http/api_boot/websocket.js': { startWebsockets: noop }
-    });
-    return api.mountBridgePanelRoutes;
-}
-
-const mountBridgePanelRoutes = loadRouteMount();
+const { mountBridgePanelRoutes } = require('../../../../src/http/bridge_panel_routes.js');
 
 function buildApp(db, hub){
     const app = express();
@@ -117,10 +65,36 @@ describe('explorer bridge panel routes', function(){
         expect(calls).to.have.lengthOf(1);
         expect(calls[0]).to.deep.equal({
             coin: 'DOGE', schema: 'hub_mirror', network: 'mainnet',
-            tick: 'FUFU', chain: 'DOGE', limit: 100
+            tick: 'FUFU', copyTick: 'BTC.FUFU', chain: 'DOGE', limit: 100
         });
     });
 
+});
+
+describe('explorer applied-policy panel route', function(){
+    it('serves the latest applied policy from the routed coin mirror', async function(){
+        const payload = {
+            policy_seq: '7', origin_block: '1200', policy_hash: 'a'.repeat(64),
+            allow_list_action_index: '41', block_list_action_index: null, sleeping: 0
+        };
+        const calls = [];
+        const db = {
+            checkpointDb: {
+                DOGE: { name: 'hub_mirror', chain: 'DOGE', network: 'mainnet' }
+            },
+            async getAppliedPolicy(query){ calls.push(query); return payload; }
+        };
+
+        const res = await request(buildApp(db, null)).get('/DOGE/api/applied-policy/BTC.FUFU');
+
+        expect(res.status).to.equal(200);
+        expect(res.type).to.equal('application/json');
+        expect(res.body).to.deep.equal(payload);
+        expect(calls).to.deep.equal([{
+            coin: 'DOGE', schema: 'hub_mirror', network: 'mainnet',
+            origin: 'BTC', tick: 'FUFU', copyTick: 'BTC.FUFU'
+        }]);
+    });
 });
 
 describe('explorer bridge panel routes, HEAD and failures', function(){
@@ -142,15 +116,17 @@ describe('explorer bridge panel routes, HEAD and failures', function(){
         expect(hub.call.calledOnce).to.equal(true);
     });
 
-    it('answers HEAD for both paths as JSON routes, never as the 404 page', async function(){
+    it('answers HEAD for every path as a JSON route, never as the 404 page', async function(){
         const db = {
             checkpointDb: { BTC: { name: 'mirror', chain: 'BTC', network: 'regtest' } },
-            getBridgeTransfers: async () => []
+            getBridgeTransfers: async () => [],
+            getAppliedPolicy: async () => null
         };
         const hub = { call: async () => ({ FUFU: {} }) };
         const app = buildApp(db, hub);
 
-        for(const path of ['/BTC/api/bridge-invariant/FUFU', '/BTC/api/bridge-transfers/FUFU']){
+        for(const path of ['/BTC/api/bridge-invariant/FUFU', '/BTC/api/bridge-transfers/FUFU',
+            '/BTC/api/applied-policy/DOGE.FUFU']){
             const res = await request(app).head(path);
             expect(res.status, path).to.equal(200);
             expect(res.type, path).to.equal('application/json');
@@ -162,6 +138,7 @@ describe('explorer bridge panel routes, HEAD and failures', function(){
         const app = buildApp({}, null);
         const invariant = await request(app).get('/BTC/api/bridge-invariant/FUFU');
         const transfers = await request(app).get('/BTC/api/bridge-transfers/FUFU');
+        const policy = await request(app).get('/BTC/api/applied-policy/DOGE.FUFU');
 
         expect(invariant.status).to.equal(503);
         expect(invariant.type).to.equal('application/json');
@@ -169,5 +146,8 @@ describe('explorer bridge panel routes, HEAD and failures', function(){
         expect(transfers.status).to.equal(503);
         expect(transfers.type).to.equal('application/json');
         expect(transfers.body.code).to.equal('BRIDGE_TRANSFERS_UNAVAILABLE');
+        expect(policy.status).to.equal(503);
+        expect(policy.type).to.equal('application/json');
+        expect(policy.body.code).to.equal('APPLIED_POLICY_UNAVAILABLE');
     });
 });

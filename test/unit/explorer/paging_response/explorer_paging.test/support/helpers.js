@@ -129,7 +129,7 @@ function makeBlock(overrides = {}) {
             lists:         0, messages:     0, mints:         5, orders:        2,
             order_cancels: 0, order_edits:  0, order_matches: 1, sends:        10,
             sleeps:        0, swaps:        0, swap_cancels:  0, swap_edits:    0,
-            swap_matches:  0, sweep:        0
+            swap_matches:  0, sweeps:       0
         }
     }, overrides);
 }

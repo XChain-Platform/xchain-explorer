@@ -58,18 +58,25 @@ XC = {
         regtest: 'R'
     },
 
-    // List of supported actions
+    // Every action table, in the order the blocks feed packs its per-block counts
+    // (ACTION_TABLES in src/db/method_tables.js); the blocks list reads slot i as
+    // the count for actions[i].
     actions: [
         'addresses',
         'airdrops',
+        'anchor_actions',
         'batches',
         'broadcasts',
         'callbacks',
+        'coinpays',
+        'coinpay_expires',
+        'coinpay_obligations',
         'destroys',
         'dispensers',
         'dispenses',
         'dividends',
         'files',
+        'full_node_verifications',
         'issues',
         'links',
         'lists',
@@ -79,6 +86,7 @@ XC = {
         'order_cancels',
         'order_edits',
         'order_matches',
+        'prices',
         'sends',
         'sleeps',
         'swaps',

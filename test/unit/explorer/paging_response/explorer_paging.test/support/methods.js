@@ -203,12 +203,13 @@ describe('method: getBlocks', function () {
         expect(r).to.be.an('array').with.length(4);
         expect(r[0]).to.equal(700);  // block_index
         expect(r[1]).to.equal(1720000000);
-        // actions string: 26 fields joined by pipe
+        // actions string: one field per action table, pipe-joined in ACTION_TABLES order
+        const { ACTION_TABLES } = require('../../../../../../src/db/method_tables.js');
         const parts = r[2].split('|');
-        expect(parts).to.have.length(26);
-        expect(parts[0]).to.equal('1');   // addresses
-        expect(parts[3]).to.equal('2');   // broadcasts
-        expect(parts[10]).to.equal('3');  // issues
+        expect(parts).to.have.length(ACTION_TABLES.length);
+        expect(parts[ACTION_TABLES.indexOf('addresses')]).to.equal('1');
+        expect(parts[ACTION_TABLES.indexOf('broadcasts')]).to.equal('2');
+        expect(parts[ACTION_TABLES.indexOf('issues')]).to.equal('3');
         expect(r[3]).to.equal(700);       // block_index repeated
     });
 

@@ -3,7 +3,7 @@
   "info": {
     "title": "XChain Explorer API",
     "version": "1.0.0",
-    "description": "Read-only REST API for the XChain Platform: tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings, and so are chain indices (`block_index`, `action_index`, `checkpoint_seq`, `snapshot_block`) on both the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay exact above 2^53. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit max 100; balances/holders max 500). Errors are `{error: \"message\", code: \"STABLE_CODE\"}`. See the error-code registry at https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at /{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
+    "description": "Read-only REST API for the XChain Platform: tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings, and so are chain indices (`block_index`, `action_index`, `checkpoint_seq`, `snapshot_block`) on both the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay exact above 2^53. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit max 100; balances/holders max 500). Lists that document `before`/`after` also page by cursor: pass the response's `next_before` (or `next_after` when ascending) to read the next page at the same cost at any depth, where a deep `page` slows with depth. Errors are `{error: \"message\", code: \"STABLE_CODE\"}`. See the error-code registry at https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at /{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
     "license": {
       "name": "AGPL-3.0-or-later",
       "url": "https://docs.xchain.io/legal/licensing.md"
@@ -108,6 +108,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -131,6 +137,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -281,6 +297,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -304,6 +326,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -367,6 +399,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -390,6 +428,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -454,6 +502,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -477,6 +531,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -628,6 +692,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -651,6 +721,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -718,6 +798,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -741,6 +827,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1152,6 +1248,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1175,6 +1277,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1330,6 +1442,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1353,6 +1471,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1417,6 +1545,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1440,6 +1574,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1504,6 +1648,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1527,6 +1677,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1590,6 +1750,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1613,6 +1779,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1742,6 +1918,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1765,6 +1947,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1831,6 +2023,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1854,6 +2052,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1918,6 +2126,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1941,6 +2155,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2090,6 +2314,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2113,6 +2343,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2176,6 +2416,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2199,6 +2445,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2413,6 +2669,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2479,6 +2741,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2545,6 +2813,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2701,6 +2975,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2724,6 +3004,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2788,6 +3078,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2811,6 +3107,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2874,6 +3180,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2897,6 +3209,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3046,6 +3368,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3069,6 +3397,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3285,6 +3623,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3308,6 +3652,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3373,6 +3727,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3417,6 +3777,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3640,6 +4006,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3684,6 +4056,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3989,6 +4367,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4033,6 +4417,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4300,6 +4690,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4368,6 +4764,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4435,6 +4837,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4479,6 +4887,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4763,6 +5177,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -5452,6 +5872,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -5496,6 +5922,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -6778,6 +7210,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -6822,6 +7260,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -7211,6 +7655,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -7255,6 +7705,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -7368,6 +7824,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -7412,6 +7874,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -9159,6 +9627,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -9203,6 +9677,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -9724,6 +10204,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -9747,6 +10233,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -10456,6 +10952,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -10479,6 +10981,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -11870,6 +12382,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -11893,6 +12411,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -11998,6 +12526,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12021,6 +12555,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12062,6 +12606,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12085,6 +12635,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12126,6 +12686,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12149,6 +12715,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12254,6 +12830,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12277,6 +12859,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12318,6 +12910,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12341,6 +12939,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12638,6 +13246,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12661,6 +13275,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12766,6 +13390,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12789,6 +13419,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12830,6 +13470,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12853,6 +13499,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12894,6 +13550,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12917,6 +13579,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12958,6 +13630,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -12981,6 +13659,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13022,6 +13710,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13045,6 +13739,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13086,6 +13790,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13109,6 +13819,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13150,6 +13870,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13173,6 +13899,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13278,6 +14014,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13301,6 +14043,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13342,6 +14094,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13365,6 +14123,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13406,6 +14174,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13450,6 +14224,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13494,6 +14274,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13684,6 +14470,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13707,6 +14499,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13748,6 +14550,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13771,6 +14579,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13812,6 +14630,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13835,6 +14659,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13940,6 +14774,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -13963,6 +14803,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14004,6 +14854,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -14027,6 +14883,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14068,6 +14934,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -14112,6 +14984,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -14156,6 +15034,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -14436,6 +15320,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -14459,6 +15349,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -15830,6 +16730,24 @@
           ]
         },
         "description": "Sort order"
+      },
+      "before": {
+        "name": "before",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "description": "Keyset paging: only rows whose cursor is below this value, in `sortorder`. The cursor is `action_index` (`block_index` on commitments). Pass a descending page's `next_before` to read the next page at index cost whatever its depth; `page` is ignored. Not combinable with `after`; a non-numeric value answers 400."
+      },
+      "after": {
+        "name": "after",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "description": "Keyset paging: only rows whose cursor is above this value, in `sortorder`. Pass an ascending page's `next_after` to read the next page; `page` is ignored. Not combinable with `before`; a non-numeric value answers 400."
       }
     },
     "schemas": {
@@ -15850,6 +16768,16 @@
           "runtime": {
             "type": "string",
             "description": "Amount of time to execute and return the data"
+          },
+          "next_after": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+          },
+          "next_before": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
           }
         },
         "required": [

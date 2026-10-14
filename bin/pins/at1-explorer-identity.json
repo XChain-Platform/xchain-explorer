@@ -2704,6 +2704,12 @@
         "tick labels render as visible text, not markup @regression shows the ticker in the ISSUE one-line summary used by history rows",
         "tick labels render as visible text, not markup @regression shows the ticker on the ISSUE detail card"
       ],
+      "0327f252f909f77e": [
+        "blocks last page: contiguous heights, total not a multiple of the page length holds exactly total - start rows ending at the lowest block, length 10",
+        "blocks last page: contiguous heights, total not a multiple of the page length holds exactly total - start rows ending at the lowest block, length 25",
+        "blocks last page: heights missing from the table holds exactly total - start rows ending at the lowest block, length 10",
+        "blocks last page: heights missing from the table holds exactly total - start rows ending at the lowest block, length 25"
+      ],
       "03b500abda6fe6ea": [
         "client: action proof button is gated on the block being checkpointed offers the button on a checkpointed block, and the click spends the proof request",
         "client: action proof button is gated on the block being checkpointed removes the button on an uncheckpointed block and says why, spending no proof request",
@@ -11732,8 +11738,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 418,
-        "titleCount": 7435,
+        "fileCount": 419,
+        "titleCount": 7439,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11936,6 +11942,7 @@
           "test/unit/db/mempool/db_mempool_reader_ownership.test.js": "1571701800a32267",
           "test/unit/db/mempool/decoder_mempool_reply_contract.test.js": "71e23443944752dd",
           "test/unit/db/mempool/mempool.test.js": "8bc5ff64b8859343",
+          "test/unit/db/query_sql/blocks_last_page_paging.test.js": "0327f252f909f77e",
           "test/unit/db/query_sql/count_joins.test.js": "f953b74844f8299e",
           "test/unit/db/query_sql/count_joins_real_ddl.test.js": "0057a5c1523de213",
           "test/unit/db/query_sql/data_cache.test.js": "3eae330fe921766d",

@@ -175,13 +175,13 @@ class MarketOrderReaders {
                 let key = this.util.bcnum(price).toFixed();
                 if(type=='bid'){
                     let bid = bids.get(key);
-                    if(bid) bid.amount = this.util.bcadd(bid.amount, order.get_remaining);
-                    else bids.set(key, { price: price, amount: order.get_remaining });
+                    if(bid) bid.amount = this.util.bcadd(bid.amount, order.get_remaining, 64).toFixed();
+                    else bids.set(key, { price: price, amount: this.util.bcnum(order.get_remaining).toFixed() });
                 }
                 if(type=='ask'){
                     let ask = asks.get(key);
-                    if(ask) ask.amount = this.util.bcadd(ask.amount, order.give_remaining);
-                    else asks.set(key, { price: price, amount: order.give_remaining });
+                    if(ask) ask.amount = this.util.bcadd(ask.amount, order.give_remaining, 64).toFixed();
+                    else asks.set(key, { price: price, amount: this.util.bcnum(order.give_remaining).toFixed() });
                 }
             }
             // Sort asks and bids

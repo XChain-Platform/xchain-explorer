@@ -202,8 +202,8 @@ async function subtractOrderMatches(db, config, remainingMap, action_indexes){
                     if(remainingMap[idx]){
                         let give_amount = (row.get_action_index == idx) ? row.give_amount : row.get_amount;
                         let get_amount  = (row.get_action_index == idx) ? row.get_amount  : row.give_amount;
-                        remainingMap[idx].give_remaining = db.util.bcsub(remainingMap[idx].give_remaining, give_amount);
-                        remainingMap[idx].get_remaining  = db.util.bcsub(remainingMap[idx].get_remaining,  get_amount);
+                        remainingMap[idx].give_remaining = db.util.bcsub(remainingMap[idx].give_remaining, give_amount, 64);
+                        remainingMap[idx].get_remaining  = db.util.bcsub(remainingMap[idx].get_remaining,  get_amount, 64);
                     }
                 }
             }

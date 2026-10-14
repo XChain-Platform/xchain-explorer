@@ -194,8 +194,8 @@ class OrderReaders {
             for(let row of results){
                 let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
                 let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
-                give_remaining  = this.util.bcsub(give_remaining, give_amount);
-                get_remaining   = this.util.bcsub(get_remaining,  get_amount);
+                give_remaining  = this.util.bcsub(give_remaining, give_amount, 64);
+                get_remaining   = this.util.bcsub(get_remaining,  get_amount, 64);
             }
         }
         return [give_remaining, get_remaining];

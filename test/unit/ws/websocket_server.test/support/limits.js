@@ -39,9 +39,13 @@ function sendPing(s, client) {
            s.sendError.lastCall.args[1] === 'RATE_LIMITED';
 }
 
+// The bucket refuses past its burst allowance, max(rate, maxSubscriptions + 2), and
+// drains at the rate. These cases measure the drain, so the server holds 8
+// subscriptions and the burst equals the rate; the burst itself is covered in
+// test/unit/ws/feed_correctness/ws03_ws10_requests.test.js.
 function setup(maxMsgPerSec) {
     const clock = sinon.useFakeTimers({ now: 1000000, toFake: ['Date'] });
-    const s = makeServer({ maxMsgPerSec });
+    const s = makeServer({ maxMsgPerSec, maxSubscriptions: 8 });
     sinon.stub(s, 'send');
     sinon.spy(s, 'sendError');
     const client = makeRateClient();

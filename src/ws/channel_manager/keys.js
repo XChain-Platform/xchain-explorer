@@ -48,10 +48,23 @@ const CANONICAL_CALL_ID = /^[0-9a-f]{64}$/;
 // request. A resolver that refuses part way through a batch has already pushed
 // some keys; the caller discards them with the error, as the inline switch did.
 
+// An address is a non-empty string. Anything else would be keyed by its string form
+// ("[object Object]", "5"), a subscription no frame can ever route to.
+function addressError(addr) {
+    if (typeof addr === 'string' && addr.length > 0) return null;
+    return { error: { code: 'INVALID_CHANNEL', message: 'address channel address must be a non-empty string' } };
+}
+
 function addressKeys(params, keys) {
     if (params.addresses && Array.isArray(params.addresses)) {
-        for (const addr of params.addresses) keys.push({ address: addr });
+        for (const addr of params.addresses) {
+            const refused = addressError(addr);
+            if (refused) return refused;
+            keys.push({ address: addr });
+        }
     } else if (params.address) {
+        const refused = addressError(params.address);
+        if (refused) return refused;
         keys.push({ address: params.address });
     } else {
         return { error: { code: 'INVALID_CHANNEL', message: 'address channel requires address or addresses param' } };

@@ -29,6 +29,7 @@
  *   channels.js  broadcastToChannel(Key), the filter pipeline, the fields
  *                projection and extractAddresses
  *   coin_map.js  COIN_MAP, the envelope table both this file and mempool.js read
+ *   reorg.js     onReorg, the REORG frame sent ahead of a rollback's replacements
  *
  * Nothing a caller sees changed: `new Broadcaster(options)` returns one object
  * carrying every method under the same name with the same `this`.
@@ -48,6 +49,7 @@ const { WS_SCHEMA_VERSION } = require('./schema_version.js');
 // bound to the Broadcaster instance and no call site moved.
 const mempoolFrames = require('./broadcaster/mempool.js');
 const channelFanout = require('./broadcaster/channels.js');
+const reorgNotice   = require('./broadcaster/reorg.js');
 
 class Broadcaster {
 
@@ -103,6 +105,7 @@ class Broadcaster {
         this.changeDetector.on('entity_update',    (coin, event)  => this.onEntityUpdate(coin, event));
         this.changeDetector.on('mempool_action',   (coin, row)    => this.onMempoolAction(coin, row));
         this.changeDetector.on('mempool_removed',  (coin, row)    => this.onMempoolRemoved(coin, row));
+        this.changeDetector.on('reorg',            (coin, info)   => this.onReorg(coin, info));
     }
 
     onActionRowStart(coin, action) {
@@ -392,6 +395,6 @@ function mixinParts(target, ...sources) {
     }
 }
 
-mixinParts(Broadcaster.prototype, mempoolFrames, channelFanout);
+mixinParts(Broadcaster.prototype, mempoolFrames, channelFanout, reorgNotice);
 
 module.exports = Broadcaster;

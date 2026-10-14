@@ -87,19 +87,25 @@ class BetLatchCursor {
     }
 
     // Next poll cursor after a capped `*Since` fetch. The queries return the lowest
-    // `fetchLimit` rows above the cursor (ORDER BY <idx> ASC LIMIT fetchLimit), so
-    // when a fetch fills the cap and its last row is still below the observed tip
-    // there is a backlog: continue from the last fetched row next poll rather than
-    // jumping to the tip (which would drop the un-fetched remainder). An empty fetch
-    // (rows filtered out despite a higher tip) advances to the tip so the same empty
-    // range is not re-polled forever.
+    // `fetchLimit` rows above the cursor (ORDER BY <idx> ASC LIMIT fetchLimit) with no
+    // filter, so every index between the cursor and the observed tip is a row the
+    // fetch would have returned had it still been there. The cursor therefore never
+    // moves past the last row fetched while that row is below the tip read earlier in
+    // the poll: a full fetch means a backlog that drains over the next polls, and a
+    // short or empty one means the rows between the last fetched row and the tip were
+    // rolled back after the tip was read. Jumping to the tip in either case would
+    // skip every replacement row the indexer later commits at those indexes. The
+    // range is read again on the next poll, which is one cheap indexed query.
+    // `rows` that are empty or absent keep `previous`, the cursor the fetch started
+    // from; a caller that passes no `previous` gets the tip, as a fetch with nothing
+    // to compare against has nothing to hold.
     // Compares as BigInt: both index columns are BIGINT, and Number() collapsed two
     // consecutive action indices above 2^53 onto one value, so a backlog cursor could
     // land at or past an action that was never emitted. The return keeps
     // currentMax's own type so the block cursor stays a Number and only the action
     // cursor, whose currentMax is now BigInt, becomes exact.
-    nextCursor(rows, indexKey, currentMax) {
-        if (!rows || rows.length === 0) return currentMax;
+    nextCursor(rows, indexKey, currentMax, previous) {
+        if (!rows || rows.length === 0) return (previous === undefined) ? currentMax : previous;
         let last, max;
         // A malformed/absent index on the last row is not a cursor: fall back to the
         // tip rather than throw out of the poll loop, matching the old isFinite guard.
@@ -109,7 +115,8 @@ class BetLatchCursor {
         } catch (e) {
             return currentMax;
         }
-        if (rows.length >= this.fetchLimit && last < max)
+        // Below the tip, full fetch or not: stop at the last row fetched.
+        if (last < max)
             return (typeof currentMax === 'bigint') ? last : Number(last);
         // Never fall below an emitted row: the fetch has no upper bound, so a row the
         // indexer committed after the tip read is already sent and must not be re-sent.

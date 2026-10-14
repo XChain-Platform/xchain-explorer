@@ -187,18 +187,29 @@ class ChannelSubscriptions {
     // Unsubscribe a client from channels. Returns the list of entities actually
     // targeted so the caller (WebSocketServer) can send back an UNSUBSCRIBED
     // frame naming each one -- without this a client cannot tell an honoured
-    // unsubscribe from a message the server dropped.
+    // unsubscribe from a message the server dropped. `refused` lists one
+    // { code, message } per channel that names nothing (an unknown channel, or an
+    // entity channel whose params resolve no entity), for the caller to answer.
     unsubscribe(client, channels, params) {
         params = params || {};
         const unsubscribed = [];
+        const refused = [];
 
         for (const channel of channels) {
-            if (GLOBAL_CHANNELS.has(channel)) {
+            if (!ALL_CHANNELS.has(channel)) {
+                // JSON for a non-string name: an object whose toString is not a function would
+                // throw out of a template literal.
+                const name = (typeof channel === 'string') ? channel : JSON.stringify(channel);
+                refused.push({ code: 'INVALID_CHANNEL', message: `Unknown channel: ${name}` });
+            } else if (GLOBAL_CHANNELS.has(channel)) {
                 const was_subscribed = this.removeSubscription(client, channel, null);
                 unsubscribed.push({ channel, was_subscribed });
             } else {
                 const entityKeys = this.resolveEntityKeys(channel, params);
-                if (entityKeys.error) continue;
+                if (entityKeys.error) {
+                    refused.push(entityKeys.error);
+                    continue;
+                }
                 for (const entityKey of entityKeys.keys) {
                     const was_subscribed = this.removeSubscription(client, channel, entityKey);
                     unsubscribed.push({ channel, ...entityKey, was_subscribed });
@@ -206,7 +217,7 @@ class ChannelSubscriptions {
             }
         }
 
-        return { unsubscribed };
+        return { unsubscribed, refused };
     }
 
     // Remove all subscriptions for a client (on disconnect)

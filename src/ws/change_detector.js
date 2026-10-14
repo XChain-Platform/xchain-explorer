@@ -35,6 +35,10 @@
  *   lifecycle.js     emitLifecycleEvents and emitAttestationEvents
  *   entities.js      emitEntityUpdates and its per-poll entityRead cache
  *
+ * change_detector/rollback.js is a helper, not a part: the rollback notice (the
+ * `reorg` event), the per-coin reorg log behind reorgCovering, and the
+ * short-fetch rule, all called from coin.js.
+ *
  * Nothing a caller sees changed: `new ChangeDetector(options)` returns one object
  * carrying every method under the same name with the same `this`, and the three
  * lifecycle lists still hang on the class.

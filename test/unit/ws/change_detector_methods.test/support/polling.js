@@ -112,7 +112,9 @@ describe('ChangeDetector', function () {
             det.db.getMaxBlockIndex.resolves(7);
             det.db.getMaxActionIndex.resolves(8);
             det.db.getBlocksSince.resolves([{ block_index: 6 }, { block_index: 7 }]);
-            det.db.getActionsSince.resolves([{ action: 'SEND', action_index: 6 }]);
+            // Every row up to the tip comes back: a fetch short of the tip holds the
+            // cursor at its last row instead (see the nextCursor cases below).
+            det.db.getActionsSince.resolves([{ action: 'SEND', action_index: 6 }, { action: 'SEND', action_index: 7 }, { action: 'SEND', action_index: 8 }]);
             let blocks = [], actions = [];
             det.on('block', (c, b) => blocks.push(b));
             det.on('action', (c, a) => actions.push(a));
@@ -120,7 +122,7 @@ describe('ChangeDetector', function () {
             await det.checkCoin('BTC');
 
             expect(blocks).to.have.length(2);
-            expect(actions).to.have.length(1);
+            expect(actions).to.have.length(3);
             expect(det.state.BTC.blockIndex).to.equal(7);
             expect(det.state.BTC.actionIndex).to.equal(8);
         });
@@ -198,8 +200,9 @@ describe('ChangeDetector', function () {
             let actions = det.nextCursor([{ action_index: 9n }, { action_index: 10n }, { action_index: 11n }], 'action_index', 10n);
             expect(actions).to.equal(11n);
             expect(typeof actions).to.equal('bigint');
-            // Unchanged: a short fetch below the tip still lands on the tip.
-            expect(det.nextCursor([{ block_index: 6 }], 'block_index', 9)).to.equal(9);
+            // A short fetch below the tip stops at its last row: the rows between it and
+            // the tip were rolled back after the tip read, and the next poll reads again.
+            expect(det.nextCursor([{ block_index: 6 }], 'block_index', 9)).to.equal(6);
         });
 
         it('does not re-send a block committed between the tip read and the fetch', async function () {

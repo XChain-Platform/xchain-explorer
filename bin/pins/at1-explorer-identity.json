@@ -3728,6 +3728,15 @@
         "whereAnchor returns the anchor mapped to each representative query method",
         "whereAnchor uses the default for names inherited from Object.prototype"
       ],
+      "1e58ece960dd9161": [
+        "WS-03: RATE_LIMITED names the request it dropped echoes the id of every subscribe refused past the burst allowance",
+        "WS-03: RATE_LIMITED names the request it dropped still refuses an over-burst frame that is not JSON, with no id",
+        "WS-03: RATE_LIMITED names the request it dropped takes a full resubscribe at once: every subscription plus a catch-up and a ping",
+        "WS-10: unsubscribe and address params are answered answers an entity unsubscribe whose params name no entity",
+        "WS-10: unsubscribe and address params are answered answers an unsubscribe of an unknown channel with INVALID_CHANNEL and the request id",
+        "WS-10: unsubscribe and address params are answered refuses a non-string address and an addresses list holding one",
+        "WS-10: unsubscribe and address params are answered still honours the valid channels of a mixed unsubscribe"
+      ],
       "1e8012403a6f5857": [
         "Database#getSearch asks the schema probe before the contract MATCH asks the probe once per coin while the index is present",
         "Database#getSearch asks the schema probe before the contract MATCH probes STATISTICS for the schema the read lands in, bound by table name",
@@ -4419,6 +4428,12 @@
         "explorer mount limiters vm-query passes the window, header flags and handler to rateLimit",
         "explorer mount limiters vm-query returns the rateLimit marker for its own call",
         "explorer mount limiters vm-query takes the limit from its env knob when positive"
+      ],
+      "36e5b55ced507ceb": [
+        "live feed since-queries stay unfiltered (WS-02 cursor guard) getActionsSince (readActionsSinceRows) filters on the cursor alone",
+        "live feed since-queries stay unfiltered (WS-02 cursor guard) getBlocksSince filters on the cursor alone",
+        "live feed since-queries stay unfiltered (WS-02 cursor guard) the catch-up form adds only its inclusive upper bound",
+        "live feed since-queries stay unfiltered (WS-02 cursor guard) the guard itself sees a filter, an inner join and a merge"
       ],
       "381a93ad4ecc32fc": [
         "db.getHistoryData: the all-activity feed is not gated on mappings_actions [REGRESSION] the first-page boundary for a block feed is computed over `actions`",
@@ -7629,6 +7644,11 @@
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on no tip block time",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on no window cut yet"
       ],
+      "85f354869351a2c3": [
+        "WS-02: a rollback inside one poll leaves no gap holds both cursors at the last row fetched when the fetch comes back short of the tip",
+        "WS-02: a rollback inside one poll leaves no gap holds the cursor when every row above it was rolled back before the fetch",
+        "WS-02: a rollback inside one poll leaves no gap retracts and re-announces a block replaced between the block and action fetches of one poll"
+      ],
       "86408b397e17bc49": [
         "search page with no query makes no feed request arms no ajax source on any of the four tabs with a null query",
         "search page with no query makes no feed request arms no ajax source on any of the four tabs with a whitespace query",
@@ -8419,6 +8439,25 @@
         "blocks list per-block action count cache misses every entry after a reorg generation bump",
         "blocks list per-block action count cache never caches the indexed tip block",
         "blocks list per-block action count cache serves the same feed rows from the cache as from the count queries"
+      ],
+      "999011408966972f": [
+        "xchain_ws.js reconnect catch-up: backstops a disconnect mid catch-up keeps the cursor before the gap, so the next reconnect replays it",
+        "xchain_ws.js reconnect catch-up: backstops does not re-arm a once subscription its replay already spent",
+        "xchain_ws.js reconnect catch-up: backstops ignores an error frame that answers some other request",
+        "xchain_ws.js reconnect catch-up: backstops stops continuing after the round cap and reports the gap",
+        "xchain_ws.js reconnect catch-up: backstops treats an unanswered catch-up as refused when the backstop timer fires",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal continues a truncated replay from where the server stopped",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal holds the cursor against live frames until every replay closes, then applies the highest seen",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal reports a CATCH_UP_AHEAD_OF_TIP refusal to the page as resync_required",
+        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal reports a refused catch-up to the page and moves on to the next subscription",
+        "xchain_ws.js reconnect catch-up: load order and sequencing WELCOME does not move a cursor that is already set",
+        "xchain_ws.js reconnect catch-up: load order and sequencing sends one catch-up at a time, each from the reconnect-time cursor, blocks/network first in list order",
+        "xchain_ws.js reconnect catch-up: load order and sequencing the page shell loads xchain_ws_catch_up.js right after xchain_ws.js",
+        "xchain_ws.js reconnect catch-up: not_replayed dispatches nothing when the list is absent or empty",
+        "xchain_ws.js reconnect catch-up: not_replayed dispatches the types CATCH_UP_COMPLETE says were not replayed",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor a CATCH_UP_COMPLETE outside a replay still advances the cursor",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor an entity id seen during a replay is not applied when the replay closes",
+        "xchain_ws.js reconnect catch-up: which frames move the cursor an idle client ignores entity ids and still advances on NEW_ACTION"
       ],
       "999702cb7331535d": [
         "ACTION manifest conformance: dispatch extraction credits a dispatch only @regression a bare comparison of the action name is not coverage",
@@ -9901,25 +9940,6 @@
         "theme parity baselines: the classic record and the validator self-test fits every classic render key count to the current anchor and property census",
         "theme parity baselines: the classic record and the validator self-test passes the capture-baseline self-test"
       ],
-      "d63258c00069decb": [
-        "xchain_ws.js reconnect catch-up: backstops a disconnect mid catch-up keeps the cursor before the gap, so the next reconnect replays it",
-        "xchain_ws.js reconnect catch-up: backstops does not re-arm a once subscription its replay already spent",
-        "xchain_ws.js reconnect catch-up: backstops ignores an error frame that answers some other request",
-        "xchain_ws.js reconnect catch-up: backstops stops continuing after the round cap and reports the gap",
-        "xchain_ws.js reconnect catch-up: backstops treats an unanswered catch-up as refused when the backstop timer fires",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal continues a truncated replay from where the server stopped",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal holds the cursor against live frames until every replay closes, then applies the highest seen",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal reports a CATCH_UP_AHEAD_OF_TIP refusal to the page as resync_required",
-        "xchain_ws.js reconnect catch-up: cursor, continuation and refusal reports a refused catch-up to the page and moves on to the next subscription",
-        "xchain_ws.js reconnect catch-up: load order and sequencing WELCOME does not move a cursor that is already set",
-        "xchain_ws.js reconnect catch-up: load order and sequencing sends one catch-up at a time, each from the reconnect-time cursor, and none for blocks/network",
-        "xchain_ws.js reconnect catch-up: load order and sequencing the page shell loads xchain_ws_catch_up.js right after xchain_ws.js",
-        "xchain_ws.js reconnect catch-up: not_replayed dispatches nothing when the list is absent or empty",
-        "xchain_ws.js reconnect catch-up: not_replayed dispatches the types CATCH_UP_COMPLETE says were not replayed",
-        "xchain_ws.js reconnect catch-up: which frames move the cursor a CATCH_UP_COMPLETE outside a replay still advances the cursor",
-        "xchain_ws.js reconnect catch-up: which frames move the cursor an entity id seen during a replay is not applied when the replay closes",
-        "xchain_ws.js reconnect catch-up: which frames move the cursor an idle client ignores entity ids and still advances on NEW_ACTION"
-      ],
       "d64ac316072379c5": [
         "client XSS: on-chain enum/status badges escape into .html() @regression keeps action_class inert on an ADDRESS controller-bind summary",
         "client XSS: on-chain enum/status badges escape into .html() @regression keeps capability_slash_event capability (rows_protocol_b.js) inert",
@@ -10413,6 +10433,13 @@
         "action page: a VM-emitted action says where it came from leaves an ordinary broadcast action untouched: no row, plain label",
         "action page: a VM-emitted action says where it came from names the emitting EXECUTE, its contract and the emission position"
       ],
+      "dd2b29dee44f9b10": [
+        "WS-07: the replay applies backpressure replays in full to a client that keeps up",
+        "WS-07: the replay applies backpressure sheds a socket that never drains once the drain window passes, at a row boundary, with no COMPLETE",
+        "WS-07: the replay applies backpressure waits for a slow socket to drain, keeping buffering to about one row, and replays every row",
+        "WS-08: NEW_BLOCK is named as not replayed leaves NEW_BLOCK out when the request does not name blocks",
+        "WS-08: NEW_BLOCK is named as not replayed lists NEW_BLOCK in not_replayed when the catch-up request names blocks"
+      ],
       "ddb2427d6ae835b0": [
         "serialize.safeStringify REST/WS BIGINT conformance REST and WS emit identical string values for representative BIGINT fields",
         "serialize.safeStringify leaves non-BigInt values untouched",
@@ -10767,6 +10794,14 @@
         "explorer checkpoints explorer canonicalCheckpointString == SDK canonicalCheckpoint @regression index typing is consensus-neutral (string == number) for a regtest row with SPV roots (post CHECKPOINT_COMMITMENT shape)",
         "explorer checkpoints explorer canonicalCheckpointString == SDK canonicalCheckpoint @regression index typing is consensus-neutral (string == number) for a regtest row without roots (rootless canonical)"
       ],
+      "e6c9708ad9f18958": [
+        "WS-04: a catch-up on an unseeded coin does not replay rows the stalled first poll then sends live",
+        "WS-04: a catch-up on an unseeded coin refuses with the retryable CATCH_UP_NOT_READY when the coin cannot be seeded",
+        "WS-04: a catch-up on an unseeded coin seeds the coin and replays up to the seed, so rows committed after it arrive live",
+        "WS-06: WELCOME hands out the live mark falls back to the DB tip on a server without a live detector",
+        "WS-06: WELCOME hands out the live mark reports the detector mark, not a DB tip the feed has not sent yet",
+        "WS-06: WELCOME hands out the live mark seeds an unseeded coin before answering, and reports the seed"
+      ],
       "e74a3fb230017c50": [
         "Broadcaster stale marker on live frames leaves the marker off entirely (not false) while the coin is fresh",
         "Broadcaster stale marker on live frames stamps stale: true on every frame for a coin ChangeDetector recorded as stale",
@@ -10874,6 +10909,13 @@
         "Database#getDispenserPriceStaleBatch returns boolean false without price reads for non-fiat or non-open rows",
         "Database#getDispenserPriceStaleBatch uses the full two-window snapshot range needed for Mode B pairing"
       ],
+      "ed4023b3acd8eb68": [
+        "WS-01: a catch-up across a rollback asks for a resync refuses a cursor inside the rolled-back range with CATCH_UP_REORGED and the fork fields",
+        "WS-01: a catch-up across a rollback asks for a resync replays normally from a cursor above the old tip, which only the new chain reached",
+        "WS-01: a catch-up across a rollback asks for a resync replays normally from a cursor below the first invalidated index",
+        "WS-05: a rollback is announced before its replacement rows announces a shorter replacement, so the deleted rows above its tip are void too",
+        "WS-05: a rollback is announced before its replacement rows sends REORG with the fork height and first invalidated index ahead of every replacement frame"
+      ],
       "edcfed4e5189ca51": [
         "getMarkets tick slot orientation keeps a search that matches the stored tick2 in tick2, with that tick's values",
         "getMarkets tick slot orientation puts a search that matches the stored tick1 in tick2, with that tick's values",
@@ -10901,6 +10943,15 @@
         "PRICE detail render: malformed pairs JSON keeps the per-round fallback for a batch row",
         "PRICE detail render: malformed pairs JSON renders the length of a normal pairs array unchanged",
         "PRICE detail render: malformed pairs JSON shows an error marker instead of the pair_count fallback"
+      ],
+      "efed66d0d914c043": [
+        "WS-03: the browser client paces its resubscribe paces to the rate WELCOME advertises",
+        "WS-03: the browser client paces its resubscribe sends a 25-subscription reconnect without exceeding the server rate, and sends all of it",
+        "WS-03: the browser client sends a dropped request again sends a catch-up again after a second on CATCH_UP_NOT_READY",
+        "WS-03: the browser client sends a dropped request again sends a catch-up again on RATE_LIMITED instead of reporting resync_required",
+        "WS-03: the browser client sends a dropped request again sends a subscribe again when the server drops it with RATE_LIMITED naming its id",
+        "WS-05: the browser client applies REORG to its cursor drops the cursor below the first invalidated index, then follows the replacements",
+        "WS-05: the browser client applies REORG to its cursor leaves a cursor that is already below the rollback where it is"
       ],
       "f03ba5cec7f4f595": [
         "swap action-detail SQL defines each statement as a valid SELECT with one binding",
@@ -11774,8 +11825,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 423,
-        "titleCount": 7467,
+        "fileCount": 430,
+        "titleCount": 7504,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12192,6 +12243,13 @@
           "test/unit/ws/channel_manager.test.js": "791740e761364f23",
           "test/unit/ws/channel_manager/channels.test.js": "60c0064eeeceb96e",
           "test/unit/ws/channel_manager/channels_manifest_guard.test.js": "00a1da571ab37b99",
+          "test/unit/ws/feed_correctness/ws02_midpoll_rollback.test.js": "85f354869351a2c3",
+          "test/unit/ws/feed_correctness/ws02_since_query_unfiltered.test.js": "36e5b55ced507ceb",
+          "test/unit/ws/feed_correctness/ws03_ws05_browser_client.test.js": "efed66d0d914c043",
+          "test/unit/ws/feed_correctness/ws03_ws10_requests.test.js": "1e58ece960dd9161",
+          "test/unit/ws/feed_correctness/ws04_ws06_unseeded_coin.test.js": "e6c9708ad9f18958",
+          "test/unit/ws/feed_correctness/ws05_reorg_frame.test.js": "ed4023b3acd8eb68",
+          "test/unit/ws/feed_correctness/ws07_ws08_replay_frames.test.js": "dd2b29dee44f9b10",
           "test/unit/ws/schema_version_client.test.js": "9268dad3a4993a0e",
           "test/unit/ws/serialize.test.js": "ddb2427d6ae835b0",
           "test/unit/ws/websocket_server.test.js": "413f1a945bfd7c24",
@@ -12199,7 +12257,7 @@
           "test/unit/ws/ws_catch_up_live_boundary.test.js": "f3481d7f9f33b980",
           "test/unit/ws/ws_catch_up_routing.test.js": "a7e51b04a478ac2b",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "01f66d0301b77ff5",
-          "test/unit/ws/xchain_ws_catch_up.test.js": "d63258c00069decb"
+          "test/unit/ws/xchain_ws_catch_up.test.js": "999011408966972f"
         }
       },
       "test:boundary": {
@@ -12532,7 +12590,7 @@
           "test/unit/ws/ws_catch_up_live_boundary.test.js": "f3481d7f9f33b980",
           "test/unit/ws/ws_catch_up_routing.test.js": "a7e51b04a478ac2b",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "01f66d0301b77ff5",
-          "test/unit/ws/xchain_ws_catch_up.test.js": "d63258c00069decb"
+          "test/unit/ws/xchain_ws_catch_up.test.js": "999011408966972f"
         }
       },
       "vendor:vm": {

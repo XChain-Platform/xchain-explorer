@@ -32,6 +32,10 @@
 
 'use strict';
 
+// The rollback notice, the catch-up's reorg log and the short-fetch flag (rollback.js).
+const rollback = require('./rollback.js');
+const { announceRollback, noteShortFetch } = rollback;
+
 class CoinPass {
 
     // One coin's tip pass: reorg check, then the block and action cursors, then the
@@ -55,9 +59,13 @@ class CoinPass {
         // re-enters the feed instead of sitting under the high-water mark. The
         // pending flag, not this poll's verdict, gates it (see readTip).
         if (prev.pendingReorg) {
+            const before = { blockIndex: prev.blockIndex, actionIndex: prev.actionIndex };
             const fork = await findForkPoint(this, config, prev);
             rewindCursors(prev, fork, currentBlockIndex, currentActionIndex);
             prev.pendingReorg = false;
+            // Announce the rollback before any replacement row goes out, so a subscriber
+            // can drop what it holds at or above the fork first (see announceRollback).
+            announceRollback(this, coin, prev, before, fork);
         }
 
         // The chain grew since the last poll, so there are new blocks to announce.
@@ -92,6 +100,32 @@ class CoinPass {
         const prev = this.state[coin];
         return (prev && prev.initialized && prev.seedActionMark !== undefined) ? prev.seedActionMark : null;
     }
+
+    // Seed a polled coin now if its first poll has not yet recorded a mark, and answer
+    // whether the coin is seeded. The connection path calls it before it hands out a
+    // cursor (WELCOME) or bounds a replay, so neither ever reads an unseeded coin: the
+    // poll loop seeds coins in turn, and one slow coin would otherwise leave the next
+    // one with no mark while clients connect. A coin this detector does not poll
+    // answers false and is never seeded here.
+    //
+    // Concurrent connection-path calls share one seed. The poll loop does not wait on
+    // it: whichever seed reaches seedCursors first wins, the other sees the coin
+    // initialized and carries on as an ordinary poll, so neither path can hold the
+    // other behind a stalled read.
+    async ensureSeeded(coin) {
+        const prev = this.state[coin];
+        if (!prev) return false;
+        if (prev.initialized) return true;
+        if (!prev.seeding) prev.seeding = seedOnDemand(this, coin).finally(() => { prev.seeding = null; });
+        await prev.seeding;
+        return !!prev.initialized;
+    }
+
+    // The newest logged rollback that may have invalidated a row at `cursor`, or null
+    // (rollback.js reorgCovering states the rule).
+    reorgCovering(coin, cursor) {
+        return rollback.reorgCovering(this.state[coin], cursor);
+    }
 }
 
 // Moves the live-start mark to `index` (rows at or below it are never sent live again).
@@ -101,6 +135,17 @@ function setLiveMark(prev, index) {
     } catch (e) {
         // A malformed index is no mark: keep the last one, as nextCursor keeps the tip.
     }
+}
+
+// A seed run from the connection path (ensureSeeded): the same tip read and seed the
+// first poll runs, skipped when the coin was seeded while the tip was being read.
+async function seedOnDemand(detector, coin) {
+    const config = { coin };
+    const prev   = detector.state[coin];
+    const { currentBlockIndex, currentActionIndex } = await readTip(detector, config);
+    if (prev.initialized) return;
+    seedCursors(prev, currentBlockIndex, currentActionIndex);
+    await seedHistory(detector, config, prev, currentBlockIndex, currentActionIndex);
 }
 
 // The tip step: the reorg verdict and the two high-water marks, read in that order.
@@ -268,7 +313,8 @@ function rewindCursors(prev, fork, currentBlockIndex, currentActionIndex) {
 
 // The block step: one `block` emit per fetched row, then the block cursor advances.
 async function emitNewBlocks(detector, coin, config, prev, currentBlockIndex) {
-    const newBlocks = await detector.db.getBlocksSince(config, prev.blockIndex, detector.fetchLimit);
+    const from      = prev.blockIndex;
+    const newBlocks = await detector.db.getBlocksSince(config, from, detector.fetchLimit);
     if (newBlocks && newBlocks.length > 0) {
         for (const block of newBlocks) {
             detector.emit('block', coin, block);
@@ -280,13 +326,16 @@ async function emitNewBlocks(detector, coin, config, prev, currentBlockIndex) {
     // so a burst larger than fetchLimit must drain over successive polls.
     // Jumping straight to currentBlockIndex would permanently skip every
     // block past the first fetchLimit seen in one interval.
-    prev.blockIndex = detector.nextCursor(newBlocks, 'block_index', currentBlockIndex);
+    // A fetch short of the tip holds the cursor at its last row (see nextCursor).
+    prev.blockIndex = detector.nextCursor(newBlocks, 'block_index', currentBlockIndex, from);
+    noteShortFetch(detector, prev, newBlocks, 'block_index', from, currentBlockIndex);
 }
 
 // The action step: every fetched action fans out in order, then the action cursor
 // advances.
 async function emitNewActions(detector, coin, config, prev, currentActionIndex) {
-    const newActions = await detector.db.getActionsSince(config, prev.actionIndex, detector.fetchLimit);
+    const from       = prev.actionIndex;
+    const newActions = await detector.db.getActionsSince(config, from, detector.fetchLimit);
     if (newActions && newActions.length > 0) {
         // Per-poll entity-read cache (grouped by type). Without it emitEntityUpdates would
         // re-issue getAddressBalances / getTokenInfo / getDispenserInfo / getMarketInfo
@@ -327,7 +376,10 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
     }
     // Same drain semantics as blocks (getActionsSince is action_index ASC,
     // capped at fetchLimit): advance to the last emitted action, not the tip.
-    prev.actionIndex = detector.nextCursor(newActions, 'action_index', currentActionIndex);
+    // Rows rolled back after the tip read leave the cursor at the last row sent, and
+    // the next poll reads from there (see nextCursor).
+    prev.actionIndex = detector.nextCursor(newActions, 'action_index', currentActionIndex, from);
+    noteShortFetch(detector, prev, newActions, 'action_index', from, currentActionIndex);
     // A cursor that moved past the last sent row skips indexes it will never send.
     if (prev.liveActionMark === undefined || prev.liveActionMark < prev.actionIndex)
         setLiveMark(prev, prev.actionIndex);

@@ -4563,6 +4563,18 @@
         "search page routes a query that names one record replaces itself with the record page for the header form post",
         "search page routes a query that names one record runs the token search for a ?q= query too"
       ],
+      "3c294c0defd84648": [
+        "blocks feed: every placeholder it emits is bound binds one argument for every ? it puts in the query",
+        "blocks feed: every placeholder it emits is bound passes the paging cursor through to the row query",
+        "blocks list route /blocks/null: the literal \"null\" search adds no block filter a block-filtered action listing still binds its block",
+        "blocks list route /blocks/null: the literal \"null\" search adds no block filter action=first answers the same as a blocks list with no search",
+        "blocks list route /blocks/null: the literal \"null\" search adds no block filter action=last with start past the first page finds its boundary row on /null and /all",
+        "blocks list route /blocks/null: the literal \"null\" search adds no block filter action=next and action=prev keep their cursor and issue no boundary query",
+        "blocks paging: a blocks listing pages over blocks, not over actions never joins the actions table when listing blocks",
+        "blocks paging: a blocks listing pages over blocks, not over actions pages by block_index, the only cursor a blocks row has",
+        "blocks paging: a blocks listing pages over blocks, not over actions still pages an ACTION listing by action_index, filter axis notwithstanding",
+        "blocks paging: a blocks listing pages over blocks, not over actions takes the same path with no type as it does with type=block"
+      ],
       "3c960c0bf29273dc": [
         "action-detail queries never select into a reserved payload slot @regression every selected column that shadows a generic slot is aliased"
       ],
@@ -9054,14 +9066,6 @@
         "hub mirror URL seed resolution selects seeds ahead of a pinned hub URL",
         "hub mirror URL seed resolution uses the environment when the checkpoint seed list is empty"
       ],
-      "b12a894f829e191b": [
-        "blocks feed: every placeholder it emits is bound binds one argument for every ? it puts in the query",
-        "blocks feed: every placeholder it emits is bound passes the paging cursor through to the row query",
-        "blocks paging: a blocks listing pages over blocks, not over actions never joins the actions table when listing blocks",
-        "blocks paging: a blocks listing pages over blocks, not over actions pages by block_index, the only cursor a blocks row has",
-        "blocks paging: a blocks listing pages over blocks, not over actions still pages an ACTION listing by action_index, filter axis notwithstanding",
-        "blocks paging: a blocks listing pages over blocks, not over actions takes the same path with no type as it does with type=block"
-      ],
       "b1398db22a635cf0": [
         "VOTE v1 ballot status @regression carries the ballot choice rows own status",
         "VOTE v1 ballot status @regression leaves status null when no ballot choice row exists",
@@ -11729,7 +11733,7 @@
       },
       "test": {
         "fileCount": 418,
-        "titleCount": 7431,
+        "titleCount": 7435,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11904,7 +11908,7 @@
           "test/unit/db/action_detail/xbridge_sql.test.js": "a05a6d826b3012f3",
           "test/unit/db/contract_permissions_error.test.js": "5c020c0fd5865d97",
           "test/unit/db/core/db_action_queries.test.js": "1c5efd6c75b2046a",
-          "test/unit/db/core/db_blocks_paging.test.js": "b12a894f829e191b",
+          "test/unit/db/core/db_blocks_paging.test.js": "3c294c0defd84648",
           "test/unit/db/core/db_connection.test.js": "7c9836278ad0ead1",
           "test/unit/db/core/db_data_methods.test.js": "3eff20c8fcf4fe49",
           "test/unit/db/core/db_execution_single_record.test.js": "f97206c42ef35a94",
@@ -12218,7 +12222,7 @@
       },
       "test:db": {
         "fileCount": 47,
-        "titleCount": 1512,
+        "titleCount": 1516,
         "files": {
           "test/unit/action_detail/history/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/history/db_history_unmapped_actions.test.js": "381a93ad4ecc32fc",
@@ -12232,7 +12236,7 @@
           "test/unit/action_detail/type_details/db_delegate_revoke_render.test.js": "4d36f7f61b891a56",
           "test/unit/action_detail/type_details/db_destroy_detail.test.js": "957edf88f1536ca9",
           "test/unit/db/core/db_action_queries.test.js": "1c5efd6c75b2046a",
-          "test/unit/db/core/db_blocks_paging.test.js": "b12a894f829e191b",
+          "test/unit/db/core/db_blocks_paging.test.js": "3c294c0defd84648",
           "test/unit/db/core/db_connection.test.js": "7c9836278ad0ead1",
           "test/unit/db/core/db_data_methods.test.js": "3eff20c8fcf4fe49",
           "test/unit/db/core/db_files_name_mode.test.js": "c1cd80da64ceab63",

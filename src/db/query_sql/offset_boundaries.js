@@ -72,6 +72,14 @@ function pagesOverBlocks(table){
     return (table === 'blocks');
 }
 
+// The blocks LIST page names no block, yet its route carries type=block and sends the
+// literal search "null" (or "all", which the request validator also passes as no
+// filter on getBlocks). Each is a placeholder, not a block number: binding it would
+// filter the boundary to block 0, which holds no row, and the page would answer empty.
+function blocksListPlaceholder(method, search){
+    return method === 'getBlocks' && ['null', 'all'].includes(String(search));
+}
+
 // The filter every boundary query below carries, resolved from the request's
 // search term to the interned id the tables actually store.
 async function boundaryWhere(db, config){
@@ -101,7 +109,7 @@ async function boundaryWhere(db, config){
             // column rather than the a5 address join the row query uses.
             where = ` AND m.oracle_address_id=?`;
             whereArgs.push(id);
-        } else if(type=='block' && !db.util.isNull(config.data.search)){
+        } else if(type=='block' && !db.util.isNull(config.data.search) && !blocksListPlaceholder(method, config.data.search)){
             // Every boundary query below joins `actions a1` except the blocks
             // listing, and naming a1's own block lets actions.block_index drive
             // instead of a scan through the blocks join. Where b1 joins through

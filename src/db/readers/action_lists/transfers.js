@@ -20,7 +20,7 @@
 
 'use strict';
 
-const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent, columnsPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js'), { optionalTransactionSql } = require('../txless_actions.js');
+const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent, columnsPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js'), { optionalTransactionSql } = require('../txless_actions.js'), { legOrder } = require('../../query_sql/query_limits.js');
 delete contentReaders.getLists;
 class TransferReaders { async getLists(config){ let out=await buildListsQuery(this, config, tablesPresent); out[0]=optionalTransactionSql(out[0]); out[2]=optionalTransactionSql(out[2]); return out; }
     // Contract-emitted sends have no transaction. Join blocks from the action and
@@ -81,7 +81,7 @@ class TransferReaders { async getLists(config){ let out=await buildListsQuery(th
                 FROM filtered_sends m
                     INNER JOIN page_actions p ON (p.action_index=m.action_index)
                 ) m
-                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ASC`;
+                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ` + legOrder(config);
         return [query, args, count];
     }
 

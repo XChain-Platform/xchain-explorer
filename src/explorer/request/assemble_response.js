@@ -24,14 +24,16 @@
 'use strict';
 
 /**
- * The cursor that continues a keyset-paged list from this page: the last row's
- * cursor value as next_before on a descending page and next_after on an ascending
- * one. Absent on an empty page and on lists without keyset paging.
+ * The cursor that continues a keyset-paged list from this page: the cursor value
+ * of the row farthest along the walk, as next_before on a page read downward and
+ * next_after on one read upward. A keyset page shown against its walk keeps that
+ * row first. Absent on an empty page and on lists without keyset paging.
  */
 function nextCursor(cfg, data){
     let sql    = cfg.data.sql || {};
     let column = sql.keysetColumn;
-    let last   = (column && Array.isArray(data) && data.length) ? data[data.length - 1] : null;
+    let rows   = (column && Array.isArray(data)) ? data : [];
+    let last   = rows.length ? rows[sql.keysetReversed ? 0 : rows.length - 1] : null;
     if(!last || last[column] === null || last[column] === undefined)
         return {};
     let name = (String(sql.order).toUpperCase() == 'ASC') ? 'next_after' : 'next_before';

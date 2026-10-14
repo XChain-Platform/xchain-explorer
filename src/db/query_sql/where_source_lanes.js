@@ -70,9 +70,9 @@ const TWO_PARTY_ADDRESS_METHODS = new Set(Object.keys(TWO_PARTY_COUNTERPARTS));
 // a1.block_index=? selects the same rows and lets actions.block_index drive.
 const ACTION_BLOCK_METHODS = new Set([
     'getAirdrops', 'getAttestations', 'getBroadcasts', 'getCallbacks',
-    'getCoinpayExpires', 'getCoinpays', 'getCollectibles',
+    'getCoinpayExpires', 'getCoinpays', 'getCollectibles', 'getCredits', 'getDebits',
     'getDestroys', 'getDispenserCloses', 'getDispenserExpires', 'getDispensers',
-    'getDividends', 'getExecutions', 'getFees', 'getFiles',
+    'getDividends', 'getEscrows', 'getExecutions', 'getFees', 'getFiles',
     'getIssues', 'getLinks', 'getLists', 'getMessages', 'getMints',
     'getOrderExpires', 'getOrderMatches', 'getOrders', 'getPolls', 'getSends',
     'getSwapExpires', 'getSwapMatches', 'getSweeps', 'getTokens', 'getUnstakes',

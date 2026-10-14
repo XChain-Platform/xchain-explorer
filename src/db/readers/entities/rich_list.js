@@ -80,7 +80,8 @@ async function richListCensus(db, config, tickId){
             FROM balances m
             WHERE m.tick_id=? AND CAST(m.amount AS DECIMAL(65,18)) > 0`, [tickId]);
     let holderCount = (census && census.length) ? Number(census[0].holder_count) : 0;
-    let heldTotal   = (census && census.length) ? String(census[0].held_total)   : '0';
+    // The DECIMAL sum carries an 18-place tail; serve it in the form supply uses.
+    let heldTotal   = (census && census.length) ? db.trimAmountTail(census[0].held_total) : '0';
     return { holderCount, heldTotal };
 }
 
@@ -101,7 +102,7 @@ async function richListHolders(db, config, tickId, limit){
                 balances m
                 LEFT JOIN index_addresses a2 ON (a2.id=m.address_id)
             WHERE m.tick_id=? AND CAST(m.amount AS DECIMAL(65,18)) > 0
-            ORDER BY CAST(m.amount AS DECIMAL(65,18)) DESC
+            ORDER BY CAST(m.amount AS DECIMAL(65,18)) DESC, m.address_id DESC
             LIMIT ` + limit + (offset > 0 ? ' OFFSET ?' : ''),
         offset > 0 ? [tickId, offset] : [tickId]) || [];
     return { holders, offset };

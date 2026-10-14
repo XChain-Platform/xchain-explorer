@@ -263,6 +263,7 @@ class ValidatorListReaders {
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         a4.action,
+                        m.id,
                         m.action_index,
                         a1.action_format,
                         m.challenge_id,

@@ -27,8 +27,8 @@ before(function () { explorer = state.explorer; });
 
 describe('null string handling', function () {
 
-    it('/BTC/api/history/null/block preserves the literal search segment', async function () {
-        const { cfg } = await request(explorer, '/BTC/api/history/null/block');
+    it('/BTC/api/history/null/address preserves the literal search segment', async function () {
+        const { cfg } = await request(explorer, '/BTC/api/history/null/address');
         expect(cfg).to.not.be.null;
         expect(cfg.data.search).to.equal('null');
     });

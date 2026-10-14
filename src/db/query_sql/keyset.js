@@ -90,4 +90,15 @@ function apiKeyset(db, config, q){
     sql.where.offsetArgs = [keyset.value];
 }
 
-module.exports = { KEYSET_METHODS, keysetColumn, apiKeyset };
+// A keyset page reads the rows nearest its bound, walking away from it (before
+// downward, after upward), so its continuation cursor never leaves the requested
+// range; sortorder only decides how the page is shown (getData reverses it).
+function keysetWalkOrder(sql, order){
+    if(!sql.keyset)
+        return order;
+    let walk = (sql.keyset.op == '<') ? 'DESC' : 'ASC';
+    sql.keysetReversed = (walk !== order);
+    return walk;
+}
+
+module.exports = { KEYSET_METHODS, keysetColumn, apiKeyset, keysetWalkOrder };

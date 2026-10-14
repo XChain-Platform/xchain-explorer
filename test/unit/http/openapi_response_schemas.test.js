@@ -121,7 +121,7 @@ describe('openapi row schemas match the reader select lists', function () {
     methods.forEach(function (method) {
         it(`${method} selects exactly the ${SCHEMAS.ROW_SCHEMAS[method]} properties`, async function () {
             const columns = await readerColumns(db, method);
-            const added = (SCHEMAS.POST_PASS_COLUMNS[method] || []);
+            const added = (SCHEMAS.POST_PASS_COLUMNS[method] || []).concat(SCHEMAS.OPTIONAL_COLUMNS[method] || []);
             const declared = Object.keys(schemaFor(method).properties).filter((p) => !added.includes(p));
             expect([...columns].sort(), `${method} columns vs schema`).to.deep.equal([...declared].sort());
         });

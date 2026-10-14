@@ -249,20 +249,19 @@ function firstLastActionsSql(ctx, where, order, limit){
 }
 
 // The stop marker: read one row PAST the page and, only when a full page plus
-// that row came back, report the cursor the next page would stop at.
+// that row came back, report the cursor the next page would stop at. The read
+// walks away from the cursor in the page's own direction (upward for prev).
 async function stopOffset(db, config, ctx, offset1){
     let offset2 = false;
     let action  = ctx.action;
     let method  = ctx.method;
     let where   = ctx.where;
     let limit   = db.util.bcadd(ctx.length,1);
-    let order   = 'DESC';
+    let order   = (action=='prev') ? 'ASC' : 'DESC';
     let stopWhereArgs = [...ctx.whereArgs];
     if(action && offset1){
-        // getHistory's unmapped feeds have no `m` alias to cursor on, so the
-        // stop predicate names whichever column this method's own query below
-        // selects (hCursor for history, m.action_index for everything else).
-        let stopCursor = (method=='getHistory') ? ctx.hCursor : 'm.action_index';
+        // The stop predicate names the column this method's stop query selects.
+        let stopCursor = stopCursorColumn(ctx);
         if(action=='prev'){
             where += ' AND ' + stopCursor + ' > ?';
             stopWhereArgs.push(offset1);
@@ -281,10 +280,21 @@ async function stopOffset(db, config, ctx, offset1){
     return offset2;
 }
 
+// The column a stop query reads: history's own cursor, the token id, else action_index.
+function stopCursorColumn(ctx){
+    if(ctx.method=='getHistory')
+        return ctx.hCursor;
+    return (ctx.method=='getTokens') ? 'm.id' : 'm.action_index';
+}
+
 // The statement stopOffset runs. It carries the cursor predicate appended above,
 // which is why it takes `where` rather than reading ctx.where.
 function stopSql(ctx, where, order, limit){
     let { method, type, table, hCursor, hSource } = ctx;
+    // Tokens page on m.id, so the stop marker is read from the same statement the
+    // first/last boundary uses.
+    if(method=='getTokens')
+        return firstLastTokensSql(where, order, limit);
     if(method=='getHistory'){
         // Same join shape as getHistoryData and as the first/last boundary
         // above: blocks INNER-joined on the ACTION's own block_index and

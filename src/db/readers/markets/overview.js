@@ -20,6 +20,8 @@
 
 'use strict';
 
+const { pagedRowQuery } = require('../../query_sql/data_rows.js');
+
 // How a market side is named when it may have no ticker. The SQL half of this is
 // COALESCE(ticker, coin); the order feeds hand back the two fields separately, so
 // the JS half has to make the same choice before comparing against a caller's tick.
@@ -257,11 +259,13 @@ class MarketOverviewReaders {
         if(results.length > 0)
             total = results[0].total;
         if(total){
-            let query   = GET_MARKET_HISTORY_QUERY_SQL + sql.where.data + ` AND 
-                            s1.status='valid'
+            let query   = GET_MARKET_HISTORY_QUERY_SQL + sql.where.data + ` AND
+                            s1.status='valid'` + sql.where.offset + `
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;
-            let results = await this.doQuery(config, query, args);
+            let queryArgs;
+            [query, queryArgs] = pagedRowQuery(config, query, args);
+            let results = await this.doQuery(config, query, queryArgs);
             if(results.length > 0){
                 for(let order of results){
                     let reverse    = (order.give_tick==tick2) ? true : false;

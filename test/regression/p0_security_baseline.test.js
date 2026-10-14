@@ -151,8 +151,8 @@ describe('@p0 @security SQL injection order/limit regression', function () {
                 query: { sortorder: 'ASC; DROP TABLE users--' }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.order).to.equal('DESC');
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.code).to.equal('INVALID_SORTORDER');
     });
 
     it('offset args are kept separate from base args', () => {

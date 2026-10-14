@@ -32,6 +32,7 @@
 
 const { DbInputError } = require('../../shared.js');
 const { isMissingTableError } = require('../../schema_probe.js');
+const { pagedRowQuery } = require('../../query_sql/data_rows.js');
 
 // A block height is a non-negative integer and nothing else. parseInt/Number
 // cannot make this call: parseInt('9junk') is 9 and Number('') is 0, both of
@@ -199,8 +200,9 @@ class EntityBlockReaders {
                     blocks b1
                 WHERE ` + sql.where.data;
         results = await this.doQuery(config, query);
+        // COUNT(*) arrives as a BigInt; a list total is a JSON number like every other list's.
         if(results && results.length)
-            total = results[0].total;
+            total = Number(results[0].total);
         // BIND THE PAGING PLACEHOLDER. getBlocks builds and runs its own queries rather than
         // returning [query, args] to the shared path, and that shared path is where every
         // other list method gets its offset args threaded in. Without them the `?` in
@@ -210,7 +212,6 @@ class EntityBlockReaders {
         // data-WHERE placeholder of its own (getQueryWhereSql excludes it from the type
         // branch and anchors on `b1.block_index IS NOT NULL`), so the offset args are the
         // complete set; the count query above needs none for the same reason.
-        let offsetArgs = (sql.where.offsetArgs && sql.where.offsetArgs.length) ? sql.where.offsetArgs : undefined;
         query = `SELECT
                     block_index,
                     block_time
@@ -220,7 +221,9 @@ class EntityBlockReaders {
                     ` + sql.where.data + sql.where.offset + `
                 ORDER BY block_index ` + sql.order + `
                 LIMIT ` + sql.limit;
-        results = await this.doQuery(config, query, offsetArgs);
+        let queryArgs;
+        [query, queryArgs] = pagedRowQuery(config, query, []);
+        results = await this.doQuery(config, query, queryArgs.length ? queryArgs : undefined);
         if(results && results.length)
             data = await attachBlockActionCounts(this, config, results);
         return [data, null, total];

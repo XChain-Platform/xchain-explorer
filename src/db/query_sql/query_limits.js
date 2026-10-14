@@ -14,15 +14,14 @@
  *
  * XChain Explorer - what a caller may ask a list for
  *
- * One part of src/db/query_sql.js: the clamps getQuery puts on the two paged
- * transports before any SQL is built. The API transport pages by SQL OFFSET, the
- * explorer transport by cursor (with a fetch-and-slice fallback for the searches
- * that have no cursor column), so each has its own ceiling.
+ * One part of src/db/query_sql.js: the checks and clamps getQuery puts on the two
+ * paged transports before any SQL is built. The API transport pages by SQL OFFSET,
+ * the explorer transport by cursor (with a fetch-and-slice fallback for the lists
+ * that have no unique cursor column), so each has its own ceiling.
  *
- * Every number here is raw query-string input, and each clamp below exists
- * because an unclamped one either emitted a rejected statement (LIMIT NaN, a 500
- * on an unauthenticated read route) or handed MariaDB a full-table scan for a
- * single page (query-complexity DoS).
+ * Every number here is raw query-string input. A malformed one answers 400 with a
+ * stable code rather than reaching SQL, and each clamp keeps one request from
+ * handing MariaDB a full-table scan for a single page.
  *
  * Plain functions, not a class body: they take the Database as `db` and nothing
  * here reaches Database.prototype.
@@ -31,64 +30,91 @@
 
 'use strict';
 
+const { DbInputError } = require('../shared.js');
+const { SLICE_PAGED_METHODS, MULTI_ROW_METHODS } = require('../method_tables.js');
+
+// The deepest row either transport reaches by position; deeper pages use a cursor.
+const OFFSET_CAP = 100000;
+
+// Explorer lists whose paging cannot run backwards, so prev and last read forwards.
+const FORWARD_ONLY_METHODS = ['getHolders', 'getBalances', ...MULTI_ROW_METHODS];
+
+/**
+ * Read one paging integer from the query string, refusing a malformed one.
+ *
+ * @param {object} db the Database (for its util)
+ * @param {object|boolean} q the parsed query string, or false
+ * @param {string} name the parameter name
+ * @param {number} fallback the value when the parameter is absent or empty
+ * @param {number} min the smallest value accepted
+ * @param {string} code the error code a malformed value answers with
+ * @returns {number} the parameter as a safe integer
+ */
+function queryInteger(db, q, name, fallback, min, code){
+    let raw = q ? q[name] : undefined;
+    if(raw === undefined || raw === null || raw === '')
+        return fallback;
+    if(!db.util.isSafeIntegerParam(raw) || Number(raw) < min)
+        throw new DbInputError('Invalid ' + name, code);
+    return Number(raw);
+}
+
+// The sort order a request asked for: asc or desc in any case, else a 400.
+function querySortOrder(db, q, fallback){
+    let raw = q ? q.sortorder : undefined;
+    if(raw === undefined || raw === null || raw === '')
+        return fallback;
+    let order = (typeof raw === 'string') ? raw.toUpperCase() : '';
+    if(!['ASC', 'DESC'].includes(order))
+        throw new DbInputError('Invalid sortorder', 'INVALID_SORTORDER');
+    return order;
+}
+
+// The API page size: the method max when absent, clamped to it when larger.
+function apiLimit(db, q, max){
+    return Math.min(queryInteger(db, q, 'limit', max, 1, 'INVALID_LIMIT'), max);
+}
+
 function apiPageOffset(db, config, q, limit){
-    // Use SQL OFFSET for pagination instead of fetching all preceding pages
-    let page  = (q && q.page  && db.util.isInteger(Number(q.page)))  ? q.page  : 1;
-    page = Math.max(1, Number(page));
-    // Cap the API OFFSET the same way the explorer fetch-and-slice path caps
-    // `start` (see the 100k ceiling in the explorer branch below). An uncapped
-    // OFFSET lets an unauthenticated request with a huge `page` force MariaDB to
-    // join/order/skip a full-table row set for a single zero-row page
-    // (query-complexity DoS); the list routes are multi-table joins. Deep
-    // browsing uses the cursor next/prev path, so a 100k ceiling is invisible
-    // to legitimate use while killing the scan blow-up.
-    config.data.sql.apiOffset = Math.min((page - 1) * limit, 100000);
+    let page   = queryInteger(db, q, 'page', 1, 1, 'INVALID_PAGE');
+    let offset = (page - 1) * limit;
+    // A keyset bound replaces the page, so only a positional page is held to the cap.
+    let keyset = Boolean(q) && [q.before, q.after].some((v) => v !== undefined);
+    if(offset > OFFSET_CAP && !keyset)
+        throw new DbInputError('page is beyond the deepest page served by position (' + OFFSET_CAP
+            + ' rows); page by before/after where the list offers them', 'PAGE_TOO_DEEP');
+    config.data.sql.apiOffset = keyset ? 0 : offset;
 }
 
 // The explorer transport's page size and order, clamped against the method's max.
 function explorerLimits(db, config, q, max, limit, order){
     let data   = config.data;
-    let start  = (q.start) ? q.start : 0;
-    let length = (q.length) ? q.length : 10;
     let action = (q.action) ? q.action : false;
-    // Same Number.isFinite fallback `length` and `total` already carry, and for
-    // the same reason: a non-numeric or repeated `?start=` is NaN, Math.max(0,NaN)
-    // is NaN, and the fetch-and-slice branch below concatenates it into the LIMIT
-    // clause as `LIMIT NaN` (a rejected query, so 5xx on an unauthenticated read
-    // route). Fall back to 0, not to the 100000 ceiling: the row slice reads the
-    // RAW query.start, so a page fetched for an unusable start is discarded anyway.
-    start  = Number(start);
-    if(!Number.isFinite(start)) start = 0;
-    start  = Math.max(0, start);
-    if(!Number.isFinite(Number(length))) length = 10;
-    length = Math.max(1, Math.min(Number(length), max));
-    if(['getHolders','getBalances'].includes(data.method) && ['prev','last'].includes(action))
+    // An unusable start reads the first page, as the page window does; only a whole
+    // number can reach LIMIT.
+    let start  = Number(q.start);
+    if(!Number.isSafeInteger(start) || start < 0) start = 0;
+    let length = Math.min(queryInteger(db, q, 'length', 10, 1, 'INVALID_LENGTH'), max);
+    if(FORWARD_ONLY_METHODS.includes(data.method) && ['prev','last'].includes(action))
         config.data.query.action = config.data.offset.action = action = 'next';
+    let sliced = SLICE_PAGED_METHODS.includes(data.method) ||
+        (data.method=='getTokens' && ['token','subtoken'].includes(data.type));
+    // The cursor a next/prev page continues from (empty on first and last). A list
+    // paged by row position never reads it, whatever its rows' last cell holds.
+    if(!sliced && q.offset && !db.util.isSafeIntegerParam(q.offset))
+        throw new DbInputError('Invalid offset', 'INVALID_OFFSET');
     limit = length;
-    if(limit > max)
-        limit = max;
-    // Size the jump-to-last page from the client's own record total, but clamp
-    // it to the same per-method max the branches above enforce. `total` and
-    // `start` are raw query-string input, so without the clamp
-    // `?action=last&total=1e15` reached the LIMIT clause verbatim (full-table
-    // scan on an unauthenticated list route) and a missing, non-numeric, or
-    // repeated `total` emitted `LIMIT NaN` as a 500. A real last page never
-    // exceeds one page of rows, so the ceiling is invisible to the UI; an
-    // unusable total falls back to the already-clamped page length.
+    // Size the jump-to-last page from the client's record total, within one page of
+    // rows; an unusable or fractional total keeps the page length.
     if(action=='last'){
-        let tail = Number(config.data.query.total) - Number(start);
-        if(Number.isFinite(tail))
+        let tail = Number(config.data.query.total) - start;
+        if(Number.isSafeInteger(tail))
             limit = Math.max(1, Math.min(tail, max));
     }
-    // token/subtoken/roster searches paginate by fetch-and-slice (no action_index offsets),
-    // so the SQL limit must cover start+length rows. Cap the offset fed to the
-    // SQL LIMIT: without a bound, an unauthenticated request with a huge `start`
-    // forces MariaDB to scan start+length rows for a single page (query-complexity
-    // DoS). Deep browsing uses the cursor next/prev path, not raw offsets, so a
-    // 100k ceiling is invisible to legitimate use while killing the scan blow-up.
-    if(['getBalances', 'getHolders','getSearch','getProjectTokens'].includes(data.method) ||
-        (data.method=='getTokens' && ['token','subtoken'].includes(data.type)))
-        limit = db.util.bcadd(Math.min(start, 100000), length);
+    // Row-position lists fetch start+length rows and keep the window, with the
+    // offset fed to LIMIT capped so one request cannot force an unbounded scan.
+    if(sliced)
+        limit = db.util.bcadd(Math.min(start, OFFSET_CAP), length);
     if(['prev','last'].includes(action))
         order = 'ASC';
     return { limit, order };
@@ -106,4 +132,12 @@ async function explorerOffsets(db, config, q, limit){
     config.data.sql.where.offsetArgs = offsetArgs;
 }
 
-module.exports = { apiPageOffset, explorerLimits, explorerOffsets };
+// The direction a multi-leg action's legs are read in. The explorer shows a prev or
+// last page reversed, so its legs are read backwards to land in wire order.
+function legOrder(config){
+    let action = config.data.offset && config.data.offset.action;
+    return (config.type=='explorer' && ['prev','last'].includes(action)) ? 'DESC' : 'ASC';
+}
+
+module.exports = { OFFSET_CAP, legOrder, queryInteger, querySortOrder, apiLimit, apiPageOffset,
+    explorerLimits, explorerOffsets };

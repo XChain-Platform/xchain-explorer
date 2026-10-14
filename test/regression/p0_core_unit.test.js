@@ -204,7 +204,7 @@ describe('@p0 @core query builder sortorder regression', function () {
     before(function () { db = makeDb(); });
 
     it('only accepts ASC or DESC', async function () {
-        for (const invalid of ['ASCENDING', 'desc--', 'ASC OR 1=1', '']) {
+        for (const invalid of ['ASCENDING', 'desc--', 'ASC OR 1=1']) {
             const config = makeConfig({
                 data: {
                     method: 'getAddresses',
@@ -213,8 +213,8 @@ describe('@p0 @core query builder sortorder regression', function () {
                     query: { sortorder: invalid }
                 }
             });
-            await db.getQuery(config);
-            expect(['ASC', 'DESC']).to.include(config.data.sql.order);
+            const err = await db.getQuery(config).then(() => null, (e) => e);
+            expect(err && err.code, invalid).to.equal('INVALID_SORTORDER');
         }
     });
 
@@ -250,7 +250,7 @@ describe('@p0 @core query builder limit clamping regression', function () {
     let db;
     before(function () { db = makeDb(); });
 
-    it('clamps negative limit to >= 1', async function () {
+    it('refuses a negative limit with INVALID_LIMIT', async function () {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -259,8 +259,8 @@ describe('@p0 @core query builder limit clamping regression', function () {
                 query: { limit: '-1' }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.limit).to.be.at.least(1);
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.code).to.equal('INVALID_LIMIT');
     });
 
     it('clamps excessive limit to <= 100', async function () {
@@ -276,7 +276,7 @@ describe('@p0 @core query builder limit clamping regression', function () {
         expect(config.data.sql.limit).to.be.at.most(100);
     });
 
-    it('handles non-numeric limit gracefully', async function () {
+    it('refuses a non-numeric limit with INVALID_LIMIT', async function () {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -285,8 +285,7 @@ describe('@p0 @core query builder limit clamping regression', function () {
                 query: { limit: 'DROP TABLE' }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.limit).to.be.a('number');
-        expect(Number.isFinite(config.data.sql.limit)).to.be.true;
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.code).to.equal('INVALID_LIMIT');
     });
 });

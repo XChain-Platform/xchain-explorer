@@ -98,7 +98,7 @@ function registerSqlSafetyTests(){
                     method,
                     search: null,
                     type: null,
-                    query: { limit: 1000, page: 1000000 }
+                    query: { limit: 1000, page: 1001 }
                 }
             });
             const [query] = await db.getQuery(config);

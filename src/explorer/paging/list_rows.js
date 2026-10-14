@@ -195,10 +195,10 @@ function stakeLifecycleRows(info, c){
         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, status, info.action_index];
     if(method=='getValidatorRewards')
         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.reward_type, info.amount, info.id];
-    // Full-node possession-proof verdict list page. action_index stays LAST
-    // (the datatables client uses it as the paging offset cursor).
+    // Full-node possession-proof verdict list page. The list pages on m.id, so id
+    // stays LAST (the paging cursor) and action_index sits beside it.
     if(method=='getFullNodeVerifications')
-        info = [count_reverse, info.block_index, info.timestamp, info.signing_pubkey, info.staking_source, info.epoch_height, info.target_height, info.challenge_id, info.passed, info.action_index];
+        info = [count_reverse, info.block_index, info.timestamp, info.signing_pubkey, info.staking_source, info.epoch_height, info.target_height, info.challenge_id, info.passed, info.action_index, info.id];
     // Contract-targeted staking list pages
     if(method=='getContractStakes')
         info = [count_reverse, info.block_index, info.timestamp, info.source, info.signing_pubkey, info.target_contract_index, info.tick, info.amount, info.version, status, info.action_index];
@@ -221,9 +221,10 @@ function stakeLifecycleRows(info, c){
     // (LAST); block_time + source_chain replace the block/time columns (no local block).
     if(method=='getOraclePrices')
         info = [count_reverse, info.block_time, info.source_chain, info.source_address, info.tick, info.fiat, info.value, info.id];
-    // Attestation list page
+    // Attestation list page. action_index repeats LAST as the paging cursor, after
+    // the batch fields the client reads by position.
     if(method=='getAttestations')
-        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer, info.batch_key, info.batch_window_start, info.batch_window_end, info.batch_row_count, info.batch_action_index, info.batch_chunk_index, info.batch_total_chunks];
+        info = [count_reverse, info.block_index, info.timestamp, info.source, info.version, info.provider_id, info.request_id, info.request_status, info.response_status, status, info.action_index, info.payload, info.callback_params_json, info.fee_payer, info.batch_key, info.batch_window_start, info.batch_window_end, info.batch_row_count, info.batch_action_index, info.batch_chunk_index, info.batch_total_chunks, info.action_index];
     // Per-validator per-provider ATTEST accountability counters
     // (indexer-owned, id-keyed: the surrogate id is the paging cursor and
     // stays LAST).

@@ -138,11 +138,13 @@ describe('ATTEST batch list reads', function(){
                 request_id: REQUEST_A, request_status: null, response_status: null,
                 action_index: 30, payload: null, callback_params_json: null, fee_payer: null
             }, fixture), { count_reverse: 1, status: 1, method: 'getAttestations' });
-            expect(row.slice(14)).to.deep.equal([
+            expect(row.slice(14, 21)).to.deep.equal([
                 fixture.batch_key, fixture.batch_window_start, fixture.batch_window_end,
                 fixture.batch_row_count, fixture.batch_action_index,
                 fixture.batch_chunk_index, fixture.batch_total_chunks
             ]);
+            // The explorer client pages on the last cell, so it repeats action_index.
+            expect(row[row.length - 1]).to.equal(30);
         });
     });
 

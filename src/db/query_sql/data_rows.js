@@ -109,4 +109,18 @@ async function runListQuery(db, config, query, args, count, page){
     return [data, total];
 }
 
-module.exports = { listQueryArgs, runListQuery };
+// For a reader that runs its own row query: append the page's cursor binds and,
+// for an API ?page=, the OFFSET, as runListQuery does for every returned query.
+function pagedRowQuery(config, query, args){
+    let sql       = config.data.sql;
+    let queryArgs = [...(args || [])];
+    if(sql.where.offsetArgs && sql.where.offsetArgs.length)
+        queryArgs.push(...sql.where.offsetArgs);
+    if(config.type == 'api' && sql.apiOffset > 0){
+        query += ' OFFSET ?';
+        queryArgs.push(sql.apiOffset);
+    }
+    return [query, queryArgs];
+}
+
+module.exports = { listQueryArgs, runListQuery, pagedRowQuery };

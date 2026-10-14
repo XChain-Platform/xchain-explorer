@@ -106,9 +106,11 @@ const ROWS = [
     ['Link', 'getLinks', 'LINK action data',
         ACTION_HEAD + ' coin1:s coin1_action_index:d coin2:s coin2_action_index:d memo:s status:s ' + TX_TAIL],
     ['List', 'getLists', 'LIST action data',
-        ACTION_HEAD + ' type:s edit:s list_action_index:d memo:s status:s ' + TX_TAIL],
+        ACTION_HEAD + ' type:s edit:s list_action_index:d name:s description:s memo:s status:s ' + TX_TAIL,
+        { name: 'The list\'s current name from its latest valid metadata edit; absent on a replica without list metadata',
+          description: 'The list\'s current description from its latest valid metadata edit; absent on a replica without list metadata' }],
     ['SharedList', 'getSharedLists', 'A shared LIST available on this chain',
-        'kind:S home_chain:S home_list_index:i local_list_index:i type:i owner:s member_count:i share_block:i'
+        'kind:S home_chain:S home_list_index:i local_list_index:i type:i name:s owner:s member_count:i share_block:i'
             + ' share_action_index:i seq:i'],
     ['Message', 'getMessages', 'MESSAGE action data',
         ACTION_HEAD + ' destination:s encryption_method:s encryption_key:s encrypted_message:s plaintext_message:s'
@@ -563,7 +565,7 @@ const HOLDER = listBody('HolderRow', {
 HOLDER.description = 'Token holder data';
 
 const COMPONENT_SCHEMAS = Object.assign(
-    Object.fromEntries(ROWS.map(([name, , description, spec, notes]) => [name, rowSchema(description, spec, notes)])),
+    Object.fromEntries(ROWS.map(([name, , description, spec, notes, extra]) => [name, rowSchema(description, spec, notes, extra)])),
     {
         ActionDetail: ACTION_DETAIL, AddressInfo: ADDRESS_INFO, Block: BLOCK, Contract: CONTRACT, ExplorerStatus: EXPLORER_STATUS,
         History: HISTORY, Holder: HOLDER, HolderRow: rowSchema('One holder of a token', 'address:s amount:s'),
@@ -590,8 +592,8 @@ const BODY_SCHEMAS = {
 
 // The next-page cursor a keyset-paged list carries beside total and data.
 const KEYSET_FIELDS = {
-    next_after: { type: 'string', pattern: '^[0-9]+$', description: 'On an ascending keyset-paged list: the last row\'s cursor, to pass as `after` for the next page. Absent on an empty page' },
-    next_before: { type: 'string', pattern: '^[0-9]+$', description: 'On a descending keyset-paged list: the last row\'s cursor, to pass as `before` for the next page. Absent on an empty page' },
+    next_after: { type: 'string', pattern: '^[0-9]+$', description: 'On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page' },
+    next_before: { type: 'string', pattern: '^[0-9]+$', description: 'On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page' },
 };
 
 // The typed 200 schema for a route calling `method`, or null for the generic one;
@@ -602,4 +604,8 @@ function responseSchema(method, extra) {
     return null;
 }
 
-module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, KEYSET_FIELDS, POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status', 'price_stale'] }, responseSchema };
+// db method -> columns its reader selects only when the replica carries their source table.
+const OPTIONAL_COLUMNS = { getLists: ['name', 'description'] };
+
+module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, KEYSET_FIELDS, OPTIONAL_COLUMNS,
+    POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status', 'price_stale'] }, responseSchema };

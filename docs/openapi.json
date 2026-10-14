@@ -3,7 +3,7 @@
   "info": {
     "title": "XChain Explorer API",
     "version": "1.0.0",
-    "description": "Read-only REST API for the XChain Platform: tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings, and so are chain indices (`block_index`, `action_index`, `checkpoint_seq`, `snapshot_block`) on both the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay exact above 2^53. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit max 100; balances/holders max 500). Lists that document `before`/`after` also page by cursor: pass the response's `next_before` (or `next_after` when ascending) to read the next page at the same cost at any depth, where a deep `page` slows with depth. Errors are `{error: \"message\", code: \"STABLE_CODE\"}`. See the error-code registry at https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at /{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
+    "description": "Read-only REST API for the XChain Platform: tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings, and so are chain indices (`block_index`, `action_index`, `checkpoint_seq`, `snapshot_block`) on both the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay exact above 2^53. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit defaults to and is clamped at 100; 500 on balances/holders). A malformed paging parameter answers 400 rather than a default. Lists that document `before`/`after` also page by cursor: `before` reads the page just below a cursor and `after` the page just above it, shown in `sortorder`; pass the response's `next_before` or `next_after` to continue the same walk at the same cost at any depth, where a deep `page` slows with depth. Errors are `{error: \"message\", code: \"STABLE_CODE\"}`. See the error-code registry at https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at /{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
     "license": {
       "name": "AGPL-3.0-or-later",
       "url": "https://docs.xchain.io/legal/licensing.md"
@@ -141,12 +141,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -330,12 +330,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -432,12 +432,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -535,12 +535,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -725,12 +725,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -831,12 +831,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1281,12 +1281,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1475,12 +1475,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1578,12 +1578,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1681,12 +1681,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1783,12 +1783,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1951,12 +1951,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2056,12 +2056,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2159,12 +2159,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2347,12 +2347,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2449,12 +2449,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3008,12 +3008,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3111,12 +3111,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3213,12 +3213,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3401,12 +3401,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3656,12 +3656,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -9335,15 +9335,6 @@
               "type": "string"
             },
             "description": "The value to look up (interpreted per {TYPE}): attestation = attestation"
-          },
-          {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
           }
         ],
         "responses": {
@@ -9352,7 +9343,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/ObjectResponse"
                 }
               }
             }
@@ -9500,15 +9491,6 @@
               "type": "string"
             },
             "description": "The value to look up (interpreted per {TYPE}): anchor = the mined DOGE anchor transaction id (doge_anchor_txid)"
-          },
-          {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
           }
         ],
         "responses": {
@@ -9517,7 +9499,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/ObjectResponse"
                 }
               }
             }
@@ -9553,15 +9535,6 @@
               "type": "string"
             },
             "description": "The value to look up (interpreted per {TYPE}): block = block height"
-          },
-          {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
           }
         ],
         "responses": {
@@ -9570,7 +9543,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/ObjectResponse"
                 }
               }
             }
@@ -10237,12 +10210,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -10377,7 +10350,7 @@
             "$ref": "#/components/parameters/page"
           },
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "#/components/parameters/limitLarge"
           },
           {
             "$ref": "#/components/parameters/sortorder"
@@ -10985,12 +10958,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -11037,7 +11010,7 @@
             "$ref": "#/components/parameters/page"
           },
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "#/components/parameters/limitLarge"
           },
           {
             "$ref": "#/components/parameters/sortorder"
@@ -11102,7 +11075,7 @@
             "$ref": "#/components/parameters/page"
           },
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "#/components/parameters/limitLarge"
           },
           {
             "$ref": "#/components/parameters/sortorder"
@@ -11692,13 +11665,27 @@
             "description": "The value to look up (interpreted per {TYPE}): token = a token tick"
           },
           {
-            "$ref": "#/components/parameters/page"
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page of the holder ranking, 1 or more. A page whose first row lies past row 100000 answers 400 PAGE_TOO_DEEP; a value that is not a whole number of at least 1 answers 400 INVALID_PAGE"
           },
           {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 100
+            },
+            "description": "Holders per page; a larger value is clamped to 100. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT"
           }
         ],
         "responses": {
@@ -11707,7 +11694,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/ObjectResponse"
                 }
               }
             }
@@ -12415,12 +12402,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12559,12 +12546,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12639,12 +12626,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12719,12 +12706,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12863,12 +12850,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -12943,12 +12930,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13279,12 +13266,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13423,12 +13410,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13503,12 +13490,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13583,12 +13570,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13663,12 +13650,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13743,12 +13730,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13823,12 +13810,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -13903,12 +13890,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14047,12 +14034,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14127,12 +14114,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14503,12 +14490,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14583,12 +14570,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14663,12 +14650,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14807,12 +14794,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -14887,12 +14874,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -15353,12 +15340,12 @@
                     "next_after": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
                     },
                     "next_before": {
                       "type": "string",
                       "pattern": "^[0-9]+$",
-                      "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -16706,7 +16693,7 @@
           "minimum": 1,
           "default": 1
         },
-        "description": "Page number"
+        "description": "Page number, 1 or more. A page whose first row lies past row 100000 answers 400 PAGE_TOO_DEEP; page deeper by `before`/`after` where the list offers them. A value that is not a whole number of at least 1 answers 400 INVALID_PAGE"
       },
       "limit": {
         "name": "limit",
@@ -16714,10 +16701,21 @@
         "schema": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 500,
-          "default": 10
+          "maximum": 100,
+          "default": 100
         },
-        "description": "Rows per page (max 100; balances/holders max 500)"
+        "description": "Rows per page; a larger value is clamped to 100. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT"
+      },
+      "limitLarge": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 500
+        },
+        "description": "Rows per page; a larger value is clamped to 500. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT"
       },
       "sortorder": {
         "name": "sortorder",
@@ -16729,7 +16727,7 @@
             "desc"
           ]
         },
-        "description": "Sort order"
+        "description": "Sort order, case-insensitive; descending by default (ascending on balances). Any other value answers 400 INVALID_SORTORDER"
       },
       "before": {
         "name": "before",
@@ -16738,7 +16736,7 @@
           "type": "string",
           "pattern": "^[0-9]+$"
         },
-        "description": "Keyset paging: only rows whose cursor is below this value, in `sortorder`. The cursor is `action_index` (`block_index` on commitments). Pass a descending page's `next_before` to read the next page at index cost whatever its depth; `page` is ignored. Not combinable with `after`; a non-numeric value answers 400."
+        "description": "Keyset paging: the page of rows whose cursor lies just below this value, shown in `sortorder`. The cursor is `action_index` (`block_index` on commitments). Pass the response's `next_before` to read the next page down at index cost whatever its depth; `page` is ignored. Not combinable with `after`; a non-numeric value answers 400."
       },
       "after": {
         "name": "after",
@@ -16747,7 +16745,7 @@
           "type": "string",
           "pattern": "^[0-9]+$"
         },
-        "description": "Keyset paging: only rows whose cursor is above this value, in `sortorder`. Pass an ascending page's `next_after` to read the next page; `page` is ignored. Not combinable with `before`; a non-numeric value answers 400."
+        "description": "Keyset paging: the page of rows whose cursor lies just above this value, shown in `sortorder`. Pass the response's `next_after` to read the next page up; every continuation stays above this bound. `page` is ignored. Not combinable with `before`; a non-numeric value answers 400."
       }
     },
     "schemas": {
@@ -16772,12 +16770,12 @@
           "next_after": {
             "type": "string",
             "pattern": "^[0-9]+$",
-            "description": "On an ascending keyset-paged list: the last row's cursor, to pass as `after` for the next page. Absent on an empty page"
+            "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
           },
           "next_before": {
             "type": "string",
             "pattern": "^[0-9]+$",
-            "description": "On a descending keyset-paged list: the last row's cursor, to pass as `before` for the next page. Absent on an empty page"
+            "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
           }
         },
         "required": [
@@ -17897,6 +17895,10 @@
             ],
             "description": "The ORACLE_ADDRESS a Mode B dispenser prices against; null otherwise"
           },
+          "price_stale": {
+            "type": "boolean",
+            "description": "True when an open fiat-priced dispenser has no settlement-usable price at the current indexed tip"
+          },
           "source": {
             "type": [
               "string",
@@ -18891,6 +18893,13 @@
             "type": "string",
             "pattern": "^[0-9]+$"
           },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The list's current description from its latest valid metadata edit; absent on a replica without list metadata"
+          },
           "edit": {
             "type": [
               "string",
@@ -18909,6 +18918,13 @@
               "string",
               "null"
             ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The list's current name from its latest valid metadata edit; absent on a replica without list metadata"
           },
           "source": {
             "type": [
@@ -18972,6 +18988,12 @@
           "member_count": {
             "type": [
               "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
               "null"
             ]
           },

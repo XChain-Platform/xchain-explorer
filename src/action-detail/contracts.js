@@ -161,18 +161,28 @@ function persistedFeeRows(){
                         fees m`;
 }
 
+// A DECIMAL expression as the canonical decimal string the indexer stores: the
+// zero tail and a bare trailing point stripped ('1.50000000' -> '1.5'). Amount
+// text holds no spaces, so RTRIM over swapped characters strips just the tail.
+function decimalTextSql(expr){
+    let text = 'CAST(' + expr + ' AS CHAR)';
+    let noZeros = "REPLACE(RTRIM(REPLACE(" + text + ", '0', ' ')), ' ', '0')";
+    let noPoint = "REPLACE(RTRIM(REPLACE(" + noZeros + ", '.', ' ')), ' ', '.')";
+    return "CASE WHEN " + text + " LIKE '%.%' THEN " + noPoint + " ELSE " + text + " END";
+}
+
 function inferredContractFeeRows(){
     return `
                     UNION ALL
                     SELECT
                         ce.action_index,
                         CASE WHEN COUNT(DISTINCT d.tick_id)=1 THEN MIN(d.tick_id) ELSE NULL END as tick_id,
-                        CASE WHEN COUNT(DISTINCT d.tick_id)=1 THEN SUM(CAST(d.amount AS DECIMAL(65,8))) ELSE NULL END as amount,
+                        CASE WHEN COUNT(DISTINCT d.tick_id)=1 THEN ` + decimalTextSql('SUM(CAST(d.amount AS DECIMAL(65,8)))') + ` ELSE NULL END as amount,
                         NULL as method,
                         NULL as destination_id,
                         ce.gas_used as gas_cost,
                         NULL as gas_price,
-                        CASE WHEN COUNT(DISTINCT d.tick_id)=1 THEN SUM(CAST(d.amount AS DECIMAL(65,8))) ELSE NULL END as xchain_amount,
+                        CASE WHEN COUNT(DISTINCT d.tick_id)=1 THEN ` + decimalTextSql('SUM(CAST(d.amount AS DECIMAL(65,8)))') + ` ELSE NULL END as xchain_amount,
                         CASE WHEN COUNT(d.action_index)=0 THEN 1 ELSE 2 END as payment_mode,
                         NULL as native_coin_amount,
                         NULL as native_coin,

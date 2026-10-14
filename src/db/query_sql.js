@@ -60,6 +60,7 @@
 'use strict';
 
 const { composeReaderParts } = require('./reader_parts.js');
+const { listLimitMax } = require('./method_tables.js');
 
 // The three method parts this entry composes with its own class body below.
 const dataMethods   = require('./query_sql/data.js');
@@ -67,13 +68,9 @@ const whereMethods  = require('./query_sql/where_clauses.js');
 const offsetMethods = require('./query_sql/offsets.js');
 
 class QueryBuilder {
+    // The per-method page cap lives beside the method tables so the OpenAPI generator reads it too.
     getMaxMethodResults(method){
-        let methods = {
-            getBalances: 500,
-            getHolders:  500
-        }
-        let max = (this.util.isInteger(methods[method])) ? methods[method] : 100;
-        return max;
+        return listLimitMax(method);
     }
 
     // Sanitize a search term for MATCH ... AGAINST (? IN BOOLEAN MODE). BOOLEAN MODE

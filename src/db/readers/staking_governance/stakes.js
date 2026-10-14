@@ -78,8 +78,8 @@ class StakingReaders {
     // Get list of capability UNSTAKE actions (UNSTAKE v0; the `unstakes` table). A capability
     // unstake begins the global cooldown on a staked signing key; contract-targeted unstakes
     // (UNSTAKE v1) live in contract_unstakes and have their own list view. Mirrors getStakes
-    // minus the token join. type in {block, address, source}; not in actionTables, so it serves
-    // the newest page ordered by m.action_index DESC.
+    // minus the token join. type in {block, address, source}; ordered by m.action_index DESC and
+    // paged on the preserved client cursor.
     async getUnstakes(config){
         let sql   = config.data.sql;
         let count = `SELECT

@@ -14,18 +14,59 @@
  *
  * XChain Explorer - refusing a malformed parameter before the database sees it
  *
- * The guards between a matched route and the read it names. Two of them refuse a
- * path segment MariaDB would otherwise coerce into the wrong record; the other two
- * answer an empty result without a query at all, for a blocked mirror and for a
- * token search too short to use an index.
+ * The guards between a matched route and the read it names. Three of them refuse
+ * a path segment MariaDB would otherwise coerce into the wrong record; the other
+ * two answer an empty result without a query at all, for a blocked mirror and for
+ * a token search too short to use an index.
  *
- * It answers whether the request is already settled: true where one of the four
+ * It answers whether the request is already settled: true where one of the five
  * branches filled in the response or the empty result, false where the read below
  * it still has to run.
  *
  ********************************************************************/
 
 'use strict';
+
+// Path filter types that bind an integer column, with the refusal each answers.
+// MariaDB casts a string like '7junk' to 7 in a numeric comparison, so a malformed
+// segment would otherwise answer another record's data.
+const INTEGER_PATH_TYPES = {
+    block:     ['Invalid block_index', 'INVALID_BLOCK_INDEX'],
+    tx_index:  ['Invalid tx_index', 'INVALID_TX_INDEX'],
+    poll:      ['Invalid poll_index', 'INVALID_POLL_INDEX'],
+    feed:      ['Invalid feed_action_index', 'INVALID_FEED_INDEX'],
+    round:     ['Invalid round_number', 'INVALID_ROUND_NUMBER'],
+    epoch:     ['Invalid epoch_height', 'INVALID_EPOCH_HEIGHT'],
+    execution: ['Invalid execution_index', 'INVALID_EXECUTION_INDEX'],
+    dispenser: ['Invalid dispenser_action_index', 'INVALID_DISPENSER_INDEX'],
+    contract:  ['Invalid contract_index', 'INVALID_CONTRACT_INDEX']
+};
+
+// A segment that names no record and reaches the read unchanged: an absent one, the
+// literal 'null' the list pages send for a feed with no query (/explorer/blocks/null),
+// and 'all' on the blocks list.
+function isNoFilterSegment(method, search){
+    if(search === undefined || search === null || search === '' || search === 'null')
+        return true;
+    return method === 'getBlocks' && search === 'all';
+}
+
+// The refusal for a malformed integer path segment on a data route, or null. The
+// search route reads a contract by name, so its contract lane is free text, and
+// getBlock refuses its own segment in the reader for every caller.
+function integerPathRefusal(explorer, cfg){
+    let type = cfg.data.type;
+    if(!['api', 'explorer'].includes(cfg.type) || ['getSearch', 'getBlock'].includes(cfg.data.method))
+        return null;
+    if(!Object.prototype.hasOwnProperty.call(INTEGER_PATH_TYPES, type))
+        return null;
+    if(isNoFilterSegment(cfg.data.method, cfg.data.search))
+        return null;
+    if(explorer.util.isSafeIntegerParam(cfg.data.search))
+        return null;
+    let [error, code] = INTEGER_PATH_TYPES[type];
+    return { error, code };
+}
 
 /**
  * Settle the request without a query where its parameters say to.
@@ -46,6 +87,7 @@ function validateParams(explorer, st){
     // otherwise annotate lag. Same gate as the checkpoint routes.
     st.mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? explorer.mirrorGate(cfg.coin) : null;
     let mirrorGate = st.mirrorGate;
+    let refusal    = integerPathRefusal(explorer, cfg);
     // /{COIN}/api/action/{QUERY} binds its path segment against the BIGINT
     // action_index column, and MariaDB coerces the string, so `/api/action/7junk`
     // answered 200 with action 7 and `/api/action/junk` with action 0. Reject the
@@ -69,6 +111,10 @@ function validateParams(explorer, st){
         st.badParam   = true;
         response.code = 400;
         response.json = { error: 'Invalid block_index', code: 'INVALID_BLOCK_INDEX' };
+    } else if(refusal){
+        st.badParam   = true;
+        response.code = 400;
+        response.json = refusal;
     } else if(mirrorGate && mirrorGate.blocked){
         st.data  = [];
         st.total = 0;

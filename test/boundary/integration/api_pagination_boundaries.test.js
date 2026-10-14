@@ -64,35 +64,40 @@ describe('Boundary Integration: API limit parameter', function () {
         expect(res.body.data.length).to.be.at.most(100);
     });
 
-    it('BV-API-05: limit=0 (string "0" is truthy, accepted as zero, SQL LIMIT 0)', async function () {
-        // BOUNDARY FINDING: In HTTP query params, limit=0 arrives as string "0"
-        // which is truthy, so it passes the `q.limit && ...` check.
-        // isInteger(Number("0")) = isInteger(0) = true, so limit=0 is accepted.
-        // SQL LIMIT 0 returns no rows -> empty data.
+    it('BV-API-05: limit=0 answers 400 INVALID_LIMIT', async function () {
+        // BOUNDARY: limit is read as a whole number of at least 1. The string "0" is
+        // present and numeric, but zero is below the floor, so the request is refused
+        // with INVALID_LIMIT before any SQL is built; no LIMIT 0 statement is issued
+        // and the caller learns the value was wrong instead of reading an empty page.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=0`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
-        // May be empty (LIMIT 0) or may error; either way, no crash
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_LIMIT');
+        expect(res.body.error).to.be.a('string');
     });
 
-    it('BV-API-06: negative limit=-1 (accepted by isInteger, produces SQL error)', async function () {
-        // BOUNDARY FINDING: "-1" passes isInteger check. SQL LIMIT -1 is invalid
-        // in MariaDB -> SQL error is caught -> returns 200 with empty/error data
+    it('BV-API-06: negative limit=-1 answers 400 INVALID_LIMIT', async function () {
+        // BOUNDARY: a negative limit is not a safe non-negative integer, so it is refused
+        // with INVALID_LIMIT before MariaDB sees it; no LIMIT -1 statement reaches the pool.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=-1`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_LIMIT');
+        expect(res.body.error).to.be.a('string');
     });
 
-    it('BV-API-07: fractional limit=1.5 falls back to default', async function () {
+    it('BV-API-07: fractional limit=1.5 answers 400 INVALID_LIMIT', async function () {
+        // A fraction is not a whole number, so it never reaches LIMIT as 1.5.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=1.5`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_LIMIT');
+        expect(res.body.error).to.be.a('string');
     });
 
-    it('BV-API-08: non-numeric limit=abc falls back to default', async function () {
+    it('BV-API-08: non-numeric limit=abc answers 400 INVALID_LIMIT', async function () {
+        // Text is refused rather than replaced by the per-method default.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=abc`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_LIMIT');
+        expect(res.body.error).to.be.a('string');
     });
 
     it('BV-API-09: very large limit=999999 does not crash', async function () {
@@ -108,23 +113,29 @@ describe('Boundary Integration: API limit parameter', function () {
 
 describe('Boundary Integration: API page parameter', function () {
 
-    it('BV-API-10: page=0 (string "0" is truthy, accepted, produces LIMIT 0)', async function () {
-        // Same issue as limit=0: "0" is truthy as a string
+    it('BV-API-10: page=0 answers 400 INVALID_PAGE', async function () {
+        // Pages count from 1, so page 0 is refused with INVALID_PAGE, like limit=0.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=3&page=0`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_PAGE');
+        expect(res.body.error).to.be.a('string');
     });
 
-    it('BV-API-11: negative page=-1 returns empty or handles gracefully', async function () {
+    it('BV-API-11: negative page=-1 answers 400 INVALID_PAGE', async function () {
+        // A negative page is refused rather than read as page 1.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=3&page=-1`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_PAGE');
+        expect(res.body.error).to.be.a('string');
     });
 
-    it('BV-API-12: very large page=999999 returns empty data', async function () {
+    it('BV-API-12: very large page=999999 answers 400 PAGE_TOO_DEEP', async function () {
+        // Its offset lies past the 100000-row positional cap, so the page is refused
+        // rather than clamped onto the capped page and repeating its rows.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?limit=3&page=999999`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array').with.lengthOf(0);
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('PAGE_TOO_DEEP');
+        expect(res.body.error).to.be.a('string');
     });
 
     it('page=1 and page=2 have no overlapping records', async function () {
@@ -174,19 +185,22 @@ describe('Boundary Integration: API sortorder parameter', function () {
         }
     });
 
-    it('BV-SORT-04: invalid sortorder=RANDOM falls back to default DESC', async function () {
+    it('BV-SORT-04: invalid sortorder=RANDOM answers 400 INVALID_SORTORDER', async function () {
+        // Only asc or desc, in any case, is accepted; anything else is refused
+        // rather than silently read as the default descending order.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?sortorder=RANDOM`);
-        expect(res.status).to.equal(200);
-        const indices = res.body.data.map(r => Number(r.action_index));
-        for (let i = 0; i < indices.length - 1; i++) {
-            expect(indices[i]).to.be.at.least(indices[i + 1]);
-        }
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_SORTORDER');
+        expect(res.body.error).to.be.a('string');
     });
 
-    it('BV-SORT-06: SQL injection in sortorder is rejected', async function () {
+    it('BV-SORT-06: SQL injection in sortorder is refused with 400 INVALID_SORTORDER', async function () {
+        // The payload is not asc or desc, so it is refused before ORDER BY is built,
+        // and the error body names the parameter without echoing the payload back.
         const res = await request.get(`/RBTC/api/sends/${ADDR1}/address?sortorder=DESC;DROP%20TABLE%20sends`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_SORTORDER');
+        expect(JSON.stringify(res.body)).to.not.include('DROP');
     });
 });
 
@@ -285,10 +299,12 @@ describe('Boundary Integration: Explorer pagination', function () {
         expect(res.body.data.length).to.be.at.most(10);
     });
 
-    it('BV-EXP-05: length=0 is accepted (string "0" is truthy)', async function () {
+    it('BV-EXP-05: length=0 answers 400 INVALID_LENGTH', async function () {
+        // An explorer page holds at least one row, so a zero length is refused.
         const res = await request.get(`/RBTC/explorer/sends/${ADDR1}/address?length=0`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_LENGTH');
+        expect(res.body.error).to.be.a('string');
     });
 
     it('BV-EXP-08: start beyond total returns empty data', async function () {
@@ -297,10 +313,13 @@ describe('Boundary Integration: Explorer pagination', function () {
         expect(res.body.data).to.be.an('array').with.lengthOf(0);
     });
 
-    it('BV-EXP-13: non-numeric offset is ignored', async function () {
+    it('BV-EXP-13: non-numeric offset answers 400 INVALID_OFFSET', async function () {
+        // The offset is the cursor a next page continues from on a cursor-paged feed,
+        // so text there is refused instead of reaching the cursor predicate.
         const res = await request.get(`/RBTC/explorer/sends/${ADDR1}/address?offset=abc&action=next`);
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_OFFSET');
+        expect(res.body.error).to.be.a('string');
     });
 
     it('BV-EXP-16: invalid action value is ignored', async function () {

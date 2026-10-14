@@ -37,8 +37,8 @@
 const { resultCacheLookup, resultCacheStore } = require('./data_cache.js');
 const { runListQuery } = require('./data_rows.js');
 const { applyPostPasses } = require('./data_post.js');
-const { apiPageOffset, explorerLimits, explorerOffsets } = require('./query_limits.js');
-const { apiKeyset } = require('./keyset.js');
+const { apiLimit, querySortOrder, apiPageOffset, explorerLimits, explorerOffsets } = require('./query_limits.js');
+const { apiKeyset, keysetWalkOrder } = require('./keyset.js');
 
 const CANONICAL_TICKERS = Symbol('canonicalTickers');
 const TICK_FILTER_TYPES = new Set(['token', 'tick', 'gate']);
@@ -86,6 +86,9 @@ class QueryData {
         } else {
             [data, total] = await runListQuery(this, config, query, args, count, page);
         }
+        // A keyset page read against its requested order is shown in that order.
+        if(config.data.sql && config.data.sql.keysetReversed && Array.isArray(data))
+            data = data.slice().reverse();
         data = await applyPostPasses(this, config, data);
         resultCacheStore(this, config, cacheName, cacheKey, data, total);
         return [data, total];
@@ -100,13 +103,17 @@ class QueryData {
         let data  = config.data;
         let q     = (data.query) ? data.query : false;
         let max   = this.getMaxMethodResults(data.method);
-        let limit = (q && q.limit && this.util.isInteger(Number(q.limit))) ? q.limit : max;
-        limit = Math.max(1, Math.min(Number(limit), max));
+        let limit = max;
+        if(config.type=='api')
+            limit = apiLimit(this, q, max);
+        else if(q && q.limit && this.util.isInteger(Number(q.limit)))
+            limit = Math.max(1, Math.min(Number(q.limit), max));
         let default_order = (['getBalances'].includes(data.method)) ? 'ASC' : 'DESC';
-        let order         = (q && q.sortorder && ['ASC','DESC'].includes(String(q.sortorder).toUpperCase())) ? String(q.sortorder).toUpperCase() : default_order;
+        let order         = querySortOrder(this, q, default_order);
         if(config.type=='api'){
             apiPageOffset(this, config, q, limit);
             apiKeyset(this, config, q);
+            order = keysetWalkOrder(config.data.sql, order);
         }
         if(config.type=='explorer'){
             ({ limit, order } = explorerLimits(this, config, q, max, limit, order));

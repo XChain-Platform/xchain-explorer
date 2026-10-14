@@ -90,6 +90,13 @@ async function validatorPass(db, config, data){
     }
 }
 
+// give_remaining is DECIMAL(65,18) arithmetic; serve it in the stored amounts' form.
+function orderPass(db, data){
+    for(let row of data)
+        if(!db.util.isNull(row.give_remaining))
+            row.give_remaining = db.trimAmountTail(row.give_remaining);
+}
+
 // Runs whichever pass this method's page needs, in the order getData ran them.
 // A page of no rows takes none of them: every pass reads the whole page in one
 // batched query, which there is nothing to build a batch from.
@@ -103,7 +110,9 @@ async function applyPostPasses(db, config, data){
         await contractPass(db, config, data);
     if(method=='getValidators')
         await validatorPass(db, config, data);
+    if(method=='getOrders')
+        orderPass(db, data);
     return data;
 }
 
-module.exports = { dispenserPass, contractPass, validatorPass, applyPostPasses };
+module.exports = { dispenserPass, contractPass, validatorPass, orderPass, applyPostPasses };

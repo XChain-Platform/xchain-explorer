@@ -44,7 +44,7 @@ function queryConfig(method, type, search){
             method,
             type,
             search,
-            query: { limit: '100000', page: '1000000000' }
+            query: { limit: '100000', page: '1001' }
         }
     });
 }

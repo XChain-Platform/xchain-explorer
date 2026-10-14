@@ -131,20 +131,22 @@ xcDatatableRowHandlers.delegation = xcDatatableRenderDelegationRow;
 function xcDatatableRenderFullNodeVerificationRow(context){
     let { row, data, idx, coin, action, type, action_index, status, count, block_index, block_index2, timestamp, source, destination, token, token2, amount, amount2, amount3, coin_index, coin2, coin2_index2, message, value, fee, locks, memo, edit, type2, txt, html, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
-// Full-node verification (NODEPROOF v0 possession-proof verdict). eq(3) overrides the
-// generic source link with the verified pubkey; eq(7) badges the pass/fail result.
+// Full-node verification (NODEPROOF v0 possession-proof verdict). The row ends with its
+// id (the paging cursor), so the action is data[9] and pass/fail colours the row.
 
     let pubkey         = data[3];
     let staking_source = data[4];
     let epoch_height   = data[5];
     let target_height  = data[6];
     let passed         = data[8];
+    let verdict_index  = data[9];
+    $(row).removeClass('bg-green bg-red').addClass(passed == 1 ? 'bg-green' : 'bg-red');
     $('td', row).eq(3).html(formatHash(pubkey));
     $('td', row).eq(4).html(isNull(staking_source) ? '-' : formatLink('/' + coin + '/address/' + staking_source, staking_source));
     $('td', row).eq(5).html(numeral(epoch_height).format(fmtInteger));
     $('td', row).eq(6).html(numeral(target_height).format(fmtInteger));
     $('td', row).eq(7).html('<span class="badge text-bg-' + (passed == 1 ? 'success' : 'danger') + '">' + (passed == 1 ? 'Pass' : 'Fail') + '</span>');
-    $('td', row).eq(8).html(action_link);
+    $('td', row).eq(8).html(formatLink('/' + coin + '/action/' + verdict_index, 'view', null, true));
 
 }
 xcDatatableRowHandlers.full_node_verification = xcDatatableRenderFullNodeVerificationRow;

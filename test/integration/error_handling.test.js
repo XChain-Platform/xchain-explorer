@@ -84,27 +84,26 @@ describe('Error Handling', function () {
 
 describe('Error Handling', function () {
 
-    it('invalid limit param defaults to 100 and does not crash', async function () {
-        // Non-numeric limit should be ignored; explorer defaults to 100
+    it('invalid limit param answers 400 INVALID_LIMIT', async function () {
+        // A non-integer limit is refused before any SQL is built. Silently
+        // defaulting it would hand the caller a page size it never asked for,
+        // so a client paging with a typo would read the wrong rows.
         const res = await request.get('/RBTC/api/sends/1/block?limit=abc');
 
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array');
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_LIMIT');
+        expect(res.body.error).to.be.a('string');
     });
 
-    it('invalid sortorder param defaults to DESC and does not crash', async function () {
-        // Unrecognised sortorder value should be ignored; default is DESC.
-        // Block 2 has 2 sends in the seed data (action_index 3 and 4).
+    it('invalid sortorder param answers 400 INVALID_SORTORDER', async function () {
+        // Only asc or desc (any case) reaches ORDER BY; anything else is refused.
+        // Falling back to DESC would let a misspelled ASC page read in reverse
+        // order without any sign that the parameter was ignored.
         const res = await request.get('/RBTC/api/sends/2/block?sortorder=INVALID');
 
-        expect(res.status).to.equal(200);
-        expect(res.body.data).to.be.an('array').with.length.greaterThan(0);
-
-        // Default sort is DESC so first item has a higher action_index than the last
-        const items = res.body.data;
-        if (items.length > 1) {
-            expect(Number(items[0].action_index)).to.be.greaterThan(Number(items[items.length - 1].action_index));
-        }
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_SORTORDER');
+        expect(res.body.error).to.be.a('string');
     });
 
     it('negative page number does not crash and returns data', async function () {

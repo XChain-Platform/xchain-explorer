@@ -22,6 +22,7 @@
 
 const { columnsPresent } = require('../../schema_probe.js');
 const { idsFirstPage } = require('../../query_sql/page_ids.js');
+const { legOrder } = require('../../query_sql/query_limits.js');
 
 const GET_ISSUES_COUNT_SQL = `SELECT
                         count(*) as total
@@ -252,7 +253,7 @@ class TokenReaders {
                 FROM filtered_destroys m
                     INNER JOIN page_actions p ON (p.action_index=m.action_index)
                 ) m
-                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ASC`;
+                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ` + legOrder(config);
         return [query, null, count];
     }
 

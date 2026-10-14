@@ -26,6 +26,7 @@ const { COMPONENT_SCHEMAS, KEYSET_FIELDS, responseSchema } = require('./openapi.
 const { api } = require('../src/explorer/routes/api_methods.js');
 const { supportsBareApiList } = require('../src/explorer/request/resolve_route.js');
 const { KEYSET_METHODS } = require('../src/db/query_sql/keyset.js');
+const { listLimitMax } = require('../src/db/method_tables.js');
 
 const COINS = ['BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC', 'DOGE', 'TDOGE', 'RDOGE'];
 
@@ -265,7 +266,13 @@ const ROUTES = [
     // the contract, so both are stated in the description rather than left to the page.
     ['/{COIN}/api/collectibles', 'getCollectibles', null, 'Tokens', 'Collectibles: tokens classified from their ISSUE fields as indivisible (DECIMALS=0) with a frozen ceiling (LOCK_MAX_SUPPLY). No curation is applied'],
     ['/{COIN}/api/collectibles/{QUERY}/{TYPE}', 'getCollectibles', ['block', 'address'], 'Tokens', 'Collectibles filtered by issue block or current owner'],
-    ['/{COIN}/api/rich_list/{QUERY}', 'getRichList', 'token', 'Tokens', 'One token’s holder ranking and supply stats: circulating supply, holder count, the summed balances alongside it, and the top holders (capped at the request limit, 100 max) with each holder’s percent of circulating supply. Zero balances are excluded. There is no cross-token ranking route'],
+    // One object whose holder ranking pages by page/limit, so it takes those two alone.
+    ['/{COIN}/api/rich_list/{QUERY}', 'getRichList', 'token', 'Tokens', 'One token’s holder ranking and supply stats: circulating supply, holder count, the summed balances alongside it, and the top holders (capped at the request limit, 100 max) with each holder’s percent of circulating supply. Zero balances are excluded. There is no cross-token ranking route',
+        { query: [
+            { name: 'page', required: false, schema: { type: 'integer', minimum: 1, default: 1 },
+              description: 'Page of the holder ranking, 1 or more. A page whose first row lies past row 100000 answers 400 PAGE_TOO_DEEP; a value that is not a whole number of at least 1 answers 400 INVALID_PAGE' },
+            { name: 'limit', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 100 },
+              description: 'Holders per page; a larger value is clamped to 100. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT' }] }],
     ['/{COIN}/api/transaction/{QUERY}/{TYPE}', 'getTransaction', ['tx_hash', 'tx_index'], 'Core', 'Transaction lookup'],
     // ── Markets ───────────────────────────────────────────────────────────
     ['/{COIN}/api/markets', 'getMarkets', null, 'Markets', 'All trading pairs',
@@ -632,7 +639,9 @@ const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'get
     'getStatus', 'getNetwork', 'getMarket', 'getOrderbook', 'getTransaction', 'getSearch', 'getXcall', 'getPoll',
     // BET single-object reads: getBetFeed resolves one market (terms + pools +
     // timeline) and getOracleStats one aggregate record, so neither paginates.
-    'getBetFeed', 'getOracleStats']);
+    'getBetFeed', 'getOracleStats',
+    // One attestation lifecycle, one anchor and one checkpoint, each read whole.
+    'getAttestation', 'getAnchor', 'getCheckpoint']);
 
 // `opts` (SPECIAL entries only) describes a route the table conventions cannot:
 // {query: [...]} its own query parameters instead of page/limit/sortorder,
@@ -649,7 +658,7 @@ function operation([p, method, types, tag, summary], opts) {
     const params = pathParams(p, types);
     if (isList) params.push(
         { $ref: '#/components/parameters/page' },
-        { $ref: '#/components/parameters/limit' },
+        { $ref: '#/components/parameters/' + (listLimitMax(method) > 100 ? 'limitLarge' : 'limit') },
         { $ref: '#/components/parameters/sortorder' });
     if (isList && KEYSET_METHODS.has(method)) params.push(
         { $ref: '#/components/parameters/before' },
@@ -735,9 +744,11 @@ const spec = {
             + 'the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay '
             + 'exact above 2^53. List responses '
             + 'are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters '
-            + '(limit max 100; balances/holders max 500). Lists that document `before`/`after` also '
-            + 'page by cursor: pass the response\'s `next_before` (or `next_after` when ascending) to '
-            + 'read the next page at the same cost at any depth, where a deep `page` slows with depth. Errors are '
+            + '(limit defaults to and is clamped at 100; 500 on balances/holders). A malformed paging '
+            + 'parameter answers 400 rather than a default. Lists that document `before`/`after` also '
+            + 'page by cursor: `before` reads the page just below a cursor and `after` the page just '
+            + 'above it, shown in `sortorder`; pass the response\'s `next_before` or `next_after` to '
+            + 'continue the same walk at the same cost at any depth, where a deep `page` slows with depth. Errors are '
             + '`{error: "message", code: "STABLE_CODE"}`. See the error-code registry at '
             + 'https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at '
             + '/{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\n'
@@ -764,21 +775,26 @@ const spec = {
                 schema: { type: 'string', enum: COINS },
                 description: 'Chain + network: BTC/LTC/DOGE mainnet; T prefix = testnet, R prefix = regtest',
             },
-            page: { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 }, description: 'Page number' },
-            limit: { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 500, default: 10 }, description: 'Rows per page (max 100; balances/holders max 500)' },
-            sortorder: { name: 'sortorder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] }, description: 'Sort order' },
+            page: { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 }, description: 'Page number, 1 or more. A page whose first row lies past row 100000 answers 400 PAGE_TOO_DEEP; page deeper by `before`/`after` where the list offers them. A value that is not a whole number of at least 1 answers 400 INVALID_PAGE' },
+            limit: { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 100 },
+                description: 'Rows per page; a larger value is clamped to 100. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT' },
+            limitLarge: { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 500, default: 500 },
+                description: 'Rows per page; a larger value is clamped to 500. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT' },
+            sortorder: { name: 'sortorder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] },
+                description: 'Sort order, case-insensitive; descending by default (ascending on balances). Any other value answers 400 INVALID_SORTORDER' },
             before: {
                 name: 'before', in: 'query', schema: { type: 'string', pattern: '^[0-9]+$' },
-                description: 'Keyset paging: only rows whose cursor is below this value, in `sortorder`. '
-                    + 'The cursor is `action_index` (`block_index` on commitments). Pass a descending '
-                    + 'page\'s `next_before` to read the next page at index cost whatever its depth; '
-                    + '`page` is ignored. Not combinable with `after`; a non-numeric value answers 400.',
+                description: 'Keyset paging: the page of rows whose cursor lies just below this value, '
+                    + 'shown in `sortorder`. The cursor is `action_index` (`block_index` on commitments). '
+                    + 'Pass the response\'s `next_before` to read the next page down at index cost whatever its '
+                    + 'depth; `page` is ignored. Not combinable with `after`; a non-numeric value answers 400.',
             },
             after: {
                 name: 'after', in: 'query', schema: { type: 'string', pattern: '^[0-9]+$' },
-                description: 'Keyset paging: only rows whose cursor is above this value, in `sortorder`. '
-                    + 'Pass an ascending page\'s `next_after` to read the next page; `page` is ignored. '
-                    + 'Not combinable with `before`; a non-numeric value answers 400.',
+                description: 'Keyset paging: the page of rows whose cursor lies just above this value, '
+                    + 'shown in `sortorder`. Pass the response\'s `next_after` to read the next page up; '
+                    + 'every continuation stays above this bound. `page` is ignored. Not combinable with '
+                    + '`before`; a non-numeric value answers 400.',
             },
         },
         schemas: {

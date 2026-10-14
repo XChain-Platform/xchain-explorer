@@ -38,6 +38,21 @@ function decodeBetDetails(data, isNull){
     catch(_){ data['details_json'] = null; }
 }
 
+// Shape a format-0 feed. Its gating lists are the ones in force, as /api/bet_feed and the
+// indexer's wager checks read them, with the created lists kept beside (BET_DETAIL reads only those).
+async function shapeFeed(db, config, action_index, data){
+    data['bet_kind'] = 'feed';
+    data['feed_ref'] = data['action_index'];
+    decodeBetDetails(data, db.util.isNull);
+    data['created_allow_list'] = data['allow_list'];
+    data['created_block_list'] = data['block_list'];
+    let rows = await db.doQuery(config, sql.BET_FEED_LISTS, [action_index]);
+    if(rows && rows.length){
+        data['allow_list'] = rows[0].allow_list;
+        data['block_list'] = rows[0].block_list;
+    }
+}
+
 // The joined query needs distinct aliases to identify the cancel, resolve, and
 // edit rows before their public shape is known. Once classified, expose their
 // common parent as feed_ref and remove those internal discriminator columns.
@@ -76,9 +91,7 @@ const BET = {
         if(fmt !== null)
             data['outcome_labels'] = db.util.isNull(data['outcomes']) ? [] : String(data['outcomes']).split(',');
         if(!db.util.isNull(data['label']) || fmt === 0){
-            data['bet_kind'] = 'feed';
-            data['feed_ref'] = data['action_index'];
-            decodeBetDetails(data, db.util.isNull);
+            await shapeFeed(db, config, action_index, data);
         } else if(!db.util.isNull(data['feed_action_index'])){
             data['bet_kind'] = 'bet';
             data['feed_ref'] = data['feed_action_index'];

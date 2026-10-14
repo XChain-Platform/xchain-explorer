@@ -342,7 +342,7 @@ const {
             // Order is load-bearing: ImageMagick applies settings left to right, so a
             // -limit after the filename does not bound the read that allocates.
             const lastLimit = argv.lastIndexOf('-limit');
-            const srcIdx    = argv.findIndex(a => String(a).startsWith('/') && !String(a).endsWith('out.png'));
+            const srcIdx    = argv.findIndex(a => /^png:\/.*iconw_[0-9]+_[0-9a-f]{8}$/.test(String(a)));
             expect(srcIdx).to.be.greaterThan(-1);
             expect(lastLimit).to.be.lessThan(srcIdx);
         });
@@ -375,6 +375,39 @@ const {
             // re-split it, which is what makes the removed shellEscape unnecessary.
             expect(convertCall.args[1][convertCall.args[1].length - 1]).to.match(/^png:\/tmp\/it's odd\/\.iconw_/);
             expect(fspStub.rename.firstCall.args[1]).to.equal("/tmp/it's odd/x.png");
+        });
+    });
+
+    // The convert input argument writeIcon builds for one sniffed MIME type.
+    async function convertInputFor(mime) {
+        const { d, execStub } = makeWriteIconDownloader([
+            ['--mime-type', { stdout: mime + '\n', stderr: '' }],
+            ['-resize',     null],
+        ]);
+        await d.writeIcon(Buffer.from('BYTES'), '/tmp/out.png');
+        const argv = execStub.getCalls().find(c => execCmdText(c).includes('-resize')).args[1];
+        return { argv, input: argv[argv.indexOf('-resize') - 1] };
+    }
+
+    iconSuite('_writeIcon()', function () {
+        // ImageMagick re-detects an unprefixed input from its bytes, so the coder the
+        // MIME gate approved is named on the input itself.
+        it('pins the ImageMagick input coder to the sniffed MIME type', async function () {
+            const cases = [
+                ['image/png', 'png', ''], ['image/jpeg', 'jpeg', ''], ['image/jpg', 'jpeg', ''],
+                ['image/gif', 'gif', '\\[0\\]'], ['image/webp', 'webp', '\\[0\\]'],
+            ];
+            for (const [mime, coder, frame] of cases) {
+                const { input } = await convertInputFor(mime);
+                expect(input, mime).to.match(new RegExp('^' + coder + ':/.*iconw_[0-9]+_[0-9a-f]{8}' + frame + '$'));
+            }
+        });
+
+        it('never hands convert the bare temp path for ImageMagick to sniff', async function () {
+            for (const mime of ['image/png', 'image/jpeg', 'image/gif', 'image/webp']) {
+                const { argv } = await convertInputFor(mime);
+                expect(argv.filter(a => /^\/.*iconw_[0-9]+_[0-9a-f]{8}(\[0\])?$/.test(String(a))), mime).to.deep.equal([]);
+            }
         });
     });
 }

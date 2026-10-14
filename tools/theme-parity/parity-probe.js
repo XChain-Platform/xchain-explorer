@@ -22,20 +22,22 @@
  *
  * TWO LAYERS, because either one alone lies:
  *
- *   rule  - for every rule in xchain.css / xchain-charts.css, read back each
+ *   rule  - for every rule in the sheets SHEET admits (xchain.css,
+ *           xchain-charts.css, themes/, components/<name>/component.css), read back each
  *           property that rule DECLARES, as the computed value on the first
  *           element matching its selector. This proves the stylesheet's own
  *           contribution is unchanged. It is deliberately derived from the
  *           stylesheet at runtime rather than from a hand-written list, so it
  *           cannot fall behind the CSS.
  *
- *           On the pre-tokenization tree this layer is MODE-INDEPENDENT: the
- *           light and dark hashes are identical on every page, because
- *           xchain.css declares no value that resolves differently per mode.
- *           That is a fact about the current CSS, not a bug in the probe, and
- *           it is precisely what acceptance test A4 re-checks afterwards: if
- *           tokenization is done correctly the two modes should still agree
- *           here, with the difference living in the render layer below.
+ *           Because it reads computed values, this layer follows mode wherever
+ *           a declared value resolves through a mode-following token (a theme
+ *           dark-block token or a Bootstrap --bs-* variable) on an element the
+ *           page renders: .xc-chart-nodata (an empty chart), .xc-stat-tile
+ *           (mounted on every coin_home load) and .xc-badge differ by mode, so
+ *           the two modes agree here only on pages rendering none of those.
+ *           See README.md, "What the two layers mean". The render layer below
+ *           is still where a dark-mode regression shows.
  *
  *   rend  - a fixed census of 31 anchor selectors x 29 properties, read as
  *           computed values no matter which stylesheet won. This proves the
@@ -107,16 +109,18 @@
  *
  * COVERAGE LIMIT, stated because a probe that hides its blind spot is worse
  * than no probe: across the six captured pages only 79 of the 120 selectors in
- * the two page-level stylesheets are exercised (baseline-2026-08-20.json's
- * coverage block is the authority; 121/77/44 was the superseded pre-tokenization
- * survey). A rule no page instantiates cannot be proven at runtime by any
+ * the two page-level stylesheets were exercised when measured on 2026-08-20
+ * (the coverage block of baseline-2026-08-20.json; 121/77/44 was the superseded
+ * pre-tokenization survey). That is a selector count, untouched by the later
+ * render-census property change, but that file's hashes are not evidence for
+ * the current probe. A rule no page instantiates cannot be proven at runtime by any
  * amount of capturing, which is why the static token-literal gate is a
  * separate acceptance test.
  *
  * SHEET now also admits the per-component component.css layer, which landed
  * after the 2026-08-20 capture. That raises the reported cssRules count per
- * page by the component sheets' own rule count and leaves the rule-layer hashes
- * alone, since those component rules match no element on a healthy page.
+ * page by the component sheets' own rule count, and it moves the rule-layer
+ * hash of any page that mounts a component (coin_home has since 2026-09-26).
  *
  **********************************************************************/
 

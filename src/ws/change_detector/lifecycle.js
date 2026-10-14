@@ -97,35 +97,74 @@ class LifecycleEvents {
 
     // Emit an ATTESTATION_REQUEST / ATTESTATION_RESPONSE event on the dedicated
     // `attestation` channel when a new ATTEST action lands. The raw action row
-    // from getActionsSince doesn't carry the version, so we enrich it from the
-    // consolidated `attests` table to tell a v0 request from a v1 response.
+    // carries no version, so the `attests` row the action wrote supplies it.
     async emitAttestationEvents(coin, config, action) {
         if (!action || action.action !== 'ATTEST') return;
         try {
             const row = await this.db.getAttestationByActionIndex(config, action.action_index);
-            if (!row) return;
-            const isResponse = Number(row.version) === 1;
-            this.emit('lifecycle_event', coin, {
-                type:    isResponse ? 'ATTESTATION_RESPONSE' : 'ATTESTATION_REQUEST',
-                action:  'ATTEST',
-                channel: 'attestation',
-                data: {
-                    action_index:    row.action_index,
-                    version:         row.version,
-                    request_id:      row.request_id,
-                    provider_id:     row.provider_id,
-                    contract_index:  row.contract_index   || null,
-                    request_status:  row.request_status   || null,
-                    response_status: row.response_status  || null,
-                    block_index:     row.block_index      || null,
-                    source:          action.source        || null,
-                    status:          action.status        || null
-                }
-            });
+            const event = row ? attestRowEvent(row, action) : await attestExpiryEvent(this, config, action);
+            if (event) this.emit('lifecycle_event', coin, event);
         } catch (e) {
             // Non-fatal: attestation enrichment failure must not break the poll loop
         }
     }
+}
+
+// The event type each `attests` row version sends: a v0 request and a v1 response,
+// relay legs included since they write v0 and v1 rows. A batch head (v5), a batch
+// continuation (v6) or any other version sends nothing here; NEW_ACTION still has it.
+const ATTEST_EVENT_TYPES = new Map([[0, 'ATTESTATION_REQUEST'], [1, 'ATTESTATION_RESPONSE']]);
+
+// The attestation-channel event for an ATTEST action that wrote its own row, or null
+// when that row's version sends none.
+function attestRowEvent(row, action) {
+    const type = ATTEST_EVENT_TYPES.get(Number(row.version));
+    if (!type) return null;
+    return attestEvent(type, {
+        action_index:    row.action_index,
+        version:         row.version,
+        request_id:      row.request_id,
+        provider_id:     row.provider_id,
+        contract_index:  row.contract_index   || null,
+        request_status:  row.request_status   || null,
+        response_status: row.response_status  || null,
+        block_index:     row.block_index      || null
+    }, action);
+}
+
+// The ATTESTATION_RESPONSE an expiry (ATTEST v2) sends. The expiry writes no row of
+// its own, it only marks its request expired, so the request is found through the
+// in-block pairing REST uses; an expiry it cannot pair sends nothing.
+async function attestExpiryEvent(detector, config, action) {
+    // Only an expiry has no row of its own; any other missing row sends nothing.
+    if (Number(action.action_format) !== 2) return null;
+    // A db without the pairing read (a test double) cannot name the request.
+    if (typeof detector.db.seedAttestationFromExpireAction !== 'function') return null;
+    const request = await detector.db.seedAttestationFromExpireAction(config, action.action_index);
+    if (!request) return null;
+    return attestEvent('ATTESTATION_RESPONSE', {
+        action_index:    action.action_index,
+        version:         2,
+        request_id:      request.request_id,
+        provider_id:     request.provider_id,
+        contract_index:  request.contract_index   || null,
+        request_status:  request.request_status   || null,
+        response_status: null,
+        block_index:     action.block_index       || null
+    }, action);
+}
+
+// One attestation-channel event: the row fields, then the action's source and status.
+function attestEvent(type, fields, action) {
+    return {
+        type,
+        action:  'ATTEST',
+        channel: 'attestation',
+        data: Object.assign(fields, {
+            source: action.source || null,
+            status: action.status || null
+        })
+    };
 }
 
 // The payload every lifecycle event starts from, before its family's enrichment.

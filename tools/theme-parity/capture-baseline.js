@@ -105,15 +105,19 @@ function buildBaseline(manifest, options) {
     const darkCensus = validateMode(page.dark, `Page ${tag} dark`);
     if (page.light.anchors !== page.dark.anchors) fail(`Page ${tag} modes have different anchor counts`);
     if (page.light.cssRules !== page.dark.cssRules) fail(`Page ${tag} modes have different CSS rule counts`);
-    if (page.light.rule.hash !== page.dark.rule.hash || page.light.rule.keys !== page.dark.rule.keys)
-      fail(`Page ${tag} rule layer differs between modes and cannot be represented by one baseline`);
+    // Record the rule hash per mode (mode-following tokens move it); a key-count split means different rules matched
+    if (page.light.rule.keys !== page.dark.rule.keys) fail(`Page ${tag} modes have different rule key counts`);
     if (page.light.rend.keys !== page.dark.rend.keys) fail(`Page ${tag} modes have different render key counts`);
     assert.deepEqual(lightCensus, darkCensus);
     outputPages[tag] = {
       url: page.url,
       anchors: page.light.anchors,
       cssRules: page.light.cssRules,
-      rule: page.light.rule,
+      rule: {
+        light: page.light.rule.hash,
+        dark: page.dark.rule.hash,
+        keys: page.light.rule.keys,
+      },
       rend: {
         light: page.light.rend.hash,
         dark: page.dark.rend.hash,
@@ -131,7 +135,8 @@ function buildBaseline(manifest, options) {
     phase: manifest.phase,
     probe: probeSchema,
     layers: {
-      rule: 'Properties declared by admitted first-party stylesheets, read on the first matching element.',
+      rule: 'Properties declared by admitted first-party stylesheets, read on the first matching element, ' +
+        'hashed per mode because a declared value that resolves through a mode-following token differs by mode.',
       rend: `A fixed census of ${probeSchema.anchors.count} selectors x ` +
         `${probeSchema.properties.count} properties, including an absence key for unmatched selectors.`,
     },
@@ -141,7 +146,6 @@ function buildBaseline(manifest, options) {
 
 function validateBaseline(baseline) {
   object(baseline, 'Baseline');
-  if (baseline.probe && typeof baseline.probe === 'object') compatibleSchema(baseline.probe, 'Baseline');
   const pages = object(baseline.pages, 'Baseline pages');
   if (!Object.keys(pages).length) fail('Baseline contains no pages');
   for (const tag of Object.keys(pages)) {
@@ -154,7 +158,14 @@ function validateBaseline(baseline) {
       fail(`Render census property count (${count}) incompatible with current probe ` +
         `(${probeSchema.properties.count}) at Page ${tag}`);
     }
+    // Check the per-mode rule hashes (after the census checks, so a legacy file keeps its count message)
+    const rule = object(page.rule, `Page ${tag}.rule`);
+    for (const mode of ['light', 'dark'])
+      if (!/^[0-9a-f]{8}$/.test(rule[mode])) fail(`Page ${tag}.rule.${mode} must be an 8 digit lowercase hex hash`);
+    if (!Number.isInteger(rule.keys) || rule.keys < 1) fail(`Page ${tag}.rule.keys must be a positive integer`);
   }
+  // Require the probe schema, missing or legacy string included (after the page loop, so a legacy file keeps its count message)
+  compatibleSchema(baseline.probe, 'Baseline');
   return true;
 }
 
@@ -204,15 +215,42 @@ function selfTest() {
       assert.throws(() => buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }),
         /Render census property count \(23\) incompatible with current probe \(29\)/);
     },
+    // A mode-dependent rule hash is recorded per mode, not refused
     () => {
       const capture = fixture(); capture.pages.home.dark.rule.hash = '99999999';
+      const rule = buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }).pages.home.rule;
+      assert.deepEqual(rule, { light: '11111111', dark: '99999999', keys: 3 });
+    },
+    () => {
+      const capture = fixture(); capture.pages.home.dark.rule.keys = 4;
       assert.throws(() => buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }),
-        /rule layer differs between modes/);
+        /different rule key counts/);
+    },
+    () => {
+      const baseline = JSON.parse(JSON.stringify(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })));
+      baseline.pages.home.rule = { hash: '11111111', keys: 3 };
+      assert.throws(() => validateBaseline(baseline), /Page home\.rule\.light must be an 8 digit/);
     },
     () => validateBaseline(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })),
     () => assert.throws(() => validateBaseline({ pages: {
       home: { anchors: '2/31', rend: { keys: 75 } },
     } }), /Render census property count \(23\) incompatible with current probe \(29\)/),
+    // A baseline must carry its probe schema; a deep copy keeps the shared probe module intact
+    () => {
+      const baseline = JSON.parse(JSON.stringify(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })));
+      delete baseline.probe;
+      assert.throws(() => validateBaseline(baseline), /Baseline probe schema must be an object/);
+    },
+    () => {
+      const baseline = JSON.parse(JSON.stringify(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })));
+      baseline.probe = 'tools/theme-parity/parity-probe.js';
+      assert.throws(() => validateBaseline(baseline), /Baseline probe schema must be an object/);
+    },
+    () => {
+      const baseline = JSON.parse(JSON.stringify(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })));
+      baseline.probe.properties.hash = '00000000';
+      assert.throws(() => validateBaseline(baseline), /properties census does not match/);
+    },
   ];
   tests.forEach((test) => test());
   process.stdout.write(`capture-baseline self-test: ${tests.length} passed, 0 failed\n`);

@@ -6,9 +6,11 @@ const { stripComments } = require('./theme_token_literal_gate.test/support/helpe
 
 // Static companion to tools/theme-parity/parity-probe.js. That probe diffs
 // computed styles on live pages, but only 79 of the 120 selectors in these
-// two stylesheets are ever instantiated by a page it can capture; the other
-// 41 render on no path it drives (baseline-2026-08-20.json's coverage block is
-// the authority; 121/77/44 was the superseded pre-tokenization survey). This
+// two stylesheets were instantiated by a page it could capture when measured
+// on 2026-08-20; the other 41 rendered on no path it drove (the coverage block
+// of baseline-2026-08-20.json, a selector count the later render-census
+// property change does not touch, though that file's hashes are not evidence
+// for the current probe; 121/77/44 was the superseded pre-tokenization survey). This
 // gate covers all 120, plus the component sheets, by reading the stylesheet
 // text instead of a rendered page, so it catches a reintroduced literal on a
 // selector the probe never sees. The two are complementary, not redundant: the

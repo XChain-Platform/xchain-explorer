@@ -29,8 +29,6 @@ const EMITTABLE_METHODS = new Set([
     'getAttestations', 'getSlashEvents', 'getExecutions', 'getXcalls'
 ]);
 
-const CONFORMANCE_MODULE = './txless_actions_conformance.js';
-
 function optionalTransactionSql(sql){
     if(!sql) return sql;
     let match = sql.match(/(?:INNER|LEFT)\s+JOIN transactions\s+(t\d+) ON \(\1\.tx_index=(a\d+)\.tx_index\)/);
@@ -81,7 +79,3 @@ function installTxlessBoundaryReads(queryBuilder){
 
 module.exports = { optionalTransactionSql, optionalTransactionQueries,
     isEmittableAction, installTxlessBoundaryReads };
-
-if(typeof describe === 'function' && process.argv.some((arg) =>
-    String(arg).includes('test/conformance/')))
-    require(CONFORMANCE_MODULE);

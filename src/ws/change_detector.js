@@ -22,8 +22,9 @@
  *
  * WHERE THE METHODS LIVE
  *
- * This file holds the class shell (constructor, the polling loop, the staleness
- * verdict, the missing-table test, getState) and the lifecycle type lists. The
+ * This file holds the class shell (constructor, the polling loop and the coin set
+ * it follows from the pool map, the staleness verdict, the missing-table test,
+ * getState) and the lifecycle type lists. The
  * cursors and emit paths live in change_detector/, one module per concern, and
  * arrive on ChangeDetector.prototype through mixinParts below:
  *
@@ -140,19 +141,37 @@ class ChangeDetector extends EventEmitter {
         if (this.running) return;
         this.running = true;
 
-        for (const coin of coins) {
-            if (!this.state[coin]) {
-                this.state[coin] = { blockIndex: 0, actionIndex: 0, closedBlock: 0, xcallBlock: 0, initialized: false };
-            }
-            if (!this.mempoolState[coin]) {
-                this.mempoolState[coin] = { seenHashes: new Map(), initialized: false };
-            }
-        }
+        for (const coin of coins) this.trackCoin(coin);
 
         this.timer = setInterval(() => this.poll(), this.pollInterval);
         this.poll();
 
         log.info('CHANGE_DETECTOR_STARTED', { poll_interval_ms: this.pollInterval, coins: coins.join(', ') });
+    }
+
+    // Give a coin unseeded cursors; the first poll then seeds them at its tip, so no
+    // history is replayed as live. A coin already tracked keeps its cursors.
+    trackCoin(coin) {
+        if (!this.state[coin]) {
+            this.state[coin] = { blockIndex: 0, actionIndex: 0, closedBlock: 0, xcallBlock: 0, initialized: false };
+        }
+        if (!this.mempoolState[coin]) {
+            this.mempoolState[coin] = { seenHashes: new Map(), initialized: false };
+        }
+    }
+
+    // Track every coin whose database pool appeared since the last pass. The db layer
+    // gains pools after boot (hub config sync, the lazy rebuild) and replaces its pool
+    // map on each rebuild, so the map is re-read here every pass, never cached.
+    adoptPooledCoins() {
+        const pools = this.db && this.db.pools;
+        // A db double with no pool map keeps exactly the coins start() was given.
+        if (!pools || typeof pools !== 'object') return;
+        for (const coin of Object.keys(pools)) {
+            if (this.state[coin]) continue;
+            this.trackCoin(coin);
+            log.info('CHANGE_DETECTOR_COIN_ADDED', { coin });
+        }
     }
 
     // Stop polling. Returns the pass still in flight (or a resolved promise) so the
@@ -197,6 +216,7 @@ class ChangeDetector extends EventEmitter {
     // block and action cursors, then the mempool diff. Each coin's two passes are
     // caught separately so one chain's failure cannot stop the others.
     async pollPass() {
+        this.adoptPooledCoins();
         for (const coin of Object.keys(this.state)) {
             // A stop() mid-pass finishes the current coin only; the pools are closing.
             if (!this.running) break;

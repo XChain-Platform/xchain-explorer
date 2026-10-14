@@ -19,6 +19,8 @@
 
 'use strict';
 
+const { betListOverlay } = require('../bet_list_overlay.js');
+
 // Read one BET across the feed, wager, cancel and resolve tables.
 const BET_DETAIL = `SELECT
                     a2.action,
@@ -93,6 +95,14 @@ const BET_LEG_FEED_STATUS = `SELECT fst.feed_action_index, s.status AS feed_stat
                    FROM bet_feed_statuses fst
                    LEFT JOIN index_statuses s ON (s.id=fst.status_id)
                   WHERE fst.action_index=? LIMIT 1`;
+
+// Read the gating lists one feed has in force after its BET format-4 edits.
+// No replica gate: BET_DETAIL already joins bet_edits, so this never runs without it.
+const FEED_LISTS = betListOverlay(true);
+const BET_FEED_LISTS = `SELECT ${FEED_LISTS.allow},
+                        ${FEED_LISTS.block}
+                   FROM bet_feeds m${FEED_LISTS.joins}
+                  WHERE m.action_index=? LIMIT 1`;
 
 // Read one BET_EXPIRE with the terms of the feed it expired.
 const BET_EXPIRE_DETAIL = `SELECT
@@ -233,6 +243,7 @@ const VOTE_BALLOT_STATUS = `SELECT COALESCE(s1.status, 'valid') AS status
 module.exports = {
     BET_DETAIL,
     BET_LEG_FEED_STATUS,
+    BET_FEED_LISTS,
     BET_EXPIRE_DETAIL,
     BET_EXPIRE_REFUNDS,
     VOTE_DETAIL,

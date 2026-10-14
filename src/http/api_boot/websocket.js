@@ -93,11 +93,9 @@ function startWebsockets(deps){
     // Take the WebSocket upgrade on HTTP, and on HTTPS when that listener is up.
     wsServer.attach(httpsServer ? [httpServer, httpsServer] : [httpServer]);
 
-    // Poll only the coins that actually have a database pool behind them.
-    const availableCoins = Object.keys(explorer.db.pools || {});
-    if (availableCoins.length > 0) {
-        changeDetector.start(availableCoins);
-    }
+    // Poll the coins that have a database pool behind them now. Started even with
+    // none, because each pass adopts any coin whose pool appears later.
+    changeDetector.start(Object.keys(explorer.db.pools || {}));
 
     // Handed to the drain so subscribers get a clean 1001 close and the live-feed
     // poll timer stops, instead of both dying with the process.

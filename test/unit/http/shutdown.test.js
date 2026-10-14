@@ -138,6 +138,7 @@ describe('graceful shutdown', function(){
             });
             shutdown('SIGTERM');
             await awaited(exited.promise, 'the exit seam');
+            assert.deepStrictEqual(codes, [1], 'the throwing drain must exit once before the window opens');
             // "Only once" has no event to await: the budget timer is the second exit
             // path, so the test must outlive it. Verified load-bearing by mutation -
             // drop this wait and a timer that stops honouring `finished` still reads

@@ -29,7 +29,7 @@ const INDEXER_REMOTE_TOKEN_SQL = path.resolve(
     __dirname, '../../../../xchain-indexer/src/sql/remote_token_snapshots.sql'
 );
 const INDEXER_REMOTE_TOKEN_VERDICT = siblingCheckout(__dirname, INDEXER_REMOTE_TOKEN_SQL);
-const REMOTE_TOKEN_SQL_SHA256 = '810ba3847bea5feb45155c127cc1259b7d4dd845e05be853532e0cd387357280';
+const REMOTE_TOKEN_SQL_SHA256 = '26666da709572740f5176707216b07dcd7ce2305862c7c11fc8053acfce8586c';
 
 function assertRemoteTokenSqlMatchesIndexer() {
     const local = fs.readFileSync(path.join(MIRROR_SQL, 'remote_token_snapshots.sql'));
@@ -85,12 +85,13 @@ describe('hub-mirror list share vendored contract @regression', function () {
         assertRemoteTokenSqlMatchesIndexer();
     });
 
-    it('registers remote_token_snapshots for bootstrap, local ids, and retraction', function () {
+    it('registers remote_token_snapshots for bootstrap and local ids, never for retraction', function () {
         assert.ok(mirrorTables.HUB_STATE_TABLES.includes('remote_token_snapshots'));
         assert.ok(mirrorTables.MIRRORED_TABLES.includes('remote_token_snapshots'));
         assert.ok(mirrorTables.AUTO_INCREMENT_ID_TABLES.includes('remote_token_snapshots'));
-        assert.equal(mirrorTables.RETRACTION_COLUMNS.remote_token_snapshots, 'source_action_index');
-        assert.equal(mirrorTables.RETRACTION_CHAIN_COLUMNS.remote_token_snapshots, 'coin');
+        // The table has no push_generation fence column, so the mirror never deletes from it.
+        assert.equal(mirrorTables.RETRACTION_COLUMNS.remote_token_snapshots, undefined);
+        assert.equal(mirrorTables.RETRACTION_CHAIN_COLUMNS.remote_token_snapshots, undefined);
         assert.equal(mirrorTables.REFUSED_ROW_NAMES.remote_token_snapshots, undefined);
     });
 

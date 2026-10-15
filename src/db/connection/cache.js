@@ -40,6 +40,64 @@ const { MUTABLE_ACTION_FIELDS } = require('../shared.js');
 // Name the ANCHOR wire versions whose status a later chunk can restamp (see isCacheableAction).
 const ANCHOR_RESTAMPED_VERSIONS = [1, 3];
 
+// The identity of the block standing at a height, as the request path reads it:
+// its ledger hash and its actions hash, both interned in index_transactions. A
+// replacement block at the same height differs in at least one of them unless it
+// carries the same actions with the same ledger effects, which serves the same
+// rows anyway.
+const BLOCK_IDENTITY_JOINS = `LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
+             LEFT JOIN index_transactions t2 ON (t2.id=b1.actions_hash_id)`;
+
+// The indexed tip and its identity. MAX() over the block_index index is an
+// index-max lookup, and the joins are one indexed seek plus two primary-key
+// reads. The derived table always yields one row, so an empty chain answers
+// { tip: null } as the bare MAX() probe does.
+const TIP_IDENTITY_SQL = `SELECT m.tip, t1.hash AS block_hash, t2.hash AS actions_hash
+             FROM (SELECT MAX(block_index) AS tip FROM blocks) m
+             LEFT JOIN blocks b1 ON (b1.block_index=m.tip)
+             ` + BLOCK_IDENTITY_JOINS + `
+             LIMIT 1`;
+
+// The identity of the block at one earlier height.
+const ROW_IDENTITY_SQL = `SELECT t1.hash AS block_hash, t2.hash AS actions_hash
+             FROM blocks b1
+             ` + BLOCK_IDENTITY_JOINS + `
+             WHERE b1.block_index=? LIMIT 1`;
+
+// The ledger hash of the block at one height, the identity the ChangeDetector
+// poll (checkReorgAndInvalidate) compares.
+const POLL_ROW_SQL = `SELECT t1.hash AS block_hash
+                     FROM blocks b1
+                     LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
+                     WHERE b1.block_index=? LIMIT 1`;
+
+// One identity string for a blocks row read with BLOCK_IDENTITY_JOINS, or null
+// when neither hash is present (hashing disabled), which carries no identity.
+function requestIdentity(row){
+    const ledger  = (row.block_hash === undefined || row.block_hash === null) ? null : String(row.block_hash);
+    const actions = (row.actions_hash === undefined || row.actions_hash === null) ? null : String(row.actions_hash);
+    return (ledger === null && actions === null) ? null : (ledger || '') + '/' + (actions || '');
+}
+
+// Has the block seen at prev.index been replaced, given the tip now reads cur?
+// Both observers apply this one rule: the tip height went backwards, or the block
+// at the last-seen height is gone or carries a different identity. At an
+// unchanged height the tip row is that block, so no second read is made. A prior
+// reading with no identity (null hash) compares on height alone.
+async function blockReplaced(db, config, prev, cur, rowSql, identityOf){
+    if(!prev) return false;
+    if(cur.index < prev.index) return true;
+    let atHash = cur.hash;
+    if(cur.index !== prev.index){
+        // doQuery throws on a read failure, so an absent row here is a genuine
+        // "block is gone", not a swallowed error.
+        const at = await db.doQuery(config, rowSql, [prev.index]);
+        if(!at || !at.length) return true;
+        atHash = identityOf(at[0]);
+    }
+    return prev.hash !== null && atHash !== prev.hash;
+}
+
 class DatabaseCache {
     async init(){
         await this.setupConnectionPools()
@@ -127,14 +185,19 @@ class DatabaseCache {
 
     // Invalidate this coin's id/action LRU entries after a reorg by advancing its
     // generation counter. Nothing is deleted eagerly: the old-generation keys are
-    // simply unreachable and evicted by normal LRU pressure. Called from the
-    // ChangeDetector tip-poll loop via checkReorgAndInvalidate.
+    // simply unreachable and evicted by normal LRU pressure. Called by the
+    // tip poll (checkReorgAndInvalidate, run by the ChangeDetector or, with the
+    // live feed off, by the api boot reorg poll) and by the request-path tip
+    // reading in resultCacheGeneration.
     bumpReorgGeneration(coin){
         this._reorgGen[coin] = (this._reorgGen[coin] || 0) + 1;
     }
 
     // Generation token for the getData result cache and the list totals cache
-    // (query_sql/data_totals.js): the coin's current indexed tip height.
+    // (query_sql/data_totals.js): the coin's current indexed tip height and the
+    // identity of the block at it, as '<height>:<ledger hash>/<actions hash>'
+    // ('<height>' alone when the block carries no hashes). blocks.js reads the
+    // height off the front.
     //
     // The cached list methods (getBalances/getHolders/getTokens) read tables the
     // indexer only rewrites when it applies a block, so a cached answer stays
@@ -147,10 +210,26 @@ class DatabaseCache {
     // the one template suite that reads a balance before the deposit and again
     // after, read a 0 debit off a correctly-debited ledger).
     //
-    // Cost: one index-max lookup per coin per memo window, NOT per request, so a
-    // request burst still collapses onto a single heavy query. A probe that fails
-    // returns null, which makes the caller skip the cache for that request: never
-    // serve a possibly-stale list because the freshness check itself broke.
+    // The identity is what makes a same-height reorg visible: a block replaced by
+    // another at the same height leaves the height unchanged, so the identity is
+    // what moves the key off the replaced block's balances and holders.
+    //
+    // The same reading is this process's request-path reorg check. It keeps its
+    // own last-seen tip (_requestTip), separate from the ChangeDetector poll's
+    // _lastTip, because the poll turns its reorg verdict into a WebSocket cursor
+    // rewind and a second reader of _lastTip would consume that verdict. When the
+    // block seen at the last reading has been replaced it bumps the reorg
+    // generation, which retires the id/action LRU entries keyed through cacheKey.
+    // XChainExplorer.processRequest calls this before serving any route of a
+    // coin, so those caches are checked against the chain on every request, not
+    // only on the WebSocket poll.
+    //
+    // Cost: one tip read per coin per memo window (EXPLORER_TIP_MEMO_MS, default
+    // 1 s), NOT per request, plus one single-row identity read in a window where
+    // the height moved. A request burst still collapses onto a single heavy query.
+    // A probe that fails returns null, which makes the caller skip the cache for
+    // that request: never serve a possibly-stale list because the freshness check
+    // itself broke. A failed probe also leaves _requestTip as it was.
     async resultCacheGeneration(config){
         const coin = config.coin;
         const ttl  = parseInt(this.configInfo.env.EXPLORER_TIP_MEMO_MS, 10);
@@ -159,10 +238,15 @@ class DatabaseCache {
             return memo.tip;
         let tip = null;
         try {
-            // MAX() over the blocks PK is an index-max lookup, not a scan.
-            const rows = await this.doQuery(config, 'SELECT MAX(block_index) AS tip FROM blocks', []);
-            if(rows && rows.length && !this.util.isNull(rows[0].tip))
-                tip = String(rows[0].tip);
+            const rows = await this.doQuery(config, TIP_IDENTITY_SQL, []);
+            if(rows && rows.length && !this.util.isNull(rows[0].tip)){
+                const cur = { index: Number(rows[0].tip), hash: requestIdentity(rows[0]) };
+                if(!this._requestTip) this._requestTip = {};
+                if(await blockReplaced(this, config, this._requestTip[coin], cur, ROW_IDENTITY_SQL, requestIdentity))
+                    this.bumpReorgGeneration(coin);
+                this._requestTip[coin] = cur;
+                tip = String(rows[0].tip) + ((cur.hash === null) ? '' : ':' + cur.hash);
+            }
             // An empty blocks table is a real answer (nothing indexed yet), not a
             // failed probe: give it a generation of its own so a pre-genesis read
             // is still cacheable.
@@ -175,8 +259,10 @@ class DatabaseCache {
         return tip;
     }
 
-    // Detect a reorg cheaply on the ChangeDetector poll loop and invalidate the
-    // id/action caches for the coin when one is seen (M-3). We can't observe the
+    // Detect a reorg cheaply on the tip poll and invalidate the id/action caches
+    // for the coin when one is seen (M-3). The ChangeDetector runs this poll when
+    // the live feed is on, and src/http/api_boot/websocket.js runs it on its own
+    // when WS_ENABLED=false, so the invalidation never depends on the live feed. We can't observe the
     // indexer's internal reorg events without a new interface, but a reorg is
     // visible in the already-polled blocks table: the block at a previously-seen
     // height either vanishes (the tip rewound) or its hash changes (same height,
@@ -202,36 +288,13 @@ class DatabaseCache {
         if(!tip || !tip.length || tip[0].block_index === null) return false;
         const curIndex = Number(tip[0].block_index);
         const curHash  = (tip[0].block_hash === undefined) ? null : tip[0].block_hash;
-        const prev     = this._lastTip[coin];
-        let reorg = false;
-        if(prev){
-            if(curIndex < prev.index){
-                // Tip height went backwards: the chain was rolled back.
-                reorg = true;
-            } else {
-                // Tip height is unchanged or higher; confirm the block still
-                // present at the last-seen height carries the same hash.
-                // A differing (or absent) hash means blocks at/below that height
-                // were replaced. doQuery throws on a read failure, so an absent
-                // row here is a genuine "block is gone", not a swallowed error.
-                const at = await this.doQuery(config,
-                    `SELECT t1.hash AS block_hash
-                     FROM blocks b1
-                     LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
-                     WHERE b1.block_index=? LIMIT 1`, [prev.index]);
-                if(!at || !at.length){
-                    // The row at the previously-seen height is gone entirely.
-                    reorg = true;
-                } else if(prev.hash !== null){
-                    // Compare hashes only when the prior poll actually saw one;
-                    // a NULL ledger_hash_id (hashing disabled or not yet
-                    // computed) carries no identity to compare, and treating it
-                    // as a mismatch would bump the generation on every poll.
-                    const atHash = (at[0].block_hash === undefined) ? null : at[0].block_hash;
-                    if(atHash !== prev.hash) reorg = true;
-                }
-            }
-        }
+        // The tip height went backwards, or the block at the last-seen height is
+        // gone or carries a different hash (blockReplaced). A prior poll that
+        // saw a NULL ledger_hash_id (hashing disabled or not yet computed)
+        // carries no identity to compare, so it compares on height alone rather
+        // than bumping the generation on every poll.
+        const reorg = await blockReplaced(this, config, this._lastTip[coin], { index: curIndex, hash: curHash },
+            POLL_ROW_SQL, (row) => (row.block_hash === undefined) ? null : row.block_hash);
         if(reorg) this.bumpReorgGeneration(coin);
         this._lastTip[coin] = { index: curIndex, hash: curHash };
         return reorg;

@@ -27,6 +27,8 @@
 
 'use strict';
 
+const { ORDER_MATCH_HOLDING_STATUSES } = require('../../shared.js');
+
 // Add every valid DISPENSER_EDIT top-up to the escrow each dispenser still holds.
 async function addDispenserRefills(db, config, map, ph, idxs){
     // Refills: every valid DISPENSER_EDIT that topped GIVE_ESCROW up.
@@ -179,9 +181,11 @@ async function orderOpeningAmounts(db, config, placeholders, action_indexes){
     return remainingMap;
 }
 
-// Subtract what every valid match has already taken off each side.
+// Subtract what every holding match (ORDER_MATCH_HOLDING_STATUSES) has already
+// taken off each side.
 async function subtractOrderMatches(db, config, remainingMap, action_indexes){
     let matchPlaceholders = action_indexes.map(() => '?').join(',');
+    let statusPlaceholders = ORDER_MATCH_HOLDING_STATUSES.map(() => '?').join(',');
     let matchQuery = `SELECT
                             m.give_action_index,
                             m.get_action_index,
@@ -192,9 +196,9 @@ async function subtractOrderMatches(db, config, remainingMap, action_indexes){
                             INNER JOIN index_statuses s ON (s.id=m.status_id)
                         WHERE
                             (m.give_action_index IN (` + matchPlaceholders + `) OR m.get_action_index IN (` + matchPlaceholders + `)) AND
-                            s.status=?
+                            s.status IN (` + statusPlaceholders + `)
                         ORDER BY m.action_index ASC`;
-    let matchResults = await db.doQuery(config, matchQuery, [...action_indexes, ...action_indexes, 'valid']);
+    let matchResults = await db.doQuery(config, matchQuery, [...action_indexes, ...action_indexes, ...ORDER_MATCH_HOLDING_STATUSES]);
     if(matchResults && matchResults.length > 0){
         for(let row of matchResults){
             for(let idx of action_indexes){

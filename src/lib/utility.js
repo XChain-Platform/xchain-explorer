@@ -150,6 +150,24 @@ class Utility {
         return mathjs.format(this.bcnum(num),{notation: 'fixed', precision: d});
     }
 
+    // An amount or price in fixed decimal notation, the form jsonStringify gives a
+    // BigNumber. The indexer writes some text columns (market prices and volumes,
+    // token supply) in exponent notation ('2e-10', '1e+24'), and a string passes
+    // the serializer untouched, so a reader applies this per amount field. Only a
+    // value written in exponent notation is rewritten, exactly (a Decimal parsed
+    // from a string keeps every digit); null, plain decimals and any non-numeric
+    // text come back as they were.
+    plainDecimal(value){
+        if(this.isNull(value) || typeof value === 'bigint') return value;
+        let s = String(value).trim();
+        if(!/^[+-]?(\d+\.?\d*|\.\d+)e[+-]?\d+$/i.test(s)) return value;
+        try {
+            return mathjs.format(mathjs.bignumber(s), {notation: 'fixed'});
+        } catch(e){
+            return value;
+        }
+    }
+
     // The four arithmetic helpers below share one contract: a null or empty
     // operand counts as 0, and the result is truncated to `decimals` places.
     bcsub(numA, numB, decimals){

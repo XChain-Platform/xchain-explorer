@@ -51,9 +51,12 @@ async function applyOfferState({ db, config, action_index, type }, data) {
 }
 
 // Statuses after which an offer's escrow is gone. 'cancelling' / 'expiring' are
-// still in flight, hence a whitelist and never the negation of 'open'. A drained
-// dispenser's 'empty' is excluded: its escrow derivation already reaches 0.
-const TERMINAL_OFFER_STATUSES = Object.freeze(['complete', 'cancelled', 'expired']);
+// still in flight, hence a whitelist and never the negation of 'open'. A
+// dispenser's 'empty' is terminal too: the indexer closes a dispenser as empty
+// once what it holds can no longer pay a whole GIVE_AMOUNT and refunds that
+// residue to the owner, so create + refills - payouts can leave dust (0.00000001)
+// the dispenser no longer holds.
+const TERMINAL_OFFER_STATUSES = Object.freeze(['complete', 'cancelled', 'expired', 'empty']);
 
 // A terminal offer has released its escrow, so nothing remains on offer. Applies
 // to ORDER, SWAP and DISPENSER: their own subtractions reach 0 only on a filled or

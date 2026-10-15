@@ -35,7 +35,11 @@ const { attachOwnerWithdraw, resolveContractNetwork } = require('../../contract/
 // comes back with the row and the live remainder is derived here
 // through the same shared method the per-action detail path uses (one
 // batched pass for the whole page, not a query per row).
-async function dispenserPass(db, config, data){
+//
+// The escrow, lifecycle and terminal-rule half is dispenserLifecyclePass, which the
+// WebSocket dispenser snapshot (getDispenserInfo) runs as well, so the live feed
+// and /dispensers report the same status and remaining for one dispenser.
+async function dispenserLifecyclePass(db, config, data){
     let idxs   = data.map((r) => r.action_index);
     let escrow = await db.getDispenserEscrowBatch(config, idxs);
     // The row's own `status` is the CREATE action's validity and never
@@ -53,6 +57,10 @@ async function dispenserPass(db, config, data){
         if(TERMINAL_OFFER_STATUSES.includes(String(row.current_status)))
             row.escrow_remaining = '0';
     }
+}
+
+async function dispenserPass(db, config, data){
+    await dispenserLifecyclePass(db, config, data);
     // Price availability uses the lifecycle resolved above, so only an open
     // fiat-priced dispenser can be marked stale.
     let priceStale = await db.getDispenserPriceStaleBatch(config, data);
@@ -97,6 +105,16 @@ function orderPass(db, data){
             row.give_remaining = db.trimAmountTail(row.give_remaining);
 }
 
+// Balance and holder rows carry the token's stored supply, which the indexer can
+// write in exponent notation ('1e+21'); every amount on the row is served in fixed
+// decimal notation.
+function balancePass(db, data){
+    for(let row of data)
+        for(const field of ['amount', 'supply', 'coin_price'])
+            if(Object.prototype.hasOwnProperty.call(row, field))
+                row[field] = db.util.plainDecimal(row[field]);
+}
+
 // Runs whichever pass this method's page needs, in the order getData ran them.
 // A page of no rows takes none of them: every pass reads the whole page in one
 // batched query, which there is nothing to build a batch from.
@@ -112,7 +130,9 @@ async function applyPostPasses(db, config, data){
         await validatorPass(db, config, data);
     if(method=='getOrders')
         orderPass(db, data);
+    if(method=='getBalances' || method=='getHolders')
+        balancePass(db, data);
     return data;
 }
 
-module.exports = { dispenserPass, contractPass, validatorPass, orderPass, applyPostPasses };
+module.exports = { dispenserLifecyclePass, dispenserPass, contractPass, validatorPass, orderPass, balancePass, applyPostPasses };

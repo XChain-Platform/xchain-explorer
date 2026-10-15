@@ -27,6 +27,8 @@
 
 'use strict';
 
+const { ORDER_MATCH_HOLDING_STATUSES } = require('../../shared.js');
+
 // The ORDER row the detail page reads: the order joined to its LATEST status
 // transition, which is what makes it read as open, filled or cancelled. Hoisted out
 // of the method because it binds nothing but the action_index the caller passes.
@@ -186,9 +188,9 @@ class OrderReaders {
                     INNER JOIN index_statuses s ON (s.id=m.status_id)
                 WHERE
                     (m.give_action_index=? OR m.get_action_index=?) AND
-                    s.status=?
+                    s.status IN (` + ORDER_MATCH_HOLDING_STATUSES.map(() => '?').join(',') + `)
                 ORDER BY action_index ASC`;
-        args = [action_index, action_index, 'valid'];
+        args = [action_index, action_index, ...ORDER_MATCH_HOLDING_STATUSES];
         results = await this.doQuery(config, query, args);
         if(results.length > 0){
             for(let row of results){

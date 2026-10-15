@@ -19,6 +19,8 @@
 
 'use strict';
 
+const { ORDER_MATCH_HOLDING_SQL } = require('../shared.js');
+
 // Read one ORDER with its latest status and both legs.
 const ORDER_DETAIL = `SELECT
                     a2.action,
@@ -87,8 +89,9 @@ const ORDER_EDITS = `SELECT
                     s.status='valid'
                 ORDER BY action_index ASC`;
 
-// Get a list of order matches, so the page can show how much of the
-// order is still unfilled
+// Get a list of the matches holding this order's amounts (valid and
+// pending_coinpay, see ORDER_MATCH_HOLDING_STATUSES), so the page can show how
+// much of the order is still unfilled
 const ORDER_MATCHES = `SELECT
                     m.give_action_index,
                     m.get_action_index,
@@ -99,7 +102,7 @@ const ORDER_MATCHES = `SELECT
                     INNER JOIN index_statuses s ON (s.id=m.status_id)
                 WHERE
                     (m.give_action_index=? OR m.get_action_index=?) AND
-                    s.status='valid'
+                    s.status IN (` + ORDER_MATCH_HOLDING_SQL + `)
                 ORDER BY action_index ASC`;
 
 // Read one ORDER_CANCEL with the terms of the order it cancelled.

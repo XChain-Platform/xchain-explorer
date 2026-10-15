@@ -16,7 +16,8 @@
  *
  * The last boot step of src/api.js, taken once the explorer's pools exist:
  * the socket server, the poller that watches the database and the broadcaster
- * that joins them. Feature-flagged off with WS_ENABLED=false.
+ * that joins them. Feature-flagged off with WS_ENABLED=false, which still starts
+ * the reorg poll the id/action caches are invalidated by.
  *
  ********************************************************************/
 
@@ -50,6 +51,39 @@ function wsSettings(configInfo){
 }
 
 /**
+ * The reorg poll on its own, for a boot with the live feed off.
+ *
+ * The tip poll (checkReorgAndInvalidate) retires the id/action LRU entries after
+ * a reorg, and with WS_ENABLED=false there is no ChangeDetector to run it. This
+ * runs the same check on the same interval
+ * for every coin with a pool, read again on each pass so a coin whose pool appears
+ * later is polled too. A pass never overlaps the previous one, and a failed read
+ * leaves that coin's last-seen tip unchanged (checkReorgAndInvalidate throws
+ * before recording it).
+ *
+ * @param {object} db         explorer.db
+ * @param {number} intervalMs poll interval
+ * @returns {{stop: function}} handle the shutdown drain stops
+ */
+function startReorgPoll(db, intervalMs){
+    let running = false;
+    const timer = setInterval(async () => {
+        if(running) return;
+        running = true;
+        try {
+            for(const coin of Object.keys(db.pools || {})){
+                try { await db.checkReorgAndInvalidate({ coin }); }
+                catch(e){ /* the next pass reads again */ }
+            }
+        } finally {
+            running = false;
+        }
+    }, intervalMs);
+    if(typeof timer.unref === 'function') timer.unref();
+    return { stop(){ clearInterval(timer); } };
+}
+
+/**
  * WebSocket support (feature-flagged via WS_ENABLED env var).
  *
  * @param {object} deps configInfo, explorer, the two listeners and the runtime
@@ -59,10 +93,11 @@ function startWebsockets(deps){
     const { configInfo, explorer, httpServer, httpsServer, runtime } = deps;
 
     const WS_ENABLED = configInfo.env.WS_ENABLED !== 'false';
-    if (!WS_ENABLED)
-        return;
-
     const ws = wsSettings(configInfo);
+    if (!WS_ENABLED){
+        runtime.reorgPoll = startReorgPoll(explorer.db, ws.WS_POLL_INTERVAL);
+        return;
+    }
 
     // Built first because the ChannelManager the pieces below need lives inside it.
     const wsServer = new WebSocketServer({
@@ -103,4 +138,4 @@ function startWebsockets(deps){
     runtime.changeDetector = changeDetector;
 }
 
-module.exports = { startWebsockets };
+module.exports = { startWebsockets, startReorgPoll };

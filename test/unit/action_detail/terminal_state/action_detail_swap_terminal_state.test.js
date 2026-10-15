@@ -56,8 +56,8 @@ describe('SWAP detail: remaining amounts on a terminal swap', function () {
         });
     }
 
-    it('the terminal whitelist is exactly complete / cancelled / expired', function () {
-        expect([...shared.TERMINAL_OFFER_STATUSES].sort()).to.deep.equal(['cancelled', 'complete', 'expired']);
+    it('the terminal whitelist is exactly complete / cancelled / expired / empty', function () {
+        expect([...shared.TERMINAL_OFFER_STATUSES].sort()).to.deep.equal(['cancelled', 'complete', 'empty', 'expired']);
     });
 
     it('applyTerminalOfferState leaves a payload without state alone', function () {

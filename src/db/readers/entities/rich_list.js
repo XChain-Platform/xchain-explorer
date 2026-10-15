@@ -115,8 +115,8 @@ function richListBody(db, token, parts){
     return {
         tick:            token.tick,
         supply:          supply,
-        max_supply:      token.max_supply,
-        max_mint:        token.max_mint,
+        max_supply:      db.util.plainDecimal(token.max_supply),
+        max_mint:        db.util.plainDecimal(token.max_mint),
         decimals:        token.decimals,
         lock_max_supply: token.lock_max_supply,
         lock_mint:       token.lock_mint,
@@ -127,7 +127,7 @@ function richListBody(db, token, parts){
         holder_count:    holderCount,
         // Sum of every non-zero balance. Equal to `supply` on a healthy index; kept
         // as its own field precisely so the two can be compared.
-        held_total:      heldTotal,
+        held_total:      db.util.plainDecimal(heldTotal),
         ranked_count:    ranked.length,
         top_holder_percent: ranked.length ? ranked[0].percent : null,
         // Concentration of the top ten, which is the figure a reader actually wants
@@ -180,7 +180,9 @@ class EntityRichListReaders {
         // summed balances are carried alongside rather than substituted for it, because
         // a disagreement between the two is a real indexer symptom and hiding it behind
         // whichever number makes the percentages total 100 would erase the evidence.
-        let supply = this.util.isNull(token.supply) ? '0' : String(token.supply);
+        // The indexer can store supply in exponent notation ('1e+21'); every amount on
+        // this body is served in fixed decimal notation (plainDecimal).
+        let supply = this.util.isNull(token.supply) ? '0' : String(this.util.plainDecimal(token.supply));
         let ranked = [];
         let rank   = offset;
         for(const h of holders){
@@ -188,7 +190,7 @@ class EntityRichListReaders {
             ranked.push({
                 rank:    rank,
                 address: h.address,
-                amount:  h.amount,
+                amount:  this.util.plainDecimal(h.amount),
                 percent: this.supplyPercent(h.amount, supply)
             });
         }

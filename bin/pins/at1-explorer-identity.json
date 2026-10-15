@@ -2268,8 +2268,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/action-detail-golden.json",
-      "bytes": 407992,
-      "sha256": "b1f7dc00adc1f32be342237d3c13f52f39688d28496480e44b6d8a335719fa6d"
+      "bytes": 408016,
+      "sha256": "c29db1751564c49af9e5ac4d3623232b98238666a03f6ae8cad55a5c37009ab4"
     },
     {
       "path": "test/fixtures/list-page-baseline.json",
@@ -3764,6 +3764,16 @@
         "indexed source lane against the REAL indexer DDL selects the action source first and the transaction source only as a fallback",
         "indexed source lane against the REAL indexer DDL the a2.address form these two replaced names a column their joins do not carry"
       ],
+      "20e9ef31c8c14702": [
+        "/dispensers treats a drained dispenser as terminal an empty dispenser lists 0 escrow_remaining, not the refunded dust",
+        "the WebSocket dispenser snapshot reports the lifecycle a cancelled dispenser reports cancelled and 0 remaining",
+        "the WebSocket dispenser snapshot reports the lifecycle a cancelling dispenser keeps its escrow",
+        "the WebSocket dispenser snapshot reports the lifecycle a create with no lifecycle row keeps its validity as the status",
+        "the WebSocket dispenser snapshot reports the lifecycle a empty dispenser reports empty and 0 remaining",
+        "the WebSocket dispenser snapshot reports the lifecycle a expired dispenser reports expired and 0 remaining",
+        "the WebSocket dispenser snapshot reports the lifecycle agrees with the /dispensers row for the same dispenser",
+        "the WebSocket dispenser snapshot reports the lifecycle an open dispenser reports open, not the create validity"
+      ],
       "21dd83888010e79b": [
         "db.getMempool: list-all mode (M1.2) address/token filtering still narrows the set in list-all's absence (regression guard)",
         "db.getMempool: list-all mode (M1.2) an empty string type is treated the same as no type (list-all)",
@@ -4010,6 +4020,19 @@
         "mempool feed when the decoder is unavailable decoder configured with an empty malformed reply",
         "mempool feed when the decoder is unavailable decoder configured with invalid rows",
         "mempool feed when the decoder is unavailable uses the decoder DB for an unrecognized configured-decoder reply"
+      ],
+      "2b1a61c1dc884236": [
+        "a pending_coinpay match holds the order off the book an invalid match still holds nothing",
+        "a pending_coinpay match holds the order off the book match status pending_coinpay /orders lists give_remaining 0",
+        "a pending_coinpay match holds the order off the book match status pending_coinpay getOrderAmountsRemaining nets the match out",
+        "a pending_coinpay match holds the order off the book match status pending_coinpay getOrderInfoBatch (action detail batch, orderbook) leaves nothing remaining",
+        "a pending_coinpay match holds the order off the book match status pending_coinpay the orderbook carries no depth for the matched orders",
+        "a pending_coinpay match holds the order off the book match status pending_coinpay the single-ORDER detail query returns the match",
+        "a pending_coinpay match holds the order off the book match status valid /orders lists give_remaining 0",
+        "a pending_coinpay match holds the order off the book match status valid getOrderAmountsRemaining nets the match out",
+        "a pending_coinpay match holds the order off the book match status valid getOrderInfoBatch (action detail batch, orderbook) leaves nothing remaining",
+        "a pending_coinpay match holds the order off the book match status valid the orderbook carries no depth for the matched orders",
+        "a pending_coinpay match holds the order off the book match status valid the single-ORDER detail query returns the match"
       ],
       "2b7e2b712e3099ff": [
         "checkpoint.html signer list: renderCheckpointSigners @regression escapes a stored pubkey before rendering the signer item",
@@ -6643,6 +6666,17 @@
         "XChainExplorer.getPagingDataResults: getAnchorRewardAttestations row shape emits [count_reverse, created_at, chain, network, reward_type, round_reference, snapshot_block, publisher, doge_anchor_txid, id] (10 elements, id LAST as the paging cursor)",
         "XChainExplorer.getPagingDataResults: getAnchorRewardAttestations row shape empty data returns an empty array"
       ],
+      "695543595db21975": [
+        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a cancelled swap reports 0 remaining, not the original amounts",
+        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a complete swap reports 0 remaining, not the original amounts",
+        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a expired swap reports 0 remaining, not the original amounts",
+        "SWAP detail: remaining amounts on a terminal swap a swap with status cancelling keeps the seeded remaining amounts",
+        "SWAP detail: remaining amounts on a terminal swap a swap with status expiring keeps the seeded remaining amounts",
+        "SWAP detail: remaining amounts on a terminal swap a swap with status null keeps the seeded remaining amounts",
+        "SWAP detail: remaining amounts on a terminal swap a swap with status open keeps the seeded remaining amounts",
+        "SWAP detail: remaining amounts on a terminal swap applyTerminalOfferState leaves a payload without state alone",
+        "SWAP detail: remaining amounts on a terminal swap the terminal whitelist is exactly complete / cancelled / expired / empty"
+      ],
       "6963aa4e97ce82a5": [
         "BET detail render: a resolve shows the outcome it declared escapes the outcome, which is an on-chain attacker-supplied value",
         "BET detail render: a resolve shows the outcome it declared hides the row on a cancel, which shares the panel and declares no outcome",
@@ -8555,19 +8589,6 @@
         "mempool address-id resolution is byte-exact (REST surface) the exact lookup resolves the address and NOTHING that merely resembles it",
         "mempool address-id resolution is byte-exact (REST surface) the indexer really declares index_addresses case-INSENSITIVELY"
       ],
-      "9b199aa607e7449f": [
-        "BET_EXPIRE serves a top-level status like its five sibling system actions does NOT surface the feed lifecycle state as the action status",
-        "BET_EXPIRE serves a top-level status like its five sibling system actions sets status to valid in afterMain",
-        "BET_EXPIRE serves a top-level status like its five sibling system actions still seeds the refund tally zeroes it already owned",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER DISPENSER exposes an afterMain that applies terminal state",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER ORDER - the unfilled-expiry case the registry skips afterQuery3 for leaves an OPEN unmatched order advertising its full amount",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER ORDER - the unfilled-expiry case the registry skips afterQuery3 for zeroes an expired order that has NO order_matches rows",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER SWAP keeps the behaviour it already had still wraps applyOfferState rather than referencing it bare",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist deliberately excludes a drained dispenser's empty",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist does NOT treat in-flight states as terminal",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist treats complete, cancelled and expired as terminal",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes both legs on every terminal status"
-      ],
       "9bcf7bacd56dd6f7": [
         "API keyset paging: refusals a list whose cursor value can span rows refuses a keyset bound instead of skipping rows",
         "API keyset paging: refusals a result-cached list still refuses the bound after its page 1 is cached",
@@ -8816,6 +8837,16 @@
         "Security: .npmrc hygiene does not disable TLS certificate verification",
         "Security: .npmrc hygiene does not disable integrity or signature checking",
         "Security: .npmrc hygiene does not point installs at an unencrypted registry"
+      ],
+      "a21042d45a26eab5": [
+        "every request reads the coin tip first observeCoinTip reads the tip of the pooled coin the path names",
+        "every request reads the coin tip first processRequest reads the tip before it serves",
+        "the id/action caches across a same-height reorg a clean append keeps the id/action caches",
+        "the id/action caches across a same-height reorg the poll still reports the reorg after the request path saw it first",
+        "the id/action caches across a same-height reorg the request-path tip reading retires the address-id cache",
+        "the reorg poll runs with the live feed off WS_ENABLED=false polls every pooled coin and the drain stops it",
+        "the result cache across a same-height reorg the generation token carries the height and the block identity",
+        "the result cache across a same-height reorg the result cache misses when the tip block is replaced at the same height"
       ],
       "a219864686e88121": [
         "db.getActionData - DISPENSER list-edit activation delay a later matured edit still overwrites an earlier one",
@@ -9513,6 +9544,19 @@
         "hub-mirror-migrate later hub columns is a no-op on a table that already carries every twin column",
         "hub-mirror-migrate later hub columns says nothing about a rebuild when only unstamped columns were added"
       ],
+      "c68214796ddc94e0": [
+        "BET_EXPIRE serves a top-level status like its five sibling system actions does NOT surface the feed lifecycle state as the action status",
+        "BET_EXPIRE serves a top-level status like its five sibling system actions sets status to valid in afterMain",
+        "BET_EXPIRE serves a top-level status like its five sibling system actions still seeds the refund tally zeroes it already owned",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER DISPENSER exposes an afterMain that applies terminal state",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER ORDER - the unfilled-expiry case the registry skips afterQuery3 for leaves an OPEN unmatched order advertising its full amount",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER ORDER - the unfilled-expiry case the registry skips afterQuery3 for zeroes an expired order that has NO order_matches rows",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER SWAP keeps the behaviour it already had still wraps applyOfferState rather than referencing it bare",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist does NOT treat in-flight states as terminal",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist treats complete, cancelled, expired and empty as terminal",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes a drained dispenser's refunded residue",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes both legs on every terminal status"
+      ],
       "c6ec3d74c1eddb60": [
         "Security: Info Leakage: Custom headers default headers object is empty",
         "Security: Info Leakage: Custom headers does not include Access-Control-Allow-Origin in custom headers",
@@ -10115,6 +10159,17 @@
         "cross-repo sibling coverage (what this run could NOT verify) declares every sibling it lists in .ci-siblings, so the venue ships them",
         "cross-repo sibling coverage (what this run could NOT verify) reports every sibling it looked for, so the list itself cannot rot silently",
         "cross-repo sibling coverage (what this run could NOT verify) resolves every sibling checkout the cross-repo guards depend on"
+      ],
+      "d8e083f410e015cf": [
+        "market routes serve fixed decimal notation /market/T1/T2",
+        "market routes serve fixed decimal notation /markets",
+        "market routes serve fixed decimal notation the WebSocket market snapshot",
+        "market routes serve fixed decimal notation the WebSocket token snapshot supply",
+        "supply routes serve fixed decimal notation /rich_list",
+        "supply routes serve fixed decimal notation getBalances rows",
+        "supply routes serve fixed decimal notation getHolders rows",
+        "util.plainDecimal leaves every other value as it was",
+        "util.plainDecimal rewrites exponent notation exactly"
       ],
       "d97fdb567bcef2d2": [
         "ANCHOR action detail sections @regression does not fan a v2 continuation out into sections",
@@ -11450,17 +11505,6 @@
         "bare list-all API routes /{COIN}/api/xexecs resolves at runtime without a search term",
         "bare list-all API routes /{COIN}/api/xexecs reuses the filtered getXexecs route declaration"
       ],
-      "f1f8e29a80917ae4": [
-        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a cancelled swap reports 0 remaining, not the original amounts",
-        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a complete swap reports 0 remaining, not the original amounts",
-        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a expired swap reports 0 remaining, not the original amounts",
-        "SWAP detail: remaining amounts on a terminal swap a swap with status cancelling keeps the seeded remaining amounts",
-        "SWAP detail: remaining amounts on a terminal swap a swap with status expiring keeps the seeded remaining amounts",
-        "SWAP detail: remaining amounts on a terminal swap a swap with status null keeps the seeded remaining amounts",
-        "SWAP detail: remaining amounts on a terminal swap a swap with status open keeps the seeded remaining amounts",
-        "SWAP detail: remaining amounts on a terminal swap applyTerminalOfferState leaves a payload without state alone",
-        "SWAP detail: remaining amounts on a terminal swap the terminal whitelist is exactly complete / cancelled / expired"
-      ],
       "f20102761cae28d0": [
         "blocks list action slots XC.actions lists every action table in ACTION_TABLES order",
         "blocks list action slots draws a count and an icon for each type the block carries",
@@ -11826,8 +11870,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 430,
-        "titleCount": 7505,
+        "fileCount": 434,
+        "titleCount": 7541,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11851,8 +11895,8 @@
           "test/unit/action_detail/registry/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",
           "test/unit/action_detail/registry/db_action_detail_supplements.test.js": "23c6716810b12da0",
           "test/unit/action_detail/schema_skew/consensus_schema_skew.test.js": "2f8d8d22edffca97",
-          "test/unit/action_detail/terminal_state/action_detail_swap_terminal_state.test.js": "f1f8e29a80917ae4",
-          "test/unit/action_detail/terminal_state/action_detail_terminal_state_parity.test.js": "9b199aa607e7449f",
+          "test/unit/action_detail/terminal_state/action_detail_swap_terminal_state.test.js": "695543595db21975",
+          "test/unit/action_detail/terminal_state/action_detail_terminal_state_parity.test.js": "c68214796ddc94e0",
           "test/unit/action_detail/type_details/db_action_tx_less_render.test.js": "a59eb5c50dbf65ee",
           "test/unit/action_detail/type_details/db_address_controller_detail.test.js": "8b28aa7c6664d19d",
           "test/unit/action_detail/type_details/db_anchor_detail_sections.test.js": "d97fdb567bcef2d2",
@@ -12026,6 +12070,7 @@
           "test/unit/db/guards/block_query_guard.test.js": "0cecf99bb172a1d9",
           "test/unit/db/guards/checkpoint_query_guard.test.js": "82adc841104ffb13",
           "test/unit/db/guards/ping_empty_pool_guard.test.js": "c02294c909b16034",
+          "test/unit/db/guards/reorg_same_height_caches.test.js": "a21042d45a26eab5",
           "test/unit/db/mempool/db_mempool_address_case.test.js": "9ac8b8de1255f237",
           "test/unit/db/mempool/db_mempool_address_refs.test.js": "959cfcc187d82f85",
           "test/unit/db/mempool/db_mempool_listall_paging.test.js": "21dd83888010e79b",
@@ -12081,11 +12126,14 @@
           "test/unit/db/readers/dispenser/db_dispenser_escrow.test.js": "91f3e4eebb1ece3d",
           "test/unit/db/readers/dispenser/db_dispenser_list_delay.test.js": "a219864686e88121",
           "test/unit/db/readers/dispenser/dispenser_price_stale/dispenser_price_stale.test.js": "ec5292d336fec81a",
+          "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "20e9ef31c8c14702",
           "test/unit/db/readers/governance_parent_labels/db_governance_parent_labels.test.js": "c7f0e0c27e12078a",
           "test/unit/db/readers/list_share/db_list_share_mirror.test.js": "0511b140e1bed140",
+          "test/unit/db/readers/markets/amounts_fixed_notation.test.js": "d8e083f410e015cf",
           "test/unit/db/readers/markets/db_orderbook_memoless.test.js": "ac459281d01e49b0",
           "test/unit/db/readers/markets/markets_native_coin_side.test.js": "edcfed4e5189ca51",
           "test/unit/db/readers/markets/order_display_precision.test.js": "82666ae359972f98",
+          "test/unit/db/readers/markets/order_remaining_pending_coinpay.test.js": "2b1a61c1dc884236",
           "test/unit/db/readers/mempool_unavailable.test.js": "2a0cc571c8110ee0",
           "test/unit/db/readers/oracle/db_oracle_fees.test.js": "848ec7b4eb6a7563",
           "test/unit/db/readers/oracle/db_oracle_price_record.test.js": "54a8fb5c0bb49270",

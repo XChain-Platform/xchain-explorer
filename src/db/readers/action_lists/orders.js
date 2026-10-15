@@ -20,6 +20,8 @@
 
 'use strict';
 
+const { ORDER_MATCH_HOLDING_SQL } = require('../../shared.js');
+
 const GET_ORDERS_COUNT_SQL = `SELECT
                         count(*) as total
                     FROM
@@ -76,7 +78,7 @@ const GET_ORDERS_QUERY_SQL = `SELECT
                                 FROM order_matches om
                                 INNER JOIN index_statuses oms ON (oms.id=om.status_id)
                                 WHERE (om.give_action_index=m.action_index OR om.get_action_index=m.action_index)
-                                    AND oms.status='valid'
+                                    AND oms.status IN (` + ORDER_MATCH_HOLDING_SQL + `)
                             ), 0)
                         ) as give_remaining
                     FROM

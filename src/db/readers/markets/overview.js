@@ -139,6 +139,18 @@ const GET_MARKET_HISTORY_QUERY_SQL = `SELECT
                         WHERE 
                             `;
 
+// Every stored price and volume column of a markets row. The indexer can write
+// them in exponent notation ('2e-10', '1e+24'), so each one is served in fixed
+// decimal notation through plainDecimal before the row is oriented.
+const MARKET_AMOUNT_COLUMNS = Object.freeze(['price', 'bid', 'ask', '24hr_price', '24hr_high',
+    '24hr_low', '24hr_change', '24hr_volume'].flatMap((c) => ['tick1_' + c, 'tick2_' + c]));
+
+function plainMarketRow(db, row){
+    for(const column of MARKET_AMOUNT_COLUMNS)
+        row[column] = db.util.plainDecimal(row[column]);
+    return row;
+}
+
 class MarketOverviewReaders {
     /******************************************************************
      * XChain API Market Endpoints
@@ -171,6 +183,7 @@ class MarketOverviewReaders {
             results = await this.doQuery(config, query, args);
             if(results.length > 0){
                 for(let row of results){
+                    plainMarketRow(this, row);
                     let reverse = (!this.util.isNull(tick) && String(tick).toLowerCase()==String(row.tick2).toLowerCase()) ? true : false;
                     data.push({
                         id                : row.id,
@@ -213,6 +226,7 @@ class MarketOverviewReaders {
         let results = await this.doQuery(config, query, args);
         if(results.length > 0){
             for(let row of results){
+                plainMarketRow(this, row);
                 let reverse = (!this.util.isNull(tick2) && String(tick2).toLowerCase()==String(row.tick2).toLowerCase()) ? true : false;
                 data.push({
                     id                : row.id,

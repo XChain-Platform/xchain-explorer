@@ -116,10 +116,12 @@ async function readBlockActionCounts(db, config, blockMap, blockIndexes){
 // The height below which a block's counts may be cached, or null to cache nothing.
 // Rows for the indexed tip can still be landing, so only a block with a later block
 // indexed above it is final. The tip comes from the same probe that keys the result
-// cache; a failed probe or an empty chain answers null.
+// cache, whose token is the height optionally followed by ':' and the block's
+// identity; a failed probe or an empty chain answers null.
 async function cacheableBelow(db, config){
     const tip = await db.resultCacheGeneration(config);
-    return (tip !== null && /^[0-9]+$/.test(tip)) ? Number(tip) : null;
+    const m   = (tip === null) ? null : /^([0-9]+)(?::|$)/.exec(String(tip));
+    return m ? Number(m[1]) : null;
 }
 
 // Turns the rows of a block-list page into the shape the feed serves, with each

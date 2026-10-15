@@ -150,6 +150,7 @@ function createShutdown({ drain, timeoutMs, exit, log } = {}){
  * @param {object} [runtime.httpsServer]    secondary listener (dev/regtest only)
  * @param {object} [runtime.wsServer]       WebSocketServer, has its own stop()
  * @param {object} [runtime.changeDetector] live-feed poller, has its own stop()
+ * @param {object} [runtime.reorgPoll]      reorg poll run with the live feed off, has its own stop()
  * @param {object} [runtime.configInfo]     config module, for stopSync()
  * @param {object} [runtime.vmQuery]        contract-simulation VM, for shutdown()
  * @param {object} [runtime.explorer]       XChainExplorer, for explorer.db.close()
@@ -173,6 +174,9 @@ function createExplorerDrain(runtime){
 
         if(changeDetector && typeof changeDetector.stop === 'function')
             await guard('stopping the change detector', () => changeDetector.stop());
+
+        if(state.reorgPoll && typeof state.reorgPoll.stop === 'function')
+            await guard('stopping the reorg poll', () => state.reorgPoll.stop());
 
         if(configInfo && typeof configInfo.stopSync === 'function')
             await guard('stopping the hub-config sync', () => configInfo.stopSync());

@@ -27,8 +27,8 @@ describe('hub-schema-version', function () {
         assert.ok(v >= 1, 'schema versions start at 1; 0/negative would disable the gate');
     });
 
-    it('matches hub mirror schema version 10', function () {
-        assert.strictEqual(mod.HUB_SCHEMA_VERSION, 10);
+    it('matches hub mirror schema version 11', function () {
+        assert.strictEqual(mod.HUB_SCHEMA_VERSION, 11);
     });
 
     it('is a stable primitive (not an object that could drift a JSON payload)', function () {

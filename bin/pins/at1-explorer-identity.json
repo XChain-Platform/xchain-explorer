@@ -3764,12 +3764,6 @@
         "indexed source lane against the REAL indexer DDL selects the action source first and the transaction source only as a fallback",
         "indexed source lane against the REAL indexer DDL the a2.address form these two replaced names a column their joins do not carry"
       ],
-      "2089d84c37c520b7": [
-        "hub-schema-version HUB_SCHEMA_VERSION is a positive safe integer",
-        "hub-schema-version exports exactly HUB_SCHEMA_VERSION and nothing else",
-        "hub-schema-version is a stable primitive (not an object that could drift a JSON payload)",
-        "hub-schema-version matches hub mirror schema version 10"
-      ],
       "21dd83888010e79b": [
         "db.getMempool: list-all mode (M1.2) address/token filtering still narrows the set in list-all's absence (regression guard)",
         "db.getMempool: list-all mode (M1.2) an empty string type is treated the same as no type (list-all)",
@@ -3824,6 +3818,12 @@
         "Action detail supplements (sibling-table wire fields) @regression emission provenance asks contract_emissions ONCE for a whole page, not once per action",
         "Action detail supplements (sibling-table wire fields) @regression emission provenance never touches contract_executions when the page holds no emission",
         "Action detail supplements (sibling-table wire fields) @regression emission provenance resolves the emitting contract and caller for the emissions it does find"
+      ],
+      "2414be2fcc6a6bbd": [
+        "hub-schema-version HUB_SCHEMA_VERSION is a positive safe integer",
+        "hub-schema-version exports exactly HUB_SCHEMA_VERSION and nothing else",
+        "hub-schema-version is a stable primitive (not an object that could drift a JSON payload)",
+        "hub-schema-version matches hub mirror schema version 11"
       ],
       "2442df610ebb6911": [
         "coin-registry conformance (vendored copy) @regression byte-identity to canonical xchain-hub/src/coins BTC.js is byte-identical to the canonical xchain-hub copy",
@@ -12196,7 +12196,7 @@
           "test/unit/mirror/hub_operational_cache.test.js": "3f4281c653fea27e",
           "test/unit/mirror/hub_operational_cache_concurrency.test.js": "2da46dea864bcc52",
           "test/unit/mirror/hub_operational_cache_mixed_fleet.test.js": "22610ee584aed462",
-          "test/unit/mirror/hub_schema_version.test.js": "2089d84c37c520b7",
+          "test/unit/mirror/hub_schema_version.test.js": "2414be2fcc6a6bbd",
           "test/unit/mirror/pool_sizing/query_timeout.test.js": "3afc43217b5456a4",
           "test/unit/mirror/validators_hub_registry.test.js": "6ba3113e0aba826f",
           "test/unit/precision/client_decimal_precision.test.js": "8741b491d3481283",

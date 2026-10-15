@@ -3548,6 +3548,12 @@
         "API keyset paging: history, issues and commitments history token bounds the ids leg on m.action_index and not the count",
         "API keyset paging: history, issues and commitments issues: the ids leg carries the cursor, the rows leg decorates only the ids it picked"
       ],
+      "1c54d02c1619514a": [
+        "parseDeclaredIndexes declares the (chain, network, block_index) read index on the state_checkpoints mirror twin",
+        "parseDeclaredIndexes ignores comments and unsupported index declarations",
+        "parseDeclaredIndexes normalizes inline key declarations",
+        "parseDeclaredIndexes scopes standalone indexes and removes duplicate names"
+      ],
       "1c5efd6c75b2046a": [
         "ACTION query methods: sql.order and sql.limit interpolation getAirdrops uses sql.order=DESC in ORDER BY clause",
         "ACTION query methods: sql.order and sql.limit interpolation getIssues uses sql.limit=10 in LIMIT clause",
@@ -7209,11 +7215,6 @@
         "explorer bridge panels: transfer list, both legs on one row @regression keeps a RETRACTED transfer visible and badges it as the alarm state",
         "explorer bridge panels: transfer list, both legs on one row @regression renders ONE row per transfer carrying both legs",
         "explorer bridge panels: transfer list, both legs on one row @regression separates an unavailable list from an empty one"
-      ],
-      "7bd17086578cb485": [
-        "parseDeclaredIndexes ignores comments and unsupported index declarations",
-        "parseDeclaredIndexes normalizes inline key declarations",
-        "parseDeclaredIndexes scopes standalone indexes and removes duplicate names"
       ],
       "7c9836278ad0ead1": [
         "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet promotes key to most-recent (LRU behavior)",
@@ -11826,7 +11827,7 @@
       },
       "test": {
         "fileCount": 430,
-        "titleCount": 7504,
+        "titleCount": 7505,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12165,7 +12166,7 @@
           "test/unit/http/swagger_docs_spec_url.test.js": "4c2d12b5f57c138f",
           "test/unit/hub/hub_client/hub_list.test.js": "808199788faa2378",
           "test/unit/hub/hub_db_sync/ensure_tables_columns.test.js": "7e2cef27cb90df9e",
-          "test/unit/hub/hub_db_sync/ensure_tables_indexes.test.js": "7bd17086578cb485",
+          "test/unit/hub/hub_db_sync/ensure_tables_indexes.test.js": "1c54d02c1619514a",
           "test/unit/hub/hub_db_sync/failover/move_policy.test.js": "8ab100867f39117b",
           "test/unit/hub/hub_db_sync/failover/move_reset.test.js": "59f7c444d240b0d2",
           "test/unit/hub/hub_db_sync/hub_selector.test.js": "58a411cd17b08a73",

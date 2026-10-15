@@ -3729,6 +3729,20 @@
         "tokenAndTradeRows shapes a getHolders row from count/amount/percent/value",
         "tokenAndTradeRows shapes a getSends row with destination before status/action_index"
       ],
+      "1c8fccee6defea87": [
+        "market routes serve fixed decimal notation /market/T1/T2",
+        "market routes serve fixed decimal notation /markets",
+        "market routes serve fixed decimal notation the WebSocket market snapshot",
+        "market routes serve fixed decimal notation the WebSocket token snapshot supply",
+        "supply routes serve fixed decimal notation /rich_list",
+        "supply routes serve fixed decimal notation getBalances rows",
+        "supply routes serve fixed decimal notation getHolders rows",
+        "util.plainDecimal expands exponents at the supported bound",
+        "util.plainDecimal leaves every other value as it was",
+        "util.plainDecimal rejects a huge exponent within a fixed time and heap budget",
+        "util.plainDecimal returns exponent notation unchanged one past the supported bound",
+        "util.plainDecimal rewrites exponent notation exactly"
+      ],
       "1cb89d4d95eada37": [
         "ANCHOR publisher attestations parsing marks malformed JSON as unparseable before normalizing it",
         "ANCHOR publisher attestations parsing normalizes absent and null attestations without a flag",
@@ -3776,16 +3790,6 @@
         "indexed source lane against the REAL indexer DDL returns the same rows and total as the a2.address form for every address",
         "indexed source lane against the REAL indexer DDL selects the action source first and the transaction source only as a fallback",
         "indexed source lane against the REAL indexer DDL the a2.address form these two replaced names a column their joins do not carry"
-      ],
-      "20e9ef31c8c14702": [
-        "/dispensers treats a drained dispenser as terminal an empty dispenser lists 0 escrow_remaining, not the refunded dust",
-        "the WebSocket dispenser snapshot reports the lifecycle a cancelled dispenser reports cancelled and 0 remaining",
-        "the WebSocket dispenser snapshot reports the lifecycle a cancelling dispenser keeps its escrow",
-        "the WebSocket dispenser snapshot reports the lifecycle a create with no lifecycle row keeps its validity as the status",
-        "the WebSocket dispenser snapshot reports the lifecycle a empty dispenser reports empty and 0 remaining",
-        "the WebSocket dispenser snapshot reports the lifecycle a expired dispenser reports expired and 0 remaining",
-        "the WebSocket dispenser snapshot reports the lifecycle agrees with the /dispensers row for the same dispenser",
-        "the WebSocket dispenser snapshot reports the lifecycle an open dispenser reports open, not the create validity"
       ],
       "21dd83888010e79b": [
         "db.getMempool: list-all mode (M1.2) address/token filtering still narrows the set in list-all's absence (regression guard)",
@@ -6476,6 +6480,20 @@
         "HubDbSync price-sync barrier (explorer vendored copy) waitForPriceSyncHeight resolves immediately when already caught up",
         "HubDbSync price-sync barrier (explorer vendored copy) waitForPriceSyncHeight resolves once a later sync raises the height"
       ],
+      "6390a235b151401f": [
+        "BET_EXPIRE serves a top-level status like its five sibling system actions does NOT surface the feed lifecycle state as the action status",
+        "BET_EXPIRE serves a top-level status like its five sibling system actions sets status to valid in afterMain",
+        "BET_EXPIRE serves a top-level status like its five sibling system actions still seeds the refund tally zeroes it already owned",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER DISPENSER exposes an afterMain that applies terminal state",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER DISPENSER zeroes a max_dispenses_reached detail payload",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER ORDER - the unfilled-expiry case the registry skips afterQuery3 for leaves an OPEN unmatched order advertising its full amount",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER ORDER - the unfilled-expiry case the registry skips afterQuery3 for zeroes an expired order that has NO order_matches rows",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER SWAP keeps the behaviour it already had still wraps applyOfferState rather than referencing it bare",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist does NOT treat in-flight states as terminal",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist treats every offer closing status as terminal",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes a drained dispenser's refunded residue",
+        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes both legs on every terminal status"
+      ],
       "6427b7bf2f94fa4d": [
         "reader part composition composes every prototype into a new plain object",
         "reader part composition copies methods from every source and skips constructors",
@@ -6700,17 +6718,6 @@
         "Database#getAnchorRewardAttestations (M3.7 data leg) type=pubkey filters on m.publisher (the elected publisher pubkey credited the reward)",
         "XChainExplorer.getPagingDataResults: getAnchorRewardAttestations row shape emits [count_reverse, created_at, chain, network, reward_type, round_reference, snapshot_block, publisher, doge_anchor_txid, id] (10 elements, id LAST as the paging cursor)",
         "XChainExplorer.getPagingDataResults: getAnchorRewardAttestations row shape empty data returns an empty array"
-      ],
-      "695543595db21975": [
-        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a cancelled swap reports 0 remaining, not the original amounts",
-        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a complete swap reports 0 remaining, not the original amounts",
-        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a expired swap reports 0 remaining, not the original amounts",
-        "SWAP detail: remaining amounts on a terminal swap a swap with status cancelling keeps the seeded remaining amounts",
-        "SWAP detail: remaining amounts on a terminal swap a swap with status expiring keeps the seeded remaining amounts",
-        "SWAP detail: remaining amounts on a terminal swap a swap with status null keeps the seeded remaining amounts",
-        "SWAP detail: remaining amounts on a terminal swap a swap with status open keeps the seeded remaining amounts",
-        "SWAP detail: remaining amounts on a terminal swap applyTerminalOfferState leaves a payload without state alone",
-        "SWAP detail: remaining amounts on a terminal swap the terminal whitelist is exactly complete / cancelled / expired / empty"
       ],
       "6963aa4e97ce82a5": [
         "BET detail render: a resolve shows the outcome it declared escapes the outcome, which is an on-chain attacker-supplied value",
@@ -8187,6 +8194,17 @@
         "Fuzz: Utility numeric classification isFloat is false for integers past 32 bits and true for a real fraction",
         "Fuzz: Utility numeric classification isInteger and isFloat are mutually exclusive for every finite number (10000)"
       ],
+      "92f2617a955643a0": [
+        "/dispensers treats a drained dispenser as terminal an empty dispenser lists 0 escrow_remaining, not the refunded dust",
+        "the WebSocket dispenser snapshot reports the lifecycle a cancelled dispenser reports cancelled and 0 remaining",
+        "the WebSocket dispenser snapshot reports the lifecycle a cancelling dispenser keeps its escrow",
+        "the WebSocket dispenser snapshot reports the lifecycle a create with no lifecycle row keeps its validity as the status",
+        "the WebSocket dispenser snapshot reports the lifecycle a empty dispenser reports empty and 0 remaining",
+        "the WebSocket dispenser snapshot reports the lifecycle a expired dispenser reports expired and 0 remaining",
+        "the WebSocket dispenser snapshot reports the lifecycle a max_dispenses_reached dispenser reports max_dispenses_reached and 0 remaining",
+        "the WebSocket dispenser snapshot reports the lifecycle agrees with the /dispensers row for the same dispenser",
+        "the WebSocket dispenser snapshot reports the lifecycle an open dispenser reports open, not the create validity"
+      ],
       "93966786e23d8601": [
         "unconfirmed count formatting formats numeric mempool counts",
         "unconfirmed count formatting marks unavailable mempool reads without displaying a zero",
@@ -9603,19 +9621,6 @@
         "hub-mirror-migrate later hub columns is a no-op on a table that already carries every twin column",
         "hub-mirror-migrate later hub columns says nothing about a rebuild when only unstamped columns were added"
       ],
-      "c68214796ddc94e0": [
-        "BET_EXPIRE serves a top-level status like its five sibling system actions does NOT surface the feed lifecycle state as the action status",
-        "BET_EXPIRE serves a top-level status like its five sibling system actions sets status to valid in afterMain",
-        "BET_EXPIRE serves a top-level status like its five sibling system actions still seeds the refund tally zeroes it already owned",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER DISPENSER exposes an afterMain that applies terminal state",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER ORDER - the unfilled-expiry case the registry skips afterQuery3 for leaves an OPEN unmatched order advertising its full amount",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER ORDER - the unfilled-expiry case the registry skips afterQuery3 for zeroes an expired order that has NO order_matches rows",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER SWAP keeps the behaviour it already had still wraps applyOfferState rather than referencing it bare",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist does NOT treat in-flight states as terminal",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist treats complete, cancelled, expired and empty as terminal",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes a drained dispenser's refunded residue",
-        "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes both legs on every terminal status"
-      ],
       "c6ec3d74c1eddb60": [
         "Security: Info Leakage: Custom headers default headers object is empty",
         "Security: Info Leakage: Custom headers does not include Access-Control-Allow-Origin in custom headers",
@@ -10218,17 +10223,6 @@
         "cross-repo sibling coverage (what this run could NOT verify) declares every sibling it lists in .ci-siblings, so the venue ships them",
         "cross-repo sibling coverage (what this run could NOT verify) reports every sibling it looked for, so the list itself cannot rot silently",
         "cross-repo sibling coverage (what this run could NOT verify) resolves every sibling checkout the cross-repo guards depend on"
-      ],
-      "d8e083f410e015cf": [
-        "market routes serve fixed decimal notation /market/T1/T2",
-        "market routes serve fixed decimal notation /markets",
-        "market routes serve fixed decimal notation the WebSocket market snapshot",
-        "market routes serve fixed decimal notation the WebSocket token snapshot supply",
-        "supply routes serve fixed decimal notation /rich_list",
-        "supply routes serve fixed decimal notation getBalances rows",
-        "supply routes serve fixed decimal notation getHolders rows",
-        "util.plainDecimal leaves every other value as it was",
-        "util.plainDecimal rewrites exponent notation exactly"
       ],
       "d97fdb567bcef2d2": [
         "ANCHOR action detail sections @regression does not fan a v2 continuation out into sections",
@@ -11658,6 +11652,17 @@
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path preserves per-row info for duplicate action_index rows",
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path produces identical enriched rows (status + details) across action types"
       ],
+      "f4c6ed4c802dfa24": [
+        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a cancelled swap reports 0 remaining, not the original amounts",
+        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a complete swap reports 0 remaining, not the original amounts",
+        "SWAP detail: remaining amounts on a terminal swap [REGRESSION] a expired swap reports 0 remaining, not the original amounts",
+        "SWAP detail: remaining amounts on a terminal swap a swap with status cancelling keeps the seeded remaining amounts",
+        "SWAP detail: remaining amounts on a terminal swap a swap with status expiring keeps the seeded remaining amounts",
+        "SWAP detail: remaining amounts on a terminal swap a swap with status null keeps the seeded remaining amounts",
+        "SWAP detail: remaining amounts on a terminal swap a swap with status open keeps the seeded remaining amounts",
+        "SWAP detail: remaining amounts on a terminal swap applyTerminalOfferState leaves a payload without state alone",
+        "SWAP detail: remaining amounts on a terminal swap the terminal whitelist includes every offer closing status"
+      ],
       "f4c74d2eccc02b65": [
         "pool DATETIME decode on a non-UTC host decodes UTC-literal values as UTC under TZ=America/Chicago",
         "pool DATETIME decode on a non-UTC host decodes UTC-literal values as UTC under TZ=Asia/Kolkata",
@@ -11930,7 +11935,7 @@
       },
       "test": {
         "fileCount": 440,
-        "titleCount": 7588,
+        "titleCount": 7593,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11954,8 +11959,8 @@
           "test/unit/action_detail/registry/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",
           "test/unit/action_detail/registry/db_action_detail_supplements.test.js": "23c6716810b12da0",
           "test/unit/action_detail/schema_skew/consensus_schema_skew.test.js": "2f8d8d22edffca97",
-          "test/unit/action_detail/terminal_state/action_detail_swap_terminal_state.test.js": "695543595db21975",
-          "test/unit/action_detail/terminal_state/action_detail_terminal_state_parity.test.js": "c68214796ddc94e0",
+          "test/unit/action_detail/terminal_state/action_detail_swap_terminal_state.test.js": "f4c6ed4c802dfa24",
+          "test/unit/action_detail/terminal_state/action_detail_terminal_state_parity.test.js": "6390a235b151401f",
           "test/unit/action_detail/type_details/db_action_tx_less_render.test.js": "a59eb5c50dbf65ee",
           "test/unit/action_detail/type_details/db_address_controller_detail.test.js": "8b28aa7c6664d19d",
           "test/unit/action_detail/type_details/db_anchor_detail_sections.test.js": "d97fdb567bcef2d2",
@@ -12188,10 +12193,10 @@
           "test/unit/db/readers/dispenser/db_dispenser_escrow.test.js": "91f3e4eebb1ece3d",
           "test/unit/db/readers/dispenser/db_dispenser_list_delay.test.js": "a219864686e88121",
           "test/unit/db/readers/dispenser/dispenser_price_stale/dispenser_price_stale.test.js": "ec5292d336fec81a",
-          "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "20e9ef31c8c14702",
+          "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "92f2617a955643a0",
           "test/unit/db/readers/governance_parent_labels/db_governance_parent_labels.test.js": "c7f0e0c27e12078a",
           "test/unit/db/readers/list_share/db_list_share_mirror.test.js": "0511b140e1bed140",
-          "test/unit/db/readers/markets/amounts_fixed_notation.test.js": "d8e083f410e015cf",
+          "test/unit/db/readers/markets/amounts_fixed_notation.test.js": "1c8fccee6defea87",
           "test/unit/db/readers/markets/db_orderbook_memoless.test.js": "ac459281d01e49b0",
           "test/unit/db/readers/markets/markets_native_coin_side.test.js": "edcfed4e5189ca51",
           "test/unit/db/readers/markets/order_display_precision.test.js": "82666ae359972f98",

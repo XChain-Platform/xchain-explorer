@@ -71,7 +71,7 @@ describe('the WebSocket dispenser snapshot reports the lifecycle', function () {
         expect(info.give_remaining).to.equal('0.00000001');
     });
 
-    for (const terminal of ['cancelled', 'expired', 'empty']) {
+    for (const terminal of ['cancelled', 'empty', 'expired', 'max_dispenses_reached']) {
         it('a ' + terminal + ' dispenser reports ' + terminal + ' and 0 remaining', async () => {
             const info = await makeDb({ lifecycle: ['open', terminal] }).getDispenserInfo(cfg(), 48);
             expect(info.status).to.equal(terminal);
@@ -91,7 +91,7 @@ describe('the WebSocket dispenser snapshot reports the lifecycle', function () {
     });
 
     it('agrees with the /dispensers row for the same dispenser', async () => {
-        for (const lifecycle of [['open'], ['open', 'cancelled'], ['open', 'empty']]) {
+        for (const lifecycle of [['open'], ['open', 'cancelled'], ['open', 'empty'], ['open', 'expired'], ['open', 'max_dispenses_reached']]) {
             const db   = makeDb({ lifecycle });
             const info = await db.getDispenserInfo(cfg(), 48);
             const rows = [{ action_index: 48 }];

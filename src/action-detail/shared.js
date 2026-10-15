@@ -56,7 +56,7 @@ async function applyOfferState({ db, config, action_index, type }, data) {
 // once what it holds can no longer pay a whole GIVE_AMOUNT and refunds that
 // residue to the owner, so create + refills - payouts can leave dust (0.00000001)
 // the dispenser no longer holds.
-const TERMINAL_OFFER_STATUSES = Object.freeze(['complete', 'cancelled', 'expired', 'empty']);
+const TERMINAL_OFFER_STATUSES = Object.freeze(['complete', 'cancelled', 'expired', 'empty', 'max_dispenses_reached']);
 
 // A terminal offer has released its escrow, so nothing remains on offer. Applies
 // to ORDER, SWAP and DISPENSER: their own subtractions reach 0 only on a filled or

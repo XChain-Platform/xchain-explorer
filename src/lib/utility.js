@@ -27,6 +27,11 @@ const crypto = require('crypto');
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+// MAX_TOKEN_SUPPLY is 1e21 with up to 18 token decimals. An exponent bound of
+// 64 covers that fixed representation and the wider market prices the explorer
+// serves while keeping exponent-driven zero padding inside a fixed allocation.
+const PLAIN_DECIMAL_MAX_EXPONENT = 64;
+
 class Utility {
 
     constructor(configInfo){
@@ -161,6 +166,11 @@ class Utility {
         if(this.isNull(value) || typeof value === 'bigint') return value;
         let s = String(value).trim();
         if(!/^[+-]?(\d+\.?\d*|\.\d+)e[+-]?\d+$/i.test(s)) return value;
+        let exponentDigits = s.slice(s.search(/e/i) + 1).replace(/^[+-]?0*/, '');
+        if(exponentDigits.length > String(PLAIN_DECIMAL_MAX_EXPONENT).length ||
+           (exponentDigits.length === String(PLAIN_DECIMAL_MAX_EXPONENT).length &&
+            exponentDigits > String(PLAIN_DECIMAL_MAX_EXPONENT)))
+            return value;
         try {
             return mathjs.format(mathjs.bignumber(s), {notation: 'fixed'});
         } catch(e){

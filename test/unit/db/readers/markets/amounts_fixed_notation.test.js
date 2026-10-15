@@ -78,6 +78,30 @@ describe('util.plainDecimal', function () {
             .to.equal('123456.7890123456789012345678901234567890123456789012345678901234567890123');
     });
 
+    it('expands exponents at the supported bound', () => {
+        expect(util.plainDecimal('1e+64')).to.equal('1' + '0'.repeat(64));
+        expect(util.plainDecimal('1e-64')).to.equal('0.' + '0'.repeat(63) + '1');
+    });
+
+    it('returns exponent notation unchanged one past the supported bound', () => {
+        expect(util.plainDecimal('1e+65')).to.equal('1e+65');
+        expect(util.plainDecimal('1e-65')).to.equal('1e-65');
+    });
+
+    it('rejects a huge exponent within a fixed time and heap budget', () => {
+        util.plainDecimal('1e+65');
+        const input      = '1e+9999999999';
+        const heapBefore = process.memoryUsage().heapUsed;
+        const started    = process.hrtime.bigint();
+        const result     = util.plainDecimal(input);
+        const elapsedMs  = Number(process.hrtime.bigint() - started) / 1e6;
+        const heapGrowth = Math.max(0, process.memoryUsage().heapUsed - heapBefore);
+
+        expect(result).to.equal(input);
+        expect(elapsedMs).to.be.below(100);
+        expect(heapGrowth).to.be.below(1024 * 1024);
+    });
+
     it('leaves every other value as it was', () => {
         for(const v of ['5.0', '0', '100000000.00000000', 'abc', '1e5x', 'ff1e3', '', null, undefined, 12])
             expect(util.plainDecimal(v), String(v)).to.equal(v);

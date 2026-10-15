@@ -63,9 +63,9 @@ async function runHandler(handler, data, { query2Rows = [], query3Rows = [] } = 
 
 describe('terminal offer state is consistent across ORDER, SWAP and DISPENSER', () => {
     describe('the shared whitelist', () => {
-        it('treats complete, cancelled, expired and empty as terminal', () => {
+        it('treats every offer closing status as terminal', () => {
             expect([...shared.TERMINAL_OFFER_STATUSES].sort())
-                .to.deep.equal(['cancelled', 'complete', 'empty', 'expired']);
+                .to.deep.equal(['cancelled', 'complete', 'empty', 'expired', 'max_dispenses_reached']);
         });
 
         // The indexer closes a dispenser as empty once it can no longer pay a whole
@@ -132,6 +132,20 @@ describe('terminal offer state is consistent across ORDER, SWAP and DISPENSER', 
             // A bare `afterMain: shared.applyOfferState` reference is the pre-fix
             // shape and cannot zero anything; the fix wraps it.
             expect(handler.afterMain).to.not.equal(shared.applyOfferState);
+        });
+
+        it('zeroes a max_dispenses_reached detail payload', async () => {
+            const data = {
+                action_index: 48, give_amount: '10', get_amount: '1',
+                current_status: 'max_dispenses_reached'
+            };
+            const db = {
+                getDispenserEscrowBatch: async () => ({ '48': { escrow_remaining: '120' } }),
+                getDispenserPriceStaleBatch: async () => ({})
+            };
+            await dispensers.DISPENSER.afterMain({ db, config: {}, action_index: 48, type: 'DISPENSER' }, data);
+            expect(data.state.status).to.equal('max_dispenses_reached');
+            expect(data.state.give_remaining).to.equal('0');
         });
     });
 

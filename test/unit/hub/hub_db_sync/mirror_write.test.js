@@ -55,7 +55,7 @@ describe('coerceMirrorValue', function () {
 });
 
 describe('priceUpsertSql', function () {
-    it('builds finalized-only updates for a tuple per row without id', function () {
+    it('builds finalized-or-disputed updates for a tuple per row without id', function () {
         const sql = priceUpsertSql(
             ['id', 'round_number', 'coin_pair', 'status', 'price', 'created_at'],
             2
@@ -63,9 +63,9 @@ describe('priceUpsertSql', function () {
         const expected = 'INSERT INTO price_snapshots '
             + '(`round_number`, `coin_pair`, `status`, `price`, `created_at`) '
             + 'VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE '
-            + "`price` = IF(VALUES(status) = 'finalized', VALUES(`price`), `price`), "
-            + "`created_at` = IF(VALUES(status) = 'finalized', VALUES(`created_at`), `created_at`), "
-            + "status = IF(VALUES(status) = 'finalized', 'finalized', status)";
+            + "`price` = IF(VALUES(status) IN ('finalized', 'disputed'), VALUES(`price`), `price`), "
+            + "`created_at` = IF(VALUES(status) IN ('finalized', 'disputed'), VALUES(`created_at`), `created_at`), "
+            + "status = IF(VALUES(status) IN ('finalized', 'disputed'), VALUES(status), status)";
 
         assert.strictEqual(sql, expected);
     });

@@ -4542,14 +4542,6 @@
         "config validation requireUsableConfig does nothing for a non-null response",
         "config validation requireUsableConfig reports the validation error for a null response"
       ],
-      "39f71c373a99b732": [
-        "applyMirrorWrite falls back to doQuery and passes query arguments through",
-        "applyMirrorWrite prefers doQueryStrict and passes query arguments through",
-        "coerceMirrorValue does not coerce other column types or unparseable dates",
-        "coerceMirrorValue formats zoned and zone-less timestamps as UTC SQL datetimes",
-        "coerceMirrorValue returns non-strings and non-ISO strings unchanged",
-        "priceUpsertSql builds finalized-only updates for a tuple per row without id"
-      ],
       "3a23bc4c98e3e8d5": [
         "client: market page counter-tick resolution a 404 NOT_FOUND for an unknown pair renders the visible not-found state",
         "client: market page counter-tick resolution a market that does not resolve renders the visible not-found state",
@@ -5242,6 +5234,14 @@
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v2 revoke nested in a BATCH still extracts the DELEGATE segment",
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v2 revoke renders pubkey even when the parent row is not found (reorg-dropped)",
         "getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression v3 contract-revoke: resolves pubkey + target_contract_index + tick from wire and parent row"
+      ],
+      "4dc758af703cc0b5": [
+        "applyMirrorWrite falls back to doQuery and passes query arguments through",
+        "applyMirrorWrite prefers doQueryStrict and passes query arguments through",
+        "coerceMirrorValue does not coerce other column types or unparseable dates",
+        "coerceMirrorValue formats zoned and zone-less timestamps as UTC SQL datetimes",
+        "coerceMirrorValue returns non-strings and non-ISO strings unchanged",
+        "priceUpsertSql builds finalized-or-disputed updates for a tuple per row without id"
       ],
       "4f2a9c473f9bc95d": [
         "SEND and DESTROY lists against a replica without leg_ordinal getDestroys selects a constant leg_ordinal when the replica lacks the column",
@@ -8568,11 +8568,6 @@
         "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist treats complete, cancelled and expired as terminal",
         "terminal offer state is consistent across ORDER, SWAP and DISPENSER the shared whitelist zeroes both legs on every terminal status"
       ],
-      "9b45bf5097d8d5fc": [
-        "hub DB sync live row events applies a cross-chain match anchor event through the mirror writer",
-        "hub DB sync live row events refuses an event from a different hub schema version",
-        "hub DB sync pending price events stops at the cap and forces a failed flush"
-      ],
       "9bcf7bacd56dd6f7": [
         "API keyset paging: refusals a list whose cursor value can span rows refuses a keyset bound instead of skipping rows",
         "API keyset paging: refusals a result-cached list still refuses the bound after its page 1 is cached",
@@ -10663,6 +10658,11 @@
         "openapi row schemas match the reader select lists getSweeps selects exactly the Sweep properties",
         "openapi row schemas match the reader select lists getTokens selects exactly the TokenRow properties"
       ],
+      "e35204f18d2f2219": [
+        "hub DB sync live row events applies a cross-chain match anchor event through the mirror writer",
+        "hub DB sync live row events refuses an event from a different hub schema version and owes every table a re-page",
+        "hub DB sync pending price events stops at the cap and forces a failed flush"
+      ],
       "e41e4f7fc8385a5e": [
         "change detector fork-point rewind re-emits same-height blocks and actions first seen at initialization",
         "change detector fork-point rewind rewinds only to the lowest replaced height",
@@ -12170,9 +12170,9 @@
           "test/unit/hub/hub_db_sync/failover/move_policy.test.js": "8ab100867f39117b",
           "test/unit/hub/hub_db_sync/failover/move_reset.test.js": "59f7c444d240b0d2",
           "test/unit/hub/hub_db_sync/hub_selector.test.js": "58a411cd17b08a73",
-          "test/unit/hub/hub_db_sync/live_events.test.js": "9b45bf5097d8d5fc",
+          "test/unit/hub/hub_db_sync/live_events.test.js": "e35204f18d2f2219",
           "test/unit/hub/hub_db_sync/mirror_scope.test.js": "6fe4fb7059b13c2d",
-          "test/unit/hub/hub_db_sync/mirror_write.test.js": "39f71c373a99b732",
+          "test/unit/hub/hub_db_sync/mirror_write.test.js": "4dc758af703cc0b5",
           "test/unit/hub/hub_db_sync/row_upserts.test.js": "2e37a415a4011e31",
           "test/unit/icons/fontawesome_icons.test.js": "bca6ff21bfcd9c1a",
           "test/unit/icons/icon_downloader.test.js": "5385e3a08f678b50",

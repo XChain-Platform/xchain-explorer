@@ -3716,6 +3716,19 @@
         "Database#getXcalls query reads xcalls and joins the actions/transactions/blocks chain",
         "Database#getXcalls returns a 3-element array"
       ],
+      "1c638f41c50742ba": [
+        "chainAndBalanceRows returns info unchanged for a method the function does not shape",
+        "chainAndBalanceRows shapes a getBalances row from the count/amount/percent/value context",
+        "chainAndBalanceRows shapes a getBlocks row using actions from the context",
+        "contractAndStakeRows returns info unchanged for a method the function does not shape",
+        "contractAndStakeRows shapes a getContracts row",
+        "stakeLifecycleRows returns info unchanged for a method the function does not shape",
+        "stakeLifecycleRows shapes a getCollects row",
+        "stakeLifecycleRows shapes a getSlashEvents row with no status column",
+        "tokenAndTradeRows returns info unchanged for a method the function does not shape",
+        "tokenAndTradeRows shapes a getHolders row from count/amount/percent/value",
+        "tokenAndTradeRows shapes a getSends row with destination before status/action_index"
+      ],
       "1cb89d4d95eada37": [
         "ANCHOR publisher attestations parsing marks malformed JSON as unparseable before normalizing it",
         "ANCHOR publisher attestations parsing normalizes absent and null attestations without a flag",
@@ -4480,6 +4493,17 @@
         "db.getHistoryData: the all-activity feed is not gated on mappings_actions the stop-marker query cursors on the same alias its FROM clause defines",
         "db.getHistoryData: the all-activity feed is not gated on mappings_actions the token feed still drives off mappings_actions"
       ],
+      "385571ec21b4dc98": [
+        "cancelEditAndGovernanceRows returns info unchanged for a method the function does not shape",
+        "cancelEditAndGovernanceRows shapes a getGovernanceVotes row with no status column",
+        "cancelEditAndGovernanceRows shapes a getOrderCancels row, carrying the memo before status/action_index",
+        "hubOperationalAndSearchRows returns info unchanged for a method the function does not shape",
+        "hubOperationalAndSearchRows shapes a getPeers row from the hub-mirrored operational table",
+        "hubOperationalAndSearchRows shapes each getSearch result type from cfg.data.type",
+        "mirrorAndExpiryRows returns info unchanged for a method the function does not shape",
+        "mirrorAndExpiryRows shapes a getOrderExpires row using the standard colored-row status",
+        "mirrorAndExpiryRows shapes a getReorgs row, keeping the lifecycle status second-to-last"
+      ],
       "3859c1b638eaebc0": [
         "dashboard manifest conformance support builds an RBTC reader config with required and conformance probe arguments",
         "dashboard manifest conformance support collects projected keys from rows and MariaDB metadata",
@@ -5013,6 +5037,17 @@
         "the catch-up ahead-of-tip gate refuses a cursor above the tip with CATCH_UP_AHEAD_OF_TIP and no COMPLETE",
         "the catch-up ahead-of-tip gate refuses an above-2^53 cursor one past the tip with CATCH_UP_AHEAD_OF_TIP and no COMPLETE",
         "the catch-up ahead-of-tip gate still completes a cursor equal to the tip"
+      ],
+      "42a0f9e8752f3ebb": [
+        "apiPageOffset computes SQL OFFSET from a 1-based page and the page limit",
+        "apiPageOffset defaults to page 1 when the query carries no usable page number",
+        "apiPageOffset lets a keyset bound through a deep page with a zero offset",
+        "apiPageOffset refuses a positional page past the 100000-row cap",
+        "explorerLimits clamps length to the method max",
+        "explorerLimits falls back to start=0 for a non-numeric start",
+        "explorerLimits flips a plain prev/last action to ASC order",
+        "explorerLimits rewrites a fetch-and-slice method's prev/last action to next instead of paging backward",
+        "explorerLimits sizes the jump-to-last window from the clamped tail, not the raw total"
       ],
       "43df4aacd6f52c4b": [
         "PRICE signature detail rendering keeps the explicit batch signature count unchanged",
@@ -8418,6 +8453,14 @@
         "db.mempoolRowMatchesAddress (shared REST/WS matcher) matches the row source",
         "db.mempoolRowMatchesAddress (shared REST/WS matcher) returns false for a null row, a null address, or an empty address"
       ],
+      "96428d63a79ecea6": [
+        "pagingWindow carries the offset and action through from cfg.data.offset",
+        "pagingWindow defaults start/limit/length when the request query carries none",
+        "pagingWindow explorer-type length clamps clamps an explorer request length to 100 and derives limit from start+length",
+        "pagingWindow explorer-type length clamps lets an offset-exempt explorer method carry a length up to 10000 before it clamps",
+        "pagingWindow forces start to 0 for an api request regardless of the query",
+        "pagingWindow sets cursorLast only for action=last on a cursor-paged method"
+      ],
       "972154035e45120c": [
         "action summary key-fields fixture BET_EXPIRE key fields come from detail SQL or its handler",
         "action summary key-fields fixture COINPAY_EXPIRE key fields come from detail SQL or its handler",
@@ -9155,6 +9198,17 @@
         "explorer feed shaping branches registers every method a shaping branch names",
         "explorer feed shaping branches shapes every method registered in urls.explorer"
       ],
+      "b046a2dbe696f25d": [
+        "addressBoundaryWhere falls back to the own-or-inherited source filter for an unlisted method",
+        "addressBoundaryWhere filters on owner_id for getTokens",
+        "addressBoundaryWhere filters on source or destination for the message/mint/send/sweep lane",
+        "historyCursor cursors on the mapping table for the address and token history feeds",
+        "historyCursor cursors on the raw actions table for every other type or method",
+        "pagesOverBlocks is true only for the blocks table",
+        "tokenBoundaryWhere falls back to the plain tick_id filter for an unlisted method",
+        "tokenBoundaryWhere filters on either side of the pair for orders and swaps",
+        "tokenBoundaryWhere filters on the given-out token for dispensers and dispenses"
+      ],
       "b091c031874627c9": [
         "hub mirror URL seed resolution keeps the default selector unexpanded",
         "hub mirror URL seed resolution prefers the checkpoint seed list over the environment",
@@ -9251,6 +9305,11 @@
         "sibling gate policy catalogs all fifteen sibling-gated suites",
         "sibling gate policy keeps the vm-query sibling checks strict-aware at their source",
         "sibling gate policy requires only the seven targeted sibling-gated suites"
+      ],
+      "b7eca4afb68c75a2": [
+        "toExplorerConfig maps a real network config to the display shape, with DONATE1/DONATE2 renamed",
+        "toExplorerConfig reads the identity fields network-independently for every real network",
+        "toExplorerConfig returns the mainnet-read identity with an empty address map for an unknown network"
       ],
       "ba686bb3d8e86c4a": [
         "QueryWhereClauses routes a known action method to its clause builder",
@@ -11870,8 +11929,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 434,
-        "titleCount": 7541,
+        "fileCount": 440,
+        "titleCount": 7588,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -11917,6 +11976,7 @@
           "test/unit/attestation_batch/batch_label.test.js": "267f400f05cb517b",
           "test/unit/attestation_batch/batch_navigation.test.js": "2c5840bdd78f0c3f",
           "test/unit/bin/migrate_hub_mirror.test.js": "52cee9075ef1810a",
+          "test/unit/coin-config/to_explorer_config.test.js": "b7eca4afb68c75a2",
           "test/unit/config/apply_hub_values.test.js": "a3d5244af17f4b8c",
           "test/unit/config/coins_conformance.test.js": "2442df610ebb6911",
           "test/unit/config/config.test.js": "dc20841654fa8096",
@@ -12089,6 +12149,8 @@
           "test/unit/db/query_sql/list_paging_contracts.test.js": "6d940cda0be2066d",
           "test/unit/db/query_sql/list_paging_real_ddl.test.js": "dc960c7a7119da45",
           "test/unit/db/query_sql/offset_cursors.test.js": "ae7171856d3574d9",
+          "test/unit/db/query_sql/offsets/offset_boundaries.test.js": "b046a2dbe696f25d",
+          "test/unit/db/query_sql/offsets/query_limits.test.js": "42a0f9e8752f3ebb",
           "test/unit/db/query_sql/source_lanes_real_ddl.test.js": "1eedfbabce422479",
           "test/unit/db/query_sql/two_party_lanes_real_ddl.test.js": "11551f5849b9610f",
           "test/unit/db/query_sql/where_action_clauses_builders.test.js": "b3ec2f54fe0c224b",
@@ -12161,6 +12223,9 @@
           "test/unit/explorer/feeds/explorer_feed_shaping_branches.test.js": "af7981f422df163c",
           "test/unit/explorer/fees_preflight/fee_schedule_cache.test.js": "99f0e1cb22b10854",
           "test/unit/explorer/mount/limiters.test.js": "36a8962bc0ef6ca8",
+          "test/unit/explorer/paging/feed_rows.test.js": "385571ec21b4dc98",
+          "test/unit/explorer/paging/list_rows.test.js": "1c638f41c50742ba",
+          "test/unit/explorer/paging/window.test.js": "96428d63a79ecea6",
           "test/unit/explorer/paging_response/block_action_slots.test.js": "f20102761cae28d0",
           "test/unit/explorer/paging_response/explorer_paging.test.js": "66cd3cb942505c74",
           "test/unit/explorer/paging_response/explorer_response.test.js": "897c3ea1f7482d23",

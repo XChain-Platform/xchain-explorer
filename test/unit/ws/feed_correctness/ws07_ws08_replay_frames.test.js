@@ -70,7 +70,9 @@ describe('WS-07: the replay applies backpressure', function () {
         subscribe(s, client, ['actions'], { since_action_index: '50' }, 'c');
         await settle();
         expect(client.ws.close.called).to.equal(false);
-        await new Promise((r) => setTimeout(r, 150));
+        // Poll for the shed rather than sleeping past the 60 ms window (bounded so a missed shed fails, not hangs).
+        const shedBy = Date.now() + 2000;
+        while (!client.ws.close.called && Date.now() < shedBy) await new Promise((r) => setTimeout(r, 10));
 
         const got = actionIndexes(client);
         expect(client.ws.close.calledWith(4008, 'backpressure')).to.equal(true);

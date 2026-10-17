@@ -45,21 +45,12 @@ const API_PASS       = false;
 const API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
 const API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
 
-// Return only a complete HTTPS origin. The empty string keeps the isolated
-// content viewer disabled when the setting is absent or malformed.
 function contentViewerOrigin(){
-    const configured = String(process.env.EXPLORER_CONTENT_VIEWER_ORIGIN || '').trim();
-    if(!configured) return '';
-
     try {
-        const parsed = new URL(configured);
-        if(parsed.protocol !== 'https:' || parsed.username || parsed.password ||
-            parsed.pathname !== '/' || parsed.search || parsed.hash)
-            return '';
-        return parsed.origin;
-    } catch(_){
-        return '';
-    }
+        const value = new URL(String(process.env.EXPLORER_CONTENT_VIEWER_ORIGIN || '').trim());
+        return value.protocol === 'https:' && !value.username && !value.password &&
+            value.pathname === '/' && !value.search && !value.hash ? value.origin : '';
+    } catch(_){ return ''; }
 }
 
 // Parse a non-negative integer from an env var, falling back to defaultVal when

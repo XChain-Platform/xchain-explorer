@@ -104,7 +104,9 @@ describe('isolated custom content viewer', function(){
         expect(helpers.sandbox('https://viewer.example')).to.contain('allow-same-origin');
         expect(helpers.sandbox('')).to.not.contain('allow-same-origin');
     });
+});
 
+describe('isolated custom content parent framing', function(){
     it('loads the configured frame and sends HTML only for its authenticated ready event', function(){
         const origin = 'https://viewer.example';
         const harness = bindHarness(origin);
@@ -135,7 +137,9 @@ describe('isolated custom content viewer', function(){
         expect(harness.attrs.srcdoc).to.contain('<p id="token">token</p>');
         expect(harness.attrs.sandbox).to.not.contain('allow-same-origin');
     });
+});
 
+describe('isolated custom content handshake source contract', function(){
     it('pins the ready handshake to the iframe source and configured origin', function(){
         const bind = extractFn(CONTENT, 'tokenContent_bindCustomContent', 'token_content.js');
         expect(bind).to.contain("d.type === 'xchain-viewer-ready'");

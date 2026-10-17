@@ -4020,7 +4020,37 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContractRow"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -4070,7 +4100,37 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContractRow"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -4158,7 +4218,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContractStateEntry"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -4211,7 +4291,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContractStateEntry"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -4381,7 +4481,37 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Execution"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -4431,7 +4561,37 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Execution"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
                 }
               }
             }
@@ -4475,7 +4635,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ObjectResponse"
+                  "$ref": "#/components/schemas/ExecutionDetail"
                 }
               }
             }
@@ -20579,6 +20739,224 @@
           }
         }
       },
+      "ContractRow": {
+        "type": "object",
+        "description": "One deployed contract",
+        "properties": {
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "api_version": {
+            "type": "integer"
+          },
+          "block_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "code_hash": {
+            "type": "string"
+          },
+          "cooldown_blocks": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "meta": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "meta_description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner_withdraw": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "slash_destination": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "Execution": {
+        "type": "object",
+        "description": "One contract execution",
+        "properties": {
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "caller": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contract_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "emitted_count": {
+            "type": "integer"
+          },
+          "gas_limit": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "gas_used": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "method_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          }
+        }
+      },
+      "ContractStateEntry": {
+        "type": "object",
+        "description": "One current contract state entry",
+        "properties": {
+          "block_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "contract_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "state_key": {
+            "type": "string"
+          },
+          "state_value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "ActionDetail": {
         "type": "object",
         "description": "One action, fully decoded. Carries the fields its action type defines (the columns its list route serves plus any detail-only sections) and the ledger tail below, which every action carries.",
@@ -21014,6 +21392,59 @@
         "type": "object",
         "description": "One deployed contract with its permissions manifest. `permissions` is the declared emission allowlist, null when the contract declared none; `permissions_error` is true when the stored manifest JSON is unreadable, so a null `permissions` then means unknown rather than unrestricted.",
         "properties": {
+          "abi": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "api_version": {
+            "type": "integer"
+          },
+          "block_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "code": {
+            "type": "string"
+          },
+          "code_hash": {
+            "type": "string"
+          },
+          "code_hash_ok": {
+            "type": "boolean"
+          },
+          "constructor_params": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cooldown_blocks": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "max_take_bps": {
             "type": [
               "integer",
@@ -21021,16 +21452,102 @@
             ],
             "description": "Per-contract fee cap in basis points; null when the global cap applies"
           },
+          "meta": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "meta_description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "meta_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "methods": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "owner_withdraw": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "permissions": {
             "type": [
               "array",
               "null"
             ],
-            "items": {}
+            "items": {
+              "type": "string"
+            }
           },
           "permissions_error": {
             "type": "boolean",
             "description": "True when the stored permissions JSON could not be parsed"
+          },
+          "runtime": {
+            "type": "string",
+            "description": "Amount of time to execute and return the data"
+          },
+          "slash_destination": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "vm_query_enabled": {
+            "type": "boolean"
+          },
+          "wallet_url": {
+            "type": "string"
           }
         },
         "required": [
@@ -21228,6 +21745,103 @@
             "additionalProperties": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ExecutionDetail": {
+        "type": "object",
+        "description": "One contract execution with its input and error detail",
+        "properties": {
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "action_format": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "action_index": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "block_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "caller": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contract_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "emitted_count": {
+            "type": "integer"
+          },
+          "error_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gas_limit": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "gas_used": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "input_params": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "method_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "timestamp": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
+          },
+          "tx_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tx_index": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$"
           }
         }
       },

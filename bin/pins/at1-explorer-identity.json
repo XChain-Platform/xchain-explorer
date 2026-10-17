@@ -10766,6 +10766,12 @@
         "openapi row schemas match the reader select lists getSweeps selects exactly the Sweep properties",
         "openapi row schemas match the reader select lists getTokens selects exactly the TokenRow properties"
       ],
+      "e2634cec97dd4d26": [
+        "content viewer origin escapes a less-than sign before placing the value in an inline script",
+        "content viewer origin fills the token page setting with a JSON string",
+        "content viewer origin is empty when EXPLORER_CONTENT_VIEWER_ORIGIN is absent or is not an HTTPS origin",
+        "content viewer origin normalizes a configured HTTPS origin"
+      ],
       "e35204f18d2f2219": [
         "hub DB sync live row events applies a cross-chain match anchor event through the mirror writer",
         "hub DB sync live row events refuses an event from a different hub schema version and owes every table a re-page",
@@ -11934,8 +11940,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 440,
-        "titleCount": 7593,
+        "fileCount": 441,
+        "titleCount": 7597,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12323,6 +12329,7 @@
           "test/unit/protocol/consensus_primitive_conformance.test.js": "d08e49017df36523",
           "test/unit/protocol/protocol_constants.test.js": "56b1210bf8d08dd8",
           "test/unit/render/asset_version.test.js": "88587be102882ad9",
+          "test/unit/render/content_viewer_origin.test.js": "e2634cec97dd4d26",
           "test/unit/render/html_templates_exist.test.js": "4bb485c7d8e7ff43",
           "test/unit/render/list_page_composition.test.js": "19b278e7eb66d5bf",
           "test/unit/render/page_assets/page_asset_globals.test.js": "507e386ceeabdbcc",

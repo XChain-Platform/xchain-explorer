@@ -48,7 +48,8 @@ function baseCoinTables(){
     config['COIN_NETWORKS'] = {
         BTC:  'Bitcoin',
         LTC:  'Litecoin',
-        DOGE: 'Dogecoin'
+        DOGE: 'Dogecoin',
+        KAS:   'Kaspa'
     };
 
     // Network prefix on a coin code: T is testnet, R is regtest, mainnet

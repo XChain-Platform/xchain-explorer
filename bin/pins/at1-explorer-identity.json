@@ -6365,6 +6365,13 @@
         "capability_snapshots.html page fragment sets pageInfo.title/description/canonical and calls updatePageInfo()",
         "capability_snapshots.html page fragment the loading row colspan equals the <th> count (7)"
       ],
+      "5fd0ee6bf48c474f": [
+        "isolated custom content handshake source contract pins the ready handshake to the iframe source and configured origin",
+        "isolated custom content parent framing keeps the no-configuration fallback opaque and srcdoc-based",
+        "isolated custom content parent framing loads the configured frame and sends HTML only for its authenticated ready event",
+        "isolated custom content viewer announces readiness and accepts only the first valid parent document",
+        "isolated custom content viewer builds the configured viewer URL and grants same-origin only in isolated mode"
+      ],
       "6040916952368853": [
         "ATTEST response signature detail rendering keeps the empty signature fallback unchanged",
         "ATTEST response signature detail rendering marks malformed signatures in both signature cells",
@@ -10770,6 +10777,12 @@
         "openapi row schemas match the reader select lists getSweeps selects exactly the Sweep properties",
         "openapi row schemas match the reader select lists getTokens selects exactly the TokenRow properties"
       ],
+      "e2634cec97dd4d26": [
+        "content viewer origin escapes a less-than sign before placing the value in an inline script",
+        "content viewer origin fills the token page setting with a JSON string",
+        "content viewer origin is empty when EXPLORER_CONTENT_VIEWER_ORIGIN is absent or is not an HTTPS origin",
+        "content viewer origin normalizes a configured HTTPS origin"
+      ],
       "e35204f18d2f2219": [
         "hub DB sync live row events applies a cross-chain match anchor event through the mirror writer",
         "hub DB sync live row events refuses an event from a different hub schema version and owes every table a re-page",
@@ -11938,8 +11951,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 441,
-        "titleCount": 7595,
+        "fileCount": 443,
+        "titleCount": 7604,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12092,6 +12105,7 @@
           "test/unit/content/pages/client/content_client_search_empty_query.test.js": "86408b397e17bc49",
           "test/unit/content/pages/client/content_client_search_null_render.test.js": "77bf9501ade114ae",
           "test/unit/content/pages/client/content_client_xss.test.js": "d64ac316072379c5",
+          "test/unit/content/pages/client/content_viewer_frame.test.js": "5fd0ee6bf48c474f",
           "test/unit/content/pages/client/search/search_destination.test.js": "75443ba46b66e7c8",
           "test/unit/content/pages/client/search/search_entry_points.test.js": "3b7ed48580dcd979",
           "test/unit/content/pages/content_bet_pools_and_order_status.test.js": "3353aa6f5c8140f5",
@@ -12328,6 +12342,7 @@
           "test/unit/protocol/consensus_primitive_conformance.test.js": "d08e49017df36523",
           "test/unit/protocol/protocol_constants.test.js": "56b1210bf8d08dd8",
           "test/unit/render/asset_version.test.js": "88587be102882ad9",
+          "test/unit/render/content_viewer_origin.test.js": "e2634cec97dd4d26",
           "test/unit/render/html_templates_exist.test.js": "4bb485c7d8e7ff43",
           "test/unit/render/list_page_composition.test.js": "19b278e7eb66d5bf",
           "test/unit/render/page_assets/page_asset_globals.test.js": "507e386ceeabdbcc",

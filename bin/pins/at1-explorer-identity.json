@@ -4665,6 +4665,10 @@
         "coverage ratchet floors measures unrequired source files in both coverage scripts",
         "coverage ratchet floors ships the coverage:check script the CI coverage job invokes"
       ],
+      "3dce72f0beb58f94": [
+        "standalone content viewer page announces that it is ready to its parent",
+        "standalone content viewer page renders only the first valid HTML message from its parent"
+      ],
       "3e1d8b1e0020be6d": [
         "@p2 @action Less-used action type endpoints regression escrows endpoint returns data for seeded address",
         "@p2 @action Less-used action type endpoints regression order_matches endpoint returns data",
@@ -11934,8 +11938,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 440,
-        "titleCount": 7593,
+        "fileCount": 441,
+        "titleCount": 7595,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12097,6 +12101,7 @@
           "test/unit/content/pages/content_json_parse.test.js": "b3297f92d0dd7e3d",
           "test/unit/content/pages/xbridge_panels_render.test.js": "65d6c70d53e3106b",
           "test/unit/content/unconfirmed_count_format.test.js": "93966786e23d8601",
+          "test/unit/content/viewer/viewer_page.test.js": "3dce72f0beb58f94",
           "test/unit/contract/abi_core.test.js": "8a672ba9f91488b8",
           "test/unit/contract/contract_introspect.test.js": "04f2b2ff93543f66",
           "test/unit/contract/owner_withdraw.test.js": "a2c823d5852437ae",

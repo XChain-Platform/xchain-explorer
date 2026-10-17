@@ -41,6 +41,8 @@ function feedDb(inForce) {
     db.listReads = [];
     let call = 0;
     db.doQuery = async (config, statement, args) => {
+        if (/information_schema/i.test(statement))
+            return [{ TABLE_NAME: 'bet_edits' }];
         call++;
         if (call === 1) return [{ action: 'BET' }];
         if (statement === governanceSql.BET_DETAIL)

@@ -45,6 +45,23 @@ const API_PASS       = false;
 const API_PORT_HTTP  = process.env.EXPLORER_API_PORT_HTTP  || 8080;
 const API_PORT_HTTPS = process.env.EXPLORER_API_PORT_HTTPS || 8081;
 
+// Return only a complete HTTPS origin. The empty string keeps the isolated
+// content viewer disabled when the setting is absent or malformed.
+function contentViewerOrigin(){
+    const configured = String(process.env.EXPLORER_CONTENT_VIEWER_ORIGIN || '').trim();
+    if(!configured) return '';
+
+    try {
+        const parsed = new URL(configured);
+        if(parsed.protocol !== 'https:' || parsed.username || parsed.password ||
+            parsed.pathname !== '/' || parsed.search || parsed.hash)
+            return '';
+        return parsed.origin;
+    } catch(_){
+        return '';
+    }
+}
+
 // Parse a non-negative integer from an env var, falling back to defaultVal when
 // the value is absent, empty, or non-numeric. Preserves 0 as a valid value.
 const parseIntMin0 = (val, defaultVal) => {
@@ -295,6 +312,7 @@ module.exports = {
     env: env,
 
     defaultTheme: () => env.EXPLORER_DEFAULT_THEME || 'classic',
+    contentViewerOrigin: contentViewerOrigin,
     // Epoch ms of the last successful hub-config fetch (null until the first success).
     // Exposed so the status endpoint can report how stale the served hub config is when
     // the hub is unreachable. Kept as a getter rather than a direct export because the

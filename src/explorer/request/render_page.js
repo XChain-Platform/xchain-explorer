@@ -86,6 +86,18 @@ async function renderPage(explorer, st){
         // ($&, $', $`, $1) specially in a string replacement, so any page content containing
         // them (e.g. a "$" in inline JS or a token description) would be mangled or truncated.
         pageContent     = pageContent.replace('{CONTENT}', () => htmlContent);
+        let configuredContentViewerOrigin = '';
+        try {
+            configuredContentViewerOrigin = explorer.configInfo && typeof explorer.configInfo.contentViewerOrigin === 'function'
+                ? explorer.configInfo.contentViewerOrigin()
+                : '';
+        } catch(_){
+            configuredContentViewerOrigin = '';
+        }
+        const CONTENT_VIEWER_ORIGIN = JSON.stringify(
+            typeof configuredContentViewerOrigin === 'string' ? configuredContentViewerOrigin : ''
+        ).replace(/</g, '\\u003c');
+        pageContent     = pageContent.replace('{CONTENT_VIEWER_ORIGIN}', () => CONTENT_VIEWER_ORIGIN);
         // Cross-site navigation for the *.xchain.io family, rendered from the
         // vendored platform-links.json (see src/render/platform_links.js). Same
         // replacement-function reason as {CONTENT}: $-sequences in the markup

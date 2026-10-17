@@ -25,8 +25,8 @@
     },
     {
       "path": "src/consensus/merkle.js",
-      "bytes": 16677,
-      "sha256": "797a0c6e5299eb1f5e5572764de30e2748a8976c05514e1d654b7c6b13c37180"
+      "bytes": 16691,
+      "sha256": "7147c54c3f9ba76d17584c8e87958ffb29d971d14908e7323e40b61fbe05d500"
     },
     {
       "path": "src/consensus/stake_weighted_quorum.js",
@@ -4507,24 +4507,6 @@
         "mirrorAndExpiryRows returns info unchanged for a method the function does not shape",
         "mirrorAndExpiryRows shapes a getOrderExpires row using the standard colored-row status",
         "mirrorAndExpiryRows shapes a getReorgs row, keeping the lifecycle status second-to-last"
-      ],
-      "3859c1b638eaebc0": [
-        "dashboard manifest conformance support builds an RBTC reader config with required and conformance probe arguments",
-        "dashboard manifest conformance support collects projected keys from rows and MariaDB metadata",
-        "dashboard manifest conformance support fails a reader with no served rows unless it is listed as unseeded",
-        "dashboard manifest conformance support loads a non-empty exported reader manifest",
-        "dashboard manifest conformance support probes the contract state and balance readers with type contract and a bare index",
-        "dashboard manifest conformance support reads a single-object detail result as one served row",
-        "dashboard manifest conformance support rejects a missing or empty reader manifest",
-        "dashboard manifest conformance support reports a field the SQL selects but the reader mapping drops",
-        "dashboard manifest conformance support reports only absent manifest keys",
-        "dashboard manifest conformance support requires a manifest key on every served row, not only the first",
-        "dashboard manifest conformance support resolves the dashboard client from the sibling root or environment override",
-        "dashboard manifest conformance support restores an owned doQuery after a reader failure",
-        "dashboard manifest conformance support seeds a swaps row and a dispensers row on their own actions",
-        "dashboard manifest conformance support seeds the custody address with a single C: prefix",
-        "dashboard manifest conformance support treats an undefined-valued row key as absent from the served row",
-        "dashboard manifest conformance support uses the widest reader query projection and restores an inherited doQuery"
       ],
       "38cd5b889e0e9bc9": [
         "an action's source is the ACTION's source, not the transaction's coalesces to the transaction only as a fallback, and only from an actions alias",
@@ -9223,6 +9205,26 @@
         "offset_cursors fallback to DEFAULT_CURSOR does not return inherited prototype values",
         "offset_cursors maps the explicitly keyed methods to their own columns"
       ],
+      "aef9afacec96e5b3": [
+        "dashboard manifest conformance support builds an RBTC reader config with required and conformance probe arguments",
+        "dashboard manifest conformance support collects projected keys from rows and MariaDB metadata",
+        "dashboard manifest conformance support fails a reader with no served rows unless it is listed as unseeded",
+        "dashboard manifest conformance support loads a non-empty exported reader manifest",
+        "dashboard manifest conformance support loads the pinned reader manifest when the dashboard sibling is absent",
+        "dashboard manifest conformance support prefers the dashboard reader manifest when the sibling is usable",
+        "dashboard manifest conformance support probes the contract state and balance readers with type contract and a bare index",
+        "dashboard manifest conformance support reads a single-object detail result as one served row",
+        "dashboard manifest conformance support rejects a missing or empty reader manifest",
+        "dashboard manifest conformance support reports a field the SQL selects but the reader mapping drops",
+        "dashboard manifest conformance support reports only absent manifest keys",
+        "dashboard manifest conformance support requires a manifest key on every served row, not only the first",
+        "dashboard manifest conformance support resolves the dashboard client from the sibling root or environment override",
+        "dashboard manifest conformance support restores an owned doQuery after a reader failure",
+        "dashboard manifest conformance support seeds a swaps row and a dispensers row on their own actions",
+        "dashboard manifest conformance support seeds the custody address with a single C: prefix",
+        "dashboard manifest conformance support treats an undefined-valued row key as absent from the served row",
+        "dashboard manifest conformance support uses the widest reader query projection and restores an inherited doQuery"
+      ],
       "af7981f422df163c": [
         "explorer feed shaping branches finds a plausibly-sized method table and branch set",
         "explorer feed shaping branches registers every method a shaping branch names",
@@ -11953,7 +11955,7 @@
       },
       "test": {
         "fileCount": 443,
-        "titleCount": 7605,
+        "titleCount": 7607,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12007,7 +12009,7 @@
           "test/unit/config/consensus_pin_boot.test.js": "116141af1654c3e7",
           "test/unit/config/resolve_coins.test.js": "bdab718683313f36",
           "test/unit/config/validate.test.js": "39d38d610943e3e4",
-          "test/unit/conformance/dashboard_manifest_support.test.js": "3859c1b638eaebc0",
+          "test/unit/conformance/dashboard_manifest_support.test.js": "aef9afacec96e5b3",
           "test/unit/conformance/plan_guard_allowlist.test.js": "365e6eb3af36f30f",
           "test/unit/conformance/plan_guard_verdict.test.js": "a1a5502637f8668d",
           "test/unit/connectors/hub_config_hostile_keys.test.js": "cc51e1570a0be666",

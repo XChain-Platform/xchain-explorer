@@ -36,10 +36,9 @@ function displayTokenIcon(image){
         $('#tokenIcon').attr('src', image);
 }
 
-// Wrap attacker-controlled custom token HTML in a minimal document for either
-// the opaque srcdoc fallback or the separately hosted viewer. Both are sandboxed
-// away from the explorer origin; a tiny shim posts rendered height to the parent
-// for auto-resize. This replaces the old explorer-origin resizeIframe() access.
+// Wrap attacker-controlled custom token HTML for the opaque srcdoc fallback or
+// separately hosted viewer. Both stay sandboxed away from the explorer origin;
+// the shim reports rendered height to the parent for bounded auto-resize.
 function buildSandboxedContentDoc(html){
     // The shim reports on load, on the frame's own resize (a width change reflows
     // the content), on a bounded set of timers for late layout, and through a

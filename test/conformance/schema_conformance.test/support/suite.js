@@ -26,7 +26,6 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
     this.timeout(120000);
     before(runtime.setupConformance);
     after(runtime.teardownConformance);
-    dashboardManifest.registerDashboardManifest(runtime);
     reads.registerRoutedReadPaths(runtime);
     reads.registerMirroredListRoutes(runtime);
     reads.registerDetailReads(runtime);
@@ -36,4 +35,5 @@ describe('Real-schema conformance canary (real DDL on real MariaDB)', function (
     // A nested suite runs after every test above, which it must: it seeds the
     // tables they expect near-empty.
     planGuard.registerPlanGuard(runtime);
+    dashboardManifest.registerDashboardManifest(runtime);
 });

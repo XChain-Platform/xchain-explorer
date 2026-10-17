@@ -34,15 +34,9 @@ function detectorOver(db) {
     return new ChangeDetector({ db, pollInterval: 3600000 });
 }
 
-describe('ChangeDetector pool reconcile', function () {
-    let det;
+let det;
 
-    afterEach(async function () {
-        if (det) await det.stop();
-        det = null;
-        sinon.restore();
-    });
-
+function registerPoolAdoptionTests() {
     it('adopts a coin whose pool appears after start and seeds it at its tip', async function () {
         const db = createMockDb({ blockIndex: 50, actionIndex: 500 });
         db.pools = {};
@@ -80,7 +74,9 @@ describe('ChangeDetector pool reconcile', function () {
         await det.poll();
         expect(events).to.deep.equal([['BTC', 501]]);
     });
+}
 
+function registerPoolMapTests() {
     it('keeps a tracked coin cursor when a later pool map no longer names it', async function () {
         const db = createMockDb({ blockIndex: 50, actionIndex: 500 });
         db.pools = { BTC: { pool: {} } };
@@ -103,4 +99,15 @@ describe('ChangeDetector pool reconcile', function () {
         expect(Object.keys(det.state)).to.deep.equal(['BTC']);
         expect(det.state.BTC.initialized).to.equal(true);
     });
+}
+
+describe('ChangeDetector pool reconcile', function () {
+    afterEach(async function () {
+        if (det) await det.stop();
+        det = null;
+        sinon.restore();
+    });
+
+    registerPoolAdoptionTests();
+    registerPoolMapTests();
 });

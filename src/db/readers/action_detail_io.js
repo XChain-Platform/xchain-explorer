@@ -64,6 +64,7 @@
 const actionDetail = require('../../action-detail');
 const { composeReaderParts } = require('../reader_parts.js');
 const { isEmittableAction, optionalTransactionQueries } = require('./txless_actions.js');
+const { setTablesAbsent, isMissingTableError } = require('../schema_probe.js');
 
 // The parts this entry composes. A name two parts both declare throws at require
 // time (composeReaderParts), so a method can never be defined in two of them.
@@ -82,7 +83,7 @@ const ledgerTickMethods  = require('./action_detail_io/ledger_ticks.js');
 // baseline when it has none), then the optional second and third statements, each
 // with the handler's hook after it. Returns the data object, which the main query
 // and deblankBaseline both REPLACE rather than mutate.
-async function runHandlerQueries(db, config, handler, ctx, built, action_index, data){
+async function runHandlerQuerySet(db, config, handler, ctx, built, action_index, data){
     let query   = built.query  || null;
     let query2  = built.query2 || null;
     let query3  = built.query3 || null;
@@ -112,6 +113,17 @@ async function runHandlerQueries(db, config, handler, ctx, built, action_index, 
     if(handler.afterQueries)
         await handler.afterQueries(ctx, data);
     return data;
+}
+
+async function runHandlerQueries(db, config, handler, ctx, built, action_index, data){
+    try {
+        return await runHandlerQuerySet(db, config, handler, ctx, built, action_index, data);
+    } catch(e) {
+        if(!handler.optionalTables || !isMissingTableError(e)) throw e;
+        setTablesAbsent(db, config, handler.optionalTables);
+        const retryBuilt = (handler.queries) ? await handler.queries(ctx) : {};
+        return runHandlerQuerySet(db, config, handler, ctx, retryBuilt, action_index, data);
+    }
 }
 
 // The legs every action shares once its handler has run: the sibling-table

@@ -24,6 +24,7 @@
 const { getLogger } = require('../observability');
 const log = getLogger();
 const sql = require('../db/action_detail/governance_sql.js');
+const { tablesPresent } = require('../db/schema_probe.js');
 
 // DETAILS is attacker-controlled base64 JSON. Decode it for API convenience,
 // while retaining the raw field for callers that need to inspect chain bytes.
@@ -40,13 +41,16 @@ function decodeBetDetails(data, isNull){
 
 // Shape a format-0 feed. Its gating lists are the ones in force, as /api/bet_feed and the
 // indexer's wager checks read them, with the created lists kept beside (BET_DETAIL reads only those).
-async function shapeFeed(db, config, action_index, data){
+async function shapeFeed({ db, config, action_index }, data){
     data['bet_kind'] = 'feed';
     data['feed_ref'] = data['action_index'];
     decodeBetDetails(data, db.util.isNull);
     data['created_allow_list'] = data['allow_list'];
     data['created_block_list'] = data['block_list'];
-    let rows = await db.doQuery(config, sql.BET_FEED_LISTS, [action_index]);
+    const query = await tablesPresent(db, config, ['bet_edits'])
+        ? sql.BET_FEED_LISTS
+        : sql.BET_FEED_LISTS_PRE_EDITS;
+    let rows = await db.doQuery(config, query, [action_index]);
     if(rows && rows.length){
         data['allow_list'] = rows[0].allow_list;
         data['block_list'] = rows[0].block_list;
@@ -76,22 +80,25 @@ const BET = {
     // a bet_feeds row, format 1 a bet_cancels row, format 2 a bets row, format 3
     // a bet_resolves row, and format 4 a bet_edits row. The format-specific joins
     // stay separate because their presence and status identify the response shape.
-    queries() {
+    async queries({ db, config }) {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        query = sql.BET_DETAIL;
+        query = await tablesPresent(db, config, ['bet_edits'])
+            ? sql.BET_DETAIL
+            : sql.BET_DETAIL_PRE_EDITS;
         return { query, query2, query3 };
     },
     // Normalize those joined rows into one stable response. bet_kind selects the
     // renderer, feed_ref always names the parent market, and fields from sibling
     // formats are removed so a null joined column cannot masquerade as real data.
-    async afterMain({ db, config, action_index }, data) {
+    async afterMain(ctx, data) {
+        const { db, config, action_index } = ctx;
         let fmt = db.util.isNull(data['action_format']) ? null : Number(data['action_format']);
         if(fmt !== null)
             data['outcome_labels'] = db.util.isNull(data['outcomes']) ? [] : String(data['outcomes']).split(',');
         if(!db.util.isNull(data['label']) || fmt === 0){
-            await shapeFeed(db, config, action_index, data);
+            await shapeFeed(ctx, data);
         } else if(!db.util.isNull(data['feed_action_index'])){
             data['bet_kind'] = 'bet';
             data['feed_ref'] = data['feed_action_index'];
@@ -282,6 +289,7 @@ const VOTE = {
 // joined detail query reads, and bet_kind picks the card for every one. VOTE v0 polls,
 // v1 ballots and v3 delegations each have their own vote_kind card; the synthetic
 // VOTE v2 finalization is not user-encodable. BET_EDIT shares the BET handler.
+Object.defineProperty(BET, 'optionalTables', { value: Object.freeze(['bet_edits']) });
 declareFormats(BET,  [0, 1, 2, 3, 4], {});
 declareFormats(VOTE, [0, 1, 3], {});
 

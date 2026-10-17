@@ -90,18 +90,33 @@ const BET_DETAIL = `SELECT
                     a1.action_index=?
                 LIMIT 1`;
 
+const BET_DETAIL_PRE_EDITS = BET_DETAIL
+    .replace(`                    be.feed_action_index as edit_feed_ref,
+                    be.allow_list as edit_allow_list,
+                    be.block_list as edit_block_list,`, `                    NULL as edit_feed_ref,
+                    NULL as edit_allow_list,
+                    NULL as edit_block_list,`)
+    .replace('                    bes.status as edit_status', '                    NULL as edit_status')
+    .replace('                    LEFT  JOIN bet_edits          be ON (be.action_index=a1.action_index)\n', '')
+    .replace('                    LEFT  JOIN index_statuses     bes ON (bes.id=be.status_id)\n', '')
+    .replace('COALESCE(bt.feed_action_index, bc.feed_action_index, br.feed_action_index, be.feed_action_index)',
+        'COALESCE(bt.feed_action_index, bc.feed_action_index, br.feed_action_index)');
+
 // Find the feed a cancel or resolve leg drove, and the status it left the feed in.
 const BET_LEG_FEED_STATUS = `SELECT fst.feed_action_index, s.status AS feed_status
                    FROM bet_feed_statuses fst
                    LEFT JOIN index_statuses s ON (s.id=fst.status_id)
                   WHERE fst.action_index=? LIMIT 1`;
 
-// Read the gating lists one feed has in force after its BET format-4 edits.
-// No replica gate: BET_DETAIL already joins bet_edits, so this never runs without it.
 const FEED_LISTS = betListOverlay(true);
 const BET_FEED_LISTS = `SELECT ${FEED_LISTS.allow},
                         ${FEED_LISTS.block}
                    FROM bet_feeds m${FEED_LISTS.joins}
+                  WHERE m.action_index=? LIMIT 1`;
+const FEED_LISTS_PRE_EDITS = betListOverlay(false);
+const BET_FEED_LISTS_PRE_EDITS = `SELECT ${FEED_LISTS_PRE_EDITS.allow},
+                        ${FEED_LISTS_PRE_EDITS.block}
+                   FROM bet_feeds m${FEED_LISTS_PRE_EDITS.joins}
                   WHERE m.action_index=? LIMIT 1`;
 
 // Read one BET_EXPIRE with the terms of the feed it expired.
@@ -242,8 +257,10 @@ const VOTE_BALLOT_STATUS = `SELECT COALESCE(s1.status, 'valid') AS status
 
 module.exports = {
     BET_DETAIL,
+    BET_DETAIL_PRE_EDITS,
     BET_LEG_FEED_STATUS,
     BET_FEED_LISTS,
+    BET_FEED_LISTS_PRE_EDITS,
     BET_EXPIRE_DETAIL,
     BET_EXPIRE_REFUNDS,
     VOTE_DETAIL,

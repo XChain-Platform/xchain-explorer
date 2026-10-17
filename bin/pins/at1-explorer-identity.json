@@ -4665,6 +4665,10 @@
         "coverage ratchet floors measures unrequired source files in both coverage scripts",
         "coverage ratchet floors ships the coverage:check script the CI coverage job invokes"
       ],
+      "3dce72f0beb58f94": [
+        "standalone content viewer page announces that it is ready to its parent",
+        "standalone content viewer page renders only the first valid HTML message from its parent"
+      ],
       "3e1d8b1e0020be6d": [
         "@p2 @action Less-used action type endpoints regression escrows endpoint returns data for seeded address",
         "@p2 @action Less-used action type endpoints regression order_matches endpoint returns data",
@@ -6360,6 +6364,13 @@
         "capability_snapshots.html page fragment makes the historical-electorate semantics legible on the page (not just a bare amount column)",
         "capability_snapshots.html page fragment sets pageInfo.title/description/canonical and calls updatePageInfo()",
         "capability_snapshots.html page fragment the loading row colspan equals the <th> count (7)"
+      ],
+      "5fd0ee6bf48c474f": [
+        "isolated custom content handshake source contract pins the ready handshake to the iframe source and configured origin",
+        "isolated custom content parent framing keeps the no-configuration fallback opaque and srcdoc-based",
+        "isolated custom content parent framing loads the configured frame and sends HTML only for its authenticated ready event",
+        "isolated custom content viewer announces readiness and accepts only the first valid parent document",
+        "isolated custom content viewer builds the configured viewer URL and grants same-origin only in isolated mode"
       ],
       "6040916952368853": [
         "ATTEST response signature detail rendering keeps the empty signature fallback unchanged",
@@ -11940,8 +11951,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 441,
-        "titleCount": 7597,
+        "fileCount": 443,
+        "titleCount": 7604,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12094,6 +12105,7 @@
           "test/unit/content/pages/client/content_client_search_empty_query.test.js": "86408b397e17bc49",
           "test/unit/content/pages/client/content_client_search_null_render.test.js": "77bf9501ade114ae",
           "test/unit/content/pages/client/content_client_xss.test.js": "d64ac316072379c5",
+          "test/unit/content/pages/client/content_viewer_frame.test.js": "5fd0ee6bf48c474f",
           "test/unit/content/pages/client/search/search_destination.test.js": "75443ba46b66e7c8",
           "test/unit/content/pages/client/search/search_entry_points.test.js": "3b7ed48580dcd979",
           "test/unit/content/pages/content_bet_pools_and_order_status.test.js": "3353aa6f5c8140f5",
@@ -12103,6 +12115,7 @@
           "test/unit/content/pages/content_json_parse.test.js": "b3297f92d0dd7e3d",
           "test/unit/content/pages/xbridge_panels_render.test.js": "65d6c70d53e3106b",
           "test/unit/content/unconfirmed_count_format.test.js": "93966786e23d8601",
+          "test/unit/content/viewer/viewer_page.test.js": "3dce72f0beb58f94",
           "test/unit/contract/abi_core.test.js": "8a672ba9f91488b8",
           "test/unit/contract/contract_introspect.test.js": "04f2b2ff93543f66",
           "test/unit/contract/owner_withdraw.test.js": "a2c823d5852437ae",

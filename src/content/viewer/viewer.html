@@ -7,20 +7,24 @@
 </head>
 <body>
 <script>
-(function(){
+(function () {
     'use strict';
-    var rendered = false;
-    window.addEventListener('message', function(e){
-        if(rendered || e.source !== window.parent) return;
-        var data = e.data;
-        if(!data || data.type !== 'xchain-viewer-html' || typeof data.html !== 'string') return;
-        rendered = true;
+
+    function receiveHtml(e) {
+        if (e.source !== window.parent
+            || !e.data
+            || e.data.type !== 'xchain-viewer-html'
+            || typeof e.data.html !== 'string') return;
+
+        window.removeEventListener('message', receiveHtml);
         document.open();
-        document.write(data.html);
+        document.write(e.data.html);
         document.close();
-    });
+    }
+
+    window.addEventListener('message', receiveHtml);
     window.parent.postMessage({ type: 'xchain-viewer-ready' }, '*');
-})();
+}());
 </script>
 </body>
 </html>

@@ -46,7 +46,7 @@ const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', '
 const COMPOSED = new Set(['getHistory', 'getMarkets', 'getMarketHistory', 'getMarketOrders', 'getSharedLists']);
 
 // Typed 200 operations the spec publishes; a ratchet, raise it when a route gains a schema.
-const TYPED_200_FLOOR = 68;
+const TYPED_200_FLOOR = 76;
 
 // Split on commas that sit outside every parenthesis.
 function splitTopLevel(text) {
@@ -120,7 +120,8 @@ describe('openapi row schemas match the reader select lists', function () {
 
     methods.forEach(function (method) {
         it(`${method} selects exactly the ${SCHEMAS.ROW_SCHEMAS[method]} properties`, async function () {
-            const columns = await readerColumns(db, method);
+            const dropped = SCHEMAS.POST_PASS_DROPPED[method] || [];
+            const columns = (await readerColumns(db, method)).filter((p) => !dropped.includes(p));
             const added = (SCHEMAS.POST_PASS_COLUMNS[method] || []).concat(SCHEMAS.OPTIONAL_COLUMNS[method] || []);
             const declared = Object.keys(schemaFor(method).properties).filter((p) => !added.includes(p));
             expect([...columns].sort(), `${method} columns vs schema`).to.deep.equal([...declared].sort());

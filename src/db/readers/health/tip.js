@@ -225,9 +225,9 @@ class HealthTipReaders {
 
     // Reads whether either replicated database carries an active
     // consensus-divergence halt (xchain-sync's sync_halt table, cleared_at IS
-    // NULL). The indexer check verifies table existence first via information_schema, a query that
-    // always succeeds (0 rows, not an error) on a deployment whose DB predates
-    // the sync client, so that ordinary case never hits the failure log below.
+    // NULL). Each replica verifies table existence first via information_schema,
+    // a query that always succeeds (0 rows, not an error) on a deployment whose
+    // DB predates the sync client, so that ordinary case never attempts the read.
     // Returns true (active halt), false (table read, no active halt), or null
     // (no pool, table absent, or the read failed); null is never coerced to
     // false, since /status consumers read false as healthy.
@@ -264,10 +264,17 @@ class HealthTipReaders {
             states.push(null);
         } else {
             try {
-                let rows = await this.doDecoderQuery(config,
-                    'SELECT id FROM `' + decoderName + '`.sync_halt WHERE db_type=? AND cleared_at IS NULL LIMIT 1',
-                    ['decoder']);
-                states.push(!!(rows && rows.length));
+                let decoderExisting = await this.doDecoderQuery(config,
+                    `SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'sync_halt' LIMIT 1`,
+                    [decoderName]);
+                if (!decoderExisting || !decoderExisting.length) {
+                    states.push(null);
+                } else {
+                    let rows = await this.doDecoderQuery(config,
+                        'SELECT id FROM `' + decoderName + '`.sync_halt WHERE db_type=? AND cleared_at IS NULL LIMIT 1',
+                        ['decoder']);
+                    states.push(!!(rows && rows.length));
+                }
             } catch (e) {
                 states.push(null);
             }

@@ -282,11 +282,18 @@ function markPooled(coin) {
 // the halt-row read, AND the unrelated last_block/last_block_time queries
 // getStatus also issues in the same per-coin pass. A fresh block_time
 // keeps `stale` out of the way of these assertions.
-function stubQueries({ tableExists = true, activeHalt = false, decoderHalt = false, failOn = null } = {}) {
+function stubQueries({ tableExists = true, activeHalt = false, decoderTableExists = true,
+                       decoderHalt = false, failOn = null } = {}) {
     sinon.stub(db, 'doDecoderQuery').callsFake(async (config, query, args) => {
-        if (failOn === 'decoder') throw new Error('decoder halt read failed');
         if (/MAX\(block_index\)/.test(query)) return [];
         if (/block_time/.test(query)) return [];
+        if (/information_schema\.TABLES/.test(query)) {
+            if (failOn === 'decoderExists') throw new Error('decoder existence check failed');
+            expect(query).to.match(/TABLE_SCHEMA = \?/);
+            expect(args).to.deep.equal(['decoder_db']);
+            return decoderTableExists ? [{ 1: 1 }] : [];
+        }
+        if (failOn === 'decoder') throw new Error('decoder halt read failed');
         expect(query).to.match(/`decoder_db`\.sync_halt/);
         expect(args).to.deep.equal(['decoder']);
         return decoderHalt ? [{ id: 2 }] : [];
@@ -335,6 +342,16 @@ describe('Database tip-freshness gate', () => {
             stubQueries({ tableExists: true, activeHalt: false, decoderHalt: true });
             const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
             expect(data.replica_halted).to.have.property('RBTC', true);
+        });
+
+        it('does not read the decoder halt table when its existence probe finds no table', async () => {
+            markPooled('RBTC');
+            stubQueries({ tableExists: true, decoderTableExists: false });
+            const [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.replica_halted.RBTC).to.equal(null);
+            const decoderSql = db.doDecoderQuery.getCalls().map(call => call.args[1]);
+            expect(decoderSql.filter(query => /information_schema\.TABLES/.test(query))).to.have.length(1);
+            expect(decoderSql.filter(query => /`decoder_db`\.sync_halt/.test(query))).to.have.length(0);
         });
 
         it('reads false when the table was read successfully and holds no active halt', async () => {

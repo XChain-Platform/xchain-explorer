@@ -58,7 +58,7 @@ const ID_KEYED_METHODS = ['getSlashEvents','getCapabilitySlashEvents','getOracle
     'getValidatorCapabilities','getGovernanceProposals','getGovernanceVotes',
     'getPeers','getConsensusState','getConfigs','getTelemetryPings',
     'getEmissions','getAttestValidatorStats','getCapabilitySnapshots',
-    'getAnchorRewardAttestations','getReorgs','getSlashProposals'];
+    'getAnchorRewardAttestations','getReorgs','getSlashProposals','getValidatorRewards'];
 
 for(const method of ID_KEYED_METHODS)
     CURSOR_BY_METHOD[method] = 'm.id';

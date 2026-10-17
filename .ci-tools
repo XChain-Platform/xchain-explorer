@@ -16,3 +16,9 @@
 # (`CREATE TABLE contracts ...`) to sqlite.exec(), and the scan reads its
 # leading word as a binary. Same false positive as DELETE, same correction.
 -CREATE
+#
+# BEGIN and COMMIT are SQL: test/unit/db/query_sql/two_party_lanes_real_ddl.test.js
+# wraps its fixture inserts in sqlite.exec('BEGIN') and sqlite.exec('COMMIT'),
+# and the scan reads each as a binary. Same false positive, same correction.
+-BEGIN
+-COMMIT

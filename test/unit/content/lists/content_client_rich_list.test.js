@@ -53,19 +53,7 @@ const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../sr
 const MATH_SRC   = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/math.min.js'), 'utf8');
 const BC_SRC     = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/js/xchain/network_status.js'), 'utf8');
 
-function extractFn(src, name) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../helpers/source_slice');
 
 // isNull and isNumeric are the REAL ones: the unmeasured-percent verdict and
 // the supply-mismatch comparison are both expressed through them.
@@ -115,9 +103,10 @@ function loadPage(routes, tick = 'RARETOKEN') {
     if (scriptStart < 0) throw new Error("rich_list.html's inline ready block was not found");
     const inline = PAGE_HTML.slice(scriptStart, PAGE_HTML.lastIndexOf('</script>'));
 
-    const url = 'https://explorer.test/RDOGE/rich_list/' + encodeURIComponent(tick);
+    const url = 'https://explorer.test/RDOGE/rich_list' + (tick === null ? '' : '/' + encodeURIComponent(tick));
     const dom = new JSDOM('<!DOCTYPE html><body>' + bodyHtml + '</body>', { runScripts: 'outside-only', url });
     installHelpers(dom);
+    if (!tick) dom.window.XC.query = null;
     dom.window.setXChainParams('RDOGE');
     dom.window.eval('jQuery.fn.ready = function(fn){ fn(jQuery); return this; };');
 
@@ -262,6 +251,21 @@ describe('rich list and supply stats (M5.2)', function () {
         it('requests the rich list for the page tick', function () {
             const { seen } = loadPage({ '/RDOGE/api/rich_list/RARETOKEN': TRUNCATED });
             expect(seen).to.deep.equal(['/RDOGE/api/rich_list/RARETOKEN']);
+        });
+
+        it('makes no request and prompts for a token on a bare path', function () {
+            const { $, seen, window } = loadPage({}, null);
+            expect(seen).to.deep.equal([]);
+            expect(window.XC.query).to.equal(null);
+            expect($('.rich-list-prompt').text()).to.contain('Choose a token');
+            expect($('.rich-list-prompt a').attr('href')).to.equal('/RDOGE/tokens');
+            expect(window.XC.pageInfo.canonical).to.equal('/RDOGE/rich_list');
+        });
+
+        it('reads a trailing slash as a bare path too', function () {
+            const { seen, window } = loadPage({}, '');
+            expect(seen).to.deep.equal([]);
+            expect(window.XC.query).to.equal(null);
         });
 
         it('decodes a chain-valid fragment ticker before rebuilding rich-list URLs', function () {

@@ -52,33 +52,57 @@ const SRC = srcText('src/content/js/xchain.js');
 const ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..');
 const INDEXER_SCHEMA = loadIndexerSchema(ROOT, process.env);
 
-// Slice a top-level function out of the client source by walking braces.
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found in xchain.js: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
+const { extractFn: sliceFunction } = require('../../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
+
+// The top-level functions the shipped client text defines, and its string literals
+// (blanked before calls are parsed, so a '(' or ',' inside one cannot shift them).
+const DEFINED = new Set([...SRC.matchAll(/^function\s+([A-Za-z_$][\w$]*)\s*\(/gm)].map((m) => m[1]));
+const STRING_LITERAL = /'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g;
+
+// Split the argument list of the call whose '(' sits at `open` on its top-level commas.
+function callArguments(text, open) {
+    const args = [];
+    let depth = 0;
+    let start = open + 1;
+    for (let i = open; i < text.length; i++) {
+        const c = text[i];
+        if (c === '(' || c === '[' || c === '{') depth++;
+        else if (c === ',' && depth === 1) { args.push(text.slice(start, i).trim()); start = i + 1; }
+        else if ((c === ')' || c === ']' || c === '}') && --depth === 0) { args.push(text.slice(start, i).trim()); break; }
     }
-    return SRC.slice(start, i);
+    return args;
 }
 
-// Every `info.<field>` the shipped summary renderer reads, comments stripped so
-// a prose mention (the BROADCAST note about info.fee) is not counted as a read.
+// Every function body the summary reaches from getActionDetails by handing on `info`
+// itself, comments stripped so a prose mention (the BROADCAST note about info.fee)
+// is not counted as a read. A helper added later joins the scan without a list edit.
+function summaryBodies() {
+    const bodies = new Map();
+    const queue = ['getActionDetails'];
+    while (queue.length) {
+        const name = queue.shift();
+        if (bodies.has(name)) continue;
+        const body = extractFn(name).replace(/\/\/[^\n]*/g, '');
+        bodies.set(name, body);
+        const calls = body.replace(STRING_LITERAL, "''");
+        for (const m of calls.matchAll(/\b([A-Za-z_$][\w$]*)\s*\(/g))
+            if (DEFINED.has(m[1]) && callArguments(calls, m.index + m[0].length - 1).includes('info'))
+                queue.push(m[1]);
+    }
+    return bodies;
+}
+
+// The `info.<field>` names one body reads.
+function bodyReads(body) {
+    return new Set([...body.matchAll(/\binfo\.([a-zA-Z_][a-zA-Z0-9_]*)/g)].map((m) => m[1]));
+}
+
+// Every `info.<field>` the shipped summary renderer reads, across every reached body.
 function rendererFieldReads() {
-    const body = (extractFn('getActionDetails')
-        + extractFn('actionDetail_renderBasicActions')
-        + extractFn('actionDetail_renderMarketActions')
-        + extractFn('actionDetail_renderMessageActions')
-        + extractFn('actionDetail_renderContractActions')
-        + extractFn('actionDetail_renderConsensusActions')
-        + extractFn('actionDetail_renderSystemActions')).replace(/\/\/[^\n]*/g, '');
     const reads = new Set();
-    for (const m of body.matchAll(/\binfo\.([a-zA-Z_][a-zA-Z0-9_]*)/g)) reads.add(m[1]);
+    for (const body of summaryBodies().values())
+        for (const field of bodyReads(body)) reads.add(field);
     return reads;
 }
 
@@ -86,6 +110,40 @@ function rendererFieldReads() {
 // than the projection; the projection flattens sends[0] so these are covered
 // by the SEND special-case, not by the whitelist.
 const NESTED_ONLY = new Set(['sends']);
+
+// Fields attestBatchLabel reads when it is handed a raw attestation row, each with
+// the projected field it falls back to on a summary. The summary never carries the
+// raw names: ATTEST.afterMain copies a v6 chunk's batch_* pair onto chunk_index /
+// total_chunks, and action_format stands in for version.
+const SUMMARY_FALLBACKS = Object.freeze({
+    version:            'action_format',
+    batch_chunk_index:  'chunk_index',
+    batch_total_chunks: 'total_chunks'
+});
+
+// The shipped attestBatchLabel, run as the browser runs it.
+const attestBatchLabel = new Function(extractFn('attestBatchLabel') + '; return attestBatchLabel;')();
+
+// The compact summary one ATTEST row yields through the real getActionSummaryData
+// path, so ATTEST.afterMain runs before projectActionSummary as it does in service.
+async function attestSummaryDetails(row) {
+    const db = makeDb();
+    const base = Object.assign({}, GENERIC_ROW);
+    delete base.chunk_index; delete base.total_chunks; delete base.version;
+    let call = 0;
+    db.doQuery = async function(cfg, statement, args) {
+        call++;
+        if(call === 1) return [{ action: 'ATTEST' }];
+        if(/information_schema\.TABLES/i.test(statement))
+            return (args || []).map((name) => ({ TABLE_NAME: name }));
+        if(/information_schema\.COLUMNS/i.test(statement))
+            return (args || []).map((name) => ({ COLUMN_NAME: name }));
+        return [Object.assign({}, base, row)];
+    };
+    db.buildActionPreload = async () => null;
+    const rows = await db.getActionSummaryData(makeConfig({ coin: 'BTC' }), [{ action_index: 42, action: 'ATTEST' }]);
+    return rows[0].details;
+}
 
 function makeDb() {
     return new Database(mockExplorer);
@@ -118,7 +176,8 @@ describe('action summary field contract: projection vs getActionDetails', functi
     it('every field getActionDetails reads is in ACTION_SUMMARY_FIELDS', function () {
         const reads = rendererFieldReads();
         expect(reads.size).to.be.greaterThan(20); // the regex found the real body
-        const missing = [...reads].filter((f) => !NESTED_ONLY.has(f) && !Database.ACTION_SUMMARY_FIELDS.includes(f));
+        const missing = [...reads].filter((f) => !NESTED_ONLY.has(f) && !Object.hasOwn(SUMMARY_FALLBACKS, f)
+            && !Database.ACTION_SUMMARY_FIELDS.includes(f));
         expect(missing, 'getActionDetails reads fields the summary projection never carries').to.deep.equal([]);
     });
 
@@ -162,6 +221,54 @@ describe('action summary field contract: projection vs getActionDetails', functi
         const out = db.projectActionSummary({ action: 'ANCHOR', status: 'valid' });
         expect(out.details).to.equal(false);
         expect(out.status).to.equal('valid');
+    });
+});
+
+describe('action summary field contract: helpers reached from getActionDetails', function () {
+    it('the scan reaches every helper the summary hands info to', function () {
+        const reached = [...summaryBodies().keys()];
+        for (const name of ['actionDetail_renderBasicActions', 'actionDetail_renderMarketActions',
+            'actionDetail_renderMessageActions', 'actionDetail_renderContractActions',
+            'actionDetail_renderConsensusActions', 'actionDetail_renderSystemActions',
+            'actionDetail_renderStructureMarkers', 'actionDetail_legTotalLead',
+            'actionDetail_sleepSummary', 'attestBatchLabel'])
+            expect(reached, 'the summary scan no longer reaches ' + name).to.include(name);
+    });
+
+    // A helper that takes info under another name would read fields the scan cannot see.
+    it('every reached helper names its parameter info', function () {
+        for (const name of summaryBodies().keys()) {
+            const sig = SRC.match(new RegExp('function ' + name + '\\s*\\(([^)]*)\\)'));
+            expect(sig[1].split(',').map((p) => p.trim()), name).to.include('info');
+        }
+    });
+
+    it('every summary fallback is projected, still read, and read beside its target', function () {
+        const bodies = [...summaryBodies().values()].map(bodyReads);
+        for (const [field, target] of Object.entries(SUMMARY_FALLBACKS)) {
+            expect(Database.ACTION_SUMMARY_FIELDS, field + ' falls back to an unprojected field').to.include(target);
+            const readers = bodies.filter((reads) => reads.has(field));
+            expect(readers.length, field + ' is no longer read; drop its fallback entry').to.be.greaterThan(0);
+            for (const reads of readers)
+                expect(reads.has(target), field + ' is read without its fallback ' + target).to.equal(true);
+        }
+    });
+});
+
+describe('action summary field contract: ATTEST batch labels', function () {
+    it('a v6 continuation summary still labels its chunk through the afterMain alias', async function () {
+        const details = await attestSummaryDetails({ action: 'ATTEST', action_format: 6, version: 6,
+            request_id: 'batch-key', batch_chunk_index: 1, batch_total_chunks: 3, validator_signatures: null });
+        expect(details).to.not.have.any.keys('version', 'batch_chunk_index', 'batch_total_chunks');
+        expect(attestBatchLabel(details)).to.equal('Batch continuation (chunk 2 of 3)');
+    });
+
+    it('a v5 head summary still labels its window and response count', async function () {
+        const start = Date.UTC(2026, 9, 2, 10, 0) / 1000;
+        const details = await attestSummaryDetails({ action: 'ATTEST', action_format: 5, version: 5,
+            request_id: 'batch-key', batch_window_start: start, batch_window_end: start + 3600,
+            batch_row_count: 2, validator_signatures: null });
+        expect(attestBatchLabel(details)).to.equal('Batch 2026-10-02 10:00 to 2026-10-02 11:00 UTC (2 responses)');
     });
 });
 

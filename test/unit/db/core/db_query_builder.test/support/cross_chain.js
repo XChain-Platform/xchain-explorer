@@ -132,8 +132,8 @@ function registerCrossChainCases2() {
     });
 
     it('getBetFeeds type=source and type=address both filter the oracle address', async () => {
-        expect(await db.getQueryWhereSql(cfg('getBetFeeds', 'source'))).to.include('a2.address=?');
-        expect(await db.getQueryWhereSql(cfg('getBetFeeds', 'address'))).to.include('a2.address=?');
+        expect(await db.getQueryWhereSql(cfg('getBetFeeds', 'source'))).to.include('(a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
+        expect(await db.getQueryWhereSql(cfg('getBetFeeds', 'address'))).to.include('(a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
     });
 
     it('getBetFeeds type=block filters the creating block', async () => {
@@ -157,7 +157,7 @@ function registerCrossChainCases3() {
 
     it('getBets type=address filters the bettor (the tx source)', async () => {
         const sql = await db.getQueryWhereSql(cfg('getBets', 'address'));
-        expect(sql).to.include('a2.address=?');
+        expect(sql).to.include('(a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
     });
 
     it('getBets type=status filters the stored bet status', async () => {
@@ -173,7 +173,9 @@ function registerCrossChainCases3() {
 }
 
 describe('Database#getQueryWhereSql cross-chain + contract-delegation clauses', () => {
-    before(() => { db = makeQueryBuilderDb(); });
+    // The indexed source lane resolves its address id through doQuery; no
+    // database answers here, so every address resolves as unknown.
+    before(() => { db = makeQueryBuilderDb(); db.doQuery = async () => []; });
     registerCrossChainCases1();
     registerCrossChainCases2();
     registerCrossChainCases3();

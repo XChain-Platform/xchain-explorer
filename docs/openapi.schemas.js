@@ -106,9 +106,11 @@ const ROWS = [
     ['Link', 'getLinks', 'LINK action data',
         ACTION_HEAD + ' coin1:s coin1_action_index:d coin2:s coin2_action_index:d memo:s status:s ' + TX_TAIL],
     ['List', 'getLists', 'LIST action data',
-        ACTION_HEAD + ' type:s edit:s list_action_index:d memo:s status:s ' + TX_TAIL],
+        ACTION_HEAD + ' type:s edit:s list_action_index:d name:s description:s memo:s status:s ' + TX_TAIL,
+        { name: 'The list\'s current name from its latest valid metadata edit; absent on a replica without list metadata',
+          description: 'The list\'s current description from its latest valid metadata edit; absent on a replica without list metadata' }],
     ['SharedList', 'getSharedLists', 'A shared LIST available on this chain',
-        'kind:S home_chain:S home_list_index:i local_list_index:i type:i owner:s member_count:i share_block:i'
+        'kind:S home_chain:S home_list_index:i local_list_index:i type:i name:s owner:s member_count:i share_block:i'
             + ' share_action_index:i seq:i'],
     ['Message', 'getMessages', 'MESSAGE action data',
         ACTION_HEAD + ' destination:s encryption_method:s encryption_key:s encrypted_message:s plaintext_message:s'
@@ -526,7 +528,7 @@ const EXPLORER_STATUS = {
         },
         "decoder_health": {
             "type": "object",
-            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
             "additionalProperties": {
                 "type": "string"
             }
@@ -563,7 +565,7 @@ const HOLDER = listBody('HolderRow', {
 HOLDER.description = 'Token holder data';
 
 const COMPONENT_SCHEMAS = Object.assign(
-    Object.fromEntries(ROWS.map(([name, , description, spec, notes]) => [name, rowSchema(description, spec, notes)])),
+    Object.fromEntries(ROWS.map(([name, , description, spec, notes, extra]) => [name, rowSchema(description, spec, notes, extra)])),
     {
         ActionDetail: ACTION_DETAIL, AddressInfo: ADDRESS_INFO, Block: BLOCK, Contract: CONTRACT, ExplorerStatus: EXPLORER_STATUS,
         History: HISTORY, Holder: HOLDER, HolderRow: rowSchema('One holder of a token', 'address:s amount:s'),
@@ -588,11 +590,22 @@ const BODY_SCHEMAS = {
     getOrderbook: 'Orderbook', getStatus: 'ExplorerStatus', getToken: 'Token', getTransaction: 'Transaction',
 };
 
-// The typed 200 schema for a route calling `method`, or null for the generic one.
-function responseSchema(method) {
+// The next-page cursor a keyset-paged list carries beside total and data.
+const KEYSET_FIELDS = {
+    next_after: { type: 'string', pattern: '^[0-9]+$', description: 'On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page' },
+    next_before: { type: 'string', pattern: '^[0-9]+$', description: 'On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page' },
+};
+
+// The typed 200 schema for a route calling `method`, or null for the generic one;
+// `extra` adds body fields the caller knows the route carries (the keyset cursor).
+function responseSchema(method, extra) {
     if (BODY_SCHEMAS[method]) return { $ref: '#/components/schemas/' + BODY_SCHEMAS[method] };
-    if (ROW_SCHEMAS[method]) return listBody(ROW_SCHEMAS[method], LIST_EXTRAS[method]);
+    if (ROW_SCHEMAS[method]) return listBody(ROW_SCHEMAS[method], Object.assign({}, LIST_EXTRAS[method], extra));
     return null;
 }
 
-module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status', 'price_stale'] }, responseSchema };
+// db method -> columns its reader selects only when the replica carries their source table.
+const OPTIONAL_COLUMNS = { getLists: ['name', 'description'] };
+
+module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, KEYSET_FIELDS, OPTIONAL_COLUMNS,
+    POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status', 'price_stale'] }, responseSchema };

@@ -135,8 +135,9 @@ describe('Database#getIssues', () => {
         result = await db.getIssues(config);
     });
 
-    it('returns a 3-element array', () => {
-        expect(result).to.be.an('array').with.lengthOf(3);
+    it('returns the query triple and an ids-first page plan', () => {
+        expect(result).to.be.an('array').with.lengthOf(4);
+        expect(result[3].ids).to.match(/^SELECT m\.action_index as action_index FROM issues m /);
     });
 
     it('query references "issues" table with lock fields', () => {
@@ -174,6 +175,11 @@ describe('Database#getLinks', () => {
         const [, args, count] = result;
         expect(args).to.be.null;
         expect(count).to.include(WHERE_DATA);
+    });
+
+    it('binds the token once for each LINK coin leg', async () => {
+        const [, args] = await db.getLinks(makeActionConfig('getLinks', 'token'));
+        expect(args).to.deep.equal([SEARCH_ADDR, SEARCH_ADDR]);
     });
 });
 

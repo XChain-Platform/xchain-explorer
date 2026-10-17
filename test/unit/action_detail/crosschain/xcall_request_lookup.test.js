@@ -26,18 +26,8 @@ try { sqlite = require('node:sqlite'); } catch (e) { sqlite = null; }
 const ROOT = path.resolve(__dirname, '../../../..');
 const CLIENT_SRC = srcText('src/content/js/xchain.js');
 
-function extractFn(name) {
-    const start = CLIENT_SRC.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found: ' + name);
-    const braceStart = CLIENT_SRC.indexOf('{', start);
-    let depth = 0;
-    let end = braceStart;
-    for(; end < CLIENT_SRC.length; end++) {
-        if(CLIENT_SRC[end] === '{') depth++;
-        else if(CLIENT_SRC[end] === '}' && --depth === 0) return CLIENT_SRC.slice(start, end + 1);
-    }
-    throw new Error('unterminated function: ' + name);
-}
+const { extractFn: sliceFunction } = require('../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(CLIENT_SRC, name);
 
 function renderCallbackLink(data) {
     const dom = new JSDOM(`<!DOCTYPE html><body><div id="info-xcall"><table>

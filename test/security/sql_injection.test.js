@@ -127,14 +127,14 @@ function registerSortOrderTests() {
                 query: { sortorder: 'ASC; DROP TABLE users--' }
             }
         });
-        // getQuery validates sortorder against whitelist
-        const [query, args, count] = await db.getQuery(config);
-        // Should default to DESC since injection payload doesn't match whitelist
-        expect(config.data.sql.order).to.equal('DESC');
+        // getQuery validates sortorder against the asc/desc whitelist.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('INVALID_SORTORDER');
     });
 
     it('only accepts ASC or DESC for sortorder', async () => {
-        for (const invalid of ['ASCENDING', 'desc--', 'ASC OR 1=1', '']) {
+        for (const invalid of ['ASCENDING', 'desc--', 'ASC OR 1=1']) {
             const config = makeConfig({
                 data: {
                     method: 'getAddresses',
@@ -143,12 +143,23 @@ function registerSortOrderTests() {
                     query: { sortorder: invalid }
                 }
             });
-            await db.getQuery(config);
-            expect(['ASC', 'DESC']).to.include(config.data.sql.order);
+            const err = await db.getQuery(config).then(() => null, (e) => e);
+            expect(err && err.code, invalid).to.equal('INVALID_SORTORDER');
         }
+        // An empty value means no order was asked for, so the default applies.
+        const blank = makeConfig({
+            data: {
+                method: 'getAddresses',
+                search: 'test',
+                type: 'address',
+                query: { sortorder: '' }
+            }
+        });
+        await db.getQuery(blank);
+        expect(blank.data.sql.order).to.equal('DESC');
     });
 
-    it('clamps limit to safe numeric range (blocks negative values)', async () => {
+    it('refuses a negative limit before any SQL', async () => {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -157,8 +168,10 @@ function registerSortOrderTests() {
                 query: { limit: '-1' }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.limit).to.be.at.least(1);
+        // A limit below 1 is refused rather than raised to 1.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('INVALID_LIMIT');
     });
 
 }
@@ -178,7 +191,7 @@ function registerLimitTests() {
         expect(config.data.sql.limit).to.be.at.most(100);
     });
 
-    it('handles non-numeric limit gracefully', async () => {
+    it('refuses a non-numeric limit before any SQL', async () => {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -187,10 +200,10 @@ function registerLimitTests() {
                 query: { limit: 'DROP TABLE' }
             }
         });
-        await db.getQuery(config);
-        // Should default to max since NaN fails isInteger
-        expect(config.data.sql.limit).to.be.a('number');
-        expect(Number.isFinite(config.data.sql.limit)).to.be.true;
+        // A non-integer never reaches LIMIT.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('INVALID_LIMIT');
     });
 }
 
@@ -208,7 +221,9 @@ describe('Security: SQL Injection: WHERE clause parameterization', function () {
             }
         });
         const sql = await db.getQueryWhereSql(config);
-        expect(sql).to.include('a2.address=?');
+        // getAddresses takes the indexed source lane: the address is resolved
+        // to an id through a bound lookup and both predicates bind that id.
+        expect(sql).to.include('(a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
         expect(sql).to.not.include('DROP');
     });
 

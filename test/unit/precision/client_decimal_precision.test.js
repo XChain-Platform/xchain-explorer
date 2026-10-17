@@ -12,18 +12,7 @@ const NUMERAL = fs.readFileSync(path.join(JS_DIR, 'numeral.js'), 'utf8');
 const FORMATTERS = fs.readFileSync(path.join(JS_DIR, 'formatters.js'), 'utf8');
 const NETWORK_STATUS = fs.readFileSync(path.join(JS_DIR, 'xchain/network_status.js'), 'utf8');
 
-function extractFn(src, name){
-    const start = src.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0;
-    let end = braceStart;
-    for(; end < src.length; end++){
-        if(src[end] === '{') depth++;
-        if(src[end] === '}' && --depth === 0){ end++; break; }
-    }
-    return src.slice(start, end);
-}
+const { extractFn } = require('../../helpers/source_slice');
 
 function mathWindow(){
     const dom = new JSDOM('<!doctype html><body></body>', { runScripts: 'outside-only' });

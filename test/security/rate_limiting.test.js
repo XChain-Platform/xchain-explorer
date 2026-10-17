@@ -124,7 +124,9 @@ describe('Security: Rate Limiting: static-asset exemption', function () {
         // constructed here, so this pins the wiring the unit tests above cannot see.
         expect(apiSource).to.include("require('./http/static_mounts.js')");
         expect(apiSource).to.include('const isStaticAsset = staticMounts.isStaticAsset');
-        expect(apiSource).to.match(/skip:\s*isStaticAsset,[\s\S]*skip:\s*isStaticAsset,/);
+        // Both guards skip the image exemption first; the app-wide limiter and the
+        // concurrency gate also skip file mounts, which the static bucket limits.
+        expect(apiSource).to.match(/skip:\s*\(req\) => isStaticAsset\(req\) \|\| isFileMount\(req\),[\s\S]*skip:\s*\(req\) => isStaticAsset\(req\) \|\| !isFileMount\(req\),[\s\S]*skip:\s*\(req\) => isStaticAsset\(req\) \|\| isFileMount\(req\),/);
         expect(apiSource).to.not.match(/png\|jpg\|jpeg/);
         // One list: the express.static mounts read the same array the predicate does,
         // so a directory added to the explorer can never be silently rate-limited.
@@ -330,6 +332,6 @@ describe('Security: Rate Limiting: CORS configuration', function () {
     });
 
     it('allows only GET and POST methods', function () {
-        expect(apiSource).to.include("methods: ['GET', 'POST']");
+        expect(apiSource).to.match(/methods:\s*\['GET', 'POST'\]/);
     });
 });

@@ -24,6 +24,7 @@
 const { expect, cfg } = require('../../db_query_builder.test.js');
 
 const { makeQueryBuilderDb } = require('./helpers.js');
+const { TWO_PARTY_ADDRESS_SQL } = require('../../../../../../src/db/query_sql/where_source_lanes.js');
 
 let db;
 
@@ -75,8 +76,13 @@ function registerWhereSqlCases1() {
         expect(sql).to.equal('m.id IS NOT NULL');
     });
 
-    it('type=address on a standard method: appends AND a2.address=?', async () => {
+    it('type=address on an action-source method: appends the indexed source predicate', async () => {
         const sql = await db.getQueryWhereSql(cfg('getIssues', 'address'));
+        expect(sql).to.equal('m.action_index IS NOT NULL AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
+    });
+
+    it('type=address on an owner-keyed method: appends AND a2.address=?', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getStakes', 'address'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND a2.address=?');
     });
 
@@ -84,43 +90,48 @@ function registerWhereSqlCases1() {
 
 function registerWhereSqlCases2() {
 
-    it('type=address on getMessages: appends dual-address OR clause', async () => {
+    it('type=address on getMessages: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMessages', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getMessages);
     });
 
-    it('type=address on getMints: appends dual-address OR clause', async () => {
+    it('type=address on getMints: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getMints', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getMints);
     });
 
-    it('type=address on getOrders: appends dual-address OR clause', async () => {
+    it('type=address on getOrders: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getOrders', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getOrders);
     });
 
-    it('type=address on getSends: appends dual-address OR clause', async () => {
+    it('type=address on getSends: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getSends', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getSends);
     });
 
-    it('type=address on getSweeps: appends dual-address OR clause', async () => {
+    it('type=address on getSweeps: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getSweeps', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getSweeps);
     });
 
-    it('type=address on getDispensers: appends dual-address OR clause', async () => {
+    it('type=address on getDispensers: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispensers', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getDispensers);
     });
 
-    it('type=address on getDispenses: appends dual-address OR clause', async () => {
+    it('type=address on getDispenses: appends the two-party id-set clause', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispenses', 'address'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND (a2.address=? OR a3.address=?)');
+        expect(sql).to.equal('m.action_index IS NOT NULL' + TWO_PARTY_ADDRESS_SQL.getDispenses);
     });
 
-    it('type=block on a standard method: appends AND b1.block_index=?', async () => {
+    it('type=block on a method whose blocks join is the action block: appends AND a1.block_index=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getIssues', 'block'));
+        expect(sql).to.equal('m.action_index IS NOT NULL AND a1.block_index=?');
+    });
+
+    it('type=block on a method whose blocks join is the transaction block: appends AND b1.block_index=?', async () => {
+        const sql = await db.getQueryWhereSql(cfg('getSleeps', 'block'));
         expect(sql).to.equal('m.action_index IS NOT NULL AND b1.block_index=?');
     });
 
@@ -130,9 +141,9 @@ function registerWhereSqlCases2() {
         expect(sql).to.equal('b1.block_index IS NOT NULL');
     });
 
-    it('type=source on a standard method: appends AND a2.address=?', async () => {
+    it('type=source on an action-source method: appends the indexed source predicate', async () => {
         const sql = await db.getQueryWhereSql(cfg('getDispensers', 'source'));
-        expect(sql).to.equal('m.action_index IS NOT NULL AND a2.address=?');
+        expect(sql).to.equal('m.action_index IS NOT NULL AND (a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
     });
 
 }
@@ -246,9 +257,9 @@ function registerWhereSqlCases4() {
     // The block and untyped feeds anchor on a1, not m: getHistoryData drives them
     // off `actions` directly, because mappings_actions carries no row for an action
     // that moved no ledger entry (see db.history-unmapped-actions.test.js).
-    it('getHistory + type=block: anchors on a1 and appends AND b1.block_index=?', async () => {
+    it('getHistory + type=block: anchors on a1 and appends AND a1.block_index=?', async () => {
         const sql = await db.getQueryWhereSql(cfg('getHistory', 'block'));
-        expect(sql).to.equal('a1.action_index IS NOT NULL AND b1.block_index=?');
+        expect(sql).to.equal('a1.action_index IS NOT NULL AND a1.block_index=?');
     });
 
     it('getHistory + no type: returns base a1.action_index IS NOT NULL only', async () => {
@@ -268,7 +279,9 @@ function registerWhereSqlCases5() {
 }
 
 describe('Database#getQueryWhereSql', () => {
-    before(() => { db = makeQueryBuilderDb(); });
+    // The indexed source lane resolves its address id through doQuery; no
+    // database answers here, so every address resolves as unknown.
+    before(() => { db = makeQueryBuilderDb(); db.doQuery = async () => []; });
     registerWhereSqlCases1();
     registerWhereSqlCases2();
     registerWhereSqlCases3();

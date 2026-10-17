@@ -43,21 +43,8 @@ const CLIENT_SRC  = require('../../../../helpers/content-source.js').clientSourc
 const JQUERY  = path.join(CONTENT, 'js', 'jquery.min.js');
 const PAGE    = fs.readFileSync(path.join(CONTENT, 'html', 'action.html'), 'utf8');
 
-// Slice a top-level function out of the page's inline script by walking braces,
-// the same technique the sibling content-client tests use against xchain.js.
-function extractFn(name){
-    const sig = 'function ' + name + '(';
-    const start = PAGE.indexOf(sig);
-    if(start < 0) throw new Error('function not found in action.html: ' + name);
-    const braceStart = PAGE.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for(; i < PAGE.length; i++){
-        const c = PAGE[i];
-        if(c === '{') depth++;
-        else if(c === '}'){ depth--; if(depth === 0){ i++; break; } }
-    }
-    return PAGE.slice(start, i);
-}
+const { extractFn: sliceFunction } = require('../../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(PAGE, name, 'action.html');
 
 // checkpointed=true  -> the range probe lists one checkpoint, a proof is available
 // checkpointed=false -> it lists none (still a 200), which is what roughly five blocks in six do

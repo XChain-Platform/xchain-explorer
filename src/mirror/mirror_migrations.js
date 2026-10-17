@@ -199,6 +199,9 @@ const MIRROR_MIGRATIONS = {
     remote_token_snapshots: {
         columns: [
             { name: 'finalizing_view', ddl: 'ADD COLUMN finalizing_view INT NOT NULL DEFAULT 0' },
+            { name: 'admit_block_btc',  ddl: 'ADD COLUMN admit_block_btc BIGINT UNSIGNED DEFAULT NULL', restamp: true },
+            { name: 'admit_block_ltc',  ddl: 'ADD COLUMN admit_block_ltc BIGINT UNSIGNED DEFAULT NULL', restamp: true },
+            { name: 'admit_block_doge', ddl: 'ADD COLUMN admit_block_doge BIGINT UNSIGNED DEFAULT NULL', restamp: true },
             { name: 'btc_chain_id', ddl: 'ADD COLUMN btc_chain_id CHAR(64) NULL' }
         ],
         indexes: []

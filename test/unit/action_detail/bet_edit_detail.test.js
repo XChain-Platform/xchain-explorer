@@ -25,22 +25,14 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SCRIPT = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_bet_stake.js'), 'utf8');
 const CORE = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_core.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(ROOT, 'src/content/html/action.html'), 'utf8');
-const BET_REVEAL = ACTION_HTML.match(/const detailBetShow = showBetDetails;\s*showBetDetails = function\(data\)\{[\s\S]*?\n\};/)[0];
+// The wrap sits inside a ready callback (detail_bet_stake.js is deferred), so it is indented.
+const BET_REVEAL = ACTION_HTML.match(/const detailBetShow = showBetDetails;\s*showBetDetails = function\(data\)\{[\s\S]*?\n\s*\};/)[0];
 const JQUERY = fs.readFileSync(path.join(ROOT, 'src/content/js/jquery.min.js'), 'utf8');
 const LAYOUT = require('../../../src/content/layouts/action-detail-cards.json');
 const util = { isNull: value => value === null || value === undefined };
 
-function extractFn(name, source = SCRIPT){
-    const start = source.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found: ' + name);
-    const brace = source.indexOf('{', start);
-    let depth = 0;
-    for(let i = brace; i < source.length; i++){
-        if(source[i] === '{') depth++;
-        if(source[i] === '}' && --depth === 0) return source.slice(start, i + 1);
-    }
-    throw new Error('function not terminated: ' + name);
-}
+const { extractFn: sliceFunction } = require('../../helpers/source_slice');
+const extractFn = (name, source = SCRIPT) => sliceFunction(source, name);
 
 function panelHtml(){
     const start = ACTION_HTML.indexOf('<div class="d-none" id="info-bet">');

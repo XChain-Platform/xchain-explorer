@@ -27,6 +27,8 @@
 
 'use strict';
 
+const { ORDER_MATCH_HOLDING_STATUSES } = require('../../shared.js');
+
 // The ORDER row the detail page reads: the order joined to its LATEST status
 // transition, which is what makes it read as open, filled or cancelled. Hoisted out
 // of the method because it binds nothing but the action_index the caller passes.
@@ -51,8 +53,8 @@ const ORDER_INFO_QUERY = `SELECT
                     FROM 
                         orders o1
                         INNER JOIN actions         a1 ON (a1.action_index=o1.action_index)
-                        INNER JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN blocks          b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks          b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions    t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         INNER JOIN index_addresses a3 ON (a3.id=o1.get_address_id)
                         -- LEFT, not INNER: an order against the native coin carries a NULL
@@ -186,16 +188,16 @@ class OrderReaders {
                     INNER JOIN index_statuses s ON (s.id=m.status_id)
                 WHERE
                     (m.give_action_index=? OR m.get_action_index=?) AND
-                    s.status=?
+                    s.status IN (` + ORDER_MATCH_HOLDING_STATUSES.map(() => '?').join(',') + `)
                 ORDER BY action_index ASC`;
-        args = [action_index, action_index, 'valid'];
+        args = [action_index, action_index, ...ORDER_MATCH_HOLDING_STATUSES];
         results = await this.doQuery(config, query, args);
         if(results.length > 0){
             for(let row of results){
                 let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
                 let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
-                give_remaining  = this.util.bcsub(give_remaining, give_amount);
-                get_remaining   = this.util.bcsub(get_remaining,  get_amount);
+                give_remaining  = this.util.bcsub(give_remaining, give_amount, 64);
+                get_remaining   = this.util.bcsub(get_remaining,  get_amount, 64);
             }
         }
         return [give_remaining, get_remaining];

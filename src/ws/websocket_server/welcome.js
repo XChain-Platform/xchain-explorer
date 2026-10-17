@@ -62,6 +62,8 @@ function schemaBlock(server) {
         limits: {
             max_subscriptions:      server.channelManager.maxSubscriptions,
             max_message_rate:       server.maxMsgPerSec,
+            // Additive: how many messages may arrive at once before the rate applies.
+            max_message_burst:      server.messageBurst(),
             max_message_size:       server.maxMessageSize,
             max_connections_per_ip: server.maxPerIp
         },
@@ -89,6 +91,24 @@ function schemaBlock(server) {
     };
 }
 
+// The action_index a client may resume from: the live detector's mark for the coin,
+// seeding the coin first if its first poll has not recorded one, or null when this
+// server has no detector polling the coin. The DB tip is NOT that position: rows above
+// the mark are committed but not yet sent live, so a client that seeded its cursor
+// from the tip and dropped before the next poll would resume past rows it never got.
+async function liveResumeMark(server, coin) {
+    const detector = server.broadcaster && server.broadcaster.changeDetector;
+    if (!detector || typeof detector.liveActionMark !== 'function') return null;
+    if (typeof detector.ensureSeeded === 'function') {
+        try {
+            await detector.ensureSeeded(coin);
+        } catch (e) {
+            // The fallback below serves the DB tip, as a server with no detector does.
+        }
+    }
+    return detector.liveActionMark(coin);
+}
+
 class WebSocketWelcome {
 
     // Send WELCOME message with server info
@@ -100,7 +120,11 @@ class WebSocketWelcome {
             const db     = this.explorer.db;
             const config = { coin: client.coin };
             latestBlockIndex  = await db.getMaxBlockIndex(config) || 0;
-            latestActionIndex = await db.getMaxActionIndex(config) || 0;
+            // latest_action_index is the position live delivery resumes from (the
+            // detector's mark), so a client that seeds its cursor from it misses
+            // nothing; the DB tip stands in only where no detector polls the coin.
+            const mark        = await liveResumeMark(this, client.coin);
+            latestActionIndex = (mark !== null) ? mark : (await db.getMaxActionIndex(config) || 0);
         } catch (e) {
             // Non-fatal: send WELCOME with zeros
         }
@@ -116,11 +140,15 @@ class WebSocketWelcome {
         // handleCatchUp and sendSnapshots.
         const tipStale = await this.isCoinTipStale(client.coin);
 
+        // The marker rides the envelope, where every other frame carries it, so one
+        // `msg.stale` check covers the handshake too; `data.stale` stays beside the
+        // tip indices it qualifies for consumers that already read it there.
         const welcome = {
             type:      'WELCOME',
             chain:     client.chain,
             network:   client.network,
             timestamp: Date.now(),
+            ...(tipStale ? { stale: true } : {}),
             data: {
                 ...tipBlock(this, latestBlockIndex, latestActionIndex, tipStale),
                 ...schemaBlock(this)

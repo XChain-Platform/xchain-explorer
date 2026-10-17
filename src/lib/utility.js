@@ -27,6 +27,11 @@ const crypto = require('crypto');
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+// MAX_TOKEN_SUPPLY is 1e21 with up to 18 token decimals. An exponent bound of
+// 64 covers that fixed representation and the wider market prices the explorer
+// serves while keeping exponent-driven zero padding inside a fixed allocation.
+const PLAIN_DECIMAL_MAX_EXPONENT = 64;
+
 class Utility {
 
     constructor(configInfo){
@@ -148,6 +153,29 @@ class Utility {
     bcformat(num, decimals){
         let d = (!this.isNull(decimals)) ? parseInt(decimals) : 0;
         return mathjs.format(this.bcnum(num),{notation: 'fixed', precision: d});
+    }
+
+    // An amount or price in fixed decimal notation, the form jsonStringify gives a
+    // BigNumber. The indexer writes some text columns (market prices and volumes,
+    // token supply) in exponent notation ('2e-10', '1e+24'), and a string passes
+    // the serializer untouched, so a reader applies this per amount field. Only a
+    // value written in exponent notation is rewritten, exactly (a Decimal parsed
+    // from a string keeps every digit); null, plain decimals and any non-numeric
+    // text come back as they were.
+    plainDecimal(value){
+        if(this.isNull(value) || typeof value === 'bigint') return value;
+        let s = String(value).trim();
+        if(!/^[+-]?(\d+\.?\d*|\.\d+)e[+-]?\d+$/i.test(s)) return value;
+        let exponentDigits = s.slice(s.search(/e/i) + 1).replace(/^[+-]?0*/, '');
+        if(exponentDigits.length > String(PLAIN_DECIMAL_MAX_EXPONENT).length ||
+           (exponentDigits.length === String(PLAIN_DECIMAL_MAX_EXPONENT).length &&
+            exponentDigits > String(PLAIN_DECIMAL_MAX_EXPONENT)))
+            return value;
+        try {
+            return mathjs.format(mathjs.bignumber(s), {notation: 'fixed'});
+        } catch(e){
+            return value;
+        }
     }
 
     // The four arithmetic helpers below share one contract: a null or empty

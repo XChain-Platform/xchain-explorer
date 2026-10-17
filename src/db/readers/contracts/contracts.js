@@ -33,6 +33,10 @@
 const crypto  = require('crypto');
 const { extractMethods } = require('../../../contract/introspect.js');
 const { attachOwnerWithdraw, resolveContractNetwork } = require('../../../contract/owner_withdraw.js');
+const { indexPresent } = require('../../schema_probe.js');
+
+// The columns the name lane's MATCH names; the FULLTEXT index must cover exactly these.
+const CONTRACT_FT_COLUMNS = ['meta_name', 'meta_description'];
 
 // The columns and joins one contract's detail page reads. Hoisted out of the
 // reader so the read is legible as a shape rather than as mostly SQL; the caller
@@ -167,12 +171,17 @@ class ContractDetailReaders {
     // operators, so an unsanitized term is a query-syntax injection into the search
     // itself. A term left with nothing to match after sanitizing returns the empty
     // page rather than a MATCH that would match everything.
+    //
+    // A replica without the meta_search FULLTEXT index answers the empty page too,
+    // the same contract the site search keeps: MATCH there is error 1191, and no
+    // B-tree index on meta_name exists to serve a prefix match in its place.
     async getContracts(config){
         let sql   = config.data.sql;
         let args  = null;
         if(config.data.type=='name'){
             let term = this.fulltextTerm(config.data.search);
-            if(term === '') return [[], null, 0];
+            if(term === '' || !(await indexPresent(this, config, 'contracts', CONTRACT_FT_COLUMNS, true)))
+                return [[], null, 0];
             args = [term];
         }
         let count = `SELECT

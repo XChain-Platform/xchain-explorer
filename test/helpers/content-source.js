@@ -24,6 +24,9 @@
  * Both are answered here rather than in each suite, because the alternative -
  * every suite knowing which of two files a helper ended up in, and which of two
  * places a page comes from - is exactly the knowledge that goes stale.
+ *
+ * Slice a function out of that source with test/helpers/source_slice.js,
+ * re-exported here, rather than a per-suite brace walker.
  */
 
 'use strict';
@@ -38,6 +41,7 @@ const JS_DIR   = path.join(ROOT, 'src', 'content', 'js');
 const listPage     = require(path.join(ROOT, 'src', 'render', 'list_page.js'));
 const componentTpl = require(path.join(ROOT, 'src', 'render', 'component_templates.js'));
 const { srcText }  = require('./source_text');
+const { extractBlock, extractFn } = require('./source_slice');
 
 /**
  * network_coin.js, which the page loads ahead of formatters.js: every
@@ -152,5 +156,5 @@ function loadComponents(only){
 
 module.exports = {
     clientSource, formatterSource, networkCoinSource, pageSource, pageActions, isComposed, pageExists,
-    shellSource, loadComponents, HTML_DIR, JS_DIR, ROOT
+    shellSource, loadComponents, extractBlock, extractFn, HTML_DIR, JS_DIR, ROOT
 };

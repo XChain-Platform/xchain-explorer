@@ -63,20 +63,20 @@ async function runHandler(handler, data, { query2Rows = [], query3Rows = [] } = 
 
 describe('terminal offer state is consistent across ORDER, SWAP and DISPENSER', () => {
     describe('the shared whitelist', () => {
-        it('treats complete, cancelled and expired as terminal', () => {
+        it('treats every offer closing status as terminal', () => {
             expect([...shared.TERMINAL_OFFER_STATUSES].sort())
-                .to.deep.equal(['cancelled', 'complete', 'expired']);
+                .to.deep.equal(['cancelled', 'complete', 'empty', 'expired', 'max_dispenses_reached']);
         });
 
-        // A dispenser's 'empty' is terminal but deliberately absent: its escrow
-        // derivation already reaches 0 when it drained, so adding it would change
-        // nothing observable, and a drained dispenser reporting residual escrow is
-        // an anomaly to surface rather than to zero away.
-        it('deliberately excludes a drained dispenser\'s empty', () => {
-            expect([...shared.TERMINAL_OFFER_STATUSES]).to.not.include('empty');
-            const data = { state: { status: 'empty', give_remaining: '7', get_remaining: '3' } };
+        // The indexer closes a dispenser as empty once it can no longer pay a whole
+        // GIVE_AMOUNT and refunds what is left, so create + refills - payouts can
+        // leave dust (0.00000001 on the regtest dex scenario) the dispenser no
+        // longer holds. A drained dispenser shows 0 remaining.
+        it('zeroes a drained dispenser\'s refunded residue', () => {
+            expect([...shared.TERMINAL_OFFER_STATUSES]).to.include('empty');
+            const data = { state: { status: 'empty', give_remaining: '0.00000001' } };
             shared.applyTerminalOfferState(data);
-            expect(data.state.give_remaining).to.equal('7');
+            expect(data.state.give_remaining).to.equal('0');
         });
 
         it('does NOT treat in-flight states as terminal', () => {
@@ -132,6 +132,20 @@ describe('terminal offer state is consistent across ORDER, SWAP and DISPENSER', 
             // A bare `afterMain: shared.applyOfferState` reference is the pre-fix
             // shape and cannot zero anything; the fix wraps it.
             expect(handler.afterMain).to.not.equal(shared.applyOfferState);
+        });
+
+        it('zeroes a max_dispenses_reached detail payload', async () => {
+            const data = {
+                action_index: 48, give_amount: '10', get_amount: '1',
+                current_status: 'max_dispenses_reached'
+            };
+            const db = {
+                getDispenserEscrowBatch: async () => ({ '48': { escrow_remaining: '120' } }),
+                getDispenserPriceStaleBatch: async () => ({})
+            };
+            await dispensers.DISPENSER.afterMain({ db, config: {}, action_index: 48, type: 'DISPENSER' }, data);
+            expect(data.state.status).to.equal('max_dispenses_reached');
+            expect(data.state.give_remaining).to.equal('0');
         });
     });
 

@@ -71,6 +71,7 @@ function subscribe(s, client, channels, params, id) {
 describe('catch-up replay routes like the live fan-out', function () {
     afterEach(() => sinon.restore());
 
+    // NEW_BLOCK is named in not_replayed because the request names the blocks channel.
     it('a blocks/network subscribe replays no NEW_ACTION and reads nothing', async function () {
         const db = mkDb();
         const { s } = setup(db);
@@ -83,7 +84,7 @@ describe('catch-up replay routes like the live fan-out', function () {
         const complete = frames(client, 'CATCH_UP_COMPLETE');
         expect(complete).to.have.lengthOf(1);
         expect(complete[0].data).to.deep.equal({ events_replayed: 0, latest_action_index: '0', truncated: false,
-            not_replayed: ['BET_CLOSED', 'XCALL_COMPLETED', 'XCALL_EXPIRED'] });
+            not_replayed: ['BET_CLOSED', 'XCALL_COMPLETED', 'XCALL_EXPIRED', 'NEW_BLOCK'] });
         expect(complete[0].id).to.equal('r1');
         expect(db.getActionsSince.called).to.equal(false);
         expect(client.catchUpInProgress).to.equal(false);

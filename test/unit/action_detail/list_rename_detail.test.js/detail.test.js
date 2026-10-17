@@ -10,6 +10,7 @@
 const assert = require('assert');
 const listReaders = require('../../../../src/db/readers/action_detail_io/lists.js');
 const blockReaders = require('../../../../src/db/readers/entities/blocks.js');
+const cacheMethods = require('../../../../src/db/connection/cache.js');
 const networkReaders = require('../../../../src/db/readers/entities/network.js');
 const queryOffsets = require('../../../../src/db/query_sql/offsets.js');
 const { ACTION_TABLES, buildListsQuery } = require('../../../../src/db/method_tables.js');
@@ -132,10 +133,24 @@ describe('LIST format 5 detached reads', function(){
     });
 });
 
+// A block reader carrying the cache part getBlocks keys its per-block counts through.
+function blockReader(){
+    const reader = Object.create(blockReaders);
+    for(const name of ['cacheKey', 'cacheGet', 'cacheSet', 'resultCacheGeneration'])
+        reader[name] = cacheMethods[name];
+    reader.util = util;
+    reader.configInfo = { env: {} };
+    reader._reorgGen = {};
+    reader._tipMemo = {};
+    reader._blockCountsCache = new Map();
+    reader._blockCountsCacheMax = 10;
+    reader.actionTables = ['lists'];
+    return reader;
+}
+
 describe('LIST format 5 block totals', function(){
     it('counts one format 4 lists row and one format 5 metadata row as two actions', async function(){
-        const reader = Object.create(blockReaders);
-        reader.actionTables = ['lists'];
+        const reader = blockReader();
         reader.doQuery = async (cfg, sql) => {
             sql = String(sql);
             if(sql.includes('count(*) as total')) return [{ total: 1 }];
@@ -160,8 +175,7 @@ describe('LIST format 5 block totals', function(){
     });
 
     it('treats a missing metadata table as zero renames', async function(){
-        const reader = Object.create(blockReaders);
-        reader.actionTables = ['lists'];
+        const reader = blockReader();
         reader.doQuery = async (cfg, sql) => {
             sql = String(sql);
             if(sql.includes('count(*) as total')) return [{ total: 1 }];

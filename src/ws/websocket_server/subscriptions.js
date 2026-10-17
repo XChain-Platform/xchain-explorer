@@ -50,8 +50,19 @@ const ACTION_HANDLERS = new Map([
     ['list_subscriptions', (server, client, msg) => { server.handleListSubscriptions(client, msg); }]
 ]);
 
+// The most messages a connection may send at once before the sustained rate applies:
+// one full resubscribe (every subscription it may hold, plus a catch-up and a ping),
+// and never less than one second's worth. A reconnecting client sends its whole
+// subscription list in one tick, and a client older than the RATE_LIMITED request id
+// reads a refusal of its catch-up subscribe as final, so a bucket that held only the
+// per-second rate made every client with more than that many subscriptions lose part
+// of its feed on each reconnect.
+function messageBurst(server) {
+    return Math.max(server.maxMsgPerSec, server.channelManager.maxSubscriptions + 2);
+}
+
 // Charges one message to the client's bucket and answers whether it is now over
-// the server's per-second rate.
+// the server's burst allowance, the bucket draining at the per-second rate.
 function overRateLimit(server, client) {
     // Rate limiting: sliding window via continuous decay (leaky bucket).
     // The count drains at maxMsgPerSec per second instead of resetting on a
@@ -64,7 +75,7 @@ function overRateLimit(server, client) {
         client.msgLastRefill = now;
     }
     client.msgCount++;
-    return client.msgCount > server.maxMsgPerSec;
+    return client.msgCount > messageBurst(server);
 }
 
 // The filter names a subscribe request sent that no event this server produces
@@ -144,21 +155,54 @@ function requestSnapshots(server, client, result, prevKeys, msg) {
     }
 }
 
+// Freezes each newly live key's replay ceiling at the live detector's mark, so a replay
+// for that key never reads a row the live feed also sends it. A key the client already
+// held keeps its first ceiling; null means the coin was unseeded (catch_up.js resolves it).
+function freezeReplayCeilings(server, client, prevKeys) {
+    const detector = server.broadcaster && server.broadcaster.changeDetector;
+    if (!detector || typeof detector.liveActionMark !== 'function') return;
+    const mark = detector.liveActionMark(client.coin);
+    if (!client.replayCeilings) client.replayCeilings = new Map();
+    for (const key of client.replayCeilings.keys()) {
+        if (!client.subscriptions.has(key)) client.replayCeilings.delete(key);
+    }
+    for (const key of client.subscriptions) {
+        if (!prevKeys.has(key)) client.replayCeilings.set(key, mark);
+    }
+}
+
 class WebSocketSubscriptions {
+
+    // The burst allowance this server enforces, which WELCOME advertises (welcome.js).
+    messageBurst() {
+        return messageBurst(this);
+    }
 
     // Handle incoming client message
     onMessage(client, data) {
         client.lastActivity = Date.now();
 
-        if (overRateLimit(this, client)) {
-            this.sendError(client, 'RATE_LIMITED', 'Too many messages (max ' + this.maxMsgPerSec + '/sec)');
-            return;
-        }
-
+        // Parsed before the rate check so a refusal can name the request it drops: the
+        // frame is already capped at maxMessageSize, so the parse costs no more for a
+        // client over its rate than for one under it. The message is still charged first.
+        const limited = overRateLimit(this, client);
         let msg;
+        let malformed = false;
         try {
             msg = JSON.parse(data.toString());
         } catch (e) {
+            malformed = true;
+        }
+
+        if (limited) {
+            // The dropped request's id rides on the refusal, so a client can tell which
+            // subscribe to send again; a frame without one gets the bare refusal.
+            const id = (msg && typeof msg === 'object' && !Array.isArray(msg)) ? msg.id : undefined;
+            this.sendError(client, 'RATE_LIMITED', 'Too many messages (max ' + this.maxMsgPerSec + '/sec)', id);
+            return;
+        }
+
+        if (malformed) {
             this.sendError(client, 'INVALID_ACTION', 'Malformed JSON');
             return;
         }
@@ -199,6 +243,8 @@ class WebSocketSubscriptions {
         const prevKeys = new Set(client.subscriptions);
 
         const result = this.channelManager.subscribe(client, channels, params);
+        // Same turn as the subscribe above, with no await between: see freezeReplayCeilings.
+        freezeReplayCeilings(this, client, prevKeys);
 
         if (!result.success) {
             const err = result.error;
@@ -236,6 +282,14 @@ class WebSocketSubscriptions {
         }
 
         const result = this.channelManager.unsubscribe(client, channels, params);
+
+        // A channel name the server does not know, or an entity channel whose params name
+        // no entity, is refused with the same code subscribe gives it, so a client never
+        // waits on an unsubscribe the server dropped. Valid entries in the same request
+        // are still honoured below.
+        for (const refusal of result.refused || []) {
+            this.sendError(client, refusal.code, refusal.message, msg.id);
+        }
 
         // Send an UNSUBSCRIBED confirmation for each entity targeted, so a client
         // can tell an honoured unsubscribe from a message the server dropped

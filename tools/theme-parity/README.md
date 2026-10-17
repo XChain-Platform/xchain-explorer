@@ -26,7 +26,8 @@ pasted, not loaded from a string.
 1. Reach the venue explorer. From this Mac:
    `ssh -N -L 18080:localhost:18080 <regtest-host>`
 2. Open a page under test, e.g. `http://localhost:18080/RDOGE`.
-3. Paste all of `parity-probe.js` into the devtools console.
+3. Paste all of `parity-probe.js` into the devtools console of a browser with
+   CSS Typed OM (`Element.prototype.computedStyleMap`); Chrome has it.
 4. Capture:
    - before any CSS change: `__XC('coin_home', 'before')`
    - after: `__XC('coin_home', 'after')`
@@ -35,7 +36,8 @@ pasted, not loaded from a string.
 Each call snapshots BOTH light and dark, writes the full snapshots to
 localStorage, and returns per-mode fingerprints plus a `rendered` reading of
 the surface colours that capture actually measured. Compare the hashes against
-`baseline-<date>.json`: every hash must reproduce exactly.
+a dated baseline built by `capture-baseline.js`, one that carries a `probe`
+schema object: every hash must reproduce exactly.
 `baseline-2026-08-20.json` predates the 2026-09-05 mode-switch correction, so
 its per-mode `rend` hashes are not light/dark evidence; see "Mode-switch
 correction (2026-09-05)" below.
@@ -44,9 +46,89 @@ A capture can also come back as `{ invalid: [reasons] }` with no hashes at
 all. That is not a failed comparison, it is a refusal to mint evidence: the
 probe rejects a run where no stylesheet matched `SHEET`, where a sheet was
 unreadable, where the rule snapshot came back empty, where the render census
-matched no anchor, or where the two modes rendered identically. A rejected
+matched no anchor, where the browser had no Typed OM `computedStyleMap` for the
+layout-derived keys, or where the two modes rendered identically. A rejected
 capture writes nothing to localStorage, so it cannot overwrite a good stored
 snapshot, and it must never be compared against a baseline.
+
+Every accepted capture also stores a compact result for baseline export. Use
+one phase name for all pages in the run. After capturing the final page, copy
+the phase manifest from the console:
+
+```js
+copy(JSON.stringify(__XC.export('before'), null, 2))
+```
+
+Save that text as `tmp/theme-parity-capture.json`, then build a dated baseline:
+
+```sh
+node tools/theme-parity/capture-baseline.js \
+  --input tmp/theme-parity-capture.json \
+  --date 2026-10-12 \
+  --venue "local regtest explorer" \
+  --output tools/theme-parity/baseline-2026-10-12.json
+```
+
+The output path must not already exist. The builder checks the probe schema on
+the manifest and every page, verifies both modes have the expected render-key
+count, and records the rule hash per mode, as it does the render hash, because
+the rule layer can follow mode (see "What the two layers mean"). A page whose
+two modes matched different numbers of rule keys is refused. The probe schema identifies both census lists by count and
+hash, so even a same-size property substitution is incompatible. Run
+`node tools/theme-parity/capture-baseline.js --self-test` to exercise these
+guards.
+
+An existing baseline can be checked without changing it:
+
+```sh
+node tools/theme-parity/capture-baseline.js \
+  --check tools/theme-parity/baseline-2026-08-20.json
+```
+
+That command intentionally rejects the dated baseline with `Render census
+property count (23) incompatible with current probe (29)`. The file remains a
+historical record, but it cannot be supplied as evidence for the current
+29-property probe.
+
+`--check` also requires the `probe` schema object the builder writes. Once a
+baseline's pages pass, a missing `probe`, or the bare script path the
+2026-08-20 file carries in its place, is refused with `Baseline probe schema
+must be an object`, and a schema whose census hashes differ from the current
+probe is refused too. `test/unit/content/components/theme_parity_baselines.test.js`
+runs this check on every `baseline-*.json` here, so a probe change that strands
+a baseline fails the suite.
+
+## Dated baselines in this directory
+
+Both dated baselines are records and stay as they are.
+
+- `baseline-2026-08-20.json` is the M1 tokens capture from the regtest venue,
+  taken with the 23-property census and the pre-correction mode flip (see
+  "Mode-switch correction (2026-09-05)" below).
+- `baseline-2026-10-12-classic.json`, with its screenshots in
+  `baseline-2026-10-12-classic/`, is the classic-layout reference for the
+  console layout milestones M1 to M3. It was captured with headless Playwright
+  from the testnet explorer, not built by `capture-baseline.js`.
+
+The classic file has a different shape from builder output:
+
+- It stores results per mode (`pages.<tag>.light` and `.dark`, each with
+  `rule` and `rend`), adds `status` and `consoleErrors`, and has no `probe`,
+  `phase`, `layers`, `url` or `anchors`.
+- Its `rend` key counts fit the current 31-anchor by 29-property census on
+  every page, so the render layer was taken with the current probe.
+- Its rule hashes differ between light and dark on `coin_home` (`57f9d752` and
+  `bd312d81`) and `market` (`9e7495f9` and `4b513a3b`), and match on the other
+  four pages, with equal key counts in each pair. That is expected on the
+  current tree: `coin_home` mounts stat tiles, whose rule values follow mode,
+  and the `market` split is consistent with an empty chart (see "What the two
+  layers mean"). The file records hashes only, so which keys moved is not
+  recorded.
+
+`--check` refuses the classic file with `Page coin_home.anchors must have
+matched/total form`. Compare against it by hash, per mode. Before a comparison
+against the classic layout counts as schema-checked evidence, re-capture it
+through the builder as a new dated baseline.
 
 When a hash does not reproduce, ask the page what moved rather than guessing:
 
@@ -61,9 +143,31 @@ Object.keys(a).filter(k => a[k] !== b[k]).map(k => [k, a[k], b[k]]);
 **rule** - every property a rule in `xchain.css` / `xchain-charts.css`, a
 theme's `tokens.css`, or a component's `component.css` declares, read back as
 the computed value on the first element that rule matches. Derived from the
-stylesheet at runtime, so it cannot fall behind the CSS. On the
-pre-tokenization tree its light and dark hashes are IDENTICAL on every page,
-because `xchain.css` declares nothing that resolves per mode.
+stylesheet at runtime, so it cannot fall behind the CSS.
+
+Because it reads computed values, the rule layer follows mode wherever one of
+those values does: a declared value that resolves through a token the theme's
+dark block redefines, or through a Bootstrap `--bs-*` variable that
+`data-bs-theme` switches, on a page where an element matches the rule. Run in
+headless Chrome on minimal pages carrying the classic theme (2026-10-14), the
+probe found these keys differing between light and dark, while a page that
+rendered none of them agreed in both modes:
+
+- `.xc-chart-nodata | color`, through `--xc-chart-nodata-color`. That element
+  exists only when a chart renders with no data, so whether it appears depends
+  on the venue's chart data.
+- `.xc-stat-tile` background and border colours, through `--bs-body-bg` and
+  `--bs-border-color`. `coin_home` mounts four stat tiles on every load, so its
+  rule hash differs between modes on every venue.
+- `.xc-badge` background and border colours, through `--bs-secondary-bg` and
+  `--bs-border-color`.
+
+The countdown and timeline component sheets read the same `--bs-*` variables,
+and the chart tooltip (created on the first hover) reads tokens layered over
+them, so a page rendering one of those would differ too. That list comes from
+reading the current CSS, not from a proof that nothing else follows mode.
+Compare rule hashes per mode, and only between captures whose pages rendered
+the same elements.
 
 The probe picks those sheets out of `document.styleSheets` with a hand-written
 `SHEET` pattern, so a first-party sheet the template links and that pattern
@@ -78,8 +182,8 @@ whose first-party import came back empty or missing (Chrome hands a 404 import
 an empty sheet, not a null one), and the gate checks the pattern against
 every `themes/*/tokens.css` import target too. The `baseline-2026-08-20.json` capture
 predates the component layer: its per-page `cssRules` counts are one revision
-behind, and its hashes are not, because those component rules match no element
-on a healthy page.
+behind, and so is its rule hash on any page that now mounts a component
+(`coin_home` has mounted stat tiles since 2026-09-26).
 
 **rend** - a fixed census of 31 anchor selectors x 29 properties, read
 regardless of which stylesheet won. This layer does differ between modes, so it
@@ -99,10 +203,13 @@ captures with no CSS change. The rule layer resolves their DECLARED text
 through the element's custom properties (the mechanism state rules already
 use); the render census reads the Typed OM `computedStyleMap`, where an auto
 margin is still `auto`. The keys stay in the census: a real CSS change on
-them still flags (proven below), while content drift no longer can.
+them still flags (proven below), while content drift no longer can. Without
+Typed OM the probe refuses the capture instead of falling back to used values.
 
-Both layers are needed. The rule layer alone cannot see mode at all, so a
-dark-mode acceptance test riding on it would pass vacuously.
+Both layers are needed. The rule layer sees mode only through the few rules
+whose declared values follow it, and only on pages that render them, so a
+dark-mode acceptance test riding on it would pass vacuously wherever none
+render.
 
 ## The blind spot, stated plainly
 

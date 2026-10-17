@@ -63,11 +63,12 @@ const ORDER = {
         for(let row of results){
             let give_amount = (row.get_action_index==action_index) ? row.give_amount : row.get_amount;
             let get_amount  = (row.get_action_index==action_index) ? row.get_amount  : row.give_amount;
-            give_remaining  = db.util.bcsub(give_remaining, give_amount);
-            get_remaining   = db.util.bcsub(get_remaining,  get_amount);
+            // 64 digits as the indexer's remaining does; the default 0 rounds to whole units.
+            give_remaining  = db.util.bcsub(give_remaining, give_amount, 64);
+            get_remaining   = db.util.bcsub(get_remaining,  get_amount, 64);
         }
-        data.state.give_remaining = String(give_remaining);
-        data.state.get_remaining  = String(get_remaining);
+        data.state.give_remaining = db.util.bcnum(give_remaining).toFixed();
+        data.state.get_remaining  = db.util.bcnum(get_remaining).toFixed();
         // A partially-filled order that then expired still has escrow released,
         // so the unfilled residue is not on offer either.
         shared.applyTerminalOfferState(data);

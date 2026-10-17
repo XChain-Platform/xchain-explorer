@@ -59,8 +59,8 @@ function setXChainParams(coin){
            (type=='dispenser' && isNumeric(query)) ||
            // A validator resolves by signing pubkey OR by staking address, and an xcall by
            // its 64-hex call_id, so neither can use the numeric check above.
-           (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length) ||
-           (['token','rich_list'].includes(type) && params_hasTextDetailQuery(query))){
+           (['validator','xcall'].includes(type) && typeof(query)=='string' && query.length && path.length>3) ||
+           (['token','rich_list'].includes(type) && params_hasTextDetailQuery(query, path))){
             XC.type = type; XC.query = query;
         }
         // Set type to either tx_index or tx_hash for transactions
@@ -87,10 +87,93 @@ function setXChainParams(coin){
 }
 
 // Keep text route policy separate from the detail-page dispatch.
-function params_hasTextDetailQuery(query){
+function params_hasTextDetailQuery(query, path){
     // rich_list is keyed by TICK, exactly like the token page it is reached
     // from, so it takes the same string branch rather than the numeric one.
-    return typeof(query)=='string';
+    // A bare /COIN/type path has no query segment: its last segment is the type
+    // name itself, which must not be read back as a tick.
+    return typeof(query)=='string' && query.length>0 && (!Array.isArray(path) || path.length>3);
+}
+
+// The page a search should open when the query names one record, or null when it
+// is a free-text token search. Both the header box and the search page route
+// through this, so the two always agree. Order matters: a 64-hex string is a
+// transaction hash even when every character is a digit (an xcall id has the
+// same shape, and the transaction page is the one a visitor expects), and digits
+// are tested before addresses because base58 structure alone cannot rule out an
+// all-digit string. A number above the indexed tip cannot be a block yet, so it
+// is read as an action index; with no tip known it stays a block.
+function searchDestination(query, coin, tip){
+    let q = isNull(query) ? '' : String(query).trim();
+    coin  = getXChainParam(coin, 'coin');
+    if(!q.length || isNull(coin))
+        return null;
+    let base = '/' + coin + '/';
+    if(/^[0-9a-f]{64}$/i.test(q))
+        return base + 'transaction/' + q;
+    if(/^\d+$/.test(q)){
+        let n   = Number(q),
+            top = isNull(tip) ? NaN : Number(tip);
+        return base + ((isFinite(top) && Number.isSafeInteger(n) && n > top) ? 'action/' : 'block/') + q;
+    }
+    if(isCryptoAddress(q, getXChainParam(coin, 'chain'), getXChainParam(coin, 'network')))
+        return base + 'address/' + q;
+    return null;
+}
+
+// The indexed tip for a coin out of a /status body, or null when it is not known.
+function searchTip(status, coin){
+    let tip = (status && status.last_block) ? status.last_block[getXChainParam(coin, 'coin')] : null;
+    return isNumeric(tip) ? Number(tip) : null;
+}
+
+// The search page's query: ?query= from both forms, ?q= as the short alias.
+function searchQueryParam(urlParams){
+    let query = urlParams.get('query');
+    return isNull(query) ? (isNull(urlParams.get('q')) ? null : urlParams.get('q')) : query;
+}
+
+// Resolve a search to its destination and hand it to done (null means a token
+// search). Only a number needs the tip; the cached /status can trail the chain
+// by minutes, so a number that looks past it is checked against a fresh tip
+// before a just-mined block height is read as an action index.
+function resolveSearchDestination(coin, query, done){
+    let q = isNull(query) ? '' : String(query).trim();
+    if(!/^\d+$/.test(q))
+        return done(searchDestination(q, coin, null));
+    getExplorerStatusInfo(function(status){
+        let dest = searchDestination(q, coin, searchTip(status, coin));
+        if(dest.indexOf('/action/') < 0)
+            return done(dest);
+        getExplorerStatusInfo(function(fresh){
+            done(searchDestination(q, coin, searchTip(fresh || status, coin)));
+        }, true);
+    });
+}
+
+// Leave for a search destination. The search page replaces itself so Back does
+// not land on a page that redirects again; the header box adds a history entry.
+function searchNavigate(dest, replace){
+    if(replace)
+        window.location.replace(dest);
+    else
+        window.location.assign(dest);
+}
+
+// Submit handler for the header search box: a query that names one record goes
+// straight to it using the tip already cached; anything else, including a number
+// past that tip or a number with no tip cached yet, posts to the search page,
+// which decides with a fresh tip.
+function searchBoxSubmit(event){
+    let form  = $(this),
+        coin  = form.find("[name='coin']").val() || XC.coin,
+        tip   = searchTip(XC.status, coin),
+        dest  = searchDestination(form.find("[name='query']").val(), coin, tip);
+    if(isNull(dest) || dest.indexOf('/action/') >= 0 || (isNull(tip) && dest.indexOf('/block/') >= 0))
+        return true;
+    event.preventDefault();
+    searchNavigate(dest, false);
+    return false;
 }
 
 // Function to return XChain param data for a given coin

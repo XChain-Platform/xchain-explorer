@@ -58,18 +58,25 @@ XC = {
         regtest: 'R'
     },
 
-    // List of supported actions
+    // Every action table, in the order the blocks feed packs its per-block counts
+    // (ACTION_TABLES in src/db/method_tables.js); the blocks list reads slot i as
+    // the count for actions[i].
     actions: [
         'addresses',
         'airdrops',
+        'anchor_actions',
         'batches',
         'broadcasts',
         'callbacks',
+        'coinpays',
+        'coinpay_expires',
+        'coinpay_obligations',
         'destroys',
         'dispensers',
         'dispenses',
         'dividends',
         'files',
+        'full_node_verifications',
         'issues',
         'links',
         'lists',
@@ -79,6 +86,7 @@ XC = {
         'order_cancels',
         'order_edits',
         'order_matches',
+        'prices',
         'sends',
         'sleeps',
         'swaps',
@@ -192,8 +200,10 @@ function initPage(){
     // Handle updating search network to current network
     $('#coin-search').val(XC.coin);
 
-    // Handle doing search when user clicks search button
-    $('#button-search').click(function(){  $('#form-search').submit(); });
+    // The header search button is type=button, so it submits the form itself; the
+    // submit handler sends a query that names one record straight to its page.
+    $('#mainmenu-search').on('submit', searchBoxSubmit);
+    $('#button-search').click(function(){  $('#mainmenu-search').submit(); });
 
     // Set the copyright as the current year
     $('#copyright-year').text(new Date().getFullYear())
@@ -225,7 +235,7 @@ function initMainMenu(){
         $('#data-menu').removeClass('d-none');
 
         // Update search form to include COIN
-        $("#form-search [name='coin']").val(XC.coin);
+        $("#mainmenu-search [name='coin']").val(XC.coin);
     }  
 }
 

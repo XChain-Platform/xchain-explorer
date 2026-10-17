@@ -1,0 +1,193 @@
+{
+  "note": "Classic-layout baseline for the console layout milestones M1 to M3, captured 2026-10-12 with headless Playwright from the testnet explorer.",
+  "captured": "2026-10-12",
+  "venue": "testnet explorer",
+  "pages": {
+    "coin_home": {
+      "status": [
+        200,
+        200
+      ],
+      "consoleErrors": {
+        "light": 3,
+        "dark": 0
+      },
+      "light": {
+        "rule": {
+          "hash": "57f9d752",
+          "keys": 235
+        },
+        "rend": {
+          "hash": "f9aa967c",
+          "keys": 563
+        },
+        "cssRules": 128
+      },
+      "dark": {
+        "rule": {
+          "hash": "bd312d81",
+          "keys": 235
+        },
+        "rend": {
+          "hash": "8da09e67",
+          "keys": 563
+        }
+      }
+    },
+    "address": {
+      "status": [
+        200,
+        200
+      ],
+      "consoleErrors": {
+        "light": 2,
+        "dark": 0
+      },
+      "light": {
+        "rule": {
+          "hash": "d723f2c7",
+          "keys": 91
+        },
+        "rend": {
+          "hash": "aec4039b",
+          "keys": 367
+        },
+        "cssRules": 128
+      },
+      "dark": {
+        "rule": {
+          "hash": "d723f2c7",
+          "keys": 91
+        },
+        "rend": {
+          "hash": "01d8f23b",
+          "keys": 367
+        }
+      }
+    },
+    "token": {
+      "status": [
+        200,
+        200
+      ],
+      "consoleErrors": {
+        "light": 1,
+        "dark": 0
+      },
+      "light": {
+        "rule": {
+          "hash": "0137668f",
+          "keys": 75
+        },
+        "rend": {
+          "hash": "79900c5d",
+          "keys": 339
+        },
+        "cssRules": 128
+      },
+      "dark": {
+        "rule": {
+          "hash": "0137668f",
+          "keys": 75
+        },
+        "rend": {
+          "hash": "7e59fd1d",
+          "keys": 339
+        }
+      }
+    },
+    "action": {
+      "status": [
+        200,
+        200
+      ],
+      "consoleErrors": {
+        "light": 0,
+        "dark": 0
+      },
+      "light": {
+        "rule": {
+          "hash": "b99d7083",
+          "keys": 77
+        },
+        "rend": {
+          "hash": "752342e0",
+          "keys": 367
+        },
+        "cssRules": 128
+      },
+      "dark": {
+        "rule": {
+          "hash": "b99d7083",
+          "keys": 77
+        },
+        "rend": {
+          "hash": "9f0a8840",
+          "keys": 367
+        }
+      }
+    },
+    "market": {
+      "status": [
+        200,
+        200
+      ],
+      "consoleErrors": {
+        "light": 1,
+        "dark": 0
+      },
+      "light": {
+        "rule": {
+          "hash": "9e7495f9",
+          "keys": 127
+        },
+        "rend": {
+          "hash": "86daa05d",
+          "keys": 423
+        },
+        "cssRules": 128
+      },
+      "dark": {
+        "rule": {
+          "hash": "4b513a3b",
+          "keys": 127
+        },
+        "rend": {
+          "hash": "9da53f4c",
+          "keys": 423
+        }
+      }
+    },
+    "transaction": {
+      "status": [
+        200,
+        200
+      ],
+      "consoleErrors": {
+        "light": 0,
+        "dark": 0
+      },
+      "light": {
+        "rule": {
+          "hash": "0e3d3828",
+          "keys": 79
+        },
+        "rend": {
+          "hash": "0046dc1a",
+          "keys": 311
+        },
+        "cssRules": 128
+      },
+      "dark": {
+        "rule": {
+          "hash": "0e3d3828",
+          "keys": 79
+        },
+        "rend": {
+          "hash": "3f91008e",
+          "keys": 311
+        }
+      }
+    }
+  }
+}

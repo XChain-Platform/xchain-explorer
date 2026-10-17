@@ -127,7 +127,7 @@ describe('Database#getOrderExpires', () => {
 describe('Database#getOrderMatches', () => {
     let result;
     before(async () => {
-        const config = makeActionConfig('getOrderMatches');
+        const config = makeActionConfig('getOrderMatches', 'block');
         result = await db.getOrderMatches(config);
     });
 
@@ -158,6 +158,13 @@ describe('Database#getOrderMatches', () => {
         expect(args).to.be.null;
         expect(count).to.include(WHERE_DATA);
     });
+
+    for (const type of ['address', 'token']) {
+        it(`binds ${type} once for each order-match leg`, async () => {
+            const [, args] = await db.getOrderMatches(makeActionConfig('getOrderMatches', type));
+            expect(args).to.deep.equal([SEARCH_ADDR, SEARCH_ADDR]);
+        });
+    }
 });
 
 // Builds its own args: an address search is bound twice (source or destination).
@@ -329,7 +336,7 @@ describe('Database#getSwapExpires', () => {
 describe('Database#getSwapMatches', () => {
     let result;
     before(async () => {
-        const config = makeActionConfig('getSwapMatches');
+        const config = makeActionConfig('getSwapMatches', 'block');
         result = await db.getSwapMatches(config);
     });
 
@@ -349,4 +356,11 @@ describe('Database#getSwapMatches', () => {
         expect(args).to.be.null;
         expect(count).to.include(WHERE_DATA);
     });
+
+    for (const type of ['address', 'token']) {
+        it(`binds ${type} once for each swap-match leg`, async () => {
+            const [, args] = await db.getSwapMatches(makeActionConfig('getSwapMatches', type));
+            expect(args).to.deep.equal([SEARCH_ADDR, SEARCH_ADDR]);
+        });
+    }
 });

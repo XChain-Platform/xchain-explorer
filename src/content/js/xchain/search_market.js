@@ -302,6 +302,16 @@ function loadChartFragment(target, html, done){
         done();
 }
 
+// Wire the chart-type dropdown. Kept apart from setupActionListeners() so a
+// page with no market chart does not reach the chart stack through it.
+function setupMarketChartListeners(){
+    for(let chart of (XC.charts || [])){
+        $('#chart-dropdown-' + chart).click(function(){
+            loadMarketChart(chart);
+        });
+    }
+}
+
 // Handle loading a market chart and uplading the title and icon
 function loadMarketChart(chart){
     // Hide all tab panels and only show the active one

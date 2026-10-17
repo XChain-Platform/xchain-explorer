@@ -23,6 +23,10 @@
  * retyped, or restructured in a way an existing consumer could
  * mis-parse. Additive optional fields do NOT require a bump.
  *
+ * The optional `stale: true` freshness marker sits on the envelope (top
+ * level) of every frame that carries it; WELCOME also repeats it at
+ * `data.stale`.
+ *
  * v2 (BIGINT-as-string): BigInt-backed fields (action_index, block_index,
  * block_time, ...) now serialize as decimal STRINGS on WS, matching the REST
  * API (utility.jsonStringify), where they were previously emitted as numbers.

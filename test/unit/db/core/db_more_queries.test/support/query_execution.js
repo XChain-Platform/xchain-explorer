@@ -328,7 +328,7 @@ describe('Database#getHistoryData: additional branches', () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             callN++;
             if(callN === 1) return [{ action_index: 5000n }]; // fast-path query
-            if(q && q.includes('count(DISTINCT')) return [{ count: 5000 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 5000 }];
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -345,7 +345,7 @@ describe('Database#getHistoryData: additional branches', () => {
         sinon.stub(db, 'getTickId').resolves(7);
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
             queries.push(q);
-            if(q && q.includes('count(DISTINCT')) return [{ count: 0 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 0 }];
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -353,13 +353,13 @@ describe('Database#getHistoryData: additional branches', () => {
         config.data.search = 'null';
         config.data.query  = { total: null };
         await db.getHistoryData(config);
-        expect(queries[0]).to.include('count(DISTINCT');
+        expect(queries[0]).to.include('count(*) as count');
     });
 
     it('applies prev offset filter (lines 6000-6003)', async () => {
         let capturedWhere = null;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 50 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 50 }];
             capturedWhere = q;
             return [];
         });
@@ -376,7 +376,7 @@ describe('Database#getHistoryData: additional branches', () => {
     it('applies next offset filter (lines 6004-6007)', async () => {
         let capturedWhere = null;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 50 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 50 }];
             capturedWhere = q;
             return [];
         });

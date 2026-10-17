@@ -31,6 +31,7 @@
 const rateLimit = require('express-rate-limit');
 const concurrencyGate = require('../concurrency_gate.js');
 const { limitedHandler } = require('../rate_limit_log.js');  // limiter counter line, shared with XChainExplorer's per-route limiters
+const { isFileMount } = require('../static_mounts.js');     // disk-served mounts, which take the static bucket below
 
 /**
  * The app-wide limiter's ceiling, the knob's name and the refusal body.
@@ -68,7 +69,24 @@ function appWidePolicyFor(configInfo){
 }
 
 /**
- * Mount the per-IP limiter and then the global concurrency cap.
+ * The static-file bucket: scripts, stylesheets, components, themes and fonts.
+ * 1200 is ten cold page loads of about 110 files each; these are disk reads, so
+ * the bucket only has to stop a flood, and a warm visitor sends almost none.
+ *
+ * @param {object} configInfo src/config.js, for its live env view
+ * @returns {object} the policy the static limiter and its handler share
+ */
+function staticPolicyFor(configInfo){
+    return {
+        limit:    parseInt(configInfo.env.EXPLORER_STATIC_RATE_LIMIT_RPM, 10) || 1200,
+        envVar:   'EXPLORER_STATIC_RATE_LIMIT_RPM',
+        windowMs: 60 * 1000,
+        message:  { error: 'Too many requests', code: 'RATE_LIMITED' }
+    };
+}
+
+/**
+ * Mount the per-IP limiters and then the global concurrency cap.
  *
  * @param {object} app the express app
  * @param {object} configInfo src/config.js, for its live env view
@@ -83,7 +101,20 @@ function applyRateLimits(app, configInfo, isStaticAsset){
         standardHeaders: true,
         legacyHeaders:   false,
         handler:         limitedHandler({ service: 'Explorer', name: 'app-wide', ...appWidePolicy }),
-        skip: isStaticAsset,
+        skip: (req) => isStaticAsset(req) || isFileMount(req),
+    }));
+
+    // File mounts leave the app-wide bucket for their own: counting them there
+    // refused a page's scripts after two page views. The image exemption still
+    // applies first, so /images and /icon stay unlimited as before.
+    const staticPolicy = staticPolicyFor(configInfo);
+    app.use(rateLimit({
+        windowMs:        staticPolicy.windowMs,
+        limit:           staticPolicy.limit,
+        standardHeaders: true,
+        legacyHeaders:   false,
+        handler:         limitedHandler({ service: 'Explorer', name: 'static', ...staticPolicy }),
+        skip: (req) => isStaticAsset(req) || !isFileMount(req),
     }));
 
     // Global in-flight concurrency cap. The limiter above is per-IP,
@@ -95,7 +126,8 @@ function applyRateLimits(app, configInfo, isStaticAsset){
     const requestGate = concurrencyGate.createConcurrencyGate({
         limit:      concurrencyGate.resolveLimit(configInfo.env.EXPLORER_MAX_CONCURRENT_REQUESTS, 200),
         retryAfter: 1,
-        skip:       isStaticAsset,
+        // A disk read holds no pool connection, so file mounts skip the cap too.
+        skip:       (req) => isStaticAsset(req) || isFileMount(req),
         body:       { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' }
     });
     app.use(requestGate);

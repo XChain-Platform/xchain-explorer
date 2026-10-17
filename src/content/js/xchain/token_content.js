@@ -338,15 +338,22 @@ function tokenContent_bindCustomContent(o){
         $('#custom-content-header').show();
         $('#custom-content-wrapper').show();
         // Handle loading custom content when the user clicks the "Load Content" button.
-        // Inject via srcdoc into the sandboxed iframe (it has no allow-same-origin, so
-        // el.contents() is cross-origin and unreachable). The content renders in an
-        // opaque origin and cannot touch the explorer's cookies/storage/DOM.
+        // A configured viewer runs on its own origin; the fallback remains an opaque
+        // srcdoc frame. Neither mode can reach the explorer's cookies, storage or DOM.
         $('#loadCustomContentButton').click(function(){
             $('#customContentWarning').hide();
-            var el = $('#customContentViewer');
-            // Fresh resize budget per load (see customContentHeightToApply).
-            XC.customContentResize = { height: null, applied: 0 };
-            el.attr('srcdoc', buildSandboxedContentDoc(cachedJson.html));
+            var el = $('#customContentViewer'),
+                origin = XC.contentViewerOrigin;
+            el.attr('sandbox', customContentViewerSandbox(origin));
+            if(origin){
+                XC.customContentResize = { height: null, applied: 0 };
+                el.removeAttr('srcdoc');
+                el.attr('src', customContentViewerUrl(origin));
+            } else {
+                el.removeAttr('src');
+                XC.customContentResize = { height: null, applied: 0 };
+                el.attr('srcdoc', buildSandboxedContentDoc(cachedJson.html));
+            }
             el.show();
         });
         // Auto-resize from the sandboxed iframe's own height reports (postMessage).
@@ -359,7 +366,16 @@ function tokenContent_bindCustomContent(o){
                 var iframe = document.getElementById('customContentViewer');
                 if(!iframe || e.source !== iframe.contentWindow) return;
                 var d = e.data;
-                if(!d || d.type !== 'xchain-iframe-height') return;
+                if(!d) return;
+                if(d.type === 'xchain-viewer-ready'){
+                    if(!XC.contentViewerOrigin || e.origin !== XC.contentViewerOrigin) return;
+                    iframe.contentWindow.postMessage({
+                        type: 'xchain-viewer-html',
+                        html: buildSandboxedContentDoc(cachedJson.html)
+                    }, XC.contentViewerOrigin);
+                    return;
+                }
+                if(d.type !== 'xchain-iframe-height') return;
                 if(!XC.customContentResize) XC.customContentResize = { height: null, applied: 0 };
                 var next = customContentHeightToApply(XC.customContentResize, d.height);
                 if(next !== null)

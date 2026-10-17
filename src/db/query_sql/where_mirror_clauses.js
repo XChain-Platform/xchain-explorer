@@ -28,6 +28,8 @@
 
 'use strict';
 
+const { blockClause } = require('./where_source_lanes.js');
+
 function slashEventsClause(db, config, sql){
     let type = config.data.type;
     // slash_events has no actions/transactions chain; join directly via m.block_index
@@ -212,7 +214,7 @@ function xcallsClause(db, config, sql){
     let type = config.data.type;
     // xcalls joins the actions/transactions/blocks chain (b1 alias); filter on its own columns.
     // contract = the source contract that emitted the call (contract_index, now indexed).
-    if(type=='block')    sql += ' AND b1.block_index=?';
+    if(type=='block')    sql += blockClause(config);
     if(type=='contract') sql += ' AND m.contract_index=?';
     if(type=='status')   sql += ' AND m.request_status=?';
     return sql;

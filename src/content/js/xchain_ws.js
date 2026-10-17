@@ -28,37 +28,13 @@
 // test (test/unit/ws/schema_version_client.test.js) fails the build if they drift.
 var CLIENT_WS_SCHEMA_VERSION = 2;
 
-// Track latest action_index for catch-up on reconnect. WELCOME only seeds an unset
-// cursor: its tip runs ahead of rows a reconnect replay has yet to deliver. While that
-// replay runs, frames are noted in _catchUp.maxSeen and applied once it closes.
-function xcWsTrackCursor(client, msg) {
-    if (!msg.data) return;
-    if (msg.type === 'WELCOME') {
-        if (client.lastActionIndex === null) client._advanceCursor(msg.data.latest_action_index);
-        return;
-    }
-    // Only NEW_ACTION and CATCH_UP_COMPLETE report a delivered action row. Other frames
-    // reuse action_index for an entity id (a dispenser, a bet feed), and moving the
-    // cursor to one would make the next reconnect skip rows this client never received.
-    var raw;
-    if (msg.type === 'NEW_ACTION') raw = msg.data.action_index;
-    else if (msg.type === 'CATCH_UP_COMPLETE') raw = msg.data.latest_action_index;
-    else return;
-    if (client._catchUp) {
-        client._catchUp.maxSeen = xcWsMaxIndex(client._catchUp.maxSeen, raw);
-        return;
-    }
-    client._advanceCursor(raw);
-}
-
-// The larger of two action indexes, compared as BigInt and kept as the wire's decimal
-// string. A value that is not a non-negative integer literal is ignored (null included).
-function xcWsMaxIndex(current, raw) {
-    if (raw === null || raw === undefined) return current;
-    var val = String(raw);
-    if (!/^[0-9]+$/.test(val)) return current;
-    return (current === null || BigInt(val) > BigInt(current)) ? val : current;
-}
+// The cursor tracking (xcWsTrackCursor, xcWsMaxIndex) lives in xchain_ws_catch_up.js
+// beside the reconnect catch-up it feeds; the page loads that file right after this one.
+// The rules it applies to lastActionIndex, which _onMessage runs on every frame: WELCOME
+// seeds the cursor only while it is unset; only NEW_ACTION and CATCH_UP_COMPLETE move it
+// forward, and only to a higher index; a REORG frame moves it back below the rollback's
+// first invalidated index; and while a reconnect catch-up runs, frames are held in its
+// maxSeen and applied only once every queued replay has closed.
 
 // Envelope schema gate: the server stamps every frame with
 // schema_version (distinct from the build version). If the server
@@ -100,6 +76,9 @@ function xcWsHandleSystemMessage(client, msg) {
     if (client._catchUp && (msg.type === 'CATCH_UP_COMPLETE' || msg.type === 'error')) {
         client._catchUpAnswered(msg);
     }
+
+    // The answer to a plain subscribe this client sent (xchain_ws_catch_up.js).
+    if (msg.id !== undefined) client._subscribeAnswered(msg);
 }
 
 // Dispatch to registered handlers
@@ -151,6 +130,8 @@ var XChainWS = {
     _catchUp:             null,
     _schemaWarned:        false,
     handlers:             {},
+    // Outbound pacing state and the resubscribe retry table live with the reconnect
+    // code in xchain_ws_catch_up.js, which the page loads right after this file.
 
     // Connect to the WebSocket server for a given coin
     connect: function(coin) {
@@ -210,11 +191,9 @@ var XChainWS = {
 
     // Subscribe to channels with optional filters
     subscribe: function(channels, params) {
-        var msg = { action: 'subscribe', channels: channels };
-        if (params) msg.params = params;
         // Track for resubscribe on reconnect
         this.subscriptions.push({ channels: channels, params: params || {} });
-        this._send(msg);
+        this._sendSubscribe(channels, params);
     },
 
     // Unsubscribe from channels
@@ -234,10 +213,12 @@ var XChainWS = {
         this._send({ action: 'list_subscriptions' });
     },
 
-    // Send a JSON message to the server
+    // Queue a JSON message for the server; _drainOut (xchain_ws_catch_up.js) sends it
+    // as the server's message rate allows.
     _send: function(data) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify(data));
+            this._outQueue.push(data);
+            this._drainOut();
         }
     },
 
@@ -246,6 +227,7 @@ var XChainWS = {
         XCLogger.log('[XChainWS] Connected to', this.url);
         this.reconnectAttempts = 0;
         this._schemaWarned = false;
+        this._resetOut();
         this._setStatus('connected');
         this._startPing();
         this._resubscribe();
@@ -275,6 +257,7 @@ var XChainWS = {
         // points before the gap, so the next reconnect replays it again from there.
         if (this._catchUp && this._catchUp.timer) clearTimeout(this._catchUp.timer);
         this._catchUp = null;
+        this._resetOut();
 
         if (!this.intentionalClose) {
             this._setStatus('reconnecting');

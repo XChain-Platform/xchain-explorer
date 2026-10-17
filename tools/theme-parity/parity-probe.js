@@ -22,20 +22,22 @@
  *
  * TWO LAYERS, because either one alone lies:
  *
- *   rule  - for every rule in xchain.css / xchain-charts.css, read back each
+ *   rule  - for every rule in the sheets SHEET admits (xchain.css,
+ *           xchain-charts.css, themes/, components/<name>/component.css), read back each
  *           property that rule DECLARES, as the computed value on the first
  *           element matching its selector. This proves the stylesheet's own
  *           contribution is unchanged. It is deliberately derived from the
  *           stylesheet at runtime rather than from a hand-written list, so it
  *           cannot fall behind the CSS.
  *
- *           On the pre-tokenization tree this layer is MODE-INDEPENDENT: the
- *           light and dark hashes are identical on every page, because
- *           xchain.css declares no value that resolves differently per mode.
- *           That is a fact about the current CSS, not a bug in the probe, and
- *           it is precisely what acceptance test A4 re-checks afterwards: if
- *           tokenization is done correctly the two modes should still agree
- *           here, with the difference living in the render layer below.
+ *           Because it reads computed values, this layer follows mode wherever
+ *           a declared value resolves through a mode-following token (a theme
+ *           dark-block token or a Bootstrap --bs-* variable) on an element the
+ *           page renders: .xc-chart-nodata (an empty chart), .xc-stat-tile
+ *           (mounted on every coin_home load) and .xc-badge differ by mode, so
+ *           the two modes agree here only on pages rendering none of those.
+ *           See README.md, "What the two layers mean". The render layer below
+ *           is still where a dark-mode regression shows.
  *
  *   rend  - a fixed census of 31 anchor selectors x 29 properties, read as
  *           computed values no matter which stylesheet won. This proves the
@@ -69,6 +71,9 @@
  *     href matched SHEET, or where the sheet was unreadable, or where no
  *     selector matched an element, still returned stable hashes over an empty
  *     snapshot and 31 absence markers.
+ *
+ * A browser with no CSS Typed OM (Element.prototype.computedStyleMap) is refused
+ * too: the render census would read its layout-derived keys as used values.
  *
  * A capture that fails any of those checks returns { invalid: [reasons] } with
  * no hashes and writes NOTHING to localStorage, so a degenerate run can neither
@@ -104,20 +109,23 @@
  *
  * COVERAGE LIMIT, stated because a probe that hides its blind spot is worse
  * than no probe: across the six captured pages only 79 of the 120 selectors in
- * the two page-level stylesheets are exercised (baseline-2026-08-20.json's
- * coverage block is the authority; 121/77/44 was the superseded pre-tokenization
- * survey). A rule no page instantiates cannot be proven at runtime by any
+ * the two page-level stylesheets were exercised when measured on 2026-08-20
+ * (the coverage block of baseline-2026-08-20.json; 121/77/44 was the superseded
+ * pre-tokenization survey). That is a selector count, untouched by the later
+ * render-census property change, but that file's hashes are not evidence for
+ * the current probe. A rule no page instantiates cannot be proven at runtime by any
  * amount of capturing, which is why the static token-literal gate is a
  * separate acceptance test.
  *
  * SHEET now also admits the per-component component.css layer, which landed
  * after the 2026-08-20 capture. That raises the reported cssRules count per
- * page by the component sheets' own rule count and leaves the rule-layer hashes
- * alone, since those component rules match no element on a healthy page.
+ * page by the component sheets' own rule count, and it moves the rule-layer
+ * hash of any page that mounts a component (coin_home has since 2026-09-26).
  *
  **********************************************************************/
 
-window.__XC = (function () {
+(function (exporting) {
+const probe = (function () {
   const A = ['body','.footer','.footer a','.card','.card-header','.card-body','.navbar','.dropdown-menu',
     'table.dataTable','table.dataTable thead th','table.dataTable tbody td','table.dataTable tbody tr',
     '.btn','.btn-primary','a','h1','h2','.badge','.form-control','.form-select','input','select',
@@ -153,6 +161,10 @@ window.__XC = (function () {
   const fp = o => { const s = Object.keys(o).sort().map(k => k+'='+o[k]).join('\n');
     let h = 5381; for (let i=0;i<s.length;i++) h = ((h*33)^s.charCodeAt(i))>>>0;
     return { hash: h.toString(16).padStart(8,'0'), keys: Object.keys(o).length }; };
+  const censusHash = values => fp(values.reduce((o, value) => { o[value] = '1'; return o; }, {})).hash;
+  const schema = Object.freeze({ version: 1,
+    anchors: Object.freeze({ count: A.length, hash: censusHash(A) }),
+    properties: Object.freeze({ count: P.length, hash: censusHash(P) }) });
   const ruleSnap = () => {
     const snap = {}; let rules = 0, sheets = 0; const un = []; const seen = new Set();
     // Read one admitted sheet once; an unreadable one is recorded so health()
@@ -197,14 +209,17 @@ window.__XC = (function () {
     for (const sh of document.styleSheets) readSheet(sh);
     return { rules, snap, un: un.sort(), sheets };
   };
-  const rendSnap = () => { const o = {}; let n = 0;
+  // Count every layout key read as a used value because the browser has no Typed OM;
+  // health() refuses such a capture, and the count stays out of `o` so hashes do not move.
+  const rendSnap = () => { const o = {}; let n = 0, untyped = 0;
     for (const sel of A) { let el; try { el = document.querySelector(sel); } catch(e) {}
       if (!el) { o[sel+' | __absent'] = '1'; continue; }
       n++; const cs = getComputedStyle(el);
       const cm = el.computedStyleMap && el.computedStyleMap();
-      for (const p of P) o[sel+' | '+p] = (LAYOUT.has(p) && cm)
-        ? String(cm.get(p)).trim() : cs.getPropertyValue(p).trim(); }
-    return { o, n, total: A.length }; };
+      for (const p of P) { if (LAYOUT.has(p) && !cm) untyped++;
+        o[sel+' | '+p] = (LAYOUT.has(p) && cm)
+          ? String(cm.get(p)).trim() : cs.getPropertyValue(p).trim(); } }
+    return { o, n, total: A.length, untyped }; };
   // Everything a capture can be wrong ABOUT, asked of the capture itself. A
   // fingerprint of nothing is stable, so an empty snapshot and a healthy one
   // are indistinguishable downstream: a fresh before/after pair taken on a page
@@ -218,6 +233,9 @@ window.__XC = (function () {
     for (const k of Object.keys(R.snap)) if (k.indexOf('__UNREADABLE__ ') === 0)
       bad.push(mode+': unreadable stylesheet '+k.slice(15));
     if (!D.n) bad.push(mode+': the render census matched none of its '+D.total+' anchors');
+    // Refuse used-value layout keys: they drift with page content and read as a CSS change.
+    if (D.untyped) bad.push(mode+': the render census read '+D.untyped+' layout-derived keys through '
+      +'getComputedStyle because this browser has no CSS Typed OM computedStyleMap; use one that has it');
     return bad;
   };
   // The mode a capture actually rendered in, read off the element the census
@@ -226,7 +244,7 @@ window.__XC = (function () {
   const witness = () => { const cs = getComputedStyle(document.body);
     return ['background-color','color','border-top-color']
       .map(p => cs.getPropertyValue(p).trim()).join(' | '); };
-  return function capture(tag, phase) {
+  const capture = function (tag, phase) {
     if (!document.body) return { invalid: ['the page has no body element to capture'] };
     // The application marks the mode on BODY (updateTheme() in
     // src/content/js/xchain.js), and themes/*/tokens.css declares the --xc-*
@@ -266,6 +284,21 @@ window.__XC = (function () {
       localStorage['__xc:'+phase+':'+tag+'|'+mode+'|rend'] = JSON.stringify(held[mode+'|rend']);
     }
     localStorage['__xcUn:'+phase+':'+tag] = JSON.stringify(held.light.un);
+    res.probe = schema;
+    localStorage['__xcResult:'+phase+':'+tag] = JSON.stringify({
+      url: location.pathname+location.search, probe: schema, light: res.light, dark: res.dark,
+    });
     return res;
   };
+  capture.schema = schema;
+  capture.export = phase => {
+    const prefix = '__xcResult:'+phase+':', pages = {};
+    for (const key of Object.keys(localStorage).sort())
+      if (key.indexOf(prefix) === 0) pages[key.slice(prefix.length)] = JSON.parse(localStorage[key]);
+    return { phase, probe: schema, pages };
+  };
+  return capture;
 })();
+if (typeof window !== 'undefined') window.__XC = probe;
+if (exporting) module.exports = probe.schema;
+})(typeof module !== 'undefined' && !!module.exports);

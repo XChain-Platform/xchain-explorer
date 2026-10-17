@@ -68,9 +68,10 @@ describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
     it('the LIST query carries the correlated subquery, aliased parent_batch_action_index', async () => {
         let listQuery = null;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 1 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 1 }];
+            // The ids leg answers one id; the last statement seen is the rows leg.
             listQuery = q;
-            return [];
+            return [{ action_index: 10 }];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
         const config = makeHistoryConfig('block', '500');
@@ -79,8 +80,8 @@ describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
         expect(listQuery).to.include('parent_batch_action_index');
         // Correlated scalar subquery, not a FROM-clause join: batches only ever
         // appears inside the subquery's own FROM, never joined onto the outer
-        // mappings_actions/actions/blocks chain (a join that multi-matches would
-        // re-materialize duplicates past the outer SELECT DISTINCT).
+        // actions/blocks chain (a join that multi-matches would add a row per
+        // match to a page that must carry one row per action).
         expect(listQuery).to.match(/\(\s*SELECT\s+\w+\.action_index\s+FROM\s+actions\s+\w+\s+INNER JOIN batches/);
         // The parent-exclusion predicate: a batch's own row must not match itself.
         expect(listQuery).to.match(/action_index\s*!=\s*a1\.action_index/);
@@ -92,7 +93,7 @@ describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
     it('the COUNT query does NOT carry the subquery (spec: LIST query only)', async () => {
         let countQuery = null;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')){ countQuery = q; return [{ count: 0 }]; }
+            if(q && q.includes('count(*) as count')){ countQuery = q; return [{ count: 0 }]; }
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -110,7 +111,7 @@ describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
 
     it('a BATCH child row carries the parent action_index; the parent BATCH row itself carries null', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT'))
+            if(q && q.includes('count(*) as count'))
                 return [{ count: 2 }];
             // Simulates what MariaDB would hand back for one BATCH (action_index 10)
             // and one of its children (action_index 11), sharing a (tx_index, tx_vout)
@@ -139,7 +140,7 @@ describe('db.getHistoryData: parent_batch_action_index (M1.6)', () => {
 
     it('a non-batch row carries null for parent_batch_action_index', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 1 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 1 }];
             return [
                 { action_index: 20, action: 'SEND', block_index: 500, timestamp: 1700000000, tx_hash: 'h2', tx_index: 2, parent_batch_action_index: null }
             ];

@@ -42,8 +42,12 @@ const iconsDb = require('../../db/icons.js');
 // http://169.254.169.254/ is an egress this pipeline's SSRF guard cannot see,
 // and no ImageMagick policy.xml ships with this service to disable the coders.
 // The trade is that a token whose only icon is an SVG gets no rendered icon.
-const ALLOWED_MIME = new Set([
-    'image/png','image/jpeg','image/jpg','image/gif','image/webp',
+// Each allowed type maps to the one ImageMagick input coder convert is told to
+// use, so `file` and ImageMagick cannot disagree about which decoder runs: a
+// file that does not match its pinned coder fails to decode instead.
+const ALLOWED_MIME = new Map([
+    ['image/png', 'png'], ['image/jpeg', 'jpeg'], ['image/jpg', 'jpeg'],
+    ['image/gif', 'gif'], ['image/webp', 'webp'],
 ]);
 
 /**
@@ -195,9 +199,9 @@ async function writeIcon(dl, bytes, iconPath, deps){
 
     // GIF/WebP: pick the first frame so animated/multi-page sources don't break the resize
     const needsFirstFrame = (mime === 'image/gif' || mime === 'image/webp');
-    const srcArg          = needsFirstFrame ? `${tmp}[0]` : tmp;
+    const srcArg          = ALLOWED_MIME.get(mime) + ':' + tmp + (needsFirstFrame ? '[0]' : '');
     // Convert into a same-directory temp and rename it over iconPath only once complete,
-    // so a failed or killed convert never replaces the served icon (png: pins the format).
+    // so a failed or killed convert never replaces the served icon (both coders are pinned).
     const out = path.join(path.dirname(iconPath),
         '.iconw_' + process.pid + '_' + crypto.randomBytes(4).toString('hex') + '.tmp');
 

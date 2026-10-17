@@ -164,19 +164,7 @@ const POLL_COLUMNS = Number(POLLS_HTML.match(/<td colspan="(\d+)" class="loading
  * Detail-panel harnesses (action.html's VOTE panel, poll.html's outcome).
  * ------------------------------------------------------------------ */
 
-function extractFn(src, name) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../../helpers/source_slice');
 
 function panelHtml(id, nextId) {
     const start = ACTION_HTML.indexOf('<div class="d-none" id="' + id + '">');

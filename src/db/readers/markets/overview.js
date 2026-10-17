@@ -20,6 +20,8 @@
 
 'use strict';
 
+const { pagedRowQuery } = require('../../query_sql/data_rows.js');
+
 // How a market side is named when it may have no ticker. The SQL half of this is
 // COALESCE(ticker, coin); the order feeds hand back the two fields separately, so
 // the JS half has to make the same choice before comparing against a caller's tick.
@@ -137,6 +139,18 @@ const GET_MARKET_HISTORY_QUERY_SQL = `SELECT
                         WHERE 
                             `;
 
+// Every stored price and volume column of a markets row. The indexer can write
+// them in exponent notation ('2e-10', '1e+24'), so each one is served in fixed
+// decimal notation through plainDecimal before the row is oriented.
+const MARKET_AMOUNT_COLUMNS = Object.freeze(['price', 'bid', 'ask', '24hr_price', '24hr_high',
+    '24hr_low', '24hr_change', '24hr_volume'].flatMap((c) => ['tick1_' + c, 'tick2_' + c]));
+
+function plainMarketRow(db, row){
+    for(const column of MARKET_AMOUNT_COLUMNS)
+        row[column] = db.util.plainDecimal(row[column]);
+    return row;
+}
+
 class MarketOverviewReaders {
     /******************************************************************
      * XChain API Market Endpoints
@@ -169,6 +183,7 @@ class MarketOverviewReaders {
             results = await this.doQuery(config, query, args);
             if(results.length > 0){
                 for(let row of results){
+                    plainMarketRow(this, row);
                     let reverse = (!this.util.isNull(tick) && String(tick).toLowerCase()==String(row.tick2).toLowerCase()) ? true : false;
                     data.push({
                         id                : row.id,
@@ -211,6 +226,7 @@ class MarketOverviewReaders {
         let results = await this.doQuery(config, query, args);
         if(results.length > 0){
             for(let row of results){
+                plainMarketRow(this, row);
                 let reverse = (!this.util.isNull(tick2) && String(tick2).toLowerCase()==String(row.tick2).toLowerCase()) ? true : false;
                 data.push({
                     id                : row.id,
@@ -257,11 +273,13 @@ class MarketOverviewReaders {
         if(results.length > 0)
             total = results[0].total;
         if(total){
-            let query   = GET_MARKET_HISTORY_QUERY_SQL + sql.where.data + ` AND 
-                            s1.status='valid'
+            let query   = GET_MARKET_HISTORY_QUERY_SQL + sql.where.data + ` AND
+                            s1.status='valid'` + sql.where.offset + `
                         ORDER BY m.action_index ` + sql.order + `
                         LIMIT ` + sql.limit;
-            let results = await this.doQuery(config, query, args);
+            let queryArgs;
+            [query, queryArgs] = pagedRowQuery(config, query, args);
+            let results = await this.doQuery(config, query, queryArgs);
             if(results.length > 0){
                 for(let order of results){
                     let reverse    = (order.give_tick==tick2) ? true : false;

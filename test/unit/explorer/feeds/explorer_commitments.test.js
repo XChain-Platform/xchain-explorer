@@ -99,7 +99,7 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
     it('reads state_tree_roots unqualified (this coin\'s own default schema), aliased m', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const [query, , count] = await db.getCommitments(commitmentsConfig());
+        const [query, , [count]] = await db.getCommitments(commitmentsConfig());
         expect(query).to.include('state_tree_roots m');
         expect(count).to.include('state_tree_roots m');
         // Never database-qualified: unlike state_checkpoints, this table lives in
@@ -107,20 +107,20 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         expect(query).to.not.match(/`[^`]+`\.state_tree_roots/);
     });
 
-    it('LEFT JOINs the co-located hub-mirror state_checkpoints schema, aliased sc, in both queries', async () => {
+    it('LEFT JOINs the co-located hub-mirror state_checkpoints schema, aliased sc, in the list query only', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const [query, , count] = await db.getCommitments(commitmentsConfig());
+        const [query, , [count]] = await db.getCommitments(commitmentsConfig());
         expect(query).to.include('LEFT JOIN `XChain_Hub`.state_checkpoints sc');
-        expect(count).to.include('LEFT JOIN `XChain_Hub`.state_checkpoints sc');
+        expect(count).to.not.include('state_checkpoints');
     });
 
-    it('LEFT JOINs the local anchor_actions table, aliased an, in both queries', async () => {
+    it('LEFT JOINs the local anchor_actions table, aliased an, in the list query only', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const [query, , count] = await db.getCommitments(commitmentsConfig());
+        const [query, , [count]] = await db.getCommitments(commitmentsConfig());
         expect(query).to.include('LEFT JOIN anchor_actions an');
-        expect(count).to.include('LEFT JOIN anchor_actions an');
+        expect(count).to.not.include('anchor_actions');
         // Never database-qualified: same local pool as state_tree_roots.
         expect(query).to.not.match(/`[^`]+`\.anchor_actions/);
     });
@@ -154,14 +154,16 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         }
     });
 
-    it('the list query carries a LIMIT sourced from config.data.sql.limit', async () => {
+    it('the page derived table carries a LIMIT sourced from config.data.sql.limit, ahead of both legs', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
         const [query] = await db.getCommitments(commitmentsConfig({ sql: { limit: 37 } }));
-        expect(query.trim().endsWith('LIMIT 37')).to.equal(true);
+        expect(query).to.include('LIMIT 37) m');
+        expect(query.indexOf('LIMIT 37')).to.be.lessThan(query.indexOf('LEFT JOIN'));
+        expect(query.match(/LIMIT/g)).to.have.lengthOf(2);   // the page and ANCHOR_ONE_ROW_SQL's LIMIT 1
     });
 
-    it('honours the offset cursor fragment from config.data.sql.where.offset, placed after the correlated predicates', async () => {
+    it('honours the offset cursor fragment from config.data.sql.where.offset, inside the page derived table', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
         const OFFSET_SQL = ' AND m.block_index < ?';
@@ -173,12 +175,13 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         expect(offsetIdx).to.be.greaterThan(-1);
         expect(orderIdx).to.be.greaterThan(-1);
         expect(offsetIdx).to.be.lessThan(orderIdx);
+        expect(offsetIdx).to.be.lessThan(query.indexOf('LEFT JOIN'));
     });
 
     it('no unbounded GROUP BY anywhere: latest-per-height is a correlated MAX for BOTH mirror legs', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const [query, , count] = await db.getCommitments(commitmentsConfig());
+        const [query, , [count]] = await db.getCommitments(commitmentsConfig());
         expect(query).to.not.match(/GROUP BY/i);
         expect(count).to.not.match(/GROUP BY/i);
         // Checkpoint leg reuses latestCheckpointPredicate (frontier rows 40/41's fix).
@@ -209,33 +212,39 @@ describe('Database#getCommitments (M3.8 data leg)', () => {
         expect(query).to.include('a2.network = ?');
     });
 
-    it('count and list share identical FROM+JOIN text so one args array binds correctly against both', async () => {
+    it('the count reads state_tree_roots alone, with no join and no correlated subquery', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const [query, , count] = await db.getCommitments(commitmentsConfig());
-        const joinBlock = (sql) => sql.slice(sql.indexOf('FROM'), sql.indexOf('WHERE'));
-        expect(joinBlock(count)).to.equal(joinBlock(query));
+        const [, , [count]] = await db.getCommitments(blockBoundConfig('12345'));
+        expect(count).to.not.match(/JOIN/i);
+        expect(count).to.not.match(/SELECT MAX/i);
+        expect(count).to.not.include('(an.action_index');
+        expect(count.replace(/\s+/g, ' ').trim())
+            .to.equal('SELECT count(*) as total FROM state_tree_roots m WHERE m.id IS NOT NULL AND m.block_index=?');
     });
 
-    it('args: reuses the (chain,network) filterParams three times (checkpoint outer + checkpoint latest + anchor outer + anchor latest = 4 pairs)', async () => {
+    it('args: the (chain,network) filterParams four times (checkpoint outer + checkpoint latest + anchor outer + anchor latest)', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const [, args] = await db.getCommitments(commitmentsConfig());
-        // Bare list-all: config.data.search is null, so the method's own return still
-        // carries it as the trailing element (getData's shared null-filter trims it on
-        // the actual request path, not exercised here - see getCheckpoints' own tests
-        // for that shared-seam behavior).
-        expect(args).to.deep.equal(['BTC', 'mainnet', 'BTC', 'mainnet', 'BTC', 'mainnet', 'BTC', 'mainnet', null]);
+        const [query, args, [count, countArgs]] = await db.getCommitments(commitmentsConfig());
+        expect(args).to.deep.equal(['BTC', 'mainnet', 'BTC', 'mainnet', 'BTC', 'mainnet', 'BTC', 'mainnet']);
+        expect(countArgs).to.deep.equal([]);
+        expect(query.match(/\?/g)).to.have.lengthOf(args.length);
+        expect(count).to.not.include('?');
     });
 
-    it('type=block appends the bound height as the LAST arg, after every join placeholder', async () => {
+    it('type=block binds the height FIRST, inside the page derived table, and alone in the count', async () => {
         const db = makeRealDb();
         db.checkpointDb = { ...HUB };
-        const [query, args] = await db.getCommitments(blockBoundConfig('12345'));
-        expect(query).to.include('m.block_index=?');
-        expect(args).to.deep.equal(['BTC', 'mainnet', 'BTC', 'mainnet', 'BTC', 'mainnet', 'BTC', 'mainnet', '12345']);
+        const [query, args, [count, countArgs]] = await db.getCommitments(blockBoundConfig('12345'));
+        expect(query.indexOf('m.block_index=?')).to.be.lessThan(query.indexOf('LEFT JOIN'));
+        expect(args).to.deep.equal(['12345', 'BTC', 'mainnet', 'BTC', 'mainnet', 'BTC', 'mainnet', 'BTC', 'mainnet']);
+        expect(countArgs).to.deep.equal(['12345']);
+        expect(count.match(/\?/g)).to.have.lengthOf(1);
     });
+});
 
+describe('Database#getCommitments (M3.8 data leg)', () => {
     it('no checkpoint hub DB configured -> fails loud (no silent empty local mirror)', async () => {
         const db = makeRealDb();
         let err = null;
@@ -301,11 +310,11 @@ describe('Database#getCommitments when a v0 section and a v1 archive head share 
         return db.getCommitments(commitmentsConfig());
     }
 
-    it('pins the anchor leg to one row in both the list and the count query', async () => {
-        const [query, , count] = await commitmentQueries();
+    it('pins the anchor leg to one row, so the joinless count still counts one row per height', async () => {
+        const [query, , [count]] = await commitmentQueries();
         const pin = /\(an\.action_index, an\.section_index\) = \(SELECT a3\.action_index, a3\.section_index[\s\S]*?LIMIT 1\)/;
         expect(query).to.match(pin);
-        expect(count).to.match(pin);
+        expect(count).to.not.include('anchor_actions');
     });
 
     it('ranks checkpoint sections before archive heads, then newest, then section_index', async () => {

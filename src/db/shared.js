@@ -32,6 +32,19 @@
 const { getLogger } = require('../observability');
 const log = getLogger();
 
+// The order_matches statuses that hold an order's amounts off the book. A
+// 'pending_coinpay' match has already taken its share of both orders and is
+// waiting only on the BTC leg, so the indexer's getOrderAmountRemaining
+// (xchain-indexer src/db/orders/order_info.js) subtracts it alongside 'valid'.
+// Every explorer read of an order's remaining amounts (the order list, the
+// per-action detail and the orderbook) filters matches through this one list so
+// they agree with the indexer and with each other.
+const ORDER_MATCH_HOLDING_STATUSES = Object.freeze(['valid', 'pending_coinpay']);
+
+// The same list as a quoted SQL literal for a statement whose placeholders are
+// already positional to its caller (the order list's correlated subquery).
+const ORDER_MATCH_HOLDING_SQL = ORDER_MATCH_HOLDING_STATUSES.map((s) => "'" + s + "'").join(', ');
+
 // The one field list every compact action summary projects (transaction and
 // history rows via getActionSummaryData, BATCH members via projectActionSummary).
 // Every field the client's getActionDetails reads must be here, or the summary
@@ -303,7 +316,7 @@ function batchLifecycle(db, rows, selected, responses){
 }
 
 module.exports = {
-    ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS, DbQueryError, DbInputError, staleFailClosed,
+    ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS, ORDER_MATCH_HOLDING_STATUSES, ORDER_MATCH_HOLDING_SQL, DbQueryError, DbInputError, staleFailClosed,
     attestBatchColumnsPresent, batchProjection, installAttestBatchListReader,
     readBatchResponses, batchLifecycle, resolveAttestationRequestId, ATTEST_BATCH_CHUNK_LIMIT
 };

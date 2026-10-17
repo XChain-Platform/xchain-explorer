@@ -159,3 +159,60 @@ describe('blocks feed: every placeholder it emits is bound', function(){
         assert.deepStrictEqual(row.args, [4200], 'the paging cursor never reached the query');
     });
 });
+
+describe('blocks list route /blocks/null: the literal "null" search adds no block filter', function(){
+
+    // The list page sends type=block and the search "null". A boundary query that binds
+    // it as block 0 matches no row, so action=last on any page past the first answered
+    // an empty page. This stub answers a boundary row only when no block is bound.
+    function makeNullRouteDb(){
+        const db = makeDb();
+        db.doQuery = async (cfg, sql, args) => {
+            db.calls.push({ sql: String(sql), args: args || [] });
+            return (args && args.length) ? [] : [{ offset_index: 4200 }];
+        };
+        return db;
+    }
+
+    const route = (action, start) => ({
+        coin: 'DOGE',
+        data: { method: 'getBlocks', type: 'block', search: 'null', query: { length: 10 },
+            offset: { action, start } }
+    });
+
+    // "all" reaches the boundary query the same way "null" does, so both get the same check.
+    it('action=last with start past the first page finds its boundary row on /null and /all', async function(){
+        for (const search of ['null', 'all']) {
+            const db = makeNullRouteDb(), req = route('last', 6830); req.data.search = search;
+            const r = await db.getQueryOffsets(req, 6830, 10);
+            assert.deepStrictEqual(r.map(String), ['4200', '4191'], search + ': the last-page boundary query found no row');
+            assert.ok(!/b1\.block_index=\?/.test(boundarySql(db)), search + ': the boundary query filters by block');
+            assert.deepStrictEqual(db.calls[0].args, []);
+        }
+    });
+
+    it('action=first answers the same as a blocks list with no search', async function(){
+        const a = makeNullRouteDb(); const ra = await a.getQueryOffsets(route('first', 0), 0, 10);
+        const b = makeNullRouteDb();
+        const rb = await b.getQueryOffsets({ coin: 'DOGE', data: { method: 'getBlocks', query: { length: 10 },
+            offset: { action: 'first', start: 0 } } }, 0, 10);
+        assert.deepStrictEqual(ra.map(String), rb.map(String));
+        assert.deepStrictEqual(ra.map(String), ['4201', '4190']);
+    });
+
+    it('action=next and action=prev keep their cursor and issue no boundary query', async function(){
+        for (const action of ['next', 'prev']) {
+            const db = makeNullRouteDb();
+            const r = await db.getQueryOffsets(route(action, 100), 100, 10);
+            assert.deepStrictEqual(r.map(String), ['100', '89'], action);
+            assert.strictEqual(db.calls.length, 0, action);
+        }
+    });
+
+    it('a block-filtered action listing still binds its block', async function(){
+        const db = makeNullRouteDb();
+        await db.getQueryOffsets({ coin: 'DOGE', data: { method: 'getSends', type: 'block', search: '2900',
+            query: { length: 10 }, offset: { action: 'first', start: 0 } } }, 0, 10);
+        assert.ok(db.calls.some(c => /a1\.block_index=\?/.test(c.sql) && c.args.includes(2900)));
+    });
+});

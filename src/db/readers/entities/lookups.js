@@ -38,6 +38,7 @@
 // installObservability and falls through to bare console.* before that.
 const { getLogger } = require('../../../observability');
 const log = getLogger();
+const { dispenserLifecyclePass } = require('../../query_sql/data_post.js');
 
 // How long a token description read for the /relay check is reused before it is read again.
 const TOKEN_DESCRIPTION_TTL_MS = 60 * 1000;
@@ -142,7 +143,10 @@ class EntityLookupReaders {
                         t2.tick=?
                     LIMIT 1`;
         let results = await this.doQuery(config, query, [tick, tick]);
-        if (results && results.length) return results[0];
+        if (results && results.length){
+            results[0].supply = this.util.plainDecimal(results[0].supply);
+            return results[0];
+        }
         return null;
     }
 
@@ -203,7 +207,13 @@ class EntityLookupReaders {
                     LIMIT 1`;
         let args = [tick1, tick2, tick1, tick1, tick1, tick1, tick1, tick2, tick2, tick1];
         let results = await this.doQuery(config, query, args);
-        if (results && results.length) return results[0];
+        if (results && results.length){
+            // The stored stats can be in exponent notation ('2e-10'); the snapshot
+            // serves them in fixed decimal notation, as /market does.
+            for(const field of ['last_price', 'volume_24h', 'bid', 'ask'])
+                results[0][field] = this.util.plainDecimal(results[0][field]);
+            return results[0];
+        }
         return null;
     }
 
@@ -211,6 +221,12 @@ class EntityLookupReaders {
     // DERIVED: the dispensers table has no such column, so selecting it throws
     // 'Unknown column' on every subscribe/update and the channel silently pushes
     // nothing.
+    //
+    // Status and remaining come from the same pass /dispensers runs
+    // (dispenserLifecyclePass): `status` is the lifecycle (open, cancelling,
+    // cancelled, expired, empty, ...) rather than the CREATE action's validity,
+    // and a terminal dispenser reports 0 remaining. A create with no lifecycle row
+    // (an invalid one) keeps its validity string as its status.
     async getDispenserInfo(config, actionIndex) {
         let query = `SELECT
                         d.action_index,
@@ -225,8 +241,8 @@ class EntityLookupReaders {
                     FROM
                         dispensers d
                         INNER JOIN actions            a1 ON (a1.action_index=d.action_index)
-                        INNER JOIN transactions        t3 ON (t3.tx_index=a1.tx_index)
-                        LEFT  JOIN index_addresses    a2 ON (a2.id=t3.source_id)
+                        LEFT  JOIN transactions       t3 ON (t3.tx_index=a1.tx_index)
+                        LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t3.source_id))
                         LEFT  JOIN index_tickers      t1 ON (t1.id=d.give_tick_id)
                         LEFT  JOIN index_tickers      t2 ON (t2.id=d.get_tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=d.status_id)
@@ -235,11 +251,11 @@ class EntityLookupReaders {
                     LIMIT 1`;
         let results = await this.doQuery(config, query, [actionIndex]);
         if (results && results.length){
-            let info   = results[0];
-            let escrow = await this.getDispenserEscrowBatch(config, [actionIndex]);
-            let entry  = escrow[String(actionIndex)];
-            info.escrow_remaining = (entry) ? entry.escrow_remaining : null;
-            info.give_remaining   = info.escrow_remaining;
+            let info = results[0];
+            await dispenserLifecyclePass(this, config, [info]);
+            if(!this.util.isNull(info.current_status))
+                info.status = info.current_status;
+            info.give_remaining = info.escrow_remaining;
             return info;
         }
         return null;

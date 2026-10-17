@@ -64,21 +64,7 @@ const RENDER_SRC = srcText('src/content/js/attestation_detail_render.js');
 const PAGE_HTML  = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../../../src/content/html/attestation.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../../../src/content/js/jquery.min.js'), 'utf8');
 
-// Slice a top-level function out of the source by walking braces, so the test
-// runs shipped code rather than a copy that can drift.
-function extractFn(src, name) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../../../helpers/source_slice');
 
 // Helpers the renders lean on, kept naive so anything the assertions observe is
 // the render's own doing. isNull is the REAL one out of xchain.js: every

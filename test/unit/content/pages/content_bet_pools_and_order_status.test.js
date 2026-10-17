@@ -51,20 +51,7 @@ const SRC_JS   = srcText('src/content/js/xchain.js');
 const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/action.html'), 'utf8');
 const BET_FEED_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '../../src/content/html/bet_feed.html'), 'utf8');
 
-// Slice a method body out of the source by walking braces, the technique the
-// sibling content-client tests use, so this reads shipped code not a copy.
-function extractFn(src, signature) {
-    const start = src.indexOf(signature);
-    if (start < 0) throw new Error('not found in source: ' + signature);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractBlock: extractFn } = require('../../../helpers/source_slice');
 
 function renderBetFeedPools(pools) {
     const callback = extractFn(BET_FEED_HTML, 'function(o)');

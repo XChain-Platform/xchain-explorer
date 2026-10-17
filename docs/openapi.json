@@ -3,7 +3,7 @@
   "info": {
     "title": "XChain Explorer API",
     "version": "1.0.0",
-    "description": "Read-only REST API for the XChain Platform: tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings, and so are chain indices (`block_index`, `action_index`, `checkpoint_seq`, `snapshot_block`) on both the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay exact above 2^53. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit max 100; balances/holders max 500). Errors are `{error: \"message\", code: \"STABLE_CODE\"}`. See the error-code registry at https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at /{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
+    "description": "Read-only REST API for the XChain Platform: tokens, balances, actions, markets, smart contracts, staking, attestations, and state checkpoints on Bitcoin, Litecoin, and Dogecoin.\n\nConventions: `coin` is the host chain, `tick` is a token symbol (there is no \"asset\" field). Amounts are arbitrary-precision decimal strings, and so are chain indices (`block_index`, `action_index`, `checkpoint_seq`, `snapshot_block`) on both the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay exact above 2^53. List responses are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters (limit defaults to and is clamped at 100; 500 on balances/holders). A malformed paging parameter answers 400 rather than a default. Lists that document `before`/`after` also page by cursor: `before` reads the page just below a cursor and `after` the page just above it, shown in `sortorder`; pass the response's `next_before` or `next_after` to continue the same walk at the same cost at any depth, where a deep `page` slows with depth. Errors are `{error: \"message\", code: \"STABLE_CODE\"}`. See the error-code registry at https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at /{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\nLLM-friendly docs: https://docs.xchain.io/llms.txt",
     "license": {
       "name": "AGPL-3.0-or-later",
       "url": "https://docs.xchain.io/legal/licensing.md"
@@ -108,6 +108,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -131,6 +137,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -281,6 +297,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -304,6 +326,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -367,6 +399,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -390,6 +428,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -454,6 +502,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -477,6 +531,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -628,6 +692,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -651,6 +721,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -718,6 +798,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -741,6 +827,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1152,6 +1248,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1175,6 +1277,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1330,6 +1442,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1353,6 +1471,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1417,6 +1545,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1440,6 +1574,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1480,7 +1624,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -1490,7 +1634,8 @@
               "type": "string",
               "enum": [
                 "block",
-                "address"
+                "address",
+                "token"
               ]
             },
             "description": "How to interpret {QUERY}"
@@ -1503,6 +1648,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1526,6 +1677,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1589,6 +1750,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1612,6 +1779,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1741,6 +1918,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1764,6 +1947,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1830,6 +2023,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1853,6 +2052,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -1917,6 +2126,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -1940,6 +2155,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2089,6 +2314,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2112,6 +2343,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2175,6 +2416,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2198,6 +2445,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2238,7 +2495,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -2247,7 +2504,9 @@
             "schema": {
               "type": "string",
               "enum": [
-                "block"
+                "block",
+                "address",
+                "token"
               ]
             },
             "description": "How to interpret {QUERY}"
@@ -2410,6 +2669,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2476,6 +2741,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2542,6 +2813,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2698,6 +2975,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2721,6 +3004,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2785,6 +3078,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2808,6 +3107,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -2871,6 +3180,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -2894,6 +3209,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3043,6 +3368,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3066,6 +3397,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3106,7 +3447,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The value to look up (interpreted per {TYPE}): block = block height"
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
           },
           {
             "name": "TYPE",
@@ -3115,7 +3456,9 @@
             "schema": {
               "type": "string",
               "enum": [
-                "block"
+                "block",
+                "address",
+                "token"
               ]
             },
             "description": "How to interpret {QUERY}"
@@ -3280,6 +3623,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3303,6 +3652,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -3368,6 +3727,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3412,6 +3777,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3635,6 +4006,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3679,6 +4056,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -3798,7 +4181,7 @@
         "tags": [
           "Contracts"
         ],
-        "summary": "Contract state (one key)",
+        "summary": "Contract state (all keys; {TYPE} does not narrow it)",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -3817,10 +4200,9 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "enum": "contract"
+              "type": "string"
             },
-            "description": "How to interpret {QUERY}"
+            "description": "Any value is accepted; this route does not filter its result by it"
           }
         ],
         "responses": {
@@ -3896,7 +4278,7 @@
         "tags": [
           "Contracts"
         ],
-        "summary": "Contract balance (one tick)",
+        "summary": "Contract token balances (all ticks; {TYPE} does not narrow it)",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -3915,10 +4297,9 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string",
-              "enum": "contract"
+              "type": "string"
             },
-            "description": "How to interpret {QUERY}"
+            "description": "Any value is accepted; this route does not filter its result by it"
           }
         ],
         "responses": {
@@ -3986,6 +4367,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4030,6 +4417,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4297,6 +4690,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4365,6 +4764,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4432,6 +4837,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -4467,6 +4878,78 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/validators/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "validators_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Active validators and their capabilities, filtered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
           },
           {
             "$ref": "#/components/parameters/page"
@@ -4694,6 +5177,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -5383,6 +5872,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -5427,6 +5922,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -6709,6 +7210,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -6753,6 +7260,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -7142,6 +7655,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -7186,6 +7705,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -7299,6 +7824,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -7331,6 +7862,452 @@
           "Betting"
         ],
         "summary": "BET wagers (one row per placed bet)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/bet_expires/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "bet_expires_query_type",
+        "tags": [
+          "Betting"
+        ],
+        "summary": "BET feed expirations, filtered by block or oracle",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/bet_expires": {
+      "get": {
+        "operationId": "bet_expires",
+        "tags": [
+          "Betting"
+        ],
+        "summary": "BET feed expirations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/bet_cancels/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "bet_cancels_query_type",
+        "tags": [
+          "Betting"
+        ],
+        "summary": "BET feed cancellations, filtered by block or oracle",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/bet_cancels": {
+      "get": {
+        "operationId": "bet_cancels",
+        "tags": [
+          "Betting"
+        ],
+        "summary": "BET feed cancellations",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/bet_edits/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "bet_edits_query_type",
+        "tags": [
+          "Betting"
+        ],
+        "summary": "BET feed edits, filtered by block or oracle",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/bet_edits": {
+      "get": {
+        "operationId": "bet_edits",
+        "tags": [
+          "Betting"
+        ],
+        "summary": "BET feed edits",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/bet_resolves/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "bet_resolves_query_type",
+        "tags": [
+          "Betting"
+        ],
+        "summary": "BET feed resolutions, filtered by block or oracle",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/bet_resolves": {
+      "get": {
+        "operationId": "bet_resolves",
+        "tags": [
+          "Betting"
+        ],
+        "summary": "BET feed resolutions",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -7788,6 +8765,336 @@
         }
       }
     },
+    "/{COIN}/api/xexecs/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "xexecs_query_type",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "XEXEC target-chain executions, filtered by block",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/xexecs": {
+      "get": {
+        "operationId": "xexecs",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "XEXEC target-chain executions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/xbridges/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "xbridges_query_type",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "XBRIDGE user and settlement legs, filtered by block, address, or token",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address; token = a token tick"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address",
+                "token"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/xbridges": {
+      "get": {
+        "operationId": "xbridges",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "XBRIDGE user and settlement legs",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/rollcalls/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "rollcalls_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "ROLLCALL publications, filtered by block or publisher address",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height; address = an XChain address"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block",
+                "address"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/rollcalls": {
+      "get": {
+        "operationId": "rollcalls",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "ROLLCALL publications and close summaries",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/attestations/{QUERY}/{TYPE}": {
       "get": {
         "operationId": "attestations_query_type",
@@ -8028,15 +9335,6 @@
               "type": "string"
             },
             "description": "The value to look up (interpreted per {TYPE}): attestation = attestation"
-          },
-          {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
           }
         ],
         "responses": {
@@ -8045,7 +9343,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/ObjectResponse"
                 }
               }
             }
@@ -8193,15 +9491,6 @@
               "type": "string"
             },
             "description": "The value to look up (interpreted per {TYPE}): anchor = the mined DOGE anchor transaction id (doge_anchor_txid)"
-          },
-          {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
           }
         ],
         "responses": {
@@ -8210,7 +9499,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/ObjectResponse"
                 }
               }
             }
@@ -8246,15 +9535,6 @@
               "type": "string"
             },
             "description": "The value to look up (interpreted per {TYPE}): block = block height"
-          },
-          {
-            "$ref": "#/components/parameters/page"
-          },
-          {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
           }
         ],
         "responses": {
@@ -8263,7 +9543,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/ObjectResponse"
                 }
               }
             }
@@ -8320,6 +9600,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -8364,6 +9650,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -8885,6 +10177,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -8908,6 +10206,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -9042,7 +10350,7 @@
             "$ref": "#/components/parameters/page"
           },
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "#/components/parameters/limitLarge"
           },
           {
             "$ref": "#/components/parameters/sortorder"
@@ -9617,6 +10925,12 @@
           },
           {
             "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
           }
         ],
         "responses": {
@@ -9640,6 +10954,16 @@
                     "runtime": {
                       "type": "string",
                       "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
                     }
                   },
                   "required": [
@@ -9686,7 +11010,7 @@
             "$ref": "#/components/parameters/page"
           },
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "#/components/parameters/limitLarge"
           },
           {
             "$ref": "#/components/parameters/sortorder"
@@ -9751,7 +11075,7 @@
             "$ref": "#/components/parameters/page"
           },
           {
-            "$ref": "#/components/parameters/limit"
+            "$ref": "#/components/parameters/limitLarge"
           },
           {
             "$ref": "#/components/parameters/sortorder"
@@ -10341,13 +11665,27 @@
             "description": "The value to look up (interpreted per {TYPE}): token = a token tick"
           },
           {
-            "$ref": "#/components/parameters/page"
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Page of the holder ranking, 1 or more. A page whose first row lies past row 100000 answers 400 PAGE_TOO_DEEP; a value that is not a whole number of at least 1 answers 400 INVALID_PAGE"
           },
           {
-            "$ref": "#/components/parameters/limit"
-          },
-          {
-            "$ref": "#/components/parameters/sortorder"
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 100
+            },
+            "description": "Holders per page; a larger value is clamped to 100. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT"
           }
         ],
         "responses": {
@@ -10356,7 +11694,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListResponse"
+                  "$ref": "#/components/schemas/ObjectResponse"
                 }
               }
             }
@@ -11012,6 +12350,3088 @@
         }
       }
     },
+    "/{COIN}/api/addresses": {
+      "get": {
+        "operationId": "addresses",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "ADDRESS actions (address registrations), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Address"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/airdrops": {
+      "get": {
+        "operationId": "airdrops",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "AIRDROP actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Airdrop"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/batches": {
+      "get": {
+        "operationId": "batches",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "BATCH actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Batch"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/broadcasts": {
+      "get": {
+        "operationId": "broadcasts",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "BROADCAST actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Broadcast"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/callbacks": {
+      "get": {
+        "operationId": "callbacks",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "CALLBACK actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Callback"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/destroys": {
+      "get": {
+        "operationId": "destroys",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "DESTROY actions (token burns), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Destroy"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dividends": {
+      "get": {
+        "operationId": "dividends",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "DIVIDEND actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Dividend"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispensers": {
+      "get": {
+        "operationId": "dispensers",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "DISPENSER actions (vending machines), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Dispenser"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenser_cancels": {
+      "get": {
+        "operationId": "dispenser_cancels",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenser cancellations, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DispenserCancel"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenser_closes": {
+      "get": {
+        "operationId": "dispenser_closes",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenser closes, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DispenserClose"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenser_expires": {
+      "get": {
+        "operationId": "dispenser_expires",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenser expirations, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DispenserExpire"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenser_edits": {
+      "get": {
+        "operationId": "dispenser_edits",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenser edits, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DispenserEdit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/dispenses": {
+      "get": {
+        "operationId": "dispenses",
+        "tags": [
+          "Dispensers"
+        ],
+        "summary": "Dispenses (vending events: coin in, tokens out), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Dispense"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/fees": {
+      "get": {
+        "operationId": "fees",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "Protocol fee payments, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Fee"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/files": {
+      "get": {
+        "operationId": "files",
+        "tags": [
+          "Files"
+        ],
+        "summary": "FILE actions, including discovery by gate ticker, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/File"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/issues": {
+      "get": {
+        "operationId": "issues",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "ISSUE actions (token issuances), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Issue"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/links": {
+      "get": {
+        "operationId": "links",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "LINK actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Link"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/lists": {
+      "get": {
+        "operationId": "lists",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "LIST actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/List"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/messages": {
+      "get": {
+        "operationId": "messages",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "MESSAGE actions (encrypted messaging), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Message"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/mints": {
+      "get": {
+        "operationId": "mints",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "MINT actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Mint"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/orders": {
+      "get": {
+        "operationId": "orders",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "ORDER actions (DEX orders), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Order"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/order_expires": {
+      "get": {
+        "operationId": "order_expires",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Order expirations, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderExpire"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/order_edits": {
+      "get": {
+        "operationId": "order_edits",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Order edits, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderEdit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/order_cancels": {
+      "get": {
+        "operationId": "order_cancels",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Order cancellations, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderCancel"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/coinpays": {
+      "get": {
+        "operationId": "coinpays",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "COINPAY actions (native-coin payment legs), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/coinpay_expires": {
+      "get": {
+        "operationId": "coinpay_expires",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "COINPAY expirations, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/coinpay_obligations": {
+      "get": {
+        "operationId": "coinpay_obligations",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Open COINPAY obligations, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "post_coinpay_obligations",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Open COINPAY obligations for up to 20 addresses in one request",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "description": "Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES"
+                  }
+                },
+                "required": [
+                  "addresses"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "One entry per requested address, keyed by the address string",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "coinpay_obligations": {
+                        "description": "The GET /coinpay_obligations/{address}/address body, or null when that read failed",
+                        "nullable": true
+                      },
+                      "error": {
+                        "description": "null, or { code, error, status } from the failed per-address read",
+                        "nullable": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "Too many batch requests from this client; retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "table+express"
+    },
+    "/{COIN}/api/sends": {
+      "get": {
+        "operationId": "sends",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "SEND actions (token transfers), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Send"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/sleeps": {
+      "get": {
+        "operationId": "sleeps",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "SLEEP actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Sleep"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swaps": {
+      "get": {
+        "operationId": "swaps",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "SWAP actions (peer-to-peer swaps), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Swap"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swap_edits": {
+      "get": {
+        "operationId": "swap_edits",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Swap edits, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SwapEdit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swap_expires": {
+      "get": {
+        "operationId": "swap_expires",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Swap expirations, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SwapExpire"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/swap_cancels": {
+      "get": {
+        "operationId": "swap_cancels",
+        "tags": [
+          "Markets"
+        ],
+        "summary": "Swap cancellations, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SwapCancel"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/sweeps": {
+      "get": {
+        "operationId": "sweeps",
+        "tags": [
+          "Action history"
+        ],
+        "summary": "SWEEP actions, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Sweep"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/deposits": {
+      "get": {
+        "operationId": "deposits",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract deposits, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/withdrawals": {
+      "get": {
+        "operationId": "withdrawals",
+        "tags": [
+          "Contracts"
+        ],
+        "summary": "Contract withdrawals, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/delegations": {
+      "get": {
+        "operationId": "delegations",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Signing-key delegations; pubkey lists the delegations holding one signing key, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/rewards": {
+      "get": {
+        "operationId": "rewards",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "Validator rewards (oracle/anchor/attestation), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/credits": {
+      "get": {
+        "operationId": "credits",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Ledger credits, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Credit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/debits": {
+      "get": {
+        "operationId": "debits",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Ledger debits, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Debit"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/escrows": {
+      "get": {
+        "operationId": "escrows",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Escrowed balances (orders/swaps/dispensers), unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Escrow"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/history": {
+      "get": {
+        "operationId": "history",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Combined action history, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          },
+          {
+            "$ref": "#/components/parameters/before"
+          },
+          {
+            "$ref": "#/components/parameters/after"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/History"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    },
+                    "next_after": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+                    },
+                    "next_before": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/tokens": {
+      "get": {
+        "operationId": "tokens",
+        "tags": [
+          "Tokens"
+        ],
+        "summary": "Token search, unfiltered",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of records available"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TokenRow"
+                      }
+                    },
+                    "runtime": {
+                      "type": "string",
+                      "description": "Amount of time to execute and return the data"
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
     "/{COIN}/api/file/{ACTION_INDEX}/raw": {
       "get": {
         "operationId": "file_action_index_raw",
@@ -11046,6 +15466,172 @@
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/bridge-invariant/{TICK}": {
+      "get": {
+        "operationId": "bridge-invariant_tick",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "Per-chain escrow, supply, in-flight amount, and policy sequence for a bridged token; { available: false, reason } when this explorer has no hub to ask or the hub lacks the read",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "object"
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "available",
+                        "reason"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "available": {
+                          "const": false
+                        },
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "HUB_NOT_CONFIGURED",
+                            "HUB_METHOD_MISSING"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/bridge-transfers/{TICK}": {
+      "get": {
+        "operationId": "bridge-transfers_tick",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "Newest bridge transfers involving this chain and token, capped at 100 rows",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/applied-policy/{TICK}": {
+      "get": {
+        "operationId": "applied-policy_tick",
+        "tags": [
+          "Cross-chain"
+        ],
+        "summary": "Latest inherited policy snapshot applied to this bridged token copy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "TICK",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": [
+                    "object",
+                    "null"
+                  ]
                 }
               }
             }
@@ -12075,90 +16661,6 @@
         }
       },
       "x-registered": "express"
-    },
-    "/{COIN}/api/coinpay_obligations": {
-      "post": {
-        "operationId": "coinpay_obligations",
-        "tags": [
-          "Markets"
-        ],
-        "summary": "Open COINPAY obligations for up to 20 addresses in one request",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "addresses": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "minItems": 1,
-                    "maxItems": 20,
-                    "description": "Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES"
-                  }
-                },
-                "required": [
-                  "addresses"
-                ]
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/coin"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "description": "One entry per requested address, keyed by the address string",
-                  "additionalProperties": {
-                    "type": "object",
-                    "properties": {
-                      "coinpay_obligations": {
-                        "description": "The GET /coinpay_obligations/{address}/address body, or null when that read failed",
-                        "nullable": true
-                      },
-                      "error": {
-                        "description": "null, or { code, error, status } from the failed per-address read",
-                        "nullable": true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "429": {
-            "description": "Too many batch requests from this client; retry after the window",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "503": {
-            "$ref": "#/components/responses/CoinUnavailable"
-          }
-        }
-      },
-      "x-registered": "express"
     }
   },
   "components": {
@@ -12191,7 +16693,7 @@
           "minimum": 1,
           "default": 1
         },
-        "description": "Page number"
+        "description": "Page number, 1 or more. A page whose first row lies past row 100000 answers 400 PAGE_TOO_DEEP; page deeper by `before`/`after` where the list offers them. A value that is not a whole number of at least 1 answers 400 INVALID_PAGE"
       },
       "limit": {
         "name": "limit",
@@ -12199,10 +16701,21 @@
         "schema": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 500,
-          "default": 10
+          "maximum": 100,
+          "default": 100
         },
-        "description": "Rows per page (max 100; balances/holders max 500)"
+        "description": "Rows per page; a larger value is clamped to 100. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT"
+      },
+      "limitLarge": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 500
+        },
+        "description": "Rows per page; a larger value is clamped to 500. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT"
       },
       "sortorder": {
         "name": "sortorder",
@@ -12214,7 +16727,25 @@
             "desc"
           ]
         },
-        "description": "Sort order"
+        "description": "Sort order, case-insensitive; descending by default (ascending on balances). Any other value answers 400 INVALID_SORTORDER"
+      },
+      "before": {
+        "name": "before",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "description": "Keyset paging: the page of rows whose cursor lies just below this value, shown in `sortorder`. The cursor is `action_index` (`block_index` on commitments). Pass the response's `next_before` to read the next page down at index cost whatever its depth; `page` is ignored. Not combinable with `after`; a non-numeric value answers 400."
+      },
+      "after": {
+        "name": "after",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "description": "Keyset paging: the page of rows whose cursor lies just above this value, shown in `sortorder`. Pass the response's `next_after` to read the next page up; every continuation stays above this bound. `page` is ignored. Not combinable with `before`; a non-numeric value answers 400."
       }
     },
     "schemas": {
@@ -12235,6 +16766,16 @@
           "runtime": {
             "type": "string",
             "description": "Amount of time to execute and return the data"
+          },
+          "next_after": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "On an `after` page, or an ascending first page: the cursor farthest up the walk, to pass as `after` for the next page. Absent on an empty page"
+          },
+          "next_before": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "On a `before` page, or a descending first page: the cursor farthest down the walk, to pass as `before` for the next page. Absent on an empty page"
           }
         },
         "required": [
@@ -13354,6 +17895,10 @@
             ],
             "description": "The ORACLE_ADDRESS a Mode B dispenser prices against; null otherwise"
           },
+          "price_stale": {
+            "type": "boolean",
+            "description": "True when an open fiat-priced dispenser has no settlement-usable price at the current indexed tip"
+          },
           "source": {
             "type": [
               "string",
@@ -14348,6 +18893,13 @@
             "type": "string",
             "pattern": "^[0-9]+$"
           },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The list's current description from its latest valid metadata edit; absent on a replica without list metadata"
+          },
           "edit": {
             "type": [
               "string",
@@ -14366,6 +18918,13 @@
               "string",
               "null"
             ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The list's current name from its latest valid metadata edit; absent on a replica without list metadata"
           },
           "source": {
             "type": [
@@ -14429,6 +18988,12 @@
           "member_count": {
             "type": [
               "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
               "null"
             ]
           },
@@ -16652,7 +21217,7 @@
           },
           "decoder_health": {
             "type": "object",
-            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
             "additionalProperties": {
               "type": "string"
             }

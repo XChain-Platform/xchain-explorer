@@ -66,8 +66,8 @@ const GET_POLL_QUERY_SQL = `SELECT
                     FROM
                         polls m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    dep ON (dep.id=m.deposit_address_id)
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
@@ -129,8 +129,8 @@ class PollReaders {
                     FROM
                         polls m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_tickers      pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -215,7 +215,8 @@ class PollReaders {
         return [query, null, count];
     }
 
-    // List VOTE ballots (votes table, one row per poll+voter+chosen option). Joins the
+    // List VOTE ballots (votes table, one row per poll+voter+chosen option, so its unique
+    // key breaks action_index ties and the list pages by row position). Joins the
     // actions/transactions/blocks chain like getAttestations; the voter IS the source
     // (a2). Filter by voter address / poll / block (see getQueryWhereSql getVotes branch).
     async getVotes(config){
@@ -225,8 +226,8 @@ class PollReaders {
                     FROM
                         votes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -250,15 +251,15 @@ class PollReaders {
                     FROM
                         votes m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN polls              p  ON (p.action_index=m.poll_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
                     WHERE ` + sql.where.data + sql.where.offset +`
-                    ORDER BY m.action_index ` + sql.order + `
+                    ORDER BY m.action_index ` + sql.order + `, m.poll_index ` + sql.order + `, m.voter_address_id ` + sql.order + `, m.choice ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }

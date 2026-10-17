@@ -217,8 +217,11 @@ describe('Boundary Integration: Response format consistency', function () {
     });
 
     it('no stack traces or SQL in error responses', async function () {
+        // A malformed limit is refused with a 400; its body is the stable
+        // {error, code} pair and carries no SQL text, stack or driver detail.
         const res = await request.get('/RBTC/api/sends/null/address?limit=-99999&page=-99999');
-        expect(res.status).to.equal(200);
+        expect(res.status).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_LIMIT');
         const body = JSON.stringify(res.body);
         expect(body).to.not.include('SELECT');
         expect(body).to.not.include('Error:');

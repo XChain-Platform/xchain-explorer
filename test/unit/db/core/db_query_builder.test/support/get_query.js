@@ -23,8 +23,8 @@
 
 const { expect, makeConfig, makeDb, cfg } = require('../../db_query_builder.test.js');
 
-// A deep OFFSET makes the database walk and discard every skipped row, so an
-// uncapped page number is a cheap way to tie it up; getQuery caps the offset.
+// A deep OFFSET makes the database walk and discard every skipped row, so a page
+// past the cap is refused rather than clamped onto the capped page's rows.
 describe('getQuery() API OFFSET cap', function () {
     // A synchronous stub query-builder so getQuery does not hit the DB. getQuery
     // sets config.data.sql.apiOffset BEFORE invoking this[data.method].
@@ -34,11 +34,22 @@ describe('getQuery() API OFFSET cap', function () {
         return db;
     }
 
-    it('caps apiOffset at 100000 for a huge page (query-complexity DoS guard)', async function () {
+    it('refuses a page past the 100000-row OFFSET cap with 400 PAGE_TOO_DEEP', async function () {
         const db = makeDbWithProbe();
         const config = cfg('probeMethod', 'api', { query: { page: '999999', limit: '100' } });
-        await db.getQuery(config);
-        expect(config.data.sql.apiOffset).to.equal(100000);
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('PAGE_TOO_DEEP');
+    });
+
+    it('serves the last page inside the cap and refuses the next one', async function () {
+        const db = makeDbWithProbe();
+        const inside = cfg('probeMethod', 'api', { query: { page: '14286', limit: '7' } });
+        await db.getQuery(inside);
+        expect(inside.data.sql.apiOffset).to.equal(99995);
+        const past = cfg('probeMethod', 'api', { query: { page: '14287', limit: '7' } });
+        const err = await db.getQuery(past).then(() => null, (e) => e);
+        expect(err && err.code).to.equal('PAGE_TOO_DEEP');
     });
 
     it('leaves a normal page offset uncapped', async function () {
@@ -48,12 +59,13 @@ describe('getQuery() API OFFSET cap', function () {
         expect(config.data.sql.apiOffset).to.equal(40); // (3 - 1) * 20
     });
 
-    it('never produces a negative or NaN offset for a bogus page', async function () {
+    it('refuses a bogus page with 400 INVALID_PAGE instead of reading page 1', async function () {
         const db = makeDbWithProbe();
-        const config = cfg('probeMethod', 'api', { query: { page: '-5', limit: '20' } });
-        await db.getQuery(config);
-        // page clamps to >=1, so offset is 0
-        expect(config.data.sql.apiOffset).to.equal(0);
+        for (const page of ['-5', '0', 'abc', '1.5', '1e3', ['1', '2']]) {
+            const config = cfg('probeMethod', 'api', { query: { page, limit: '20' } });
+            const err = await db.getQuery(config).then(() => null, (e) => e);
+            expect(err && err.code, JSON.stringify(page)).to.equal('INVALID_PAGE');
+        }
     });
 });
 

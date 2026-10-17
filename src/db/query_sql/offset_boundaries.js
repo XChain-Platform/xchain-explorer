@@ -32,6 +32,8 @@
 
 'use strict';
 
+const { addressBoundaryWhere, tokenBoundaryWhere } = require('./boundary_filters.js');
+
 // WHICH TABLE getHistory's PAGE BOUNDARY is computed over. This must agree with
 // getHistoryData's own choice, because the number resolved here is the cursor
 // that query then pages on: if the boundary is computed over a narrower set than
@@ -70,6 +72,14 @@ function pagesOverBlocks(table){
     return (table === 'blocks');
 }
 
+// The blocks LIST page names no block, yet its route carries type=block and sends the
+// literal search "null" (or "all", which the request validator also passes as no
+// filter on getBlocks). Each is a placeholder, not a block number: binding it would
+// filter the boundary to block 0, which holds no row, and the page would answer empty.
+function blocksListPlaceholder(method, search){
+    return method === 'getBlocks' && ['null', 'all'].includes(String(search));
+}
+
 // The filter every boundary query below carries, resolved from the request's
 // search term to the interned id the tables actually store.
 async function boundaryWhere(db, config){
@@ -83,7 +93,9 @@ async function boundaryWhere(db, config){
         if(type=='address' || type=='oracle')
             sql = `SELECT id FROM index_addresses WHERE address=? LIMIT 1`;
         if(type=='token')
-            sql = `SELECT id FROM index_tickers WHERE tick=? LIMIT 1`;
+            sql = (method=='getLinks')
+                ? `SELECT id FROM index_coins WHERE coin=? LIMIT 1`
+                : `SELECT id FROM index_tickers WHERE tick=? LIMIT 1`;
         if(sql){
             let rows = await db.doQuery(config, sql, [config.data.search]);
             if(rows.length>0)
@@ -97,63 +109,16 @@ async function boundaryWhere(db, config){
             // column rather than the a5 address join the row query uses.
             where = ` AND m.oracle_address_id=?`;
             whereArgs.push(id);
-        } else if(type=='block' && !db.util.isNull(config.data.search)){
-            where = ` AND b1.block_index=?`;
+        } else if(type=='block' && !db.util.isNull(config.data.search) && !blocksListPlaceholder(method, config.data.search)){
+            // Every boundary query below joins `actions a1` except the blocks
+            // listing, and naming a1's own block lets actions.block_index drive
+            // instead of a scan through the blocks join. Where b1 joins through
+            // transactions, an action's block_index is its transaction's block.
+            where = (method=='getBlocks') ? ` AND b1.block_index=?` : ` AND a1.block_index=?`;
             whereArgs.push(db.util.sanitizeInt(config.data.search));
         } else if(type=='token'){
             ({ where, whereArgs } = tokenBoundaryWhere(method, id));
         }
-    }
-    return { where, whereArgs };
-}
-
-// The address lane: which column holds the address depends on what the method lists.
-function addressBoundaryWhere(method, id){
-    let where     = '';
-    let whereArgs = [];
-    if(['getMessages','getMints','getSends','getSweeps'].includes(method)){
-        where = ` AND (COALESCE(a1.source_id, t1.source_id)=? OR m.destination_id=?)`;
-        whereArgs.push(id, id);
-    } else if(['getTokens'].includes(method)){
-        where = ` AND m.owner_id=?`;
-        whereArgs.push(id);
-    } else if(method=='getCoinpayObligations'){
-        where = ` AND (m.payer_address_id=? OR m.payee_address_id=?)`;
-        whereArgs.push(id, id);
-    } else if(['getCredits','getDebits','getEscrows'].includes(method)){
-        where = ` AND m.address_id=?`;
-        whereArgs.push(id);
-    } else if(['getHistory'].includes(method)){
-        where = ` AND m.type_id=2 AND m.id=?`;
-        whereArgs.push(id);
-    } else {
-        // Paging boundaries must filter on the same source the row query joins on
-        // (the ACTION's own source, falling back to the transaction's), or an
-        // emitted action pages differently from how it lists. Every boundary query
-        // below joins `actions a1`, so the alias is always in scope here.
-        where = ` AND COALESCE(a1.source_id, t1.source_id)=?`;
-        whereArgs.push(id);
-    }
-    return { where, whereArgs };
-}
-
-// The token lane: an order/swap pages over either side of the pair, a dispenser
-// over the token it gives out, history and files over the mapping row.
-function tokenBoundaryWhere(method, id){
-    let where     = '';
-    let whereArgs = [];
-    if(['getOrders','getSwaps'].includes(method)){
-        where = ` AND (m.get_tick_id=? OR m.give_tick_id=?)`;
-        whereArgs.push(id, id);
-    } else if(['getDispensers','getDispenses'].includes(method)){
-        where = ` AND m.get_tick_id=?`;
-        whereArgs.push(id);
-    } else if(['getHistory','getFiles'].includes(method)){
-        where = ` AND m.type_id=1 AND m.id=?`;
-        whereArgs.push(id);
-    } else {
-        where = ` AND m.tick_id=?`;
-        whereArgs.push(id);
     }
     return { where, whereArgs };
 }
@@ -226,8 +191,11 @@ function firstLastTokensSql(where, order, limit){
                         LIMIT ` + limit;
 }
 
+// STRAIGHT_JOIN keeps the feed's own table first in both history statements, so
+// the ORDER BY ... LIMIT reads its index in order; a block filter otherwise lets
+// the optimizer start from blocks and sort every action in the block.
 function firstLastHistorySql(hCursor, hSource, where, order, limit){
-    return `SELECT
+    return `SELECT STRAIGHT_JOIN
                             ` + hCursor + ` as offset_index
                         FROM
                             ` + hSource + `
@@ -289,20 +257,19 @@ function firstLastActionsSql(ctx, where, order, limit){
 }
 
 // The stop marker: read one row PAST the page and, only when a full page plus
-// that row came back, report the cursor the next page would stop at.
+// that row came back, report the cursor the next page would stop at. The read
+// walks away from the cursor in the page's own direction (upward for prev).
 async function stopOffset(db, config, ctx, offset1){
     let offset2 = false;
     let action  = ctx.action;
     let method  = ctx.method;
     let where   = ctx.where;
     let limit   = db.util.bcadd(ctx.length,1);
-    let order   = 'DESC';
+    let order   = (action=='prev') ? 'ASC' : 'DESC';
     let stopWhereArgs = [...ctx.whereArgs];
     if(action && offset1){
-        // getHistory's unmapped feeds have no `m` alias to cursor on, so the
-        // stop predicate names whichever column this method's own query below
-        // selects (hCursor for history, m.action_index for everything else).
-        let stopCursor = (method=='getHistory') ? ctx.hCursor : 'm.action_index';
+        // The stop predicate names the column this method's stop query selects.
+        let stopCursor = stopCursorColumn(ctx);
         if(action=='prev'){
             where += ' AND ' + stopCursor + ' > ?';
             stopWhereArgs.push(offset1);
@@ -321,10 +288,21 @@ async function stopOffset(db, config, ctx, offset1){
     return offset2;
 }
 
+// The column a stop query reads: history's own cursor, the token id, else action_index.
+function stopCursorColumn(ctx){
+    if(ctx.method=='getHistory')
+        return ctx.hCursor;
+    return (ctx.method=='getTokens') ? 'm.id' : 'm.action_index';
+}
+
 // The statement stopOffset runs. It carries the cursor predicate appended above,
 // which is why it takes `where` rather than reading ctx.where.
 function stopSql(ctx, where, order, limit){
     let { method, type, table, hCursor, hSource } = ctx;
+    // Tokens page on m.id, so the stop marker is read from the same statement the
+    // first/last boundary uses.
+    if(method=='getTokens')
+        return firstLastTokensSql(where, order, limit);
     if(method=='getHistory'){
         // Same join shape as getHistoryData and as the first/last boundary
         // above: blocks INNER-joined on the ACTION's own block_index and
@@ -332,7 +310,7 @@ function stopSql(ctx, where, order, limit){
         // transactions instead would drop every chain-generated action that
         // has no transaction row, so the stop marker would describe a
         // shorter list than the one being paged.
-        return `SELECT
+        return `SELECT STRAIGHT_JOIN
                             ` + hCursor + ` as offset_index
                         FROM
                             ` + hSource + `

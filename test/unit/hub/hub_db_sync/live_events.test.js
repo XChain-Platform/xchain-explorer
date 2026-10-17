@@ -18,6 +18,7 @@ const assert = require('assert');
 const proxyquire = require('proxyquire').noCallThru();
 const { HUB_SCHEMA_VERSION } = require('../../../../src/hub/hub_schema_version.js');
 const { PENDING_PRICE_EVENT_CAP } = require('../../../../src/hub/hub_db_sync/mirror_bounds.js');
+const { MIRRORED_TABLES } = require('../../../../src/hub/hub_db_sync/mirror_tables.js');
 
 const mirrorWrites = [];
 const loggedErrors = [];
@@ -67,8 +68,9 @@ describe('hub DB sync live row events', function () {
         assert.deepStrictEqual(mirrorWrites[0][2], ['anchor-1', 'match-1']);
     });
 
-    it('refuses an event from a different hub schema version', async function () {
-        const context = eventContext();
+    it('refuses an event from a different hub schema version and owes every table a re-page', async function () {
+        let owed = null;
+        const context = eventContext({ markRepageOwed: (tables) => { owed = tables; } });
         const event = {
             type: 'row:anchor-stamped',
             table: 'cross_chain_matches',
@@ -80,6 +82,10 @@ describe('hub DB sync live row events', function () {
         await liveEvents.handleRowEvent.call(context, event);
 
         assert.strictEqual(context._schemaMismatchSeen, true);
+        // The refused row may be an in-place change below a stored position, so every
+        // table owes a page from zero before the latch can clear.
+        assert.deepStrictEqual(owed, MIRRORED_TABLES);
+        assert.strictEqual(context._priceRepageFloor, null);
         assert.strictEqual(mirrorWrites.length, 0);
         assert.strictEqual(loggedErrors.length, 1);
     });

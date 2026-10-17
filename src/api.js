@@ -19,7 +19,6 @@
  ********************************************************************/
 
 const dotenv         = require('dotenv');
-const http           = require('http');
 const express        = require('express');
 const XChainExplorer = require('./XChainExplorer.js');
 const configInfo     = require('./config.js');
@@ -34,13 +33,17 @@ const { buildFederationRpc } = require('./federation');         // the five keye
 // whatever it needs from this entry, so no step requires a module the api
 // suites stub here, and the order the service comes up in stays readable in
 // startApi() itself.
+const { applyCacheControl }  = require('./http/cache_control.js');
 const { applySecurityHeaders, applyProxyTrust } = require('./http/api_boot/security_headers.js');
 const { applyCors }          = require('./http/api_boot/cors.js');
 const { applyRateLimits }    = require('./http/api_boot/rate_limits.js');
 const { applyObservability } = require('./http/api_boot/observability.js');
+const { startHttpListener }  = require('./http/api_boot/http_listener.js');
 const { startTlsListener }   = require('./http/api_boot/tls.js');
+const { resolveBindHost }    = require('./http/api_boot/bind_host.js');
 const { mountJsonRpc }       = require('./http/api_boot/json_rpc.js');
 const { startWebsockets }    = require('./http/api_boot/websocket.js');
+const { createBridgePanelHandlers, mountBridgePanelRoutes, bridgeHubEndpoints } = require('./http/bridge_panel_routes.js');
 
 // Read the .env file before anything below reads an environment variable.
 dotenv.config();
@@ -63,102 +66,8 @@ const xchainHubConnector = require('./connectors/hub');
 const HUB_ENDPOINTS = xchainHubConnector.parseEndpoints();
 const EXPLORER_API_PORT_HTTP  = configInfo.env.EXPLORER_API_PORT_HTTP  || 8080;
 const EXPLORER_API_PORT_HTTPS = configInfo.env.EXPLORER_API_PORT_HTTPS || 8081;
-
-// Public reads used by token.html's bridge panels. They are mounted by api.js,
-// before XChainExplorer installs its wildcard page route, because one read is a
-// hub RPC and the other comes from the co-located hub-mirror schema rather than
-// the explorer's ordinary API-method table.
-function createBridgePanelHandlers(getExplorer, hubConnector){
-    const error = (res, status, message, code) =>
-        res.status(status).json({ error: message, code });
-
-    const nativeTickFor = (tick, chain) => {
-        const dot = tick.indexOf('.');
-        const root = dot > 0 ? tick.slice(0, dot).toUpperCase() : '';
-        return coins.ALLOWED_COINS.includes(root) && root !== String(chain || '').toUpperCase()
-            ? tick.slice(dot + 1) : tick;
-    };
-
-    const tickParam = (req, res) => {
-        const tick = String((req.params && req.params.tick) || '').trim();
-        if(!tick || tick.length > 250 || /[\x00-\x1f\x7f]/.test(tick)){
-            error(res, 400, 'Invalid token tick.', 'INVALID_TICK');
-            return null;
-        }
-        return tick;
-    };
-
-    return {
-        invariant: bridgeInvariantHandler(hubConnector, tickParam, error, nativeTickFor),
-        transfers: bridgeTransfersHandler(getExplorer, tickParam, error, nativeTickFor)
-    };
-}
-
-function bridgeInvariantHandler(hubConnector, tickParam, error, nativeTickFor){
-    return async function invariant(req, res){
-            const tick = tickParam(req, res);
-            if(tick === null) return;
-            if(!hubConnector)
-                return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
-            const routeCoin = String((req.params && req.params.coin) || '').toUpperCase();
-            const chain = coins.ALLOWED_COINS.find(coin =>
-                routeCoin === coin || routeCoin === 'T' + coin || routeCoin === 'R' + coin);
-            if(!chain)
-                return error(res, 404, 'Unknown coin.', 'UNKNOWN_COIN');
-            const nativeTick = nativeTickFor(tick, chain);
-            try {
-                const result = await hubConnector.call({
-                    jsonrpc: '2.0', method: 'getbridgeinvariant', params: { tick: nativeTick }, id: 1
-                }, { attempts: 1 });
-                if(result === null || result === undefined)
-                    return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
-                // The renderer indexes the response by the displayed tick. Hub
-                // records use the native spelling, while a destination token page
-                // uses ORIGIN.TICK, so rename that one key at the HTTP boundary.
-                if(nativeTick !== tick && result && typeof result === 'object' &&
-                   Object.prototype.hasOwnProperty.call(result, nativeTick))
-                    return res.json({ [tick]: result[nativeTick] });
-                return res.json(result);
-            } catch(err){
-                log.warn('BRIDGE_INVARIANT_READ_FAILED', { err: err && err.message ? err.message : err });
-                return error(res, 503, 'Bridge invariant is unavailable.', 'BRIDGE_INVARIANT_UNAVAILABLE');
-            }
-    };
-}
-
-function bridgeTransfersHandler(getExplorer, tickParam, error, nativeTickFor){
-    return async function transfers(req, res){
-            const tick = tickParam(req, res);
-            if(tick === null) return;
-            const coin = String((req.params && req.params.coin) || '').toUpperCase();
-            const explorer = getExplorer();
-            const db = explorer && explorer.db;
-            const source = db && db.checkpointDb && db.checkpointDb[coin];
-            if(!db || typeof db.getBridgeTransfers !== 'function' || !source ||
-               !/^[A-Za-z0-9_$]+$/.test(String(source.name || '')))
-                return error(res, 503, 'Bridge transfers are unavailable.', 'BRIDGE_TRANSFERS_UNAVAILABLE');
-
-            // General-token rows store the native tick in the mirror. A bridged
-            // copy is displayed as ORIGIN.TICK, so remove a known foreign-chain
-            // root before binding the value. Native subassets retain their dot.
-            const nativeTick = nativeTickFor(tick, source.chain);
-
-            try {
-                const rows = await db.getBridgeTransfers({ coin, schema: source.name, network: source.network,
-                    tick: nativeTick, chain: source.chain, limit: 100 });
-                return res.json(Array.isArray(rows) ? rows : []);
-            } catch(err){
-                log.warn('BRIDGE_TRANSFERS_READ_FAILED', { coin, err: err && err.message ? err.message : err });
-                return error(res, 503, 'Bridge transfers are unavailable.', 'BRIDGE_TRANSFERS_UNAVAILABLE');
-            }
-    };
-}
-
-function mountBridgePanelRoutes(app, getExplorer, hubConnector){
-    const handlers = createBridgePanelHandlers(getExplorer, hubConnector);
-    app.get('/:coin/api/bridge-invariant/:tick', (req, res) => handlers.invariant(req, res));
-    app.get('/:coin/api/bridge-transfers/:tick', (req, res) => handlers.transfers(req, res));
-}
+// Loopback unless the deployment widens it; see src/http/api_boot/bind_host.js.
+const EXPLORER_BIND_HOST      = resolveBindHost(configInfo.env);
 
 // Everything the shutdown drain has to take down, published from startApi() as it
 // is built. Module scope because the signal handler is registered at load, before
@@ -239,33 +148,14 @@ function createJsonRpcController(getExplorer, requestGate){
     }
 }
 
-// The plain HTTP listener, the primary serving socket; HTTPS is optional.
-function startHttpListener(app){
-    const httpServer = http.createServer(app);
-    // A listen() that fails (EADDRINUSE when a second instance grabs the port, EACCES
-    // on a privileged port) surfaces as an async 'error' event, not a throw, so a
-    // try/catch can't catch it; without a handler Node crashes with an unhandled-error
-    // stack dump. The HTTP server is the primary serving socket: log one clear line and
-    // exit non-zero so the supervisor (systemd) reports and restarts cleanly.
-    httpServer.on('error', (err) => {
-        log.error('HTTP_LISTEN_FAILED', { port: EXPLORER_API_PORT_HTTP, code: err.code, err: err.message });
-        process.exit(1);
-    });
-    httpServer.listen(EXPLORER_API_PORT_HTTP, () => {
-        log.info('HTTP_SERVER_LISTENING', { port: EXPLORER_API_PORT_HTTP });
-    });
-    // Published as soon as it exists, not at the end of startApi(): a SIGTERM
-    // arriving mid-boot must still be able to close a listener already bound.
-    runtime.httpServer = httpServer;
-    return httpServer;
-}
-
 function createApp(options = {}){
     const appConfigInfo = options.configInfo || configInfo;
     const hubEndpoints = Object.prototype.hasOwnProperty.call(options, 'hubEndpoints')
         ? options.hubEndpoints : HUB_ENDPOINTS;
     const app = options.app || express();
 
+    // First, so the refusals the guards below answer are stamped no-store too.
+    applyCacheControl(app);
     applySecurityHeaders(app, appConfigInfo, XChainExplorer);
     applyCors(app, appConfigInfo);
     const requestGate = applyRateLimits(app, appConfigInfo, isStaticAsset);
@@ -274,8 +164,9 @@ function createApp(options = {}){
 
     let explorer = null;
     const jsonRpcController = createJsonRpcController(() => explorer, requestGate);
+    const bridgeHub = bridgeHubEndpoints(hubEndpoints, appConfigInfo.env);
     mountBridgePanelRoutes(app, () => explorer,
-        hubEndpoints ? new xchainHubConnector(hubEndpoints) : null);
+        bridgeHub ? new xchainHubConnector(bridgeHub) : null);
 
     explorer = new XChainExplorer(app, appConfigInfo);
     mountJsonRpc(app, appConfigInfo, jsonRpcController);
@@ -303,11 +194,11 @@ async function startApi(){
     const built = createApp({ app, configInfo, hubEndpoints: HUB_ENDPOINTS });
     const explorer = built.explorer;
 
-    const httpServer = startHttpListener(app);
+    const httpServer = startHttpListener(app, runtime, EXPLORER_API_PORT_HTTP, EXPLORER_BIND_HOST, log);
     // Secondary and optional. Both the drain and the WS upgrade below read
     // runtime.httpsServer, which a bind failure clears, so neither ever holds a
     // listener that never bound.
-    startTlsListener(app, config, runtime, EXPLORER_API_PORT_HTTPS, log);
+    startTlsListener(app, config, runtime, EXPLORER_API_PORT_HTTPS, EXPLORER_BIND_HOST, log);
 
     // Published before init(): init() is what builds the pools, and a signal landing
     // partway through it must still reach db.close() for whatever was built so far.

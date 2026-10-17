@@ -61,14 +61,30 @@ const EXEMPT_MOUNTS = ['images', 'icon'];
 
 const EXEMPT_MOUNT_SET = new Set(EXEMPT_MOUNTS);
 
+// Every mount answered from disk with no DB work: the static directories plus the
+// self-hosted Font Awesome tree. A cold page load pulls about a hundred of these,
+// so they take their own wide per-IP bucket (api_boot/rate_limits.js) and leave
+// the app-wide one to queries; in that bucket two page views would spend it all.
+const FILE_MOUNT_SET = new Set([...STATIC_DIRECTORIES, 'fontawesome']);
+
 // True only for a path whose first segment IS one of the exempt mounts. An exact
 // segment match rather than a prefix test, so `/imagesXYZ/...` no longer reads as
 // `/images`, and a `..` segment anywhere disqualifies the path so a traversal
 // attempt cannot borrow a mount's exemption for a deeper route.
 function isStaticAssetPath(pathname){
+    return firstSegmentIn(pathname, EXEMPT_MOUNT_SET);
+}
+
+// True for a path whose first segment is a disk-served mount, by the same exact
+// segment rule and the same `..` disqualifier as the exemption above.
+function isFileMountPath(pathname){
+    return firstSegmentIn(pathname, FILE_MOUNT_SET);
+}
+
+function firstSegmentIn(pathname, mountSet){
     if(typeof pathname !== 'string' || pathname[0] !== '/') return false;
     const segments = pathname.split('/');
-    if(!EXEMPT_MOUNT_SET.has(segments[1])) return false;
+    if(!mountSet.has(segments[1])) return false;
     for(let i = 2; i < segments.length; i++)
         if(segments[i] === '..') return false;
     return true;
@@ -81,4 +97,9 @@ function isStaticAsset(req){
     return isStaticAssetPath(req && req.path);
 }
 
-module.exports = { STATIC_DIRECTORIES, EXEMPT_MOUNTS, isStaticAssetPath, isStaticAsset };
+// Express-shaped wrapper for the file-mount test, with the same not-decoded rule.
+function isFileMount(req){
+    return isFileMountPath(req && req.path);
+}
+
+module.exports = { STATIC_DIRECTORIES, EXEMPT_MOUNTS, isStaticAssetPath, isStaticAsset, isFileMountPath, isFileMount };

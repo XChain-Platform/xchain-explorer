@@ -14,9 +14,10 @@
  *
  * XChain Explorer - serving one request end to end
  *
- * The stages processRequest runs, in the order it ran them inline: build the state,
- * resolve the route, read the data the route names, assemble the body, apply the
- * not-found answers, render a page where the request is for one, and send it.
+ * The stages processRequest runs, in order: build the state, resolve the route,
+ * answer 404 for a detail page whose record cannot exist, read the data the route
+ * names, assemble the body, apply the not-found answers, render a page where the
+ * request is for one, and send it.
  *
  * The host bag carries what only XChainExplorer.js can supply: the config-env view,
  * which the suites replace in that file's require map, and the latency recorder,
@@ -28,6 +29,7 @@
 
 const { newRequestState }  = require('./state.js');
 const { resolveRoute }     = require('./resolve_route.js');
+const { checkDetailRecord } = require('./detail_record.js');
 const { validateParams }   = require('./validate_params.js');
 const { loadData }         = require('./load_data.js');
 const { assembleResponse } = require('./assemble_response.js');
@@ -49,6 +51,13 @@ async function runRequest(explorer, req, res, host){
     let st = newRequestState(explorer, req, config);
 
     await resolveRoute(explorer, req, st);
+
+    if(st.redirect){
+        res.redirect(st.redirect.code, st.redirect.url);
+        return;
+    }
+
+    await checkDetailRecord(explorer, st);
 
     // With a method named and the coin available, read the data from the database.
     if(!explorer.util.isNull(st.cfg.data.method) && st.validDataRequest){

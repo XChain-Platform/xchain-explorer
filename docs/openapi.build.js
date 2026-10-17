@@ -7,9 +7,9 @@
  *
  * Generates docs/openapi.json (OpenAPI 3.1) for the explorer's public REST API.
  *
- * ROUTES below deliberately mirrors the `api` table in src/XChainExplorer.js
- * key-for-key (same path templates, same {TYPE} enums) plus the special
- * pre-wildcard routes registered in setupUrls(). The unit test
+ * ROUTES below mirrors the `api` table in src/XChainExplorer.js, including the
+ * bare list aliases derived by the resolver, plus the special pre-wildcard
+ * routes registered in setupUrls(). The unit test
  * test/unit/http/openapi_coverage.test.js fails if the two drift apart, so edits to
  * either side must land together. The /{COIN}/explorer/* datatable routes are
  * an internal surface for the web UI and are intentionally NOT documented.
@@ -22,7 +22,11 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { COMPONENT_SCHEMAS, responseSchema } = require('./openapi.schemas.js');
+const { COMPONENT_SCHEMAS, KEYSET_FIELDS, responseSchema } = require('./openapi.schemas.js');
+const { api } = require('../src/explorer/routes/api_methods.js');
+const { supportsBareApiList } = require('../src/explorer/request/resolve_route.js');
+const { KEYSET_METHODS } = require('../src/db/query_sql/keyset.js');
+const { listLimitMax } = require('../src/db/method_tables.js');
 
 const COINS = ['BTC', 'TBTC', 'RBTC', 'LTC', 'TLTC', 'RLTC', 'DOGE', 'TDOGE', 'RDOGE'];
 
@@ -46,7 +50,7 @@ const ROUTES = [
     // 'name' (by-discovery-name lookup) added alongside block/address/token (M1.7).
     ['/{COIN}/api/files/{QUERY}/{TYPE}', 'getFiles', ['block', 'address', 'token', 'name', 'gate'], 'Files', 'FILE actions, including discovery by gate ticker'],
     ['/{COIN}/api/issues/{QUERY}/{TYPE}', 'getIssues', ['block', 'address', 'token'], 'Tokens', 'ISSUE actions (token issuances)'],
-    ['/{COIN}/api/links/{QUERY}/{TYPE}', 'getLinks', ['block', 'address'], 'Action history', 'LINK actions'],
+    ['/{COIN}/api/links/{QUERY}/{TYPE}', 'getLinks', ['block', 'address', 'token'], 'Action history', 'LINK actions'],
     ['/{COIN}/api/lists/{QUERY}/{TYPE}', 'getLists', ['block', 'address'], 'Action history', 'LIST actions'],
     ['/{COIN}/api/shared_lists', 'getSharedLists', null, 'Action history', 'Shared LIST directory'],
     ['/{COIN}/api/messages/{QUERY}/{TYPE}', 'getMessages', ['block', 'address', 'source', 'destination'], 'Action history', 'MESSAGE actions (encrypted messaging)'],
@@ -55,7 +59,7 @@ const ROUTES = [
     ['/{COIN}/api/order_expires/{QUERY}/{TYPE}', 'getOrderExpires', ['block', 'address'], 'Markets', 'Order expirations'],
     ['/{COIN}/api/order_edits/{QUERY}/{TYPE}', 'getOrderEdits', ['block', 'address'], 'Markets', 'Order edits'],
     ['/{COIN}/api/order_cancels/{QUERY}/{TYPE}', 'getOrderCancels', ['block', 'address'], 'Markets', 'Order cancellations'],
-    ['/{COIN}/api/order_matches/{QUERY}/{TYPE}', 'getOrderMatches', ['block'], 'Markets', 'Order matches (fills), filtered'],
+    ['/{COIN}/api/order_matches/{QUERY}/{TYPE}', 'getOrderMatches', ['block', 'address', 'token'], 'Markets', 'Order matches (fills), filtered'],
     ['/{COIN}/api/order_matches', 'getOrderMatches', null, 'Markets', 'Order matches (fills)'],
     ['/{COIN}/api/coinpays/{QUERY}/{TYPE}', 'getCoinpays', ['block', 'address'], 'Markets', 'COINPAY actions (native-coin payment legs)'],
     ['/{COIN}/api/coinpay_expires/{QUERY}/{TYPE}', 'getCoinpayExpires', ['block', 'address'], 'Markets', 'COINPAY expirations'],
@@ -66,7 +70,7 @@ const ROUTES = [
     ['/{COIN}/api/swap_edits/{QUERY}/{TYPE}', 'getSwapEdits', ['block', 'address'], 'Markets', 'Swap edits'],
     ['/{COIN}/api/swap_expires/{QUERY}/{TYPE}', 'getSwapExpires', ['block', 'address'], 'Markets', 'Swap expirations'],
     ['/{COIN}/api/swap_cancels/{QUERY}/{TYPE}', 'getSwapCancels', ['block', 'address'], 'Markets', 'Swap cancellations'],
-    ['/{COIN}/api/swap_matches/{QUERY}/{TYPE}', 'getSwapMatches', ['block'], 'Markets', 'Swap matches, filtered'],
+    ['/{COIN}/api/swap_matches/{QUERY}/{TYPE}', 'getSwapMatches', ['block', 'address', 'token'], 'Markets', 'Swap matches, filtered'],
     ['/{COIN}/api/swap_matches', 'getSwapMatches', null, 'Markets', 'Swap matches'],
     ['/{COIN}/api/sweeps/{QUERY}/{TYPE}', 'getSweeps', ['block', 'address', 'source', 'destination'], 'Action history', 'SWEEP actions'],
     // ── Prices ────────────────────────────────────────────────────────────
@@ -80,9 +84,9 @@ const ROUTES = [
     ['/{COIN}/api/contracts', 'getContracts', null, 'Contracts', 'Deployed smart contracts'],
     ['/{COIN}/api/contract/{QUERY}', 'getContract', 'contract', 'Contracts', 'One contract (by action index)'],
     ['/{COIN}/api/contract/{QUERY}/state', 'getContractState', 'contract', 'Contracts', 'Contract state (all keys)'],
-    ['/{COIN}/api/contract/{QUERY}/state/{TYPE}', 'getContractState', 'contract', 'Contracts', 'Contract state (one key)'],
+    ['/{COIN}/api/contract/{QUERY}/state/{TYPE}', 'getContractState', 'contract', 'Contracts', 'Contract state (all keys; {TYPE} does not narrow it)'],
     ['/{COIN}/api/contract/{QUERY}/balance', 'getContractBalance', 'contract', 'Contracts', 'Contract token balances'],
-    ['/{COIN}/api/contract/{QUERY}/balance/{TYPE}', 'getContractBalance', 'contract', 'Contracts', 'Contract balance (one tick)'],
+    ['/{COIN}/api/contract/{QUERY}/balance/{TYPE}', 'getContractBalance', 'contract', 'Contracts', 'Contract token balances (all ticks; {TYPE} does not narrow it)'],
     ['/{COIN}/api/executions/{QUERY}/{TYPE}', 'getExecutions', ['block', 'address', 'contract'], 'Contracts', 'Contract executions, filtered'],
     ['/{COIN}/api/executions', 'getExecutions', null, 'Contracts', 'Contract executions'],
     ['/{COIN}/api/execution/{QUERY}', 'getExecution', 'execution', 'Contracts', 'One execution (by action index)'],
@@ -94,6 +98,7 @@ const ROUTES = [
     // ── Staking ───────────────────────────────────────────────────────────
     ['/{COIN}/api/stakes/{QUERY}/{TYPE}', 'getStakes', ['block', 'address', 'source'], 'Staking', 'Capability stakes, filtered'],
     ['/{COIN}/api/stakes', 'getStakes', null, 'Staking', 'Capability stakes (validator staking)'],
+    ['/{COIN}/api/validators/{QUERY}/{TYPE}', 'getValidators', ['block', 'address'], 'Staking', 'Active validators and their capabilities, filtered'],
     ['/{COIN}/api/validators', 'getValidators', null, 'Staking', 'Active validators and their capabilities'],
     // Compositions, not filters: the list methods above expose only an address type, so
     // neither of these could be assembled by a caller paging the plural routes.
@@ -154,6 +159,14 @@ const ROUTES = [
     ['/{COIN}/api/bet_feed/{QUERY}', 'getBetFeed', 'bet_feed', 'Betting', 'A single BET market: terms, per-outcome pools, and the full status timeline'],
     ['/{COIN}/api/bets/{QUERY}/{TYPE}', 'getBets', ['block', 'address', 'feed', 'token', 'status'], 'Betting', 'BET wagers, filtered by bettor/market/token/status/block'],
     ['/{COIN}/api/bets', 'getBets', null, 'Betting', 'BET wagers (one row per placed bet)'],
+    ['/{COIN}/api/bet_expires/{QUERY}/{TYPE}', 'getBetExpires', ['block', 'address'], 'Betting', 'BET feed expirations, filtered by block or oracle'],
+    ['/{COIN}/api/bet_expires', 'getBetExpires', null, 'Betting', 'BET feed expirations'],
+    ['/{COIN}/api/bet_cancels/{QUERY}/{TYPE}', 'getBetCancels', ['block', 'address'], 'Betting', 'BET feed cancellations, filtered by block or oracle'],
+    ['/{COIN}/api/bet_cancels', 'getBetCancels', null, 'Betting', 'BET feed cancellations'],
+    ['/{COIN}/api/bet_edits/{QUERY}/{TYPE}', 'getBetEdits', ['block', 'address'], 'Betting', 'BET feed edits, filtered by block or oracle'],
+    ['/{COIN}/api/bet_edits', 'getBetEdits', null, 'Betting', 'BET feed edits'],
+    ['/{COIN}/api/bet_resolves/{QUERY}/{TYPE}', 'getBetResolves', ['block', 'address'], 'Betting', 'BET feed resolutions, filtered by block or oracle'],
+    ['/{COIN}/api/bet_resolves', 'getBetResolves', null, 'Betting', 'BET feed resolutions'],
     ['/{COIN}/api/oracle/{QUERY}', 'getOracleStats', 'oracle', 'Betting', 'Oracle track record for an address (v0 reputation; per-address, unbonded)'],
     // ── Cross-chain ───────────────────────────────────────────────────────
     ['/{COIN}/api/cross_chain_matches/{QUERY}/{TYPE}', 'getCrossChainMatches', ['match', 'block', 'status'], 'Cross-chain', 'Cross-chain order matches, filtered'],
@@ -163,6 +176,12 @@ const ROUTES = [
     ['/{COIN}/api/xcalls/{QUERY}/{TYPE}', 'getXcalls', ['block', 'contract', 'status'], 'Cross-chain', 'XCALL cross-chain call requests, filtered by block/contract/status'],
     ['/{COIN}/api/xcalls', 'getXcalls', null, 'Cross-chain', 'XCALL cross-chain call requests (VM-emitted; read-only)'],
     ['/{COIN}/api/xcall/{QUERY}', 'getXcall', 'call_id', 'Cross-chain', 'Full XCALL lifecycle by call_id (request + target execution + source callback)'],
+    ['/{COIN}/api/xexecs/{QUERY}/{TYPE}', 'getXexecs', ['block'], 'Cross-chain', 'XEXEC target-chain executions, filtered by block'],
+    ['/{COIN}/api/xexecs', 'getXexecs', null, 'Cross-chain', 'XEXEC target-chain executions'],
+    ['/{COIN}/api/xbridges/{QUERY}/{TYPE}', 'getXbridges', ['block', 'address', 'token'], 'Cross-chain', 'XBRIDGE user and settlement legs, filtered by block, address, or token'],
+    ['/{COIN}/api/xbridges', 'getXbridges', null, 'Cross-chain', 'XBRIDGE user and settlement legs'],
+    ['/{COIN}/api/rollcalls/{QUERY}/{TYPE}', 'getRollcalls', ['block', 'address'], 'Staking', 'ROLLCALL publications, filtered by block or publisher address'],
+    ['/{COIN}/api/rollcalls', 'getRollcalls', null, 'Staking', 'ROLLCALL publications and close summaries'],
     // ── Attestations ──────────────────────────────────────────────────────
     ['/{COIN}/api/attestations/{QUERY}/{TYPE}', 'getAttestations', ['block', 'address', 'contract'], 'Attestations', 'ATTEST requests/responses, filtered'],
     ['/{COIN}/api/attestations', 'getAttestations', null, 'Attestations', 'ATTEST v0 requests + v1 responses (incl. LLM attestations)'],
@@ -247,7 +266,13 @@ const ROUTES = [
     // the contract, so both are stated in the description rather than left to the page.
     ['/{COIN}/api/collectibles', 'getCollectibles', null, 'Tokens', 'Collectibles: tokens classified from their ISSUE fields as indivisible (DECIMALS=0) with a frozen ceiling (LOCK_MAX_SUPPLY). No curation is applied'],
     ['/{COIN}/api/collectibles/{QUERY}/{TYPE}', 'getCollectibles', ['block', 'address'], 'Tokens', 'Collectibles filtered by issue block or current owner'],
-    ['/{COIN}/api/rich_list/{QUERY}', 'getRichList', 'token', 'Tokens', 'One token’s holder ranking and supply stats: circulating supply, holder count, the summed balances alongside it, and the top holders (capped at the request limit, 100 max) with each holder’s percent of circulating supply. Zero balances are excluded. There is no cross-token ranking route'],
+    // One object whose holder ranking pages by page/limit, so it takes those two alone.
+    ['/{COIN}/api/rich_list/{QUERY}', 'getRichList', 'token', 'Tokens', 'One token’s holder ranking and supply stats: circulating supply, holder count, the summed balances alongside it, and the top holders (capped at the request limit, 100 max) with each holder’s percent of circulating supply. Zero balances are excluded. There is no cross-token ranking route',
+        { query: [
+            { name: 'page', required: false, schema: { type: 'integer', minimum: 1, default: 1 },
+              description: 'Page of the holder ranking, 1 or more. A page whose first row lies past row 100000 answers 400 PAGE_TOO_DEEP; a value that is not a whole number of at least 1 answers 400 INVALID_PAGE' },
+            { name: 'limit', required: false, schema: { type: 'integer', minimum: 1, maximum: 100, default: 100 },
+              description: 'Holders per page; a larger value is clamped to 100. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT' }] }],
     ['/{COIN}/api/transaction/{QUERY}/{TYPE}', 'getTransaction', ['tx_hash', 'tx_index'], 'Core', 'Transaction lookup'],
     // ── Markets ───────────────────────────────────────────────────────────
     ['/{COIN}/api/markets', 'getMarkets', null, 'Markets', 'All trading pairs',
@@ -264,6 +289,17 @@ const ROUTES = [
     ['/{COIN}/api/market/{TICK1}/{TICK2}/orders/{ADDRESS}', 'getMarketOrders', null, 'Markets', 'Open orders for a pair, one address'],
     ['/{COIN}/api/market/{TICK1}/{TICK2}/orderbook', 'getOrderbook', null, 'Markets', 'Aggregated order book for a pair'],
 ];
+
+// Document the three-segment aliases resolved from filtered list declarations.
+// Explicit bare routes already in the table retain their tailored summaries.
+const declaredRoutePaths = new Set(ROUTES.map(route => route[0]));
+for(const route of [...ROUTES]){
+    if(!supportsBareApiList(api[route[0]] || [])) continue;
+    const barePath = route[0].replace('/{QUERY}/{TYPE}', '');
+    if(barePath == route[0] || declaredRoutePaths.has(barePath)) continue;
+    ROUTES.push([barePath, route[1], null, route[3], route[4] + ', unfiltered']);
+    declaredRoutePaths.add(barePath);
+}
 
 // Mirrors MAX_PREFLIGHT_PARAMS_LENGTH in src/XChainExplorer.js, which is the protocol's
 // own action-payload ceiling (ENVELOPE_MAX_PAYLOAD). Declared here rather than required
@@ -289,6 +325,21 @@ const SPECIAL = [
                 'application/octet-stream': { schema: { type: 'string', format: 'binary' } },
                 '*/*':                      { schema: { type: 'string', format: 'binary' } },
             } } }],
+    ['/{COIN}/api/bridge-invariant/{TICK}', 'Cross-chain',
+        'Per-chain escrow, supply, in-flight amount, and policy sequence for a bridged token; ' +
+        '{ available: false, reason } when this explorer has no hub to ask or the hub lacks the read',
+        null, { schema: { oneOf: [
+            { type: 'object', additionalProperties: { type: 'object' } },
+            { type: 'object', required: ['available', 'reason'], additionalProperties: false, properties: {
+                available: { const: false },
+                reason:    { type: 'string', enum: ['HUB_NOT_CONFIGURED', 'HUB_METHOD_MISSING'] } } }
+        ] } }],
+    ['/{COIN}/api/bridge-transfers/{TICK}', 'Cross-chain',
+        'Newest bridge transfers involving this chain and token, capped at 100 rows',
+        null, { schema: { type: 'array', maxItems: 100, items: { type: 'object' } } }],
+    ['/{COIN}/api/applied-policy/{TICK}', 'Cross-chain',
+        'Latest inherited policy snapshot applied to this bridged token copy',
+        null, { schema: { type: ['object', 'null'] } }],
     ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)'],
     ['/{COIN}/api/feeschedule', 'Fees', 'Fee schedule + oracle prices (proxied from the indexer)'],
     // This entry existed in the generated openapi.json but not here, so it was
@@ -507,6 +558,7 @@ const SPECIAL = [
                     content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
             },
             post: {
+                operationId: 'post_coinpay_obligations',
                 requestBody: {
                     required: true,
                     content: {
@@ -565,11 +617,17 @@ function pathParams(p, types) {
                 kinds.filter(Boolean).map((t) => `${t} = ${QUERY_DESC[t] || t}`).join('; '),
         });
     }
+    // Enumerate {TYPE} only where the route table lists its types; a single-type route
+    // accepts any trailing segment and does not narrow its answer by it.
     if (p.includes('{TYPE}'))
-        params.push({
+        params.push(Array.isArray(types) ? {
             name: 'TYPE', in: 'path', required: true,
             schema: { type: 'string', enum: types },
             description: 'How to interpret {QUERY}',
+        } : {
+            name: 'TYPE', in: 'path', required: true,
+            schema: { type: 'string' },
+            description: 'Any value is accepted; this route does not filter its result by it',
         });
     for (const extra of ['TICK1', 'TICK2', 'TICK', 'ADDRESS', 'ACTION_INDEX', 'BLOCK_INDEX', 'CONTRACT_INDEX', 'KEY'])
         if (p.includes(`{${extra}}`))
@@ -581,7 +639,9 @@ const LIST_METHODS_SINGLE = new Set(['getAction', 'getAddress', 'getBlock', 'get
     'getStatus', 'getNetwork', 'getMarket', 'getOrderbook', 'getTransaction', 'getSearch', 'getXcall', 'getPoll',
     // BET single-object reads: getBetFeed resolves one market (terms + pools +
     // timeline) and getOracleStats one aggregate record, so neither paginates.
-    'getBetFeed', 'getOracleStats']);
+    'getBetFeed', 'getOracleStats',
+    // One attestation lifecycle, one anchor and one checkpoint, each read whole.
+    'getAttestation', 'getAnchor', 'getCheckpoint']);
 
 // `opts` (SPECIAL entries only) describes a route the table conventions cannot:
 // {query: [...]} its own query parameters instead of page/limit/sortorder,
@@ -598,8 +658,11 @@ function operation([p, method, types, tag, summary], opts) {
     const params = pathParams(p, types);
     if (isList) params.push(
         { $ref: '#/components/parameters/page' },
-        { $ref: '#/components/parameters/limit' },
+        { $ref: '#/components/parameters/' + (listLimitMax(method) > 100 ? 'limitLarge' : 'limit') },
         { $ref: '#/components/parameters/sortorder' });
+    if (isList && KEYSET_METHODS.has(method)) params.push(
+        { $ref: '#/components/parameters/before' },
+        { $ref: '#/components/parameters/after' });
     for (const q of o.query || []) params.push(Object.assign({ in: 'query' }, q));
     const responses = {
         200: o.response200 || {
@@ -607,7 +670,7 @@ function operation([p, method, types, tag, summary], opts) {
             content: {
                 'application/json': {
                     schema: o.schema
-                        || responseSchema(method)
+                        || responseSchema(method, KEYSET_METHODS.has(method) ? KEYSET_FIELDS : null)
                         || { $ref: isList ? '#/components/schemas/ListResponse' : '#/components/schemas/ObjectResponse' },
                 },
             },
@@ -654,14 +717,17 @@ const paths = {};
 // passes, for a route whose 200 body the table conventions cannot describe.
 for (const r of ROUTES) paths[r[0]] = operation(r, r[5]);
 for (const [p, tag, summary, description, opts] of SPECIAL) {
-    paths[p] = operation([p, 'special_' + opId(p), null, tag, summary], opts);
+    const specialPath = operation([p, 'special_' + opId(p), null, tag, summary], opts);
+    const tablePath = paths[p];
+    paths[p] = Object.assign({}, tablePath, specialPath);
     // Optional 4th element: prose that does not fit a one-line summary. Added
     // for oraclefeequote, whose entry had been hand-written into the generated
     // file WITH a description the generator could not express, so regenerating
     // silently dropped it. Attached to whichever operation exists: a {noGet} entry
     // (contract-call) has only `post`, everything else here still only has `get`.
     if (description) (paths[p].get || paths[p].post).description = description;
-    paths[p]['x-registered'] = 'express';   // direct app.get()/app.post(), not the urls.api table
+    // A path can combine a route-table GET with a directly registered POST.
+    paths[p]['x-registered'] = tablePath ? 'table+express' : 'express';
 }
 
 const spec = {
@@ -678,7 +744,11 @@ const spec = {
             + 'the REST and WebSocket surfaces: they compare byte-for-byte across endpoints and stay '
             + 'exact above 2^53. List responses '
             + 'are `{total, data: [...]}` with `page`/`limit`/`sortorder` query parameters '
-            + '(limit max 100; balances/holders max 500). Errors are '
+            + '(limit defaults to and is clamped at 100; 500 on balances/holders). A malformed paging '
+            + 'parameter answers 400 rather than a default. Lists that document `before`/`after` also '
+            + 'page by cursor: `before` reads the page just below a cursor and `after` the page just '
+            + 'above it, shown in `sortorder`; pass the response\'s `next_before` or `next_after` to '
+            + 'continue the same walk at the same cost at any depth, where a deep `page` slows with depth. Errors are '
             + '`{error: "message", code: "STABLE_CODE"}`. See the error-code registry at '
             + 'https://docs.xchain.io/protocol/error-codes.md. A WebSocket API lives at '
             + '/{COIN}/api/websocket. See https://docs.xchain.io/components/explorer/websocket.md.\n\n'
@@ -705,9 +775,27 @@ const spec = {
                 schema: { type: 'string', enum: COINS },
                 description: 'Chain + network: BTC/LTC/DOGE mainnet; T prefix = testnet, R prefix = regtest',
             },
-            page: { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 }, description: 'Page number' },
-            limit: { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 500, default: 10 }, description: 'Rows per page (max 100; balances/holders max 500)' },
-            sortorder: { name: 'sortorder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] }, description: 'Sort order' },
+            page: { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 }, description: 'Page number, 1 or more. A page whose first row lies past row 100000 answers 400 PAGE_TOO_DEEP; page deeper by `before`/`after` where the list offers them. A value that is not a whole number of at least 1 answers 400 INVALID_PAGE' },
+            limit: { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 100 },
+                description: 'Rows per page; a larger value is clamped to 100. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT' },
+            limitLarge: { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 500, default: 500 },
+                description: 'Rows per page; a larger value is clamped to 500. A value that is not a whole number of at least 1 answers 400 INVALID_LIMIT' },
+            sortorder: { name: 'sortorder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] },
+                description: 'Sort order, case-insensitive; descending by default (ascending on balances). Any other value answers 400 INVALID_SORTORDER' },
+            before: {
+                name: 'before', in: 'query', schema: { type: 'string', pattern: '^[0-9]+$' },
+                description: 'Keyset paging: the page of rows whose cursor lies just below this value, '
+                    + 'shown in `sortorder`. The cursor is `action_index` (`block_index` on commitments). '
+                    + 'Pass the response\'s `next_before` to read the next page down at index cost whatever its '
+                    + 'depth; `page` is ignored. Not combinable with `after`; a non-numeric value answers 400.',
+            },
+            after: {
+                name: 'after', in: 'query', schema: { type: 'string', pattern: '^[0-9]+$' },
+                description: 'Keyset paging: the page of rows whose cursor lies just above this value, '
+                    + 'shown in `sortorder`. Pass the response\'s `next_after` to read the next page up; '
+                    + 'every continuation stays above this bound. `page` is ignored. Not combinable with '
+                    + '`before`; a non-numeric value answers 400.',
+            },
         },
         schemas: {
             ListResponse: {
@@ -716,6 +804,7 @@ const spec = {
                     total: { type: 'integer', description: 'Total matching rows' },
                     data: { type: 'array', items: { type: 'object' }, description: 'Result rows (fields vary per endpoint; amounts are decimal strings)' },
                     runtime: { type: 'string', description: 'Amount of time to execute and return the data' },
+                    ...KEYSET_FIELDS,
                 },
                 required: ['total', 'data'],
             },

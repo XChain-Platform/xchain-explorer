@@ -183,12 +183,30 @@ class XChainExplorer {
     // Serve one request end to end: match its URL, fetch any data it names, and
     // send back the page or the JSON.
     async processRequest(req, res){
+        await this.observeCoinTip(req);
         if(await this.answerActionNotYetIndexed(req, res))
             return;
         if(await this.answerUnmatchedApiPath(req, res))
             return;
         this.applyThemeSelection(req, res);
         return runRequest(this, req, res, { configEnv, stats });
+    }
+
+    // Read the coin's indexed tip before serving its route, so a block replaced
+    // at the same height retires the id/action caches (getAddressId,
+    // getActionData) and moves the result-cache key before this request reads
+    // them. db.resultCacheGeneration memoizes the reading per coin
+    // (EXPLORER_TIP_MEMO_MS, default 1 s), so a request burst costs one tip read.
+    // A path naming no pooled coin, or a failed reading, serves as before.
+    async observeCoinTip(req){
+        try {
+            let m = /^\/([^/]+)\//.exec(String((req && req.path) || ''));
+            if(!m) return;
+            let coin = m[1].toUpperCase();
+            if(!this.db || !this.db.pools || !this.db.pools[coin] || typeof this.db.resultCacheGeneration !== 'function')
+                return;
+            await this.db.resultCacheGeneration({ coin, data: {} });
+        } catch(_){ /* the caches keep their current generation */ }
     }
 
     applyThemeSelection(req, res){

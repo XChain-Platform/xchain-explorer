@@ -17,7 +17,7 @@
  * One part of src/db/readers/health.js (the entry composes it through
  * composeReaderParts). Everything read from the decoder service rather than
  * from this instance's own tables: its tip, a block time by height, the
- * coin-code parse those calls take, the mempool snapshot and count, and the
+ * coin-code parse those calls take, the mempool snapshot, count and feed, and the
  * row decoding that turns a raw mempool row into the segments an address
  * filter matches against.
  *
@@ -41,6 +41,94 @@ const { DbQueryError } = require('../../shared.js');
 // installObservability and falls through to bare console.* before that.
 const { getLogger } = require('../../../observability');
 const log = getLogger();
+
+// A node mempool count older than this reads as unknown rather than current.
+const NODE_MEMPOOL_MAX_AGE_MS = 2 * 60 * 1000;
+const mempoolTtl = (db) => parseInt(db.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
+const mempoolWindow = (limit) => Math.max(1, Math.min(Number(limit) || 200, 500));
+function decoderMempoolUrl(db, code, parsed){ return DecoderConnector.resolveDecoderUrl(parsed && parsed.coin, parsed && parsed.network, (db.decoderApiUrl || {})[code] || null); }
+// Whether a configured endpoint answered in shape, so the colocated decoder DB is no fallback.
+function endpointOwnsMempool(db, code, parsed){ const state = (db._mempoolApiCache || {})[code]; return Boolean(decoderMempoolUrl(db, code, parsed)) && !(state && state.malformed); }
+function ageNodeMempoolCount(snapshot, now){
+    if(!snapshot || !Object.prototype.hasOwnProperty.call(snapshot, 'node_updated_at')) return snapshot;
+    const updatedAt = Number(snapshot.node_updated_at); return Number.isFinite(updatedAt) && updatedAt > 0 && now - updatedAt < NODE_MEMPOOL_MAX_AGE_MS ? snapshot : Object.assign({}, snapshot, { node_tx_count: null });
+}
+// Build the cached snapshot from a reply; a stale reply with no read_ok_at has no good read behind it.
+function snapshotValue(reply, now){
+    const reportedOkAt = Number(reply.read_ok_at), okAt = Number.isFinite(reportedOkAt) && reportedOkAt > 0 ? reportedOkAt : (reply.stale === true ? null : now);
+    const value = { node_tx_count: typeof reply.node_tx_count === 'number' && reply.node_tx_count >= 0 ? reply.node_tx_count : null, total: Number(reply.total) || 0, rows: reply.rows, read_ok_at: okAt };
+    if(Object.prototype.hasOwnProperty.call(reply, 'node_updated_at')) value.node_updated_at = reply.node_updated_at; return { okAt, value: ageNodeMempoolCount(value, now) };
+}
+
+// The decoder DB's action-carrying mempool count, cached; 0 when the DB cannot answer.
+async function readDecoderMempoolCount(db, config){
+    let dbName = db.decoderDb ? db.decoderDb[config.coin] : null;
+    // dbName is config-derived, not client input, but database identifiers
+    // can't be bound; restrict to a safe identifier charset before use.
+    if(db.util.isNull(dbName) || !/^[A-Za-z0-9_$]+$/.test(dbName)) return 0;
+    const ttl = mempoolTtl(db), now = Date.now();
+    db._mempoolCountCache = db._mempoolCountCache || {}; const hit = db._mempoolCountCache[config.coin];
+    if(hit && (now - hit.t) < ttl) return hit.v;
+    try {
+        // Action-carrying rows only. mempool_transactions holds a row for
+        // EVERY mempool tx the decoder saw, with `data` blanked to '' when
+        // the tx carried no valid ACTION (nearly all of them on a public
+        // chain), so a bare COUNT(*) publishes the node's whole mempool as
+        // the XChain unconfirmed count. Matches what the feed renders,
+        // since decodeMempoolRow drops the same rows.
+        let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions' +
+                      " WHERE data IS NOT NULL AND data != ''";
+        let results = await db.doDecoderQuery(config, query, []);
+        if (results && results.length && results[0].count !== null){
+            const v = Number(results[0].count);
+            db._mempoolCountCache[config.coin] = { t: now, v };
+            return v;
+        }
+    } catch(e){
+        // Decoder DB unreachable, missing table, or no cross-DB grant: serve the
+        // last good count if we have one, else report 0.
+        log.warn('DECODER_MEMPOOL_COUNT_UNAVAILABLE', { method: 'getDecoderMempoolCount', coin: config.coin, err: e && e.message ? e.message : e });
+    }
+    return (hit && hit.v) || 0;
+}
+
+// Read the decoder DB's mempool window, throwing when the read fails, so a caller can tell
+// a failed read from an empty mempool. [] when no decoder DB is configured for the coin.
+async function queryDecoderMempoolRows(db, config, max){
+    const dbName = db.decoderDb ? db.decoderDb[config.coin] : null;
+    if(db.util.isNull(dbName) || !/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
+    const select = (firstSeen) => 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data' +
+        (firstSeen ? ', UNIX_TIMESTAMP(m.first_seen) AS first_seen ' : ' ') + 'FROM `' + dbName + '`.mempool_transactions m ' +
+        "WHERE m.data IS NOT NULL AND m.data != '' ORDER BY m.tx_hash LIMIT " + max;
+    try {
+        // ORDER BY the unique-indexed tx_hash: the table has no primary key
+        // and the decoder rewrites it every cycle, so a bare LIMIT returns a
+        // scan-order subset that churns between polls. The ws mempool diff
+        // and /api/mempool paging both read this window as a stable snapshot.
+        // first_seen: UNIX_TIMESTAMP so both paths hand callers the same
+        // integer-seconds representation the decoder API serves.
+        // Action-carrying rows only (same filter + rationale as
+        // getDecoderMempoolCount): an unfiltered window fills all 500 slots
+        // with actionless rows on a busy chain and renders an empty feed
+        // while real pending actions sit deeper in the table.
+        return (await db.doDecoderQuery(config, select(true), [])) || [];
+    } catch(e){
+        // errno 1054: a decoder DB from before the 2026-08-22-mempool-first-seen
+        // migration has no first_seen column. Retry without it (Time renders
+        // as absent) instead of blanking the whole feed until the decoder
+        // restarts and auto-applies its migration. doQuery wraps the driver
+        // error in DbQueryError with the original on `cause`, so check both.
+        const errno = (e && e.errno) || (e && e.cause && e.cause.errno);
+        if(errno != 1054) throw e;
+        return (await db.doDecoderQuery(config, select(false), [])) || [];
+    }
+}
+
+// The feed's decoder-DB read, stamped only once it returned; null when it failed.
+async function readMempoolFeedFromDb(db, config, limit){
+    const rows = await db.getDecoderMempoolRows(config, limit, { nullOnFailure: true });
+    return rows === null ? null : { rows, read_ok_at: Date.now() };
+}
 
 class HealthDecoderReaders {
     // Get the decoder-tip reference for a coin: the highest block the decoder has
@@ -130,40 +218,29 @@ class HealthDecoderReaders {
     // decoder_health), this snapshot is preferred by the mempool readers; a
     // deployment with no endpoint (e.g. a single-box regtest stack whose decoder
     // DB is truly colocated) falls back to the direct DB path unchanged.
-    // Cached per coin for MEMPOOL_COUNT_CACHE_MS (default 15s), stale-served on
-    // fetch failure for one extra TTL so one decoder hiccup doesn't blank the
-    // homepage counter. Returns { node_tx_count, total, rows } or null when
-    // unconfigured/unreachable with nothing cached.
+    // Cached per coin for MEMPOOL_COUNT_CACHE_MS (default 15s). The decoder never errors
+    // a failed read: it answers stale:true with its last window, so a stale reply or a
+    // transport failure is served only within two TTLs of the last good read, then null.
     async getDecoderMempoolSnapshot(config){
-        const code = config.coin;
-        const ttl  = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
-        const now  = Date.now();
+        const code = config.coin, ttl = mempoolTtl(this), now = Date.now();
         this._mempoolApiCache = this._mempoolApiCache || {};
         const hit = this._mempoolApiCache[code];
-        if(hit && (now - hit.t) < ttl) return hit.v;
-        let parsed = await this.parseCoinCode(code);
-        let url    = DecoderConnector.resolveDecoderUrl(
-                        parsed ? parsed.coin    : null,
-                        parsed ? parsed.network : null,
-                        (this.decoderApiUrl || {})[code] || null);
+        if(hit && (now - hit.t) < ttl) return ageNodeMempoolCount(hit.v, now);
+        const url = decoderMempoolUrl(this, code, await this.parseCoinCode(code));
         if(!url) return null;
         try {
-            let r = await new DecoderConnector(url).getmempool(500);
-            let v = (r && Array.isArray(r.rows)) ? {
-                node_tx_count: (typeof r.node_tx_count === 'number' && r.node_tx_count >= 0) ? r.node_tx_count : null,
-                total:         Number(r.total) || 0,
-                rows:          r.rows
-            } : null;
-            this._mempoolApiCache[code] = { t: now, v, okAt: now };
-            return v;
+            const reply = await new DecoderConnector(url).getmempool(500);
+            if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, malformed: true }).v;
+            const { okAt, value } = snapshotValue(reply, now);
+            // A stale reply never refreshes the cache clock, so the decoder is asked again next request.
+            if(reply.stale === true){ const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
+                return (this._mempoolApiCache[code] = { t: now - ttl, v: usable, okAt, stale: true, unavailable: usable === null }).v; }
+            return (this._mempoolApiCache[code] = { t: now, v: value, okAt }).v;
         } catch(e){
             log.warn('DECODER_MEMPOOL_UNAVAILABLE', { method: 'getDecoderMempoolSnapshot', code, err: e && e.message ? e.message : e });
-            // Serve the last good snapshot only within one extra TTL of its fetch, then null;
-            // refresh the clock so a dead decoder is retried once per TTL, not on every request.
-            const okAt = hit ? hit.okAt : undefined;
-            const v    = (hit && hit.v && (now - okAt) < 2 * ttl) ? hit.v : null;
-            this._mempoolApiCache[code] = { t: now, v, okAt };
-            return v;
+            const okAt = hit ? hit.okAt : undefined, stale = Boolean(hit && hit.stale);
+            const value = hit && hit.v && Number.isFinite(Number(okAt)) && now - Number(okAt) < 2 * ttl ? ageNodeMempoolCount(hit.v, now) : null;
+            return (this._mempoolApiCache[code] = { t: stale ? now - ttl : now, v: value, okAt, stale, unavailable: value === null }).v;
         }
     }
 
@@ -189,39 +266,10 @@ class HealthDecoderReaders {
     // is a full-scan the public read path can be made to repeat on every hit.
     // A stale prior value is served when the query fails mid-flight.
     async getDecoderMempoolCount(config) {
-        let snap = await this.getDecoderMempoolSnapshot(config);
+        const parsed = await this.parseCoinCode(config.coin), snap = await this.getDecoderMempoolSnapshot(config);
         if(snap) return snap.total;
-        let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
-        if(this.util.isNull(dbName)) return 0;
-        // dbName is config-derived, not client input, but database identifiers
-        // can't be bound; restrict to a safe identifier charset before use.
-        if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return 0;
-        const ttl = parseInt(this.configInfo.env.MEMPOOL_COUNT_CACHE_MS, 10) || 15000;
-        const now = Date.now();
-        this._mempoolCountCache = this._mempoolCountCache || {};
-        const hit = this._mempoolCountCache[config.coin];
-        if(hit && (now - hit.t) < ttl) return hit.v;
-        try {
-            // Action-carrying rows only. mempool_transactions holds a row for
-            // EVERY mempool tx the decoder saw, with `data` blanked to '' when
-            // the tx carried no valid ACTION (nearly all of them on a public
-            // chain), so a bare COUNT(*) publishes the node's whole mempool as
-            // the XChain unconfirmed count. Matches what the feed renders,
-            // since decodeMempoolRow drops the same rows.
-            let query   = 'SELECT COUNT(*) as count FROM `' + dbName + '`.mempool_transactions' +
-                          " WHERE data IS NOT NULL AND data != ''";
-            let results = await this.doDecoderQuery(config, query, []);
-            if (results && results.length && results[0].count !== null){
-                const v = Number(results[0].count);
-                this._mempoolCountCache[config.coin] = { t: now, v };
-                return v;
-            }
-        } catch(e){
-            // Decoder DB unreachable, missing table, or no cross-DB grant: serve the
-            // last good count if we have one, else report 0.
-            log.warn('DECODER_MEMPOOL_COUNT_UNAVAILABLE', { method: 'getDecoderMempoolCount', coin: config.coin, err: e && e.message ? e.message : e });
-        }
-        return (hit && hit.v) || 0;
+        // A configured endpoint that cannot answer is unknown (null), not the colocated DB's count.
+        return endpointOwnsMempool(this, config.coin, parsed) ? null : readDecoderMempoolCount(this, config);
     }
 
     // Raw unconfirmed (mempool) action rows from the decoder DB. As of the
@@ -245,59 +293,27 @@ class HealthDecoderReaders {
     // transactions.data. It is NOT hex. The decoder pins that contract in
     // test/unit/mempool_payload_representation.test.js (uuid:26220713); this read
     // and decodeMempoolRow below are the other half of it.
-    async getDecoderMempoolRows(config, limit) {
-        let max = Math.max(1, Math.min(Number(limit) || 200, 500));
-        // Live path first: the decoder API snapshot (see getDecoderMempoolSnapshot).
-        // Its rows carry the same tx_hash/source/data shape this method's DB path
-        // returns, plus first_seen (unix seconds, from the decoder's own table).
-        let snap = await this.getDecoderMempoolSnapshot(config);
+    // opts.nullOnFailure answers null for a failed DB read, for a caller that must not read it as empty.
+    async getDecoderMempoolRows(config, limit, opts) {
+        const max = mempoolWindow(limit), parsed = await this.parseCoinCode(config.coin), snap = await this.getDecoderMempoolSnapshot(config);
         if(snap) return snap.rows.slice(0, max);
-        let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
-        if(this.util.isNull(dbName)) return [];
-        if(!/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
-        try {
-            // ORDER BY the unique-indexed tx_hash: the table has no primary key
-            // and the decoder rewrites it every cycle, so a bare LIMIT returns a
-            // scan-order subset that churns between polls. The ws mempool diff
-            // and /api/mempool paging both read this window as a stable snapshot.
-            // first_seen: UNIX_TIMESTAMP so both paths hand callers the same
-            // integer-seconds representation the decoder API serves.
-            // Action-carrying rows only (same filter + rationale as
-            // getDecoderMempoolCount): an unfiltered window fills all 500 slots
-            // with actionless rows on a busy chain and renders an empty feed
-            // while real pending actions sit deeper in the table.
-            let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data, ' +
-                        'UNIX_TIMESTAMP(m.first_seen) AS first_seen ' +
-                        'FROM `' + dbName + '`.mempool_transactions m ' +
-                        "WHERE m.data IS NOT NULL AND m.data != '' " +
-                        'ORDER BY m.tx_hash ' +
-                        'LIMIT ' + max;
-            let results = await this.doDecoderQuery(config, query, []);
-            return results || [];
-        } catch(e){
-            // errno 1054: a decoder DB from before the 2026-08-22-mempool-first-seen
-            // migration has no first_seen column. Retry without it (Time renders
-            // as absent) instead of blanking the whole feed until the decoder
-            // restarts and auto-applies its migration. doQuery wraps the driver
-            // error in DbQueryError with the original on `cause`, so check both.
-            let errno = (e && e.errno) || (e && e.cause && e.cause.errno);
-            if(errno == 1054){
-                try {
-                    let query = 'SELECT m.tx_hash AS tx_hash, m.source AS source, m.data AS data ' +
-                                'FROM `' + dbName + '`.mempool_transactions m ' +
-                                "WHERE m.data IS NOT NULL AND m.data != '' " +
-                                'ORDER BY m.tx_hash ' +
-                                'LIMIT ' + max;
-                    let results = await this.doDecoderQuery(config, query, []);
-                    return results || [];
-                } catch(e2){
-                    log.warn('DECODER_MEMPOOL_ROWS_UNAVAILABLE', { method: 'getDecoderMempoolRows', coin: config.coin, err: e2 && e2.message ? e2.message : e2 });
-                    return [];
-                }
-            }
-            log.warn('DECODER_MEMPOOL_ROWS_UNAVAILABLE', { method: 'getDecoderMempoolRows', coin: config.coin, err: e && e.message ? e.message : e });
-        }
-        return [];
+        // A configured endpoint that cannot answer is unknown (null), not an empty window.
+        if(endpointOwnsMempool(this, config.coin, parsed)) return null;
+        try { return await queryDecoderMempoolRows(this, config, max); }
+        catch(e){ log.warn('DECODER_MEMPOOL_ROWS_UNAVAILABLE', { method: 'getDecoderMempoolRows', coin: config.coin, err: e && e.message ? e.message : e }); return opts && opts.nullOnFailure ? null : []; }
+    }
+
+    // The mempool window the /api/mempool page and the WebSocket diff read, with the time
+    // it was read. null when no trustworthy window exists: a configured endpoint past its
+    // stale limit, or a decoder DB read that failed, so neither reads as a fresh empty mempool.
+    async getDecoderMempoolFeed(config, limit){
+        const code = config.coin, parsed = await this.parseCoinCode(code), max = mempoolWindow(limit);
+        if(!decoderMempoolUrl(this, code, parsed)) return readMempoolFeedFromDb(this, config, limit);
+        const ttl = mempoolTtl(this), snap = await this.getDecoderMempoolSnapshot(config);
+        const hit = (this._mempoolApiCache || {})[code], okAt = snap && snap.read_ok_at ? snap.read_ok_at : hit && hit.okAt;
+        if(hit && hit.malformed) return readMempoolFeedFromDb(this, config, limit);
+        if(!snap || !okAt || (Date.now() - okAt) >= 2 * ttl) return null;
+        return { rows: snap.rows.slice(0, max), read_ok_at: okAt };
     }
 
     // Split one decoder mempool row's action string into its parts. The column

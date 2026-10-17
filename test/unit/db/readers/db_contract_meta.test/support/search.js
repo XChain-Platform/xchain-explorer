@@ -30,6 +30,7 @@
 'use strict';
 
 const { sinon, expect, makeConfig, makeDb, META, contractRow, contractCfg } = require('./helpers.js');
+const { withIndexProbe } = require('../../search/support/index_probe.js');
 
 const searchCfg = (type) => makeConfig({
     coin: 'RBTC',
@@ -41,11 +42,11 @@ function searchTestsOne() {
     // Counts run first, one query per category, then the matched category's rows.
     function stubSearch(db, counts, rows){
         let call = 0;
-        return sinon.stub(db, 'doQuery').callsFake(async () => {
+        return sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async () => {
             if(call < counts.length) return [{ count: counts[call++] }];
             call++;
             return rows;
-        });
+        }));
     }
 
     it('reports a contracts total on every search, typed or not', async function(){
@@ -71,7 +72,7 @@ function searchTestsOne() {
     it('counts contracts through the FULLTEXT index rather than with LIKE', async function(){
         const db = makeDb();
         const queries = [];
-        sinon.stub(db, 'doQuery').callsFake(async (c, q) => { queries.push(q); return [{ count: 0 }]; });
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async (c, q) => { queries.push(q); return [{ count: 0 }]; }));
         await db.getSearch(searchCfg('address'));
         const contractCount = queries.find((q) => /FROM contracts/.test(q));
         expect(contractCount, 'no contract count query ran').to.be.a('string');
@@ -81,7 +82,7 @@ function searchTestsOne() {
     it('runs no contract query at all when the term is nothing but operators', async function(){
         const db = makeDb();
         const queries = [];
-        sinon.stub(db, 'doQuery').callsFake(async (c, q) => { queries.push(q); return [{ count: 0 }]; });
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async (c, q) => { queries.push(q); return [{ count: 0 }]; }));
         const cfg = searchCfg('address');
         cfg.data.search = '+++***';
         const [data] = await db.getSearch(cfg);
@@ -96,12 +97,12 @@ function searchTestsTwo() {
     it('binds the sanitized term, not the LIKE pattern, on the contract rows query', async function(){
         const db = makeDb();
         const calls = [];
-        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => {
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async (c, q, a) => {
             calls.push({ q, a });
             return /FROM contracts/.test(q) && /SELECT\s+m\.action_index/.test(q)
                 ? [{ action_index: 42, meta_name: 'Escrow', meta_version: '2.0.0', meta_description: 'Two-party escrow' }]
                 : [{ count: 1 }];
-        });
+        }));
         await db.getSearch(searchCfg('contract'));
         const rowsCall = calls.find((c) => /ORDER BY m.action_index DESC/.test(c.q));
         expect(rowsCall, 'no contract rows query ran').to.be.an('object');
@@ -111,11 +112,11 @@ function searchTestsTwo() {
 
     it('shapes a hit as name, version, derived address and a description snippet', async function(){
         const db = makeDb();
-        sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async (c, q) => {
             if(/ORDER BY m.action_index DESC/.test(q))
                 return [{ action_index: 42, meta_name: 'Escrow', meta_version: '2.0.0', meta_description: 'Two-party escrow' }];
             return [{ count: 1 }];
-        });
+        }));
         const [data] = await db.getSearch(searchCfg('contract'));
         expect(data.data).to.deep.equal([{
             action_index:     42,
@@ -129,11 +130,11 @@ function searchTestsTwo() {
     it('bounds the snippet so one description cannot take over the results list', async function(){
         const db = makeDb();
         const long = 'x'.repeat(512);
-        sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async (c, q) => {
             if(/ORDER BY m.action_index DESC/.test(q))
                 return [{ action_index: 42, meta_name: 'Escrow', meta_version: null, meta_description: long }];
             return [{ count: 1 }];
-        });
+        }));
         const [data] = await db.getSearch(searchCfg('contract'));
         expect(data.data[0].snippet).to.have.lengthOf(160);
         expect(data.data[0].snippet.endsWith('…')).to.equal(true);
@@ -143,7 +144,7 @@ function searchTestsTwo() {
     it('uses bounded prefix matching for the four LIKE panels', async function(){
         const db = makeDb();
         const calls = [];
-        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { calls.push({ q, a }); return [{ count: 0 }]; });
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async (c, q, a) => { calls.push({ q, a }); return [{ count: 0 }]; }));
         await db.getSearch(searchCfg('address'));
         const likePanels = calls.filter((call) => /LIKE \?/.test(call.q));
         expect(likePanels).to.have.lengthOf(4);

@@ -20,13 +20,17 @@
 
 'use strict';
 
+const { columnsPresent } = require('../../schema_probe.js');
+const { idsFirstPage } = require('../../query_sql/page_ids.js');
+const { legOrder } = require('../../query_sql/query_limits.js');
+
 const GET_ISSUES_COUNT_SQL = `SELECT
                         count(*) as total
                     FROM
                         issues m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
@@ -78,8 +82,8 @@ const GET_ISSUES_QUERY_SQL = `SELECT
                     FROM
                         issues m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.transfer_id)
                         LEFT  JOIN index_addresses    a4 ON (a4.id=m.transfer_supply_id)
@@ -96,8 +100,8 @@ const GET_TOKENS_COUNT_SQL = `SELECT
                     FROM
                         tokens m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -124,8 +128,8 @@ const GET_TOKENS_QUERY_SQL = `SELECT
                     FROM
                         tokens m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)
@@ -133,13 +137,17 @@ const GET_TOKENS_QUERY_SQL = `SELECT
 
 class TokenReaders {    
 
+    // A busy block or address puts every issue behind a dozen display joins
+    // and a sort, so the page is picked by id first and only those rows are
+    // decorated; the single statement stays as the fallback.
     async getIssues(config){
         let sql   = config.data.sql;
         let count = GET_ISSUES_COUNT_SQL + sql.where.data;
         let query = GET_ISSUES_QUERY_SQL + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-        return [query, null, count];
+        let page  = idsFirstPage(count + sql.where.offset, GET_ISSUES_QUERY_SQL, 'm', sql.order, sql.limit);
+        return [query, null, count, page];
     }
 
     async getMints(config){
@@ -153,8 +161,8 @@ class TokenReaders {
                     FROM
                         mints m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -180,8 +188,8 @@ class TokenReaders {
                     FROM
                         mints m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -197,6 +205,8 @@ class TokenReaders {
 
     async getDestroys(config){
         let sql   = config.data.sql;
+        // Read leg_ordinal only where the replica has it; an older one pages its legs unsorted, as readLegs does.
+        let legOrdinal = await columnsPresent(this, config, 'destroys', ['leg_ordinal']) ? 'm.leg_ordinal' : '0 AS leg_ordinal';
         let rawExplorerOffset = config.type=='explorer' &&
             !(config.data.offset && config.data.offset.action);
         let requestedOffset = (config.type=='api')
@@ -212,8 +222,8 @@ class TokenReaders {
             config.data.offset.start = true;
         let joins = `destroys m
                     INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                    INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                    INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -229,7 +239,7 @@ class TokenReaders {
                 WITH filtered_destroys AS (
                     SELECT a3.action, m.action_index, a1.action_format, a2.address as source,
                         t3.tick, m.amount, b1.block_index, b1.block_time as timestamp,
-                        t2.hash as tx_hash, t1.tx_index, m1.memo, s1.status, m.leg_ordinal
+                        t2.hash as tx_hash, t1.tx_index, m1.memo, s1.status, ` + legOrdinal + `
                     FROM ` + joins + ` WHERE ` + sql.where.data + sql.where.offset + `
                 ), page_actions AS (
                     SELECT DISTINCT action_index
@@ -243,7 +253,7 @@ class TokenReaders {
                 FROM filtered_destroys m
                     INNER JOIN page_actions p ON (p.action_index=m.action_index)
                 ) m
-                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ASC`;
+                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ` + legOrder(config);
         return [query, null, count];
     }
 
@@ -254,8 +264,8 @@ class TokenReaders {
                     FROM
                         dividends m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -281,8 +291,8 @@ class TokenReaders {
                     FROM
                         dividends m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -354,8 +364,8 @@ class TokenReaders {
         let from  = `
                         tokens m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.owner_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_tickers      t3 ON (t3.id=m.tick_id)`;

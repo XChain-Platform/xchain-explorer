@@ -32,6 +32,22 @@ function rootBindFailure(e) {
     return { error: 'PROOF_STATE_ROOT_MISMATCH' };
 }
 
+// Exact source-deduped stake total, computed the way the producers commit the
+// __total__ leaf (M.sumCanonicalAmounts over the first weight of each source).
+// swq.totalStake returns a bignumber whose String() form switches to exponent
+// notation at 1e21 and above, which canonicalAmount rejects, so a valid set
+// would be refused; totalStake still runs first for its fail-closed guards
+// (blank source, bad or negative weight, truncated snapshot).
+function exactStakeTotal(validators){
+    swq.totalStake(validators);
+    const weightBySource = new Map();
+    for(const v of validators){
+        const src = String(v.source);
+        if(!weightBySource.has(src)) weightBySource.set(src, String(v.weight));
+    }
+    return M.sumCanonicalAmounts(Array.from(weightBySource.values()));
+}
+
 // One capability's stake set at the checkpoint height, for validatorSetProof.
 // Answers { error } to refuse the whole request, null ONLY when the indexer says the
 // capability is not configured on it, and otherwise { set } with the source-deduped
@@ -68,7 +84,7 @@ async function capabilitySetProof(server, config, cp, tr, cap, indexerConn) {
     // blank/missing source, negative weight, and truncated snapshots;
     // never author a total leaf from a snapshot that cannot quorum.
     let total;
-    try { total = M.canonicalAmount(String(swq.totalStake(validators))); }
+    try { total = exactStakeTotal(validators); }
     catch (e) { return { error: 'STAKE_SNAPSHOT_MALFORMED:' + cap + ':' + ((e && e.message) || '') }; }
     return { set: await proveStakeSet(server, config, tr, cap, validators, total) };
 }

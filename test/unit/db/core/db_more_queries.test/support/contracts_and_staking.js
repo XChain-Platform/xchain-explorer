@@ -306,4 +306,22 @@ describe('Database#getValidators', () => {
         const [, , count] = await db.getValidators(makeActionConfig('getValidators'));
         expect(count).to.include("s1.status='valid'");
     });
+
+    for (const [type, predicate] of [
+        ['block', 'b1.block_index=?'],
+        ['address', 'a2.address=?']
+    ]) {
+        it(`keeps the ${type} filter parameterized and bounded`, async () => {
+            const db = makeDb();
+            const config = makeActionConfig('getValidators', type);
+            config.data.sql.where.data = await db.getQueryWhereSql(config);
+            const [query, args, count] = await db.getValidators(config);
+
+            expect(query).to.include(predicate);
+            expect(count).to.include(predicate);
+            expect(query).to.include('ORDER BY m.action_index DESC');
+            expect(query).to.include('LIMIT 100');
+            expect(args).to.equal(null);
+        });
+    }
 });

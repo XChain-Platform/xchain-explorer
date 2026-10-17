@@ -104,7 +104,9 @@ describe('@p0 @security SQL injection WHERE clause regression', function () {
             }
         });
         const sql = await db.getQueryWhereSql(config);
-        expect(sql).to.include('a2.address=?');
+        // getAddresses takes the indexed source lane, which binds the resolved
+        // address id twice; the address itself never reaches the SQL text.
+        expect(sql).to.include('(a1.source_id=? OR (a1.source_id IS NULL AND t1.source_id=?))');
         expect(sql).to.not.include('DROP');
     });
 
@@ -149,8 +151,8 @@ describe('@p0 @security SQL injection order/limit regression', function () {
                 query: { sortorder: 'ASC; DROP TABLE users--' }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.order).to.equal('DESC');
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.code).to.equal('INVALID_SORTORDER');
     });
 
     it('offset args are kept separate from base args', () => {

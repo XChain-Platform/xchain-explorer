@@ -29,7 +29,7 @@ const INDEXER_REMOTE_TOKEN_SQL = path.resolve(
     __dirname, '../../../../xchain-indexer/src/sql/remote_token_snapshots.sql'
 );
 const INDEXER_REMOTE_TOKEN_VERDICT = siblingCheckout(__dirname, INDEXER_REMOTE_TOKEN_SQL);
-const REMOTE_TOKEN_SQL_SHA256 = '810ba3847bea5feb45155c127cc1259b7d4dd845e05be853532e0cd387357280';
+const REMOTE_TOKEN_SQL_SHA256 = '110431c7d9d85c3169c1488c8ca729bfdc5386f2dc61bfbaa41f112c54df4a27';
 
 function assertRemoteTokenSqlMatchesIndexer() {
     const local = fs.readFileSync(path.join(MIRROR_SQL, 'remote_token_snapshots.sql'));
@@ -85,16 +85,22 @@ describe('hub-mirror list share vendored contract @regression', function () {
         assertRemoteTokenSqlMatchesIndexer();
     });
 
-    it('registers remote_token_snapshots for bootstrap, local ids, and retraction', function () {
-        assert.ok(mirrorTables.HUB_STATE_TABLES.includes('remote_token_snapshots'));
+    it('registers remote_token_snapshots for bootstrap and local ids, never for retraction', function () {
+        assert.ok(!mirrorTables.HUB_STATE_TABLES.includes('remote_token_snapshots'));
+        assert.ok(mirrorTables.HEIGHT_MIRROR_TABLES.includes('remote_token_snapshots'));
+        assert.ok(mirrorTables.VALIDITY_READ_TABLES.includes('remote_token_snapshots'));
         assert.ok(mirrorTables.MIRRORED_TABLES.includes('remote_token_snapshots'));
         assert.ok(mirrorTables.AUTO_INCREMENT_ID_TABLES.includes('remote_token_snapshots'));
-        assert.equal(mirrorTables.RETRACTION_COLUMNS.remote_token_snapshots, 'source_action_index');
-        assert.equal(mirrorTables.RETRACTION_CHAIN_COLUMNS.remote_token_snapshots, 'coin');
+        // The table has no push_generation fence column, so the mirror never deletes from it.
+        assert.equal(mirrorTables.RETRACTION_COLUMNS.remote_token_snapshots, undefined);
+        assert.equal(mirrorTables.RETRACTION_CHAIN_COLUMNS.remote_token_snapshots, undefined);
         assert.equal(mirrorTables.REFUSED_ROW_NAMES.remote_token_snapshots, undefined);
     });
 
     it('vendors HUB_SCHEMA_VERSION 9', function () {
-        assert.equal(HUB_SCHEMA_VERSION, 9);
+        assert.ok(
+            Number.isSafeInteger(HUB_SCHEMA_VERSION) && HUB_SCHEMA_VERSION >= 9,
+            'the list-share tables arrived with hub schema 9; the vendored HUB_SCHEMA_VERSION must not be older'
+        );
     });
 });

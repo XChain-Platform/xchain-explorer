@@ -74,6 +74,20 @@ function xcDatatableRenderBatchRow(context){
 
 }
 xcDatatableRowHandlers.batch = xcDatatableRenderBatchRow;
+// Icon per action table for the blocks list; a table missing here draws the
+// generic one rather than no icon.
+var xcBlockActionIcons = {
+    addresses: 'fa-gears', airdrops: 'fa-parachute-box', anchor_actions: 'fa-anchor',
+    batches: 'fa-layer-group', broadcasts: 'fa-bullhorn', callbacks: 'fa-recycle',
+    coinpays: 'fa-coins', coinpay_expires: 'fa-coins', coinpay_obligations: 'fa-coins',
+    destroys: 'fa-trash', dispensers: 'fa-arrows-h', dispenses: 'fa-hand-holding-heart',
+    dividends: 'fa-sitemap', files: 'fa-file', full_node_verifications: 'fa-server',
+    issues: 'fa-bank', links: 'fa-link', lists: 'fa-list', messages: 'fa-message',
+    mints: 'fa-print', orders: 'fa-book', order_cancels: 'fa-book', order_edits: 'fa-book',
+    order_matches: 'fa-book', prices: 'fa-chart-line', sends: 'fa-send', sleeps: 'fa-bed',
+    swaps: 'fa-exchange', swap_cancels: 'fa-exchange', swap_edits: 'fa-exchange',
+    swap_matches: 'fa-exchange', sweeps: 'fa-truck'
+};
 function xcDatatableRenderBlockRow(context){
     let { row, data, idx, coin, action, type, action_index, status, count, block_index, timestamp, source, fmtInteger, fmtCurrency, fmtCoin, action_link, block_link, source_link } = context;
 
@@ -81,49 +95,24 @@ function xcDatatableRenderBlockRow(context){
 
     let renderedBlockIndex = data[0];
     let renderedTimestamp  = data[1];
+    // One count per action table, slot i belonging to XC.actions[i].
     let actions = String(data[2]).split('|');
     let html = '';
     $('td', row).eq(0).html(formatLink('/' + coin + '/block/' + renderedBlockIndex, numeral(renderedBlockIndex).format('0,0')));
     $('td', row).eq(1).html(formatLivestamp(renderedTimestamp));
     $('td', row).eq(3).html(formatLink('/' + coin + '/block/' + renderedBlockIndex, 'view', null, true));
     actions.forEach(function(val, idx){
-        if(val>0){
-            var num  = numeral(val).format('0,0'),
-                icon = '';
-            let name = XC.actions[idx];
-            if(name=='addresses')     icon='fa-gears';
-            if(name=='airdrops')      icon='fa-parachute-box';
-            if(name=='batches')       icon='fa-layer-group';
-            if(name=='broadcasts')    icon='fa-bullhorn';
-            if(name=='callbacks')     icon='fa-recycle';
-            if(name=='destroys')      icon='fa-trash';
-            if(name=='dispensers')    icon='fa-arrows-h';
-            if(name=='dispenses')     icon='fa-hand-holding-heart';
-            if(name=='dividends')     icon='fa-sitemap';
-            if(name=='files')         icon='fa-file';
-            if(name=='issues')        icon='fa-bank';
-            if(name=='links')         icon='fa-link';
-            if(name=='lists')         icon='fa-list';
-            if(name=='messages')      icon='fa-message';
-            if(name=='mints')         icon='fa-print';
-            if(name=='orders')        icon='fa-book';
-            if(name=='order_cancels') icon='fa-book';
-            if(name=='order_edits')   icon='fa-book';
-            if(name=='order_matches') icon='fa-book';
-            if(name=='sends')         icon='fa-send';
-            if(name=='sleeps')        icon='fa-bed';
-            if(name=='swaps')         icon='fa-exchange';
-            if(name=='swap_cancels')  icon='fa-exchange';
-            if(name=='swap_edits')    icon='fa-exchange';
-            if(name=='swap_matches')  icon='fa-exchange';
-            if(name=='sweeps')        icon='fa-truck';
+        let name = XC.actions[idx];
+        if(val>0 && !isNull(name)){
+            let num  = numeral(val).format('0,0'),
+                icon = xcBlockActionIcons[name] || 'fa-circle';
             // name/num flow into an HTML attribute via .html() below; escape
             // before it lands in markup so an attribute-breakout can't inject.
             html += '<a title="' + escapeHtml(num) + ' ' + escapeHtml(name) + '">' + escapeHtml(num) + ' <i class="fa ' + icon + ' me-3"></i></a>';
         }
     });
     if(html=='')
-        html = 'No transactions found';
+        html = 'No XChain actions';
     $('td', row).eq(2).html(html);
 
 }

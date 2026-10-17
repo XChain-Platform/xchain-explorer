@@ -26,17 +26,8 @@ const HOME = fs.readFileSync(
     path.join(ROOT, 'src/content/html/coin_home.html'), 'utf8');
 const numeral = require(path.join(ROOT, 'src/content/js/numeral.js'));
 
-function extractFn(name){
-    const start = SRC.indexOf('function ' + name + '(');
-    if(start < 0) throw new Error('function not found: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0;
-    for(let end = braceStart; end < SRC.length; end++){
-        if(SRC[end] === '{') depth++;
-        else if(SRC[end] === '}' && --depth === 0) return SRC.slice(start, end + 1);
-    }
-    throw new Error('function not closed: ' + name);
-}
+const { extractFn: sliceFunction } = require('../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name);
 
 function helperContext(){
     const context = vm.createContext({ numeral });

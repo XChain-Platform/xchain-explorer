@@ -21,8 +21,9 @@
  * assumes the newest schema answers 500 on every request instead of answering the
  * part of the page that schema can serve.
  *
- * This is the shared table and column probe those readers ask first (a statement
- * naming a column the schema lacks is error 1054, the same whole-statement failure). It is deliberately not a
+ * This is the shared table, column and index probe those readers ask first (a statement
+ * naming a column the schema lacks is error 1054, the same whole-statement failure; a
+ * MATCH with no FULLTEXT index to read is error 1191). It is deliberately not a
  * feature flag: the answer is a property of the connected schema, read from it, so
  * a replica that takes the migration later is served correctly with no config
  * change and no restart.
@@ -145,8 +146,80 @@ function isUnknownColumnError(err){
     return Number(cause && cause.errno) === 1054 || (cause && cause.code) === 'ER_BAD_FIELD_ERROR';
 }
 
+// The per-coin index memo bucket, kept apart from the table and column memos.
+function indexBucket(db, config){
+    if(!db.schemaIndexMemo) db.schemaIndexMemo = {};
+    const coin = config.coin;
+    if(!db.schemaIndexMemo[coin]) db.schemaIndexMemo[coin] = {};
+    return db.schemaIndexMemo[coin];
+}
+
+function indexKey(table, columns, fulltext){
+    return table + ':' + (fulltext ? 'FULLTEXT:' + memoKey(columns) : 'BTREE:' + columns.join(','));
+}
+
+// Whether one live index can serve the named columns. A FULLTEXT index must cover
+// exactly that column set, because MATCH names its columns and MariaDB refuses any
+// index that is not an exact fit (error 1191). A B-tree index must lead with the
+// columns in order, which is what lets it serve a prefix LIKE on the first one; a
+// SUB_PART prefix index still does.
+function indexServes(rows, columns, fulltext){
+    const byName = new Map();
+    for(const r of rows){
+        const name = String(r.INDEX_NAME);
+        if(!byName.has(name)) byName.set(name, { fulltext: String(r.INDEX_TYPE || '').toUpperCase() === 'FULLTEXT', cols: [] });
+        byName.get(name).cols[Number(r.SEQ_IN_INDEX) - 1] = String(r.COLUMN_NAME);
+    }
+    for(const idx of byName.values()){
+        if(idx.fulltext !== fulltext) continue;
+        if(fulltext && memoKey(idx.cols) === memoKey(columns)) return true;
+        if(!fulltext && columns.every((col, i) => idx.cols[i] === col)) return true;
+    }
+    return false;
+}
+
+// Whether `table` on the connected schema carries an index that serves `columns`
+// (see indexServes), on the same terms as tablesPresent: memoized per coin, a
+// negative answer aging out on the TTL so creating the index heals the read with no
+// restart, and a probe that itself fails answering true and caching nothing. Callers
+// that run a MATCH pair this with isMissingFulltextError below.
+async function indexPresent(db, config, table, columns, fulltext){
+    const bucket = indexBucket(db, config);
+    const key    = indexKey(table, columns, fulltext);
+    const memo   = bucket[key];
+    if(memo && (memo.present || (Date.now() - memo.at) < SCHEMA_PROBE_TTL_MS))
+        return memo.present;
+    try {
+        const rows = await db.doQuery(config,
+            `SELECT INDEX_NAME, INDEX_TYPE, COLUMN_NAME, SEQ_IN_INDEX
+             FROM information_schema.STATISTICS
+             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?`, [table]);
+        const present = indexServes(Array.isArray(rows) ? rows : [], columns, fulltext);
+        bucket[key] = { present, at: Date.now() };
+        return present;
+    } catch(e){
+        return true;
+    }
+}
+
+// Record that `table` carries no index serving these columns, after a statement
+// proved it.
+function setIndexAbsent(db, config, table, columns, fulltext){
+    indexBucket(db, config)[indexKey(table, columns, fulltext)] = { present: false, at: Date.now() };
+}
+
+// MariaDB error 1191 (ER_FT_MATCHING_KEY_NOT_FOUND), "Can't find FULLTEXT index
+// matching the column list", unwrapped from doQuery's DbQueryError.
+function isMissingFulltextError(err){
+    const cause = (err && err.cause) ? err.cause : err;
+    return Number(cause && cause.errno) === 1191 || (cause && cause.code) === 'ER_FT_MATCHING_KEY_NOT_FOUND';
+}
+
 module.exports = {
     SCHEMA_PROBE_TTL_MS,
+    indexPresent,
+    setIndexAbsent,
+    isMissingFulltextError,
     tablesPresent,
     setTablesAbsent,
     isMissingTableError,

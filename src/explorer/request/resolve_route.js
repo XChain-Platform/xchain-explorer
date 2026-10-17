@@ -28,6 +28,16 @@
 
 'use strict';
 
+const { resolveBareDetail } = require('./bare_detail.js');
+
+// Keep routes that require a lookup subject out of the list-all matcher even
+// though their TYPE choices use the same array declaration as filtered lists.
+const API_LIST_SUBJECT_REQUIRED = new Set(['getProjectTokens', 'getSearch', 'getTransaction']);
+
+function supportsBareApiList(info){
+    return Array.isArray(info[1]) && !API_LIST_SUBJECT_REQUIRED.has(info[0]);
+}
+
 /**
  * Split the request path and read the coin and request kind off it.
  */
@@ -206,9 +216,8 @@ function matchUrl(explorer, st, url, parts, info){
     }
 
     // Three-segment list requests omit the optional QUERY/TYPE placeholders.
-    // Bare API aliases are limited to the readers whose contract declares them.
-    const apiListAll = st.cfg.type=='api' &&
-        ['getTokens', 'getOrders', 'getSwaps', 'getDispensers'].includes(info[0]);
+    // An array declares filter choices for a reader that can also list without one.
+    const apiListAll = st.cfg.type=='api' && supportsBareApiList(info);
     if(!match && (st.cfg.type=='explorer' || apiListAll) && st.urlPath.length==3 &&
         parts[1]==String(st.urlPath[1]).toLowerCase() &&
         parts[2]==String(st.urlPath[2]).toLowerCase() &&
@@ -266,6 +275,7 @@ async function resolveRoute(explorer, req, st){
     readPath(explorer, req, st);
     await readFreshness(explorer, st);
     matchRoute(explorer, req, st);
+    resolveBareDetail(explorer, req, st);
 }
 
-module.exports = { resolveRoute };
+module.exports = { resolveRoute, supportsBareApiList };

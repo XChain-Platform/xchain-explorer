@@ -28,6 +28,7 @@
 'use strict';
 
 const { isMissingTableError } = require('../../schema_probe.js');
+const { optionalTransactionSql } = require('../txless_actions.js');
 
 // The address a LIST format 3 transfer named as the new owner, from list_transfers.
 // The indexer writes that row only for a valid transfer, so an invalid one, or a
@@ -216,6 +217,7 @@ class ActionDataReaders {
                         LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE 
                         f1.action_index=?`;
+        if(this.pools) query = optionalTransactionSql(query);
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             fee = results[0];

@@ -35,6 +35,7 @@ const { cursorField } = require('./offset_cursors.js');
 const { historyCursor, pagesOverBlocks, boundaryWhere,
     firstLastOffset, stopOffset } = require('./offset_boundaries.js');
 const { isMissingTableError } = require('../schema_probe.js');
+const { boundaryTable, SLICE_PAGED_METHODS } = require('../method_tables.js');
 
 async function withListMetaFallback(ctx, read){
     try {
@@ -96,22 +97,17 @@ class QueryOffsets {
         let offset  = (config.data.offset) ? config.data.offset : false;
         let action  = (offset && !this.util.isNull(offset.action)) ? offset.action : false;
         let q       = (config.data.query) ? config.data.query : false;
-        if(['getBalances','getHolders','getTransaction','getSearch','getMarkets','getMarket'].includes(method))
+        if(SLICE_PAGED_METHODS.includes(method) || ['getTransaction','getMarkets','getMarket'].includes(method))
             return [];
         // token/subtoken searches paginate by fetch-and-slice (no action_index offsets)
         if(method=='getTokens' && ['token','subtoken'].includes(type))
             return [];
         let { hCursor, hSource } = historyCursor(method, type);
         let { where, whereArgs } = await boundaryWhere(this, config);
-        let table = String(method).toLowerCase().replace('get','');
-        if(!this.actionTables.includes(table) && !['blocks','tokens','history','files','markets','market'].includes(table)){
-            // The boundary-discovery query below keys off this derived table name, which
-            // does not exist for these methods (anchor_actions, slash_events, the hub
-            // governance/match mirrors, etc.), so it cannot run. It is not needed: the
-            // main list query already filters and orders on the right cursor column. For
-            // the known cursor-paged views, pass the inbound client cursor through
-            // unchanged (offset1) so next/prev advance; returning [] here discards it and
-            // resets every page to the newest rows. Unknown methods keep the old no-op.
+        let table = boundaryTable(method);
+        if(!table){
+            // No boundary table: a cursor-paged view passes the inbound client cursor
+            // through so next/prev advance; any other method pages without one.
             if(this.cursorPagedMethods.includes(method))
                 return [offset1, false];
             return [];

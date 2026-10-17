@@ -45,7 +45,14 @@ function applyCors(app, configInfo){
             if (!origin || corsAllowlist.length === 0 || corsAllowlist.includes(origin)) return cb(null, true);
             return cb(null, false);
         },
-        methods: ['GET', 'POST'],
+        methods:        ['GET', 'POST'],
+        exposedHeaders: [
+            'Retry-After',
+            'RateLimit-Policy',
+            'RateLimit-Limit',
+            'RateLimit-Remaining',
+            'RateLimit-Reset'
+        ],
     }));
 }
 

@@ -194,8 +194,8 @@ class PriceControllerReaders {
     // orphan), so every surviving row is a valid event by construction. (We do NOT join the parent
     // action table for status; an ADDRESS v1 controller-bind never writes the `addresses` table,
     // which is the fee-preference variant, so that join would always be NULL → false 'invalid'.)
-    // Like the sibling VM list views (getExecutions/getContracts), this is not in actionTables, so the
-    // cursor-offset optimizer no-ops and the list serves the newest page ordered by m.action_index DESC.
+    // One action can bind both a token and an address controller, so scope breaks
+    // action_index ties and the explorer pages this list by row position.
     controllerUnionSql(){
         return `
             SELECT
@@ -258,7 +258,7 @@ class PriceControllerReaders {
                         m.bound_by
                     FROM ( ` + union + ` ) m
                     WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.action_index ` + sql.order + `
+                    ORDER BY m.action_index ` + sql.order + `, m.scope ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
@@ -269,8 +269,8 @@ class PriceControllerReaders {
     // each on-chain carrier (its chunk position + group size + status). code_part (the base64 slice)
     // is intentionally NOT selected on list rows; it is a MEDIUMTEXT payload too heavy for a paged
     // list. Rows carry code_part_length instead, and the full slice rides the single-action surface
-    // (attachActionDetailSupplements). Not in actionTables (sibling of getExecutions); serves the
-    // newest page ordered by m.action_index DESC.
+    // (attachActionDetailSupplements). Ordered by m.action_index DESC and paged on the preserved
+    // client cursor, like its sibling getExecutions.
     async getDeployChunks(config){
         let sql   = config.data.sql;
         let count = `SELECT

@@ -19,7 +19,7 @@
  * composed from layout data rather than stored as a fragment) fills {CONTENT}, and
  * the cross-site switcher fills its own.
  *
- * The four render modules are required here rather than handed in, because no
+ * The five render modules are required here rather than handed in, because no
  * suite replaces them in XChainExplorer.js's require map: they read files under
  * src/ and have no network or database reach to stub out.
  *
@@ -33,6 +33,8 @@ const { renderPlatformSwitcher } = require('../../render/platform_links.js');
 const listPage     = require('../../render/list_page.js');
 const componentTpl = require('../../render/component_templates.js');
 const { versionAssetUrls } = require('../../render/asset_version.js');
+const { selectAssets }     = require('../../render/page_assets.js');
+const { optOutOfRocketLoader } = require('../../render/rocket_loader_optout.js');  // data-cfasync="false" on every script tag
 
 // Inject plain JSON because browser scripts cannot load the Node registry.
 // Escape less-than signs so a future string value cannot close the script tag.
@@ -41,6 +43,18 @@ function injectAnchorActivation(html) {
     const json = asJson('anchor_activation.ANCHOR_ACTIVATION');
     const fold = asJson('anchor_fold_activation.ANCHOR_FOLD_ACTIVATION');
     return html.replace('{ANCHOR_ACTIVATION}', () => json).replace('{ANCHOR_FOLD_ACTIVATION}', () => fold);
+}
+
+function contentViewerOriginJson(explorer){
+    let configured = '';
+    try {
+        configured = explorer.configInfo && typeof explorer.configInfo.contentViewerOrigin === 'function'
+            ? explorer.configInfo.contentViewerOrigin()
+            : '';
+    } catch(_){
+        configured = '';
+    }
+    return JSON.stringify(typeof configured === 'string' ? configured : '').replace(/</g, '\\u003c');
 }
 
 /**
@@ -84,11 +98,18 @@ async function renderPage(explorer, st){
         // ($&, $', $`, $1) specially in a string replacement, so any page content containing
         // them (e.g. a "$" in inline JS or a token description) would be mangled or truncated.
         pageContent     = pageContent.replace('{CONTENT}', () => htmlContent);
+        const CONTENT_VIEWER_ORIGIN = contentViewerOriginJson(explorer);
+        pageContent     = pageContent.replace('{CONTENT_VIEWER_ORIGIN}', () => CONTENT_VIEWER_ORIGIN);
         // Cross-site navigation for the *.xchain.io family, rendered from the
         // vendored platform-links.json (see src/render/platform_links.js). Same
         // replacement-function reason as {CONTENT}: $-sequences in the markup
         // must not be treated as capture-group references.
         pageContent     = pageContent.replace('{PLATFORM_SWITCHER}', () => renderPlatformSwitcher());
+        // Keep only the scripts and stylesheets this page's groups name
+        // (content/layouts/page-assets.json) and defer the scripts that can wait.
+        pageContent     = selectAssets(pageContent, cfg.file, listPage.has(cfg.file));
+        // Keep the edge's Rocket Loader from re-sequencing the scripts chosen above.
+        pageContent     = optOutOfRocketLoader(pageContent);
         // Last, so asset URLs from every slot above get a content version and a
         // deploy never serves a new page beside a cached old script.
         pageContent     = versionAssetUrls(pageContent);

@@ -61,21 +61,7 @@ const JQUERY_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8
 const CLASSIC    = fs.readFileSync(path.join(SRC_DIR, 'themes/classic/tokens.css'), 'utf8');
 const SKIN       = fs.readFileSync(path.join(SRC_DIR, 'themes/skin-demo/tokens.css'), 'utf8');
 
-// Lift one named function out of a source file by brace matching, so the test
-// drives the SHIPPED body instead of a copy of it.
-function extractFn(src, name) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../../helpers/source_slice');
 
 // The page fragment's markup with every <script> removed; the scripts are
 // eval'd by hand so JSDOM never fetches /js/*.

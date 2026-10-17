@@ -80,25 +80,33 @@ describe('xchain_ws.js reconnect catch-up: load order and sequencing', function 
         expect(idle.lastActionIndex).to.equal('500');
     });
 
-    it('sends one catch-up at a time, each from the reconnect-time cursor, and none for blocks/network', function () {
+    // blocks/network goes through the queue too, so its COMPLETE can name NEW_BLOCK as
+    // not replayed; a subscription naming neither blocks nor an action channel does not.
+    it('sends one catch-up at a time, each from the reconnect-time cursor, blocks/network first in list order', function () {
         const ws = loadClient();
         reconnectWith(ws, '500', [
             { channels: ['blocks', 'network'], params: {} },
+            { channels: ['network'], params: {} },
             { channels: ['actions'], params: { types: ['SEND'] } },
             { channels: ['address'], params: { address: 'X' } }
         ]);
-        expect(ws.sent[0].channels).to.deep.equal(['blocks', 'network']);
-        expect(ws.sent[0].params).to.not.have.property('since_action_index');
+        const plain = ws.sent.filter(m => !(m.params && m.params.since_action_index !== undefined));
+        expect(plain.map(m => m.channels)).to.deep.equal([['network']]);
         expect(catchUps(ws)).to.have.lengthOf(1);
-        const first = catchUps(ws)[0];
+        const blocks = catchUps(ws)[0];
+        expect(blocks.channels).to.deep.equal(['blocks', 'network']);
+        expect(blocks.params.since_action_index).to.equal('500');
+        recv(ws, complete(blocks.id, '500', { events_replayed: 0 }));
+        expect(catchUps(ws)).to.have.lengthOf(2);
+        const first = catchUps(ws)[1];
         expect(first.channels).to.deep.equal(['actions']);
         expect(first.params.since_action_index).to.equal('500');
         expect(first.id).to.be.a('string');
 
         recv(ws, { type: 'NEW_ACTION', catch_up: true, data: { action_index: '520' } });
         recv(ws, complete(first.id, '520'));
-        expect(catchUps(ws)).to.have.lengthOf(2);
-        const second = catchUps(ws)[1];
+        expect(catchUps(ws)).to.have.lengthOf(3);
+        const second = catchUps(ws)[2];
         expect(second.channels).to.deep.equal(['address']);
         expect(second.params.since_action_index).to.equal('500');
         expect(second.id).to.not.equal(first.id);

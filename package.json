@@ -2,7 +2,7 @@
   "name": "xchain-explorer",
   "private": true,
   "description": "xchain-explorer is a free open source token platform explorer and set of APIs to pull data from the XChain platform supported blockchains",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
@@ -19,7 +19,7 @@
     "express-json-rpc-router": "^1.4.0",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
-    "mariadb": "3.5.3",
+    "mariadb": "3.5.4",
     "mathjs": "15.2.0",
     "ws": "^8.21.0"
   },

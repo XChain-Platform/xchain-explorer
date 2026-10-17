@@ -24,14 +24,22 @@ const { srcText } = require('../../helpers/source_text');
 const fs         = require('fs');
 const path       = require('path');
 const { expect } = require('chai');
+const { api } = require('../../../src/explorer/routes/api_methods.js');
+const { supportsBareApiList } = require('../../../src/explorer/request/resolve_route.js');
 
 const SRC  = srcText('src/XChainExplorer.js');
+const API_ENTRY = srcText('src/api.js');
+const BRIDGE_ROUTES = srcText('src/http/bridge_panel_routes.js');
 const SPEC = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '../../docs/openapi.json'), 'utf8'));
 
 // '/{COIN}/api/...' object keys inside the urls.api table in the source.
 function sourceApiRoutes() {
     const out = new Set();
     for (const m of SRC.matchAll(/'(\/\{COIN\}\/api\/[^']*)'\s*:/g)) out.add(m[1]);
+    for(const [route, info] of Object.entries(api)){
+        if(supportsBareApiList(info))
+            out.add(route.replace('/{QUERY}/{TYPE}', ''));
+    }
     return out;
 }
 
@@ -42,7 +50,8 @@ function sourceApiRoutes() {
 // GET-only extractor cannot see (row M1.8).
 function sourceSpecialRoutes() {
     const out = new Set();
-    for (const m of SRC.matchAll(/app\.(?:get|post)\('(\/:coin\/api\/[^']*)'/g)) {
+    const sources = SRC + '\n' + API_ENTRY + '\n' + BRIDGE_ROUTES;
+    for (const m of sources.matchAll(/app\.(?:get|post)\('(\/:coin\/api\/[^']*)'/g)) {
         out.add(m[1].replace(/:([A-Za-z]+)/g, (_s, name) =>
             '{' + name.replace(/([A-Z])/g, '_$1').toUpperCase() + '}'));
     }
@@ -51,8 +60,11 @@ function sourceSpecialRoutes() {
 
 const specTable   = new Set();
 const specSpecial = new Set();
-for (const [p, def] of Object.entries(SPEC.paths))
-    (def['x-registered'] === 'express' ? specSpecial : specTable).add(p);
+for (const [p, def] of Object.entries(SPEC.paths)){
+    const registered = def['x-registered'];
+    if(registered !== 'express') specTable.add(p);
+    if(registered) specSpecial.add(p);
+}
 
 function registerRouteTableTests() {
 
@@ -234,6 +246,26 @@ describe('openapi.json route coverage', () => {
             const param = (SPEC.paths[route].get.parameters || []).find((p) => p.name === 'TYPE');
             expect(param, `${route} TYPE param`).to.exist;
             expect(param.schema.enum, `${route} TYPE enum`).to.have.members(types);
+        }
+    });
+
+    it('every enum in the spec is an array, as OpenAPI and JSON Schema require', () => {
+        const bad = [];
+        (function walk(node, at) {
+            if (!node || typeof node !== 'object') return;
+            if (Object.prototype.hasOwnProperty.call(node, 'enum') && !Array.isArray(node.enum)) bad.push(at);
+            for (const [k, v] of Object.entries(node)) walk(v, `${at}/${k}`);
+        })(SPEC, '#');
+        expect(bad, 'non-array enum locations').to.deep.equal([]);
+    });
+
+    it('the contract state and balance {TYPE} segments carry no enum, since neither route filters by it', () => {
+        for (const route of ['/{COIN}/api/contract/{QUERY}/state/{TYPE}', '/{COIN}/api/contract/{QUERY}/balance/{TYPE}']) {
+            expect(SRC, `${route} is a single-type route in the source table`).to.match(
+                new RegExp(`'${route.replace(/[{}/]/g, '\\$&')}'\\s*:\\s*\\[\\s*'[^']+'\\s*,\\s*'contract'\\s*\\]`));
+            const param = (SPEC.paths[route].get.parameters || []).find((p) => p.name === 'TYPE');
+            expect(param, `${route} TYPE param`).to.exist;
+            expect(param.schema, `${route} TYPE schema`).to.not.have.property('enum');
         }
     });
 });

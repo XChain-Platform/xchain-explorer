@@ -32,6 +32,7 @@
 
 const { DbInputError } = require('../../shared.js');
 const { isMissingTableError } = require('../../schema_probe.js');
+const { pagedRowQuery } = require('../../query_sql/data_rows.js');
 
 // A block height is a non-negative integer and nothing else. parseInt/Number
 // cannot make this call: parseInt('9junk') is 9 and Number('') is 0, both of
@@ -74,19 +75,9 @@ function blockActionCountSql(db, blockIndexes){
     return [query, args];
 }
 
-// Turns the rows of a block-list page into the shape the feed serves, with each
-// block's per-action-type counts folded in. A block with no actions keeps the empty
-// `actions` object it was seeded with, so a quiet block still renders as a row.
-async function attachBlockActionCounts(db, config, rows){
-    let blockIndexes = rows.map(r => r.block_index);
-    let blockMap = {};
-    for(let row of rows){
-        blockMap[row.block_index] = {
-            block_index: row.block_index,
-            timestamp: row.block_time,
-            actions: {}
-        };
-    }
+// Reads the per-action-type counts for the given blocks into blockMap: the action
+// table UNION, then the LIST renames carried as format 5 list_metas rows.
+async function readBlockActionCounts(db, config, blockMap, blockIndexes){
     let [query2, blockArgs] = blockActionCountSql(db, blockIndexes);
     let results2 = await db.doQuery(config, query2, blockArgs);
     if(results2 && results2.length){
@@ -118,6 +109,48 @@ async function attachBlockActionCounts(db, config, rows){
             let bIdx = Number(row.block_index);
             if(blockMap[bIdx])
                 blockMap[bIdx].actions.lists = Number(blockMap[bIdx].actions.lists || 0) + Number(row.count);
+        }
+    }
+}
+
+// The height below which a block's counts may be cached, or null to cache nothing.
+// Rows for the indexed tip can still be landing, so only a block with a later block
+// indexed above it is final. The tip comes from the same probe that keys the result
+// cache, whose token is the height optionally followed by ':' and the block's
+// identity; a failed probe or an empty chain answers null.
+async function cacheableBelow(db, config){
+    const tip = await db.resultCacheGeneration(config);
+    const m   = (tip === null) ? null : /^([0-9]+)(?::|$)/.exec(String(tip));
+    return m ? Number(m[1]) : null;
+}
+
+// Turns the rows of a block-list page into the shape the feed serves, with each
+// block's per-action-type counts folded in. A block with no actions keeps the empty
+// `actions` object it was seeded with, so a quiet block still renders as a row.
+//
+// Counts come from _blockCountsCache where held, and only the blocks it misses go
+// into the count queries. The keys are taken before any query runs, so a reorg
+// generation bump during the read files the new entries under the retired
+// generation, where nothing reads them. A failed read throws before any write.
+async function attachBlockActionCounts(db, config, rows){
+    let blockMap = {};
+    let keys     = {};
+    let misses   = [];
+    for(let row of rows){
+        blockMap[row.block_index] = { block_index: row.block_index, timestamp: row.block_time, actions: {} };
+        keys[row.block_index] = db.cacheKey(config.coin, 'block_counts:' + row.block_index);
+        const held = db.cacheGet(db._blockCountsCache, keys[row.block_index]);
+        if(held === undefined) misses.push(row.block_index);
+        else blockMap[row.block_index].actions = structuredClone(held);
+    }
+    if(misses.length){
+        const below = await cacheableBelow(db, config);
+        await readBlockActionCounts(db, config, blockMap, misses);
+        if(below !== null){
+            for(let bIdx of misses){
+                if(Number(bIdx) < below)
+                    db.cacheSet(db._blockCountsCache, keys[bIdx], structuredClone(blockMap[bIdx].actions), db._blockCountsCacheMax);
+            }
         }
     }
     return rows.map(r => blockMap[r.block_index]);
@@ -169,8 +202,9 @@ class EntityBlockReaders {
                     blocks b1
                 WHERE ` + sql.where.data;
         results = await this.doQuery(config, query);
+        // COUNT(*) arrives as a BigInt; a list total is a JSON number like every other list's.
         if(results && results.length)
-            total = results[0].total;
+            total = Number(results[0].total);
         // BIND THE PAGING PLACEHOLDER. getBlocks builds and runs its own queries rather than
         // returning [query, args] to the shared path, and that shared path is where every
         // other list method gets its offset args threaded in. Without them the `?` in
@@ -180,7 +214,6 @@ class EntityBlockReaders {
         // data-WHERE placeholder of its own (getQueryWhereSql excludes it from the type
         // branch and anchors on `b1.block_index IS NOT NULL`), so the offset args are the
         // complete set; the count query above needs none for the same reason.
-        let offsetArgs = (sql.where.offsetArgs && sql.where.offsetArgs.length) ? sql.where.offsetArgs : undefined;
         query = `SELECT
                     block_index,
                     block_time
@@ -190,7 +223,9 @@ class EntityBlockReaders {
                     ` + sql.where.data + sql.where.offset + `
                 ORDER BY block_index ` + sql.order + `
                 LIMIT ` + sql.limit;
-        results = await this.doQuery(config, query, offsetArgs);
+        let queryArgs;
+        [query, queryArgs] = pagedRowQuery(config, query, []);
+        results = await this.doQuery(config, query, queryArgs.length ? queryArgs : undefined);
         if(results && results.length)
             data = await attachBlockActionCounts(this, config, results);
         return [data, null, total];

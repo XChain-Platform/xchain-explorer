@@ -31,7 +31,9 @@ const { ANCHOR_BUNDLE_VERSIONS } = require('../../action_detail/consensus_sql');
 
 function anchorIdentityLookup(db, config){
     let search = config.data.search;
-    let numeric   = db.util.isNumeric(search);
+    // Only plain decimal digits name an action_index; anything else ('0x10',
+    // '1e3') is looked up as a transaction hash rather than coerced to a number.
+    let numeric   = db.util.isSafeIntegerParam(search);
     let predicate = numeric ? 'm.action_index=?' : 't2.hash=?';
     let key       = numeric ? Number(search) : String(search || '').toLowerCase();
     return { predicate, key };

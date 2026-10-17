@@ -43,6 +43,21 @@ const ANCHOR_ONE_ROW_SQL = ` AND (an.action_index, an.section_index) = (SELECT a
                            ORDER BY (a3.version ${CHECKPOINT_SECTION_VERSIONS_SQL}) DESC, a3.action_index DESC, a3.section_index DESC
                            LIMIT 1)`;
 
+// A page picked in a derived table ahead of join placeholders needs its cursor and API
+// offset there too, so the reader binds them itself: it takes the cursor args to lead
+// its join args, and the offset as a clamped integer to splice in, as getSends does.
+// Both are cleared so getData appends neither a second time.
+function takePageBinding(config){
+    let sql        = config.data.sql;
+    let cursorArgs = sql.where.offsetArgs || [];
+    let apiOffset  = Number(sql.apiOffset);
+    let pageOffset = (config.type=='api' && Number.isSafeInteger(apiOffset) && apiOffset > 0)
+        ? ' OFFSET ' + Math.min(apiOffset, 100000) : '';
+    sql.where.offsetArgs = [];
+    sql.apiOffset = 0;
+    return { cursorArgs, pageOffset };
+}
+
 class XcallListReaders {
     // Get list of ATTEST actions from the consolidated `attests` table. Lists both
     // v0 (request) and v1 (response) rows; `version` + request/response status let
@@ -126,8 +141,8 @@ class XcallListReaders {
                     FROM
                         xcalls m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -160,8 +175,8 @@ class XcallListReaders {
                     FROM
                         xcalls m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
@@ -262,8 +277,14 @@ class XcallListReaders {
     // Reuses the exact latest-per-height predicate getCheckpoints established rather than
     // a third, differently-bounded checkpoint query, and applies the identical shape to
     // the anchor leg's own latest-checkpoint_seq-per-height lookup. The anchor leg then
-    // pins one row (ANCHOR_ONE_ROW_SQL), because the paging cursor and count(*) both
-    // assume one row per height.
+    // pins one row (ANCHOR_ONE_ROW_SQL), because the paging cursor assumes one row per
+    // height.
+    //
+    // Each leg costs correlated subqueries per joined row, so neither may run over the
+    // whole table. The page is picked from state_tree_roots alone in a derived table and
+    // the legs decorate only its rows; as the outer side of both LEFT JOINs it is joined
+    // first whatever the planner estimates. The count reads the base table alone: a LEFT
+    // JOIN pinned to at most one row can neither add nor drop a root row.
     async getCommitments(config){
         let sql      = config.data.sql;
         let src      = this.checkpointSource(config);
@@ -278,12 +299,12 @@ class XcallListReaders {
         let anLatest = ` AND an.checkpoint_seq = (SELECT MAX(a2.checkpoint_seq) FROM anchor_actions a2
                            WHERE a2.block_index = an.block_index AND a2.chain = ? AND a2.network = ?
                              AND a2.version ${ANCHOR_VERSIONS_SQL})${ANCHOR_ONE_ROW_SQL}`;
+        let { cursorArgs, pageOffset } = takePageBinding(config);
+        let whereArgs = (config.data.type=='block') ? [config.data.search] : [];
         let count = `SELECT
                         count(*) as total
                     FROM
                         state_tree_roots m
-                        LEFT JOIN ${src.table} sc ON sc.block_index = m.block_index${scFilter}${latest.sql}
-                        LEFT JOIN anchor_actions an ON an.block_index = m.block_index${anFilter}${anLatest}
                     WHERE ` + sql.where.data;
         let query = `SELECT
                         m.block_index,
@@ -300,19 +321,23 @@ class XcallListReaders {
                         an.action_index          AS anchor_action_index,
                         an.version               AS anchor_version
                     FROM
-                        state_tree_roots m
+                        (SELECT
+                            m.block_index, m.balances_root, m.stakes_root, m.state_root,
+                            m.block_merkle_root, m.contract_state_root, m.computed_at
+                        FROM
+                            state_tree_roots m
+                        WHERE ` + sql.where.data + sql.where.offset + `
+                        ORDER BY m.block_index ` + sql.order + `
+                        LIMIT ` + sql.limit + pageOffset + `) m
                         LEFT JOIN ${src.table} sc ON sc.block_index = m.block_index${scFilter}${latest.sql}
                         LEFT JOIN anchor_actions an ON an.block_index = m.block_index${anFilter}${anLatest}
-                    WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.block_index ` + sql.order + `
-                    LIMIT ` + sql.limit;
-        // Left-to-right text order: both JOIN ON clauses (checkpoint filter + latest, then
-        // anchor filter + latest), then the WHERE type-bound value, which is present only
-        // when type='block' (getData's list-all null filter drops the trailing undefined on
-        // a bare request, so the placeholder count still lines up). count and list share
-        // IDENTICAL FROM+JOIN text, so this one array binds correctly against both.
-        let args = [...src.filterParams, ...latest.params, ...src.filterParams, ...src.filterParams, config.data.search];
-        return [query, args, count];
+                    ORDER BY m.block_index ` + sql.order;
+        // Left-to-right text order: the WHERE type-bound value (present only when
+        // type='block'), the cursor, then both JOIN ON clauses (checkpoint filter + latest,
+        // then anchor filter + latest). The count carries only the type-bound value, so it
+        // takes its own args as a [sql, args] pair.
+        let args = [...whereArgs, ...cursorArgs, ...src.filterParams, ...latest.params, ...src.filterParams, ...src.filterParams];
+        return [query, args, [count, whereArgs]];
     }
 }
 

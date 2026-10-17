@@ -34,22 +34,11 @@ const { expect } = require('chai');
 const SRC = srcText('src/content/js/xchain.js');
 const ACTION_HTML = fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/html/action.html'), 'utf8');
 
-// Slice a top-level function out of the source by walking braces (the same
-// technique content-client-xss.test.js uses) so the test runs shipped code
-// rather than a copy that can drift.
-function extractFn(name) {
-    const sig = 'function ' + name + '(';
-    const start = SRC.indexOf(sig);
-    if (start < 0) throw new Error('function not found in xchain.js: ' + name);
-    const braceStart = SRC.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < SRC.length; i++) {
-        const c = SRC[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return SRC.slice(start, i);
-}
+// Slice each shipped function out of xchain.js with the shared brace-walking
+// helper that every content-client test uses, so these tests run the code
+// that ships rather than a hand-kept copy of it that can drift out of date.
+const { extractFn: sliceFunction } = require('../../../../helpers/source_slice');
+const extractFn = (name) => sliceFunction(SRC, name, 'xchain.js');
 
 function panelHtml() {
     const start = ACTION_HTML.indexOf('<div class="d-none" id="info-list">');

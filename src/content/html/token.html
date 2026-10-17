@@ -1048,6 +1048,8 @@
 
 <script type="text/javascript" src="/js/xbridge_panels_render.js"></script>
 <script type="text/javascript">
+    XC.contentViewerOrigin = {CONTENT_VIEWER_ORIGIN};
+
     // Bridge panels. Split from the render module (js/xbridge_panels_render.js) so
     // the derivation is drivable by a test without a page; this block is only the
     // three reads and the un-hide.
@@ -1059,7 +1061,7 @@
     // have. A holder reading "no bridged copies" when the truth is "we could not
     // ask" is the one failure this wiring exists to prevent, so an errback renders
     // the unavailable state and the card is still shown.
-    function loadBridgePanels(tick){
+    function loadBridgePanels(tick, info){
         if(isNull(tick)) return;
         var coins = (XC.status && XC.status.available) ? Object.keys(XC.status.available) : [];
         // A rooted tick (BTC.FUFU read on DOGE) is a bridged COPY: badge its origin
@@ -1067,15 +1069,22 @@
         var origin = bridgeOriginOf(tick, coins);
         $('#token-bridge-origin').html(renderBridgeOrigin(tick, coins));
 
-        $.getJSON('/' + XC.coin + '/api/bridge-invariant/' + encodeURIComponent(tick), function(o){
-            $('#token-bridge-copies').html(renderBridgeCopies((o && o.error) ? null : o, tick, XC.coin));
-            $('#token-bridge-card').show();
-        }).fail(function(){
-            // Null, not {}: "the hub did not answer" is not "the hub answered with
-            // no chains", and the render module paints them differently.
-            $('#token-bridge-copies').html(renderBridgeCopies(null, tick, XC.coin));
-            $('#token-bridge-card').show();
-        });
+        // Per-chain totals exist only for a bridged token: a rooted copy, or a native
+        // row whose `bridged` bit the indexer set on its first applied lock. Any other
+        // token (or a row from an indexer without bridge columns) never asks, and its
+        // copies card stays hidden.
+        var bridged = info ? info.bridged : null;
+        if(origin || bridged === 1 || bridged === '1' || bridged === true){
+            $.getJSON('/' + XC.coin + '/api/bridge-invariant/' + encodeURIComponent(tick), function(o){
+                $('#token-bridge-copies').html(renderBridgeCopies((o && o.error) ? null : o, tick, XC.coin));
+                $('#token-bridge-card').show();
+            }).fail(function(){
+                // Null, not {}: "the hub did not answer" is not "the hub answered with
+                // no chains", and the render module paints them differently.
+                $('#token-bridge-copies').html(renderBridgeCopies(null, tick, XC.coin));
+                $('#token-bridge-card').show();
+            });
+        }
 
         if(origin){
             $.getJSON('/' + XC.coin + '/api/applied-policy/' + encodeURIComponent(tick), function(o){
@@ -1159,6 +1168,7 @@
                 XC.pageInfo.canonical   = tokenUrl(XC.coin, tick)
                 updatePageInfo();
 
+                loadBridgePanels(tick, o.info);
                 setupActionListeners();
                 $('#tab-dropdown-info').click();
             } else {

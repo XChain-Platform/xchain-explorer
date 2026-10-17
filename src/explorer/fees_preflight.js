@@ -26,6 +26,7 @@
 'use strict';
 
 const IndexerConnector = require('../connectors/indexer.js');
+const { feeScheduleCache } = require('./fees_preflight/fee_schedule_cache.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -258,6 +259,8 @@ class FeesPreflight {
 
     // Native-coin fee schedule + current oracle prices (proxy to the indexer's `feeschedule`).
     // GET /{COIN}/api/feeschedule
+    // Read through the shared per-indexer cache: the answer is caller-independent and
+    // costly upstream. The two quote routes above stay uncached, being caller-specific.
     async processFeeScheduleRequest(req, res){
         try {
             let config = await this.configInfo.getConfig();
@@ -267,8 +270,7 @@ class FeesPreflight {
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
                 return res.status(501).json({ error: 'fee schedule unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
-            let connector = new IndexerConnector(url);
-            return res.json(await connector.feeschedule());
+            return res.json(await feeScheduleCache.get(url, () => new IndexerConnector(url).feeschedule()));
         } catch(e){
             log.error('FEE_SCHEDULE_REQUEST_FAILED', { err: e.message || e });
             return res.status(502).json({ error: 'fee schedule upstream error', code: 'UPSTREAM_ERROR' });

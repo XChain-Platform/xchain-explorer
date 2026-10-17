@@ -24,6 +24,23 @@
 'use strict';
 
 /**
+ * The cursor that continues a keyset-paged list from this page: the cursor value
+ * of the row farthest along the walk, as next_before on a page read downward and
+ * next_after on one read upward. A keyset page shown against its walk keeps that
+ * row first. Absent on an empty page and on lists without keyset paging.
+ */
+function nextCursor(cfg, data){
+    let sql    = cfg.data.sql || {};
+    let column = sql.keysetColumn;
+    let rows   = (column && Array.isArray(data)) ? data : [];
+    let last   = rows.length ? rows[sql.keysetReversed ? 0 : rows.length - 1] : null;
+    if(!last || last[column] === null || last[column] === undefined)
+        return {};
+    let name = (String(sql.order).toUpperCase() == 'ASC') ? 'next_after' : 'next_before';
+    return { [name]: String(last[column]) };
+}
+
+/**
  * Build a list response: the record counts plus the page of rows this request asked for.
  */
 function buildListJson(explorer, st, data){
@@ -33,6 +50,7 @@ function buildListJson(explorer, st, data){
     if(cfg.type=='api'){
         // How many records were found in all, not just on this page.
         json.total = total;
+        Object.assign(json, nextCursor(cfg, data));
 
         // Hoist shared fields out of the data array to avoid repeating identical values per row.
         // Guard against empty data (e.g. unknown tick): data[0] is undefined when

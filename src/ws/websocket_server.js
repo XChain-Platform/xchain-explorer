@@ -86,6 +86,9 @@ class WebSocketServer {
         this.maxMsgPerSec    = options.maxMsgPerSec    || 10;
         this.catchUpMaxDepth = options.catchUpMaxDepth || 1000;
         this.catchUpMaxEvents = options.catchUpMaxEvents || 100;
+        // How long a catch-up replay waits for a backed-up socket to drain below the
+        // backpressure cap before it sheds the client (websocket_server/catch_up.js).
+        this.catchUpDrainMs  = options.catchUpDrainMs !== undefined ? options.catchUpDrainMs : 30000;
 
         // Channel manager for subscription tracking
         this.channelManager = new ChannelManager({

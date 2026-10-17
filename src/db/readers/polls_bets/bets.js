@@ -20,7 +20,10 @@
 
 'use strict';
 
-const GET_BET_FEED_INFO_QUERY_SQL = `SELECT
+const { tablesPresent, setTablesAbsent, isMissingTableError } = require('../../schema_probe.js');
+const { betListOverlay } = require('../../bet_list_overlay.js');
+
+const betFeedInfoSql = (overlay) => `SELECT
                         a4.action,
                         m.action_index,
                         a1.action_format,
@@ -34,8 +37,8 @@ const GET_BET_FEED_INFO_QUERY_SQL = `SELECT
                         m.refund_window,
                         m.expire_at,
                         m.min_amount,
-                        m.allow_list,
-                        m.block_list,
+                        ${overlay.allow},
+                        ${overlay.block},
                         m.details,
                         fs.status as feed_status,
                         m.closed_block,
@@ -55,7 +58,7 @@ const GET_BET_FEED_INFO_QUERY_SQL = `SELECT
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_statuses     fs ON (fs.id=m.feed_status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                        LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)${overlay.joins}
                     WHERE m.action_index=?
                     LIMIT 1`;
 
@@ -125,6 +128,7 @@ class BetReaders {
     // close from the wall clock (the §5 backdating property E11 pins).
     async getBetFeeds(config){
         let sql   = config.data.sql;
+        let overlay = betListOverlay(await tablesPresent(this, config, ['bet_edits']));
         let from  = `
                         bet_feeds m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -150,8 +154,8 @@ class BetReaders {
                         m.refund_window,
                         m.expire_at,
                         m.min_amount,
-                        m.allow_list,
-                        m.block_list,
+                        ` + overlay.allow + `,
+                        ` + overlay.block + `,
                         fs.status as feed_status,
                         m.closed_block,
                         m.terminal_block,
@@ -160,7 +164,7 @@ class BetReaders {
                         t2.hash as tx_hash,
                         t1.tx_index,
                         s1.status
-                    FROM ` + from + `
+                    FROM ` + from + overlay.joins + `
                     WHERE ` + sql.where.data + sql.where.offset + `
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
@@ -187,8 +191,15 @@ class BetReaders {
     async getBetFeedInfo(config, actionIndex){
         let data  = null;
         let args  = [actionIndex];
-        let query = GET_BET_FEED_INFO_QUERY_SQL;
-        let results = await this.doQuery(config, query, args);
+        let hasEdits = await tablesPresent(this, config, ['bet_edits']);
+        let results;
+        try { results = await this.doQuery(config, betFeedInfoSql(betListOverlay(hasEdits)), args); }
+        catch(e){
+            // Recover from a probe that answered wrong: record the missing table and read the created lists.
+            if(!hasEdits || !isMissingTableError(e)) throw e;
+            setTablesAbsent(this, config, ['bet_edits']);
+            results = await this.doQuery(config, betFeedInfoSql(betListOverlay(false)), args);
+        }
         if(results && results.length){
             let row = results[0];
             // OUTCOMES is stored as the canonical comma-joined label list. Split it

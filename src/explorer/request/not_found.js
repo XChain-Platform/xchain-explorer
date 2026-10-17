@@ -35,6 +35,10 @@ function applyFallbacks(explorer, st){
         st.response.code = 404;
     }
 
+    // The 404 page answers 404 however it was reached, its own /404 route included.
+    if(st.cfg.type == 'html' && st.cfg.file == '404.html')
+        st.response.code = 404;
+
     // A data request this instance cannot serve answers 503, service unavailable.
     if(['api','explorer'].includes(st.cfg.type) && !explorer.util.isNull(st.cfg.data.method) && !st.validDataRequest){
         st.response.code = 503;

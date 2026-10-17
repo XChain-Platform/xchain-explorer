@@ -18,8 +18,9 @@
  * current `timestamp` and carrying no marker.
  *
  * The contract these tests pin:
- *   - WELCOME is the handshake, so it is ANNOTATED (`data.stale: true`), never
- *     withheld, and the marker is absent (not false) when the tip is fresh.
+ *   - WELCOME is the handshake, so it is ANNOTATED (a top-level `stale: true`,
+ *     repeated as `data.stale`), never withheld, and the marker is absent (not
+ *     false) when the tip is fresh.
  *   - CATCH_UP and SNAPSHOT are chain DATA, so they FAIL CLOSED through the
  *     existing `error` frame with code COIN_DATA_STALE.
  ********************************************************************/
@@ -95,6 +96,42 @@ describe('WS frozen-replica freshness gate', function () {
             const welcome = typesOf(frames, 'WELCOME')[0];
             expect(welcome.data).to.not.have.property('stale');
             expect(welcome.data.latest_block_index).to.equal('100');
+        });
+
+        it('carries the stale marker on the envelope, where every other frame carries it', async function () {
+            const s = makeServer(true);
+            const { client, frames } = makeClient('BTC');
+            await s.sendWelcome(client);
+            const welcome = typesOf(frames, 'WELCOME')[0];
+            expect(welcome.stale).to.equal(true);
+            expect(welcome.data.stale, 'the data copy stays for existing readers').to.equal(true);
+        });
+
+        it('omits the envelope marker when the tip is fresh', async function () {
+            const s = makeServer(false);
+            const { client, frames } = makeClient('BTC');
+            await s.sendWelcome(client);
+            expect(typesOf(frames, 'WELCOME')[0]).to.not.have.property('stale');
+        });
+    });
+
+    describe('frame shape', function () {
+
+        it('puts the stale marker at the top level of WELCOME, SNAPSHOT, replayed and COMPLETE frames alike', async function () {
+            const s = makeServer(true, {
+                getActionsSince: async () => [{ action_index: 7n, action: 'SEND', block_index: 5 }]
+            });
+            s.broadcaster = { passesFilter: () => true, applyFieldsProjection: (e) => e };
+            const { client, frames } = makeClient('BTC');
+            await s.sendWelcome(client);
+            await s.sendSnapshots(client, [{ channel: 'address', address: 'addr1' }]);
+            await s.handleCatchUp(client, '0', {}, 'req-1');
+            const kinds = ['WELCOME', 'SNAPSHOT', 'NEW_ACTION', 'CATCH_UP_COMPLETE'];
+            for (const kind of kinds) {
+                const seen = typesOf(frames, kind);
+                expect(seen, `${kind} was sent`).to.not.have.lengthOf(0);
+                for (const f of seen) expect(f.stale, `${kind} top-level stale`).to.equal(true);
+            }
         });
     });
 

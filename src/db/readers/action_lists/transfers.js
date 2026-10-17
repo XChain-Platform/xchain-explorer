@@ -20,14 +20,16 @@
 
 'use strict';
 
-const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js');
+const { feeRows } = require('../../../action-detail/contracts.js'), { tablesPresent, columnsPresent } = require('../../schema_probe.js'), { buildListsQuery } = require('../../method_tables.js'), contentReaders = require('./content.js'), { optionalTransactionSql } = require('../txless_actions.js'), { legOrder } = require('../../query_sql/query_limits.js');
 delete contentReaders.getLists;
-class TransferReaders { async getLists(config){ return buildListsQuery(this, config, tablesPresent); }
+class TransferReaders { async getLists(config){ let out=await buildListsQuery(this, config, tablesPresent); out[0]=optionalTransactionSql(out[0]); out[2]=optionalTransactionSql(out[2]); return out; }
     // Contract-emitted sends have no transaction. Join blocks from the action and
     // keep the transaction optional so those actions remain visible in the feed.
     async getSends(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
+        // Read leg_ordinal only where the replica has it; an older one pages its legs unsorted, as readLegs does.
+        let legOrdinal = await columnsPresent(this, config, 'sends', ['leg_ordinal']) ? 'm.leg_ordinal' : '0 AS leg_ordinal';
         let rawExplorerOffset = config.type=='explorer' &&
             !(config.data.offset && config.data.offset.action);
         let requestedOffset = (config.type=='api')
@@ -65,7 +67,7 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     SELECT a4.action, m.action_index, a1.action_format, a2.address as source,
                         a3.address as destination, t3.tick, m.amount, b1.block_index,
                         b1.block_time as timestamp, t2.hash as tx_hash, t1.tx_index,
-                        m1.memo, s1.status, m.leg_ordinal
+                        m1.memo, s1.status, ` + legOrdinal + `
                     FROM ` + joins + ` WHERE ` + sql.where.data + sql.where.offset + `
                 ), page_actions AS (
                     SELECT DISTINCT action_index
@@ -79,7 +81,7 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                 FROM filtered_sends m
                     INNER JOIN page_actions p ON (p.action_index=m.action_index)
                 ) m
-                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ASC`;
+                ORDER BY m.action_index ` + sql.order + `, m.leg_ordinal ` + legOrder(config);
         return [query, args, count];
     }
 
@@ -94,8 +96,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     FROM
                         sweeps m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -123,8 +125,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     FROM
                         sweeps m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.destination_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -144,8 +146,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     FROM
                         airdrops m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -170,8 +172,8 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
                     FROM
                         airdrops m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
@@ -203,7 +205,7 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
      * /{COIN}/api/fees/{QUERY}/{TYPE}               getFees             block, address, token, source, destination
      * /{COIN}/api/files/{QUERY}/{TYPE}              getFiles            block, address, token, name, gate
      * /{COIN}/api/issues/{QUERY}/{TYPE}             getIssues           block, address, token
-     * /{COIN}/api/links/{QUERY}/{TYPE}              getLinks            block, address
+     * /{COIN}/api/links/{QUERY}/{TYPE}              getLinks            block, address, token
      * /{COIN}/api/lists/{QUERY}/{TYPE}              getLists            block, address
      * /{COIN}/api/messages/{QUERY}/{TYPE}           getMessages         block, address, token, source, destination
      * /{COIN}/api/mints/{QUERY}/{TYPE}              getMints            block, address, token, source, destination
@@ -211,14 +213,14 @@ class TransferReaders { async getLists(config){ return buildListsQuery(this, con
      * /{COIN}/api/order_cancels/{QUERY}/{TYPE}      getOrderCancels     block, address
      * /{COIN}/api/order_edits/{QUERY}/{TYPE}        getOrderEdits       block, address
      * /{COIN}/api/order_expires/{QUERY}/{TYPE}      getOrderExpires     block, address
-     * /{COIN}/api/order_matches/{QUERY}/{TYPE}      getOrderMatches     block 
+     * /{COIN}/api/order_matches/{QUERY}/{TYPE}      getOrderMatches     block, address, token
      * /{COIN}/api/sends/{QUERY}/{TYPE}              getSends            block, address, token, source, destination
      * /{COIN}/api/sleeps/{QUERY}/{TYPE}             getSleeps           block, address, token
      * /{COIN}/api/swaps/{QUERY}/{TYPE}              getSwaps            block, address, token
      * /{COIN}/api/swap_cancels/{QUERY}/{TYPE}       getSwapCancels      block, address
      * /{COIN}/api/swap_edits/{QUERY}/{TYPE}         getSwapEdits        block, address
      * /{COIN}/api/swap_expires/{QUERY}/{TYPE}       getSwapExpires      block, address
-     * /{COIN}/api/swap_matches/{QUERY}/{TYPE}       getSwapMatches      block 
+     * /{COIN}/api/swap_matches/{QUERY}/{TYPE}       getSwapMatches      block, address, token
      * /{COIN}/api/sweeps/{QUERY}/{TYPE}             getSweeps           block, address
      ******************************************************************/
 

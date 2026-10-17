@@ -28,6 +28,7 @@
 'use strict';
 
 const { chainAndBalanceRows, tokenAndTradeRows, contractAndStakeRows, stakeLifecycleRows } = require('./list_rows.js');
+const { ACTION_TABLES } = require('../../db/method_tables.js');
 const { voteAndBetRows, crossChainRows, mirrorAndExpiryRows, cancelEditAndGovernanceRows, hubOperationalAndSearchRows } = require('./feed_rows.js');
 
 /**
@@ -55,41 +56,14 @@ function rowLockFlags(info, method){
  * The per-block action counts this row carries, or false where the page has none.
  */
 function rowBlockActions(info, method){
-    // Per-block action counts, packed into one string rather than sent
-    // as a field each, which keeps a block list small on the wire.
-    let actions = false;
-    if(method=='getBlocks'){
-        let arr = [
-            info.actions.addresses,
-            info.actions.airdrops,
-            info.actions.batches,
-            info.actions.broadcasts,
-            info.actions.callbacks,
-            info.actions.destroys,
-            info.actions.dispensers,
-            info.actions.dispenses,
-            info.actions.dividends,
-            info.actions.files,
-            info.actions.issues,
-            info.actions.links,
-            info.actions.lists,
-            info.actions.messages,
-            info.actions.mints,
-            info.actions.orders,
-            info.actions.order_cancels,
-            info.actions.order_edits,
-            info.actions.order_matches,
-            info.actions.sends,
-            info.actions.sleeps,
-            info.actions.swaps,
-            info.actions.swap_cancels,
-            info.actions.swap_edits,
-            info.actions.swap_matches,
-            info.actions.sweep
-        ];
-        actions = arr.join('|');
-    }
-    return actions;
+    // One count per action table, pipe-joined in ACTION_TABLES order, which keeps
+    // a block list small on the wire. The blocks page reads the slots back by the
+    // same order (XC.actions in content/js/xchain.js), and a parity test holds the
+    // two lists equal, so every table the count query reads reaches the page.
+    if(method!='getBlocks')
+        return false;
+    const counts = info.actions || {};
+    return ACTION_TABLES.map(table => counts[table]).join('|');
 }
 
 /**

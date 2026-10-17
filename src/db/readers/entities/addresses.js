@@ -37,6 +37,14 @@
 const { getLogger } = require('../../../observability');
 const log = getLogger();
 
+// The total order of a credit, debit or escrow list. An action writes several rows,
+// so the row's own columns break action_index ties and a page edge never splits or
+// repeats one; both transports page these lists by row position.
+function ledgerRowOrder(dir){
+    return ['m.action_index', 'm.address_id', 'm.tick_id', 'm.amount']
+        .map((col) => col + ' ' + dir).join(', ');
+}
+
 class EntityAddressReaders {
     // TODO: pull balance data from the utxo-tracker API instead of placeholder values
     async getAddress(config){
@@ -156,8 +164,8 @@ class EntityAddressReaders {
                     FROM
                         credits m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -183,7 +191,7 @@ class EntityAddressReaders {
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.action_index ` + sql.order + `
+                    ORDER BY ` + ledgerRowOrder(sql.order) + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
@@ -215,14 +223,14 @@ class EntityAddressReaders {
                     FROM
                         debits m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.action_index ` + sql.order + `
+                    ORDER BY ` + ledgerRowOrder(sql.order) + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
@@ -234,8 +242,8 @@ class EntityAddressReaders {
                     FROM
                         escrows m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN index_tickers      t2 ON (t2.id=m.tick_id)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=m.address_id)
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
@@ -261,7 +269,7 @@ class EntityAddressReaders {
                         LEFT  JOIN index_actions      a3 ON (a3.id=a1.action_id)
                         LEFT  JOIN index_transactions t3 ON (t3.id=t1.tx_hash_id)
                     WHERE ` + sql.where.data + sql.where.offset + `
-                    ORDER BY m.action_index ` + sql.order + `
+                    ORDER BY ` + ledgerRowOrder(sql.order) + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }
@@ -301,7 +309,7 @@ class EntityAddressReaders {
                         LEFT  JOIN index_addresses a2 ON (a2.id=m.address_id)
                         INNER JOIN tokens          t4 ON (t4.tick_id=m.tick_id)
                     WHERE ` + sql.where.data + `
-                    ORDER BY ABS(m.amount) ` + sql.order + `
+                    ORDER BY ABS(CAST(m.amount AS DECIMAL(65,18))) ` + sql.order + `, m.address_id ` + sql.order + `
                     LIMIT ` + sql.limit;
         return [query, null, count];
     }

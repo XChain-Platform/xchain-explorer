@@ -208,7 +208,7 @@
         setXChainParams(XC.coin);
 
         // Set the search type and query
-        XC.query = (!isNull(urlParams.get('query'))) ? urlParams.get('query') : null;
+        XC.query = searchQueryParam(urlParams);
         XC.type  = 'search';
 
         // Display debug information
@@ -246,12 +246,20 @@
         XC.pageInfo.description = isNull(XC.query)
             ? ('Search the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network by address, token, contract, transaction or broadcast.')
             : ('Search for `' + XC.query + '` on the XChain Platform on the ' + XC.name + ' (' + XC.network + ') blockchain network. This page displays XChain Platform search results for `' + XC.query + '`.');
-        // location.search already starts with '?'; prefixing another built /search??coin=.
-        XC.pageInfo.canonical   = '/search' + window.location.search;
+        // Built from the resolved coin and query so a ?q= visit publishes the same
+        // canonical as the ?query= one.
+        XC.pageInfo.canonical   = '/search?coin=' + encodeURIComponent(XC.coin)
+                                + (isNull(XC.query) ? '' : '&query=' + encodeURIComponent(XC.query));
         updatePageInfo();
 
-        // Activate the tokens tab by faking a click
-        $('#tab-dropdown-token').click();
+        // A query that names one record (an address, a transaction hash, a block
+        // height or an action index) opens that record's page; anything else is a
+        // token search, so activate the tokens tab by faking a click.
+        resolveSearchDestination(XC.coin, XC.query, function(dest){
+            if(!isNull(dest))
+                return searchNavigate(dest, true);
+            $('#tab-dropdown-token').click();
+        });
 
     });
 </script>

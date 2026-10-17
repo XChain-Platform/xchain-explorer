@@ -74,21 +74,7 @@ const ACTIVATION_START = PAGE_HTML.indexOf('var ANCHOR_ACTIVATION = ');
 const ACTIVATION_END = PAGE_HTML.indexOf('</script>', ACTIVATION_START);
 const ACTIVATION_SRC = PAGE_HTML.slice(ACTIVATION_START, ACTIVATION_END);
 
-// Slice a top-level function out of the source by walking braces, so the test
-// runs shipped code rather than a copy that can drift.
-function extractFn(src, name) {
-    const sig = 'function ' + name + '(';
-    const start = src.indexOf(sig);
-    if (start < 0) throw new Error('function not found: ' + name);
-    const braceStart = src.indexOf('{', start);
-    let depth = 0, i = braceStart;
-    for (; i < src.length; i++) {
-        const c = src[i];
-        if (c === '{') depth++;
-        else if (c === '}') { depth--; if (depth === 0) { i++; break; } }
-    }
-    return src.slice(start, i);
-}
+const { extractFn } = require('../../../../helpers/source_slice');
 
 // isNull, formatAmount and numeral are the REAL ones: the empty/absent decisions
 // and the thousands-separated heights the assertions read are expressed through

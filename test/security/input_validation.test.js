@@ -41,7 +41,7 @@ describe('Security: Input Validation: Type confusion', function () {
     let db;
     before(() => { db = makeDb(); });
 
-    it('handles limit as array (Express query parsing edge case)', async () => {
+    it('refuses limit as array (Express query parsing edge case) before any SQL', async () => {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -50,12 +50,13 @@ describe('Security: Input Validation: Type confusion', function () {
                 query: { limit: ['100', '200'] }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.limit).to.be.a('number');
-        expect(Number.isFinite(config.data.sql.limit)).to.be.true;
+        // A repeated key is not one integer, so no LIMIT is built from it.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('INVALID_LIMIT');
     });
 
-    it('handles sortorder as array', async () => {
+    it('refuses sortorder as array before any SQL', async () => {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -64,8 +65,10 @@ describe('Security: Input Validation: Type confusion', function () {
                 query: { sortorder: ['ASC', 'DESC; DROP TABLE--'] }
             }
         });
-        await db.getQuery(config);
-        expect(['ASC', 'DESC']).to.include(config.data.sql.order);
+        // Only a single asc or desc reaches ORDER BY.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('INVALID_SORTORDER');
     });
 
 });
@@ -75,7 +78,7 @@ describe('Security: Input Validation: Type confusion', function () {
     let db;
     before(() => { db = makeDb(); });
 
-    it('handles limit as object', async () => {
+    it('refuses limit as object before any SQL', async () => {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -84,12 +87,13 @@ describe('Security: Input Validation: Type confusion', function () {
                 query: { limit: { value: '100' } }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.limit).to.be.a('number');
-        expect(Number.isFinite(config.data.sql.limit)).to.be.true;
+        // An object is not an integer, so no LIMIT is built from it.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('INVALID_LIMIT');
     });
 
-    it('handles page as negative number', async () => {
+    it('refuses page as negative number before any SQL', async () => {
         const config = makeConfig({
             type: 'api',
             data: {
@@ -99,9 +103,10 @@ describe('Security: Input Validation: Type confusion', function () {
                 query: { page: '-5' }
             }
         });
-        await db.getQuery(config);
-        // page is clamped to Math.max(1, ...)
-        expect(config.data.sql.limit).to.be.at.least(1);
+        // A page below 1 is refused rather than read as page 1.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('INVALID_PAGE');
     });
 });
 
@@ -156,7 +161,7 @@ describe('Security: Input Validation: Extreme values', function () {
     let db;
     before(() => { db = makeDb(); });
 
-    it('handles extremely long limit value', async () => {
+    it('refuses an extremely long limit value before any SQL', async () => {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -165,11 +170,12 @@ describe('Security: Input Validation: Extreme values', function () {
                 query: { limit: '9'.repeat(1000) }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.limit).to.be.at.most(100);
+        // Past the safe-integer range the value is refused, not clamped.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.code).to.equal('INVALID_LIMIT');
     });
 
-    it('handles zero limit', async () => {
+    it('refuses a zero limit before any SQL', async () => {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -178,11 +184,12 @@ describe('Security: Input Validation: Extreme values', function () {
                 query: { limit: '0' }
             }
         });
-        await db.getQuery(config);
-        expect(config.data.sql.limit).to.be.at.least(1);
+        // A limit below 1 is refused rather than raised to 1.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.code).to.equal('INVALID_LIMIT');
     });
 
-    it('handles float limit value', async () => {
+    it('refuses a float limit value before any SQL', async () => {
         const config = makeConfig({
             data: {
                 method: 'getAddresses',
@@ -191,10 +198,9 @@ describe('Security: Input Validation: Extreme values', function () {
                 query: { limit: '10.5' }
             }
         });
-        await db.getQuery(config);
-        // isInteger check rejects floats, defaults to max
-        expect(config.data.sql.limit).to.be.a('number');
-        expect(Number.isFinite(config.data.sql.limit)).to.be.true;
+        // A fraction never reaches LIMIT.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.code).to.equal('INVALID_LIMIT');
     });
 
     it('handles extremely long search string without crashing', async () => {
@@ -284,7 +290,7 @@ describe('Security: Input Validation: DataTables parameters', function () {
         expect(config.data.sql.limit).to.be.a('number');
     });
 
-    it('handles negative page parameter (clamped to 1)', async () => {
+    it('refuses a negative page parameter with INVALID_PAGE', async () => {
         const config = makeConfig({
             type: 'api',
             data: {
@@ -297,8 +303,9 @@ describe('Security: Input Validation: DataTables parameters', function () {
                 }
             }
         });
-        await db.getQuery(config);
-        // page is clamped to Math.max(1, ...)
-        expect(config.data.sql.limit).to.be.at.least(1);
+        // A page below 1 is refused rather than read as page 1.
+        const err = await db.getQuery(config).then(() => null, (e) => e);
+        expect(err && err.name).to.equal('DbInputError');
+        expect(err.code).to.equal('INVALID_PAGE');
     });
 });

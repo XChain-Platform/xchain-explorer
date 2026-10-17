@@ -66,12 +66,6 @@ const pollBetReaders           = require('./readers/polls_bets.js');
 const xcallReaders             = require('./readers/xcall.js');
 const federationReaders        = require('./readers/federation_reads.js');
 
-// connection.js is itself split: it composes ./connection/cache.js and
-// ./connection/pools.js onto its own methods through composeReaderParts and
-// exports the one object, so the require above brings all three. The parts are
-// named here so a reader of this composition root can find every file whose
-// methods land on Database.prototype.
-
 // The descriptor copy and collision check every family goes through, and the two
 // name lists each instance is handed a copy of.
 const { mixinReaders } = require('./reader_parts.js');
@@ -126,12 +120,16 @@ class Database {
         // the sha256 we compute from the code itself (two deploys of identical
         // source share one entry; the stored code_hash column is unverified).
         this._methodsCache    = new Map();
+        // Per-block action counts for the blocks list (readers/entities/blocks.js),
+        // keyed through cacheKey so a reorg generation bump retires them. A block's
+        // counts are fixed once a later block is indexed above it.
+        this._blockCountsCache    = new Map();
+        this._blockCountsCacheMax = 5000;
 
         // Fresh copies of the two method tables (src/db/method_tables.js), so each
         // instance owns its own arrays and a push onto one never reaches another.
         this.actionTables       = ACTION_TABLES.slice();
         this.cursorPagedMethods = CURSOR_PAGED_METHODS.slice();
-
     }
 
 }

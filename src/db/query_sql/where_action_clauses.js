@@ -28,6 +28,8 @@
 
 'use strict';
 
+const { TWO_PARTY_ADDRESS_METHODS, sourceAddressClause, twoPartyAddressClause, blockClause } = require('./where_source_lanes.js');
+
 function historyClause(db, config, sql){
     let type = config.data.type;
     // Only the address/token feeds drive off mappings_actions (alias m); the
@@ -41,8 +43,11 @@ function historyClause(db, config, sql){
         sql += ' AND m.type_id=1 AND m.id=?';
     } else {
         sql = 'a1.action_index IS NOT NULL';
+        // The action's own height, which the feed's blocks join equates with
+        // b1.block_index; naming a1 keeps the filter valid in the history count,
+        // which checks blocks through EXISTS and has no b1 in scope.
         if(type=='block')
-            sql += ' AND b1.block_index=?';
+            sql += ' AND a1.block_index=?';
     }
     return sql;
 }
@@ -97,9 +102,71 @@ function collectiblesClause(db, config, sql){
     // sdk.nft.isNft, so the gallery classifies exactly what the token page's own
     // NFT badge classifies rather than introducing a second definition.
     sql += ' AND m.decimals=0 AND m.lock_max_supply=1';
-    if(type=='block')   sql += ' AND b1.block_index=?';
+    if(type=='block')   sql += blockClause(config);
     if(type=='address') sql += ' AND a2.address=?';
     return sql;
+}
+
+function matchAddressClause(method){
+    if(method=='getOrderMatches'){
+        return ` AND m.action_index IN (
+            SELECT om.action_index
+            FROM orders o
+            INNER JOIN order_matches om ON (om.give_action_index=o.action_index)
+            WHERE o.get_address_id=(SELECT id FROM index_addresses WHERE address=?)
+            UNION
+            SELECT om.action_index
+            FROM orders o
+            INNER JOIN order_matches om ON (om.get_action_index=o.action_index)
+            WHERE o.get_address_id=(SELECT id FROM index_addresses WHERE address=?)
+        )`;
+    }
+    if(method=='getSwapMatches'){
+        return ` AND m.action_index IN (
+            SELECT sm.action_index
+            FROM swaps s
+            INNER JOIN swap_matches sm ON (sm.give_action_index=s.action_index)
+            WHERE s.get_address_id=(SELECT id FROM index_addresses WHERE address=?)
+            UNION
+            SELECT sm.action_index
+            FROM swaps s
+            INNER JOIN swap_matches sm ON (sm.get_action_index=s.action_index)
+            WHERE s.get_address_id=(SELECT id FROM index_addresses WHERE address=?)
+        )`;
+    }
+    return '';
+}
+
+function matchTokenClause(method){
+    if(method=='getOrderMatches'){
+        return ` AND m.action_index IN (
+            SELECT om.action_index FROM order_matches om
+            WHERE om.give_tick_id=(SELECT id FROM index_tickers WHERE tick=?)
+            UNION
+            SELECT om.action_index FROM order_matches om
+            WHERE om.get_tick_id=(SELECT id FROM index_tickers WHERE tick=?)
+        )`;
+    }
+    if(method=='getSwapMatches'){
+        return ` AND m.action_index IN (
+            SELECT sm.action_index FROM swap_matches sm
+            WHERE sm.give_tick_id=(SELECT id FROM index_tickers WHERE tick=?)
+            UNION
+            SELECT sm.action_index FROM swap_matches sm
+            WHERE sm.get_tick_id=(SELECT id FROM index_tickers WHERE tick=?)
+        )`;
+    }
+    return '';
+}
+
+function linkTokenClause(){
+    return ` AND m.action_index IN (
+        SELECT lm.action_index FROM links lm
+        WHERE lm.coin1_id=(SELECT id FROM index_coins WHERE coin=?)
+        UNION
+        SELECT lm.action_index FROM links lm
+        WHERE lm.coin2_id=(SELECT id FROM index_coins WHERE coin=?)
+    )`;
 }
 
 // The generic lanes: every list method without a builder of its own (getBlocks
@@ -109,12 +176,14 @@ function genericClause(db, config, sql){
     let type   = config.data.type;
     let method = config.data.method;
     if(type=='address'){
-        if(['getMessages','getMints','getOrders','getSends','getSweeps','getDispensers','getDispenses'].includes(method)){
-            sql += ' AND (a2.address=? OR a3.address=?)';
+        if(['getOrderMatches','getSwapMatches'].includes(method)){
+            sql += matchAddressClause(method);
+        } else if(TWO_PARTY_ADDRESS_METHODS.has(method)){
+            sql += twoPartyAddressClause(config);
         } else if(method=='getCoinpayObligations'){
             sql += ' AND (a1.address=? OR a2.address=?)';
         } else {
-            sql += ' AND a2.address=?';
+            sql += sourceAddressClause(config);
         }
     }
     if(type=='block'){
@@ -122,16 +191,21 @@ function genericClause(db, config, sql){
         // blocks join (b1); every other action query resolves the
         // block through its actions/blocks joins. Without this branch
         // the block lane 500s with an unknown-column error (PC-16).
-        sql += (method=='getCoinpayObligations') ? ' AND m.block_index=?' : ' AND b1.block_index=?';
+        sql += (method=='getCoinpayObligations') ? ' AND m.block_index=?' : blockClause(config);
     }
     if(type=='destination')
         sql += ' AND a3.address=?';
     if(type=='source')
-        sql += ' AND a2.address=?';
+        sql += sourceAddressClause(config);
     // getDelegations only: the delegations holding one signing pubkey (a3 joins
     // index_pubkeys on m.signing_pubkey_id); the reader binds the key lowercased.
     if(type=='pubkey' && method=='getDelegations')
         sql += ' AND a3.pubkey=?';
+    // /api/execution/{QUERY}: contract_executions is keyed by the EXECUTE action's
+    // action_index. getExecution binds the id first, so without this placeholder the
+    // id lands on nothing, or on the OFFSET placeholder a ?page= request appends.
+    if(type=='execution' && method=='getExecution')
+        sql += ' AND m.action_index=?';
     sql = dispenserLaneClause(db, config, sql);
     return entityClause(db, config, sql);
 }
@@ -178,6 +252,10 @@ function entityClause(db, config, sql){
     if(type=='token'){
         if(method=='getFiles'){
             sql += ' AND m.type_id=1 AND t4.tick=?';
+        } else if(['getOrderMatches','getSwapMatches'].includes(method)){
+            sql += matchTokenClause(method);
+        } else if(method=='getLinks'){
+            sql += linkTokenClause();
         } else {
             sql += ' AND t3.tick=?';
         }

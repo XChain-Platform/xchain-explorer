@@ -29,6 +29,9 @@
 
 'use strict';
 
+const { optionalTransactionSql } = require('../txless_actions.js');
+const { historyPageRows } = require('./history_page.js');
+
 const actionDetail = require('../../../action-detail');
 
 // Which table the feed reads, and the paging column and FROM clause that go with it.
@@ -78,18 +81,17 @@ async function presetHistoryTotal(db, config, q){
     }
 }
 
-// The COUNT leg, over the same source and WHERE the row query below pages.
-async function historyTotalCount(db, config, cursor, source, where, args){
+// The COUNT counts the driving table alone; every feed WHERE names only it. The
+// indexer writes an action, its block row and at most one mapping row per address
+// or tick in one block transaction, and a reorg deletes them together, so the
+// page's joins and DISTINCT drop nothing here.
+async function historyTotalCount(db, config, type, where, args){
     let total = 0;
-    // Get total number of matching records for this type of action and add to grand total
+    let table = (['address','token'].includes(type)) ? 'mappings_actions m' : 'actions a1';
     let count = `SELECT
-                        count(DISTINCT(` + cursor + `)) as count
+                        count(*) as count
                     FROM
-                        ` + source + `
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                        ` + table + `
                     WHERE ` + where;
     let results = await db.doQuery(config, count, args);
     if(results && results.length)
@@ -98,56 +100,6 @@ async function historyTotalCount(db, config, cursor, source, where, args){
         // integer far below 2^53, so narrow it here.
         total = Number(db.util.bcadd(total, results[0].count, 0));
     return total;
-}
-
-function historyParentBatchIndexSql(){
-    // Parenthood is derived because batches stores no parent column. The scalar
-    // lookup preserves one feed row per action, unlike a join that can duplicate it.
-    return `(
-                            SELECT bpx.action_index
-                            FROM actions apx
-                            INNER JOIN batches bpx ON (bpx.action_index=apx.action_index)
-                            WHERE apx.tx_index=a1.tx_index
-                                AND apx.tx_vout=a1.tx_vout
-                                AND apx.action_index!=a1.action_index
-                            LIMIT 1
-                        )`;
-}
-
-function historyPageQuery(sql, cursor, source, where){
-    return `SELECT
-                        DISTINCT(` + cursor + `) as action_index,
-                        a2.action,
-                        b1.block_index,
-                        b1.block_time as timestamp,
-                        t2.hash as tx_hash,
-                        t1.tx_index,
-                        ` + historyParentBatchIndexSql() + ` as parent_batch_action_index
-                    FROM
-                        ` + source + `
-                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
-                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                        LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    WHERE ` + where + `
-                    ORDER BY ` + cursor + ` ` + sql.order + `
-                    LIMIT ` + sql.limit;
-}
-
-function historyRows(results){
-    let history = [];
-    if(results && results.length){
-        for(let row of results)
-            history.push(row);
-    }
-    return history;
-}
-
-// One page of the feed, rows in cursor order.
-async function historyPageRows(db, config, sql, cursor, source, where, args){
-    let query = historyPageQuery(sql, cursor, source, where);
-    let results = await db.doQuery(config, query, args);
-    return historyRows(results);
 }
 
 class ActionHistoryReaders {
@@ -185,7 +137,7 @@ class ActionHistoryReaders {
         if(q && q.total){
             total = Number(q.total);
         } else {
-            total = await historyTotalCount(this, config, cursor, source, where, args);
+            total = await historyTotalCount(this, config, type, where, args);
         }
         if(action && start){
             if(action=='prev'){
@@ -195,6 +147,11 @@ class ActionHistoryReaders {
                 where += ' AND ' + cursor + ' < ?';
                 args.push(start);
             }
+        }
+        // An API ?before=/?after= bound (keyset.js), on whichever column drives the feed.
+        if(sql.keyset){
+            where += ' AND ' + cursor + ' ' + sql.keyset.op + ' ?';
+            args.push(sql.keyset.value);
         }
         if(total)
             history = await historyPageRows(this, config, sql, cursor, source, where, args);
@@ -269,6 +226,7 @@ class ActionHistoryReaders {
                         LEFT  JOIN index_addresses a3 ON (a3.id=f1.destination_id)
                     WHERE
                         f1.action_index IN (${ph})`;
+        if(this.pools) query = optionalTransactionSql(query);
         let results = await this.doQuery(config, query, [...action_indexes]);
         for(let row of (results || [])){
             let key = Number(row._group_index);

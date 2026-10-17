@@ -76,7 +76,7 @@ async function capture(db, config, rows = []) {
     let countArgs  = null;
     let listArgs   = null;
     sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => {
-        if(q && q.includes('count(DISTINCT')){ countQuery = q; countArgs = a; return [{ count: rows.length || 1 }]; }
+        if(q && q.includes('count(*) as count')){ countQuery = q; countArgs = a; return [{ count: rows.length || 1 }]; }
         // The full-history shortcut probes for the highest action_index first.
         if(q && q.includes('ORDER BY action_index DESC')) return [];
         listQuery = q; listArgs = a;
@@ -87,14 +87,12 @@ async function capture(db, config, rows = []) {
     return { countQuery, listQuery, countArgs, listArgs, result };
 }
 
-// The table the statement's OUTER FROM clause drives off. Read from the LAST
-// `FROM` in the text, not the first: the list query carries a correlated
-// subquery (`... FROM actions apx INNER JOIN batches ...`) in its SELECT list,
-// so the first FROM in the string belongs to the subquery and always says
-// `actions` regardless of what the outer query reads.
+// The table the statement's OUTER FROM clause drives off. The outer FROM is the
+// one that ends its line; every subquery FROM is inline (`FROM actions apx
+// INNER JOIN batches` in the parent lookup), so it never matches here.
 function drivingTable(sql) {
-    const all = [...String(sql).matchAll(/FROM\s+([a-z_]+)\s/gi)];
-    return all.length ? all[all.length - 1][1] : null;
+    const m = String(sql).match(/FROM[ \t]*\n\s*([a-z_]+)\s/i);
+    return m ? m[1] : null;
 }
 
 let db;
@@ -121,8 +119,8 @@ describe('db.getHistoryData: the all-activity feed is not gated on mappings_acti
         expect(drivingTable(listQuery)).to.equal('actions');
         expect(listQuery).to.not.include('mappings_actions');
         expect(countQuery).to.not.include('mappings_actions');
-        // Still scoped to the one block.
-        expect(listQuery).to.include('b1.block_index=?');
+        // Still scoped to the one block, on the action's own height.
+        expect(listQuery).to.include('a1.block_index=?');
     });
 
     it('a list-all request with no type reads `actions` too', async () => {
@@ -173,12 +171,12 @@ describe('db.getHistoryData: the all-activity feed is not gated on mappings_acti
     });
 
     it('paging on the unmapped feed cursors on the same alias it selects', async () => {
-        // ORDER BY, the DISTINCT cursor and the prev/next offset predicate all
+        // ORDER BY, the selected cursor and the prev/next offset predicate all
         // have to name one column; a mismatch pages the wrong list or fails to parse.
         const config = await makeHistoryConfig(db, 'recent', 'null');
         config.data.offset = { action: 'next', start: '50', stop: null };
         const { listQuery, listArgs } = await capture(db, config);
-        expect(listQuery).to.include('DISTINCT(a1.action_index)');
+        expect(listQuery).to.include('a1.action_index as action_index');
         expect(listQuery).to.include('ORDER BY a1.action_index');
         expect(listQuery).to.include('a1.action_index < ?');
         expect(listQuery).to.not.include('m.action_index');
@@ -234,7 +232,7 @@ describe('db.getHistoryData: the all-activity feed is not gated on mappings_acti
         }});
         await db.getQueryOffsets(config, false, 10);
         expect(boundaryQuery).to.not.include('mappings_actions');
-        expect(boundaryQuery).to.include('b1.block_index=?');
+        expect(boundaryQuery).to.include('a1.block_index=?');
     });
 
     it('the address-feed boundary still reads mappings_actions, which is its filter', async () => {

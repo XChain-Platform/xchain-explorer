@@ -51,4 +51,32 @@ describe('XChainExplorer.processRequest – routing', function () {
             });
         }
     });
+
+    describe('list filter route parity', function () {
+        const cases = [
+            ['api', 'links', 'XCHAIN', 'token', 'getLinks'],
+            ['api', 'order_matches', '1Address', 'address', 'getOrderMatches'],
+            ['api', 'order_matches', 'XCHAIN', 'token', 'getOrderMatches'],
+            ['explorer', 'order_matches', '1Address', 'address', 'getOrderMatches'],
+            ['explorer', 'order_matches', 'XCHAIN', 'token', 'getOrderMatches'],
+            ['api', 'swap_matches', '1Address', 'address', 'getSwapMatches'],
+            ['api', 'swap_matches', 'XCHAIN', 'token', 'getSwapMatches'],
+            ['explorer', 'swap_matches', '1Address', 'address', 'getSwapMatches'],
+            ['explorer', 'swap_matches', 'XCHAIN', 'token', 'getSwapMatches'],
+            ['api', 'validators', '100', 'block', 'getValidators'],
+            ['api', 'validators', '1Address', 'address', 'getValidators']
+        ];
+
+        for (const [surface, resource, search, type, method] of cases) {
+            it(`/${surface}/${resource}/{QUERY}/${type} resolves to ${method}`, async function () {
+                const path = `/BTC/${surface}/${resource}/${search}/${type}`;
+                const { cfg } = await request(state.explorer, path);
+                expect(cfg, path).to.not.equal(null);
+                expect(cfg.type).to.equal(surface);
+                expect(cfg.data.method).to.equal(method);
+                expect(cfg.data.search).to.equal(search);
+                expect(cfg.data.type).to.equal(type);
+            });
+        }
+    });
 });

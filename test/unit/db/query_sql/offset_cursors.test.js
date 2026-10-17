@@ -34,12 +34,14 @@ describe('offset_cursors', () => {
         assert.strictEqual(cursorField('getCollectibles'), 'm.id');
         assert.strictEqual(cursorField('getCheckpoints'), 'm.block_index');
         assert.strictEqual(cursorField('getCommitments'), 'm.block_index');
+        // validator_rewards ORDERs BY m.id, so its explorer cursor is the id.
+        assert.strictEqual(cursorField('getValidatorRewards'), 'm.id');
     });
 
     describe('ID_KEYED_METHODS', () => {
-        it('has 19 entries with no duplicates', () => {
-            assert.strictEqual(ID_KEYED_METHODS.length, 19);
-            assert.strictEqual(new Set(ID_KEYED_METHODS).size, 19);
+        it('has 20 entries with no duplicates', () => {
+            assert.strictEqual(ID_KEYED_METHODS.length, 20);
+            assert.strictEqual(new Set(ID_KEYED_METHODS).size, 20);
         });
 
         it('resolves every entry to m.id', () => {
@@ -61,7 +63,7 @@ describe('offset_cursors', () => {
         });
     });
 
-    it('CURSOR_BY_METHOD has 24 own keys', () => {
-        assert.strictEqual(Object.keys(CURSOR_BY_METHOD).length, 24);
+    it('CURSOR_BY_METHOD has 25 own keys', () => {
+        assert.strictEqual(Object.keys(CURSOR_BY_METHOD).length, 25);
     });
 });

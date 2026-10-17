@@ -283,6 +283,15 @@ function coinCodeParser(coinConfigs){
     };
 }
 
+// Map the decoder's durable REORG_HALT marker to a decoder_health value, or null. The
+// decoder keeps it out of `status` (only an operator clear releases it), so read the halt
+// fields; it outranks node-stale, and strict true leaves older decoders on their status.
+function reorgHaltHealth(h){
+    if(h && h.reorg_halt_parked === true) return 'reorg-halt-parked';
+    if(h && h.reorg_halted === true) return 'reorg-halted';
+    return null;
+}
+
 // One coin's chain-visibility reading, from the decoder's own health() call.
 async function measureDecoderHealth(db, data, code, parseCode){
     data.chain_tip[code]        = null;
@@ -328,7 +337,7 @@ async function measureDecoderHealth(db, data, code, parseCode){
         }
         data.chain_tip[code]        = tip;
         data.chain_lag_blocks[code] = lag;
-        data.decoder_health[code]   = tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable');
+        data.decoder_health[code]   = reorgHaltHealth(h) || (tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable'));
     } catch(e){
         data.decoder_health[code] = 'unreachable';
     }
@@ -343,6 +352,8 @@ async function measureChainVisibility(db, data, coinConfigs, available){
     // health() JSON-RPC: chain_tip is the coin node's tip as the decoder
     // sees it, chain_lag_blocks the decoder's self-reported gap to it, and
     // decoder_health the decoder's own status ('healthy'/'unhealthy'),
+    // 'reorg-halted' / 'reorg-halt-parked' while it carries a REORG_HALT
+    // marker (see reorgHaltHealth), 'node-stale' when its node tip froze,
     // 'unconfigured' when no endpoint resolves for the coin (neither the
     // loaded config nor DECODER_API_URL[_<COIN>_<NETWORK>]), or 'unreachable'
     // when the call fails. Calls run in parallel and are bounded by the

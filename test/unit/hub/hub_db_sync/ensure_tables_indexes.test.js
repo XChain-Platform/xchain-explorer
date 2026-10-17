@@ -67,8 +67,26 @@ function assertCommentsAndUnsupportedIndexesAreIgnored() {
     ]);
 }
 
+function assertStateCheckpointsDeclaresBlockIndex() {
+    const fs = require('fs');
+    const path = require('path');
+    const sql = fs.readFileSync(
+        path.join(__dirname, '..', '..', '..', '..', 'src', 'sql', 'hub-mirror', 'state_checkpoints.sql'), 'utf8');
+    const declared = parseDeclaredIndexes(sql, 'state_checkpoints');
+    const byName = Object.fromEntries(declared.map((i) => [i.name, i]));
+
+    assert.deepStrictEqual(byName.idx_chain_block, {
+        unique: false,
+        name: 'idx_chain_block',
+        columns: ['chain', 'network', 'block_index'],
+        cols: 'chain, network, block_index'
+    });
+    assert.deepStrictEqual(declared.filter((i) => i.unique).map((i) => i.name), ['uq_chain_seq']);
+}
+
 describe('parseDeclaredIndexes', function () {
     it('normalizes inline key declarations', assertInlineIndexesAreNormalized);
     it('scopes standalone indexes and removes duplicate names', assertStandaloneIndexesAreScopedAndDeduplicated);
     it('ignores comments and unsupported index declarations', assertCommentsAndUnsupportedIndexesAreIgnored);
+    it('declares the (chain, network, block_index) read index on the state_checkpoints mirror twin', assertStateCheckpointsDeclaresBlockIndex);
 });

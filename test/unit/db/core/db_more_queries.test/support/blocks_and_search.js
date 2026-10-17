@@ -58,6 +58,7 @@ const {
     baseRow,
     stubForType
 } = require('./helpers.js');
+const { withIndexProbe, panelCalls } = require('../../../readers/search/support/index_probe.js');
 
 describe('Database#getBlocks', () => {
     let db;
@@ -119,12 +120,12 @@ describe('Database#getSearch', () => {
 
     it('populates address results when address type matches', async () => {
         let callN = 0;
-        sinon.stub(db, 'doQuery').callsFake(async () => {
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async () => {
             callN++;
             // Five bounded count queries run first; address (index 0) matches with count=1.
             if(callN <= 5) return [{ count: callN === 1 ? 1 : 0 }];
             return [{ address: 'addr1' }];
-        });
+        }));
         const config = makeActionConfig('getSearch', 'address');
         config.data.search = 'addr';
         const [data] = await db.getSearch(config);
@@ -134,11 +135,11 @@ describe('Database#getSearch', () => {
 
     it('populates token results when token type matches', async () => {
         let callN = 0;
-        sinon.stub(db, 'doQuery').callsFake(async () => {
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async () => {
             callN++;
             if(callN <= 5) return [{ count: callN === 4 ? 2 : 0 }];
             return [{ tick: 'XCHAIN', description: 'Gas Token' }];
-        });
+        }));
         const config = makeActionConfig('getSearch', 'token');
         config.data.search = 'XCHAIN';
         const [data] = await db.getSearch(config);
@@ -175,15 +176,16 @@ describe('Database#getSearch', () => {
     });
 
     it('proceeds normally when search term meets minimum length (3+ chars)', async () => {
-        const stub = sinon.stub(db, 'doQuery').resolves([{ count: 0 }]);
+        const stub = sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async () => [{ count: 0 }]));
         const config = makeActionConfig('getSearch', 'address');
         config.data.search = 'abc';
         const [data, , total] = await db.getSearch(config);
         expect(total).to.equal(0);
         expect(data.totals).to.have.keys(['addresses', 'broadcasts', 'contracts', 'tokens', 'transactions']);
-        expect(stub.callCount).to.equal(5);
-        for(const call of stub.getCalls()) expect(call.args[1]).to.include('LIMIT 100');
-        expect(stub.firstCall.args[2]).to.deep.equal(['abc%']);
+        const panels = panelCalls(stub);
+        expect(panels).to.have.lengthOf(5);
+        for(const call of panels) expect(call.args[1]).to.include('LIMIT 100');
+        expect(panels[0].args[2]).to.deep.equal(['abc%']);
     });
 
     // Search results stop at 100 rows whatever limit the pager asks for, so a
@@ -191,12 +193,12 @@ describe('Database#getSearch', () => {
     it('clamps LIMIT to 100 even when sql.limit is larger', async () => {
         let capturedQuery = null;
         let callN = 0;
-        sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
+        sinon.stub(db, 'doQuery').callsFake(withIndexProbe(async (c, q) => {
             callN++;
             if(callN <= 5) return [{ count: callN === 1 ? 5 : 0 }];
             capturedQuery = q;
             return [{ address: 'addr1' }];
-        });
+        }));
         const config = makeActionConfig('getSearch', 'address');
         config.data.search = 'addr';
         config.data.sql.limit = 999;
@@ -295,7 +297,7 @@ describe('Database#getHistoryData', () => {
 
     it('returns [data, total] for block type with total from count query', async () => {
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 3 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 3 }];
             return mockResults.historyRows();
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -316,7 +318,7 @@ describe('Database#getHistoryData', () => {
         // Large counts come back from the driver as strings, which is what put
         // total: "124159" on the live /history/recent/recent envelope.
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: '124159' }];
+            if(q && q.includes('count(*) as count')) return [{ count: '124159' }];
             return mockResults.historyRows();
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -349,7 +351,7 @@ describe('Database#getHistoryData', () => {
     it('skips count query when q.total is already set', async () => {
         let countCalled = false;
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) { countCalled = true; return [{ count: 5 }]; }
+            if(q && q.includes('count(*) as count')) { countCalled = true; return [{ count: 5 }]; }
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -364,7 +366,7 @@ describe('Database#getHistoryData', () => {
     it('uses address id for address type', async () => {
         sinon.stub(db, 'getAddressId').resolves(42);
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 0 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 0 }];
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);
@@ -378,7 +380,7 @@ describe('Database#getHistoryData', () => {
     it('uses tick id for token type', async () => {
         sinon.stub(db, 'getTickId').resolves(7);
         sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
-            if(q && q.includes('count(DISTINCT')) return [{ count: 0 }];
+            if(q && q.includes('count(*) as count')) return [{ count: 0 }];
             return [];
         });
         sinon.stub(db, 'getActionSummaryData').callsFake(async (c, a) => a);

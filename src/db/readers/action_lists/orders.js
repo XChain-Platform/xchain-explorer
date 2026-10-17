@@ -20,13 +20,15 @@
 
 'use strict';
 
+const { ORDER_MATCH_HOLDING_SQL } = require('../../shared.js');
+
 const GET_ORDERS_COUNT_SQL = `SELECT
                         count(*) as total
                     FROM
                         orders m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m2 ON (m2.id=m.memo_id)
@@ -76,14 +78,14 @@ const GET_ORDERS_QUERY_SQL = `SELECT
                                 FROM order_matches om
                                 INNER JOIN index_statuses oms ON (oms.id=om.status_id)
                                 WHERE (om.give_action_index=m.action_index OR om.get_action_index=m.action_index)
-                                    AND oms.status='valid'
+                                    AND oms.status IN (` + ORDER_MATCH_HOLDING_SQL + `)
                             ), 0)
                         ) as give_remaining
                     FROM
                         orders m
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
-                        INNER JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
-                        INNER JOIN blocks             b1 ON (b1.block_index=t1.block_index)
+                        INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
+                        LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                         LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT  JOIN index_addresses    a3 ON (a3.id=m.get_address_id)
                         LEFT  JOIN index_memos        m1 ON (m1.id=m.memo_id)
@@ -104,8 +106,9 @@ class OrderReaders {
     async getOrders(config){
         let sql   = config.data.sql;
         let args  = [config.data.search];
-        // Support searching by both source or destination address and both sides of an order for a specific token
-        if(['address','token'].includes(config.data.type))
+        // Support searching by both source or destination address. The token lane is the
+        // one t3.tick=? placeholder, so a second token arg would take the cursor's place.
+        if(config.data.type=='address')
             args.push(config.data.search);
         let count = GET_ORDERS_COUNT_SQL + sql.where.data;
         let query = GET_ORDERS_QUERY_SQL + sql.where.data + sql.where.offset +`
@@ -245,6 +248,9 @@ class OrderReaders {
 
     async getOrderMatches(config){
         let sql   = config.data.sql;
+        let args  = (['address','token'].includes(config.data.type))
+            ? [config.data.search, config.data.search]
+            : null;
         let count = `SELECT
                         count(*) as total
                     FROM
@@ -285,7 +291,7 @@ class OrderReaders {
                     WHERE ` + sql.where.data + sql.where.offset +`
                     ORDER BY m.action_index ` + sql.order + `
                     LIMIT ` + sql.limit;
-        return [query, null, count];
+        return [query, args, count];
     }
 }
 

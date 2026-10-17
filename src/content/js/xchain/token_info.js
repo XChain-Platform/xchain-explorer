@@ -281,9 +281,10 @@ function tokenInfo_parseDescription(desc){
         // (Token_Information_Standard.md, On-Chain Format).
         act     = /^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i;
 
-    // Trim first, as the server icon resolver does, then rescue legacy arweave "/x.json" URLs.
+    // Trim first, as the server icon resolver does, then rescue legacy arweave "/x.json" URLs,
+    // with or without a ';<sha256>' suffix, which stays on the description for display.
     if(typeof desc === 'string')
-        desc = desc.trim().replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json$/i, '$1');
+        desc = desc.trim().replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json(?=;|$)/i, '$1');
 
     // A description that starts with http or names a .json file is a link, and its
     // first ';'-separated part is the URL itself.
@@ -351,7 +352,8 @@ function tokenInfo_getJsonUrl(info){
         } else if(ar.test(desc)){
             jsonUrl = 'https://arweave.net/' + String(desc).replace(ar,'').trim();
         } else if(arweave.test(desc)){
-            jsonUrl = desc;
+            // The URL is the first ';'-separated part, as on the server icon resolver.
+            jsonUrl = String(desc).split(';')[0];
         } else {
             jsonUrl = 'https://' + arr[0].replace('https://','').replace('http://','');
         }

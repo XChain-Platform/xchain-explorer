@@ -36,12 +36,10 @@ function displayTokenIcon(image){
         $('#tokenIcon').attr('src', image);
 }
 
-// Wrap attacker-controlled custom token HTML in a minimal document for the
-// sandboxed (no allow-same-origin) #customContentViewer iframe, loaded via
-// srcdoc. The iframe runs in an opaque origin so this content cannot reach the
-// explorer's cookies/storage/DOM; a tiny shim posts its rendered height back to
-// the parent (one-way) for auto-resize. (Replaces the old same-origin
-// resizeIframe(), which only worked because the iframe was NOT sandboxed.)
+// Wrap attacker-controlled custom token HTML in a minimal document for either
+// the opaque srcdoc fallback or the separately hosted viewer. Both are sandboxed
+// away from the explorer origin; a tiny shim posts rendered height to the parent
+// for auto-resize. This replaces the old explorer-origin resizeIframe() access.
 function buildSandboxedContentDoc(html){
     // The shim reports on load, on the frame's own resize (a width change reflows
     // the content), on a bounded set of timers for late layout, and through a
@@ -58,6 +56,17 @@ function buildSandboxedContentDoc(html){
         + '})();</scr' + 'ipt>';
     return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>'
         + String(html) + shim + '</body></html>';
+}
+
+// Resolve the fixed page deployed at the separately configured viewer origin.
+function customContentViewerUrl(origin){
+    return origin ? String(origin).replace(/\/+$/, '') + '/viewer.html' : '';
+}
+
+// Only the separate origin may keep its origin; srcdoc must stay opaque.
+function customContentViewerSandbox(origin){
+    var permissions = 'allow-scripts allow-popups allow-forms allow-modals allow-presentation';
+    return origin ? permissions + ' allow-same-origin' : permissions;
 }
 
 // Decide whether a height reported by the sandboxed custom-content iframe gets

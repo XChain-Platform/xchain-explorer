@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>XChain Content Viewer</title>
+</head>
+<body>
+<script>
+(function(){
+    'use strict';
+    var rendered = false;
+    window.addEventListener('message', function(e){
+        if(rendered || e.source !== window.parent) return;
+        var data = e.data;
+        if(!data || data.type !== 'xchain-viewer-html' || typeof data.html !== 'string') return;
+        rendered = true;
+        document.open();
+        document.write(data.html);
+        document.close();
+    });
+    window.parent.postMessage({ type: 'xchain-viewer-ready' }, '*');
+})();
+</script>
+</body>
+</html>

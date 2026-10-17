@@ -1,0 +1,33 @@
+{
+    "getTokens": ["tick", "supply", "max_supply", "decimals", "block_index"],
+    "getMarkets": ["tick1", "tick2", "tick1_price", "tick2_24hr_volume", "tick1_24hr_change"],
+    "getOrders": ["give_amount", "give_tick", "get_amount", "get_tick", "status"],
+    "getSwaps": ["action_index", "source", "block_index", "status"],
+    "getDispensers": ["action_index", "source", "block_index", "status"],
+    "getContracts": [
+        "action_index", "source", "code_hash", "api_version", "block_index",
+        "cooldown_blocks", "slash_destination", "status"
+    ],
+    "getContract": [
+        "source", "code_hash", "api_version", "block_index", "cooldown_blocks",
+        "slash_destination", "status"
+    ],
+    "getContractState": ["state_key", "state_value"],
+    "getContractBalance": ["amount", "tick"],
+    "getExecutions": [
+        "action_index", "status", "gas_used", "contract_index", "method_name",
+        "caller", "block_index"
+    ],
+    "getContractStakes": [
+        "action_index", "amount", "deactivation_block", "signing_pubkey", "source"
+    ],
+    "getContractUnstakes": ["action_index", "cooldown_end_block"],
+    "getSlashEvents": ["amount", "tick", "destination", "block_index"],
+    "getValidators": ["action_index", "signing_pubkey", "source", "deactivation_block", "amount"],
+    "getStakes": ["action_index", "signing_pubkey", "source", "deactivation_block", "amount"],
+    "getPrices": [
+        "action_index", "version", "status", "round_number", "batch_first_round",
+        "batch_last_round", "round_count"
+    ],
+    "getAttestations": ["action_index", "version", "response_status", "request_id", "timestamp"]
+}

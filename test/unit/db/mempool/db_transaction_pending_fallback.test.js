@@ -49,9 +49,9 @@ function makeDb(queryRows = []) {
     return db;
 }
 
-describe('Database#getTransaction pending mempool fallback', function () {
-    afterEach(function () { sinon.restore(); });
+afterEach(function () { sinon.restore(); });
 
+describe('Database#getTransaction pending mempool match', function () {
     it('returns a decoded pending transaction when the indexed row is absent', async function () {
         const db = makeDb();
         const cfg = config(HASH);
@@ -82,7 +82,9 @@ describe('Database#getTransaction pending mempool fallback', function () {
         expect(data.tx_hash).to.equal(HASH);
         expect(data.pending).to.equal(true);
     });
+});
 
+describe('Database#getTransaction pending mempool precedence', function () {
     it('leaves an unknown hash without a tx_hash', async function () {
         const db = makeDb();
 

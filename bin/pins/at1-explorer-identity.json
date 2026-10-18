@@ -9658,6 +9658,10 @@
         "staking action-detail SQL exports a valid STAKE_DETAIL query",
         "staking action-detail SQL exports a valid UNSTAKE_DETAIL query"
       ],
+      "c42a4364058c3b39": [
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for every network, coin, and tested block time",
+        "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest block on every network"
+      ],
       "c4be9953af5078b6": [
         "Security: batch endpoints: the knob is pinnable and pinned (row 51, D69) explains in the drop-in what the pin bounds",
         "Security: batch endpoints: the knob is pinnable and pinned (row 51, D69) pins the knob in deploy/rate-limits.conf at the source default",
@@ -11982,8 +11986,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 448,
-        "titleCount": 7625,
+        "fileCount": 449,
+        "titleCount": 7627,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12336,6 +12340,7 @@
           "test/unit/http/static_mounts.test.js": "3f4206ff6e22e166",
           "test/unit/http/swagger_docs_spec_url.test.js": "4c2d12b5f57c138f",
           "test/unit/hub/hub_client/hub_list.test.js": "808199788faa2378",
+          "test/unit/hub/hub_db_sync/barriers/price_barrier_every_block.test.js": "c42a4364058c3b39",
           "test/unit/hub/hub_db_sync/capability_snapshot_never_held.test.js": "c18126cb8f5bc097",
           "test/unit/hub/hub_db_sync/ensure_tables_columns.test.js": "7e2cef27cb90df9e",
           "test/unit/hub/hub_db_sync/ensure_tables_indexes.test.js": "1c54d02c1619514a",

@@ -30,7 +30,7 @@ function showTransactionDetails(){
     // Update page with basic transaction details
     let source        = noSourceTx ? 'Protocol-generated' : (o.source) ? formatLink('/' + XC.coin + '/address/' + o.source, o.source) : '-';
     let tx_index      = noSourceTx ? NOT_APPLICABLE : (o.tx_index) ? formatLink('/' + XC.coin + '/transaction/' + o.tx_index, formatAmount(o.tx_index)) : '-';
-    let block_index   = (o.block_index)  ? formatLink('/' + XC.coin + '/block/' + o.block_index, formatAmount(o.block_index)) : '-';
+    let block_index   = o.pending ? 'Pending (unconfirmed)' : (o.block_index) ? formatLink('/' + XC.coin + '/block/' + o.block_index, formatAmount(o.block_index)) : '-';
     let action_index  = (o.action_index) ? formatLink('/' + XC.coin + '/action/' + o.action_index, formatAmount(o.action_index)) : '-';
     let action_format = (isNumeric(o.action_format)) ? o.action_format : '-';
     let action        = (o.action) ? o.action : '-';

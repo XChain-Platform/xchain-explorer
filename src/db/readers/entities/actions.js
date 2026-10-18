@@ -33,6 +33,25 @@
 
 const { DbInputError } = require('../../shared.js');
 
+async function findPendingTransaction(db, config) {
+    let search = String(config.data.search).toLowerCase();
+    let rows = await db.getDecoderMempoolRows(config, 500);
+    let row = (rows || []).find((candidate) =>
+        candidate && String(candidate.tx_hash || '').toLowerCase() === search);
+    let decoded = row ? db.decodeMempoolRow(row) : null;
+    if(!decoded) return null;
+    return {
+        tx_hash: decoded.tx_hash,
+        source: decoded.source,
+        tx_index: null,
+        block_index: null,
+        timestamp: decoded.first_seen,
+        pending: true,
+        tx_data: decoded.data,
+        actions: [{ action_index: null, action: decoded.action }]
+    };
+}
+
 class EntityActionReaders {
     /******************************************************************
      *
@@ -215,6 +234,10 @@ class EntityActionReaders {
         let results = await this.doQuery(config, query, args);
         if(results && results.length)
             data = Object.assign({}, data, results[0]);
+        else if(config.data.type=='tx_hash'){
+            let pending = await findPendingTransaction(this, config);
+            if(pending) return [pending];
+        }
         if(data.tx_index){
             args = [data.tx_index];
             query = `SELECT

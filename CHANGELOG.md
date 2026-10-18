@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-17
+
+### Added
+- Added list APIs for roll-call, cross execute, bet lifecycle and bridge actions, with keyset paging on API list routes.
+- Added an isolated token content viewer behind a configured origin.
+- Added token bridge panels, search routing and new address, token, block and validator filters.
+
+### Changed
+- Mirrored hub schema version 10 and vendored the hub mirror convergence and barrier bounds.
+- Cached per-tip list totals, block action counts and the fee schedule, and set Cache-Control from one route table.
+- Bound the listeners to loopback by default and loaded only the scripts each page uses.
+- Armed ORDER_MATCH_PRICE_CROSS_ACTIVATION on BTC:testnet at 156908.
+- Armed ORDER_MATCH_PRICE_CROSS_ACTIVATION on LTC:testnet at 4927400.
+- Armed ORDER_MATCH_PRICE_CROSS_ACTIVATION on DOGE:testnet at 68005165.
+- Armed REMOTE_TOKEN_ADMISSION_ACTIVATION on BTC:testnet at 156908.
+- Armed REMOTE_TOKEN_ADMISSION_ACTIVATION on LTC:testnet at 4927400.
+- Armed REMOTE_TOKEN_ADMISSION_ACTIVATION on DOGE:testnet at 68005165.
+
+### Fixed
+- Made every list page and feed page complete and in order, and refused malformed paging and path values.
+- Kept the websocket feed exactly once across short fetches, reorgs, first polls and reconnects.
+
 ## [0.23.0] - 2026-10-11
 
 ### Added

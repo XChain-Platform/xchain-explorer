@@ -9614,6 +9614,9 @@
         "theme parity probe (behavioural) the render census reads layout-derived keys through Typed OM records the Typed OM value for a layout key and the computed value for any other",
         "theme parity probe (behavioural) the render census reads layout-derived keys through Typed OM refuses a capture from a browser with no Typed OM computedStyleMap"
       ],
+      "c18126cb8f5bc097": [
+        "capability_snapshots without an authoritative stake database never holds or refuses a row and never makes a proof HTTP request"
+      ],
       "c1be15b478ae2f18": [
         "startWebsockets live-feed start starts the poller with every pooled coin when pools exist",
         "startWebsockets live-feed start starts the poller with no coins when the boot has no pools"
@@ -11979,8 +11982,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 447,
-        "titleCount": 7624,
+        "fileCount": 448,
+        "titleCount": 7625,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12333,6 +12336,7 @@
           "test/unit/http/static_mounts.test.js": "3f4206ff6e22e166",
           "test/unit/http/swagger_docs_spec_url.test.js": "4c2d12b5f57c138f",
           "test/unit/hub/hub_client/hub_list.test.js": "808199788faa2378",
+          "test/unit/hub/hub_db_sync/capability_snapshot_never_held.test.js": "c18126cb8f5bc097",
           "test/unit/hub/hub_db_sync/ensure_tables_columns.test.js": "7e2cef27cb90df9e",
           "test/unit/hub/hub_db_sync/ensure_tables_indexes.test.js": "1c54d02c1619514a",
           "test/unit/hub/hub_db_sync/failover/move_policy.test.js": "8ab100867f39117b",

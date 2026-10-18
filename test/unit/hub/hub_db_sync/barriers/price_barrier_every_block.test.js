@@ -31,45 +31,44 @@ function makeSync(network, coin) {
 }
 
 describe('HubDbSync price barriers apply to every block @regression @tier1', function () {
-    it('queues both barriers for every network, coin, and tested block time', async function () {
-        this.timeout(5000);
+    for (const network of NETWORKS) {
+        for (const coin of COINS) {
+            for (const blockTime of BLOCK_TIMES) {
+                it(`queues both barriers for ${coin} ${network} at block time ${blockTime}`,
+                    async function () {
+                        const sync = makeSync(network, coin);
+                        const timeBarrier = sync.waitForPriceSyncTime(blockTime, 30);
+                        const heightBarrier = sync.waitForPriceSyncHeight(500, 30, blockTime);
 
-        for (const network of NETWORKS) {
-            for (const coin of COINS) {
-                for (const blockTime of BLOCK_TIMES) {
-                    const sync = makeSync(network, coin);
-                    const timeBarrier = sync.waitForPriceSyncTime(blockTime, 30);
-                    const heightBarrier = sync.waitForPriceSyncHeight(500, 30, blockTime);
+                        assert.strictEqual(sync._priceTimeWaiters.length, 1,
+                            `${coin}:${network} at ${blockTime} must queue the time barrier`);
+                        assert.strictEqual(sync._priceWaiters.length, 1,
+                            `${coin}:${network} at ${blockTime} must queue the height barrier`);
 
-                    assert.strictEqual(sync._priceTimeWaiters.length, 1,
-                        `${coin}:${network} at ${blockTime} must queue the time barrier`);
-                    assert.strictEqual(sync._priceWaiters.length, 1,
-                        `${coin}:${network} at ${blockTime} must queue the height barrier`);
-
-                    await Promise.all([
-                        assert.rejects(timeBarrier, /price time-sync barrier timed out/),
-                        assert.rejects(heightBarrier, /price sync barrier timed out/),
-                    ]);
-                    assert.strictEqual(sync._priceTimeWaiters.length, 0);
-                    assert.strictEqual(sync._priceWaiters.length, 0);
-                }
+                        await Promise.all([
+                            assert.rejects(timeBarrier, /price time-sync barrier timed out/),
+                            assert.rejects(heightBarrier, /price sync barrier timed out/),
+                        ]);
+                        assert.strictEqual(sync._priceTimeWaiters.length, 0);
+                        assert.strictEqual(sync._priceWaiters.length, 0);
+                    });
             }
         }
-    });
+    }
 
-    it('re-floors a bounded mirror for the earliest block on every network', async function () {
-        const errorLog = sinon.stub(getLogger(), 'error');
-        try {
-            for (const network of NETWORKS) {
+    for (const network of NETWORKS) {
+        it(`re-floors a bounded mirror for the earliest ${network} block`, async function () {
+            const errorLog = sinon.stub(getLogger(), 'error');
+            try {
                 const sync = makeSync(network, 'BTC');
                 sync._priceMirrorFloorTs = 3601;
 
                 const barrier = sync.waitForPriceSyncTime(1, 30);
                 assert.strictEqual(sync._priceMirrorRefloor, true, network);
                 await assert.rejects(barrier, /price time-sync barrier timed out/);
+            } finally {
+                errorLog.restore();
             }
-        } finally {
-            errorLog.restore();
-        }
-    });
+        });
+    }
 });

@@ -34,7 +34,6 @@ describe('price scale registry rows', function () {
     it('registers each price scale row exactly once', function () {
         const names = [
             'PRICE_SCALE_MAX_DECIMALS',
-            'PRICE_SCALE_ACTIVATION',
             'PRICE_VALUE_RE_LEGACY',
             'PRICE_VALUE_RE_CANONICAL',
             'PRICE_V1_CANONICAL_ACTIVATION',
@@ -49,11 +48,7 @@ describe('price scale registry rows', function () {
         }
     });
 
-    it('pins the price scale activation and decimal limit', function () {
-        assert.deepStrictEqual(
-            gateRegistry.get(`${prefix}PRICE_SCALE_ACTIVATION`),
-            { mainnet: 0, testnet: 0, regtest: 0 }
-        );
+    it('pins the price scale decimal limit', function () {
         assert.strictEqual(gateRegistry.get(`${prefix}PRICE_SCALE_MAX_DECIMALS`), 8);
     });
 

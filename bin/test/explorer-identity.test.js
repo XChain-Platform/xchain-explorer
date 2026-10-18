@@ -119,10 +119,11 @@ describe('bin/explorer-identity.js (AT1)', function () {
 
     it('carries the values the wave 1 barrier reads', function () {
         const identity = JSON.parse(fs.readFileSync(PIN, 'utf8'));
-        // Six after W5 (activation registry row 28-pin): the three predicate-only
+        // Five after W5: the three predicate-only
         // shims (checkpoint_commitment, list_edit_resolution, retraction_signing)
-        // dropped out of TWIN_FILES when their rows moved to the registry.
-        assert.strictEqual(identity.twins.length, 6, 'the frozen twin set is six files');
+        // and the separately guarded price batching floor gate dropped out of
+        // TWIN_FILES.
+        assert.strictEqual(identity.twins.length, 5, 'the frozen twin set is five files');
         for (const twin of identity.twins) {
             assert.ok(!twin.missing, `${twin.path} is missing from the tree`);
             assert.match(twin.sha256, /^[0-9a-f]{64}$/);
@@ -132,7 +133,7 @@ describe('bin/explorer-identity.js (AT1)', function () {
             identity.routes.counts.pages + identity.routes.counts.feeds + identity.routes.counts.apis);
         assert.strictEqual(identity.fixtures.length, 3);
         const golden = identity.fixtures.find((f) => f.path.endsWith('action-detail-golden.json'));
-        assert.strictEqual(golden.bytes, 401377, 'the golden changed size, which AT2 owns');
+        assert.strictEqual(golden.bytes, 408016, 'the golden changed size, which AT2 owns');
         // Zero enumerable keys is the guarantee the db/index.js carve has to preserve:
         // methods installed by assignment instead of by descriptor copy would
         // show up here long before any behavioural test noticed.

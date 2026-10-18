@@ -21,7 +21,7 @@
  * and no rules digest to compare. Its identity is instead the set of things a
  * structural refactor can silently break while every test still reads green:
  *
- *   twins        the nine files that are BYTE-IDENTICAL copies of an
+ *   twins        the five files that are BYTE-IDENTICAL copies of an
  *                indexer canonical. Two of them (equivocation_header.js,
  *                stake_weighted_quorum.js) are named by no sync script at all
  *                and are held only by sibling tests that SKIP on a missing
@@ -121,13 +121,14 @@ const MOCHA_BIN = path.join(REPO_ROOT, 'node_modules', '.bin', 'mocha');
 // notices one changing. W5 (row 21c) deleted the three predicate-only shims
 // (checkpoint_commitment, list_edit_resolution, retraction_signing; their rows
 // are read from the registry by literal key, no twin file left to freeze) and
-// moved the rest to src/consensus/: two vendored gates arrive through the
+// moved the rest to src/consensus/. The price batching floor gate left this
+// frozen set ahead of its retirement; the mirror conformance byte guard keeps
+// it aligned with the indexer until then. Two vendored gates arrive through the
 // mirror script, one gate is renamed from the indexer's bytes, and the two
 // remaining carriers sit beside the registry they already required.
 const TWIN_FILES = [
     'src/consensus/equivocation_header.js',
     'src/consensus/gates/mirror_admission_gate.js',
-    'src/consensus/gates/price_batching_floor_gate.js',
     'src/consensus/gates/state_subtree_gate.js',
     'src/consensus/merkle.js',
     'src/consensus/stake_weighted_quorum.js',

@@ -3791,6 +3791,29 @@
         "indexed source lane against the REAL indexer DDL selects the action source first and the transaction source only as a fallback",
         "indexed source lane against the REAL indexer DDL the a2.address form these two replaced names a column their joins do not carry"
       ],
+      "202e42a904372b1d": [
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC mainnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC mainnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC regtest at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC regtest at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC testnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC testnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE mainnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE mainnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE regtest at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE regtest at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE testnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE testnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC mainnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC mainnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC regtest at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC regtest at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC testnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC testnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest mainnet block",
+        "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest regtest block",
+        "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest testnet block"
+      ],
       "21dd83888010e79b": [
         "db.getMempool: list-all mode (M1.2) address/token filtering still narrows the set in list-all's absence (regression guard)",
         "db.getMempool: list-all mode (M1.2) an empty string type is treated the same as no type (list-all)",
@@ -11982,8 +12005,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 448,
-        "titleCount": 7625,
+        "fileCount": 449,
+        "titleCount": 7646,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12336,6 +12359,7 @@
           "test/unit/http/static_mounts.test.js": "3f4206ff6e22e166",
           "test/unit/http/swagger_docs_spec_url.test.js": "4c2d12b5f57c138f",
           "test/unit/hub/hub_client/hub_list.test.js": "808199788faa2378",
+          "test/unit/hub/hub_db_sync/barriers/price_barrier_every_block.test.js": "202e42a904372b1d",
           "test/unit/hub/hub_db_sync/capability_snapshot_never_held.test.js": "c18126cb8f5bc097",
           "test/unit/hub/hub_db_sync/ensure_tables_columns.test.js": "7e2cef27cb90df9e",
           "test/unit/hub/hub_db_sync/ensure_tables_indexes.test.js": "1c54d02c1619514a",

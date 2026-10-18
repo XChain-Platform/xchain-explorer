@@ -4846,6 +4846,12 @@
         "ATTEST batch detail card renders the window, response count, publisher, chunks, responses and duplicates",
         "ATTEST batch detail card switches the shipped detail page from request lifecycle cards to the batch card"
       ],
+      "4878e1f6cfdcaf1c": [
+        "BET action detail without bet_edits does not retry a handler without optional tables",
+        "BET action detail without bet_edits rethrows a missing-table error from the retry",
+        "BET action detail without bet_edits retries one missing-table failure with the pre-edit statement and memoizes the absence",
+        "BET action detail without bet_edits returns feed, wager, and edit shapes without issuing a statement that names bet_edits"
+      ],
       "493471329034b3fc": [
         "mixinReaders installs every extracted method non-enumerably found methods to check (the walk itself is not silently empty)",
         "mixinReaders installs every extracted method non-enumerably installs a real function with its arity intact",
@@ -7052,6 +7058,13 @@
         "explorer bridge panels: transfer list, both legs on one row @regression keeps a RETRACTED transfer visible and badges it as the alarm state",
         "explorer bridge panels: transfer list, both legs on one row @regression renders ONE row per transfer carrying both legs",
         "explorer bridge panels: transfer list, both legs on one row @regression separates an unavailable list from an empty one"
+      ],
+      "7be531ad5fa4ade6": [
+        "Database#getTransaction pending mempool fallback leaves an unknown hash without a tx_hash",
+        "Database#getTransaction pending mempool fallback matches the transaction hash case-insensitively",
+        "Database#getTransaction pending mempool fallback never consults the mempool for a tx_index search",
+        "Database#getTransaction pending mempool fallback prefers a confirmed row over a matching mempool row",
+        "Database#getTransaction pending mempool fallback returns a decoded pending transaction when the indexed row is absent"
       ],
       "7c9836278ad0ead1": [
         "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet promotes key to most-recent (LRU behavior)",
@@ -9633,6 +9646,12 @@
         "shared-list names reads home names in one batch and keeps the newest valid rename",
         "shared-list names returns null names when list_metas is missing"
       ],
+      "c36bc4bc4dce89a6": [
+        "ChangeDetector pool reconcile adopts a coin whose pool appears after start and seeds it at its tip",
+        "ChangeDetector pool reconcile keeps a tracked coin cursor when a later pool map no longer names it",
+        "ChangeDetector pool reconcile leaves the coin set alone for a db double with no pool map",
+        "ChangeDetector pool reconcile sends the adopted coin rows live on the poll after the seed"
+      ],
       "c40dac72e51909f3": [
         "SLASH detail status selects a status derived from the slash event row, so the page never shows a bare dash",
         "staking action-detail SQL exports a valid COLLECT_DETAIL query",
@@ -11960,13 +11979,14 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 444,
-        "titleCount": 7611,
+        "fileCount": 447,
+        "titleCount": 7624,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
           "test/unit/action_detail/action_manifest_conformance.test.js": "999702cb7331535d",
           "test/unit/action_detail/action_not_found.test.js": "85815122e709ccfb",
+          "test/unit/action_detail/bet_detail_no_bet_edits.test.js": "4878e1f6cfdcaf1c",
           "test/unit/action_detail/bet_edit_detail.test.js": "bcc7ecaa24a03d02",
           "test/unit/action_detail/bet_feed_lists_in_force.test.js": "1b96a3df99900e6c",
           "test/unit/action_detail/bridge/bridge_action_detail.test.js": "143676fcf0f9c869",
@@ -12168,6 +12188,7 @@
           "test/unit/db/mempool/db_mempool_address_refs.test.js": "959cfcc187d82f85",
           "test/unit/db/mempool/db_mempool_listall_paging.test.js": "21dd83888010e79b",
           "test/unit/db/mempool/db_mempool_reader_ownership.test.js": "1571701800a32267",
+          "test/unit/db/mempool/db_transaction_pending_fallback.test.js": "7be531ad5fa4ade6",
           "test/unit/db/mempool/decoder_mempool_reply_contract.test.js": "71e23443944752dd",
           "test/unit/db/mempool/mempool.test.js": "8bc5ff64b8859343",
           "test/unit/db/query_sql/blocks_last_page_paging.test.js": "0327f252f909f77e",
@@ -12384,6 +12405,7 @@
           "test/unit/ws/change_detector/attestation_events.test.js": "5517e4db7d8c5250",
           "test/unit/ws/change_detector/bet_latches.test.js": "dbbbe200376c26b1",
           "test/unit/ws/change_detector/fork_point_rewind.test.js": "e41e4f7fc8385a5e",
+          "test/unit/ws/change_detector/pool_reconcile.test.js": "c36bc4bc4dce89a6",
           "test/unit/ws/change_detector/token_ledger_refresh.test.js": "9e985f8b19a85cca",
           "test/unit/ws/change_detector_mempool_map.test.js": "11daa587b9651a21",
           "test/unit/ws/change_detector_methods.test.js": "a6f38777edc3e92d",

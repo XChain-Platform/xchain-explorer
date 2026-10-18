@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-18
+
+### Added
+- Added a pending transaction fallback to the mempool.
+
+### Changed
+- Retired the copied price, archive, index map and relay gates.
+- Synced the anchor checkpoint sequence, unstake journal and capability proof gate rows from the shared registry.
+- Documented the contract execution responses in the OpenAPI schema.
+
+### Fixed
+- Gated BET detail reads on the edit table being available.
+
 ## [0.24.0] - 2026-10-17
 
 ### Added

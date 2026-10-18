@@ -7059,13 +7059,6 @@
         "explorer bridge panels: transfer list, both legs on one row @regression renders ONE row per transfer carrying both legs",
         "explorer bridge panels: transfer list, both legs on one row @regression separates an unavailable list from an empty one"
       ],
-      "7be531ad5fa4ade6": [
-        "Database#getTransaction pending mempool fallback leaves an unknown hash without a tx_hash",
-        "Database#getTransaction pending mempool fallback matches the transaction hash case-insensitively",
-        "Database#getTransaction pending mempool fallback never consults the mempool for a tx_index search",
-        "Database#getTransaction pending mempool fallback prefers a confirmed row over a matching mempool row",
-        "Database#getTransaction pending mempool fallback returns a decoded pending transaction when the indexed row is absent"
-      ],
       "7c9836278ad0ead1": [
         "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet promotes key to most-recent (LRU behavior)",
         "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet returns correct value (not just truthy)",
@@ -10805,6 +10798,13 @@
         "VOTE poll options parsing marker keeps dashing a genuinely empty options list",
         "VOTE poll options parsing marker keeps rendering a normal populated options list"
       ],
+      "e256bed9b44a9a7f": [
+        "Database#getTransaction pending mempool match matches the transaction hash case-insensitively",
+        "Database#getTransaction pending mempool match returns a decoded pending transaction when the indexed row is absent",
+        "Database#getTransaction pending mempool precedence leaves an unknown hash without a tx_hash",
+        "Database#getTransaction pending mempool precedence never consults the mempool for a tx_index search",
+        "Database#getTransaction pending mempool precedence prefers a confirmed row over a matching mempool row"
+      ],
       "e2634cec97dd4d26": [
         "content viewer origin escapes a less-than sign before placing the value in an inline script",
         "content viewer origin fills the token page setting with a JSON string",
@@ -12188,7 +12188,7 @@
           "test/unit/db/mempool/db_mempool_address_refs.test.js": "959cfcc187d82f85",
           "test/unit/db/mempool/db_mempool_listall_paging.test.js": "21dd83888010e79b",
           "test/unit/db/mempool/db_mempool_reader_ownership.test.js": "1571701800a32267",
-          "test/unit/db/mempool/db_transaction_pending_fallback.test.js": "7be531ad5fa4ade6",
+          "test/unit/db/mempool/db_transaction_pending_fallback.test.js": "e256bed9b44a9a7f",
           "test/unit/db/mempool/decoder_mempool_reply_contract.test.js": "71e23443944752dd",
           "test/unit/db/mempool/mempool.test.js": "8bc5ff64b8859343",
           "test/unit/db/query_sql/blocks_last_page_paging.test.js": "0327f252f909f77e",

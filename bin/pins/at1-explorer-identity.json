@@ -14,11 +14,6 @@
       "sha256": "ac2e4f881f1cbe40888efebfc0ee553cd2115aadb178b988bf7715d728a01430"
     },
     {
-      "path": "src/consensus/gates/price_batching_floor_gate.js",
-      "bytes": 7900,
-      "sha256": "9c9f986c6e59075c5761b50cb3ecf851fe99f40217f4da31ef18368935158f87"
-    },
-    {
       "path": "src/consensus/gates/state_subtree_gate.js",
       "bytes": 11386,
       "sha256": "cb5b05479973080128636f18326c59391624a56342db86a07c639401adbb12e3"

@@ -1285,6 +1285,7 @@ CREATE TABLE anchor_actions (
     publisher            VARCHAR(64),                     -- elected PUBLISHER pubkey carried by the v4/v5/v6 tail; NULL for v0-v3
     publisher_attestations MEDIUMTEXT,                    -- JSON [{pubkey,sig}] RAW wire XANCPUB tail (v4/v5/v6); NULL for v0-v3
     status_id            BIGINT UNSIGNED,                 -- FK to index_statuses
+    pre_archive_status_id BIGINT UNSIGNED DEFAULT NULL,   -- status before a gated invalid_archive stamp; cleared by rollback
     block_index_doge     BIGINT UNSIGNED NOT NULL,        -- DOGE block the ANCHOR action landed in (rollback anchor)
     PRIMARY KEY (action_index, section_index)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;

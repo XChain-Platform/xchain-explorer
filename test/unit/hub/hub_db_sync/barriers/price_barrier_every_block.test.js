@@ -58,7 +58,7 @@ async function assertRefloor(network) {
     }
 }
 
-describe('HubDbSync price barriers apply to every block @regression @tier1', function () {
+function registerMainnetBarrierCases() {
     it('queues both barriers for BTC mainnet at block time 1', async function () {
         await assertBarriersQueue('mainnet', 'BTC', 1);
     });
@@ -77,7 +77,9 @@ describe('HubDbSync price barriers apply to every block @regression @tier1', fun
     it('queues both barriers for DOGE mainnet at block time 1700000000', async function () {
         await assertBarriersQueue('mainnet', 'DOGE', 1700000000);
     });
+}
 
+function registerTestnetBarrierCases() {
     it('queues both barriers for BTC testnet at block time 1', async function () {
         await assertBarriersQueue('testnet', 'BTC', 1);
     });
@@ -96,7 +98,9 @@ describe('HubDbSync price barriers apply to every block @regression @tier1', fun
     it('queues both barriers for DOGE testnet at block time 1700000000', async function () {
         await assertBarriersQueue('testnet', 'DOGE', 1700000000);
     });
+}
 
+function registerRegtestBarrierCases() {
     it('queues both barriers for BTC regtest at block time 1', async function () {
         await assertBarriersQueue('regtest', 'BTC', 1);
     });
@@ -115,7 +119,9 @@ describe('HubDbSync price barriers apply to every block @regression @tier1', fun
     it('queues both barriers for DOGE regtest at block time 1700000000', async function () {
         await assertBarriersQueue('regtest', 'DOGE', 1700000000);
     });
+}
 
+function registerRefloorCases() {
     it('re-floors a bounded mirror for the earliest mainnet block', async function () {
         await assertRefloor('mainnet');
     });
@@ -125,4 +131,11 @@ describe('HubDbSync price barriers apply to every block @regression @tier1', fun
     it('re-floors a bounded mirror for the earliest regtest block', async function () {
         await assertRefloor('regtest');
     });
+}
+
+describe('HubDbSync price barriers apply to every block @regression @tier1', function () {
+    registerMainnetBarrierCases();
+    registerTestnetBarrierCases();
+    registerRegtestBarrierCases();
+    registerRefloorCases();
 });

@@ -3358,14 +3358,6 @@
         "token page for a tick with no token wires the token fetch failure to the not-found render",
         "token page for a tick with no token writes nothing to the console outside debug mode"
       ],
-      "1ae10423826a1c02": [
-        "consensus-bound registry rows resolves the anchor bundle order activation table",
-        "consensus-bound registry rows resolves the rollcall activation row exactly once",
-        "price scale registry rows pins canonical price value syntax",
-        "price scale registry rows pins the PRICE v1 canonical rows",
-        "price scale registry rows pins the price scale activation and decimal limit",
-        "price scale registry rows registers each price scale row exactly once"
-      ],
       "1b96a3df99900e6c": [
         "BET feed action detail reads the lists in force keeps the created lists when the in-force read finds no feed row",
         "BET feed action detail reads the lists in force reports a list an edit cleared with 0 as cleared, not as created",
@@ -6508,6 +6500,14 @@
         "Database#getAnchorRewardAttestations (M3.7 data leg) type=pubkey filters on m.publisher (the elected publisher pubkey credited the reward)",
         "XChainExplorer.getPagingDataResults: getAnchorRewardAttestations row shape emits [count_reverse, created_at, chain, network, reward_type, round_reference, snapshot_block, publisher, doge_anchor_txid, id] (10 elements, id LAST as the paging cursor)",
         "XChainExplorer.getPagingDataResults: getAnchorRewardAttestations row shape empty data returns an empty array"
+      ],
+      "692c8a94cc34ec57": [
+        "consensus-bound registry rows resolves the anchor bundle order activation table",
+        "consensus-bound registry rows resolves the rollcall activation row exactly once",
+        "price scale registry rows pins canonical price value syntax",
+        "price scale registry rows pins the PRICE v1 canonical rows",
+        "price scale registry rows pins the price scale decimal limit",
+        "price scale registry rows registers each price scale row exactly once"
       ],
       "6963aa4e97ce82a5": [
         "BET detail render: a resolve shows the outcome it declared escapes the outcome, which is an on-chain attacker-supplied value",
@@ -12070,7 +12070,7 @@
           "test/unit/connectors/hub_consensus_hash_mismatch.test.js": "5aa8107999ed6d0b",
           "test/unit/connectors/x_chain_decoder_connector.test.js": "2709cccf5e791788",
           "test/unit/connectors/x_chain_indexer_connector.test.js": "92aeb23d16a697b8",
-          "test/unit/consensus/consensus_bound_rows.test.js": "1ae10423826a1c02",
+          "test/unit/consensus/consensus_bound_rows.test.js": "692c8a94cc34ec57",
           "test/unit/consensus/gate_registry/local_rows.test.js": "a76ec0bdf3924d67",
           "test/unit/consensus/gate_registry/shared_rows.test.js": "a94ef3515c893710",
           "test/unit/consensus/regtest_env_twin.test.js": "cbad35bf1daff99f",

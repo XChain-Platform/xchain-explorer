@@ -29,11 +29,14 @@
 
 'use strict';
 
+const fs         = require('fs');
+const path       = require('path');
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const Utility    = require('../../../../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../../../../fixtures/mock-config.js');
 const orderSql   = require('../../../../../src/db/action_detail/orders_sql.js');
+const { openIndexerTables, toSqlite } = require('../../../../helpers/indexer_ddl_sqlite.js');
 
 const configInfo   = createConfigInfoStub();
 const util         = new Utility(configInfo);
@@ -41,37 +44,30 @@ const Database     = proxyquire('../../../../../src/db/index.js', {
     './connection.js': proxyquire('../../../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
 });
 
-const SCHEMA = `
-CREATE TABLE index_statuses (id INTEGER PRIMARY KEY, status TEXT);
-CREATE TABLE index_addresses (id INTEGER PRIMARY KEY, address TEXT);
-CREATE TABLE index_tickers (id INTEGER PRIMARY KEY, tick TEXT);
-CREATE TABLE index_coins (id INTEGER PRIMARY KEY, coin TEXT);
-CREATE TABLE index_memos (id INTEGER PRIMARY KEY, memo TEXT);
-CREATE TABLE index_actions (id INTEGER PRIMARY KEY, action TEXT);
-CREATE TABLE index_transactions (id INTEGER PRIMARY KEY, hash TEXT);
-CREATE TABLE blocks (block_index INTEGER, block_time INTEGER);
-CREATE TABLE transactions (tx_index INTEGER, block_index INTEGER, source_id INTEGER, tx_hash_id INTEGER);
-CREATE TABLE actions (action_index INTEGER, action_id INTEGER, action_format INTEGER, block_index INTEGER, tx_index INTEGER, source_id INTEGER);
-CREATE TABLE orders (action_index INTEGER, give_coin_id INTEGER, give_tick_id INTEGER, give_amount TEXT, give_ownership INTEGER,
-    get_coin_id INTEGER, get_tick_id INTEGER, get_amount TEXT, get_ownership INTEGER, get_address_id INTEGER,
-    expiration INTEGER, allow_list INTEGER, block_list INTEGER, payout_legs TEXT, memo_id INTEGER, status_id INTEGER);
-CREATE TABLE order_statuses (action_index INTEGER, order_action_index INTEGER, status_id INTEGER);
-CREATE TABLE order_edits (action_index INTEGER, order_action_index INTEGER, expiration INTEGER, allow_list INTEGER, block_list INTEGER, status_id INTEGER);
-CREATE TABLE order_matches (action_index INTEGER, give_action_index INTEGER, get_action_index INTEGER, give_amount TEXT, get_amount TEXT,
-    give_coin_id INTEGER, get_coin_id INTEGER, give_tick_id INTEGER, get_tick_id INTEGER, status_id INTEGER);
-INSERT INTO index_statuses VALUES (1,'valid'),(2,'pending_coinpay'),(3,'open'),(4,'invalid: expired');
-INSERT INTO index_addresses VALUES (1,'maker'),(2,'taker');
-INSERT INTO index_tickers VALUES (1,'GOLD');
-INSERT INTO index_coins VALUES (1,'BTC');
-INSERT INTO index_actions VALUES (1,'ORDER');
-INSERT INTO index_transactions VALUES (1,'aa'),(2,'bb');
-INSERT INTO blocks VALUES (7,1700000700);
-INSERT INTO transactions VALUES (1,7,1,1),(2,7,2,2);
-INSERT INTO actions VALUES (10,1,0,7,1,NULL),(11,1,0,7,2,NULL),(12,1,0,7,NULL,NULL);
+const TABLES = ['index_statuses', 'index_addresses', 'index_tickers', 'index_coins', 'index_memos',
+    'index_actions', 'index_transactions', 'blocks', 'transactions', 'actions', 'orders',
+    'order_statuses', 'order_edits'];
+const ORDER_MATCHES_DDL = path.join(__dirname, '..', '..', '..', '..', '..', '..',
+    'xchain-indexer', 'src', 'sql', 'order_matches.sql');
+
+const SEED = `
+INSERT INTO index_statuses (id, status) VALUES (1,'valid'),(2,'pending_coinpay'),(3,'open'),(4,'invalid: expired');
+INSERT INTO index_addresses (id, address) VALUES (1,'maker'),(2,'taker');
+INSERT INTO index_tickers (id, tick) VALUES (1,'GOLD');
+INSERT INTO index_coins (id, coin) VALUES (1,'BTC');
+INSERT INTO index_actions (id, action) VALUES (1,'ORDER');
+INSERT INTO index_transactions (id, hash) VALUES (1,'aa'),(2,'bb');
+INSERT INTO blocks (block_index, block_time) VALUES (7,1700000700);
+INSERT INTO transactions (tx_index, block_index, source_id, tx_hash_id) VALUES (1,7,1,1),(2,7,2,2);
+INSERT INTO actions (action_index, action_id, action_format, block_index, tx_index, source_id)
+    VALUES (10,1,0,7,1,NULL),(11,1,0,7,2,NULL),(12,1,0,7,NULL,NULL);
 -- Order 10 offers 10 GOLD for 0.001 BTC; order 11 takes all of it, settling by COINPAY.
-INSERT INTO orders VALUES (10,1,1,'10',0,1,NULL,'0.001',0,1,100,0,0,NULL,NULL,1);
-INSERT INTO orders VALUES (11,1,NULL,'0.001',0,1,1,'10',0,2,100,0,0,NULL,NULL,1);
-INSERT INTO order_statuses VALUES (10,10,3),(11,11,3);
+INSERT INTO orders (action_index, give_coin_id, give_tick_id, give_amount, give_ownership,
+    get_coin_id, get_tick_id, get_amount, get_ownership, get_address_id, expiration,
+    allow_list, block_list, payout_legs, memo_id, status_id)
+    VALUES (10,1,1,'10',0,1,NULL,'0.001',0,1,100,0,0,NULL,NULL,1),
+           (11,1,NULL,'0.001',0,1,1,'10',0,2,100,0,0,NULL,NULL,1);
+INSERT INTO order_statuses (action_index, order_action_index, status_id) VALUES (10,10,3),(11,11,3);
 `;
 
 let sqlite = null;
@@ -87,18 +83,22 @@ function makeDb(){
 // give_amount what the get-side order handed over (0.001 BTC).
 function setMatch(statusId){
     sqlite.exec('DELETE FROM order_matches');
-    sqlite.prepare('INSERT INTO order_matches VALUES (12,10,11,?,?,1,1,1,NULL,?)').run('0.001', '10', statusId);
+    sqlite.prepare(`INSERT INTO order_matches
+        (action_index, give_action_index, get_action_index, give_amount, get_amount,
+         give_coin_id, get_coin_id, give_tick_id, get_tick_id, status_id)
+        VALUES (12,10,11,?,?,1,1,1,NULL,?)`).run('0.001', '10', statusId);
 }
 
 const CFG = { coin: 'BTC', type: 'api', data: {} };
 
 describe('a pending_coinpay match holds the order off the book', function () {
     before(function () {
-        let DatabaseSync;
-        try { ({ DatabaseSync } = require('node:sqlite')); }
-        catch (e) { this.skip(); }
-        sqlite = new DatabaseSync(':memory:');
-        sqlite.exec(SCHEMA);
+        sqlite = openIndexerTables(this, TABLES);
+        if(!sqlite) return;
+        const matches = toSqlite(fs.readFileSync(ORDER_MATCHES_DDL, 'utf8'))
+            .replace(/ENUM\([^)]*\)/gi, 'TEXT');
+        sqlite.exec(matches);
+        sqlite.exec(SEED);
     });
 
     for (const [label, statusId] of [['valid', 1], ['pending_coinpay', 2]]) {

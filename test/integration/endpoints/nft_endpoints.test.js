@@ -28,10 +28,13 @@
 
 'use strict';
 
+const fs            = require('fs');
+const path          = require('path');
 const { expect }    = require('chai');
 const supertest     = require('supertest');
 const db            = require('../helpers/db-setup');
 const { createApp } = require('../helpers/app-setup');
+const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
 
 let request;
 
@@ -41,9 +44,17 @@ const HTML_BYTES = Buffer.from('<html><script>alert(1)</script></html>');
 const CIPHERTEXT = Buffer.from('aabbccddeeff', 'hex');
 
 const DECODER_DB = 'XChain_BTC_Regtest_Decoder';
+const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', '..', 'xchain-indexer', 'src', 'sql');
+const DECODER_SQL_DIR = path.join(__dirname, '..', '..', '..', '..', 'xchain-decoder', 'src', 'sql');
+const DDL_FILES = [
+    path.join(INDEXER_SQL_DIR, 'gated_files.sql'),
+    path.join(DECODER_SQL_DIR, 'index_transactions.sql'),
+    path.join(DECODER_SQL_DIR, 'transactions.sql')
+];
 
 async function seedIndexerFixtures() {
     await db.setupDatabase();
+    await db.query(fs.readFileSync(path.join(INDEXER_SQL_DIR, 'gated_files.sql'), 'utf8'));
 
     // --- NFT-pattern token seeds (on top of the baseline fixture) ----------
     // Baseline tokens are all divisible (decimals 8/4), so the nft filter
@@ -71,15 +82,6 @@ async function seedIndexerFixtures() {
         (96, 'secret.bin', 'First gated file', 1, 1, 1),
         (97, 'page.html', 'Sketchy HTML', 2, NULL, 1),
         (98, 'sequel.bin', 'Second gated file', 1, 2, 1)`);
-    await db.query(`CREATE TABLE IF NOT EXISTS gated_files (
-        action_index        BIGINT UNSIGNED NOT NULL,
-        gate_ticker         VARCHAR(250) NOT NULL,
-        encryption_method   TINYINT UNSIGNED NOT NULL,
-        key_hash            CHAR(64) NOT NULL,
-        status_id           BIGINT UNSIGNED,
-        raw_data            MEDIUMBLOB,
-        UNIQUE INDEX action_index (action_index)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci`);
     await db.query(`INSERT IGNORE INTO gated_files (action_index, gate_ticker, gate_min_amount, encryption_method, key_hash, status_id, raw_data) VALUES
         (96, 'PEPEUNIQUE', '1', 1, '${'a'.repeat(64)}', 1, ?),
         (98, 'PEPEUNIQUE', '2', 1, '${'b'.repeat(64)}', 1, NULL)`, [CIPHERTEXT]);
@@ -91,21 +93,7 @@ async function seedDecoderFixtures() {
     // deliberately use DIFFERENT tx_index values (505/507). The explorer must
     // match rows by tx HASH, never by id.
     await db.query(`CREATE DATABASE IF NOT EXISTS ${DECODER_DB}`);
-    await db.query(`CREATE TABLE IF NOT EXISTS ${DECODER_DB}.index_transactions (
-        id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        hash VARCHAR(250)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci`);
-    await db.query(`CREATE TABLE IF NOT EXISTS ${DECODER_DB}.transactions (
-        tx_index       BIGINT UNSIGNED PRIMARY KEY,
-        tx_hash_id     BIGINT UNSIGNED,
-        block_index    BIGINT UNSIGNED,
-        source_id      BIGINT UNSIGNED,
-        destination_id BIGINT UNSIGNED,
-        amount         BIGINT,
-        fee            BIGINT,
-        data           MEDIUMTEXT,
-        raw_data       MEDIUMBLOB
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci`);
+    await db.query(`USE ${DECODER_DB};\n${fs.readFileSync(path.join(DECODER_SQL_DIR, 'index_transactions.sql'), 'utf8')}\n${fs.readFileSync(path.join(DECODER_SQL_DIR, 'transactions.sql'), 'utf8')}`);
     await db.query(`INSERT IGNORE INTO ${DECODER_DB}.index_transactions (id, hash) VALUES
         (505, 'eee5555555555555555555555555555555555555555555555555555555555555'),
         (507, 'ggg7777777777777777777777777777777777777777777777777777777777777')`);
@@ -116,6 +104,10 @@ async function seedDecoderFixtures() {
 
 before(async function () {
     this.timeout(30000);
+    for(const ddl of DDL_FILES){
+        const verdict = siblingCheckout(__dirname, ddl);
+        if(!verdict.usable) return skipOrFail(this, verdict, 'the production NFT table DDL');
+    }
     await seedIndexerFixtures();
     await seedDecoderFixtures();
     const { app } = await createApp();

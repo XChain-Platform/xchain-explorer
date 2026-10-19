@@ -24,6 +24,7 @@ const COLUMN_TYPES = {
     s: { type: ['string', 'null'] },
     D: { type: 'string', pattern: '^[0-9]+$' },
     d: { type: ['string', 'null'], pattern: '^[0-9]+$' },
+    I: { type: 'integer' },
     i: { type: ['integer', 'null'] },
 };
 
@@ -170,6 +171,18 @@ const ROWS = [
     ['TokenRow', 'getTokens', 'One token from the token search',
         'id:d tick:s supply:s max_supply:s max_mint:s decimals:i lock_max_supply:i lock_mint:i lock_mint_supply:i'
             + ' lock_max_mint:i lock_description:i lock_sleep:i lock_callback:i ' + TX_TAIL],
+    ['ContractRow', 'getContracts', 'One deployed contract',
+        'action:s action_index:D action_format:i source:s code_hash:S api_version:I cooldown_blocks:i'
+            + ' slash_destination:s meta_name:s meta_description:s meta_version:s block_index:d timestamp:d'
+            + ' tx_hash:s tx_index:D status:s', null, {
+            meta: { type: ['object', 'null'] },
+            owner_withdraw: { type: ['boolean', 'null'] },
+        }],
+    ['Execution', 'getExecutions', 'One contract execution',
+        'action:s action_index:D action_format:i contract_index:d caller:s method_name:s gas_used:D gas_limit:D'
+            + ' emitted_count:I block_index:d timestamp:d tx_hash:s tx_index:d status:s'],
+    ['ContractStateEntry', 'getContractState', 'One current contract state entry',
+        'id:D contract_index:D state_key:S state_value:s block_index:D'],
 ];
 
 const SUMMARY_DETAILS = {
@@ -294,12 +307,42 @@ const CONTRACT = {
     type: 'object',
     description: 'One deployed contract with its permissions manifest. `permissions` is the declared emission allowlist, null when the contract declared none; `permissions_error` is true when the stored manifest JSON is unreadable, so a null `permissions` then means unknown rather than unrestricted.',
     properties: {
+        abi: { type: ['object', 'null'] },
+        action: NULLABLE_STRING,
+        action_format: NULLABLE_INTEGER,
+        action_index: COLUMN_TYPES.D,
+        api_version: { type: 'integer' },
+        block_index: COLUMN_TYPES.d,
+        code: { type: 'string' },
+        code_hash: { type: 'string' },
+        code_hash_ok: { type: 'boolean' },
+        constructor_params: NULLABLE_STRING,
+        cooldown_blocks: NULLABLE_INTEGER,
         max_take_bps: { type: ['integer', 'null'], description: 'Per-contract fee cap in basis points; null when the global cap applies' },
-        permissions: { type: ['array', 'null'], items: {} },
+        meta: { type: ['object', 'null'] },
+        meta_description: NULLABLE_STRING,
+        meta_name: NULLABLE_STRING,
+        meta_version: NULLABLE_STRING,
+        methods: { type: ['array', 'null'], items: { type: 'string' } },
+        owner_withdraw: { type: ['boolean', 'null'] },
+        permissions: { type: ['array', 'null'], items: { type: 'string' } },
         permissions_error: { type: 'boolean', description: 'True when the stored permissions JSON could not be parsed' },
+        runtime: RUNTIME,
+        slash_destination: NULLABLE_STRING,
+        source: NULLABLE_STRING,
+        status: NULLABLE_STRING,
+        timestamp: COLUMN_TYPES.d,
+        tx_hash: NULLABLE_STRING,
+        tx_index: COLUMN_TYPES.D,
+        vm_query_enabled: { type: 'boolean' },
+        wallet_url: { type: 'string' },
     },
     required: ['permissions', 'permissions_error'],
 };
+
+const EXECUTION_DETAIL = rowSchema('One contract execution with its input and error detail',
+    'action:s action_index:D action_format:i contract_index:d caller:s method_name:s input_params:s gas_used:D'
+        + ' gas_limit:D emitted_count:I error_message:s block_index:d timestamp:d tx_hash:s tx_index:d status:s');
 
 const BOOL_MAP = (names) => Object.fromEntries(names.map((n) => [n, { type: 'boolean' }]));
 const NUMBER = { type: 'number' };
@@ -568,6 +611,7 @@ const COMPONENT_SCHEMAS = Object.assign(
     Object.fromEntries(ROWS.map(([name, , description, spec, notes, extra]) => [name, rowSchema(description, spec, notes, extra)])),
     {
         ActionDetail: ACTION_DETAIL, AddressInfo: ADDRESS_INFO, Block: BLOCK, Contract: CONTRACT, ExplorerStatus: EXPLORER_STATUS,
+        ExecutionDetail: EXECUTION_DETAIL,
         History: HISTORY, Holder: HOLDER, HolderRow: rowSchema('One holder of a token', 'address:s amount:s'),
         Market: MARKET, MarketHistory: MARKET_HISTORY, MarketOrder: MARKET_ORDER, Orderbook: ORDERBOOK,
         Token: TOKEN, Transaction: TRANSACTION,
@@ -587,7 +631,8 @@ const LIST_EXTRAS = {
 // db method -> component schema of its whole 200 body.
 const BODY_SCHEMAS = {
     getAction: 'ActionDetail', getAddress: 'AddressInfo', getBlock: 'Block', getContract: 'Contract', getHolders: 'Holder',
-    getOrderbook: 'Orderbook', getStatus: 'ExplorerStatus', getToken: 'Token', getTransaction: 'Transaction',
+    getExecution: 'ExecutionDetail', getOrderbook: 'Orderbook', getStatus: 'ExplorerStatus', getToken: 'Token',
+    getTransaction: 'Transaction',
 };
 
 // The next-page cursor a keyset-paged list carries beside total and data.
@@ -607,5 +652,12 @@ function responseSchema(method, extra) {
 // db method -> columns its reader selects only when the replica carries their source table.
 const OPTIONAL_COLUMNS = { getLists: ['name', 'description'] };
 
+const POST_PASS_COLUMNS = {
+    getContracts: ['meta', 'owner_withdraw'],
+    getDispensers: ['escrow_remaining', 'current_status', 'price_stale'],
+};
+
+const POST_PASS_DROPPED = { getContracts: ['meta_json'] };
+
 module.exports = { COMPONENT_SCHEMAS, ROW_SCHEMAS, BODY_SCHEMAS, KEYSET_FIELDS, OPTIONAL_COLUMNS,
-    POST_PASS_COLUMNS: { getDispensers: ['escrow_remaining', 'current_status', 'price_stale'] }, responseSchema };
+    POST_PASS_COLUMNS, POST_PASS_DROPPED, responseSchema };

@@ -53,6 +53,21 @@ function loadsReaderManifest() {
     assert.deepStrictEqual(support.loadDashboardManifest(file), { getTokens: ['tick'] });
 }
 
+function loadsPinnedManifestWhenDashboardIsAbsent() {
+    const manifest = support.dashboardManifestForCheckout(
+        { usable: false }, path.join('/absent', support.DASHBOARD_CLIENT));
+    assert.strictEqual(manifest, support.loadDashboardManifestFixture());
+    assert.strictEqual(Object.keys(manifest).length, 17);
+    assert.deepStrictEqual(manifest.getTokens,
+        ['tick', 'supply', 'max_supply', 'decimals', 'block_index']);
+}
+
+function prefersDashboardManifestWhenDashboardIsUsable() {
+    const file = moduleFile("module.exports = { EXPLORER_ROW_FIELDS: { getTokens: ['live'] } };\n");
+    assert.deepStrictEqual(support.dashboardManifestForCheckout({ usable: true }, file),
+        { getTokens: ['live'] });
+}
+
 function rejectsInvalidReaderManifest() {
     const file = moduleFile('module.exports = {};\n');
     assert.throws(() => support.loadDashboardManifest(file), /does not export EXPLORER_ROW_FIELDS/);
@@ -260,6 +275,10 @@ function registerTests() {
     afterEach(cleanupTempDir);
     it('resolves the dashboard client from the sibling root or environment override', resolvesDashboardClient);
     it('loads a non-empty exported reader manifest', loadsReaderManifest);
+    it('loads the pinned reader manifest when the dashboard sibling is absent',
+        loadsPinnedManifestWhenDashboardIsAbsent);
+    it('prefers the dashboard reader manifest when the sibling is usable',
+        prefersDashboardManifestWhenDashboardIsUsable);
     it('rejects a missing or empty reader manifest', rejectsInvalidReaderManifest);
     it('collects projected keys from rows and MariaDB metadata', collectsProjectedKeys);
     it('uses the widest reader query projection and restores an inherited doQuery', usesWidestReaderProjection);

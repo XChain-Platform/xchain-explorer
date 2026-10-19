@@ -14,19 +14,14 @@
       "sha256": "ac2e4f881f1cbe40888efebfc0ee553cd2115aadb178b988bf7715d728a01430"
     },
     {
-      "path": "src/consensus/gates/price_batching_floor_gate.js",
-      "bytes": 7900,
-      "sha256": "9c9f986c6e59075c5761b50cb3ecf851fe99f40217f4da31ef18368935158f87"
-    },
-    {
       "path": "src/consensus/gates/state_subtree_gate.js",
       "bytes": 11386,
       "sha256": "cb5b05479973080128636f18326c59391624a56342db86a07c639401adbb12e3"
     },
     {
       "path": "src/consensus/merkle.js",
-      "bytes": 16677,
-      "sha256": "797a0c6e5299eb1f5e5572764de30e2748a8976c05514e1d654b7c6b13c37180"
+      "bytes": 16691,
+      "sha256": "7147c54c3f9ba76d17584c8e87958ffb29d971d14908e7323e40b61fbe05d500"
     },
     {
       "path": "src/consensus/stake_weighted_quorum.js",
@@ -3358,14 +3353,6 @@
         "token page for a tick with no token wires the token fetch failure to the not-found render",
         "token page for a tick with no token writes nothing to the console outside debug mode"
       ],
-      "1ae10423826a1c02": [
-        "consensus-bound registry rows resolves the anchor bundle order activation table",
-        "consensus-bound registry rows resolves the rollcall activation row exactly once",
-        "price scale registry rows pins canonical price value syntax",
-        "price scale registry rows pins the PRICE v1 canonical rows",
-        "price scale registry rows pins the price scale activation and decimal limit",
-        "price scale registry rows registers each price scale row exactly once"
-      ],
       "1b96a3df99900e6c": [
         "BET feed action detail reads the lists in force keeps the created lists when the in-force read finds no feed row",
         "BET feed action detail reads the lists in force reports a list an edit cleared with 0 as cleared, not as created",
@@ -3790,6 +3777,29 @@
         "indexed source lane against the REAL indexer DDL returns the same rows and total as the a2.address form for every address",
         "indexed source lane against the REAL indexer DDL selects the action source first and the transaction source only as a fallback",
         "indexed source lane against the REAL indexer DDL the a2.address form these two replaced names a column their joins do not carry"
+      ],
+      "202e42a904372b1d": [
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC mainnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC mainnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC regtest at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC regtest at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC testnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC testnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE mainnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE mainnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE regtest at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE regtest at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE testnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for DOGE testnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC mainnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC mainnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC regtest at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC regtest at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC testnet at block time 1",
+        "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for LTC testnet at block time 1700000000",
+        "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest mainnet block",
+        "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest regtest block",
+        "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest testnet block"
       ],
       "21dd83888010e79b": [
         "db.getMempool: list-all mode (M1.2) address/token filtering still narrows the set in list-all's absence (regression guard)",
@@ -4508,24 +4518,6 @@
         "mirrorAndExpiryRows shapes a getOrderExpires row using the standard colored-row status",
         "mirrorAndExpiryRows shapes a getReorgs row, keeping the lifecycle status second-to-last"
       ],
-      "3859c1b638eaebc0": [
-        "dashboard manifest conformance support builds an RBTC reader config with required and conformance probe arguments",
-        "dashboard manifest conformance support collects projected keys from rows and MariaDB metadata",
-        "dashboard manifest conformance support fails a reader with no served rows unless it is listed as unseeded",
-        "dashboard manifest conformance support loads a non-empty exported reader manifest",
-        "dashboard manifest conformance support probes the contract state and balance readers with type contract and a bare index",
-        "dashboard manifest conformance support reads a single-object detail result as one served row",
-        "dashboard manifest conformance support rejects a missing or empty reader manifest",
-        "dashboard manifest conformance support reports a field the SQL selects but the reader mapping drops",
-        "dashboard manifest conformance support reports only absent manifest keys",
-        "dashboard manifest conformance support requires a manifest key on every served row, not only the first",
-        "dashboard manifest conformance support resolves the dashboard client from the sibling root or environment override",
-        "dashboard manifest conformance support restores an owned doQuery after a reader failure",
-        "dashboard manifest conformance support seeds a swaps row and a dispensers row on their own actions",
-        "dashboard manifest conformance support seeds the custody address with a single C: prefix",
-        "dashboard manifest conformance support treats an undefined-valued row key as absent from the served row",
-        "dashboard manifest conformance support uses the widest reader query projection and restores an inherited doQuery"
-      ],
       "38cd5b889e0e9bc9": [
         "an action's source is the ACTION's source, not the transaction's coalesces to the transaction only as a fallback, and only from an actions alias",
         "an action's source is the ACTION's source, not the transaction's filters no address directly on transactions.source_id",
@@ -4863,6 +4855,12 @@
         "ATTEST batch detail card links carried BTC lifecycle rows from a DOGE batch page to the network BTC explorer",
         "ATTEST batch detail card renders the window, response count, publisher, chunks, responses and duplicates",
         "ATTEST batch detail card switches the shipped detail page from request lifecycle cards to the batch card"
+      ],
+      "4878e1f6cfdcaf1c": [
+        "BET action detail without bet_edits does not retry a handler without optional tables",
+        "BET action detail without bet_edits rethrows a missing-table error from the retry",
+        "BET action detail without bet_edits retries one missing-table failure with the pre-edit statement and memoizes the absence",
+        "BET action detail without bet_edits returns feed, wager, and edit shapes without issuing a statement that names bet_edits"
       ],
       "493471329034b3fc": [
         "mixinReaders installs every extracted method non-enumerably found methods to check (the walk itself is not silently empty)",
@@ -5687,34 +5685,6 @@
         "match and LINK paging boundaries uses indexed UNION lookups for both match participants",
         "match and LINK paging boundaries uses indexed UNION lookups for both match token legs and LINK coin legs"
       ],
-      "550503f39ea96f53": [
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_margin_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/price_batching_floor_gate.js is byte-identical to xchain-indexer/src/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list_refresh.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/list_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/remote_token_snapshots.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
-        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
-      ],
       "5517e4db7d8c5250": [
         "ChangeDetector attestation events by row version sends nothing for a v5 attests row",
         "ChangeDetector attestation events by row version sends nothing for a v6 attests row",
@@ -6287,6 +6257,9 @@
         "client: the LIST page shows current membership renders an older explorer response (no state block) unchanged",
         "client: the LIST page shows current membership still renders the edits table"
       ],
+      "654785edd4509e0c": [
+        "openapi getContract body publishes exactly the keys the reader serves"
+      ],
       "6588c4c6bf81913e": [
         "Security: Input Validation: DataTables parameters handles malicious draw parameter safely (API mode)",
         "Security: Input Validation: DataTables parameters refuses a negative page parameter with INVALID_PAGE",
@@ -6494,6 +6467,14 @@
         "Database#getAnchorRewardAttestations (M3.7 data leg) type=pubkey filters on m.publisher (the elected publisher pubkey credited the reward)",
         "XChainExplorer.getPagingDataResults: getAnchorRewardAttestations row shape emits [count_reverse, created_at, chain, network, reward_type, round_reference, snapshot_block, publisher, doge_anchor_txid, id] (10 elements, id LAST as the paging cursor)",
         "XChainExplorer.getPagingDataResults: getAnchorRewardAttestations row shape empty data returns an empty array"
+      ],
+      "692c8a94cc34ec57": [
+        "consensus-bound registry rows resolves the anchor bundle order activation table",
+        "consensus-bound registry rows resolves the rollcall activation row exactly once",
+        "price scale registry rows pins canonical price value syntax",
+        "price scale registry rows pins the PRICE v1 canonical rows",
+        "price scale registry rows pins the price scale decimal limit",
+        "price scale registry rows registers each price scale row exactly once"
       ],
       "6963aa4e97ce82a5": [
         "BET detail render: a resolve shows the outcome it declared escapes the outcome, which is an on-chain attacker-supplied value",
@@ -8530,6 +8511,33 @@
         "reorg row-mapping contract (documents the proposed getPagingDataResults branch) reorg_timestamp is stored in MILLISECONDS, unlike price_snapshot.block_timestamp (Unix seconds) - the proposed xchain.js render divides by 1000 before formatLivestamp",
         "reorg row-mapping contract (documents the proposed getPagingDataResults branch) the proposed 8-element row = [count_reverse, reorg_timestamp, reorg_height, reorg_id, affected_chains, validator_count, status, id]"
       ],
+      "9903956ec045e84b": [
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/equivocation_header.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/mirror_admission_margin_gate.js is byte-identical to xchain-indexer/src/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/gates/state_subtree_gate.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression consensus/stake_weighted_quorum.js is byte-identical to xchain-indexer/src (hand-maintained twin)",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub-schema-version.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_client/hub_list_refresh.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression hub/hub_db_sync.js is byte-identical to xchain-indexer/src/hub/",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/anchor_reward_attestations.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/attestation_responses.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/bridge_transfers.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/capability_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_calls.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/cross_chain_matches.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/list_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/oracle_prices.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/policy_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/price_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/remote_token_snapshots.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression sql/hub-mirror/state_checkpoints.sql is byte-identical to xchain-indexer/src/sql",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the DEP_FILES list matches the sync script DEP_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the HUB_FILES list matches the sync script HUB_FILES list",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set is enumerable and at or above its floor",
+        "hub-mirror client conformance: byte-identity to canonical source @regression the vendored sql/hub-mirror set matches the sync script SQL_FILES list"
+      ],
       "991539ef214768ef": [
         "hub-mirror list share vendored contract @regression ensureTables creates list_snapshots from the vendored directory",
         "hub-mirror list share vendored contract @regression ensureTables creates remote_token_snapshots from the vendored directory",
@@ -9137,6 +9145,54 @@
         "Database#getActionTotals cache shares one count pass between simultaneous cold calls",
         "Database#getActionTotals cache still expires an entry on the TTL at an unmoved tip"
       ],
+      "aab15b91e5ebf99f": [
+        "docs/openapi.json carries the schemas module publishes every component schema byte-for-byte as the module builds it",
+        "docs/openapi.json carries the schemas module publishes the ISSUE v7 bridge fields on getIssues rows",
+        "docs/openapi.json carries the schemas module types the 200 body of every route a schema is keyed to",
+        "openapi row schemas match the reader select lists covers every list reader the schemas module names",
+        "openapi row schemas match the reader select lists getActions selects exactly the Action properties",
+        "openapi row schemas match the reader select lists getAddresses selects exactly the Address properties",
+        "openapi row schemas match the reader select lists getAirdrops selects exactly the Airdrop properties",
+        "openapi row schemas match the reader select lists getBalances selects exactly the Balance properties",
+        "openapi row schemas match the reader select lists getBatches selects exactly the Batch properties",
+        "openapi row schemas match the reader select lists getBroadcasts selects exactly the Broadcast properties",
+        "openapi row schemas match the reader select lists getCallbacks selects exactly the Callback properties",
+        "openapi row schemas match the reader select lists getContractState selects exactly the ContractStateEntry properties",
+        "openapi row schemas match the reader select lists getContracts selects exactly the ContractRow properties",
+        "openapi row schemas match the reader select lists getCredits selects exactly the Credit properties",
+        "openapi row schemas match the reader select lists getDebits selects exactly the Debit properties",
+        "openapi row schemas match the reader select lists getDestroys selects exactly the Destroy properties",
+        "openapi row schemas match the reader select lists getDispenserCancels selects exactly the DispenserCancel properties",
+        "openapi row schemas match the reader select lists getDispenserCloses selects exactly the DispenserClose properties",
+        "openapi row schemas match the reader select lists getDispenserEdits selects exactly the DispenserEdit properties",
+        "openapi row schemas match the reader select lists getDispenserExpires selects exactly the DispenserExpire properties",
+        "openapi row schemas match the reader select lists getDispensers selects exactly the Dispenser properties",
+        "openapi row schemas match the reader select lists getDispenses selects exactly the Dispense properties",
+        "openapi row schemas match the reader select lists getDividends selects exactly the Dividend properties",
+        "openapi row schemas match the reader select lists getEscrows selects exactly the Escrow properties",
+        "openapi row schemas match the reader select lists getExecutions selects exactly the Execution properties",
+        "openapi row schemas match the reader select lists getFees selects exactly the Fee properties",
+        "openapi row schemas match the reader select lists getFiles selects exactly the File properties",
+        "openapi row schemas match the reader select lists getIssues selects exactly the Issue properties",
+        "openapi row schemas match the reader select lists getLinks selects exactly the Link properties",
+        "openapi row schemas match the reader select lists getLists selects exactly the List properties",
+        "openapi row schemas match the reader select lists getMessages selects exactly the Message properties",
+        "openapi row schemas match the reader select lists getMints selects exactly the Mint properties",
+        "openapi row schemas match the reader select lists getOrderCancels selects exactly the OrderCancel properties",
+        "openapi row schemas match the reader select lists getOrderEdits selects exactly the OrderEdit properties",
+        "openapi row schemas match the reader select lists getOrderExpires selects exactly the OrderExpire properties",
+        "openapi row schemas match the reader select lists getOrderMatches selects exactly the OrderMatch properties",
+        "openapi row schemas match the reader select lists getOrders selects exactly the Order properties",
+        "openapi row schemas match the reader select lists getSends selects exactly the Send properties",
+        "openapi row schemas match the reader select lists getSleeps selects exactly the Sleep properties",
+        "openapi row schemas match the reader select lists getSwapCancels selects exactly the SwapCancel properties",
+        "openapi row schemas match the reader select lists getSwapEdits selects exactly the SwapEdit properties",
+        "openapi row schemas match the reader select lists getSwapExpires selects exactly the SwapExpire properties",
+        "openapi row schemas match the reader select lists getSwapMatches selects exactly the SwapMatch properties",
+        "openapi row schemas match the reader select lists getSwaps selects exactly the Swap properties",
+        "openapi row schemas match the reader select lists getSweeps selects exactly the Sweep properties",
+        "openapi row schemas match the reader select lists getTokens selects exactly the TokenRow properties"
+      ],
       "ac459281d01e49b0": [
         "an order with no MEMO is still on the book [REGRESSION] getOrderInfo LEFT JOINs index_memos too",
         "an order with no MEMO is still on the book [REGRESSION] getOrderInfoBatch LEFT JOINs index_memos",
@@ -9222,6 +9278,26 @@
         "offset_cursors fallback to DEFAULT_CURSOR applies to an unlisted method and an undefined method",
         "offset_cursors fallback to DEFAULT_CURSOR does not return inherited prototype values",
         "offset_cursors maps the explicitly keyed methods to their own columns"
+      ],
+      "aef9afacec96e5b3": [
+        "dashboard manifest conformance support builds an RBTC reader config with required and conformance probe arguments",
+        "dashboard manifest conformance support collects projected keys from rows and MariaDB metadata",
+        "dashboard manifest conformance support fails a reader with no served rows unless it is listed as unseeded",
+        "dashboard manifest conformance support loads a non-empty exported reader manifest",
+        "dashboard manifest conformance support loads the pinned reader manifest when the dashboard sibling is absent",
+        "dashboard manifest conformance support prefers the dashboard reader manifest when the sibling is usable",
+        "dashboard manifest conformance support probes the contract state and balance readers with type contract and a bare index",
+        "dashboard manifest conformance support reads a single-object detail result as one served row",
+        "dashboard manifest conformance support rejects a missing or empty reader manifest",
+        "dashboard manifest conformance support reports a field the SQL selects but the reader mapping drops",
+        "dashboard manifest conformance support reports only absent manifest keys",
+        "dashboard manifest conformance support requires a manifest key on every served row, not only the first",
+        "dashboard manifest conformance support resolves the dashboard client from the sibling root or environment override",
+        "dashboard manifest conformance support restores an owned doQuery after a reader failure",
+        "dashboard manifest conformance support seeds a swaps row and a dispensers row on their own actions",
+        "dashboard manifest conformance support seeds the custody address with a single C: prefix",
+        "dashboard manifest conformance support treats an undefined-valued row key as absent from the served row",
+        "dashboard manifest conformance support uses the widest reader query projection and restores an inherited doQuery"
       ],
       "af7981f422df163c": [
         "explorer feed shaping branches finds a plausibly-sized method table and branch set",
@@ -9555,6 +9631,9 @@
         "theme parity probe (behavioural) the render census reads layout-derived keys through Typed OM records the Typed OM value for a layout key and the computed value for any other",
         "theme parity probe (behavioural) the render census reads layout-derived keys through Typed OM refuses a capture from a browser with no Typed OM computedStyleMap"
       ],
+      "c18126cb8f5bc097": [
+        "capability_snapshots without an authoritative stake database never holds or refuses a row and never makes a proof HTTP request"
+      ],
       "c1be15b478ae2f18": [
         "startWebsockets live-feed start starts the poller with every pooled coin when pools exist",
         "startWebsockets live-feed start starts the poller with no coins when the boot has no pools"
@@ -9579,6 +9658,12 @@
         "shared-list names ignores an invalid rename and reads a mirror name from its local list",
         "shared-list names reads home names in one batch and keeps the newest valid rename",
         "shared-list names returns null names when list_metas is missing"
+      ],
+      "c36bc4bc4dce89a6": [
+        "ChangeDetector pool reconcile adopts a coin whose pool appears after start and seeds it at its tip",
+        "ChangeDetector pool reconcile keeps a tracked coin cursor when a later pool map no longer names it",
+        "ChangeDetector pool reconcile leaves the coin set alone for a db double with no pool map",
+        "ChangeDetector pool reconcile sends the adopted coin rows live on the poll after the seed"
       ],
       "c40dac72e51909f3": [
         "SLASH detail status selects a status derived from the slash event row, so the page never shows a bare dash",
@@ -10733,50 +10818,12 @@
         "VOTE poll options parsing marker keeps dashing a genuinely empty options list",
         "VOTE poll options parsing marker keeps rendering a normal populated options list"
       ],
-      "e191d345abb2c3f1": [
-        "docs/openapi.json carries the schemas module publishes every component schema byte-for-byte as the module builds it",
-        "docs/openapi.json carries the schemas module publishes the ISSUE v7 bridge fields on getIssues rows",
-        "docs/openapi.json carries the schemas module types the 200 body of every route a schema is keyed to",
-        "openapi row schemas match the reader select lists covers every list reader the schemas module names",
-        "openapi row schemas match the reader select lists getActions selects exactly the Action properties",
-        "openapi row schemas match the reader select lists getAddresses selects exactly the Address properties",
-        "openapi row schemas match the reader select lists getAirdrops selects exactly the Airdrop properties",
-        "openapi row schemas match the reader select lists getBalances selects exactly the Balance properties",
-        "openapi row schemas match the reader select lists getBatches selects exactly the Batch properties",
-        "openapi row schemas match the reader select lists getBroadcasts selects exactly the Broadcast properties",
-        "openapi row schemas match the reader select lists getCallbacks selects exactly the Callback properties",
-        "openapi row schemas match the reader select lists getCredits selects exactly the Credit properties",
-        "openapi row schemas match the reader select lists getDebits selects exactly the Debit properties",
-        "openapi row schemas match the reader select lists getDestroys selects exactly the Destroy properties",
-        "openapi row schemas match the reader select lists getDispenserCancels selects exactly the DispenserCancel properties",
-        "openapi row schemas match the reader select lists getDispenserCloses selects exactly the DispenserClose properties",
-        "openapi row schemas match the reader select lists getDispenserEdits selects exactly the DispenserEdit properties",
-        "openapi row schemas match the reader select lists getDispenserExpires selects exactly the DispenserExpire properties",
-        "openapi row schemas match the reader select lists getDispensers selects exactly the Dispenser properties",
-        "openapi row schemas match the reader select lists getDispenses selects exactly the Dispense properties",
-        "openapi row schemas match the reader select lists getDividends selects exactly the Dividend properties",
-        "openapi row schemas match the reader select lists getEscrows selects exactly the Escrow properties",
-        "openapi row schemas match the reader select lists getFees selects exactly the Fee properties",
-        "openapi row schemas match the reader select lists getFiles selects exactly the File properties",
-        "openapi row schemas match the reader select lists getIssues selects exactly the Issue properties",
-        "openapi row schemas match the reader select lists getLinks selects exactly the Link properties",
-        "openapi row schemas match the reader select lists getLists selects exactly the List properties",
-        "openapi row schemas match the reader select lists getMessages selects exactly the Message properties",
-        "openapi row schemas match the reader select lists getMints selects exactly the Mint properties",
-        "openapi row schemas match the reader select lists getOrderCancels selects exactly the OrderCancel properties",
-        "openapi row schemas match the reader select lists getOrderEdits selects exactly the OrderEdit properties",
-        "openapi row schemas match the reader select lists getOrderExpires selects exactly the OrderExpire properties",
-        "openapi row schemas match the reader select lists getOrderMatches selects exactly the OrderMatch properties",
-        "openapi row schemas match the reader select lists getOrders selects exactly the Order properties",
-        "openapi row schemas match the reader select lists getSends selects exactly the Send properties",
-        "openapi row schemas match the reader select lists getSleeps selects exactly the Sleep properties",
-        "openapi row schemas match the reader select lists getSwapCancels selects exactly the SwapCancel properties",
-        "openapi row schemas match the reader select lists getSwapEdits selects exactly the SwapEdit properties",
-        "openapi row schemas match the reader select lists getSwapExpires selects exactly the SwapExpire properties",
-        "openapi row schemas match the reader select lists getSwapMatches selects exactly the SwapMatch properties",
-        "openapi row schemas match the reader select lists getSwaps selects exactly the Swap properties",
-        "openapi row schemas match the reader select lists getSweeps selects exactly the Sweep properties",
-        "openapi row schemas match the reader select lists getTokens selects exactly the TokenRow properties"
+      "e256bed9b44a9a7f": [
+        "Database#getTransaction pending mempool match matches the transaction hash case-insensitively",
+        "Database#getTransaction pending mempool match returns a decoded pending transaction when the indexed row is absent",
+        "Database#getTransaction pending mempool precedence leaves an unknown hash without a tx_hash",
+        "Database#getTransaction pending mempool precedence never consults the mempool for a tx_index search",
+        "Database#getTransaction pending mempool precedence prefers a confirmed row over a matching mempool row"
       ],
       "e2634cec97dd4d26": [
         "content viewer origin escapes a less-than sign before placing the value in an inline script",
@@ -11952,13 +11999,14 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 443,
-        "titleCount": 7605,
+        "fileCount": 449,
+        "titleCount": 7645,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
           "test/unit/action_detail/action_manifest_conformance.test.js": "999702cb7331535d",
           "test/unit/action_detail/action_not_found.test.js": "85815122e709ccfb",
+          "test/unit/action_detail/bet_detail_no_bet_edits.test.js": "4878e1f6cfdcaf1c",
           "test/unit/action_detail/bet_edit_detail.test.js": "bcc7ecaa24a03d02",
           "test/unit/action_detail/bet_feed_lists_in_force.test.js": "1b96a3df99900e6c",
           "test/unit/action_detail/bridge/bridge_action_detail.test.js": "143676fcf0f9c869",
@@ -12007,7 +12055,7 @@
           "test/unit/config/consensus_pin_boot.test.js": "116141af1654c3e7",
           "test/unit/config/resolve_coins.test.js": "bdab718683313f36",
           "test/unit/config/validate.test.js": "39d38d610943e3e4",
-          "test/unit/conformance/dashboard_manifest_support.test.js": "3859c1b638eaebc0",
+          "test/unit/conformance/dashboard_manifest_support.test.js": "aef9afacec96e5b3",
           "test/unit/conformance/plan_guard_allowlist.test.js": "365e6eb3af36f30f",
           "test/unit/conformance/plan_guard_verdict.test.js": "a1a5502637f8668d",
           "test/unit/connectors/hub_config_hostile_keys.test.js": "cc51e1570a0be666",
@@ -12016,7 +12064,7 @@
           "test/unit/connectors/hub_consensus_hash_mismatch.test.js": "5aa8107999ed6d0b",
           "test/unit/connectors/x_chain_decoder_connector.test.js": "2709cccf5e791788",
           "test/unit/connectors/x_chain_indexer_connector.test.js": "92aeb23d16a697b8",
-          "test/unit/consensus/consensus_bound_rows.test.js": "1ae10423826a1c02",
+          "test/unit/consensus/consensus_bound_rows.test.js": "692c8a94cc34ec57",
           "test/unit/consensus/gate_registry/local_rows.test.js": "a76ec0bdf3924d67",
           "test/unit/consensus/gate_registry/shared_rows.test.js": "a94ef3515c893710",
           "test/unit/consensus/regtest_env_twin.test.js": "cbad35bf1daff99f",
@@ -12160,6 +12208,7 @@
           "test/unit/db/mempool/db_mempool_address_refs.test.js": "959cfcc187d82f85",
           "test/unit/db/mempool/db_mempool_listall_paging.test.js": "21dd83888010e79b",
           "test/unit/db/mempool/db_mempool_reader_ownership.test.js": "1571701800a32267",
+          "test/unit/db/mempool/db_transaction_pending_fallback.test.js": "e256bed9b44a9a7f",
           "test/unit/db/mempool/decoder_mempool_reply_contract.test.js": "71e23443944752dd",
           "test/unit/db/mempool/mempool.test.js": "8bc5ff64b8859343",
           "test/unit/db/query_sql/blocks_last_page_paging.test.js": "0327f252f909f77e",
@@ -12292,8 +12341,9 @@
           "test/unit/http/jsonrpc_body_guard.test.js": "58706b2a54fa0008",
           "test/unit/http/locked_balance_proof.test.js": "82bea5d0f3a179b3",
           "test/unit/http/network_response_contract.test.js": "793e6681c7c1eb6f",
+          "test/unit/http/openapi_contract_body.test.js": "654785edd4509e0c",
           "test/unit/http/openapi_coverage.test.js": "49992a3e9860e255",
-          "test/unit/http/openapi_response_schemas.test.js": "e191d345abb2c3f1",
+          "test/unit/http/openapi_response_schemas.test.js": "aab15b91e5ebf99f",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
           "test/unit/http/proof_server.test.js": "736f86a7b212dc70",
           "test/unit/http/proof_server_stake_total.test.js": "c88a4399d3e54590",
@@ -12303,6 +12353,8 @@
           "test/unit/http/static_mounts.test.js": "3f4206ff6e22e166",
           "test/unit/http/swagger_docs_spec_url.test.js": "4c2d12b5f57c138f",
           "test/unit/hub/hub_client/hub_list.test.js": "808199788faa2378",
+          "test/unit/hub/hub_db_sync/barriers/price_barrier_every_block.test.js": "202e42a904372b1d",
+          "test/unit/hub/hub_db_sync/capability_snapshot_never_held.test.js": "c18126cb8f5bc097",
           "test/unit/hub/hub_db_sync/ensure_tables_columns.test.js": "7e2cef27cb90df9e",
           "test/unit/hub/hub_db_sync/ensure_tables_indexes.test.js": "1c54d02c1619514a",
           "test/unit/hub/hub_db_sync/failover/move_policy.test.js": "8ab100867f39117b",
@@ -12321,7 +12373,7 @@
           "test/unit/mirror/hub_db_sync.test.js": "634a78dff95f2041",
           "test/unit/mirror/hub_mirror_bridge_tables.test.js": "f22c4e1330eebd92",
           "test/unit/mirror/hub_mirror_charset_widen.test.js": "d531308aad6a4cd7",
-          "test/unit/mirror/hub_mirror_client_conformance.test.js": "550503f39ea96f53",
+          "test/unit/mirror/hub_mirror_client_conformance.test.js": "9903956ec045e84b",
           "test/unit/mirror/hub_mirror_list_share.test.js": "991539ef214768ef",
           "test/unit/mirror/hub_mirror_migrate.test.js": "9134d4bfe85fbeaa",
           "test/unit/mirror/hub_mirror_migrate_datetime.test.js": "9eedd185a4bd63fa",
@@ -12375,6 +12427,7 @@
           "test/unit/ws/change_detector/attestation_events.test.js": "5517e4db7d8c5250",
           "test/unit/ws/change_detector/bet_latches.test.js": "dbbbe200376c26b1",
           "test/unit/ws/change_detector/fork_point_rewind.test.js": "e41e4f7fc8385a5e",
+          "test/unit/ws/change_detector/pool_reconcile.test.js": "c36bc4bc4dce89a6",
           "test/unit/ws/change_detector/token_ledger_refresh.test.js": "9e985f8b19a85cca",
           "test/unit/ws/change_detector_mempool_map.test.js": "11daa587b9651a21",
           "test/unit/ws/change_detector_methods.test.js": "a6f38777edc3e92d",

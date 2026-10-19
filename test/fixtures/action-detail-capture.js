@@ -118,6 +118,7 @@ async function captureActionType(type, mode) {
     const configInfo = createConfigInfoStub();
     const util       = new Utility(configInfo);
     const db         = new Database({ configInfo, util });
+    db.schemaTableMemo = { BTC: { bet_edits: { present: true, at: Date.now() } } };
     const config     = makeConfig({ coin: 'BTC' });
     const sql        = [];
     let   call       = 0;

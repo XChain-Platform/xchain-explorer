@@ -22,7 +22,9 @@ const { makeConfig: defaultMakeConfig } = require('../../../fixtures/mock-query-
 const { seedManifestReaders, deleteSeeded } = require('./dashboard_manifest_seed.js');
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..', '..');
-const DASHBOARD_CLIENT = path.join('monitor', 'src', 'lib', 'explorer-client.js');
+const DASHBOARD_CLIENT = path.join('monitor', 'src', 'lib', 'clients', 'explorer_client.js');
+const DASHBOARD_MANIFEST_FIXTURE = path.join(REPO_ROOT, 'test', 'fixtures',
+    'dashboard-explorer-row-fields.json');
 // The contract readers take a bare contract index, as the /contract/{QUERY}
 // routes pass it: getContractBalance derives the C:<CHAIN>: custody prefix itself.
 const DASHBOARD_PROBE_ARGS = {
@@ -43,6 +45,19 @@ function loadDashboardManifest(clientFile) {
         clientFile + ' does not export EXPLORER_ROW_FIELDS');
     assert.ok(Object.keys(manifest).length > 0, clientFile + ' exports an empty EXPLORER_ROW_FIELDS');
     return manifest;
+}
+
+function loadDashboardManifestFixture(fixtureFile = DASHBOARD_MANIFEST_FIXTURE) {
+    const manifest = require(fixtureFile);
+    assert.ok(manifest && typeof manifest === 'object' && !Array.isArray(manifest),
+        fixtureFile + ' does not contain a dashboard manifest object');
+    assert.ok(Object.keys(manifest).length > 0, fixtureFile + ' contains an empty dashboard manifest');
+    return manifest;
+}
+
+function dashboardManifestForCheckout(dashboard, clientFile,
+    fixtureFile = DASHBOARD_MANIFEST_FIXTURE) {
+    return dashboard.usable ? loadDashboardManifest(clientFile) : loadDashboardManifestFixture(fixtureFile);
 }
 
 function addResultKeys(keys, result) {
@@ -156,16 +171,11 @@ function registerDashboardManifest(runtime) {
 
         before(function () {
             const dashboard = siblingCheckout(__dirname, clientFile);
-            // xchain-dashboard is private, so no CI venue can ship it (see
-            // .ci-siblings): skip with the reason printed even under
-            // XCHAIN_REQUIRE_SIBLINGS=1 rather than fail a run that could
-            // never have supplied it.
             if (!dashboard.usable) {
-                console.log('      NOT VERIFIED: dashboard explorer-reader manifest conformance skipped: '
-                    + dashboard.reason + ' (private sibling, optional)');
-                return this.skip();
+                console.log('      dashboard explorer-reader manifest conformance using pinned fixture: '
+                    + dashboard.reason);
             }
-            manifest = loadDashboardManifest(clientFile);
+            manifest = dashboardManifestForCheckout(dashboard, clientFile);
         });
 
         before(async function () {
@@ -211,9 +221,12 @@ function registerDashboardManifest(runtime) {
 
 module.exports = {
     DASHBOARD_CLIENT,
+    DASHBOARD_MANIFEST_FIXTURE,
     DASHBOARD_PROBE_ARGS,
     dashboardClientPath,
     loadDashboardManifest,
+    loadDashboardManifestFixture,
+    dashboardManifestForCheckout,
     addResultKeys,
     servedRows,
     sharedRowKeys,

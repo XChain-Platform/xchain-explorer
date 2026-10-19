@@ -21,6 +21,8 @@
  * key on insert (columns are intersected against SHOW COLUMNS) and reorg
  * row:deleted events could never match.
  *
+ * Column list: derived from src/sql/hub-mirror/*.sql (see ADDITIVE_COLUMNS).
+ *
  * Migrated today: price_snapshots (source_chain, source_action_index,
  * push_generation + idx_source_chain), capability_snapshots (the uq_cap_snap
  * widen), the item-5308 reorg fences on oracle_prices, cross_chain_matches
@@ -61,8 +63,154 @@
 const { getLogger } = require('../observability');
 const logger = getLogger();
 
-// Per-table additive migrations, kept in their own module (see mirror_migrations.js).
-const { MIRROR_MIGRATIONS } = require('./mirror_migrations');
+// The additive column list is derived from the twin CREATE TABLE files in
+// src/sql/hub-mirror/ with the same parser ensureTables() uses, so a column added
+// to a twin reaches a legacy mirror without a second hand-kept copy. A column the
+// parser would have to skip (NOT NULL with no DEFAULT) cannot be added to a table
+// holding rows and is left out, exactly as ensureTables() leaves it.
+const fs = require('fs');
+const path = require('path');
+const { parseDeclaredColumns } = require('../hub/hub_db_sync/ensure_tables.js');
+
+const HUB_MIRROR_SQL_DIR = path.join(__dirname, '..', 'sql', 'hub-mirror');
+
+// A column carrying a value the hub stamps on insert: rows stored before the ALTER
+// keep NULL (or 0) until the table is rebuilt from the hub (most mirror writes are
+// INSERT IGNORE); the log line names them.
+const RESTAMP_COLUMN = /^(admit_block(_btc|_ltc|_doge)?|batch_block_time|batch_action_index)$/;
+
+// Which twin columns a legacy mirror may be missing (names only; the definition of
+// each comes from its twin file). Columns the original tables always had are not
+// listed, so a partial probe never tries to re-add them.
+const ADDITIVE_COLUMNS = {
+    price_snapshots: ['source_chain', 'source_action_index', 'push_generation', 'batch_block_time', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge'],
+    oracle_prices: ['push_generation', 'admit_block'],
+    cross_chain_matches: ['finalizing_view', 'a_push_generation', 'b_push_generation', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
+    cross_chain_calls: ['finalizing_view', 'push_generation', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
+    bridge_transfers: ['finalizing_view', 'push_generation', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
+    policy_snapshots: ['finalizing_view', 'push_generation', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
+    capability_snapshots: ['btc_chain_id'],
+    attestation_responses: ['admit_block_btc', 'batch_action_index'],
+    remote_token_snapshots: ['finalizing_view', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
+    list_snapshots: ['finalizing_view', 'name', 'description', 'meta_hash', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id']
+};
+
+// Placement for columns whose twin position is load-bearing on a legacy table.
+const COLUMN_AFTER = { name: 'members_hash', description: 'name', meta_hash: 'description' };
+
+// Added indexes (probed by name).
+const ADDITIVE_INDEXES = {
+    price_snapshots: [{ name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }]
+};
+
+// Non-column migrations the twin files cannot express, per table: index widens,
+// charset and length widens, TIMESTAMP to DATETIME retypes. Monotonic only.
+const MIRROR_EXTRAS = {
+    price_snapshots: {
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    // tick widens to the 250 PRICE v1 admits. The hub keeps its own column narrow until
+    // the operator attests every mirror has widened, so this runs first; a strict mirror
+    // left at VARCHAR(50) would refuse a longer tick and wedge on every re-page.
+    oracle_prices: {
+        widenLengths: [
+            { name: 'tick', length: 250, ddl: 'MODIFY `tick` VARCHAR(250) NOT NULL' }
+        ],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    cross_chain_matches: {
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    cross_chain_calls: {
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp',
+              ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    bridge_transfers: {
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    policy_snapshots: {
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    // uq_cap_snap gained `source` (a key delegated by two sources now keeps both
+    // (source, pubkey) rows). The add-if-name-missing logic cannot widen an existing
+    // same-named index, so if the live uq_cap_snap does not already cover `source`,
+    // drop and re-add it with the 4-column key. Widening an already-enforced UNIQUE
+    // key only relaxes the constraint, so no row dedup is needed.
+    capability_snapshots: {
+        widenIndexes: [
+            { name: 'uq_cap_snap', requiredColumn: 'source',
+              addDdl: 'ADD UNIQUE KEY uq_cap_snap (snapshot_block, capability, signing_pubkey, source)' }
+        ],
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    state_checkpoints: {
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp',
+              ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    anchor_reward_attestations: {
+        retypeColumns: [
+            { name: 'created_at', from: 'timestamp',
+              ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' }
+        ]
+    },
+    // attestation_responses.response_payload / meta hold the PROVIDER bytes of a
+    // finalized ATTEST response, stored utf8mb4. On a mirror still carrying the
+    // utf8mb3 tail a body with one 4-byte character fails the apply INSERT and is
+    // re-refused on every drain. widenColumns reaches a table that already exists.
+    // uq_attest_response gained `effective_time`; same widen shape as uq_cap_snap.
+    attestation_responses: {
+        widenIndexes: [
+            { name: 'uq_attest_response', requiredColumn: 'effective_time',
+              addDdl: 'ADD UNIQUE KEY uq_attest_response (network, request_id, effective_time)' }
+        ],
+        widenColumns: [
+            { name: 'response_payload', charset: 'utf8mb4',
+              ddl: 'MODIFY `response_payload` MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' },
+            { name: 'meta', charset: 'utf8mb4',
+              ddl: 'MODIFY `meta` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' }
+        ]
+    }
+};
+
+// Build the per-table migration spec from the twin files. No AFTER anchors: order is
+// cosmetic here, and an anchor absent from an old schema fails the whole single ALTER.
+function buildMirrorMigrations(sqlDir) {
+    const out = {};
+    const files = fs.readdirSync(sqlDir).filter((f) => f.endsWith('.sql')).sort();
+    for (const file of files) {
+        const table = file.slice(0, -'.sql'.length);
+        const declared = parseDeclaredColumns(fs.readFileSync(path.join(sqlDir, file), 'utf8')) || [];
+        const additive = new Set(ADDITIVE_COLUMNS[table] || []);
+        const columns = declared
+            .filter((c) => additive.has(c.name) && !(c.notNull && !c.hasDefault))
+            .map((c) => {
+                const col = { name: c.name, ddl: 'ADD COLUMN ' + c.definition.replace(/\s+/g, ' ') };
+                if (COLUMN_AFTER[c.name] && table === 'list_snapshots') col.ddl += ' AFTER ' + COLUMN_AFTER[c.name];
+                if (RESTAMP_COLUMN.test(c.name)) col.restamp = true;
+                return col;
+            });
+        out[table] = Object.assign({ columns, indexes: ADDITIVE_INDEXES[table] || [] }, MIRROR_EXTRAS[table]);
+    }
+    return out;
+}
+
+const MIRROR_MIGRATIONS = buildMirrorMigrations(HUB_MIRROR_SQL_DIR);
 
 // Reconcile one mirror schema against MIRROR_MIGRATIONS. dbConn is any
 // object exposing doQuery(sql, args) bound to the mirror schema (the same

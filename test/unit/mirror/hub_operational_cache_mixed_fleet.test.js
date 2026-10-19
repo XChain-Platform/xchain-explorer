@@ -19,6 +19,7 @@ const { expect } = require('chai');
 const proxyquire = require('proxyquire').noCallThru();
 const Utility    = require('../../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
+const quietObservability = require('../../helpers/quiet-observability.js');
 
 const OLD = 'http://a.test:10000';
 const NEW = 'http://b.test:10000';
@@ -29,7 +30,10 @@ const DEGRADED = () => Object.assign(new Error('Request failed with status code 
 
 // Load the real connector with a stubbed axios, then load the cache on top of it.
 function loadFleetCache(post) {
-    const XChainHubConnector = proxyquire('../../../src/connectors/hub', { axios: { post } });
+    const XChainHubConnector = proxyquire('../../../src/connectors/hub', {
+        axios: { post },
+        '../observability': quietObservability
+    });
     const env = { HUB_API_URL: OLD + ',' + NEW, EXPLORER_HUB_CACHE_MS: '1',
         EXPLORER_HUB_CACHE_STALE_MAX_MS: '600000', HUB_RETRY_DELAY_MS: '0' };
     const saved = {};
@@ -39,7 +43,8 @@ function loadFleetCache(post) {
         else delete process.env[k];
     }
     const HubOperationalCache = proxyquire('../../../src/mirror/operational_cache.js', {
-        '../connectors/hub': XChainHubConnector
+        '../connectors/hub': XChainHubConnector,
+        '../observability': quietObservability
     });
     const cache = new HubOperationalCache({ util: new Utility(createConfigInfoStub()) });
     for (const k of Object.keys(saved)) {

@@ -10,7 +10,7 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const { sinon, expect, makeAxiosStub, loadConnector } = require('./helpers.js');
+const { expect, makeAxiosStub, loadConnector } = require('./helpers.js');
 
     // The hub redacts secret-bearing config params (rpc/DB passwords) unless the
     // caller asks with include_secrets. The explorer is one of only two services
@@ -94,34 +94,32 @@ function registerCredentialWarnings() {
         });
 
         it('names the cause once when the hub redacts anyway (unauthorized for credentials)', async function () {
-            const err = sinon.stub(console, 'error');
-            try {
-                const axiosStub = makeAxiosStub();
-                axiosStub.post.resolves({ data: { result: {
-                    configs: {}, seq: 1, watermark: 5000, secrets_redacted: true, redacted_params: 4
-                } } });
-                const Connector = loadConnector(axiosStub);
-                const c = new Connector(['http://a:1']);
-                await c.getAllConfig();
-                await c.getAllConfig();
-                const hits = err.getCalls().filter((call) => /CREDENTIAL-REDACTED/.test(String(call.args[0])));
-                expect(hits.length, 'exactly one warning, not one per poll').to.equal(1);
-                expect(hits[0].args[0]).to.include('4 params withheld');
-            } finally { err.restore(); }
+            const errors = [];
+            const logger = { error: (message, fields) => errors.push({ message, fields }) };
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.resolves({ data: { result: {
+                configs: {}, seq: 1, watermark: 5000, secrets_redacted: true, redacted_params: 4
+            } } });
+            const Connector = loadConnector(axiosStub, logger);
+            const c = new Connector(['http://a:1']);
+            await c.getAllConfig();
+            await c.getAllConfig();
+            const hits = errors.filter((entry) => /CREDENTIAL-REDACTED/.test(entry.fields.detail));
+            expect(hits.length, 'exactly one warning, not one per poll').to.equal(1);
+            expect(hits[0].fields.detail).to.include('4 params withheld');
         });
 
         it('says nothing when the hub served the credentials', async function () {
-            const err = sinon.stub(console, 'error');
-            try {
-                const axiosStub = makeAxiosStub();
-                axiosStub.post.resolves({ data: { result: {
-                    configs: {}, seq: 1, watermark: 5000, secrets_redacted: false, redacted_params: 0
-                } } });
-                const Connector = loadConnector(axiosStub);
-                await new Connector(['http://a:1']).getAllConfig();
-                expect(err.getCalls().some((call) => /CREDENTIAL-REDACTED/.test(String(call.args[0]))))
-                    .to.equal(false);
-            } finally { err.restore(); }
+            const errors = [];
+            const logger = { error: (message, fields) => errors.push({ message, fields }) };
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.resolves({ data: { result: {
+                configs: {}, seq: 1, watermark: 5000, secrets_redacted: false, redacted_params: 0
+            } } });
+            const Connector = loadConnector(axiosStub, logger);
+            await new Connector(['http://a:1']).getAllConfig();
+            expect(errors.some((entry) => /CREDENTIAL-REDACTED/.test(entry.fields.detail)))
+                .to.equal(false);
         });
     });
 }

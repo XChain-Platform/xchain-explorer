@@ -145,16 +145,14 @@ function registerGetAllConfigResponses() {
 
         it('logs the error message when the request fails', async function () {
             const axiosStub    = makeAxiosStub();
-            // Source uses console.warn (not console.error) for per-endpoint failures
-            const consoleStub  = sinon.stub(console, 'warn');
+            const warnings = [];
+            const logger = { warn: (message, fields) => warnings.push({ message, fields }) };
             axiosStub.post.rejects(new Error('network down'));
-            const XChainHubConnector = loadConnector(axiosStub);
+            const XChainHubConnector = loadConnector(axiosStub, logger);
             const connector = new XChainHubConnector(['http://localhost:3000']);
             await connector.getAllConfig();
-            // With multi-attempt retry, warn is called multiple times; just check it fired
-            expect(consoleStub.called).to.be.true;
-            expect(consoleStub.firstCall.args.join(' ')).to.include('network down');
-            consoleStub.restore();
+            expect(warnings).to.not.be.empty;
+            expect(warnings[0].fields.err).to.include('network down');
         });
     });
 }

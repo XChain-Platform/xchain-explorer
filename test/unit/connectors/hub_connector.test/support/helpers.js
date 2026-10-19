@@ -13,6 +13,7 @@
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const proxyquire = require('proxyquire').noCallThru();
+const quietObservability = require('../../../../helpers/quiet-observability.js');
 
 // Collapse retry backoff to zero so the retry-path tests run instantly;
 // the connector reads this env var in its constructor.
@@ -22,9 +23,15 @@ function makeAxiosStub() {
     return { post: sinon.stub() };
 }
 
-function loadConnector(axiosStub) {
+function loadConnector(axiosStub, logger = quietObservability.getLogger()) {
+    const observability = { getLogger: () => logger };
+    const HubConfigSync = proxyquire('../../../../../src/connectors/hub/config_sync.js', {
+        '../../observability': observability
+    });
     return proxyquire('../../../../../src/connectors/hub', {
-        'axios': axiosStub
+        'axios': axiosStub,
+        '../observability': observability,
+        './hub/config_sync.js': HubConfigSync
     });
 }
 

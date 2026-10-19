@@ -75,7 +75,7 @@ const LEGACY_SHAPES = {
         columns: ['id', 'match_id', 'snapshot_block', 'network', 'a_chain', 'a_action_index',
             'a_amount', 'a_payout_addr', 'b_chain', 'b_action_index', 'b_amount',
             'b_payout_addr', 'effective_time', 'validator_signatures', 'status',
-            'batch_root', 'anchor_txid', 'created_at', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
+            'batch_root', 'anchor_txid', 'created_at', 'a_kind', 'a_tick', 'a_filled_before', 'a_ownership', 'a_payout_legs', 'b_kind', 'b_tick', 'b_filled_before', 'b_ownership', 'b_payout_legs', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge', 'btc_chain_id'],
         indexes: ['PRIMARY', 'uq_match_id']
     },
     cross_chain_calls: {
@@ -102,7 +102,7 @@ function fakeCapDb(uqCols) {
             if (/^SHOW TABLES LIKE/i.test(sql))
                 return Promise.resolve(params[0] === 'capability_snapshots' ? [{ t: params[0] }] : []);
             if (/^SHOW COLUMNS/i.test(sql))
-                return Promise.resolve(['id', 'snapshot_block', 'capability', 'signing_pubkey', 'amount', 'source', 'btc_chain_id'].map((c) => ({ Field: c })));
+                return Promise.resolve(['id', 'snapshot_block', 'capability', 'signing_pubkey', 'amount', 'source', 'btc_chain_id', 'created_at'].map((c) => ({ Field: c })));
             if (/^SHOW INDEX/i.test(sql))
                 return Promise.resolve([{ Key_name: 'PRIMARY', Column_name: 'id' }].concat(
                     uqCols.map((c) => ({ Key_name: 'uq_cap_snap', Column_name: c }))));
@@ -182,9 +182,9 @@ describe('hub-mirror-migrate', function () {
         const db = fakeDb({ tables: ['list_snapshots'], columns: [], indexes: [] });
         const applied = await ensureMirrorColumns(db, noLog);
         const sql = applied.find((ddl) => /^ALTER TABLE `list_snapshots` /.test(ddl));
-        expect(sql).to.include('ADD COLUMN name VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL AFTER members_hash');
-        expect(sql).to.include('ADD COLUMN description VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL AFTER name');
-        expect(sql).to.include('ADD COLUMN meta_hash CHAR(64) NULL AFTER description');
+        expect(sql).to.include('ADD COLUMN name VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL');
+        expect(sql).to.include('ADD COLUMN description VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL');
+        expect(sql).to.include('ADD COLUMN meta_hash CHAR(64) NULL');
     });
     it('is a no-op on an up-to-date schema', async function () {
         const db = fakeDb({ columns: CURRENT_COLUMNS, indexes: CURRENT_INDEXES });

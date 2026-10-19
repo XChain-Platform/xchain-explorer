@@ -19,20 +19,20 @@ const path    = require('path');
 const mariadb = require('mariadb');
 const { expect } = require('chai');
 
-const Utility        = require('../../lib/utility.js');
-const { makeConfig } = require('../../../test/fixtures/mock-query-args.js');
-const pre            = require('../../../test/integration/helpers/fixture-preflight.js');
+const Utility        = require('../../src/lib/utility.js');
+const { makeConfig } = require('../fixtures/mock-query-args.js');
+const pre            = require('../integration/helpers/fixture-preflight.js');
 
 const connection = pre.conformanceConnection();
 const DATABASE   = pre.conformanceDatabase('XChain_Txless_Emittable_Readers');
-const SCHEMA     = path.join(__dirname, '..', '..', '..', 'test', 'integration', 'fixtures', 'schema.sql');
+const SCHEMA     = path.join(__dirname, '..', 'integration', 'fixtures', 'schema.sql');
 const TX_BLOCK   = 800;
 const EMIT_BLOCK = 801;
 const TX_ACTION  = 900;
 const EMIT_SEND  = 901;
 const EMIT_BURN  = 902;
 const EMITTER    = 'C:BTC:txless-emitter';
-const DATABASE_MODULE = '../index.js';
+const DATABASE_MODULE = '../../src/db/index.js';
 
 let adminPool;
 let db;
@@ -86,7 +86,7 @@ function makeDb(Database){
             COIN_SUPPORTED: { RBTC: 'BTC (regtest)' },
             COIN_AVAILABLE: { RBTC: 'BTC (regtest)' },
             BTC: {
-                chain: require('../../coin-config/BTC.js').getConfig('regtest').chain,
+                chain: require('../../src/coin-config/BTC.js').getConfig('regtest').chain,
                 regtest: {
                     database: {
                         indexer: {
@@ -97,7 +97,7 @@ function makeDb(Database){
                             pass: connection.password
                         }
                     },
-                    address: require('../../coin-config/BTC.js').getConfig('regtest').address
+                    address: require('../../src/coin-config/BTC.js').getConfig('regtest').address
                 }
             }
         }),

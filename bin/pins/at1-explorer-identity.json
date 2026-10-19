@@ -9517,6 +9517,9 @@
         "BET format 4 action detail rendering renders retain, detach, and replace semantics with the action status",
         "BET format 4 action detail shapes format 4 as an edit without querying cancel or resolve history"
       ],
+      "bd94f3e74de4b841": [
+        "expected connection-refusal output keeps passing connector and mirror tests free of refusal stacks"
+      ],
       "bdab718683313f36": [
         "resolve_coins base tables builds fresh base coin and network tables",
         "resolve_coins explorer section adds the explorer-wide configuration sections",
@@ -11999,8 +12002,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 449,
-        "titleCount": 7645,
+        "fileCount": 450,
+        "titleCount": 7646,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12406,6 +12409,7 @@
           "test/unit/render/rocket_loader_optout.test.js": "fce94108f48fa1fe",
           "test/unit/repo/coverage_thresholds_sync.test.js": "3dab76fc6e7219a0",
           "test/unit/repo/engines_node_ceiling.test.js": "67835353c924205c",
+          "test/unit/repo/expected_connection_refusal_noise.test.js": "bd94f3e74de4b841",
           "test/unit/repo/fixture_ports.test.js": "dc378898866ff01a",
           "test/unit/repo/fixture_preflight.test.js": "8bbbe82f8531cb02",
           "test/unit/repo/fixture_sql_splitter.test.js": "8ab52715f3b3229c",

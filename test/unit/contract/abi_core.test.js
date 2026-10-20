@@ -63,6 +63,28 @@ describe('abi-core parseAbi', function () {
         assert.ok(!('badShape' in abi.methods), 'method with a non-object param is dropped');
     });
 
+    it('drops a method whose summary or view is present but not a literal of its type', function () {
+        const abi = parseAbi(withAbi(`{
+            version: 1,
+            methods: {
+                good: { summary: 'ok', view: false, params: [ { name: 'x', type: 'number' } ] },
+                constSummary: { summary: SUMMARY_CONST, params: [ { name: 'x', type: 'number' } ] },
+                nullSummary: { summary: null },
+                joinedSummary: { summary: 'a' + 'b' },
+                stringView: { view: 'yes' },
+                numberView: { view: 1 },
+                negatedView: { view: !0 }
+            }
+        }`));
+        assert.deepStrictEqual(Object.keys(abi.methods), ['good']);
+        assert.strictEqual(abi.version, 1);
+    });
+
+    it('still parses a method that omits summary and view entirely', function () {
+        const abi = parseAbi(withAbi(`{ version: 1, methods: { bare: { params: [ { name: 'x', type: 'string' } ] } } }`));
+        assert.deepStrictEqual(abi.methods.bare, { params: [{ name: 'x', type: 'string' }] });
+    });
+
 });
 
 describe('abi-core parseAbi', function () {

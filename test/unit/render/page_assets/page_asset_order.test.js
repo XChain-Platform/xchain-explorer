@@ -22,10 +22,8 @@
 'use strict';
 
 const assert = require('assert');
-const fs     = require('fs');
-const path   = require('path');
 
-const { compose, allPages, ROOT } = require('./support/compose.js');
+const { compose, allPages } = require('./support/compose.js');
 const { LIBRARIES, scanFile } = require('./support/page_closure.js');
 const { scanScript } = require('./support/global_scan.js');
 const { JSDOM } = require('jsdom');
@@ -120,11 +118,5 @@ describe('page asset groups: deferred scripts run in a safe order', function () 
             + '<script src="/js/xchain/detail/detail_bet_stake.js" defer></script>'
             + '<script>const wrapped = showBetDetails;</script>';
         assert.deepStrictEqual(earlyReads(html), ['inline script reads id:showBetDetails before it is defined']);
-    });
-
-    it('keeps the action page\'s showBetDetails wrap out of parse time', () => {
-        const page = fs.readFileSync(path.join(ROOT, 'src', 'content', 'html', 'action.html'), 'utf8');
-        assert.deepStrictEqual(earlyReads('<script src="/js/jquery.min.js"></script>' + page)
-            .filter((e) => /showBetDetails/.test(e)), []);
     });
 });

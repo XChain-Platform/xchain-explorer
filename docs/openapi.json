@@ -9151,7 +9151,7 @@
         "tags": [
           "Staking"
         ],
-        "summary": "ROLLCALL publications, filtered by block or publisher address",
+        "summary": "DOGE-only ROLLCALL publications, filtered by block or publisher address",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -9217,7 +9217,116 @@
         "tags": [
           "Staking"
         ],
-        "summary": "ROLLCALL publications and close summaries",
+        "summary": "DOGE-only ROLLCALL publications (400 ROLLCALLS_DOGE_ONLY on other chains)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/rollcall_closes/{QUERY}/{TYPE}": {
+      "get": {
+        "operationId": "rollcall_closes_query_type",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "BTC-only ROLLCALL epoch closes, filtered by close block",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "name": "QUERY",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The value to look up (interpreted per {TYPE}): block = block height"
+          },
+          {
+            "name": "TYPE",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "block"
+              ]
+            },
+            "description": "How to interpret {QUERY}"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortorder"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      }
+    },
+    "/{COIN}/api/rollcall_closes": {
+      "get": {
+        "operationId": "rollcall_closes",
+        "tags": [
+          "Staking"
+        ],
+        "summary": "BTC-only ROLLCALL epoch closes with absence, eviction and gate-signer counts (400 ROLLCALL_CLOSES_BTC_ONLY on other chains)",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"

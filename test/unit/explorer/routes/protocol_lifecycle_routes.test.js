@@ -27,8 +27,9 @@ const Database = proxyquire('../../../../src/db/index.js', {
     })
 });
 
+// ROLLCALL publications exist only on DOGE, so that entry is queried on a DOGE route code
 const ENDPOINTS = [
-    { resource: 'rollcalls',    method: 'getRollcalls',   filters: ['block', 'address'], table: 'rollcall_signers' },
+    { resource: 'rollcalls',    method: 'getRollcalls',   filters: ['block', 'address'], table: 'rollcall_signers', coin: 'DOGE' },
     { resource: 'xexecs',       method: 'getXexecs',      filters: ['block'], table: 'cross_chain_call_executions' },
     { resource: 'bet_expires',  method: 'getBetExpires',  filters: ['block', 'address'], table: 'bet_feed_statuses' },
     { resource: 'bet_cancels',  method: 'getBetCancels',  filters: ['block', 'address'], table: 'bet_cancels' },
@@ -37,8 +38,9 @@ const ENDPOINTS = [
     { resource: 'xbridges',     method: 'getXbridges',    filters: ['block', 'address', 'token'], table: 'actions' }
 ];
 
-function queryConfig(method, type, search){
+function queryConfig(method, type, search, coin){
     return makeConfig({
+        coin: coin || 'BTC',
         type: 'api',
         data: {
             method,
@@ -65,7 +67,7 @@ describe('protocol lifecycle list routes', function () {
         it(`${endpoint.method} is parameterized, capped, and ordered by an indexed action key`, async function () {
             const type = endpoint.filters[0];
             const search = '987654321';
-            const [query, args, count] = await db.getQuery(queryConfig(endpoint.method, type, search));
+            const [query, args, count] = await db.getQuery(queryConfig(endpoint.method, type, search, endpoint.coin));
 
             expect(query).to.include(`FROM ${endpoint.table}`);
             expect(query).to.match(/WHERE[\s\S]*\?/);
@@ -78,10 +80,63 @@ describe('protocol lifecycle list routes', function () {
         });
     }
 
-    it('uses every ROLLCALL table to summarize publications and close outcomes', async function () {
-        const [query] = await db.getQuery(queryConfig('getRollcalls', 'block', '100'));
-        for(const table of ['rollcall_signers', 'rollcalls', 'rollcall_absences', 'rollcall_gates'])
-            expect(query).to.include(table);
+    // Capture the refusal: a DbInputError (answered 400), never an empty page
+    async function refusal(method, coin){
+        try { await db.getQuery(queryConfig(method, null, null, coin)); }
+        catch(e){ return e; }
+        return null;
+    }
+
+    it('reads ROLLCALL publications from the DOGE-written table only', async function () {
+        const [query, , count] = await db.getQuery(queryConfig('getRollcalls', 'block', '100', 'RDOGE'));
+        expect(query).to.include('FROM rollcall_signers m');
+        for(const table of ['rollcalls ', 'rollcall_absences', 'rollcall_gates', 'responsible_set_json'])
+            expect(query + count).to.not.include(table);
+        for(const field of ['absence_count', 'evicted_count', 'gate_signer_count', 'close_block', 'rolled'])
+            expect(query).to.not.include(field);
+    });
+
+    it('refuses ROLLCALL publications on a non-DOGE chain with a 400 input error', async function () {
+        for(const coin of ['BTC', 'TBTC', 'RBTC', 'LTC']){
+            const err = await refusal('getRollcalls', coin);
+            expect(err, coin).to.be.an('error');
+            expect(err.name).to.equal('DbInputError');
+            expect(err.code).to.equal('ROLLCALLS_DOGE_ONLY');
+            expect(err.message).to.include('/api/rollcall_closes');
+        }
+    });
+
+    it('registers bare and filtered /api/rollcall_closes routes', function () {
+        expect(API['/{COIN}/api/rollcall_closes']).to.deep.equal(['getRollcallCloses']);
+        expect(API['/{COIN}/api/rollcall_closes/{QUERY}/{TYPE}']).to.deep.equal(['getRollcallCloses', ['block']]);
+        expect(db.getRollcallCloses).to.be.a('function');
+    });
+
+    it('reads BTC epoch closes from rollcalls with live counts, paged by epoch', async function () {
+        const search = '987654321';
+        const [query, args, count] = await db.getQuery(queryConfig('getRollcallCloses', 'block', search, 'RBTC'));
+        expect(query).to.include('FROM rollcalls m');
+        expect(query).to.include('rollcall_absences ra WHERE ra.epoch_height=m.epoch_height) as absence_count');
+        expect(query).to.include('ra.evicted=1) as evicted_count');
+        expect(query).to.include('rollcall_gates rg WHERE rg.epoch_height=m.epoch_height) as gate_signer_count');
+        expect(query).to.not.include('responsible_set_json');
+        expect(query).to.not.include('rollcall_signers');
+        expect(query).to.match(/WHERE m\.epoch_height IS NOT NULL AND m\.close_block=\?/);
+        expect(count).to.match(/FROM rollcalls m WHERE m\.epoch_height IS NOT NULL AND m\.close_block=\?/);
+        expect(query).to.not.include(search);
+        expect(query).to.match(/ORDER BY m\.epoch_height DESC/);
+        expect(query).to.match(/LIMIT 100\s*$/);
+        if(args) expect(args).to.not.include(search);
+    });
+
+    it('refuses ROLLCALL epoch closes on a non-BTC chain with a 400 input error', async function () {
+        for(const coin of ['DOGE', 'TDOGE', 'RDOGE', 'LTC']){
+            const err = await refusal('getRollcallCloses', coin);
+            expect(err, coin).to.be.an('error');
+            expect(err.name).to.equal('DbInputError');
+            expect(err.code).to.equal('ROLLCALL_CLOSES_BTC_ONLY');
+            expect(err.message).to.include('/api/rollcalls');
+        }
     });
 
     it('unifies user and settlement XBRIDGE legs without dropping transactionless rows', async function () {

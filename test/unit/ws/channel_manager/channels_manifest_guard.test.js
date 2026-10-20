@@ -13,6 +13,9 @@
 // of the settlement anchor rows the indexer mints outside its dispatch switch.
 // A new admitted name that is neither fails here instead of reaching a client as
 // a filter that names no protocol action.
+// The reverse also holds: every manifest action that lands as an `actions` row
+// reaches the feed under its own name, so it must be admitted or exempted with a
+// reason, or a client asking for it is refused the whole subscribe.
 
 'use strict';
 
@@ -33,6 +36,16 @@ const LIFECYCLE_EVENTS = [
 ];
 const EXEMPT = new Set(LIFECYCLE_EVENTS);
 
+// Name every manifest category whose actions are written as `actions` rows, which
+// the live feed sends as NEW_ACTION. A new category fails until it is placed here.
+const ROW_PRODUCING_CATEGORIES = [
+    'wire-user', 'validator', 'mirror-injected', 'lifecycle',
+    'explorer-legacy-render', 'settlement-anchor'
+];
+
+// Hold row-producing manifest actions the filter deliberately refuses, each with its reason.
+const NOT_ADMITTED = {};
+
 describe('channel manager type names against the action manifest', function () {
 
     it('gives every admitted action name a manifest entry', function () {
@@ -52,6 +65,30 @@ describe('channel manager type names against the action manifest', function () {
         const redundant = [...EXEMPT].filter((type) => Object.prototype.hasOwnProperty.call(MANIFEST.actions, type));
 
         expect(redundant).to.deep.equal([]);
+    });
+
+    it('places every manifest category as row-producing', function () {
+        const unplaced = Object.keys(MANIFEST.categories).filter((c) => !ROW_PRODUCING_CATEGORIES.includes(c));
+
+        expect(unplaced, 'manifest categories to place in ROW_PRODUCING_CATEGORIES').to.deep.equal([]);
+    });
+
+    it('admits every row-producing manifest action unless it is exempted with a reason', function () {
+        // Read actions only: an alias is canonicalized before its row is written.
+        const rowActions = Object.keys(MANIFEST.actions)
+            .filter((name) => ROW_PRODUCING_CATEGORIES.includes(MANIFEST.actions[name].category));
+        const refused = rowActions.filter((name) => !VALID_TYPES.has(name) && !(name in NOT_ADMITTED));
+
+        expect(rowActions.length, 'read no row-producing actions from action-manifest.json').to.be.greaterThan(0);
+        expect(refused, 'add these to VALID_TYPES in src/ws/channel_manager/channels.js or to NOT_ADMITTED with a reason')
+            .to.deep.equal([]);
+    });
+
+    it('keeps every NOT_ADMITTED name a manifest action the filter still refuses', function () {
+        const stale = Object.keys(NOT_ADMITTED)
+            .filter((name) => !Object.prototype.hasOwnProperty.call(MANIFEST.actions, name) || VALID_TYPES.has(name));
+
+        expect(stale).to.deep.equal([]);
     });
 
 });

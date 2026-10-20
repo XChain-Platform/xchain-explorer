@@ -75,9 +75,12 @@ function routedPairs() {
 // is in either lane, and a lane method that failed to build would fail loudly.
 const HUB_ONLY_READERS = new Set(['getCheckpoint']);
 
+// Readers bound to one chain refuse every other, so they build on their own route code.
+const CHAIN_BOUND_READERS = { getRollcalls: 'DOGE' };
+
 // Builds one request the way getQuery does: the data-WHERE first, then the reader.
 async function build(db, method, type) {
-    const config = makeConfig({ data: { method, type, search: 'ADDR' } });
+    const config = makeConfig({ coin: CHAIN_BOUND_READERS[method] || 'BTC', data: { method, type, search: 'ADDR' } });
     const where  = await db.getQueryWhereSql(config);
     config.data.sql.where.data = where;
     const [query, args, count] = await db[method](config);

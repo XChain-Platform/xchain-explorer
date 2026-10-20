@@ -95,12 +95,17 @@ function extractAbi(exported) {
             if (specNode.type !== 'ObjectExpression') continue;
             const spec    = propMap(specNode);
             const entry   = { params: [] };
-            const summary = literalOfType(spec.get('summary'), 'string');
-            const view    = literalOfType(spec.get('view'), 'boolean');
+            const summaryNode = spec.get('summary');
+            const viewNode    = spec.get('view');
+            const summary = literalOfType(summaryNode, 'string');
+            const view    = literalOfType(viewNode, 'boolean');
             if (summary !== undefined) entry.summary = summary;
             if (view !== undefined) entry.view = view;
 
-            let ok = true;
+            // A present summary/view that is not a literal of its type makes the entry
+            // malformed, so it drops like a bad params list (spec: non-literal values).
+            let ok = !(summaryNode !== undefined && summary === undefined)
+                && !(viewNode !== undefined && view === undefined);
             const paramsNode = spec.get('params');
             if (paramsNode !== undefined) {
                 if (paramsNode.type !== 'ArrayExpression') { ok = false; }

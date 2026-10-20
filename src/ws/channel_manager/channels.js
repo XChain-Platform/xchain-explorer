@@ -74,6 +74,11 @@ const VALID_TYPES = new Set([
     // policy apply, shared-list apply). They are real `actions` rows, so they reach
     // the `actions` channel as NEW_ACTION under these names and must be filterable.
     'XPOLICY', 'LIST_SHARE',
+    // Cancel and edit rows: the indexer renames the parent's own `actions` row to these
+    // names (updateActionIndex), so they reach `actions` and `address` as NEW_ACTION and
+    // must be filterable. A filter on the parent name does not match them.
+    'ORDER_CANCEL', 'ORDER_EDIT', 'SWAP_CANCEL', 'SWAP_EDIT',
+    'DISPENSER_CANCEL', 'DISPENSER_EDIT', 'BET_EDIT',
     // Lifecycle event types (emitted by ChangeDetector, not indexed directly).
     // Only names the producer actually emits belong here (ws/change_detector.js's
     // LIFECYCLE_MAP, NON_ACTION_LIFECYCLE_TYPES and INLINE_LIFECYCLE_TYPES): the

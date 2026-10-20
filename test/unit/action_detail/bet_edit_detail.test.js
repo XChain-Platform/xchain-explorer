@@ -25,8 +25,6 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SCRIPT = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_bet_stake.js'), 'utf8');
 const CORE = fs.readFileSync(path.join(ROOT, 'src/content/js/xchain/detail/detail_core.js'), 'utf8');
 const ACTION_HTML = fs.readFileSync(path.join(ROOT, 'src/content/html/action.html'), 'utf8');
-// The wrap sits inside a ready callback (detail_bet_stake.js is deferred), so it is indented.
-const BET_REVEAL = ACTION_HTML.match(/const detailBetShow = showBetDetails;\s*showBetDetails = function\(data\)\{[\s\S]*?\n\s*\};/)[0];
 const JQUERY = fs.readFileSync(path.join(ROOT, 'src/content/js/jquery.min.js'), 'utf8');
 const LAYOUT = require('../../../src/content/layouts/action-detail-cards.json');
 const util = { isNull: value => value === null || value === undefined };
@@ -40,7 +38,7 @@ function panelHtml(){
     return ACTION_HTML.slice(start, end);
 }
 
-function renderEdit(data){
+function renderBet(data){
     const dom = new JSDOM('<!doctype html><body>' + panelHtml() + '</body>', { runScripts: 'outside-only' });
     const win = dom.window;
     win.eval(JQUERY);
@@ -53,7 +51,6 @@ function renderEdit(data){
     win.eval(extractFn('detailBetStake_renderFeed'));
     win.eval(extractFn('detailBetStake_renderAction'));
     win.eval(extractFn('showBetDetails'));
-    win.eval(BET_REVEAL);
     win.detailCore_dispatchBridgePanel = () => false;
     win.eval(extractFn('detailCore_dispatchAction', CORE));
     win.detailCore_dispatchAction({ action: 'BET_EDIT', ...data });
@@ -129,7 +126,7 @@ describe('BET format 4 action detail', function(){
 
 describe('BET format 4 action detail rendering', function(){
     it('renders retain, detach, and replace semantics with the action status', function(){
-        const retained = renderEdit({
+        const retained = renderBet({
             bet_kind: 'edit', feed_ref: 41, edit_allow_list: null,
             edit_block_list: '000', status: 'valid'
         });
@@ -140,7 +137,7 @@ describe('BET format 4 action detail rendering', function(){
         assert.equal(retained.block, 'detached');
         assert.equal(retained.status, 'valid');
 
-        const replaced = renderEdit({
+        const replaced = renderBet({
             bet_kind: 'edit', feed_ref: 41, edit_allow_list: 93,
             edit_block_list: null, status: 'invalid: SOURCE (not owner)'
         });
@@ -150,10 +147,16 @@ describe('BET format 4 action detail rendering', function(){
         assert.equal(replaced.status, 'invalid: SOURCE (not owner)');
     });
 
+    it('leaves the other BET shapes to the detail-card mount', function(){
+        for(const kind of ['feed', 'bet', 'cancel', 'resolve'])
+            assert.equal(renderBet({ bet_kind: kind, status: 'valid' }).panelHidden, true, kind);
+    });
+
     it('keeps the edit markup and layout registry in lockstep', function(){
         assert.match(panelHtml(), /<tbody[^>]*\bid="info-bet-edit"/);
         assert.match(CORE, /if\(o\.action=='BET_EDIT'\)\{\s*found = true;\s*showBetDetails\(o\);\s*\}/);
-        assert.match(BET_REVEAL, /showBetDetails = function\(data\)\{\s*detailBetShow\(data\);\s*if\(data\.bet_kind=='edit'\) \$\('#info-bet'\)\.removeClass\('d-none'\);\s*\}/);
+        assert.match(extractFn('showBetDetails'), /if\(kind == 'edit'\) \$\('#info-bet'\)\.removeClass\('d-none'\);/);
+        assert.doesNotMatch(ACTION_HTML, /showBetDetails\s*=/, 'the page never rebinds showBetDetails');
         const rows = LAYOUT.cards.bet.rows.slice(-4);
         assert.deepEqual(rows, [
             { label: 'Market', cell: 'bet-edit-feed-ref' },

@@ -318,6 +318,17 @@ describe('ChannelManager VALID_TYPES lifecycle conformance (api-contracts)', fun
             .subscribe(client, ['actions'], { types: SETTLEMENT_ANCHOR_ACTIONS });
         expect(result.success, JSON.stringify(result.error || null)).to.be.true;
     });
+
+    // The indexer renames a cancelled or edited parent's row to these names, so they
+    // reach the feed as NEW_ACTION and a client must be able to narrow to them.
+    it('subscribes to the actions channel narrowed to the cancel and edit names', function () {
+        const client = createClient(1);
+        const result = new ChannelManager({ maxSubscriptions: 25 }).subscribe(client, ['actions'], {
+            types: ['ORDER_CANCEL', 'ORDER_EDIT', 'SWAP_CANCEL', 'SWAP_EDIT',
+                'DISPENSER_CANCEL', 'DISPENSER_EDIT', 'BET_EDIT']
+        });
+        expect(result.success, JSON.stringify(result.error || null)).to.be.true;
+    });
 });
 
 // The published wire contract (xchain-documentation components/explorer/websocket.md) is

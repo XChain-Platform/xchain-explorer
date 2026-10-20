@@ -180,8 +180,12 @@ const ROUTES = [
     ['/{COIN}/api/xexecs', 'getXexecs', null, 'Cross-chain', 'XEXEC target-chain executions'],
     ['/{COIN}/api/xbridges/{QUERY}/{TYPE}', 'getXbridges', ['block', 'address', 'token'], 'Cross-chain', 'XBRIDGE user and settlement legs, filtered by block, address, or token'],
     ['/{COIN}/api/xbridges', 'getXbridges', null, 'Cross-chain', 'XBRIDGE user and settlement legs'],
-    ['/{COIN}/api/rollcalls/{QUERY}/{TYPE}', 'getRollcalls', ['block', 'address'], 'Staking', 'ROLLCALL publications, filtered by block or publisher address'],
-    ['/{COIN}/api/rollcalls', 'getRollcalls', null, 'Staking', 'ROLLCALL publications and close summaries'],
+    // ROLLCALL is split by chain: publications are written on DOGE, epoch closes on BTC,
+    // and each route answers 400 on the other chains instead of an empty page.
+    ['/{COIN}/api/rollcalls/{QUERY}/{TYPE}', 'getRollcalls', ['block', 'address'], 'Staking', 'DOGE-only ROLLCALL publications, filtered by block or publisher address'],
+    ['/{COIN}/api/rollcalls', 'getRollcalls', null, 'Staking', 'DOGE-only ROLLCALL publications (400 ROLLCALLS_DOGE_ONLY on other chains)'],
+    ['/{COIN}/api/rollcall_closes/{QUERY}/{TYPE}', 'getRollcallCloses', ['block'], 'Staking', 'BTC-only ROLLCALL epoch closes, filtered by close block'],
+    ['/{COIN}/api/rollcall_closes', 'getRollcallCloses', null, 'Staking', 'BTC-only ROLLCALL epoch closes with absence, eviction and gate-signer counts (400 ROLLCALL_CLOSES_BTC_ONLY on other chains)'],
     // ── Attestations ──────────────────────────────────────────────────────
     ['/{COIN}/api/attestations/{QUERY}/{TYPE}', 'getAttestations', ['block', 'address', 'contract'], 'Attestations', 'ATTEST requests/responses, filtered'],
     ['/{COIN}/api/attestations', 'getAttestations', null, 'Attestations', 'ATTEST v0 requests + v1 responses (incl. LLM attestations)'],

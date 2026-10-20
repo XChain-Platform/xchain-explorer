@@ -34,6 +34,8 @@ describe('offset_cursors', () => {
         assert.strictEqual(cursorField('getCollectibles'), 'm.id');
         assert.strictEqual(cursorField('getCheckpoints'), 'm.block_index');
         assert.strictEqual(cursorField('getCommitments'), 'm.block_index');
+        // rollcalls ORDERs BY its primary key, so its cursor is the epoch height.
+        assert.strictEqual(cursorField('getRollcallCloses'), 'm.epoch_height');
         // validator_rewards ORDERs BY m.id, so its explorer cursor is the id.
         assert.strictEqual(cursorField('getValidatorRewards'), 'm.id');
     });
@@ -63,7 +65,7 @@ describe('offset_cursors', () => {
         });
     });
 
-    it('CURSOR_BY_METHOD has 25 own keys', () => {
-        assert.strictEqual(Object.keys(CURSOR_BY_METHOD).length, 25);
+    it('CURSOR_BY_METHOD has 26 own keys', () => {
+        assert.strictEqual(Object.keys(CURSOR_BY_METHOD).length, 26);
     });
 });

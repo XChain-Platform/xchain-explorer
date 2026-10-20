@@ -34,6 +34,22 @@
 const { getLogger } = require('../../observability');
 const log = getLogger();
 
+// Dispenser-family actions that can change a dispenser snapshot. A cancel or edit is
+// stored under the name the indexer renames its DISPENSER row to (DISPENSER_CANCEL /
+// DISPENSER_EDIT, xchain-indexer actions/dispenser/settle.js), so this set tracks that file.
+const DISPENSER_REFRESH_ACTIONS = new Set([
+    'DISPENSE', 'DISPENSER', 'DISPENSER_CANCEL', 'DISPENSER_CLOSE', 'DISPENSER_EDIT', 'DISPENSER_EXPIRE'
+]);
+
+// Actions after which the indexer may rewrite the `markets` row MARKET_UPDATE reads: its order
+// scan (ORDER_CANCEL is a renamed ORDER row) plus every order or coinpay status writer
+// (xchain-indexer db/markets/market_pairs.js). ORDER_EDIT writes no status row, so it is absent.
+const MARKET_REFRESH_ACTIONS = new Set([
+    'ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE', 'ORDER_CANCEL',
+    'COINPAY', 'COINPAY_EXPIRE', 'SWEEP', 'CROSS_SETTLE',
+    'SWAP', 'SWAP_MATCH'
+]);
+
 class EntityUpdates {
 
     // Read an entity's enrichment info at most once per poll. `map` is one of the
@@ -73,16 +89,16 @@ class EntityUpdates {
         }
 
         // Same gate for dispensers: refresh only the ones with a subscriber, and only on
-        // the dispenser-family actions that can change one.
+        // the dispenser-family actions that can change one (DISPENSER_REFRESH_ACTIONS).
         const subscribedDispensers = this.channelManager.getSubscribedDispensers(coin);
-        if (subscribedDispensers.size > 0 && ['DISPENSE', 'DISPENSER', 'DISPENSER_CLOSE', 'DISPENSER_EXPIRE'].includes(action.action)) {
+        if (subscribedDispensers.size > 0 && DISPENSER_REFRESH_ACTIONS.has(action.action)) {
             await emitDispenserUpdates(this, coin, config, cache, subscribedDispensers);
         }
 
-        // Same gate for markets, keyed by the tick pair and limited to the order and swap
-        // actions that can move a book.
+        // Same gate for markets, keyed by the tick pair and limited to the actions after
+        // which the indexer may have refreshed a market's row (MARKET_REFRESH_ACTIONS).
         const subscribedMarkets = this.channelManager.getSubscribedMarkets(coin);
-        if (subscribedMarkets.length > 0 && ['ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE', 'SWAP', 'SWAP_MATCH'].includes(action.action)) {
+        if (subscribedMarkets.length > 0 && MARKET_REFRESH_ACTIONS.has(action.action)) {
             await emitMarketUpdates(this, coin, config, cache, subscribedMarkets);
         }
     }

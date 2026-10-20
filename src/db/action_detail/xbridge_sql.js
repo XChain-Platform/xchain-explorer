@@ -57,17 +57,22 @@ const XBRIDGE_RECORD = `SELECT
                 LIMIT 1`;
 
 // The hub-mirrored snapshots the settlement-anchor actions point at, read by the
-// snapshot id the settlement row carries. Member lists are left out of the card.
+// snapshot id the settlement row carries. The member lists stay out of the payload:
+// the cards show only their sizes, counted here (NULL for no list or invalid JSON).
 const POLICY_SNAPSHOTS_TABLE = 'policy_snapshots';
 
 const POLICY_SNAPSHOT = `SELECT snapshot_id, snapshot_block, origin_chain, tick, policy_seq, origin_block, policy_hash,
-                    sleeping, effective_time, network, finalizing_view, status
+                    sleeping, effective_time, network, finalizing_view, status,
+                    CASE WHEN JSON_VALID(allow_list) THEN JSON_LENGTH(allow_list) END AS allow_count,
+                    CASE WHEN JSON_VALID(block_list) THEN JSON_LENGTH(block_list) END AS block_count
              FROM policy_snapshots WHERE snapshot_id=? LIMIT 1`;
 
 const LIST_SNAPSHOTS_TABLE = 'list_snapshots';
 
 const LIST_SNAPSHOT = `SELECT snapshot_id, snapshot_block, network, home_chain, home_list_index, list_type, seq, kind,
-                    members_hash, name, description, origin_block, finalizing_view, status
+                    members_hash, name, description, origin_block, finalizing_view, status,
+                    CASE WHEN JSON_VALID(added) THEN JSON_LENGTH(added) END AS added_count,
+                    CASE WHEN JSON_VALID(removed) THEN JSON_LENGTH(removed) END AS removed_count
              FROM list_snapshots WHERE snapshot_id=? LIMIT 1`;
 
 module.exports = {

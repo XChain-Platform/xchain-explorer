@@ -84,6 +84,9 @@ const ANCHOR_BY_METHOD = {
     // action_index, keyed by m.id (the paging cursor is m.block_index, set separately
     // in getQueryOffsetSql, same shape as getCheckpoints)
     getCommitments:              `m.id IS NOT NULL`,
+    // rollcalls is the BTC-side ROLLCALL epoch-close verdict; no action_index, keyed
+    // by its primary key epoch_height (also its paging cursor, see offset_cursors.js)
+    getRollcallCloses:           `m.epoch_height IS NOT NULL`,
     // co-located hub capability/governance tables; no action_index, keyed by m.id
     getValidatorCapabilities:    `m.id IS NOT NULL`,
     getGovernanceProposals:      `m.id IS NOT NULL`,

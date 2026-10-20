@@ -121,7 +121,7 @@ const FAMILY_CLASSES = {
         'api/bet_expires', 'api/bet_feed', 'api/bet_resolves', 'api/block', 'api/checkpoint',
         'api/collectibles', 'api/contract', 'api/execution', 'api/network', 'api/oracle',
         'api/poll', 'api/project', 'api/pubkey', 'api/rich_list',
-        'api/rollcalls', 'api/shared_lists', 'api/staking', 'api/status', 'api/token',
+        'api/rollcall_closes', 'api/rollcalls', 'api/shared_lists', 'api/staking', 'api/status', 'api/token',
         'api/transaction', 'api/validator', 'api/xbridges', 'api/xcall', 'api/xexecs',
         'explorer/checkpoints'
     ],

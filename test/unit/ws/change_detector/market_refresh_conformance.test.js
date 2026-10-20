@@ -21,10 +21,10 @@
 const fs   = require('fs');
 const path = require('path');
 const { expect } = require('chai');
-const { mk } = require('./change_detector_methods.test/support/helpers.js');
-const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
+const { mk } = require('../change_detector_methods.test/support/helpers.js');
+const { siblingCheckout, skipOrFail } = require('../../../helpers/sibling_checkout.js');
 
-const INDEXER = siblingCheckout(__dirname, path.join('..', '..', '..', '..', 'xchain-indexer'));
+const INDEXER = siblingCheckout(__dirname, path.join('..', '..', '..', '..', '..', 'xchain-indexer'));
 
 // Each indexer file that writes an order status row, and the action name its rows
 // carry once settled (order/settle.js also writes the renamed ORDER_CANCEL row). A

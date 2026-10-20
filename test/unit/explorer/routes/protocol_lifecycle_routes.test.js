@@ -51,42 +51,48 @@ function queryConfig(method, type, search, coin){
     });
 }
 
-describe('protocol lifecycle list routes', function () {
+// Build a Database whose queries are composed but never sent.
+function lifecycleDb(){
     const configInfo = createConfigInfoStub();
     const db = new Database({ configInfo, util: new Utility(configInfo) });
     db.doQuery = async () => [];
+    return db;
+}
 
-    for(const endpoint of ENDPOINTS){
-        it(`registers bare and filtered /api/${endpoint.resource} routes`, function () {
-            expect(API[`/{COIN}/api/${endpoint.resource}`]).to.deep.equal([endpoint.method]);
-            expect(API[`/{COIN}/api/${endpoint.resource}/{QUERY}/{TYPE}`])
-                .to.deep.equal([endpoint.method, endpoint.filters]);
-            expect(db[endpoint.method]).to.be.a('function');
-        });
+// Capture the refusal: a DbInputError (answered 400), never an empty page
+async function refusal(db, method, coin){
+    try { await db.getQuery(queryConfig(method, null, null, coin)); }
+    catch(e){ return e; }
+    return null;
+}
 
-        it(`${endpoint.method} is parameterized, capped, and ordered by an indexed action key`, async function () {
-            const type = endpoint.filters[0];
-            const search = '987654321';
-            const [query, args, count] = await db.getQuery(queryConfig(endpoint.method, type, search, endpoint.coin));
+// Register the route and query-shape cases every lifecycle endpoint shares.
+function endpointCases(db, endpoint){
+    it(`registers bare and filtered /api/${endpoint.resource} routes`, function () {
+        expect(API[`/{COIN}/api/${endpoint.resource}`]).to.deep.equal([endpoint.method]);
+        expect(API[`/{COIN}/api/${endpoint.resource}/{QUERY}/{TYPE}`])
+            .to.deep.equal([endpoint.method, endpoint.filters]);
+        expect(db[endpoint.method]).to.be.a('function');
+    });
 
-            expect(query).to.include(`FROM ${endpoint.table}`);
-            expect(query).to.match(/WHERE[\s\S]*\?/);
-            expect(query).to.not.include(search);
-            expect(count).to.match(/WHERE[\s\S]*\?/);
-            expect(count).to.not.include(search);
-            expect(query).to.match(/ORDER BY m\.action_index DESC/);
-            expect(query).to.match(/LIMIT 100\s*$/);
-            if(args) expect(args).to.not.include(search);
-        });
-    }
+    it(`${endpoint.method} is parameterized, capped, and ordered by an indexed action key`, async function () {
+        const type = endpoint.filters[0];
+        const search = '987654321';
+        const [query, args, count] = await db.getQuery(queryConfig(endpoint.method, type, search, endpoint.coin));
 
-    // Capture the refusal: a DbInputError (answered 400), never an empty page
-    async function refusal(method, coin){
-        try { await db.getQuery(queryConfig(method, null, null, coin)); }
-        catch(e){ return e; }
-        return null;
-    }
+        expect(query).to.include(`FROM ${endpoint.table}`);
+        expect(query).to.match(/WHERE[\s\S]*\?/);
+        expect(query).to.not.include(search);
+        expect(count).to.match(/WHERE[\s\S]*\?/);
+        expect(count).to.not.include(search);
+        expect(query).to.match(/ORDER BY m\.action_index DESC/);
+        expect(query).to.match(/LIMIT 100\s*$/);
+        if(args) expect(args).to.not.include(search);
+    });
+}
 
+// Register the ROLLCALL publication and epoch-close cases.
+function rollcallCases(db){
     it('reads ROLLCALL publications from the DOGE-written table only', async function () {
         const [query, , count] = await db.getQuery(queryConfig('getRollcalls', 'block', '100', 'RDOGE'));
         expect(query).to.include('FROM rollcall_signers m');
@@ -98,7 +104,7 @@ describe('protocol lifecycle list routes', function () {
 
     it('refuses ROLLCALL publications on a non-DOGE chain with a 400 input error', async function () {
         for(const coin of ['BTC', 'TBTC', 'RBTC', 'LTC']){
-            const err = await refusal('getRollcalls', coin);
+            const err = await refusal(db, 'getRollcalls', coin);
             expect(err, coin).to.be.an('error');
             expect(err.name).to.equal('DbInputError');
             expect(err.code).to.equal('ROLLCALLS_DOGE_ONLY');
@@ -131,14 +137,17 @@ describe('protocol lifecycle list routes', function () {
 
     it('refuses ROLLCALL epoch closes on a non-BTC chain with a 400 input error', async function () {
         for(const coin of ['DOGE', 'TDOGE', 'RDOGE', 'LTC']){
-            const err = await refusal('getRollcallCloses', coin);
+            const err = await refusal(db, 'getRollcallCloses', coin);
             expect(err, coin).to.be.an('error');
             expect(err.name).to.equal('DbInputError');
             expect(err.code).to.equal('ROLLCALL_CLOSES_BTC_ONLY');
             expect(err.message).to.include('/api/rollcalls');
         }
     });
+}
 
+// Register the XBRIDGE join and filter cases and the BET_EXPIRE action restriction.
+function actionFilterCases(db){
     it('unifies user and settlement XBRIDGE legs without dropping transactionless rows', async function () {
         const [query] = await db.getQuery(queryConfig('getXbridges', 'block', '100'));
         expect(query).to.include('LEFT  JOIN xbridges');
@@ -161,4 +170,11 @@ describe('protocol lifecycle list routes', function () {
         expect(query).to.match(/a4\.action='BET_EXPIRE'/);
         expect(count).to.match(/a4\.action='BET_EXPIRE'/);
     });
+}
+
+describe('protocol lifecycle list routes', function () {
+    const db = lifecycleDb();
+    for(const endpoint of ENDPOINTS) endpointCases(db, endpoint);
+    rollcallCases(db);
+    actionFilterCases(db);
 });

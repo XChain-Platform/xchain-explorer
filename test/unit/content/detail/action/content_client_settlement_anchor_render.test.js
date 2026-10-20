@@ -46,12 +46,21 @@ function feedLabel(action){
     return dom.window.getActionDetails(action, {});
 }
 
+// Name a fully populated XPOLICY snapshot row with no block list.
+const XPOLICY_ROW = {
+    tick: 'PEPE', origin_chain: 'BTC', policy_seq: 3, snapshot_block: 900, origin_block: 880,
+    allow_count: 2, block_count: null, sleeping: 1, policy_hash: 'ab12'
+};
+
+// Name a LIST_SHARE delta row whose list name needs escaping.
+const LIST_SHARE_ROW = {
+    home_chain: 'DOGE', home_list_index: 7, seq: 2, kind: 'delta', snapshot_block: 910,
+    added_count: 1, removed_count: 0, name: '<b>n</b>', members_hash: 'cd34'
+};
+
 describe('settlement anchor panels', function(){
     it('renders an XPOLICY snapshot', function(){
-        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(bridgeSql.POLICY_SNAPSHOT, {
-            tick: 'PEPE', origin_chain: 'BTC', policy_seq: 3, snapshot_block: 900, origin_block: 880,
-            allow_count: 2, block_count: null, sleeping: 1, policy_hash: 'ab12'
-        })});
+        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(bridgeSql.POLICY_SNAPSHOT, XPOLICY_ROW) });
         expect(html).to.contain('data-anchor="xpolicy"');
         expect(html).to.contain('PEPE');
         expect(html).to.match(/xc-anchor-allow-list">2 addresses/);
@@ -69,10 +78,7 @@ describe('settlement anchor panels', function(){
     });
 
     it('renders a LIST_SHARE version and escapes the name', function(){
-        const html = panels.renderListShareAction({ list_snapshot: snapshotRow(bridgeSql.LIST_SNAPSHOT, {
-            home_chain: 'DOGE', home_list_index: 7, seq: 2, kind: 'delta', snapshot_block: 910,
-            added_count: 1, removed_count: 0, name: '<b>n</b>', members_hash: 'cd34'
-        })});
+        const html = panels.renderListShareAction({ list_snapshot: snapshotRow(bridgeSql.LIST_SNAPSHOT, LIST_SHARE_ROW) });
         expect(html).to.contain('data-anchor="list-share"');
         expect(html).to.contain('2 (delta)');
         expect(html).to.match(/xc-anchor-added">1</);

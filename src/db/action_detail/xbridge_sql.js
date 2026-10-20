@@ -56,24 +56,33 @@ const XBRIDGE_RECORD = `SELECT
                     x1.action_index=?
                 LIMIT 1`;
 
-// The hub-mirrored snapshots the settlement-anchor actions point at, read by the
-// snapshot id the settlement row carries. Member lists are left out of the card.
+// The hub-mirrored snapshots a settlement anchor points at, read by its snapshot id from
+// the table bridgeSnapshotSource names, scoped to its network. The cards show only the
+// member-list sizes, counted here (NULL for no list or invalid JSON), never the lists.
 const POLICY_SNAPSHOTS_TABLE = 'policy_snapshots';
 
-const POLICY_SNAPSHOT = `SELECT snapshot_id, snapshot_block, origin_chain, tick, policy_seq, origin_block, policy_hash,
-                    sleeping, effective_time, network, finalizing_view, status
-             FROM policy_snapshots WHERE snapshot_id=? LIMIT 1`;
+function policySnapshotSql(table){
+    return `SELECT snapshot_id, snapshot_block, origin_chain, tick, policy_seq, origin_block, policy_hash,
+                    sleeping, effective_time, network, finalizing_view, status,
+                    CASE WHEN JSON_VALID(allow_list) THEN JSON_LENGTH(allow_list) END AS allow_count,
+                    CASE WHEN JSON_VALID(block_list) THEN JSON_LENGTH(block_list) END AS block_count
+             FROM ${table} WHERE snapshot_id=? AND network=? LIMIT 1`;
+}
 
 const LIST_SNAPSHOTS_TABLE = 'list_snapshots';
 
-const LIST_SNAPSHOT = `SELECT snapshot_id, snapshot_block, network, home_chain, home_list_index, list_type, seq, kind,
-                    members_hash, name, description, origin_block, finalizing_view, status
-             FROM list_snapshots WHERE snapshot_id=? LIMIT 1`;
+function listSnapshotSql(table){
+    return `SELECT snapshot_id, snapshot_block, network, home_chain, home_list_index, list_type, seq, kind,
+                    members_hash, name, description, origin_block, finalizing_view, status,
+                    CASE WHEN JSON_VALID(added) THEN JSON_LENGTH(added) END AS added_count,
+                    CASE WHEN JSON_VALID(removed) THEN JSON_LENGTH(removed) END AS removed_count
+             FROM ${table} WHERE snapshot_id=? AND network=? LIMIT 1`;
+}
 
 module.exports = {
-    LIST_SNAPSHOT,
+    listSnapshotSql,
     LIST_SNAPSHOTS_TABLE,
-    POLICY_SNAPSHOT,
+    policySnapshotSql,
     POLICY_SNAPSHOTS_TABLE,
     BRIDGE_SETTLEMENTS_TABLE,
     XBRIDGE_SETTLEMENT,

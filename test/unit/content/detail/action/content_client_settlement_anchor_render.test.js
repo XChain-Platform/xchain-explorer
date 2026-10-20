@@ -21,6 +21,25 @@ const { JSDOM } = require('jsdom');
 
 const content = path.resolve(__dirname, '..', '..', '..', '../../src/content');
 const panels = require(path.join(content, 'js', 'xbridge_panels_render.js'));
+const bridgeSql = require(path.resolve(content, '..', 'db', 'action_detail', 'xbridge_sql.js'));
+const POLICY_SNAPSHOT = bridgeSql.policySnapshotSql(bridgeSql.POLICY_SNAPSHOTS_TABLE);
+const LIST_SNAPSHOT = bridgeSql.listSnapshotSql(bridgeSql.LIST_SNAPSHOTS_TABLE);
+
+// Name every field a snapshot query returns: its alias, or the bare column.
+function selectedFields(sql){
+    const list = sql.slice(sql.indexOf('SELECT') + 6, sql.lastIndexOf(' FROM '));
+    return list.split(/,(?![^(]*\))/).map((col) => {
+        const alias = col.match(/\bAS\s+([A-Za-z_]+)\s*$/i);
+        return alias ? alias[1] : col.trim();
+    });
+}
+
+// Build a fixture from the row the handler really returns, never a hand-made shape.
+function snapshotRow(sql, row){
+    const fields = selectedFields(sql);
+    for(const key of Object.keys(row)) expect(fields, 'the query selects ' + key).to.include(key);
+    return row;
+}
 
 function feedLabel(action){
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
@@ -29,32 +48,56 @@ function feedLabel(action){
     return dom.window.getActionDetails(action, {});
 }
 
+// Name a fully populated XPOLICY snapshot row with no block list.
+const XPOLICY_ROW = {
+    tick: 'PEPE', origin_chain: 'BTC', policy_seq: 3, snapshot_block: 900, origin_block: 880,
+    allow_count: 2, block_count: null, sleeping: 1, policy_hash: 'ab12'
+};
+
+// Name a LIST_SHARE delta row whose list name needs escaping.
+const LIST_SHARE_ROW = {
+    home_chain: 'DOGE', home_list_index: 7, seq: 2, kind: 'delta', snapshot_block: 910,
+    added_count: 1, removed_count: 0, name: '<b>n</b>', members_hash: 'cd34'
+};
+
 describe('settlement anchor panels', function(){
     it('renders an XPOLICY snapshot', function(){
-        const html = panels.renderXpolicyAction({ policy_snapshot: {
-            tick: 'PEPE', origin_chain: 'BTC', policy_seq: 3, snapshot_block: 900, origin_block: 880,
-            allow_list: '["a","b"]', block_list: null, sleeping: 1, policy_hash: 'ab12'
-        }});
+        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(POLICY_SNAPSHOT,XPOLICY_ROW) });
         expect(html).to.contain('data-anchor="xpolicy"');
         expect(html).to.contain('PEPE');
-        expect(html).to.contain('2 addresses');
+        expect(html).to.match(/xc-anchor-allow-list">2 addresses/);
         expect(html).to.match(/xc-anchor-sleeping">yes/);
         expect(html).to.match(/xc-anchor-block-list">none/);
     });
 
+    it('tells an empty XPOLICY list from no list', function(){
+        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(POLICY_SNAPSHOT,{
+            allow_count: 0, block_count: 5, sleeping: 0
+        })});
+        expect(html).to.match(/xc-anchor-allow-list">0 addresses/);
+        expect(html).to.match(/xc-anchor-block-list">5 addresses/);
+        expect(html).to.match(/xc-anchor-sleeping">no/);
+    });
+
     it('renders a LIST_SHARE version and escapes the name', function(){
-        const html = panels.renderListShareAction({ list_snapshot: {
-            home_chain: 'DOGE', home_list_index: 7, seq: 2, kind: 'delta', snapshot_block: 910,
-            added: '["x"]', removed: '[]', name: '<b>n</b>', members_hash: 'cd34'
-        }});
+        const html = panels.renderListShareAction({ list_snapshot: snapshotRow(LIST_SNAPSHOT,LIST_SHARE_ROW) });
         expect(html).to.contain('data-anchor="list-share"');
         expect(html).to.contain('2 (delta)');
+        expect(html).to.match(/xc-anchor-added">1</);
+        expect(html).to.match(/xc-anchor-removed">0</);
         expect(html).to.contain('&lt;b&gt;n&lt;/b&gt;');
         expect(html).to.not.contain('<b>n</b>');
     });
 
     it('shows dashes when the snapshot is not mirrored', function(){
-        expect(panels.renderXpolicyAction({})).to.match(/xc-anchor-token">-/);
+        const policy = panels.renderXpolicyAction({});
+        expect(policy).to.match(/xc-anchor-token">-/);
+        expect(policy).to.match(/xc-anchor-allow-list">-/);
+        expect(policy).to.match(/xc-anchor-block-list">-/);
+        expect(policy).to.match(/xc-anchor-sleeping">-/);
+        const list = panels.renderListShareAction({});
+        expect(list).to.match(/xc-anchor-added">-/);
+        expect(list).to.match(/xc-anchor-removed">-/);
     });
 
     it('labels XPOLICY and LIST_SHARE rows in compact action feeds', function(){

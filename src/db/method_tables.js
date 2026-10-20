@@ -194,6 +194,9 @@ const CURSOR_PAGED_METHODS = [
     // registering an /explorer feed later cannot silently page this method on
     // the wrong column, which is the failure the cursor list itself documents.
     'getCollectibles',
+    // getRollcallCloses reads BTC `rollcalls`, one row per epoch with no boundary
+    // table; /api-only today and armed like getCollectibles, on m.epoch_height.
+    'getRollcallCloses',
     // getActions reads every action, not one typed table, so it has no boundary
     // table; without this entry the inbound cursor is dropped and page 2 answers
     // no rows. The raw feed ORDERs BY m.action_index, the default.

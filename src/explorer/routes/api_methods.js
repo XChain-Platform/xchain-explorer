@@ -217,6 +217,9 @@ const AS_DECLARED_IN = {
                 '/{COIN}/api/bet_resolves'                   : ['getBetResolves'],
                 '/{COIN}/api/rollcalls/{QUERY}/{TYPE}'       : ['getRollcalls',   ['block', 'address']],
                 '/{COIN}/api/rollcalls'                      : ['getRollcalls'],
+                // BTC-side ROLLCALL epoch closes; /api/rollcalls above is the DOGE publications
+                '/{COIN}/api/rollcall_closes/{QUERY}/{TYPE}' : ['getRollcallCloses', ['block']],
+                '/{COIN}/api/rollcall_closes'                : ['getRollcallCloses'],
                 '/{COIN}/api/xexecs/{QUERY}/{TYPE}'           : ['getXexecs',      ['block']],
                 '/{COIN}/api/xexecs'                          : ['getXexecs'],
                 '/{COIN}/api/xbridges/{QUERY}/{TYPE}'         : ['getXbridges',    ['block', 'address', 'token']],

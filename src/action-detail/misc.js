@@ -139,6 +139,18 @@ const MESSAGE = {
     },
 };
 
+// Compare two strings in code-unit order, the order a bare Array sort gives strings
+function compareCodeUnits(a, b) {
+    const x = a == null ? '' : String(a), y = b == null ? '' : String(b);
+    return x < y ? -1 : (x > y ? 1 : 0);
+}
+
+// Compare two LIST edit rows by their item (tick or address), then by status
+function compareListEdits(a, b) {
+    return compareCodeUnits(a.tick != null ? a.tick : a.address, b.tick != null ? b.tick : b.address)
+        || compareCodeUnits(a.status, b.status);
+}
+
 const SLEEP = {
     queries() {
         let query  = null;
@@ -169,13 +181,15 @@ const LIST = {
         }
         data.list = list.sort();
     },
+    // Order the edits by item, then status, in the code-unit order `list` uses
+    // (LIST_QUERY3 has no ORDER BY, and a bare sort() leaves objects unordered).
     afterQuery3(ctx, data, results) {
         let edits = [];
         for(let row of results){
             if(data.type==1) edits.push({ tick: row.tick, status: row.status });
             if(data.type==2) edits.push({ address: row.address, status: row.status });
         }
-        data.edits = edits.sort();
+        data.edits = edits.sort(compareListEdits);
     },
     // `list` above is the membership THIS action wrote, which for a
     // create is its create-time snapshot and for an edit is that edit's

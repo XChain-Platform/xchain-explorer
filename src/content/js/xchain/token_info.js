@@ -355,7 +355,8 @@ function tokenInfo_getJsonUrl(info){
             // The URL is the first ';'-separated part, as on the server icon resolver.
             jsonUrl = String(desc).split(';')[0];
         } else {
-            jsonUrl = 'https://' + arr[0].replace('https://','').replace('http://','');
+            // Strip only a leading scheme, in any case, as the server icon resolver does
+            jsonUrl = 'https://' + arr[0].replace(/^https?:\/\//i, '');
         }
     }
     return jsonUrl;

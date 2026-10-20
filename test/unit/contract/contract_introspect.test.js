@@ -203,6 +203,20 @@ describe('contract-introspect ABI extraction', () => {
         expect(Object.keys(r.abi.methods)).to.deep.equal(['good']);
     });
 
+    it('drops a method entry whose summary or view is not a literal of its type', () => {
+        const r = extractMethods(`module.exports = {
+            abi: { version: 1, methods: {
+                good:     { summary: 'Read it', view: true, params: [] },
+                dynSum:   { summary: SUMMARY_CONST, params: [ { name: 'x', type: 'string' } ] },
+                yesView:  { view: 'yes' },
+                oneView:  { view: 1 }
+            } },
+            good: function(xchain){}, dynSum: function(xchain){}, yesView: function(xchain){}, oneView: function(xchain){}
+        };`);
+        expect(Object.keys(r.abi.methods)).to.deep.equal(['good']);
+        expect(r.methods).to.deep.equal(['dynSum', 'good', 'oneView', 'yesView']);
+    });
+
 });
 
 describe('contract-introspect ABI extraction', () => {

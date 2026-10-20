@@ -22,6 +22,7 @@
 
 const { tablesPresent, setTablesAbsent, isMissingTableError } = require('../../schema_probe.js');
 const { betListOverlay } = require('../../bet_list_overlay.js');
+const { blockPairRange } = require('../../shared.js');
 
 const betFeedInfoSql = (overlay) => `SELECT
                         a4.action,
@@ -85,6 +86,22 @@ class BetReaders {
         return null;
     }
 
+    async getValidBetEditFeedIndex(config, actionIndex) {
+        let query = `SELECT
+                        m.feed_action_index
+                    FROM
+                        bet_edits m
+                        INNER JOIN index_statuses s ON (s.id=m.status_id)
+                    WHERE
+                        m.action_index=? AND
+                        s.status='valid'
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [actionIndex]);
+        if (results && results.length && results[0].feed_action_index != null)
+            return results[0].feed_action_index;
+        return null;
+    }
+
     // Feeds whose `closed` deadline latch was stamped above `sinceBlock`, oldest
     // first. This is the ws layer's SECOND cursor and it exists because the latch is
     // the one BET transition with no action row: the end-of-block pass writes
@@ -93,9 +110,11 @@ class BetReaders {
     // betting closed. closed_block IS the durable record of that write, and
     // it is also what the reorg reset clears, so a rolled-back-then-re-latched feed
     // re-emits naturally.
-    // Ordered by closed_block ASC (then action_index) because the caller advances a
-    // block-height high-water mark and must be able to stop on a whole-block boundary.
-    async getBetFeedsClosedSince(config, sinceBlock, limit) {
+    // Ordered by closed_block ASC (then action_index, unique per feed), so the pair is a
+    // total order the caller resumes from. `bounds` is optional: afterActionIndex resumes
+    // inside block sinceBlock past that feed, upToBlock caps the read at that height.
+    async getBetFeedsClosedSince(config, sinceBlock, limit, bounds) {
+        const { where, params } = blockPairRange('m.closed_block', sinceBlock, bounds);
         let query = `SELECT
                         m.action_index,
                         m.closed_block,
@@ -112,10 +131,10 @@ class BetReaders {
                         LEFT  JOIN index_tickers   pt ON (pt.id=m.tick_id)
                         LEFT  JOIN index_statuses  fs ON (fs.id=m.feed_status_id)
                     WHERE
-                        m.closed_block > ?
+                        ${where}
                     ORDER BY m.closed_block ASC, m.action_index ASC
                     LIMIT ?`;
-        let results = await this.doQuery(config, query, [sinceBlock, limit]);
+        let results = await this.doQuery(config, query, [...params, limit]);
         return results || [];
     }
 

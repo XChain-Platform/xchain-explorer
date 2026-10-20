@@ -166,8 +166,12 @@ function freezeReplayCeilings(server, client, prevKeys) {
     for (const key of client.replayCeilings.keys()) {
         if (!client.subscriptions.has(key)) client.replayCeilings.delete(key);
     }
+    const midRow = typeof server.broadcaster.markJoinedMidRow === 'function';
     for (const key of client.subscriptions) {
-        if (!prevKeys.has(key)) client.replayCeilings.set(key, mark);
+        if (prevKeys.has(key)) continue;
+        client.replayCeilings.set(key, mark);
+        // A row in flight is at this ceiling, so its remaining lifecycle frames come from the replay.
+        if (midRow) server.broadcaster.markJoinedMidRow(client.coin, client.id, key);
     }
 }
 

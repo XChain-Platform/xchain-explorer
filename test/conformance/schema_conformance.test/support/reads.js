@@ -16,6 +16,7 @@
 'use strict';
 
 const { expect, makeConfig, PROBE_ARGS, isSchemaError } = require('../../schema_conformance.test.js');
+const { probeCoin } = require('./plan_capture.js');
 
 function registerRoutedReadPaths(runtime) {
     it('runs every routed db.getData read path without a schema error', async function () {
@@ -35,7 +36,7 @@ function registerRoutedReadPaths(runtime) {
         const tolerated      = [];
         let executed = 0;
         for (const method of methods) {
-            const cfg = makeConfig(Object.assign({ coin: 'RBTC' },
+            const cfg = makeConfig(Object.assign({ coin: probeCoin(method) },
                 { data: Object.assign({ method }, PROBE_ARGS[method] || {}) }));
             try {
                 await db.getData(cfg);

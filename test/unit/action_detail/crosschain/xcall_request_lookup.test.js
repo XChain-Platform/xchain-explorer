@@ -18,6 +18,7 @@ const assert = require('node:assert/strict');
 const path   = require('path');
 const { JSDOM } = require('jsdom');
 const { srcText } = require('../../../helpers/source_text');
+const { openIndexerTables } = require('../../../helpers/indexer_ddl_sqlite.js');
 const { XCALL } = require('../../../../src/action-detail/crosschain');
 
 let sqlite = null;
@@ -52,21 +53,14 @@ describe('XCALL result delivery request lookup', function() {
     it('links the newest valid request when a later invalid request reuses the call id', async function() {
         if(!sqlite) this.skip();
 
-        const sq = new sqlite.DatabaseSync(':memory:');
+        const sq = openIndexerTables(this, ['index_statuses', 'xcalls']);
+        if(!sq) return;
         sq.exec(`
-            CREATE TABLE index_statuses (id INTEGER PRIMARY KEY, status TEXT);
-            CREATE TABLE xcalls (
-                action_index INTEGER,
-                version INTEGER,
-                call_id TEXT,
-                callback_action_index INTEGER,
-                status_id INTEGER
-            );
-            INSERT INTO index_statuses VALUES (1, 'valid'), (2, 'invalid: reused call id');
-            INSERT INTO xcalls VALUES
-                (100, 0, 'shared-call', 501, 1),
-                (200, 0, 'shared-call', 502, 1),
-                (300, 0, 'shared-call', 999, 2);
+            INSERT INTO index_statuses (id, status) VALUES (1, 'valid'), (2, 'invalid: reused call id');
+            INSERT INTO xcalls (action_index, version, call_id, callback_action_index, block_index, status_id) VALUES
+                (100, 0, 'shared-call', 501, 600, 1),
+                (200, 0, 'shared-call', 502, 650, 1),
+                (300, 0, 'shared-call', 999, 690, 2);
         `);
 
         const db = {

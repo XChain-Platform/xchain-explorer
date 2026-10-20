@@ -298,6 +298,22 @@ const XBRIDGE = {
     },
 };
 
+// Read an anchor's signed snapshot from the co-located hub DB, never a replica's copy,
+// which sync never fills. Null when that DB is not configured or lacks the table.
+async function readHubSnapshot({ db, config }, snapshotTable, snapshotSql, snapshotId){
+    if(typeof db.bridgeSnapshotSource !== 'function') return null;
+    let src;
+    // The resolver refuses only a missing or unsafe hub DB entry, which is unknown here.
+    try { src = db.bridgeSnapshotSource(config, snapshotTable); } catch(e) { return null; }
+    try {
+        return await db.doQuery(config, snapshotSql(src.table), [snapshotId, src.network]);
+    } catch(e) {
+        // Same net as readBridgeTable: only a missing table degrades to unknown.
+        if(!isMissingTableError(e)) throw e;
+        return null;
+    }
+}
+
 function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
     return {
         queries() {
@@ -310,14 +326,14 @@ function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
             data['bridge_settlement'] = row;
             data['snapshot_id'] = row ? row.transfer_id : null;
             if(!row) return;
-            const snap = await readBridgeTable(ctx, snapshotTable, snapshotSql, [row.transfer_id]);
+            const snap = await readHubSnapshot(ctx, snapshotTable, snapshotSql, row.transfer_id);
             if(snap !== null) data[snapshotKey] = snap.length ? snap[0] : null;
         },
     };
 }
 
-const XPOLICY = settlementAnchor(bridgeSql.POLICY_SNAPSHOTS_TABLE, bridgeSql.POLICY_SNAPSHOT, 'policy_snapshot');
-const LIST_SHARE = settlementAnchor(bridgeSql.LIST_SNAPSHOTS_TABLE, bridgeSql.LIST_SNAPSHOT, 'list_snapshot');
+const XPOLICY = settlementAnchor(bridgeSql.POLICY_SNAPSHOTS_TABLE, bridgeSql.policySnapshotSql, 'policy_snapshot');
+const LIST_SHARE = settlementAnchor(bridgeSql.LIST_SNAPSHOTS_TABLE, bridgeSql.listSnapshotSql, 'list_snapshot');
 
 // AIRDROP, DESTROY and SEND show every leg in one table whatever format encoded it,
 // and each leg row carries the memo the later formats add. ISSUE switches on

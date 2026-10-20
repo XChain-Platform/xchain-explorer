@@ -21,8 +21,10 @@ const request    = require('supertest');
 
 const { applyCors } = require('../../../src/http/api_boot/cors.js');
 
+// The rate-limit headers plus the tip-freshness marker the SDK reads from every data response.
 const EXPOSED_RATE_LIMIT_HEADERS =
-    'Retry-After,RateLimit-Policy,RateLimit-Limit,RateLimit-Remaining,RateLimit-Reset';
+    'Retry-After,RateLimit-Policy,RateLimit-Limit,RateLimit-Remaining,RateLimit-Reset,'
+    + 'XChain-Freshness,XChain-Tip-Block,XChain-Tip-Age-S';
 
 function makeApp(){
     const app = express();

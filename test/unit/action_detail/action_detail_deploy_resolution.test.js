@@ -43,10 +43,13 @@
 'use strict';
 
 const assert     = require('node:assert/strict');
+const fs         = require('fs');
+const path       = require('path');
 const proxyquire = require('proxyquire');
 const Utility    = require('../../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
 const { DEPLOY } = require('../../../src/action-detail/contracts.js');
+const { openIndexerTables, toSqlite } = require('../../helpers/indexer_ddl_sqlite.js');
 
 const Database = proxyquire('../../../src/db/index.js', {
     './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
@@ -64,26 +67,22 @@ const MISMATCH  = 3;
 const PENDING_S  = 'pending: CODE_HASH (awaiting chunks)';
 const MISMATCH_S = 'invalid: CODE_HASH (mismatch)';
 
-// The columns the two DEPLOY queries actually touch, nothing else: this fixture
-// exists to answer the resolution, not to restate the indexer's schema.
-function seed() {
-    const db = new sqlite.DatabaseSync(':memory:');
+const TABLES = ['actions', 'transactions', 'blocks', 'index_actions', 'index_addresses',
+    'index_statuses', 'index_transactions', 'deploy_chunks', 'contract_executions'];
+const CONTRACTS_DDL = path.join(__dirname, '..', '..', '..', '..', 'xchain-indexer', 'src', 'sql', 'contracts.sql');
+
+function seed(ctx) {
+    const db = openIndexerTables(ctx, TABLES);
+    if(!db) return null;
+    const contracts = toSqlite(fs.readFileSync(CONTRACTS_DDL, 'utf8'))
+        .replace(/^CREATE FULLTEXT INDEX[^;]*;/gim, '');
+    db.exec(contracts);
     db.exec(`
-        CREATE TABLE actions            (action_index INTEGER, action_format INTEGER, action_id INTEGER, tx_index INTEGER, source_id INTEGER, block_index INTEGER);
-        CREATE TABLE transactions       (tx_index INTEGER, block_index INTEGER, source_id INTEGER, tx_hash_id INTEGER);
-        CREATE TABLE blocks             (block_index INTEGER, block_time INTEGER);
-        CREATE TABLE index_actions      (id INTEGER, action TEXT);
-        CREATE TABLE index_addresses    (id INTEGER, address TEXT);
-        CREATE TABLE index_statuses     (id INTEGER, status TEXT);
-        CREATE TABLE index_transactions (id INTEGER, hash TEXT);
-        CREATE TABLE deploy_chunks      (action_index INTEGER, source_id INTEGER, code_hash TEXT, chunk_index INTEGER, total_chunks INTEGER, status_id INTEGER);
-        CREATE TABLE contracts          (action_index INTEGER, source_id INTEGER, code_hash TEXT, api_version INTEGER, cooldown_blocks INTEGER, slash_destination_id INTEGER, status_id INTEGER, meta_name TEXT, meta_version TEXT);
-        CREATE TABLE contract_executions(action_index INTEGER, contract_index INTEGER, assembler_action_index INTEGER, status_id INTEGER);
-        INSERT INTO index_actions      VALUES (9, 'DEPLOY');
-        INSERT INTO index_addresses    VALUES (1, 'source-address'), (2, 'slash-address');
-        INSERT INTO index_statuses     VALUES (${VALID}, 'valid'), (${PENDING}, '${PENDING_S}'), (${MISMATCH}, '${MISMATCH_S}');
-        INSERT INTO index_transactions VALUES (1, 'tx-hash');
-        INSERT INTO blocks             VALUES (10, 1700000000);
+        INSERT INTO index_actions (id, action) VALUES (9, 'DEPLOY');
+        INSERT INTO index_addresses (id, address) VALUES (1, 'source-address'), (2, 'slash-address');
+        INSERT INTO index_statuses (id, status) VALUES (${VALID}, 'valid'), (${PENDING}, '${PENDING_S}'), (${MISMATCH}, '${MISMATCH_S}');
+        INSERT INTO index_transactions (id, hash) VALUES (1, 'tx-hash');
+        INSERT INTO blocks (block_index, block_time) VALUES (10, 1700000000);
     `);
     return db;
 }
@@ -91,8 +90,8 @@ function seed() {
 // One on-chain action: every DEPLOY query joins actions/transactions/blocks, so
 // a contracts or deploy_chunks row with no action behind it selects nothing.
 function addAction(db, index, format) {
-    db.prepare('INSERT INTO actions VALUES (?, ?, 9, ?, 1, 10)').run(index, format, index);
-    db.prepare('INSERT INTO transactions VALUES (?, 10, 1, 1)').run(index);
+    db.prepare('INSERT INTO actions (action_index, action_format, action_id, tx_index, source_id, block_index) VALUES (?, ?, 9, ?, 1, 10)').run(index, format, index);
+    db.prepare('INSERT INTO transactions (tx_index, block_index, source_id, tx_hash_id) VALUES (?, 10, 1, 1)').run(index);
 }
 
 // Columns are NAMED rather than positional: the contracts row grew the identity
@@ -102,8 +101,9 @@ function addContract(db, index, statusId, opts) {
     const o = opts || {};
     addAction(db, index, o.format === undefined ? 2 : o.format);
     db.prepare(`INSERT INTO contracts
-            (action_index, source_id, code_hash, api_version, cooldown_blocks, slash_destination_id, status_id, meta_name, meta_version)
-            VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?)`).run(
+            (action_index, source_id, code, code_hash, api_version, cooldown_blocks, slash_destination_id, status_id,
+             block_index, meta_name, meta_version)
+            VALUES (?, 1, '', ?, ?, ?, ?, ?, 10, ?, ?)`).run(
         index, 'code-hash', o.api_version === undefined ? 1 : o.api_version,
         o.cooldown_blocks === undefined ? null : o.cooldown_blocks,
         o.slash_destination_id === undefined ? null : o.slash_destination_id, statusId,
@@ -112,7 +112,9 @@ function addContract(db, index, statusId, opts) {
 }
 
 function addExecution(db, index, assemblerIndex, statusId) {
-    db.prepare('INSERT INTO contract_executions VALUES (?, ?, ?, ?)').run(index, index, assemblerIndex, statusId);
+    db.prepare(`INSERT INTO contract_executions
+        (action_index, contract_index, caller_id, gas_used, gas_limit, status_id, block_index, assembler_action_index)
+        VALUES (?, ?, 1, 0, 0, ?, 10, ?)`).run(index, index, statusId, assemblerIndex);
 }
 
 // The SHIPPED detail query for a format, taken from the handler rather than
@@ -174,7 +176,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         it('an assembler that deployed on its own answers with its own index', async function () {
             // R2.1 and every inline deploy: the group was already complete from
             // lower carriers (or needed no carriers), so the contract is here.
-            const db = seed();
+            const db = seed(this);
             addContract(db, 100, VALID);
             addExecution(db, 100, null, VALID);
             const row = await detailRow(db, 100);
@@ -183,7 +185,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         });
 
         it('a pending assembler with no consumer answers null, and says it is pending', async function () {
-            const db = seed();
+            const db = seed(this);
             addContract(db, 200, PENDING);
             addExecution(db, 200, null, PENDING);   // the assembler's own base-gas row
             addContract(db, 900, PENDING);          // a second, unrelated group
@@ -209,7 +211,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         it('a pending assembler consumed by a VALID carrier answers that carrier index', async function () {
             // The deferred case: the contract lives at C, the piece that completed
             // the group, and the assembler's own status still reads pending forever.
-            const db = seed();
+            const db = seed(this);
             addContract(db, 300, PENDING);
             addExecution(db, 300, null, PENDING);
             addContract(db, 305, VALID, { format: 4 });
@@ -224,7 +226,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
             // The reason assembly_status exists. The assembler is consumed and can
             // never deploy, but its own row will read `pending:` for good, so a
             // client with only deployed_contract_index would poll until timeout.
-            const db = seed();
+            const db = seed(this);
             addContract(db, 400, PENDING);
             addExecution(db, 400, null, PENDING);
             addExecution(db, 407, 400, MISMATCH);   // constructor row survives; contracts row does not
@@ -234,7 +236,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         });
 
         it('an ordinary invalid assembler reports its own status and no contract', async function () {
-            const db = seed();
+            const db = seed(this);
             addContract(db, 500, MISMATCH);
             const row = await detailRow(db, 500);
             assert.equal(row.deployed_contract_index, null);
@@ -257,7 +259,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         }
 
         it('a carrier that completed the group carries the contract and its deploy card', async function () {
-            const sq = seed();
+            const sq = seed(this);
             addContract(sq, 305, VALID, { format: 4, api_version: 2, cooldown_blocks: 144, slash_destination_id: 2 });
             addExecution(sq, 305, 300, VALID);
             const data = { action_format: 4, action_index: 305, chunk_index: 0, total_chunks: 3 };
@@ -273,7 +275,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         });
 
         it('an ordinary carrier that completed nothing answers null and adds no card fields', async function () {
-            const sq = seed();
+            const sq = seed(this);
             addAction(sq, 306, 4);
             const data = { action_format: 4, action_index: 306, chunk_index: 1, total_chunks: 3 };
             await DEPLOY.afterMain({ db: sqlDb(sq), config, action_index: 306 }, data);
@@ -312,7 +314,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         }
 
         it('a v0-v3 deploy answers the name and version off its own contracts row', async function () {
-            const db = seed();
+            const db = seed(this);
             addContract(db, 400, VALID, { meta_name: 'Escrow', meta_version: '2.0.0' });
             const row = await detailRow(db, 400);
             assert.equal(row.contract_meta_name, 'Escrow');
@@ -320,7 +322,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         });
 
         it('a pre-activation deploy answers null for both, not a missing key', async function () {
-            const db = seed();
+            const db = seed(this);
             addContract(db, 401, VALID);
             const row = await detailRow(db, 401);
             assert.equal(row.contract_meta_name, null);
@@ -329,7 +331,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         });
 
         it('a carrier that completed the group answers the assembled contract identity', async function () {
-            const sq = seed();
+            const sq = seed(this);
             addContract(sq, 405, VALID, { format: 4, meta_name: 'Escrow', meta_version: '2.0.0' });
             addExecution(sq, 405, 400, VALID);
             const data = { action_format: 4, action_index: 405 };
@@ -339,7 +341,7 @@ describe('chunked DEPLOY: which action deployed the contract', function () {
         });
 
         it('a carrier that completed nothing answers null for both', async function () {
-            const sq = seed();
+            const sq = seed(this);
             addAction(sq, 406, 4);
             const data = { action_format: 4, action_index: 406 };
             await DEPLOY.afterMain({ db: sqlDb(sq), config, action_index: 406 }, data);

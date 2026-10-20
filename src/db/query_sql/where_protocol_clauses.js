@@ -34,6 +34,12 @@ function rollcallsClause(db, config, sql){
     return sql;
 }
 
+// Filter epoch closes by the BTC block that closed them (rollcalls has no action_index)
+function rollcallClosesClause(db, config, sql){
+    if(config.data.type=='block') sql += ' AND m.close_block=?';
+    return sql;
+}
+
 function xexecsClause(db, config, sql){
     if(config.data.type=='block') sql += ' AND m.block_index=?';
     return sql;
@@ -49,6 +55,7 @@ function xbridgesClause(db, config, sql){
 
 const PROTOCOL_CLAUSE_BUILDERS = {
     getRollcalls:   rollcallsClause,
+    getRollcallCloses: rollcallClosesClause,
     getXexecs:      xexecsClause,
     getBetExpires:  protocolLifecycleClause,
     getBetCancels:  protocolLifecycleClause,

@@ -80,6 +80,13 @@ function rollcallManifestHash() {
     return manifestHashMemo;
 }
 
+// A JSON number or a decimal-digit string as a number, anything else NaN. Typed
+// before it is numbered, because parseInt reads '960junk' as 960 and '1.7e9' as 1.
+function integerParam(v) {
+    if (typeof v === 'number') return v;
+    return (typeof v === 'string' && /^\d+$/.test(v)) ? Number(v) : NaN;
+}
+
 // The caller's request checked in the indexer's order: DOGE only, this network,
 // numeric epoch and window, bounded hex key lists. `chain` is { COIN, NETWORK } for
 // the coin the request was routed to. Returns { error } on the first refusal.
@@ -91,11 +98,11 @@ function rollcallSignersRequest(chain, {network, epoch_height, max_block_time, p
     if (network !== undefined && String(network) !== String(chain['NETWORK']))
         return { error: 'network mismatch' };
 
-    let epoch = parseInt(epoch_height);
-    let maxT  = parseInt(max_block_time);
-    // The epoch must be a non-negative height and the window end a number
-    if (!Number.isFinite(epoch) || epoch < 0) return { error: 'invalid epoch_height' };
-    if (!Number.isFinite(maxT))               return { error: 'invalid max_block_time' };
+    let epoch = integerParam(epoch_height);
+    let maxT  = integerParam(max_block_time);
+    // The epoch is a height and the window end a block time: both non-negative integers
+    if (!Number.isSafeInteger(epoch) || epoch < 0) return { error: 'invalid epoch_height' };
+    if (!Number.isSafeInteger(maxT) || maxT < 0)   return { error: 'invalid max_block_time' };
 
     let keys = Array.isArray(pubkeys)    ? pubkeys    : [];
     let pubs = Array.isArray(publishers) ? publishers : [];

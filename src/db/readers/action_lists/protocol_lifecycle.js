@@ -18,6 +18,16 @@
 
 'use strict';
 
+const { DbInputError } = require('../../shared.js');
+
+// Report whether the request's route code (BTC, TDOGE, ...) is on the given base chain
+// The indexer writes ROLLCALL publications only on DOGE and epoch closes only on BTC,
+// so each list refuses the other chains (400) rather than answer an empty page.
+async function onChain(db, config, chain){
+    let resolved = await db.resolveCoinNetwork(config);
+    return Boolean(resolved) && resolved.coin === chain;
+}
+
 function betLegQuery(config, table, fields){
     let sql = config.data.sql;
     let from = `${table} m
@@ -55,7 +65,12 @@ function betLegQuery(config, table, fields){
 }
 
 class ProtocolLifecycleReaders {
+    // ROLLCALL publications, DOGE only: one row per action from rollcall_signers.
+    // The epoch-close verdict lives on BTC and is served by getRollcallCloses.
     async getRollcalls(config){
+        // Refuse a non-DOGE coin: rollcall_signers is empty there by construction
+        if(!(await onChain(this, config, 'DOGE')))
+            throw new DbInputError('rollcalls is DOGE-only; BTC epoch closes are at /{COIN}/api/rollcall_closes', 'ROLLCALLS_DOGE_ONLY');
         let sql = config.data.sql;
         let from = `rollcall_signers m
                     INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
@@ -63,8 +78,7 @@ class ProtocolLifecycleReaders {
                     LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
-                    LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
-                    LEFT  JOIN rollcalls          r  ON (r.epoch_height=m.epoch_height)`;
+                    LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)`;
         let count = `SELECT count(DISTINCT m.action_index) as total FROM ${from} WHERE ${sql.where.data}`;
         let query = `SELECT
                     MIN(a4.action) as action,
@@ -75,13 +89,6 @@ class ProtocolLifecycleReaders {
                     MIN(m.ledger_hash) as ledger_hash,
                     MIN(m.publisher) as publisher,
                     COUNT(*) as signer_count,
-                    MIN(r.snapshot_block) as snapshot_block,
-                    MIN(r.close_block) as close_block,
-                    MIN(r.rolled) as rolled,
-                    MIN(r.responsible_set_json) as responsible_set_json,
-                    (SELECT COUNT(*) FROM rollcall_absences ra WHERE ra.epoch_height=m.epoch_height) as absence_count,
-                    (SELECT COUNT(*) FROM rollcall_absences ra WHERE ra.epoch_height=m.epoch_height AND ra.evicted=1) as evicted_count,
-                    (SELECT COUNT(*) FROM rollcall_gates rg WHERE rg.epoch_height=m.epoch_height) as gate_signer_count,
                     MIN(m.block_index) as block_index,
                     MIN(b1.block_time) as timestamp,
                     MIN(t2.hash) as tx_hash,
@@ -90,6 +97,33 @@ class ProtocolLifecycleReaders {
                 WHERE ${sql.where.data}${sql.where.offset}
                 GROUP BY m.action_index, m.epoch_height
                 ORDER BY m.action_index ${sql.order}
+                LIMIT ${sql.limit}`;
+        return [query, null, count];
+    }
+
+    // ROLLCALL epoch closes, BTC only: one row per epoch from rollcalls, with its
+    // absence, eviction and gate-signer counts counted live from their own tables.
+    // Never selects responsible_set_json, which pins K-streak membership and stays internal.
+    async getRollcallCloses(config){
+        // Refuse a non-BTC coin: only the BTC indexer closes ROLLCALL epochs
+        if(!(await onChain(this, config, 'BTC')))
+            throw new DbInputError('rollcall_closes is BTC-only; DOGE ROLLCALL publications are at /{COIN}/api/rollcalls', 'ROLLCALL_CLOSES_BTC_ONLY');
+        let sql = config.data.sql;
+        let from = `rollcalls m
+                    LEFT  JOIN blocks             b1 ON (b1.block_index=m.close_block)`;
+        let count = `SELECT count(*) as total FROM rollcalls m WHERE ${sql.where.data}`;
+        let query = `SELECT
+                    m.epoch_height,
+                    m.snapshot_block,
+                    m.close_block,
+                    m.rolled,
+                    (SELECT COUNT(*) FROM rollcall_absences ra WHERE ra.epoch_height=m.epoch_height) as absence_count,
+                    (SELECT COUNT(*) FROM rollcall_absences ra WHERE ra.epoch_height=m.epoch_height AND ra.evicted=1) as evicted_count,
+                    (SELECT COUNT(*) FROM rollcall_gates rg WHERE rg.epoch_height=m.epoch_height) as gate_signer_count,
+                    b1.block_time as timestamp
+                FROM ${from}
+                WHERE ${sql.where.data}${sql.where.offset}
+                ORDER BY m.epoch_height ${sql.order}
                 LIMIT ${sql.limit}`;
         return [query, null, count];
     }

@@ -284,7 +284,7 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
     if(data && data.length>=1){
         // Loop through data and add to the datatables before initialization
         data.forEach(function(info, idx){
-            var cls = (info.status=='valid') ? 'bg-green' : 'bg-red';
+            var cls = (info.status=='valid') ? 'bg-green' : (info.status=='pending') ? '' : 'bg-red';
             if(['actions','batch'].includes(type)){
                 // The transaction actions table nests its summary under `.details`
                 // (getActionSummaryData) and a BATCH member carries the same projection

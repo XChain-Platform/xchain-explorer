@@ -32,6 +32,8 @@ function showBetDetails(data){
     $('#info-bet .bet-wager-fields').toggleClass('d-none', kind != 'bet');
     $('#info-bet .bet-action-fields').toggleClass('d-none', kind != 'cancel' && kind != 'resolve');
     $('#info-bet .bet-edit-fields').toggleClass('d-none', kind != 'edit');
+    // BET_EDIT mounts only the nested #info-bet-edit card, so reveal its outer panel here.
+    if(kind == 'edit') $('#info-bet').removeClass('d-none');
     // Only a resolve declares an outcome; a cancel shares the rows above and has none.
     $('#info-bet .bet-resolve-fields').toggleClass('d-none', kind != 'resolve');
 

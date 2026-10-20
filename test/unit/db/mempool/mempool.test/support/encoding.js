@@ -89,8 +89,9 @@ describe("decoder mempool surface", () => {
             // buildStoredActionRecord. What this pin protects is unchanged: the column
             // still receives the decoded string. Assert the binding here and the decode
             // in the helper that now owns it, rather than the old inline variable.
+            // Admit only an empty-string blank guard in front of the decoded value.
             expect(site, 'decoder mempool INSERT no longer stores the shared storage-gate record')
-                .to.match(/data:\s*stored\.data/);
+                .to.match(/data:\s*(?:\w+\s*\?\s*(['"])\1\s*:\s*)?stored\.data/);
             expect(site, 'decoder mempool payload no longer comes from the shared storage gate')
                 .to.include('buildStoredActionRecord(');
             const { gate } = readDecoderGate(decoderSrc);

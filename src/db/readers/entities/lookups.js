@@ -338,6 +338,28 @@ class EntityLookupReaders {
             return results[0].dispenser_action_index;
         return null;
     }
+
+    async getValidDispenserMutationIndex(config, actionType, actionIndex) {
+        const tables = {
+            DISPENSER_CANCEL: 'dispenser_cancels',
+            DISPENSER_EDIT:   'dispenser_edits'
+        };
+        const table = tables[actionType];
+        if (!table) return null;
+        let query = `SELECT
+                        m.dispenser_action_index
+                    FROM
+                        ${table} m
+                        INNER JOIN index_statuses s ON (s.id=m.status_id)
+                    WHERE
+                        m.action_index=? AND
+                        s.status='valid'
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [actionIndex]);
+        if (results && results.length && results[0].dispenser_action_index != null)
+            return results[0].dispenser_action_index;
+        return null;
+    }
 }
 
 module.exports = EntityLookupReaders.prototype;

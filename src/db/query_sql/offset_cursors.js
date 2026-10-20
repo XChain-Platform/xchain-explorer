@@ -46,7 +46,10 @@ const CURSOR_BY_METHOD = {
     // state_tree_roots (getCommitments) has the same shape: no action_index, one
     // row per height, and the list ORDERs BY m.block_index.
     getCheckpoints: 'm.block_index',
-    getCommitments: 'm.block_index'
+    getCommitments: 'm.block_index',
+    // rollcalls (getRollcallCloses) has no action_index either: one row per epoch,
+    // and the list ORDERs BY its primary key m.epoch_height.
+    getRollcallCloses: 'm.epoch_height'
 };
 
 // id-keyed list views: their main query ORDERs BY m.id (these tables have no

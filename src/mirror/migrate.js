@@ -21,13 +21,10 @@
  * key on insert (columns are intersected against SHOW COLUMNS) and reorg
  * row:deleted events could never match.
  *
- * Migrated today: price_snapshots (source_chain, source_action_index,
- * push_generation + idx_source_chain), capability_snapshots (the uq_cap_snap
- * widen), the item-5308 reorg fences on oracle_prices, cross_chain_matches
- * and cross_chain_calls, the attestation_responses utf8mb4 widen, the
- * oracle_prices.tick length widen, and the later hub columns: the admission
- * heights (admit_block, admit_block_<chain>), btc_chain_id, batch_block_time and
- * batch_action_index.
+ * The columns it adds are read from the twin CREATE TABLE files in
+ * src/sql/hub-mirror/, so a column added to a twin reaches a legacy mirror
+ * without a second list to edit. The index, charset, length and type
+ * reconciliations are declared in TABLE_REWRITES below.
  *
  * This module closes that gap: after ensureTables(), it probes each known
  * table with SHOW COLUMNS / SHOW FULL COLUMNS / SHOW INDEX and applies only
@@ -61,8 +58,96 @@
 const { getLogger } = require('../observability');
 const logger = getLogger();
 
-// Per-table additive migrations, kept in their own module (see mirror_migrations.js).
-const { MIRROR_MIGRATIONS } = require('./mirror_migrations');
+const fs = require('fs');
+const path = require('path');
+const { parseDeclaredColumns } = require('../hub/hub_db_sync/ensure_tables.js');
+
+// The twin CREATE TABLE files are the one statement of what each mirror table holds.
+const TWIN_DIR = path.join(__dirname, '..', 'sql', 'hub-mirror');
+
+// Columns whose value the hub stamps on insert: rows stored before the ALTER keep NULL (or
+// 0) in them until the table is rebuilt from the hub (most mirror writes are INSERT IGNORE),
+// and the log line names them.
+const RESTAMPED_COLUMN = /^(?:admit_block(?:_[a-z]+)?|batch_block_time|batch_action_index)$/;
+
+// The non-additive reconciliations, per table: indexes by name, uq_* widens, charset and
+// length widens, and the TIMESTAMP to DATETIME retype. A column list cannot be read off a
+// twin file for these, so they stay declared here. Every one only adds or widens.
+const DATETIME_RETYPE = { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP' };
+const DATETIME_NOT_NULL_RETYPE = { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' };
+const TABLE_REWRITES = {
+    price_snapshots: {
+        indexes: [{ name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }],
+        retypeColumns: [DATETIME_RETYPE]
+    },
+    // tick widens to the 250 PRICE v1 admits. The hub keeps its own column narrow until
+    // the operator attests every mirror has widened, so this runs first; a strict mirror
+    // left at VARCHAR(50) would refuse a longer tick and wedge on every re-page.
+    oracle_prices: {
+        widenLengths: [{ name: 'tick', length: 250, ddl: 'MODIFY `tick` VARCHAR(250) NOT NULL' }],
+        retypeColumns: [DATETIME_RETYPE]
+    },
+    cross_chain_matches: { retypeColumns: [DATETIME_RETYPE] },
+    cross_chain_calls: { retypeColumns: [DATETIME_NOT_NULL_RETYPE] },
+    bridge_transfers: { retypeColumns: [DATETIME_RETYPE] },
+    policy_snapshots: { retypeColumns: [DATETIME_RETYPE] },
+    // uq_cap_snap gained `source` (a key delegated by two sources now keeps both
+    // (source, pubkey) rows). Adding an index by name cannot widen an existing same-named
+    // one, so if the live uq_cap_snap does not already cover `source` it is dropped and
+    // re-added with the 4-column key. Widening an enforced UNIQUE key only relaxes it, so
+    // no row dedup is needed.
+    capability_snapshots: {
+        widenIndexes: [{ name: 'uq_cap_snap', requiredColumn: 'source',
+            addDdl: 'ADD UNIQUE KEY uq_cap_snap (snapshot_block, capability, signing_pubkey, source)' }],
+        retypeColumns: [DATETIME_RETYPE]
+    },
+    state_checkpoints: { retypeColumns: [DATETIME_NOT_NULL_RETYPE] },
+    anchor_reward_attestations: { retypeColumns: [DATETIME_NOT_NULL_RETYPE] },
+    // response_payload and meta hold the PROVIDER bytes of a finalized ATTEST response; a
+    // mirror still on the utf8mb3 tail refuses a body with one 4-byte character (errno 1366
+    // under STRICT_TRANS_TABLES) and, because the table re-pages from cursor 0, re-refuses
+    // it on every drain. ensureTables gives a FRESH mirror the charset from the twin file;
+    // widenColumns reaches one that already exists. uq_attest_response gained
+    // effective_time: one request can finalize under two leader slots and yield two honestly
+    // signed rows that differ only in the stamp, and the indexer binds the smaller one.
+    attestation_responses: {
+        widenIndexes: [{ name: 'uq_attest_response', requiredColumn: 'effective_time',
+            addDdl: 'ADD UNIQUE KEY uq_attest_response (network, request_id, effective_time)' }],
+        widenColumns: [
+            { name: 'response_payload', charset: 'utf8mb4',
+              ddl: 'MODIFY `response_payload` MEDIUMTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' },
+            { name: 'meta', charset: 'utf8mb4',
+              ddl: 'MODIFY `meta` TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci' }
+        ]
+    },
+};
+
+// The columns a legacy table may be missing, read from its twin file the way
+// ensureTables' reconcileDeclaredColumns reads them. A NOT NULL column with no DEFAULT is
+// left out: it cannot be added to a table that already holds rows (the key and the
+// identity columns are all of this kind, and a legacy table always has them). No AFTER
+// anchors: order is cosmetic here, and an anchor absent from an old schema would fail the
+// whole single ALTER.
+function declaredAdditiveColumns(table) {
+    const sql = fs.readFileSync(path.join(TWIN_DIR, table + '.sql'), 'utf8');
+    const declared = parseDeclaredColumns(sql) || [];
+    return declared
+        .filter((col) => !(col.notNull && !col.hasDefault))
+        .map((col) => {
+            const entry = { name: col.name, ddl: 'ADD COLUMN ' + col.definition.replace(/\s+/g, ' ') };
+            if (RESTAMPED_COLUMN.test(col.name)) entry.restamp = true;
+            return entry;
+        });
+}
+
+// Per-table migration spec: the additive columns come from the twin files, so a migrated
+// legacy table converges on the same shape a fresh ensureTables() build gets.
+const MIRROR_MIGRATIONS = {};
+for (const file of fs.readdirSync(TWIN_DIR).filter((f) => f.endsWith('.sql')).sort()) {
+    const table = file.slice(0, -'.sql'.length);
+    MIRROR_MIGRATIONS[table] = Object.assign(
+        { columns: declaredAdditiveColumns(table), indexes: [] }, TABLE_REWRITES[table]);
+}
 
 // Reconcile one mirror schema against MIRROR_MIGRATIONS. dbConn is any
 // object exposing doQuery(sql, args) bound to the mirror schema (the same

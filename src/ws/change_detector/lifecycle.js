@@ -50,47 +50,9 @@ class LifecycleEvents {
 
         for (const eventType of eventTypes) {
             const lifecycleEvent = baseLifecycleEvent(eventType, actionType, action);
-
-            // Enrich ORDER_MATCH with settlement info and COINPAY_REQUIRED
-            if (actionType === 'ORDER_MATCH') {
-                await enrichOrderMatch(this, coin, config, action, lifecycleEvent);
-            }
-
-            // Enrich DISPENSE with its parent dispenser's action_index: the base
-            // payload's action_index is the dispense itself, but SDK consumers
-            // correlate on data.dispenser_action_index (xchain-sdk XChainSDK
-            // DISPENSE handler). Mirrors the ORDER_MATCH enrichment above.
-            if (actionType === 'DISPENSE') {
-                try {
-                    lifecycleEvent.data.dispenser_action_index =
-                        await this.db.getDispenseDispenserIndex(config, action.action_index);
-                } catch (e) {
-                    // Non-fatal: emit the base event with a null parent index
-                    lifecycleEvent.data.dispenser_action_index = null;
-                }
-            }
-
-            // Route dispenser lifecycle events (DISPENSE / DISPENSER_CLOSED /
-            // DISPENSER_EXPIRED) to the dedicated `dispenser` entity channel that
-            // the SDK's onDispenser() subscribes to, keyed on the parent
-            // dispenser's action_index. Without this they only reached the
-            // `actions`/`address` channels, so the SDK's typed dispenser handlers
-            // were dead (mirrors the `attestation` channel pattern below).
-            if (actionType === 'DISPENSE' || actionType === 'DISPENSER_CLOSE' || actionType === 'DISPENSER_EXPIRE') {
-                if (actionType === 'DISPENSER_CLOSE' || actionType === 'DISPENSER_EXPIRE') {
-                    await enrichDispenserEnd(this, config, actionType, action, lifecycleEvent);
-                }
-                lifecycleEvent.channel = 'dispenser';
-            }
-
-            // Route BET-family events to the `bet_feed` entity channel, keyed on the
-            // PARENT market rather than the action itself, so a market page subscribed
-            // to one feed sees every bet placed on it plus its latch/resolve/cancel/
-            // expire transitions (§11.1). Same shape as the dispenser routing above.
-            if (actionType === 'BET' || actionType === 'BET_EXPIRE') {
-                await routeBetEvent(this, config, action, lifecycleEvent);
-            }
-
+            const routed = await enrichAndRouteLifecycleEvent(
+                this, coin, config, actionType, action, lifecycleEvent);
+            if (!routed) continue;
             this.emit('lifecycle_event', coin, lifecycleEvent);
         }
     }
@@ -182,6 +144,46 @@ function baseLifecycleEvent(eventType, actionType, action) {
     };
 }
 
+async function enrichAndRouteLifecycleEvent(
+    detector, coin, config, actionType, action, lifecycleEvent
+) {
+    if (actionType === 'ORDER_MATCH') {
+        await enrichOrderMatch(detector, coin, config, action, lifecycleEvent);
+    }
+
+    await routeDispenserEvent(detector, config, actionType, action, lifecycleEvent);
+    if (actionType === 'DISPENSER_CANCEL' || actionType === 'DISPENSER_EDIT') {
+        return routeValidDispenserMutation(
+            detector, config, actionType, action, lifecycleEvent);
+    }
+
+    if (actionType === 'BET' || actionType === 'BET_EXPIRE') {
+        await routeBetEvent(detector, config, action, lifecycleEvent);
+    }
+    if (actionType === 'BET_EDIT') {
+        return routeValidBetEdit(detector, config, action, lifecycleEvent);
+    }
+    return true;
+}
+
+async function routeDispenserEvent(detector, config, actionType, action, lifecycleEvent) {
+    if (actionType === 'DISPENSE') {
+        try {
+            lifecycleEvent.data.dispenser_action_index =
+                await detector.db.getDispenseDispenserIndex(config, action.action_index);
+        } catch (e) {
+            lifecycleEvent.data.dispenser_action_index = null;
+        }
+    }
+
+    if (actionType !== 'DISPENSE' &&
+        actionType !== 'DISPENSER_CLOSE' && actionType !== 'DISPENSER_EXPIRE') return;
+    if (actionType === 'DISPENSER_CLOSE' || actionType === 'DISPENSER_EXPIRE') {
+        await enrichDispenserEnd(detector, config, actionType, action, lifecycleEvent);
+    }
+    lifecycleEvent.channel = 'dispenser';
+}
+
 // The ORDER_MATCH family: the settlement type onto the event, and a coinpay
 // settlement's COINPAY_REQUIRED emitted ahead of the match event itself.
 async function enrichOrderMatch(detector, coin, config, action, lifecycleEvent) {
@@ -228,6 +230,19 @@ async function enrichDispenserEnd(detector, config, actionType, action, lifecycl
     }
 }
 
+async function routeValidDispenserMutation(detector, config, actionType, action, lifecycleEvent) {
+    try {
+        const dispenserIndex = await detector.db.getValidDispenserMutationIndex(
+            config, actionType, action.action_index);
+        if (dispenserIndex === null || dispenserIndex === undefined) return false;
+        lifecycleEvent.data.dispenser_action_index = dispenserIndex;
+        lifecycleEvent.channel = 'dispenser';
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 // The BET family: the parent feed's action_index, the format discriminator, and
 // the `bet_feed` channel.
 async function routeBetEvent(detector, config, action, lifecycleEvent) {
@@ -248,6 +263,22 @@ async function routeBetEvent(detector, config, action, lifecycleEvent) {
             ? null
             : Number(action.action_format);
     lifecycleEvent.channel = 'bet_feed';
+}
+
+async function routeValidBetEdit(detector, config, action, lifecycleEvent) {
+    try {
+        const feedIndex = await detector.db.getValidBetEditFeedIndex(config, action.action_index);
+        if (feedIndex === null || feedIndex === undefined) return false;
+        lifecycleEvent.data.feed_action_index = feedIndex;
+        lifecycleEvent.data.action_format =
+            (action.action_format === undefined || action.action_format === null)
+                ? null
+                : Number(action.action_format);
+        lifecycleEvent.channel = 'bet_feed';
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 module.exports = LifecycleEvents.prototype;

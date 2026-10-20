@@ -53,9 +53,21 @@ function listProbes(apiUrls, db) {
     return probes;
 }
 
+// Route codes for readers bound to one chain, which refuse every other with a 400.
+// RDOGE points at the same real-DDL schemas as RBTC (runtime.js), so these readers
+// still execute their SQL here instead of turning into tolerated refusals.
+const PROBE_COINS = {
+    getRollcalls: 'RDOGE'
+};
+
+/** The route code one read path is probed on: its own chain when bound, else RBTC. */
+function probeCoin(method) {
+    return Object.prototype.hasOwnProperty.call(PROBE_COINS, method) ? PROBE_COINS[method] : 'RBTC';
+}
+
 function probeConfig(probe) {
     const typed = probe.filter !== 'all';
-    return makeConfig({ coin: 'RBTC', type: 'api', data: {
+    return makeConfig({ coin: probeCoin(probe.method), type: 'api', data: {
         method: probe.method,
         search: typed ? PROBE_SEARCH : null,
         type:   typed ? probe.filter : null,
@@ -116,4 +128,4 @@ function clearResultCaches(db) {
     for (const method in RESULT_CACHES) db[RESULT_CACHES[method][0]] = new Map();
 }
 
-module.exports = { PROBE_SEARCH, PROBE_LIMIT, listProbes, probeConfig, statementKind, captureProbe, clearResultCaches };
+module.exports = { PROBE_SEARCH, PROBE_LIMIT, PROBE_COINS, probeCoin, listProbes, probeConfig, statementKind, captureProbe, clearResultCaches };

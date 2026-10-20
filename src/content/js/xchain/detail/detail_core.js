@@ -16,6 +16,35 @@
  * Custom javascript for xchain explorer
  */
 
+// A pending transaction's actions carry only their names, so a BROADCAST has no
+// summary to read its message from. The wire string is on the transaction, laid
+// out per version as VERSION|MESSAGE|VALUE, VERSION|MESSAGE|VALUE|FEE|MEMO,
+// VERSION|MESSAGE|FEE|MEMO or VERSION|BROADCAST_ACTION_INDEX|VALUE|MEMO; build the
+// same summary keys an indexed BROADCAST row carries so the Details cell reads it.
+function pendingBroadcastSummary(txData){
+    let seg = String(txData || '').split('|');
+    let format = Number(seg[1]);
+    if(seg[0].trim().toUpperCase() !== 'BROADCAST' || !(format >= 0 && format <= 3))
+        return null;
+    if(format === 0) return { action_format: 0, message: seg[2], value: seg[3] };
+    if(format === 1) return { action_format: 1, message: seg[2], value: seg[3], broadcast_fee: seg[4], memo: seg[5] };
+    if(format === 2) return { action_format: 2, message: seg[2], broadcast_fee: seg[3], memo: seg[4] };
+    return { action_format: 3, broadcast_action_index: seg[2], value: seg[3], memo: seg[4] };
+}
+
+// The transaction page's actions. A pending action has no status yet, so it reads
+// 'pending', and a pending BROADCAST gets its summary.
+function pendingTransactionActions(tx){
+    let actions = (tx && tx.actions) || [];
+    if(!tx || !tx.pending) return actions;
+    return actions.map(function(a){
+        let pending = Object.assign({}, a, { status: 'pending' });
+        let summary = (a.action === 'BROADCAST') ? pendingBroadcastSummary(tx.tx_data) : null;
+        if(summary) pending.summary = summary;
+        return pending;
+    });
+}
+
 // Handle displaying transaction details
 function showTransactionDetails(){
     // Setup short alias to action info object
@@ -69,7 +98,7 @@ function showTransactionDetails(){
        $('#tx-hash').text(noSourceTx ? NOT_APPLICABLE : '-');
     }
     // Load the actions table data
-    showActionDatatable('actions',o.actions);
+    showActionDatatable('actions',pendingTransactionActions(o));
 }
 
 // Handle displaying action details

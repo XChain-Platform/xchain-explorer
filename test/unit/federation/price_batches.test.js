@@ -37,6 +37,12 @@ describe('price batch parameter validation', function () {
         assert.deepStrictEqual(validatePriceBatchParams({ first_round: 7, last_round: 3 }), {
             ok: false, error: 'first_round must not exceed last_round'
         });
+        // Number() would read each of these as a round
+        for (const round of [null, true, false, '', ' ', [], [1], '0x10', '1e3', '-1']) {
+            assert.deepStrictEqual(validatePriceBatchParams({ first_round: round, last_round: 9 }), {
+                ok: false, error: 'first_round must be a non-negative integer'
+            }, JSON.stringify(round));
+        }
     });
 
     it('normalizes string rounds and default limits', function () {
@@ -51,7 +57,7 @@ describe('price batch parameter validation', function () {
             ok: true, first_round: 1, last_round: 9, limit: PRICE_BATCHES_MAX_LIMIT
         });
         assert.strictEqual(PRICE_BATCHES_MAX_LIMIT, 1000);
-        for (const limit of [0, 1.5]) {
+        for (const limit of [0, 1.5, true, [5], '', '0x10']) {
             assert.deepStrictEqual(validatePriceBatchParams({ first_round: 1, last_round: 9, limit }), {
                 ok: false, error: 'limit must be a positive integer'
             });

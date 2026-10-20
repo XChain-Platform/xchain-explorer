@@ -174,6 +174,71 @@ describe('ChangeDetector', function () {
             await det.emitEntityUpdates('BTC', {}, { action: 'ORDER_MATCH', action_index: 9 });
             expect(evs[0].type).to.equal('MARKET_UPDATE');
         });
+
+        // Listed literally, not read from the source: the indexer renames a dispenser
+        // cancel or edit row to DISPENSER_CANCEL / DISPENSER_EDIT, and dropping either
+        // name from the gate must fail here.
+        for (const action of ['DISPENSE', 'DISPENSER', 'DISPENSER_CANCEL', 'DISPENSER_CLOSE', 'DISPENSER_EDIT', 'DISPENSER_EXPIRE']) {
+            it(`emits DISPENSER_UPDATE for a subscribed dispenser on ${action}`, async function () {
+                let det = mk();
+                det.channelManager.getSubscribedDispensers.returns(new Set([7]));
+                det.db.getDispenserInfo.resolves({ action_index: 7, status: 'cancelling' });
+                let evs = [];
+                det.on('entity_update', (c, e) => evs.push(e));
+                await det.emitEntityUpdates('BTC', {}, { action, action_index: 8 });
+                expect(evs.map((e) => e.type)).to.deep.equal(['DISPENSER_UPDATE']);
+            });
+        }
+
+        it('emits no DISPENSER_UPDATE for a non-dispenser action', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedDispensers.returns(new Set([7]));
+            det.db.getDispenserInfo.resolves({ action_index: 7 });
+            let evs = [];
+            det.on('entity_update', (c, e) => evs.push(e));
+            await det.emitEntityUpdates('BTC', {}, { action: 'SEND', action_index: 8 });
+            expect(evs).to.deep.equal([]);
+            expect(det.db.getDispenserInfo.called).to.equal(false);
+        });
+
+        // Every action after which the indexer may rewrite a `markets` row: its order
+        // scan (ORDER_CANCEL is a renamed ORDER row) and every order or coinpay status writer.
+        for (const action of ['ORDER', 'ORDER_MATCH', 'ORDER_EXPIRE', 'ORDER_CANCEL', 'COINPAY', 'COINPAY_EXPIRE', 'SWEEP', 'CROSS_SETTLE', 'SWAP', 'SWAP_MATCH']) {
+            it(`emits MARKET_UPDATE for a subscribed market on ${action}`, async function () {
+                let det = mk();
+                det.channelManager.getSubscribedMarkets.returns([{ tick1: 'A', tick2: 'B' }]);
+                det.db.getMarketInfo.resolves({ bid: '1', ask: '2' });
+                let evs = [];
+                det.on('entity_update', (c, e) => evs.push(e));
+                await det.emitEntityUpdates('BTC', {}, { action, action_index: 9 });
+                expect(evs.map((e) => e.type)).to.deep.equal(['MARKET_UPDATE']);
+            });
+        }
+
+        // ORDER_EDIT writes no order status row and is outside the indexer's market scan,
+        // so the markets row cannot change on it.
+        for (const action of ['ORDER_EDIT', 'SEND', 'DISPENSE']) {
+            it(`emits no MARKET_UPDATE on ${action}`, async function () {
+                let det = mk();
+                det.channelManager.getSubscribedMarkets.returns([{ tick1: 'A', tick2: 'B' }]);
+                det.db.getMarketInfo.resolves({ bid: '1', ask: '2' });
+                let evs = [];
+                det.on('entity_update', (c, e) => evs.push(e));
+                await det.emitEntityUpdates('BTC', {}, { action, action_index: 9 });
+                expect(evs.filter((e) => e.type === 'MARKET_UPDATE')).to.deep.equal([]);
+                expect(det.db.getMarketInfo.called).to.equal(false);
+            });
+        }
+
+        it('reads a subscribed market once per poll across two trigger actions', async function () {
+            let det = mk();
+            det.channelManager.getSubscribedMarkets.returns([{ tick1: 'A', tick2: 'B' }]);
+            det.db.getMarketInfo.resolves({ bid: '1', ask: '2' });
+            const cache = { market: new Map() };
+            await det.emitEntityUpdates('BTC', {}, { action: 'ORDER_CANCEL', action_index: 9 }, cache);
+            await det.emitEntityUpdates('BTC', {}, { action: 'SWEEP', action_index: 10 }, cache);
+            expect(det.db.getMarketInfo.callCount).to.equal(1);
+        });
     });
 });
 

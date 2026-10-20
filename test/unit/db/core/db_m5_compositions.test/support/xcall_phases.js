@@ -64,6 +64,17 @@ describe('M5.4 XCALL phase reads (spec row 35)', function () {
         expect(db.doQuery.firstCall.args[2]).to.deep.equal([900, 50]);
     });
 
+    it('resumes inside a block and caps the read when the cursor passes bounds', async function () {
+        // A block larger than one fetch resumes past its last sent row, and the read
+        // stops at the block the action cursor has fully sent.
+        const db = stubQueries(makeDb(), []);
+        await db.getXcallPhasesSince({ coin: 'BTC' }, 900, 50, { afterActionIndex: 4100, upToBlock: 905 });
+        const q = flat(db.doQuery.firstCall.args[1]);
+        expect(q).to.include('m.resolved_block >= ? AND (m.resolved_block > ? OR m.action_index > ?)');
+        expect(q).to.include('m.resolved_block <= ?');
+        expect(db.doQuery.firstCall.args[2]).to.deep.equal([900, 900, 4100, 905, 50]);
+    });
+
     it('carries BOTH terminal statuses, so expiries are not silently dropped', async function () {
         // A cursor that emits completions but not expiries makes a live timeline
         // that stalls forever on every call that timed out.

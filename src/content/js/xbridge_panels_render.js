@@ -338,13 +338,12 @@ function anchorRowBuilder(){
     };
 }
 
-function anchorCount(v){
-    if(v === null || v === undefined || v === '') return null;
-    var a = v;
-    if(typeof v === 'string'){
-        try { a = JSON.parse(v); } catch(e){ return null; }
-    }
-    return Array.isArray(a) ? a.length : null;
+// Show a member count the snapshot query computed in SQL (xbridge_sql.js): undefined
+// means no snapshot was read, so the value is unknown; null means the row holds no list.
+function anchorCountCell(n, none, unit){
+    if(n === undefined) return '-';
+    if(n === null) return none;
+    return xbEsc(n) + unit;
 }
 
 // XPOLICY: a finalized bridged-token policy snapshot.
@@ -358,10 +357,11 @@ function renderXpolicyAction(d){
     html += row('Policy sequence', xbEsc(xbDash(s.policy_seq)));
     html += row('Snapshot block', xbEsc(xbDash(s.snapshot_block)));
     html += row('Origin block', xbEsc(xbDash(s.origin_block)));
-    var allow = anchorCount(s.allow_list), block = anchorCount(s.block_list);
-    html += row('Allow list', allow === null ? 'none' : xbEsc(allow) + ' addresses');
-    html += row('Block list', block === null ? 'none' : xbEsc(block) + ' addresses');
-    html += row('Sleeping', Number(s.sleeping) === 1 ? 'yes' : 'no');
+    html += row('Allow list', anchorCountCell(s.allow_count, 'none', ' addresses'));
+    html += row('Block list', anchorCountCell(s.block_count, 'none', ' addresses'));
+    // An unmirrored snapshot carries no sleeping flag, so it reads unknown, not 'no'.
+    html += row('Sleeping', (s.sleeping === null || s.sleeping === undefined)
+        ? '-' : (Number(s.sleeping) === 1 ? 'yes' : 'no'));
     html += row('Policy hash', xbEsc(xbDash(s.policy_hash)));
     html += '</tbody></table>';
     return html;
@@ -377,9 +377,8 @@ function renderListShareAction(d){
     html += row('Home list', xbEsc(xbDash(s.home_list_index)));
     html += row('Version', xbEsc(xbDash(s.seq)) + (s.kind ? ' (' + xbEsc(s.kind) + ')' : ''));
     html += row('Snapshot block', xbEsc(xbDash(s.snapshot_block)));
-    var added = anchorCount(s.added), removed = anchorCount(s.removed);
-    html += row('Added', added === null ? '-' : xbEsc(added));
-    html += row('Removed', removed === null ? '-' : xbEsc(removed));
+    html += row('Added', anchorCountCell(s.added_count, '-', ''));
+    html += row('Removed', anchorCountCell(s.removed_count, '-', ''));
     if(s.name) html += row('Name', xbEsc(s.name));
     html += row('Members hash', xbEsc(xbDash(s.members_hash)));
     html += '</tbody></table>';

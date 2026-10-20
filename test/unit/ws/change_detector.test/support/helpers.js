@@ -31,11 +31,23 @@ function createMockDb(opts) {
     };
 }
 
+        // Whether a (block, action_index) row is inside a cursor read, as the real SQL's
+        // blockPairRange (src/db/shared.js) decides it: above `since`, or past the
+        // resume row inside block `since`, and never above upToBlock.
+        function pairInRead(block, actionIndex, since, bounds) {
+            const b = Number(block);
+            const upTo  = bounds ? bounds.upToBlock : null;
+            const after = bounds ? bounds.afterActionIndex : null;
+            if (upTo !== null && upTo !== undefined && b > Number(upTo)) return false;
+            if (after === null || after === undefined) return b > Number(since);
+            return b > Number(since) || (b === Number(since) && Number(actionIndex) > Number(after));
+        }
+
         // Feeds the fake getBetFeedsClosedSince hands back, filtered by the cursor
-        // exactly as the real SQL does (closed_block > since, ASC, capped).
+        // exactly as the real SQL does (pairInRead, ASC, capped).
         function withLatches(db, feeds) {
-            db.getBetFeedsClosedSince = sinon.spy(async (config, since, limit) =>
-                feeds.filter((f) => Number(f.closed_block) > Number(since))
+            db.getBetFeedsClosedSince = sinon.spy(async (config, since, limit, bounds) =>
+                feeds.filter((f) => pairInRead(f.closed_block, f.action_index, since, bounds))
                      .sort((a, b) => (a.closed_block - b.closed_block) || (a.action_index - b.action_index))
                      .slice(0, limit));
             return db;
@@ -46,4 +58,4 @@ function createMockDb(opts) {
                                    tick: 'BWS', feed_status: 'closed' }, extra || {});
         }
 
-module.exports = { createMockDb, withLatches, feed };
+module.exports = { createMockDb, withLatches, feed, pairInRead };

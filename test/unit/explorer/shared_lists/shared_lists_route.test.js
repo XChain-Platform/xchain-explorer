@@ -13,9 +13,13 @@
 
 'use strict';
 
+const fs         = require('fs');
+const path       = require('path');
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const { DatabaseSync } = require('node:sqlite');
+const { toSqlite } = require('../../../helpers/indexer_ddl_sqlite.js');
+const { siblingCheckout, skipOrFail } = require('../../../helpers/sibling_checkout.js');
 
 const API_ROUTES = require('../../../../src/explorer/routes/api_methods.js').api;
 const API_SPEC = require('../../../../src/content/json/xchain-platform-api.json');
@@ -38,6 +42,17 @@ const config = {
     coin: 'BTC',
     data: { sql: { apiOffset: 0, limit: 100 } }
 };
+const TABLES = ['list_share_mirrors', 'lists', 'index_statuses', 'list_items',
+    'bridge_settlements', 'list_snapshots'];
+const INDEXER_SQL_DIR = path.join(__dirname, '..', '..', '..', '..', '..', 'xchain-indexer', 'src', 'sql');
+
+function requireDdl() {
+    for(const table of TABLES){
+        const ddl = path.join(INDEXER_SQL_DIR, table + '.sql');
+        const verdict = siblingCheckout(__dirname, ddl);
+        if(!verdict.usable) return skipOrFail(this, verdict, 'the real indexer DDL shared-list fixture');
+    }
+}
 
 function missingTable(table){
     table = table || 'list_share_mirrors';
@@ -49,24 +64,41 @@ function missingTable(table){
     return wrapped;
 }
 
+function sqliteDdl(table){
+    const raw = fs.readFileSync(path.join(INDEXER_SQL_DIR, table + '.sql'), 'utf8');
+    return toSqlite(raw)
+        .replace(/^\s*(UNIQUE\s+)?KEY\s+\w+\s*\([^)]*\),?[^\n]*$/gim, '')
+        .replace(/,([ \t]*--[^\n]*)?\s*\);/g, '$1\n);');
+}
+
+// The replica's own list_snapshots holds a decoy seq: sync never fills it, so the
+// applied seq must come from the attached hub schema, scoped to the hub's network.
 function mirrorFixture(){
     let fixture = new DatabaseSync(':memory:');
-    fixture.exec(`CREATE TABLE list_share_mirrors
-            (action_index INTEGER, home_chain TEXT, home_list_index INTEGER, block_index INTEGER);
-        CREATE TABLE lists
-            (action_index INTEGER, list_action_index INTEGER, type INTEGER, status_id INTEGER);
-        CREATE TABLE index_statuses (id INTEGER, status TEXT);
-        CREATE TABLE list_items (action_index INTEGER, item_id INTEGER);
-        CREATE TABLE bridge_settlements
-            (transfer_id TEXT, kind TEXT, src_chain TEXT, src_action_index INTEGER);
-        CREATE TABLE list_snapshots (snapshot_id TEXT, seq INTEGER);
-        INSERT INTO index_statuses VALUES (1, 'valid');
-        INSERT INTO list_share_mirrors VALUES (303, 'DOGE', 202, 800);
-        INSERT INTO lists VALUES (303, NULL, 2, 1), (304, 303, 2, 1);
-        INSERT INTO list_items VALUES (304, 1), (304, 2), (304, 3), (304, 4);
-        INSERT INTO list_snapshots VALUES ('applied-1', 1), ('applied-9', 9), ('unapplied-12', 12);
-        INSERT INTO bridge_settlements VALUES
-            ('applied-1', 'list', 'DOGE', 202), ('applied-9', 'list', 'DOGE', 202);`);
+    for(const table of TABLES) fixture.exec(sqliteDdl(table));
+    fixture.exec("ATTACH DATABASE ':memory:' AS hubdb");
+    fixture.exec(sqliteDdl('list_snapshots').replace(/CREATE TABLE list_snapshots/, 'CREATE TABLE hubdb.list_snapshots'));
+    fixture.exec(`
+        INSERT INTO index_statuses (id, status) VALUES (1, 'valid');
+        INSERT INTO list_share_mirrors (action_index, home_chain, home_list_index, block_index)
+            VALUES (303, 'DOGE', 202, 800);
+        INSERT INTO lists (action_index, list_action_index, type, status_id)
+            VALUES (303, NULL, 2, 1), (304, 303, 2, 1);
+        INSERT INTO list_items (action_index, item_id) VALUES (304, 1), (304, 2), (304, 3), (304, 4);
+        INSERT INTO list_snapshots
+            (snapshot_id, snapshot_block, seq, network, added, removed, validator_signatures)
+            VALUES ('applied-9', 1, 99, 'mainnet', '[]', '[]', '[]');
+        INSERT INTO hubdb.list_snapshots
+            (snapshot_id, snapshot_block, seq, network, added, removed, validator_signatures)
+            VALUES ('applied-1', 1, 1, 'mainnet', '[]', '[]', '[]'),
+                   ('applied-9', 1, 9, 'mainnet', '[]', '[]', '[]'),
+                   ('unapplied-12', 1, 12, 'mainnet', '[]', '[]', '[]'),
+                   ('foreign-15', 1, 15, 'testnet', '[]', '[]', '[]');
+        INSERT INTO bridge_settlements
+            (action_index, transfer_id, kind, block_index, src_chain, src_action_index)
+            VALUES (901, 'applied-1', 'list', 800, 'DOGE', 202),
+                   (902, 'applied-9', 'list', 800, 'DOGE', 202),
+                   (903, 'foreign-15', 'list', 800, 'DOGE', 202);`);
     return fixture;
 }
 
@@ -74,10 +106,13 @@ function makeDb(options){
     let db = new Database(explorer);
     options = options || {};
     db.calls = [];
+    db.checkpointDb = { BTC: { name: options.hubSchema || 'hubdb', chain: 'BTC', network: 'mainnet' } };
+    if(options.noHub) db.checkpointDb = {};
     db.mirrorFixture = mirrorFixture();
     db.doQuery = async (cfg, query, args) => {
         let sql = String(query).replace(/\s+/g, ' ');
         db.calls.push({ sql, args });
+        if(sql.includes('`nohub`.list_snapshots')) throw missingTable('list_snapshots');
         if(sql.includes("'home' AS kind")) return [{
             kind: 'home', home_chain: args[0], home_list_index: 101,
             local_list_index: 101, type: '2', member_count: 3,
@@ -144,30 +179,50 @@ async function returnsNewestNames(){
     expect(metaCall.sql).to.include("s.status='valid'");
 }
 
+async function returnsPublicShape(){
+    const db = makeDb();
+    const [rows, args, total] = await db.getSharedLists(config);
+    expect(rows).to.deep.equal([HOME, MIRROR]);
+    expect(args).to.equal(null);
+    expect(total).to.equal(2);
+    const homeSql = db.calls.find(call => call.sql.includes("'home' AS kind")).sql;
+    expect(homeSql).to.include('share_action.action_format=2');
+    expect(homeSql).to.include("share_status.status='valid'");
+    expect(homeSql).to.include('MAX(head.action_index)');
+    const mirrorCall = db.calls.find(call => call.sql.includes('FROM list_share_mirrors mirror'));
+    const mirrorSql = mirrorCall.sql;
+    expect(mirrorSql).to.include('SELECT MAX(snapshot.seq)');
+    expect(mirrorSql).to.include('INNER JOIN `hubdb`.list_snapshots snapshot');
+    expect(mirrorSql).to.include('snapshot.network=?');
+    expect(mirrorCall.args).to.deep.equal(['mainnet']);
+    expect(mirrorSql).to.include('snapshot.snapshot_id=settlement.transfer_id');
+    expect(mirrorSql).not.to.include('SELECT COUNT(*) FROM bridge_settlements settlement');
+    expect(db.mirrorFixture.prepare('SELECT COUNT(*) AS n FROM bridge_settlements').get().n).to.equal(3);
+    expect(db.mirrorFixture.prepare('SELECT MAX(seq) AS seq FROM hubdb.list_snapshots').get().seq).to.equal(15);
+}
+
+async function omitsSeqWithoutHub(){
+    const { seq, ...unknownSeq } = MIRROR;
+    expect(seq).to.equal(9);
+    for(const options of [{ noHub: true }, { hubSchema: 'nohub' }]){
+        const [rows, , total] = await makeDb(options).getSharedLists(config);
+        expect(rows, JSON.stringify(options)).to.deep.equal([HOME, unknownSeq]);
+        expect(total).to.equal(2);
+    }
+}
+
 describe('shared-list explorer route', function () {
+    before(requireDdl);
+
     it('registers the no-query route against the composed reader', function () {
         expect(API_ROUTES['/{COIN}/api/shared_lists']).to.deep.equal(['getSharedLists']);
         expect(Database.prototype.getSharedLists).to.be.a('function');
         expect(API_SPEC.paths).to.have.property('/{COIN}/api/shared_lists');
     });
 
-    it('returns home and mirror rows in the public shape', async function () {
-        const db = makeDb();
-        const [rows, args, total] = await db.getSharedLists(config);
-        expect(rows).to.deep.equal([HOME, MIRROR]);
-        expect(args).to.equal(null);
-        expect(total).to.equal(2);
-        const homeSql = db.calls.find(call => call.sql.includes("'home' AS kind")).sql;
-        expect(homeSql).to.include('share_action.action_format=2');
-        expect(homeSql).to.include("share_status.status='valid'");
-        expect(homeSql).to.include('MAX(head.action_index)');
-        const mirrorSql = db.calls.find(call => call.sql.includes('FROM list_share_mirrors mirror')).sql;
-        expect(mirrorSql).to.include('SELECT MAX(snapshot.seq)');
-        expect(mirrorSql).to.include('snapshot.snapshot_id=settlement.transfer_id');
-        expect(mirrorSql).not.to.include('SELECT COUNT(*) FROM bridge_settlements settlement');
-        expect(db.mirrorFixture.prepare('SELECT COUNT(*) AS n FROM bridge_settlements').get().n).to.equal(2);
-        expect(db.mirrorFixture.prepare('SELECT MAX(seq) AS seq FROM list_snapshots').get().seq).to.equal(12);
-    });
+    it('returns home and mirror rows in the public shape', returnsPublicShape);
+
+    it('omits a mirror\'s seq when the co-located hub cannot answer it', omitsSeqWithoutHub);
 
     it('puts the latest valid transfer owner in the LIST action state', async function () {
         const db = makeDb();

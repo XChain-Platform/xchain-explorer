@@ -24,7 +24,8 @@
  * change_detector.js can copy the methods onto ChangeDetector.prototype by
  * descriptor. Nothing here is ever instantiated: `this` is the ChangeDetector
  * instance at call time, exactly as it was when the methods sat inline. The park,
- * re-arm, block-boundary and event-building steps are plain module functions, so
+ * re-arm and event-building steps are plain module functions (the cursor position
+ * steps are pair_cursor.js), so
  * the detector's method surface is the same set of names it always had.
  *
  ********************************************************************/
@@ -34,6 +35,8 @@
 // Same cached singleton change_detector.js logs through; see the note there.
 const { getLogger } = require('../../observability');
 const log = getLogger();
+// The (closed_block, action_index) position steps (pair_cursor.js).
+const { readCeiling, subCursor, pairCursorAfter } = require('./pair_cursor.js');
 
 class BetLatchCursor {
 
@@ -44,7 +47,9 @@ class BetLatchCursor {
     // for the actions cursor to find, so without this cursor a subscribed market page
     // would learn that betting had closed only on its next fetch (spec §11.1 lists the latch
     // among this channel's events).
-    async checkBetLatches(coin, config, currentBlockIndex, prev) {
+    // `upToBlock` is the highest block whose actions have all gone out (checkCoin), so a
+    // latch is never pushed ahead of the bets before it; absent, the read runs to the tip.
+    async checkBetLatches(coin, config, currentBlockIndex, prev, upToBlock) {
         if (typeof this.db.getBetFeedsClosedSince !== 'function') return;
         // A coin whose indexer predates the BET tables is not an error condition to
         // re-discover every 5 seconds; see the ER_NO_SUCH_TABLE branch below. It is
@@ -54,10 +59,12 @@ class BetLatchCursor {
 
         let since = Number(prev.closedBlock);
         if (!Number.isFinite(since)) since = 0;
+        const upTo = readCeiling(currentBlockIndex, since, upToBlock);
 
         let rows;
         try {
-            rows = await this.db.getBetFeedsClosedSince(config, since, this.fetchLimit);
+            rows = await this.db.getBetFeedsClosedSince(config, since, this.fetchLimit,
+                { afterActionIndex: subCursor(prev.closedAction), upToBlock: upTo });
         } catch (e) {
             parkBetLatches(this, coin, prev, e);
             return;
@@ -69,21 +76,23 @@ class BetLatchCursor {
         }
 
         if (!rows || rows.length === 0) {
-            // Skip the empty span so it is not re-scanned every interval. Safe against
-            // a block committed between the tip read above and this query: such a block
-            // carries a HIGHER closed_block than the tip we advance to, so it is still
-            // strictly greater than the cursor on the next poll.
-            if (currentBlockIndex > since) prev.closedBlock = currentBlockIndex;
+            // Skip the empty span so it is not re-scanned every interval. The read was
+            // capped at upTo, so a block above it is still strictly greater than the
+            // cursor on the next poll.
+            if (upTo >= since) {
+                prev.closedBlock  = upTo;
+                prev.closedAction = null;
+            }
             return;
         }
 
-        const { emit, next } = completeLatchBlocks(rows, this.fetchLimit, currentBlockIndex);
-
-        for (const feed of emit) {
+        for (const feed of rows) {
             this.emit('lifecycle_event', coin, betClosedEvent(feed));
         }
 
-        prev.closedBlock = next;
+        const next = pairCursorAfter(rows, this.fetchLimit, upTo, 'closed_block');
+        prev.closedBlock  = next.block;
+        prev.closedAction = next.action;
     }
 
     // Next poll cursor after a capped `*Since` fetch. The queries return the lowest
@@ -162,37 +171,9 @@ function rearmBetLatches(coin, prev, currentBlockIndex) {
     prev.betLatchUnsupported = false;
     prev.betLatchRetryAt     = 0;
     prev.closedBlock         = currentBlockIndex;
+    prev.closedAction        = null;
     log.info('CHANGE_DETECTOR_BET_FEEDS_TABLE_PRESENT',
              { coin, rearmed: 'BET_CLOSED events', from_block: currentBlockIndex });
-}
-
-// Which fetched latch rows to emit and where the cursor lands afterwards.
-function completeLatchBlocks(rows, fetchLimit, currentBlockIndex) {
-    let emit = rows;
-    let next = Math.max(currentBlockIndex, Number(rows[rows.length - 1].closed_block));
-
-    if (rows.length >= fetchLimit) {
-        // A capped fetch can cut a block in half (one pass latches up to
-        // MAX_BET_PASS_ROWS feeds, far more than fetchLimit). Emitting the partial
-        // tail and then advancing past its block would silently drop the rest of
-        // it, so stop on the last COMPLETE block and re-read the remainder next
-        // poll. The cursor is a block height, not a row id, which is exactly why
-        // the generic nextCursor drain cannot be reused here: resuming mid-block
-        // would re-emit the feeds already sent from that block.
-        const lastBlock = Number(rows[rows.length - 1].closed_block);
-        const complete  = rows.filter((r) => Number(r.closed_block) < lastBlock);
-        if (complete.length > 0) {
-            emit = complete;
-            next = Number(complete[complete.length - 1].closed_block);
-        } else {
-            // The whole fetch is one block, so there is no boundary to stop on.
-            // Emit what we have and move past it rather than looping on the same
-            // block forever: this channel is a best-effort live push and the REST
-            // reads stay authoritative for the remainder.
-            next = lastBlock;
-        }
-    }
-    return { emit, next };
 }
 
 // The BET_CLOSED lifecycle event for one latched feed.

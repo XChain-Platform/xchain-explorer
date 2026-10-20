@@ -119,25 +119,21 @@ function registerConfigResultRegression() {
             axiosStub.post.onCall(2).resolves({ data: { result: {
                 configs: { BTC: { mainnet: { 'xchain-indexer': { name: 'restored' } } } }, seq: 3, watermark: 3000
             } } });
-            const Connector = loadConnector(axiosStub);
+            const errors = [];
+            const logger = { error: (message, fields) => errors.push({ message, fields }) };
+            const Connector = loadConnector(axiosStub, logger);
             let c = new Connector(['http://localhost:3000']);
             await c.getAllConfig();
             expect(c.lastWatermark).to.equal(5000);
 
-            const errStub = sinon.stub(console, 'error');
-            let second;
-            try {
-                second = await c.getAllConfig();
-            } finally {
-                errStub.restore();
-            }
+            const second = await c.getAllConfig();
             expect(axiosStub.post.getCall(1).args[1].params.since_updated_at).to.equal(4999);
             expect(axiosStub.post.getCall(2).args[1].params.since_updated_at).to.equal(0);
             // Replaced, not merged: the lost-window value is gone.
             expect(second.BTC.mainnet['xchain-indexer'].name).to.equal('restored');
             expect(c.lastWatermark).to.equal(3000);
             expect(c.lastSeq).to.equal(3);
-            expect(errStub.calledWithMatch(/HUB_CONFIG_REGRESSION/)).to.equal(true);
+            expect(errors.some((entry) => entry.message === 'HUB_CONFIG_REGRESSION')).to.equal(true);
 
             // Poll 3: steady state resumes as a delta against the new watermark.
             axiosStub.post.onCall(3).resolves({ data: { result: { configs: {}, seq: 3, watermark: 3000 } } });

@@ -265,6 +265,7 @@ run_tier "drift: coin consensus-pin conformance" node -e '
 run_tier "drift: hub-mirror-client byte-identity" sync_mirror_check
 
 # --- job: coverage (needs: ci) ---------------------------------------------
+run_tier "explorer identity pin (identity:check)" npm run identity:check
 run_tier "coverage ratchet (coverage:check)" npm run coverage:check
 
 echo

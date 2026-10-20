@@ -26,7 +26,7 @@ const { expect } = require('chai');
 const Utility    = require('../../../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 const { makeConfig }           = require('../../../fixtures/mock-query-args.js');
-const { runOnSqlite } = require('../../../helpers/indexer_ddl_sqlite.js');
+const { openIndexerTables, runOnSqlite } = require('../../../helpers/indexer_ddl_sqlite.js');
 const paging = require('../../../../src/explorer/paging.js').methods;
 const { assembleResponse } = require('../../../../src/explorer/request/assemble_response.js');
 
@@ -79,10 +79,7 @@ function heights(count, skip){
 function describeTable(label, count, skip){
     describe('blocks last page: ' + label, function () {
         before(function () {
-            let DatabaseSync;
-            try { ({ DatabaseSync } = require('node:sqlite')); } catch(e){ return this.skip(); }
-            sqlite = new DatabaseSync(':memory:');
-            sqlite.exec('CREATE TABLE blocks (block_index INTEGER PRIMARY KEY, block_time INTEGER);');
+            sqlite = openIndexerTables(this, ['blocks']);
         });
         beforeEach(() => {
             seedBlocks(count, skip);

@@ -23,6 +23,30 @@ const withAbi = (abiSrc) => `
     };
 `;
 
+// One valid method beside one with an unknown param type and one with a non-object param.
+const MIXED_VALIDITY_ABI = `{
+    version: 1,
+    methods: {
+        good: { params: [ { name: 'x', type: 'number' } ] },
+        badType: { params: [ { name: 'y', type: 'not-a-real-type' } ] },
+        badShape: { params: [ 42 ] }
+    }
+}`;
+
+// One valid method beside methods whose summary or view is present but not a typed literal.
+const NON_LITERAL_FIELDS_ABI = `{
+    version: 1,
+    methods: {
+        good: { summary: 'ok', view: false, params: [ { name: 'x', type: 'number' } ] },
+        constSummary: { summary: SUMMARY_CONST, params: [ { name: 'x', type: 'number' } ] },
+        nullSummary: { summary: null },
+        joinedSummary: { summary: 'a' + 'b' },
+        stringView: { view: 'yes' },
+        numberView: { view: 1 },
+        negatedView: { view: !0 }
+    }
+}`;
+
 describe('abi-core parseAbi', function () {
     it('extracts version, method summary/view flags, and typed params', function () {
         const abi = parseAbi(withAbi(`{
@@ -50,17 +74,21 @@ describe('abi-core parseAbi', function () {
     });
 
     it('drops only the malformed method, keeping the valid siblings', function () {
-        const abi = parseAbi(withAbi(`{
-            version: 1,
-            methods: {
-                good: { params: [ { name: 'x', type: 'number' } ] },
-                badType: { params: [ { name: 'y', type: 'not-a-real-type' } ] },
-                badShape: { params: [ 42 ] }
-            }
-        }`));
+        const abi = parseAbi(withAbi(MIXED_VALIDITY_ABI));
         assert.ok(abi.methods.good, 'valid method survives');
         assert.ok(!('badType' in abi.methods), 'method with an unknown param type is dropped');
         assert.ok(!('badShape' in abi.methods), 'method with a non-object param is dropped');
+    });
+
+    it('drops a method whose summary or view is present but not a literal of its type', function () {
+        const abi = parseAbi(withAbi(NON_LITERAL_FIELDS_ABI));
+        assert.deepStrictEqual(Object.keys(abi.methods), ['good']);
+        assert.strictEqual(abi.version, 1);
+    });
+
+    it('still parses a method that omits summary and view entirely', function () {
+        const abi = parseAbi(withAbi(`{ version: 1, methods: { bare: { params: [ { name: 'x', type: 'string' } ] } } }`));
+        assert.deepStrictEqual(abi.methods.bare, { params: [{ name: 'x', type: 'string' }] });
     });
 
 });

@@ -29,7 +29,8 @@ describe('whereAnchor', function(){
             getBlocks:        `b1.block_index IS NOT NULL`,
             getContractState: `cs.id IS NOT NULL`,
             getTransaction:   `m.tx_index IS NOT NULL`,
-            getMarket:        `m.id IS NOT NULL`
+            getMarket:        `m.id IS NOT NULL`,
+            getRollcallCloses: `m.epoch_height IS NOT NULL`
         };
 
         for (const [method, anchor] of Object.entries(expected))
@@ -46,7 +47,7 @@ describe('whereAnchor', function(){
         assert.strictEqual(whereAnchor('constructor'), DEFAULT_ANCHOR);
     });
 
-    it('exports exactly 29 own method mappings', function(){
-        assert.strictEqual(Object.keys(ANCHOR_BY_METHOD).length, 29);
+    it('exports exactly 30 own method mappings', function(){
+        assert.strictEqual(Object.keys(ANCHOR_BY_METHOD).length, 30);
     });
 });

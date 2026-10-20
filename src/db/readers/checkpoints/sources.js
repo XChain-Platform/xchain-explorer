@@ -134,6 +134,18 @@ class CheckpointSourceReaders {
             'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
     }
 
+    // Resolve a hub-mirrored settlement snapshot table (policy_snapshots, list_snapshots) on
+    // bridgeTransferSource's terms: the co-located hub DB only, bound to its network, since
+    // xchain-sync never fills a replica's copy. `table` is whitelisted to those two names.
+    bridgeSnapshotSource(config, table){
+        let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
+        if (src && /^[A-Za-z0-9_$]+$/.test(src.name) && /^(policy|list)_snapshots$/.test(table))
+            return { table: '`' + src.name + '`.' + table, network: src.network };
+        throw new Error('No co-located hub DB configured for coin ' + config.coin +
+            ': ' + table + ' is served only from the mandatory co-located hub DB, never from ' +
+            'a stale local replica mirror. Configure the checkpoint DB block to serve this coin.');
+    }
+
     // Apply the generic id-keyed datatable paging semantics to RPC-sourced rows in
     // JS, mirroring what getQueryOffsetSql + ORDER BY m.id + LIMIT do in SQL for the
     // id-keyed list methods: action 'prev' keeps id > start (and < stop), 'last'

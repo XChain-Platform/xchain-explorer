@@ -56,7 +56,21 @@ function homeRowsSql(){
             ORDER BY share.action_index ASC`;
 }
 
-function mirrorRowsSql(){
+// The applied seq comes from the co-located hub's list_snapshots, scoped to its network;
+// with no hub source the column is left out, so seq reads as unknown rather than none.
+function mirrorSeqColumn(snapshots){
+    if(!snapshots) return '';
+    return `,
+                (SELECT MAX(snapshot.seq)
+                    FROM bridge_settlements settlement
+                        INNER JOIN ${snapshots.table} snapshot ON (snapshot.snapshot_id=settlement.transfer_id)
+                    WHERE settlement.kind='list'
+                        AND snapshot.network=?
+                        AND settlement.src_chain=mirror.home_chain
+                        AND settlement.src_action_index=mirror.home_list_index) AS seq`;
+}
+
+function mirrorRowsSql(snapshots){
     return `SELECT
                 'mirror' AS kind,
                 mirror.home_chain AS home_chain,
@@ -65,13 +79,7 @@ function mirrorRowsSql(){
                 root.type AS type,
                 ${currentMemberCount('mirror.action_index')} AS member_count,
                 mirror.block_index AS share_block,
-                NULL AS share_action_index,
-                (SELECT MAX(snapshot.seq)
-                    FROM bridge_settlements settlement
-                        INNER JOIN list_snapshots snapshot ON (snapshot.snapshot_id=settlement.transfer_id)
-                    WHERE settlement.kind='list'
-                        AND settlement.src_chain=mirror.home_chain
-                        AND settlement.src_action_index=mirror.home_list_index) AS seq
+                NULL AS share_action_index${mirrorSeqColumn(snapshots)}
             FROM list_share_mirrors mirror
                 INNER JOIN lists root ON (root.action_index=mirror.action_index)
             ORDER BY mirror.home_chain ASC, mirror.home_list_index ASC`;
@@ -115,19 +123,37 @@ function normalizeRow(row, owner, name){
         member_count: numberOrNull(row.member_count),
         share_block: numberOrNull(row.share_block),
         share_action_index: numberOrNull(row.share_action_index),
-        seq: numberOrNull(row.seq)
+        ...(row.seq === undefined ? {} : { seq: numberOrNull(row.seq) })
     };
+}
+
+// The co-located hub's list_snapshots source, or null when no hub DB is configured.
+function hubListSnapshots(reader, config){
+    if(typeof reader.bridgeSnapshotSource !== 'function') return null;
+    try { return reader.bridgeSnapshotSource(config, 'list_snapshots'); } catch(e) { return null; }
+}
+
+// Read the mirror rows; a hub DB without list_snapshots costs only the seq column.
+async function readMirrorRows(reader, config){
+    let snapshots = hubListSnapshots(reader, config);
+    try {
+        return await reader.doQuery(config, mirrorRowsSql(snapshots), snapshots ? [snapshots.network] : []) || [];
+    } catch(e){
+        if(!isMissingTableError(e)) throw e;
+        if(!snapshots) return [];
+    }
+    try {
+        return await reader.doQuery(config, mirrorRowsSql(null), []) || [];
+    } catch(e){
+        if(!isMissingTableError(e)) throw e;
+        return [];
+    }
 }
 
 class SharedListReaders {
     async getSharedLists(config){
         let home = await this.doQuery(config, homeRowsSql(), [routeChain(config)]) || [];
-        let mirrors = [];
-        try {
-            mirrors = await this.doQuery(config, mirrorRowsSql(), []) || [];
-        } catch(e){
-            if(!isMissingTableError(e)) throw e;
-        }
+        let mirrors = await readMirrorRows(this, config);
         let roots = home.map(row => row.home_list_index);
         let owners = roots.length ? await this.getListOwnerAddresses(config, roots) : {};
         let localIndexes = home.map(row => row.home_list_index)

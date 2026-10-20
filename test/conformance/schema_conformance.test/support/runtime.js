@@ -57,13 +57,14 @@ async function loadSchema(dbName, files) {
 // harness uses; distinct DB names so the tiers never clobber each other.
 function createConfigInfo() {
     const coinConfig = require('../../../../src/coin-config/BTC.js').getConfig('regtest');
+    const dogeConfig = require('../../../../src/coin-config/DOGE.js').getConfig('regtest');
     const listeners  = [];
     const dbCreds    = { db_host: DB_HOST, db_port: DB_PORT, user: DB_USER, pass: DB_PASS };
     const config = {
         COIN_NETWORKS:  { BTC: 'Bitcoin', LTC: 'Litecoin', DOGE: 'Dogecoin' },
         COIN_PREFIXES:  { mainnet: '', testnet: 'T', regtest: 'R' },
-        COIN_SUPPORTED: { RBTC: 'BTC (regtest)' },
-        COIN_AVAILABLE: { RBTC: 'BTC (regtest)' },
+        COIN_SUPPORTED: { RBTC: 'BTC (regtest)', RDOGE: 'DOGE (regtest)' },
+        COIN_AVAILABLE: { RBTC: 'BTC (regtest)', RDOGE: 'DOGE (regtest)' },
         DISPENSER_LIST_DELAY: 3600,
         API: {
             host: '127.0.0.1', user: false, pass: false,
@@ -82,6 +83,19 @@ function createConfigInfo() {
                     checkpoint: Object.assign({ name: HUB_DB }, dbCreds)
                 },
                 address: coinConfig.address
+            }
+        },
+        // RDOGE reads the SAME schemas as RBTC (the indexer DDL is one file set for
+        // every chain), so DOGE-only readers such as getRollcalls meet the real DDL.
+        DOGE: {
+            chain: dogeConfig.chain,
+            regtest: {
+                database: {
+                    indexer: Object.assign({ name: INDEXER_DB }, dbCreds),
+                    decoder: hasDecoderDdl ? Object.assign({ name: DECODER_DB }, dbCreds) : undefined,
+                    checkpoint: Object.assign({ name: HUB_DB }, dbCreds)
+                },
+                address: dogeConfig.address
             }
         }
     };

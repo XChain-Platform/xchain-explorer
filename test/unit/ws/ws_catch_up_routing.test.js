@@ -149,23 +149,29 @@ describe('catch-up replay matches the live fan-out frame for frame', function ()
     });
 });
 
-// Rows that each derive lifecycle events: a coinpay ORDER_MATCH naming payer P, a
-// DISPENSE on dispenser 3, a BET on feed 4, and an ATTEST request.
+// Rows that each derive lifecycle events, including the action-renamed edit and
+// cancel rows whose validity and parent are recovered from their protocol tables.
 const LIFECYCLE_ROWS = [
     { action_index: 5, action: 'ORDER_MATCH', block_index: 11, source: 'S', destinations: [] },
     { action_index: 6, action: 'DISPENSE',    block_index: 11, source: 'P', destinations: [] },
     { action_index: 7, action: 'BET',         block_index: 11, source: 'P', destinations: [], action_format: 2 },
-    { action_index: 8, action: 'ATTEST',      block_index: 11, source: 'P', destinations: [] }
+    { action_index: 8, action: 'ATTEST',      block_index: 11, source: 'P', destinations: [] },
+    { action_index: 9, action: 'DISPENSER_CANCEL', block_index: 11, source: 'P', destinations: [] },
+    { action_index: 10, action: 'DISPENSER_EDIT', block_index: 11, source: 'P', destinations: [] },
+    { action_index: 11, action: 'BET_EDIT', block_index: 11, source: 'P', destinations: [], action_format: 4 }
 ];
 
 function mkLifecycleDb() {
     return mkDb({
+        getMaxActionIndex:           sinon.stub().resolves(11),
         getActionsSince:            sinon.stub().resolves(LIFECYCLE_ROWS),
         getOrderMatchSettlement:    sinon.stub().resolves({ settlement_type: 'coinpay' }),
         getCoinpayObligation:       sinon.stub().resolves({ obligation_action_index: 5, order_match_action_index: 5,
             payer_address: 'P', payee_address: 'Q', coin_amount: '0.01000000', expiration: '100' }),
         getDispenseDispenserIndex:  sinon.stub().resolves(3),
-        getBetActionFeedIndex:      sinon.stub().resolves(4),
+        getBetActionFeedIndex:      sinon.stub().resolves(3),
+        getValidDispenserMutationIndex: sinon.stub().resolves(3),
+        getValidBetEditFeedIndex:   sinon.stub().resolves(3),
         getAttestationByActionIndex: sinon.stub().resolves({ action_index: 8, version: 0, request_id: 'q1', provider_id: 'p1' })
     });
 }
@@ -184,7 +190,7 @@ describe('catch-up replay rebuilds the lifecycle frames of each missed row', fun
         s.broadcaster = new Broadcaster({ wsServer: s, changeDetector: detector });
         const live = addClient(s, 1);
         const replayed = addClient(s, 2);
-        const channels = ['actions', 'address', 'dispenser', 'attestation'];
+        const channels = ['actions', 'address', 'dispenser', 'bet_feed', 'attestation'];
 
         subscribe(s, live, channels, { address: 'P', action_index: '3' }, 'l1');
         for (const row of LIFECYCLE_ROWS) {
@@ -196,7 +202,10 @@ describe('catch-up replay rebuilds the lifecycle frames of each missed row', fun
         await settle();
 
         const liveSeq = sequence(live);
-        expect(liveSeq.map(f => f[0])).to.include.members(['COINPAY_REQUIRED', 'ORDER_MATCH', 'DISPENSE', 'BET', 'ATTESTATION_REQUEST']);
+        expect(liveSeq.map(f => f[0])).to.include.members([
+            'COINPAY_REQUIRED', 'ORDER_MATCH', 'DISPENSE', 'BET', 'ATTESTATION_REQUEST',
+            'DISPENSER_CANCEL', 'DISPENSER_EDIT', 'BET_EDIT'
+        ]);
         expect(sequence(replayed)).to.deep.equal(liveSeq);
         const payerFrames = frames(replayed, 'COINPAY_REQUIRED').filter(m => m.catch_up);
         expect(payerFrames.length, 'P must be replayed the COINPAY_REQUIRED that names it payer').to.be.at.least(1);

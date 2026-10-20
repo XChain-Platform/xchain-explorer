@@ -40,17 +40,24 @@ function isRound(v) {
     return Number.isSafeInteger(v) && v >= 0;
 }
 
+// A JSON number or a decimal-digit string as a number, anything else NaN. Typed
+// before it is numbered, because Number() reads null, '', [] and false as 0 and '0x10' as 16.
+function integerParam(v) {
+    if (typeof v === 'number') return v;
+    return (typeof v === 'string' && /^\d+$/.test(v)) ? Number(v) : NaN;
+}
+
 // Validate the request. A limit above the ceiling is clamped rather than refused: a
 // caller asking for more wants "as many as you will give me", not an error.
 function validatePriceBatchParams(body) {
     body = body || {};
-    let first = Number(body.first_round);
-    let last  = Number(body.last_round);
+    let first = integerParam(body.first_round);
+    let last  = integerParam(body.last_round);
     // Both ends of the range are rounds, in order
     if (!isRound(first)) return { ok: false, error: 'first_round must be a non-negative integer' };
     if (!isRound(last))  return { ok: false, error: 'last_round must be a non-negative integer' };
     if (first > last)    return { ok: false, error: 'first_round must not exceed last_round' };
-    let limit = body.limit === undefined || body.limit === null ? PRICE_BATCHES_DEFAULT_LIMIT : Number(body.limit);
+    let limit = body.limit === undefined || body.limit === null ? PRICE_BATCHES_DEFAULT_LIMIT : integerParam(body.limit);
     // A supplied limit is a positive integer, capped at the ceiling
     if (!Number.isInteger(limit) || limit < 1) return { ok: false, error: 'limit must be a positive integer' };
     if (limit > PRICE_BATCHES_MAX_LIMIT) limit = PRICE_BATCHES_MAX_LIMIT;

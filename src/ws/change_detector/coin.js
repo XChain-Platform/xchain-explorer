@@ -35,6 +35,8 @@
 // The rollback notice, the catch-up's reorg log and the short-fetch flag (rollback.js).
 const rollback = require('./rollback.js');
 const { announceRollback, noteShortFetch } = rollback;
+// The ceiling and rewind of the two (block, action_index) cursors (pair_cursor.js).
+const { deliveredBlock, lowerPairCursor } = require('./pair_cursor.js');
 
 class CoinPass {
 
@@ -73,17 +75,20 @@ class CoinPass {
             await emitNewBlocks(this, coin, config, prev, currentBlockIndex);
 
         // New actions landed since the last poll, so there are rows to announce.
+        let lastActionBlock = null;
         if (currentActionIndex > prev.actionIndex)
-            await emitNewActions(this, coin, config, prev, currentActionIndex);
+            lastActionBlock = await emitNewActions(this, coin, config, prev, currentActionIndex);
+        // Both cursors below read no higher than the last block whose actions all went out.
+        const delivered = deliveredBlock(prev, currentBlockIndex, currentActionIndex, lastActionBlock);
 
         // Runs after the action loop, mirroring the chain: the latch pass executes
         // after every user tx in its block (spec §6), so a market page sees the last
         // bet before it is told betting closed.
-        await this.checkBetLatches(coin, config, currentBlockIndex, prev);
+        await this.checkBetLatches(coin, config, currentBlockIndex, prev, delivered);
         // Same placement rationale: the callback interlock runs after the block's
         // actions, so a subscriber sees the injected callback EXECUTE before it is
         // told the call it belonged to is finished.
-        await this.checkXcallPhases(coin, config, currentBlockIndex, prev);
+        await this.checkXcallPhases(coin, config, currentBlockIndex, prev, delivered);
     }
 
     // The coin's live-start mark: the action_index at or below which the live feed sends
@@ -191,6 +196,9 @@ function seedCursors(prev, currentBlockIndex, currentActionIndex) {
     // Same seed rule for the XCALL phase cursor: every call that resolved at or
     // below the tip resolved before this process started.
     prev.xcallBlock  = currentBlockIndex;
+    // Both hold whole blocks (pair_cursor.js).
+    prev.closedAction = null;
+    prev.xcallAction  = null;
     // No row at or below the seed is ever sent live, so the seed is the first mark.
     setLiveMark(prev, currentActionIndex);
     prev.seedActionMark = prev.liveActionMark;
@@ -288,8 +296,8 @@ function rewindCursors(prev, fork, currentBlockIndex, currentActionIndex) {
         }
         if (prev.blockIndex > fork - 1) prev.blockIndex = fork - 1;
         if (firstAction !== null && prev.actionIndex >= firstAction) prev.actionIndex = firstAction - 1n;
-        if (prev.closedBlock > fork - 1) prev.closedBlock = fork - 1;
-        if (prev.xcallBlock  > fork - 1) prev.xcallBlock  = fork - 1;
+        lowerPairCursor(prev, 'closed', fork - 1);
+        lowerPairCursor(prev, 'xcall', fork - 1);
     }
     if (prev.blockIndex  > currentBlockIndex)  prev.blockIndex  = currentBlockIndex;
     if (prev.actionIndex > currentActionIndex) prev.actionIndex = currentActionIndex;
@@ -298,13 +306,13 @@ function rewindCursors(prev, fork, currentBlockIndex, currentActionIndex) {
     // that re-latches on the new chain gets a fresh stamp that must be pushed
     // again. Without the rewind that second latch sits below the high-water mark
     // and is never emitted (spec §12 E8).
-    if (prev.closedBlock > currentBlockIndex) prev.closedBlock = currentBlockIndex;
+    lowerPairCursor(prev, 'closed', currentBlockIndex);
     // And the XCALL phase cursor, for the same reason in a stronger form: a
     // reorg past the resolving block rolls xcalls.resolved_block back to NULL,
     // so a call that re-resolves on the new chain gets a fresh stamp that must
     // be pushed again. Without the rewind that second resolution sits below the
     // high-water mark and is never emitted.
-    if (prev.xcallBlock > currentBlockIndex) prev.xcallBlock = currentBlockIndex;
+    lowerPairCursor(prev, 'xcall', currentBlockIndex);
     // Rows above the rewound action cursor are sent live again on the new chain, so the
     // mark drops with it and a key going live now does not replay them as well.
     if (prev.liveActionMark !== undefined && prev.liveActionMark > prev.actionIndex)
@@ -332,7 +340,7 @@ async function emitNewBlocks(detector, coin, config, prev, currentBlockIndex) {
 }
 
 // The action step: every fetched action fans out in order, then the action cursor
-// advances.
+// advances. Answers the block of the last row sent, or null when it sent none.
 async function emitNewActions(detector, coin, config, prev, currentActionIndex) {
     const from       = prev.actionIndex;
     const newActions = await detector.db.getActionsSince(config, from, detector.fetchLimit);
@@ -383,6 +391,9 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
     // A cursor that moved past the last sent row skips indexes it will never send.
     if (prev.liveActionMark === undefined || prev.liveActionMark < prev.actionIndex)
         setLiveMark(prev, prev.actionIndex);
+    if (!newActions || newActions.length === 0) return null;
+    const lastBlock = Number(newActions[newActions.length - 1].block_index);
+    return Number.isFinite(lastBlock) ? lastBlock : null;
 }
 
 module.exports = CoinPass.prototype;

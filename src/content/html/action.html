@@ -2106,17 +2106,6 @@
 <script type="text/javascript" src="/js/xbridge_panels_render.js"></script>
 <script type="text/javascript">
 
-// Wrapped once detail_bet_stake.js has run, which is deferred: the parser
-// reaches this script before showBetDetails exists. Registered ahead of the
-// page's own ready handler below, so the wrap is in place before it renders.
-$(document).ready(function(){
-    const detailBetShow = showBetDetails;
-    showBetDetails = function(data){
-        detailBetShow(data);
-        if(data.bet_kind=='edit') $('#info-bet').removeClass('d-none');
-    };
-});
-
 // Render for the SPV action-proof widget. leaf/merkle_proof are the raw
 // verification material for an SDK client; the reader-facing summary is what
 // was proved (this action, at this height) and what it binds to.

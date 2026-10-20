@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-20
+
+### Added
+- Routed valid lifecycle edits to entity feeds.
+
+### Changed
+- Split rollcall routes by chain.
+- Synced the hub-mirror state_checkpoints index on chain, network and snapshot block.
+- Led the home description with any blockchain and named X-Bridge in the home and about copy.
+
+### Fixed
+- Showed a pending broadcast's message in the transaction page action row.
+- Fixed lifecycle frame duplication, phase cursors and the card renderers.
+
 ## [0.25.0] - 2026-10-18
 
 ### Added

@@ -30,9 +30,10 @@
 // sibling xchain-documentation repo is absent or refused by siblingCheckout(), the
 // committed fallback vectors keep the behavioral guard and its suite identity
 // available; a byte-identity block below keeps that fallback from going stale.
+// The identity blocks never compare against a fixed historical docs commit: a refused
+// sibling skips them, or fails them under XCHAIN_REQUIRE_SIBLINGS=1.
 
 const assert = require('assert');
-const childProcess = require('child_process');
 const fs     = require('fs');
 const path   = require('path');
 const { siblingCheckout, skipOrFail } = require('../../helpers/sibling_checkout.js');
@@ -54,40 +55,15 @@ const FALLBACK_VEC_DIR = path.join(__dirname, '..', '..', 'fixtures', 'consensus
 const VEC_VERDICT = siblingCheckout(__dirname, VEC_DIR);
 const ACTIVE_VEC_DIR = VEC_VERDICT.usable ? VEC_DIR : FALLBACK_VEC_DIR;
 const CANON_VERDICT = siblingCheckout(__dirname, CANON_DIR);
-const PINNED_DOCS_COMMIT = 'e61eed715f68f684ea8e70670a53f69da0ff01d3';
-const DOCS_COMMIT = (() => {
-    if(VEC_VERDICT.usable && CANON_VERDICT.usable) return null;
-    try {
-        childProcess.execFileSync(
-            'git', ['-C', DOCS_DIR, 'cat-file', '-e', PINNED_DOCS_COMMIT + '^{commit}'],
-            { stdio: ['ignore', 'ignore', 'ignore'] }
-        );
-        return PINNED_DOCS_COMMIT;
-    } catch(e) {
-        return null;
-    }
-})();
 
-function docsFile(verdict, absolutePath, relativePath){
-    if(verdict.usable) return fs.readFileSync(absolutePath, 'utf8');
-    if(!DOCS_COMMIT) throw new Error('no committed xchain-documentation checkout is available');
-    return childProcess.execFileSync(
-        'git', ['-C', DOCS_DIR, 'show', DOCS_COMMIT + ':' + relativePath],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
-    );
+// Read a canonical file; only reached after the block's before() accepted the sibling.
+function docsFile(absolutePath){
+    return fs.readFileSync(absolutePath, 'utf8');
 }
 
-function docsFiles(verdict, absoluteDir, relativeDir){
-    if(verdict.usable)
-        return fs.readdirSync(absoluteDir).filter((f) => f.endsWith('.js')).sort();
-    if(!DOCS_COMMIT) throw new Error('no committed xchain-documentation checkout is available');
-    const prefix = relativeDir + '/';
-    return childProcess.execFileSync(
-        'git', ['-C', DOCS_DIR, 'ls-tree', '-r', '--name-only', DOCS_COMMIT, '--', relativeDir],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }
-    ).trim().split('\n').filter((f) =>
-        f.startsWith(prefix) && !f.slice(prefix.length).includes('/') && f.endsWith('.js')
-    ).map((f) => f.slice(prefix.length)).sort();
+// List the canonical .js parts in a directory, sorted for a stable compare.
+function docsFiles(absoluteDir){
+    return fs.readdirSync(absoluteDir).filter((f) => f.endsWith('.js')).sort();
 }
 
 const quorumVec     = require(path.join(ACTIVE_VEC_DIR, 'stake_weighted_quorum.json'));
@@ -175,8 +151,7 @@ describe('consensus-primitive conformance: activation predicate vectors @regress
 
 describe('consensus-primitive conformance: byte-identity to canonical source @regression', function(){
     before(function(){
-        if(!CANON_VERDICT.usable && !DOCS_COMMIT)
-            return skipOrFail(this, CANON_VERDICT, 'the canonical consensus-primitive identity guard');
+        if(!skipOrFail(this, CANON_VERDICT, 'the canonical consensus-primitive identity guard')) return;
     });
 
     // The two carriers sit under consensus/ on both sides since W5 (the same tail in
@@ -185,11 +160,7 @@ describe('consensus-primitive conformance: byte-identity to canonical source @re
     ['stake_weighted_quorum.js', 'equivocation_header.js'].forEach(function(f){
         it(f + ' is byte-identical to xchain-documentation/protocol/reference-impl', function(){
             const local = fs.readFileSync(path.join(LOCAL_DIR, 'consensus', f), 'utf8');
-            const canon = docsFile(
-                CANON_VERDICT,
-                path.join(CANON_DIR, 'consensus', f),
-                path.posix.join('protocol', 'reference-impl', 'consensus', f)
-            );
+            const canon = docsFile(path.join(CANON_DIR, 'consensus', f));
             assert.strictEqual(local, canon,
                 'this repo\'s consensus/' + f + ' has drifted from the canonical source; ' +
                 'edit xchain-indexer/src/consensus/' + f + ' and re-run reconcile-twins.sh to re-vendor every copy.');
@@ -199,17 +170,12 @@ describe('consensus-primitive conformance: byte-identity to canonical source @re
 
 describe('consensus-primitive conformance: gate_registry row parts byte-identity @regression', function(){
     before(function(){
-        if(!CANON_VERDICT.usable && !DOCS_COMMIT)
-            return skipOrFail(this, CANON_VERDICT, 'the canonical gate_registry identity guard');
+        if(!skipOrFail(this, CANON_VERDICT, 'the canonical gate_registry identity guard')) return;
     });
 
     const LOCAL_ONLY = ['local_rows.js'];
     const localParts = () => fs.readdirSync(path.join(LOCAL_DIR, 'consensus', 'gate_registry')).filter((f) => f.endsWith('.js')).sort();
-    const canonParts = () => docsFiles(
-        CANON_VERDICT,
-        path.join(CANON_DIR, 'consensus', 'gate_registry'),
-        path.posix.join('protocol', 'reference-impl', 'consensus', 'gate_registry')
-    );
+    const canonParts = () => docsFiles(path.join(CANON_DIR, 'consensus', 'gate_registry'));
 
     it('gate_registry/ file set equals the canonical set plus the local-only rows', function(){
         assert.deepStrictEqual(
@@ -223,11 +189,7 @@ describe('consensus-primitive conformance: gate_registry row parts byte-identity
         assert.ok(parts.length > 0, 'canonical gate_registry/ is empty');
         for(const f of parts){
             const local = fs.readFileSync(path.join(LOCAL_DIR, 'consensus', 'gate_registry', f), 'utf8');
-            const canon = docsFile(
-                CANON_VERDICT,
-                path.join(CANON_DIR, 'consensus', 'gate_registry', f),
-                path.posix.join('protocol', 'reference-impl', 'consensus', 'gate_registry', f)
-            );
+            const canon = docsFile(path.join(CANON_DIR, 'consensus', 'gate_registry', f));
             assert.strictEqual(local, canon, 'consensus/gate_registry/' + f + ' has drifted from the canonical source; re-vendor it from xchain-indexer.');
         }
     });
@@ -235,19 +197,14 @@ describe('consensus-primitive conformance: gate_registry row parts byte-identity
 
 describe('consensus-primitive conformance: fallback vectors byte-identical to canonical @regression', function(){
     before(function(){
-        if(!VEC_VERDICT.usable && !DOCS_COMMIT)
-            return skipOrFail(this, VEC_VERDICT, 'the fallback test-vector identity guard');
+        if(!skipOrFail(this, VEC_VERDICT, 'the fallback test-vector identity guard')) return;
     });
 
     // Compare the committed fallback to canonical so a standalone run never judges stale vectors.
     ['stake_weighted_quorum.json', 'equivocation_header.json', 'activation_predicates.json'].forEach(function(f){
         it('fixtures/consensus/' + f + ' is byte-identical to xchain-documentation/protocol/test-vectors', function(){
             const fallback = fs.readFileSync(path.join(FALLBACK_VEC_DIR, f), 'utf8');
-            const canon    = docsFile(
-                VEC_VERDICT,
-                path.join(VEC_DIR, f),
-                path.posix.join('protocol', 'test-vectors', f)
-            );
+            const canon    = docsFile(path.join(VEC_DIR, f));
             assert.strictEqual(fallback, canon,
                 'test/fixtures/consensus/' + f + ' has drifted from the canonical vectors; ' +
                 'copy xchain-documentation/protocol/test-vectors/' + f + ' over it.');

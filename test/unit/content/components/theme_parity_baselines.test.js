@@ -17,6 +17,8 @@
  * Each baseline-*.json either passes capture-baseline.js's validateBaseline or
  * is listed below with the exact refusal it earns. A probe census change then
  * fails here instead of silently leaving every baseline unusable as evidence.
+ * While no baseline validates, AWAITING_VALID_BASELINE must say why; the first
+ * one that validates must clear it, which arms a check that one stays usable.
  *
  ********************************************************************/
 
@@ -41,6 +43,10 @@ const KNOWN_INCOMPATIBLE = {
     'baseline-2026-10-12-classic.json': /Page coin_home\.anchors must have matched\/total form$/,
 };
 
+// Why no baseline is usable evidence today; set to null once a builder-made baseline lands
+const AWAITING_VALID_BASELINE = 'Since 2026-10-19 both dated baselines predate the current probe schema; ' +
+    'recapture one through capture-baseline.js per tools/theme-parity/README.md';
+
 // List the dated baseline files in the tool directory
 function baselineFiles() {
     return fs.readdirSync(DIR).filter((name) => /^baseline-.*\.json$/.test(name)).sort();
@@ -49,6 +55,14 @@ function baselineFiles() {
 // Read and parse one baseline file
 function readBaseline(name) {
     return JSON.parse(fs.readFileSync(path.join(DIR, name), 'utf8'));
+}
+
+// Count the baselines the current probe accepts, by running the validator on each
+function validBaselineCount() {
+    return baselineFiles().filter((name) => {
+        try { return validateBaseline(readBaseline(name)) === true; }
+        catch (_) { return false; }
+    }).length;
 }
 
 describe('theme parity baselines: every dated baseline is accounted for', function () {
@@ -75,6 +89,20 @@ describe('theme parity baselines: every dated baseline is accounted for', functi
         const onDisk = new Set(baselineFiles());
         for (const name of Object.keys(KNOWN_INCOMPATIBLE))
             assert.ok(onDisk.has(name), `${name} is listed as incompatible but is not on disk`);
+    });
+
+    it('holds at least one baseline the current probe accepts, or records why not', function () {
+        const valid = validBaselineCount();
+        // Require a usable baseline once the reason is cleared
+        if (AWAITING_VALID_BASELINE === null) {
+            assert.ok(valid >= 1, 'no baseline-*.json validates against the current probe: recapture one per ' +
+                'tools/theme-parity/README.md, or set AWAITING_VALID_BASELINE with a reason');
+            return;
+        }
+        // Require a stated reason, and retire it as soon as a baseline validates
+        assert.ok(typeof AWAITING_VALID_BASELINE === 'string' && AWAITING_VALID_BASELINE.trim(),
+            'AWAITING_VALID_BASELINE must state why no baseline validates');
+        assert.equal(valid, 0, 'a baseline now validates: set AWAITING_VALID_BASELINE to null to arm this check');
     });
 });
 

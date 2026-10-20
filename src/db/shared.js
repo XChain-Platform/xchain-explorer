@@ -315,7 +315,30 @@ function batchLifecycle(db, rows, selected, responses){
     return { batch: head, continuations, responses, duplicates };
 }
 
+// The WHERE clause and params of a (block, action_index) cursor read over `blockColumn`
+// (bounds: afterActionIndex resumes inside sinceBlock, upToBlock caps the height).
+function blockPairRange(blockColumn, sinceBlock, bounds){
+    const after = bounds ? bounds.afterActionIndex : null;
+    const upTo  = bounds ? bounds.upToBlock : null;
+    const clauses = [];
+    const params  = [];
+    if(after === null || after === undefined){
+        clauses.push(`${blockColumn} > ?`);
+        params.push(sinceBlock);
+    } else {
+        // Written as a range on the block column so the block index still serves it.
+        clauses.push(`${blockColumn} >= ? AND (${blockColumn} > ? OR m.action_index > ?)`);
+        params.push(sinceBlock, sinceBlock, after);
+    }
+    if(upTo !== null && upTo !== undefined){
+        clauses.push(`${blockColumn} <= ?`);
+        params.push(upTo);
+    }
+    return { where: clauses.join(' AND '), params };
+}
+
 module.exports = {
+    blockPairRange,
     ACTION_SUMMARY_FIELDS, MUTABLE_ACTION_FIELDS, ORDER_MATCH_HOLDING_STATUSES, ORDER_MATCH_HOLDING_SQL, DbQueryError, DbInputError, staleFailClosed,
     attestBatchColumnsPresent, batchProjection, installAttestBatchListReader,
     readBatchResponses, batchLifecycle, resolveAttestationRequestId, ATTEST_BATCH_CHUNK_LIMIT

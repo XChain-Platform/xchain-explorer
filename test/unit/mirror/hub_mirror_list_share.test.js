@@ -91,7 +91,7 @@ describe('hub-mirror list share vendored contract @regression', function () {
         assert.ok(mirrorTables.VALIDITY_READ_TABLES.includes('remote_token_snapshots'));
         assert.ok(mirrorTables.MIRRORED_TABLES.includes('remote_token_snapshots'));
         assert.ok(mirrorTables.AUTO_INCREMENT_ID_TABLES.includes('remote_token_snapshots'));
-        // The table has no push_generation fence column, so the mirror never deletes from it.
+        // The table has no push_generation fence column, so the mirror never retracts from it.
         assert.equal(mirrorTables.RETRACTION_COLUMNS.remote_token_snapshots, undefined);
         assert.equal(mirrorTables.RETRACTION_CHAIN_COLUMNS.remote_token_snapshots, undefined);
         assert.equal(mirrorTables.REFUSED_ROW_NAMES.remote_token_snapshots, undefined);

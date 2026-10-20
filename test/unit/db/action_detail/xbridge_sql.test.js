@@ -17,9 +17,9 @@
 const { expect } = require('chai');
 const {
     BRIDGE_SETTLEMENTS_TABLE,
-    LIST_SNAPSHOT,
+    listSnapshotSql,
     LIST_SNAPSHOTS_TABLE,
-    POLICY_SNAPSHOT,
+    policySnapshotSql,
     POLICY_SNAPSHOTS_TABLE,
     XBRIDGE_SETTLEMENT,
     XBRIDGES_TABLE,
@@ -28,11 +28,14 @@ const {
 
 const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const OTHER_INPUT_MARKER = /\$\{|\{\{|:[A-Za-z_][A-Za-z0-9_]*|\$[1-9][0-9]*|%[sd]/;
+// The snapshot reads name the hub schema's table and bind the snapshot id and its network.
+const POLICY_SNAPSHOT = policySnapshotSql('`hub`.' + POLICY_SNAPSHOTS_TABLE);
+const LIST_SNAPSHOT = listSnapshotSql('`hub`.' + LIST_SNAPSHOTS_TABLE);
 const SQL_FRAGMENTS = [
-    [BRIDGE_SETTLEMENTS_TABLE, XBRIDGE_SETTLEMENT],
-    [XBRIDGES_TABLE, XBRIDGE_RECORD],
-    [POLICY_SNAPSHOTS_TABLE, POLICY_SNAPSHOT],
-    [LIST_SNAPSHOTS_TABLE, LIST_SNAPSHOT]
+    [BRIDGE_SETTLEMENTS_TABLE, XBRIDGE_SETTLEMENT, 1],
+    [XBRIDGES_TABLE, XBRIDGE_RECORD, 1],
+    ['`hub`\\.' + POLICY_SNAPSHOTS_TABLE, POLICY_SNAPSHOT, 2],
+    ['`hub`\\.' + LIST_SNAPSHOTS_TABLE, LIST_SNAPSHOT, 2]
 ];
 
 // The member-list counts the XPOLICY and LIST_SHARE cards render, by query.
@@ -62,10 +65,10 @@ describe('XBRIDGE SQL constants', function() {
     });
 
     it('keeps each query tied to its table and uses only question-mark binding', function() {
-        for(const [table, sql] of SQL_FRAGMENTS) {
-            expect(sql).to.match(new RegExp(`\\b${table}\\b`));
+        for(const [table, sql, binds] of SQL_FRAGMENTS) {
+            expect(sql).to.match(new RegExp(`FROM\\s+${table}\\b`));
             expect(sql).to.not.match(OTHER_INPUT_MARKER);
-            expect(sql.match(/\?/g) || []).to.have.length(1);
+            expect(sql.match(/\?/g) || []).to.have.length(binds);
         }
     });
 });

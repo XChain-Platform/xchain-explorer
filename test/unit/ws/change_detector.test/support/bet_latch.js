@@ -107,10 +107,9 @@ function registerBetLatchCursor() {
             expect(db.getBetFeedsClosedSince.secondCall.args[1], 'second poll resumes at the tip').to.equal(400);
         });
 
-        it('stops a capped fetch on a whole-block boundary rather than cutting a block in half', async function () {
-            // fetchLimit 3 against a block that latched two feeds: resuming mid-block
-            // would either re-emit 30 or drop 31, and the cursor is a block height so
-            // it cannot express "half of block 11".
+        it('resumes a capped fetch inside a block so each feed goes out once', async function () {
+            // fetchLimit 3 cuts block 11 after feed 30. The cursor holds (11, 30), so
+            // the next poll sends 31 and neither re-sends 30 nor skips 31.
             const feeds = [feed(10, 10), feed(20, 11), feed(30, 11), feed(31, 11)];
             const db = withLatches(createMockDb({ blockIndex: 11, actionIndex: 500 }), feeds);
             const cd = new ChangeDetector({ db, pollInterval: 60000, fetchLimit: 3 });
@@ -121,12 +120,35 @@ function registerBetLatchCursor() {
             await cd.checkCoin('BTC');
 
             expect(spy.getCalls().map((c) => Number(c.args[1].data.action_index)),
-                'only the complete block goes out').to.deep.equal([10]);
-            expect(cd.state['BTC'].closedBlock).to.equal(10);
+                'the whole page goes out').to.deep.equal([10, 20, 30]);
+            expect(cd.state['BTC'].closedBlock).to.equal(11);
+            expect(Number(cd.state['BTC'].closedAction)).to.equal(30);
 
             await cd.checkCoin('BTC');
             expect(spy.getCalls().map((c) => Number(c.args[1].data.action_index)),
                 'the deferred block drains next poll, once each').to.deep.equal([10, 20, 30, 31]);
+        });
+
+        it('holds BET_CLOSED while a backlog still owes the bets of its block', async function () {
+            // Four action rows behind and a fetch of two: the latch of block 12 must
+            // wait for the block-12 bets, which go out on the second poll.
+            const actions = [[1, 10], [2, 11], [3, 12], [4, 12]]
+                .map(([i, b]) => ({ action_index: i, block_index: b, action: 'SEND', source: '1abc' }));
+            const db = withLatches(createMockDb({ blockIndex: 12, actionIndex: 4 }), [feed(77, 12)]);
+            db.getActionsSince = sinon.spy(async (config, since, limit) =>
+                actions.filter((a) => a.action_index > Number(since)).slice(0, limit));
+            const cd = new ChangeDetector({ db, pollInterval: 60000, fetchLimit: 2 });
+            cd.state['BTC'] = { blockIndex: 12, actionIndex: 0, closedBlock: 9, initialized: true };
+
+            const order = [];
+            cd.on('action', (coin, a) => order.push('action ' + a.action_index));
+            cd.on('lifecycle_event', (coin, e) => order.push(e.type + ' ' + e.data.action_index));
+            await cd.checkCoin('BTC');
+            expect(order, 'block 12 still owes bets').to.deep.equal(['action 1', 'action 2']);
+            expect(cd.state['BTC'].closedBlock).to.equal(10);
+
+            await cd.checkCoin('BTC');
+            expect(order).to.deep.equal(['action 1', 'action 2', 'action 3', 'action 4', 'BET_CLOSED 77']);
         });
     });
 }
@@ -135,9 +157,9 @@ function registerBetLatchReorg() {
     describe('bet latch cursor', function () {
         it('does not stall when one block latches more feeds than a fetch holds', async function () {
             // MAX_BET_PASS_ROWS is 5000 against a fetchLimit of 100, so a single block
-            // can exceed one fetch with no boundary to stop on. Best-effort push: move
-            // past it rather than looping on the same block forever.
-            const feeds = [feed(1, 50), feed(2, 50), feed(3, 50)];
+            // can exceed one fetch. The cursor pages through it over the next polls,
+            // so no feed past the first page is dropped and none is sent twice.
+            const feeds = [feed(1, 50), feed(2, 50), feed(3, 50), feed(4, 50), feed(5, 50)];
             const db = withLatches(createMockDb({ blockIndex: 50, actionIndex: 500 }), feeds);
             const cd = new ChangeDetector({ db, pollInterval: 60000, fetchLimit: 3 });
             cd.state['BTC'] = { blockIndex: 50, actionIndex: 500, closedBlock: 49, initialized: true };
@@ -145,9 +167,14 @@ function registerBetLatchReorg() {
             const spy = sinon.spy();
             cd.on('lifecycle_event', spy);
             await cd.checkCoin('BTC');
-
             expect(spy.callCount).to.equal(3);
+
+            await cd.checkCoin('BTC');
+            await cd.checkCoin('BTC');
+            expect(spy.getCalls().map((c) => Number(c.args[1].data.action_index)),
+                'every feed of the block, once').to.deep.equal([1, 2, 3, 4, 5]);
             expect(cd.state['BTC'].closedBlock).to.equal(50);
+            expect(cd.state['BTC'].closedAction, 'the block is whole again').to.equal(null);
         });
 
         it('rewinds the cursor on a reorg so a re-latched feed is pushed again', async function () {
@@ -174,10 +201,12 @@ function registerBetLatchReorg() {
             await cd.checkCoin('BTC');
             expect(cd.state['BTC'].closedBlock, 'cursor clamped to the new tip').to.equal(203);
 
-            // Re-latched at 204 on the replacement chain.
+            // Re-latched at 204 on the replacement chain, whose blocks are announced
+            // before the latch they carry.
             feeds.push(feed(77, 204));
             db.checkReorgAndInvalidate.resolves(false);
             db.getMaxBlockIndex.resolves(206);
+            db.getBlocksSince.resolves([204, 205, 206].map((h) => ({ block_index: h, block_hash: 'r' + h })));
             await cd.checkCoin('BTC');
             expect(spy.callCount, 'the re-latch is pushed too').to.equal(2);
         });

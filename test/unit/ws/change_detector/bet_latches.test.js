@@ -19,14 +19,15 @@
 const sinon = require('sinon');
 const { expect } = require('chai');
 const betLatches = require('../../../../src/ws/change_detector/bet_latches.js');
+const { pairInRead } = require('../change_detector.test/support/helpers.js');
 
 function makeDetector(feeds) {
     const detector = Object.create(betLatches);
     detector.fetchLimit = 100;
     detector.emit = sinon.spy();
     detector.db = {
-        getBetFeedsClosedSince: sinon.spy(async (config, since, limit) =>
-            feeds.filter((feed) => Number(feed.closed_block) > since).slice(0, limit))
+        getBetFeedsClosedSince: sinon.spy(async (config, since, limit, bounds) =>
+            feeds.filter((feed) => pairInRead(feed.closed_block, feed.action_index, since, bounds)).slice(0, limit))
     };
     return detector;
 }

@@ -83,7 +83,7 @@ const SIBLINGS = [
       marker: path.join('src', 'coins'),
       guards: 'vendored coins-registry byte-identity (BTC/LTC/DOGE/index/consensus_pin)' },
     { repo: 'xchain-dashboard', envs: ['XCHAIN_DASHBOARD_DIR'], optional: 'private repo, not cloned by CI',
-      marker: path.join('monitor', 'src', 'lib', 'explorer-client.js'),
+      marker: path.join('plugins', 'monitor', 'src', 'lib', 'clients', 'explorer_client.js'),
       guards: 'dashboard explorer-reader field manifest conformance' },
 ];
 

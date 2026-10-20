@@ -241,11 +241,10 @@ async function measureIndexerState(db, data, coin, nowSec, coinConfigs){
 // Everything /status measures for one coin this instance actually holds a pool for.
 async function measureCoinStatus(db, data, coin, coinConfigs){
     await measureIndexerPosition(db, data, coin);
-    // Fail closed on a frozen replica: a coin whose newest indexed block has
-    // aged past its threshold stops being advertised as available, so a
-    // consumer reading this map cannot mistake a 55-hour-old tip for live
-    // data. Only coins this instance actually MEASURED are gated; a coin with
-    // no pool here is the pre-existing "supported but not configured" case.
+    // Flag a frozen replica: a coin whose newest indexed block has aged past
+    // its threshold reads `stale`, so a consumer cannot mistake a 55-hour-old
+    // tip for live data. Only coins this instance actually MEASURED are gated;
+    // a coin with no pool here is the "supported but not configured" case.
     let nowSec = Math.floor(Date.now() / 1000);
     let tipSec = data.last_block_time[coin];
     measureTipAge(data, coin, nowSec, tipSec);

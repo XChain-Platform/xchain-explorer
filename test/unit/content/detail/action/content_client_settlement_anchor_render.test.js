@@ -22,6 +22,8 @@ const { JSDOM } = require('jsdom');
 const content = path.resolve(__dirname, '..', '..', '..', '../../src/content');
 const panels = require(path.join(content, 'js', 'xbridge_panels_render.js'));
 const bridgeSql = require(path.resolve(content, '..', 'db', 'action_detail', 'xbridge_sql.js'));
+const POLICY_SNAPSHOT = bridgeSql.policySnapshotSql(bridgeSql.POLICY_SNAPSHOTS_TABLE);
+const LIST_SNAPSHOT = bridgeSql.listSnapshotSql(bridgeSql.LIST_SNAPSHOTS_TABLE);
 
 // Name every field a snapshot query returns: its alias, or the bare column.
 function selectedFields(sql){
@@ -60,7 +62,7 @@ const LIST_SHARE_ROW = {
 
 describe('settlement anchor panels', function(){
     it('renders an XPOLICY snapshot', function(){
-        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(bridgeSql.POLICY_SNAPSHOT, XPOLICY_ROW) });
+        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(POLICY_SNAPSHOT,XPOLICY_ROW) });
         expect(html).to.contain('data-anchor="xpolicy"');
         expect(html).to.contain('PEPE');
         expect(html).to.match(/xc-anchor-allow-list">2 addresses/);
@@ -69,7 +71,7 @@ describe('settlement anchor panels', function(){
     });
 
     it('tells an empty XPOLICY list from no list', function(){
-        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(bridgeSql.POLICY_SNAPSHOT, {
+        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(POLICY_SNAPSHOT,{
             allow_count: 0, block_count: 5, sleeping: 0
         })});
         expect(html).to.match(/xc-anchor-allow-list">0 addresses/);
@@ -78,7 +80,7 @@ describe('settlement anchor panels', function(){
     });
 
     it('renders a LIST_SHARE version and escapes the name', function(){
-        const html = panels.renderListShareAction({ list_snapshot: snapshotRow(bridgeSql.LIST_SNAPSHOT, LIST_SHARE_ROW) });
+        const html = panels.renderListShareAction({ list_snapshot: snapshotRow(LIST_SNAPSHOT,LIST_SHARE_ROW) });
         expect(html).to.contain('data-anchor="list-share"');
         expect(html).to.contain('2 (delta)');
         expect(html).to.match(/xc-anchor-added">1</);

@@ -58,8 +58,10 @@ class ChannelFanout {
         this.broadcastToChannelKey(channelKey, event, actionData);
     }
 
-    // Broadcast to a specific channel key with filter evaluation
-    broadcastToChannelKey(channelKey, event, actionData, actionRow) {
+    // Broadcast to a specific channel key with filter evaluation. `replayed` marks a
+    // frame the catch-up replay rebuilds from the row, which a key that joined mid-row
+    // gets from that replay instead; it is skipped before admission and the once spend.
+    broadcastToChannelKey(channelKey, event, actionData, actionRow, replayed) {
         const channelManager = this.wsServer.channelManager;
         const subscribers    = channelManager.getSubscribers(channelKey);
         if (!subscribers || subscribers.size === 0) return;
@@ -70,6 +72,7 @@ class ChannelFanout {
         for (const [clientId, filter] of subscribers) {
             const client = clients.get(clientId);
             if (!client) continue;
+            if (replayed && actionRow && actionRow.joined && actionRow.joined.has(clientId + '|' + channelKey)) continue;
 
             if (!deliverToSubscriber(this, client, filter, event, actionData, actionRow)) continue;
 
@@ -81,6 +84,13 @@ class ChannelFanout {
 
         // Remove once subscriptions and send UNSUBSCRIBED
         removeOnceSubscriptions(this, channelManager, subscribers, clients, toRemove);
+    }
+
+    // Record a key that went live while a row is in flight (its replay ceiling is that
+    // row), so the row's lifecycle frames reach it once, from the replay, never live too.
+    markJoinedMidRow(coin, clientId, channelKey) {
+        const row = this._actionRows && this._actionRows.get(coin);
+        if (row && row.joined) row.joined.add(clientId + '|' + channelKey);
     }
 
     // Spend one client's once subscription on a channel key after a frame was delivered

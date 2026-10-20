@@ -2275,8 +2275,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/action-detail-golden.json",
-      "bytes": 408330,
-      "sha256": "6b521068dbae433202140e201fea2453119beb46fa371cd8ec18a8ae4c43be23"
+      "bytes": 405389,
+      "sha256": "e70cd74a0fb5d68e6a0b4e928fdb2ff7ce6c5952beb9f82b255cd5512f232585"
     },
     {
       "path": "test/fixtures/list-page-baseline.json",
@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 319,
+    "count": 320,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2317,6 +2317,7 @@
       "attachContractMeta",
       "attachListActionDetail",
       "attestationResponseSource",
+      "bridgeSnapshotSource",
       "bridgeTransferSource",
       "buildActionPreload",
       "bumpReorgGeneration",
@@ -3028,6 +3029,7 @@
       "10fec7dab7a3ec46": [
         "shared-list explorer route does not hide a mirror query failure that is not a missing table",
         "shared-list explorer route keeps home rows when the mirror mapping table is absent",
+        "shared-list explorer route omits a mirror's seq when the co-located hub cannot answer it",
         "shared-list explorer route puts the latest valid transfer owner in the LIST action state",
         "shared-list explorer route registers the no-query route against the composed reader",
         "shared-list explorer route returns home and mirror rows in the public shape",
@@ -3798,6 +3800,34 @@
         "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest regtest block",
         "HubDbSync price barriers apply to every block @regression @tier1 re-floors a bounded mirror for the earliest testnet block"
       ],
+      "20e419de26013908": [
+        "M5.1 getCollectibles classification (spec rows 32) binds the classification to the COUNT query too, not only the row query",
+        "M5.1 getCollectibles classification (spec rows 32) classifies on the ISSUE fields, indivisible with a frozen ceiling",
+        "M5.1 getCollectibles classification (spec rows 32) interpolates the caller-clamped page bound rather than a hardcoded one",
+        "M5.1 getCollectibles classification (spec rows 32) is the SAME rule the client ships as isNftToken, not a second definition",
+        "M5.1 getCollectibles classification (spec rows 32) pages on m.id, the column it orders by",
+        "M5.1 getCollectibles classification (spec rows 32) seeds the search arg on a filtered lane and NOT on the list-all lane",
+        "M5.2 getRichList (spec row 33) answers not-found for a tick that was never interned",
+        "M5.2 getRichList (spec row 33) answers not-found for an interned tick with no token row",
+        "M5.2 getRichList (spec row 33) applies the page offset to the ranking QUERY, not only to the rank numbers",
+        "M5.2 getRichList (spec row 33) bounds the ranking with the caller-clamped limit",
+        "M5.2 getRichList (spec row 33) carries the summed balances ALONGSIDE the recorded supply rather than replacing it",
+        "M5.2 getRichList (spec row 33) continues the rank numbering across pages instead of restarting at 1",
+        "M5.2 getRichList (spec row 33) excludes zero balances from both the census and the ranking",
+        "M5.2 getRichList (spec row 33) leaves the top-ten concentration UNMEASURED below ten ranked holders",
+        "M5.2 getRichList (spec row 33) measures share against CIRCULATING supply, not max supply",
+        "M5.2 getRichList (spec row 33) measures the top-ten concentration once ten holders are ranked",
+        "M5.2 getRichList (spec row 33) reads the token block height off index_tickers, the only table that has one",
+        "M5.2 getRichList (spec row 33) resolves the tick to an id FIRST and binds the id, never the tick, to balances",
+        "M5.2 getRichList (spec row 33) returns null, never 0, for a share it cannot compute",
+        "M5.2 getRichList (spec row 33) survives a malformed amount instead of failing the whole page",
+        "M5.4 XCALL phase reads (spec row 35) binds the VALID row only, matching the indexer authoritative read",
+        "M5.4 XCALL phase reads (spec row 35) carries BOTH terminal statuses, so expiries are not silently dropped",
+        "M5.4 XCALL phase reads (spec row 35) cursors on resolved_block, the height with no action row behind it",
+        "M5.4 XCALL phase reads (spec row 35) getXcallInfo answers null for a call this chain has no row for",
+        "M5.4 XCALL phase reads (spec row 35) getXcallInfo point-reads one call by id, valid row only, bounded to one row",
+        "M5.4 XCALL phase reads (spec row 35) resumes inside a block and caps the read when the cursor passes bounds"
+      ],
       "21dd83888010e79b": [
         "db.getMempool: list-all mode (M1.2) address/token filtering still narrows the set in list-all's absence (regression guard)",
         "db.getMempool: list-all mode (M1.2) an empty string type is treated the same as no type (list-all)",
@@ -3926,35 +3956,6 @@
         "/{COIN}/prices list row shows the window without a count when round_count is absent",
         "/{COIN}/prices list row still describes the window when the feed carries no pair count",
         "/{COIN}/prices list row writes a dash rather than the literal word \"null\" into any cell"
-      ],
-      "266e2b5772181edf": [
-        "ChangeDetector action detection emits action event when new actions detected",
-        "ChangeDetector action detection emits multiple action events for multiple new actions",
-        "ChangeDetector bet latch cursor advances past an empty span so it is not re-scanned every poll",
-        "ChangeDetector bet latch cursor disables itself for a coin whose indexer has no bet_feeds table, once",
-        "ChangeDetector bet latch cursor does not re-emit a latch it has already pushed",
-        "ChangeDetector bet latch cursor does not stall when one block latches more feeds than a fetch holds",
-        "ChangeDetector bet latch cursor emits BET_CLOSED on the bet_feed channel, keyed on the feed itself",
-        "ChangeDetector bet latch cursor is inert against a db build without the latch query",
-        "ChangeDetector bet latch cursor re-probes after the cooldown and re-arms when the table appears",
-        "ChangeDetector bet latch cursor reports the transition, not the status the feed has drifted to by poll time",
-        "ChangeDetector bet latch cursor rewinds the cursor on a reorg so a re-latched feed is pushed again",
-        "ChangeDetector bet latch cursor seeds the cursor to the tip on the first poll instead of replaying history",
-        "ChangeDetector bet latch cursor stays parked inside the cooldown, so re-probing is not a per-poll query",
-        "ChangeDetector bet latch cursor still surfaces a genuine DB failure instead of silencing the coin",
-        "ChangeDetector bet latch cursor stops a capped fetch on a whole-block boundary rather than cutting a block in half",
-        "ChangeDetector block detection does not emit when block index unchanged",
-        "ChangeDetector block detection emits block event when new block detected",
-        "ChangeDetector error resilience continues polling when DB query fails",
-        "ChangeDetector initialization seeds state on first poll without emitting events",
-        "ChangeDetector lifecycle events does not emit lifecycle for SEND action",
-        "ChangeDetector lifecycle events emits COINPAY_FULFILLED for COINPAY action",
-        "ChangeDetector lifecycle events emits COINPAY_REQUIRED for coinpay settlement",
-        "ChangeDetector lifecycle events emits DISPENSE for DISPENSE action",
-        "ChangeDetector lifecycle events emits ORDER_MATCH lifecycle event",
-        "ChangeDetector lifecycle events emits SWAP_MATCH for SWAP_MATCH action",
-        "ChangeDetector start / stop start initializes state for provided coins",
-        "ChangeDetector start / stop stop clears timer"
       ],
       "267f400f05cb517b": [
         "ATTEST action detail batch fields aliases v6 chunk fields into the compact summary projection names",
@@ -4172,6 +4173,12 @@
         "showActionDatatable client: unwraps only a summary OBJECT, never a raw feed BET details string [REGRESSION] a BET feed member's raw base64 details never reaches getActionDetails",
         "showActionDatatable client: unwraps only a summary OBJECT, never a raw feed BET details string a row with no summary (details false) falls back to the flat row",
         "showActionDatatable client: unwraps only a summary OBJECT, never a raw feed BET details string the transaction actions table still gets its nested summary object"
+      ],
+      "2d909ab5ef9dd060": [
+        "startWebsockets live-feed start starts the poller with every pooled coin when pools exist",
+        "startWebsockets live-feed start starts the poller with no coins when the boot has no pools",
+        "startWebsockets trusted proxy hops defaults to one hop only when the value is missing or invalid",
+        "startWebsockets trusted proxy hops keeps WS_TRUST_PROXY_HOPS=0 so the cap keys on the TCP peer"
       ],
       "2da46dea864bcc52": [
         "HubOperationalCache: a concurrent -32601 does not hijack another call _call keeps each invocation's answer on its own sink while the instance field churns",
@@ -4753,6 +4760,15 @@
         "detail pages with nonexistent entities transaction.html maps null success bodies and HTTP failures to that state",
         "detail pages with nonexistent entities transaction.html replaces placeholders with an explicit not-found state"
       ],
+      "4003619ee66f822c": [
+        "catch-up replay stops at the live-start ceiling a key that went live before the first poll is bounded by the seed",
+        "catch-up replay stops at the live-start ceiling a key the client already holds keeps the ceiling it went live at",
+        "catch-up replay stops at the live-start ceiling a live poll during the replay does not repeat a committed but unpolled row",
+        "catch-up replay stops at the live-start ceiling a reorg rewind lowers the live mark to the rewound cursor",
+        "catch-up replay stops at the live-start ceiling a replay that finishes before the next poll does not repeat those rows either",
+        "catch-up replay stops at the live-start ceiling a subscribe landing mid-row gets that row's lifecycle frames once, after its NEW_ACTION",
+        "catch-up replay stops at the live-start ceiling the live detector reads its own feed with no upper bound"
+      ],
       "413f1a945bfd7c24": [
         "WS SNAPSHOT: every entity channel answers snapshot:true with a frame EVERY channel in ChannelManager.ENTITY_CHANNELS emits exactly one SNAPSHOT",
         "WS SNAPSHOT: every entity channel answers snapshot:true with a frame a bet_feed with no matching market still answers, rather than going silent",
@@ -4808,6 +4824,27 @@
         "the catch-up ahead-of-tip gate refuses a cursor above the tip with CATCH_UP_AHEAD_OF_TIP and no COMPLETE",
         "the catch-up ahead-of-tip gate refuses an above-2^53 cursor one past the tip with CATCH_UP_AHEAD_OF_TIP and no COMPLETE",
         "the catch-up ahead-of-tip gate still completes a cursor equal to the tip"
+      ],
+      "41bdd9ebe9e818d9": [
+        "XCALL phase cursor (M5.4) advances the cursor over an empty span so it is not re-scanned every poll",
+        "XCALL phase cursor (M5.4) emits XCALL_COMPLETED on the xcall channel, keyed on the call_id",
+        "XCALL phase cursor (M5.4) emits XCALL_EXPIRED for an expiry, on the same cursor",
+        "XCALL phase cursor (M5.4) holds XCALL_COMPLETED while a backlog still owes the callback EXECUTE",
+        "XCALL phase cursor (M5.4) is a no-op against a db that has no phase read at all",
+        "XCALL phase cursor (M5.4) moves past a single oversized block rather than looping on it forever",
+        "XCALL phase cursor (M5.4) never reports a result_status on an expiry, even if the row carries one",
+        "XCALL phase cursor (M5.4) parks a coin whose indexer has no xcalls table, and re-arms without replaying",
+        "XCALL phase cursor (M5.4) propagates a genuine DB failure rather than swallowing it as a schema gap",
+        "XCALL phase cursor (M5.4) resumes a capped fetch inside a block so each call goes out once",
+        "XCALL phase cursor (M5.4) rewinds the cursor on a reorg so a re-resolution is still pushed",
+        "XCALL phase cursor (M5.4) seeds on the first poll and replays nothing",
+        "xcall subscription channel (M5.4) accepts a subscription keyed by call_id",
+        "xcall subscription channel (M5.4) accepts both phase names in the types filter",
+        "xcall subscription channel (M5.4) is a real entity channel, so every surface that enumerates them covers it",
+        "xcall subscription channel (M5.4) normalizes case so an upper-case subscription still receives events",
+        "xcall subscription channel (M5.4) refuses a call_id that is not 64 hex, rather than making a dead subscription",
+        "xcall subscription channel (M5.4) refuses a subscription with no call_id at all",
+        "xcall subscription channel (M5.4) round-trips the channel key back to its call_id"
       ],
       "42a0f9e8752f3ebb": [
         "apiPageOffset computes SQL OFFSET from a 1-based page and the page limit",
@@ -7081,26 +7118,6 @@
         "db.getFederationRegistry() returns null (unknown) with no hub endpoint and no co-located hub schema",
         "db.getFederationRegistry() still answers from the capability rows when the manual registry read fails"
       ],
-      "6bf0c415bd850314": [
-        "XCALL phase cursor (M5.4) advances the cursor over an empty span so it is not re-scanned every poll",
-        "XCALL phase cursor (M5.4) emits XCALL_COMPLETED on the xcall channel, keyed on the call_id",
-        "XCALL phase cursor (M5.4) emits XCALL_EXPIRED for an expiry, on the same cursor",
-        "XCALL phase cursor (M5.4) is a no-op against a db that has no phase read at all",
-        "XCALL phase cursor (M5.4) moves past a single oversized block rather than looping on it forever",
-        "XCALL phase cursor (M5.4) never reports a result_status on an expiry, even if the row carries one",
-        "XCALL phase cursor (M5.4) parks a coin whose indexer has no xcalls table, and re-arms without replaying",
-        "XCALL phase cursor (M5.4) propagates a genuine DB failure rather than swallowing it as a schema gap",
-        "XCALL phase cursor (M5.4) rewinds the cursor on a reorg so a re-resolution is still pushed",
-        "XCALL phase cursor (M5.4) seeds on the first poll and replays nothing",
-        "XCALL phase cursor (M5.4) stops a capped fetch on the last COMPLETE block rather than mid-block",
-        "xcall subscription channel (M5.4) accepts a subscription keyed by call_id",
-        "xcall subscription channel (M5.4) accepts both phase names in the types filter",
-        "xcall subscription channel (M5.4) is a real entity channel, so every surface that enumerates them covers it",
-        "xcall subscription channel (M5.4) normalizes case so an upper-case subscription still receives events",
-        "xcall subscription channel (M5.4) refuses a call_id that is not 64 hex, rather than making a dead subscription",
-        "xcall subscription channel (M5.4) refuses a subscription with no call_id at all",
-        "xcall subscription channel (M5.4) round-trips the channel key back to its call_id"
-      ],
       "6d43bdb51068be0e": [
         "explorer bridge-invariant route: hub endpoint choice answers null with neither, or with a HUB_URL that is not an http URL",
         "explorer bridge-invariant route: hub endpoint choice falls back to HUB_URL when config comes from the local file (NO_HUB)",
@@ -8106,7 +8123,7 @@
         "getAction: unknown index answers 404, not 200-with-nulls a known index still proceeds to getActionData and returns its row",
         "getAction: unknown index answers 404, not 200-with-nulls an unknown index resolves [null], the getBlock/getCheckpoint not-found shape"
       ],
-      "85db586275864405": [
+      "447c966e7aa93c82": [
         "federation reads: anchor statements are the indexer's, byte for byte ANCHOR_ACTIONS_SQL matches",
         "federation reads: anchor statements are the indexer's, byte for byte ANCHOR_BY_TXID_AFTER_SQL matches",
         "federation reads: anchor statements are the indexer's, byte for byte ANCHOR_BY_TXID_COLUMNS matches",
@@ -8156,12 +8173,16 @@
         "federation reads: getarchiveanchor parity with the indexer getarchiveanchor agrees on the earliest head with its chunks",
         "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a failed batch read",
         "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a filled page",
+        "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a hex range",
         "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a limit above the ceiling",
         "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a missing range",
         "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a negative round",
+        "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a null and boolean range",
         "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a range with batches",
         "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a reversed range",
         "federation reads: getpricebatches parity with the indexer getpricebatches agrees on a zero limit",
+        "federation reads: getpricebatches parity with the indexer getpricebatches agrees on an array limit",
+        "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on a digit-string epoch and window end",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on a failed signer read",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on a key list past the ceiling",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on a negative epoch",
@@ -8169,6 +8190,9 @@
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on a non-DOGE coin",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on a non-numeric window end",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on a window with signers and a publisher",
+        "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on an array epoch",
+        "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on an epoch with trailing junk",
+        "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on an exponent window end",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on empty key lists",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on no network named",
         "federation reads: getrollcallsigners parity with the indexer getrollcallsigners agrees on no tip block time",
@@ -10121,10 +10145,6 @@
       "c18126cb8f5bc097": [
         "capability_snapshots without an authoritative stake database never holds or refuses a row and never makes a proof HTTP request"
       ],
-      "c1be15b478ae2f18": [
-        "startWebsockets live-feed start starts the poller with every pooled coin when pools exist",
-        "startWebsockets live-feed start starts the poller with no coins when the boot has no pools"
-      ],
       "c1cd80da64ceab63": [
         "Database#getFiles: type=name query shape (M1.7) block/address/list-all modes are unaffected (same query shape as before)",
         "Database#getFiles: type=name query shape (M1.7) returns the same gated-file columns as every other mode (no new disclosure)",
@@ -10573,6 +10593,36 @@
         "consensus-primitive conformance: fallback vectors byte-identical to canonical @regression fixtures/consensus/stake_weighted_quorum.json is byte-identical to xchain-documentation/protocol/test-vectors",
         "consensus-primitive conformance: gate_registry row parts byte-identity @regression every vendored gate_registry/ part is byte-identical to the canonical copy",
         "consensus-primitive conformance: gate_registry row parts byte-identity @regression gate_registry/ file set equals the canonical set plus the local-only rows"
+      ],
+      "d0dc441f36275a8d": [
+        "ChangeDetector action detection emits action event when new actions detected",
+        "ChangeDetector action detection emits multiple action events for multiple new actions",
+        "ChangeDetector bet latch cursor advances past an empty span so it is not re-scanned every poll",
+        "ChangeDetector bet latch cursor disables itself for a coin whose indexer has no bet_feeds table, once",
+        "ChangeDetector bet latch cursor does not re-emit a latch it has already pushed",
+        "ChangeDetector bet latch cursor does not stall when one block latches more feeds than a fetch holds",
+        "ChangeDetector bet latch cursor emits BET_CLOSED on the bet_feed channel, keyed on the feed itself",
+        "ChangeDetector bet latch cursor holds BET_CLOSED while a backlog still owes the bets of its block",
+        "ChangeDetector bet latch cursor is inert against a db build without the latch query",
+        "ChangeDetector bet latch cursor re-probes after the cooldown and re-arms when the table appears",
+        "ChangeDetector bet latch cursor reports the transition, not the status the feed has drifted to by poll time",
+        "ChangeDetector bet latch cursor resumes a capped fetch inside a block so each feed goes out once",
+        "ChangeDetector bet latch cursor rewinds the cursor on a reorg so a re-latched feed is pushed again",
+        "ChangeDetector bet latch cursor seeds the cursor to the tip on the first poll instead of replaying history",
+        "ChangeDetector bet latch cursor stays parked inside the cooldown, so re-probing is not a per-poll query",
+        "ChangeDetector bet latch cursor still surfaces a genuine DB failure instead of silencing the coin",
+        "ChangeDetector block detection does not emit when block index unchanged",
+        "ChangeDetector block detection emits block event when new block detected",
+        "ChangeDetector error resilience continues polling when DB query fails",
+        "ChangeDetector initialization seeds state on first poll without emitting events",
+        "ChangeDetector lifecycle events does not emit lifecycle for SEND action",
+        "ChangeDetector lifecycle events emits COINPAY_FULFILLED for COINPAY action",
+        "ChangeDetector lifecycle events emits COINPAY_REQUIRED for coinpay settlement",
+        "ChangeDetector lifecycle events emits DISPENSE for DISPENSE action",
+        "ChangeDetector lifecycle events emits ORDER_MATCH lifecycle event",
+        "ChangeDetector lifecycle events emits SWAP_MATCH for SWAP_MATCH action",
+        "ChangeDetector start / stop start initializes state for provided coins",
+        "ChangeDetector start / stop stop clears timer"
       ],
       "d34efda462f032b1": [
         "@p1 @action Broadcasts API regression GET /RBTC/api/broadcasts/{block}/block: returns broadcasts in block",
@@ -11765,41 +11815,6 @@
         "explorer bridge panel routes, HEAD and failures fails unavailable sources as JSON without falling through to HTML",
         "explorer bridge panel routes, HEAD and failures rejects suffix aliases without calling the hub"
       ],
-      "f3481d7f9f33b980": [
-        "catch-up replay stops at the live-start ceiling a key that went live before the first poll is bounded by the seed",
-        "catch-up replay stops at the live-start ceiling a key the client already holds keeps the ceiling it went live at",
-        "catch-up replay stops at the live-start ceiling a live poll during the replay does not repeat a committed but unpolled row",
-        "catch-up replay stops at the live-start ceiling a reorg rewind lowers the live mark to the rewound cursor",
-        "catch-up replay stops at the live-start ceiling a replay that finishes before the next poll does not repeat those rows either",
-        "catch-up replay stops at the live-start ceiling the live detector reads its own feed with no upper bound"
-      ],
-      "f3560fab268b6101": [
-        "M5.1 getCollectibles classification (spec rows 32) binds the classification to the COUNT query too, not only the row query",
-        "M5.1 getCollectibles classification (spec rows 32) classifies on the ISSUE fields, indivisible with a frozen ceiling",
-        "M5.1 getCollectibles classification (spec rows 32) interpolates the caller-clamped page bound rather than a hardcoded one",
-        "M5.1 getCollectibles classification (spec rows 32) is the SAME rule the client ships as isNftToken, not a second definition",
-        "M5.1 getCollectibles classification (spec rows 32) pages on m.id, the column it orders by",
-        "M5.1 getCollectibles classification (spec rows 32) seeds the search arg on a filtered lane and NOT on the list-all lane",
-        "M5.2 getRichList (spec row 33) answers not-found for a tick that was never interned",
-        "M5.2 getRichList (spec row 33) answers not-found for an interned tick with no token row",
-        "M5.2 getRichList (spec row 33) applies the page offset to the ranking QUERY, not only to the rank numbers",
-        "M5.2 getRichList (spec row 33) bounds the ranking with the caller-clamped limit",
-        "M5.2 getRichList (spec row 33) carries the summed balances ALONGSIDE the recorded supply rather than replacing it",
-        "M5.2 getRichList (spec row 33) continues the rank numbering across pages instead of restarting at 1",
-        "M5.2 getRichList (spec row 33) excludes zero balances from both the census and the ranking",
-        "M5.2 getRichList (spec row 33) leaves the top-ten concentration UNMEASURED below ten ranked holders",
-        "M5.2 getRichList (spec row 33) measures share against CIRCULATING supply, not max supply",
-        "M5.2 getRichList (spec row 33) measures the top-ten concentration once ten holders are ranked",
-        "M5.2 getRichList (spec row 33) reads the token block height off index_tickers, the only table that has one",
-        "M5.2 getRichList (spec row 33) resolves the tick to an id FIRST and binds the id, never the tick, to balances",
-        "M5.2 getRichList (spec row 33) returns null, never 0, for a share it cannot compute",
-        "M5.2 getRichList (spec row 33) survives a malformed amount instead of failing the whole page",
-        "M5.4 XCALL phase reads (spec row 35) binds the VALID row only, matching the indexer authoritative read",
-        "M5.4 XCALL phase reads (spec row 35) carries BOTH terminal statuses, so expiries are not silently dropped",
-        "M5.4 XCALL phase reads (spec row 35) cursors on resolved_block, the height with no action row behind it",
-        "M5.4 XCALL phase reads (spec row 35) getXcallInfo answers null for a call this chain has no row for",
-        "M5.4 XCALL phase reads (spec row 35) getXcallInfo point-reads one call by id, valid row only, bounded to one row"
-      ],
       "f39210a98ed00fc2": [
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path carries the BET_EXPIRE, ROLLCALL, XBRIDGE and COINPAY_EXPIRE key fields identically",
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path fetches each distinct action_index exactly once",
@@ -11853,6 +11868,7 @@
         "settlement-anchor action detail handlers @regression LIST_SHARE reads the list snapshot, not the policy one",
         "settlement-anchor action detail handlers @regression XPOLICY reads the settlement by its own index, then the policy snapshot by transfer_id",
         "settlement-anchor action detail handlers @regression omits every key on a replica without bridge_settlements and names no table",
+        "settlement-anchor action detail handlers @regression omits the snapshot key when no co-located hub DB is configured",
         "settlement-anchor action detail handlers @regression omits the snapshot key when only the snapshot table is absent",
         "settlement-anchor action detail handlers @regression registers XPOLICY and LIST_SHARE with no static query slots",
         "settlement-anchor action detail handlers @regression reports a missing settlement row as null without reading a snapshot"
@@ -12073,7 +12089,7 @@
       },
       "test": {
         "fileCount": 453,
-        "titleCount": 7697,
+        "titleCount": 7703,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12263,7 +12279,7 @@
           "test/unit/db/core/db_list_meta_counts.test.js": "c9647c420a36d7aa",
           "test/unit/db/core/db_live_feed_real_ddl.test.js": "0aa217bb4415aa95",
           "test/unit/db/core/db_m4_compositions.test.js": "4afc4342423ffd23",
-          "test/unit/db/core/db_m5_compositions.test.js": "f3560fab268b6101",
+          "test/unit/db/core/db_m5_compositions.test.js": "20e419de26013908",
           "test/unit/db/core/db_more_queries.test.js": "54d3da6f29089901",
           "test/unit/db/core/db_network_totals_cache.test.js": "aa342200714200e1",
           "test/unit/db/core/db_pool_rebuild_leak.test.js": "d53f2a9fa9b12339",
@@ -12397,12 +12413,12 @@
           "test/unit/explorer/shared_lists/shared_lists_names.test.js": "c23f1c94403319c0",
           "test/unit/explorer/shared_lists/shared_lists_route.test.js": "10fec7dab7a3ec46",
           "test/unit/federation/federation_coin_routing.test.js": "ede31e64f456f593",
-          "test/unit/federation/federation_indexer_parity.test.js": "85db586275864405",
+          "test/unit/federation/federation_indexer_parity.test.js": "447c966e7aa93c82",
           "test/unit/federation/federation_public_reads.test.js": "fb661a3bc9b784fa",
           "test/unit/federation/price_batches.test.js": "39b81da21d0230a3",
           "test/unit/helpers/source_slice.test.js": "4b7b0941e0e9456b",
           "test/unit/http/api_boot/listen_host.test.js": "78cd57ab43cd9d97",
-          "test/unit/http/api_boot/websocket_start.test.js": "c1be15b478ae2f18",
+          "test/unit/http/api_boot/websocket_start.test.js": "2d909ab5ef9dd060",
           "test/unit/http/cache_control/cache_control_requests.test.js": "f761c855dcd23cf7",
           "test/unit/http/cache_control/cache_control_routes.test.js": "250861b21b9e6338",
           "test/unit/http/cache_control/cache_control_stamp.test.js": "cf937012411274f7",
@@ -12499,7 +12515,7 @@
           "test/unit/ws/broadcaster_mempool_types_filter.test.js": "5b1ab7ada43c315b",
           "test/unit/ws/broadcaster_row_atomic_backpressure.test.js": "2707aa9125a50264",
           "test/unit/ws/broadcaster_stale_marker.test.js": "e74a3fb230017c50",
-          "test/unit/ws/change_detector.test.js": "266e2b5772181edf",
+          "test/unit/ws/change_detector.test.js": "d0dc441f36275a8d",
           "test/unit/ws/change_detector/attestation_events.test.js": "5517e4db7d8c5250",
           "test/unit/ws/change_detector/bet_latches.test.js": "dbbbe200376c26b1",
           "test/unit/ws/change_detector/fork_point_rewind.test.js": "e41e4f7fc8385a5e",
@@ -12508,7 +12524,7 @@
           "test/unit/ws/change_detector/token_ledger_refresh.test.js": "9e985f8b19a85cca",
           "test/unit/ws/change_detector_mempool_map.test.js": "11daa587b9651a21",
           "test/unit/ws/change_detector_methods.test.js": "8c4ba588a7c9b3ed",
-          "test/unit/ws/change_detector_xcall_phase.test.js": "6bf0c415bd850314",
+          "test/unit/ws/change_detector_xcall_phase.test.js": "41bdd9ebe9e818d9",
           "test/unit/ws/channel_keys/channel_keys.test.js": "5a5f9e6c89a28113",
           "test/unit/ws/channel_manager.test.js": "4a8c2735761ec5b4",
           "test/unit/ws/channel_manager/channels.test.js": "60c0064eeeceb96e",
@@ -12524,7 +12540,7 @@
           "test/unit/ws/serialize.test.js": "ddb2427d6ae835b0",
           "test/unit/ws/websocket_server.test.js": "413f1a945bfd7c24",
           "test/unit/ws/websocket_welcome/coin_resolution.test.js": "5778b0be08bc8353",
-          "test/unit/ws/ws_catch_up_live_boundary.test.js": "f3481d7f9f33b980",
+          "test/unit/ws/ws_catch_up_live_boundary.test.js": "4003619ee66f822c",
           "test/unit/ws/ws_catch_up_routing.test.js": "a7e51b04a478ac2b",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "01f66d0301b77ff5",
           "test/unit/ws/xchain_ws_catch_up.test.js": "999011408966972f"
@@ -12597,7 +12613,7 @@
       },
       "test:db": {
         "fileCount": 47,
-        "titleCount": 1522,
+        "titleCount": 1523,
         "files": {
           "test/unit/action_detail/history/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/history/db_history_unmapped_actions.test.js": "381a93ad4ecc32fc",
@@ -12616,7 +12632,7 @@
           "test/unit/db/core/db_data_methods.test.js": "847a84940296117c",
           "test/unit/db/core/db_files_name_mode.test.js": "c1cd80da64ceab63",
           "test/unit/db/core/db_m4_compositions.test.js": "4afc4342423ffd23",
-          "test/unit/db/core/db_m5_compositions.test.js": "f3560fab268b6101",
+          "test/unit/db/core/db_m5_compositions.test.js": "20e419de26013908",
           "test/unit/db/core/db_more_queries.test.js": "54d3da6f29089901",
           "test/unit/db/core/db_network_totals_cache.test.js": "aa342200714200e1",
           "test/unit/db/core/db_pool_rebuild_leak.test.js": "d53f2a9fa9b12339",
@@ -12839,7 +12855,7 @@
       },
       "test:ws": {
         "fileCount": 21,
-        "titleCount": 408,
+        "titleCount": 411,
         "files": {
           "test/unit/ws/bet_frame_keys.test.js": "8f07c8b4794b7a91",
           "test/unit/ws/broadcaster.test.js": "19290a524bdda045",
@@ -12849,16 +12865,16 @@
           "test/unit/ws/broadcaster_mempool_types_filter.test.js": "5b1ab7ada43c315b",
           "test/unit/ws/broadcaster_row_atomic_backpressure.test.js": "2707aa9125a50264",
           "test/unit/ws/broadcaster_stale_marker.test.js": "e74a3fb230017c50",
-          "test/unit/ws/change_detector.test.js": "266e2b5772181edf",
+          "test/unit/ws/change_detector.test.js": "d0dc441f36275a8d",
           "test/unit/ws/change_detector/market_refresh_conformance.test.js": "ba3e78799ec61879",
           "test/unit/ws/change_detector_mempool_map.test.js": "11daa587b9651a21",
           "test/unit/ws/change_detector_methods.test.js": "8c4ba588a7c9b3ed",
-          "test/unit/ws/change_detector_xcall_phase.test.js": "6bf0c415bd850314",
+          "test/unit/ws/change_detector_xcall_phase.test.js": "41bdd9ebe9e818d9",
           "test/unit/ws/channel_manager.test.js": "4a8c2735761ec5b4",
           "test/unit/ws/schema_version_client.test.js": "9268dad3a4993a0e",
           "test/unit/ws/serialize.test.js": "ddb2427d6ae835b0",
           "test/unit/ws/websocket_server.test.js": "413f1a945bfd7c24",
-          "test/unit/ws/ws_catch_up_live_boundary.test.js": "f3481d7f9f33b980",
+          "test/unit/ws/ws_catch_up_live_boundary.test.js": "4003619ee66f822c",
           "test/unit/ws/ws_catch_up_routing.test.js": "a7e51b04a478ac2b",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "01f66d0301b77ff5",
           "test/unit/ws/xchain_ws_catch_up.test.js": "999011408966972f"

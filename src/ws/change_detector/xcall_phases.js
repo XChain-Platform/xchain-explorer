@@ -24,7 +24,8 @@
  * change_detector.js can copy the method onto ChangeDetector.prototype by
  * descriptor. Nothing here is ever instantiated: `this` is the ChangeDetector
  * instance at call time, exactly as it was when the method sat inline. The park,
- * re-arm, block-boundary and event-building steps are plain module functions, so
+ * re-arm and event-building steps are plain module functions (the cursor position
+ * steps are pair_cursor.js), so
  * the detector's method surface is the same set of names it always had.
  *
  ********************************************************************/
@@ -34,6 +35,8 @@
 // Same cached singleton change_detector.js logs through; see the note there.
 const { getLogger } = require('../../observability');
 const log = getLogger();
+// The (resolved_block, action_index) position steps (pair_cursor.js).
+const { readCeiling, subCursor, pairCursorAfter } = require('./pair_cursor.js');
 
 class XcallPhaseCursor {
 
@@ -49,7 +52,9 @@ class XcallPhaseCursor {
     // the same cursor even though XCALL v2 does mint an action, because a subscriber
     // filtering on the phase names must see both outcomes or the live timeline shows
     // completions and silently drops expiries.
-    async checkXcallPhases(coin, config, currentBlockIndex, prev) {
+    // `upToBlock` caps the read exactly as checkBetLatches' does, so a completion never
+    // goes out ahead of the callback EXECUTE before it.
+    async checkXcallPhases(coin, config, currentBlockIndex, prev, upToBlock) {
         if (typeof this.db.getXcallPhasesSince !== 'function') return;
         // Parked-with-cooldown exactly like the BET latch: a coin whose indexer
         // predates the XCALL tables is a deploy-order fact, not a permanent property
@@ -58,10 +63,12 @@ class XcallPhaseCursor {
 
         let since = Number(prev.xcallBlock);
         if (!Number.isFinite(since)) since = 0;
+        const upTo = readCeiling(currentBlockIndex, since, upToBlock);
 
         let rows;
         try {
-            rows = await this.db.getXcallPhasesSince(config, since, this.fetchLimit);
+            rows = await this.db.getXcallPhasesSince(config, since, this.fetchLimit,
+                { afterActionIndex: subCursor(prev.xcallAction), upToBlock: upTo });
         } catch (e) {
             parkXcallPhases(this, coin, prev, e);
             return;
@@ -75,17 +82,20 @@ class XcallPhaseCursor {
         }
 
         if (!rows || rows.length === 0) {
-            if (currentBlockIndex > since) prev.xcallBlock = currentBlockIndex;
+            if (upTo >= since) {
+                prev.xcallBlock  = upTo;
+                prev.xcallAction = null;
+            }
             return;
         }
 
-        const { emit, next } = completeXcallBlocks(rows, this.fetchLimit, currentBlockIndex);
-
-        for (const call of emit) {
+        for (const call of rows) {
             this.emit('lifecycle_event', coin, xcallPhaseEvent(call));
         }
 
-        prev.xcallBlock = next;
+        const next = pairCursorAfter(rows, this.fetchLimit, upTo, 'resolved_block');
+        prev.xcallBlock  = next.block;
+        prev.xcallAction = next.action;
     }
 }
 
@@ -110,32 +120,9 @@ function rearmXcallPhases(coin, prev, currentBlockIndex) {
     prev.xcallUnsupported = false;
     prev.xcallRetryAt     = 0;
     prev.xcallBlock       = currentBlockIndex;
+    prev.xcallAction      = null;
     log.info('CHANGE_DETECTOR_XCALLS_TABLE_PRESENT',
              { coin, rearmed: 'XCALL phase events', from_block: currentBlockIndex });
-}
-
-// Which fetched rows to emit and where the cursor lands afterwards.
-function completeXcallBlocks(rows, fetchLimit, currentBlockIndex) {
-    let emit = rows;
-    let next = Math.max(currentBlockIndex, Number(rows[rows.length - 1].resolved_block));
-
-    if (rows.length >= fetchLimit) {
-        // A capped fetch can cut a block in half, and the cursor is a BLOCK HEIGHT
-        // rather than a row id, so resuming mid-block would re-emit the calls
-        // already sent from it. Stop on the last COMPLETE block and re-read the
-        // remainder next poll; when the whole fetch is one block there is no
-        // boundary to stop on, so move past it and let the REST reads stay
-        // authoritative for the tail.
-        const lastBlock = Number(rows[rows.length - 1].resolved_block);
-        const complete  = rows.filter((r) => Number(r.resolved_block) < lastBlock);
-        if (complete.length > 0) {
-            emit = complete;
-            next = Number(complete[complete.length - 1].resolved_block);
-        } else {
-            next = lastBlock;
-        }
-    }
-    return { emit, next };
 }
 
 // The lifecycle event for one resolved call.

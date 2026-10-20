@@ -163,3 +163,33 @@ describe('catch-up replay stops at the live-start ceiling', function () {
         for (const call of db.getActionsSince.getCalls()) expect(call.args[3]).to.equal(undefined);
     });
 });
+
+describe('catch-up replay stops at the live-start ceiling', function () {
+    afterEach(() => sinon.restore());
+
+    it('a subscribe landing mid-row gets that row\'s lifecycle frames once, after its NEW_ACTION', async function () {
+        // The row's ORDER_MATCH waits on a settlement read; the subscribe lands inside
+        // that wait, so its ceiling freezes at the row and the replay owns the row whole.
+        const db = fakeDb([row(1)]);
+        let settle2;
+        const settlement = new Promise((resolve) => { settle2 = resolve; });
+        db.getOrderMatchSettlement = () => settlement;
+        db.getCoinpayObligation = async () => null;
+        const { s, detector, client } = setup(db);
+        await detector.checkCoin('BTC');
+        db.rows.push(Object.assign(row(2), { action: 'ORDER_MATCH', status: 'valid' }));
+
+        const poll = detector.checkCoin('BTC');
+        await settle();
+        subscribe(s, client, { since_action_index: '1' });
+        settle2({ settlement_type: 'native' });
+        await poll;
+        db.release();
+        await settle();
+
+        const sent = client.ws.send.getCalls().map(c => JSON.parse(c.args[0]))
+            .filter(m => m.type === 'NEW_ACTION' || m.type === 'ORDER_MATCH');
+        expect(sent.map(m => m.type + (m.catch_up ? ' replay' : ' live')))
+            .to.deep.equal(['NEW_ACTION replay', 'ORDER_MATCH replay']);
+    });
+});

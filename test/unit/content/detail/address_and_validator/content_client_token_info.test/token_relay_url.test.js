@@ -122,6 +122,15 @@ describe('client: token metadata URL rule shared with the relay', function () {
     });
 });
 
+describe('client: token metadata URL scheme strip', function () {
+    it('strips only a leading scheme, in any case, from a JSON link', function () {
+        expect(tokenInfo_metadataUrl('http://a.example/r?u=https://b.example/x.json'))
+            .to.equal('https://a.example/r?u=https://b.example/x.json');
+        expect(tokenInfo_metadataUrl('HTTPS://h.example/x.json')).to.equal('https://h.example/x.json');
+        expect(tokenInfo_metadataUrl('Http://h.example/x.json;sha')).to.equal('https://h.example/x.json');
+    });
+});
+
 describe('client: token metadata relay request', function () {
     it('asks the relay with the page coin and the token tick after the direct fetch fails', function () {
         const win = boot();

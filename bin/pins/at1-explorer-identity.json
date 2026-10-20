@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 319,
+    "count": 321,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2576,6 +2576,8 @@
       "getTransactionData",
       "getTransactionDataBatch",
       "getUnstakes",
+      "getValidBetEditFeedIndex",
+      "getValidDispenserMutationIndex",
       "getValidator",
       "getValidatorCapabilities",
       "getValidatorRewards",
@@ -3774,6 +3776,22 @@
         "indexed source lane against the REAL indexer DDL returns the same rows and total as the a2.address form for every address",
         "indexed source lane against the REAL indexer DDL selects the action source first and the transaction source only as a fallback",
         "indexed source lane against the REAL indexer DDL the a2.address form these two replaced names a column their joins do not carry"
+      ],
+      "1ffaac579a96af26": [
+        "edit and cancel lifecycle routing does not route BET_EDIT when no valid protocol row exists",
+        "edit and cancel lifecycle routing does not route DISPENSER_CANCEL when no valid protocol row exists",
+        "edit and cancel lifecycle routing does not route DISPENSER_EDIT when no valid protocol row exists",
+        "edit and cancel lifecycle routing fails closed when BET_EDIT validity cannot be read",
+        "edit and cancel lifecycle routing fails closed when DISPENSER_CANCEL validity cannot be read",
+        "edit and cancel lifecycle routing fails closed when DISPENSER_EDIT validity cannot be read",
+        "edit and cancel lifecycle routing keeps all routed action names admitted by the types filter",
+        "edit and cancel lifecycle routing routes a valid BET_EDIT to its parent feed with the format discriminator",
+        "edit and cancel lifecycle routing routes a valid DISPENSER_CANCEL to its parent dispenser",
+        "edit and cancel lifecycle routing routes a valid DISPENSER_EDIT to its parent dispenser",
+        "valid lifecycle parent lookups reads a bet edit parent only through a valid status row",
+        "valid lifecycle parent lookups reads dispenser cancel and edit parents only through valid status rows",
+        "valid lifecycle parent lookups refuses an unknown dispenser mutation without issuing dynamic SQL",
+        "valid lifecycle parent lookups returns no parent when a validity-filtered lookup finds no row"
       ],
       "202e42a904372b1d": [
         "HubDbSync price barriers apply to every block @regression @tier1 queues both barriers for BTC mainnet at block time 1",
@@ -12072,8 +12090,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 453,
-        "titleCount": 7697,
+        "fileCount": 454,
+        "titleCount": 7711,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12503,6 +12521,7 @@
           "test/unit/ws/change_detector/attestation_events.test.js": "5517e4db7d8c5250",
           "test/unit/ws/change_detector/bet_latches.test.js": "dbbbe200376c26b1",
           "test/unit/ws/change_detector/fork_point_rewind.test.js": "e41e4f7fc8385a5e",
+          "test/unit/ws/change_detector/lifecycle_edit_cancel_routing.test.js": "1ffaac579a96af26",
           "test/unit/ws/change_detector/market_refresh_conformance.test.js": "ba3e78799ec61879",
           "test/unit/ws/change_detector/pool_reconcile.test.js": "c36bc4bc4dce89a6",
           "test/unit/ws/change_detector/token_ledger_refresh.test.js": "9e985f8b19a85cca",

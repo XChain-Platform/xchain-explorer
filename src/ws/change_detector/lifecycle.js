@@ -83,12 +83,25 @@ class LifecycleEvents {
                 lifecycleEvent.channel = 'dispenser';
             }
 
+            // Cancel and edit actions have no validity on the generic actions row.
+            // Resolve them through their protocol row and emit only a valid mutation.
+            if (actionType === 'DISPENSER_CANCEL' || actionType === 'DISPENSER_EDIT') {
+                const routed = await routeValidDispenserMutation(
+                    this, config, actionType, action, lifecycleEvent);
+                if (!routed) continue;
+            }
+
             // Route BET-family events to the `bet_feed` entity channel, keyed on the
             // PARENT market rather than the action itself, so a market page subscribed
             // to one feed sees every bet placed on it plus its latch/resolve/cancel/
             // expire transitions (§11.1). Same shape as the dispenser routing above.
             if (actionType === 'BET' || actionType === 'BET_EXPIRE') {
                 await routeBetEvent(this, config, action, lifecycleEvent);
+            }
+
+            if (actionType === 'BET_EDIT') {
+                const routed = await routeValidBetEdit(this, config, action, lifecycleEvent);
+                if (!routed) continue;
             }
 
             this.emit('lifecycle_event', coin, lifecycleEvent);
@@ -228,6 +241,19 @@ async function enrichDispenserEnd(detector, config, actionType, action, lifecycl
     }
 }
 
+async function routeValidDispenserMutation(detector, config, actionType, action, lifecycleEvent) {
+    try {
+        const dispenserIndex = await detector.db.getValidDispenserMutationIndex(
+            config, actionType, action.action_index);
+        if (dispenserIndex === null || dispenserIndex === undefined) return false;
+        lifecycleEvent.data.dispenser_action_index = dispenserIndex;
+        lifecycleEvent.channel = 'dispenser';
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 // The BET family: the parent feed's action_index, the format discriminator, and
 // the `bet_feed` channel.
 async function routeBetEvent(detector, config, action, lifecycleEvent) {
@@ -248,6 +274,22 @@ async function routeBetEvent(detector, config, action, lifecycleEvent) {
             ? null
             : Number(action.action_format);
     lifecycleEvent.channel = 'bet_feed';
+}
+
+async function routeValidBetEdit(detector, config, action, lifecycleEvent) {
+    try {
+        const feedIndex = await detector.db.getValidBetEditFeedIndex(config, action.action_index);
+        if (feedIndex === null || feedIndex === undefined) return false;
+        lifecycleEvent.data.feed_action_index = feedIndex;
+        lifecycleEvent.data.action_format =
+            (action.action_format === undefined || action.action_format === null)
+                ? null
+                : Number(action.action_format);
+        lifecycleEvent.channel = 'bet_feed';
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 module.exports = LifecycleEvents.prototype;

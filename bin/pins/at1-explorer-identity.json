@@ -2695,6 +2695,15 @@
         "action LRU skips responses carrying a live state block caches an action with no state block (SEND, immutable once confirmed)",
         "action LRU skips responses carrying a live state block treats an empty-string or null state as cacheable rather than throwing"
       ],
+      "025f1c31ebfb79d7": [
+        "transaction page: a pending BROADCAST action row [REGRESSION] shows the message text of a version 0 broadcast",
+        "transaction page: a pending BROADCAST action row escapes the message",
+        "transaction page: a pending BROADCAST action row falls back to the action name for a wire string it cannot read",
+        "transaction page: a pending BROADCAST action row leaves a confirmed transaction untouched",
+        "transaction page: a pending BROADCAST action row reads the oracle and feed versions from their own positions",
+        "transaction page: a pending BROADCAST action row showTransactionDetails passes the transaction through the pending preparation",
+        "transaction page: a pending BROADCAST action row shows no undefined in the status cell and does not mark the row as failed"
+      ],
       "02da01994399dab2": [
         "markup labels still render as markup through formatLinkHtml keeps a badge label as an element",
         "markup labels still render as markup through formatLinkHtml keeps the search highlight on a token hit while escaping the tick",
@@ -12063,8 +12072,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 452,
-        "titleCount": 7690,
+        "fileCount": 453,
+        "titleCount": 7697,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12184,6 +12193,7 @@
           "test/unit/content/lists/content_client_multileg_render.test.js": "cb10f8b778ea70cd",
           "test/unit/content/lists/content_client_null_cell_render.test.js": "0b4078b9c7064f8e",
           "test/unit/content/lists/content_client_null_link_guard.test.js": "39167009f1ed0842",
+          "test/unit/content/lists/content_client_pending_broadcast_details.test.js": "025f1c31ebfb79d7",
           "test/unit/content/lists/content_client_price_list_row.test.js": "266000ecc0feeffe",
           "test/unit/content/lists/content_client_rich_list.test.js": "a1ccbb8b747aa17a",
           "test/unit/content/lists/content_client_send_summary_shape.test.js": "6e757d5406a33b25",

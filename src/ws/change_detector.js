@@ -74,6 +74,8 @@ const LIFECYCLE_MAP = {
     'SWAP_MATCH':      ['SWAP_MATCH'],
     'SWAP_EXPIRE':     ['SWAP_EXPIRED'],
     'DISPENSE':        ['DISPENSE'],
+    'DISPENSER_CANCEL':['DISPENSER_CANCEL'],
+    'DISPENSER_EDIT':  ['DISPENSER_EDIT'],
     'DISPENSER_CLOSE': ['DISPENSER_CLOSED'],
     'DISPENSER_EXPIRE':['DISPENSER_EXPIRED'],
     // BET is ONE action name carrying four formats (create/cancel/place/resolve), so
@@ -81,6 +83,7 @@ const LIFECYCLE_MAP = {
     // BET_EXPIRE is the system refund pass's minted action. Both route to the
     // `bet_feed` entity channel below, keyed on the PARENT feed's action_index.
     'BET':             ['BET'],
+    'BET_EDIT':        ['BET_EDIT'],
     'BET_EXPIRE':      ['BET_EXPIRED']
 };
 

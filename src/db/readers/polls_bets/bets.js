@@ -85,6 +85,22 @@ class BetReaders {
         return null;
     }
 
+    async getValidBetEditFeedIndex(config, actionIndex) {
+        let query = `SELECT
+                        m.feed_action_index
+                    FROM
+                        bet_edits m
+                        INNER JOIN index_statuses s ON (s.id=m.status_id)
+                    WHERE
+                        m.action_index=? AND
+                        s.status='valid'
+                    LIMIT 1`;
+        let results = await this.doQuery(config, query, [actionIndex]);
+        if (results && results.length && results[0].feed_action_index != null)
+            return results[0].feed_action_index;
+        return null;
+    }
+
     // Feeds whose `closed` deadline latch was stamped above `sinceBlock`, oldest
     // first. This is the ws layer's SECOND cursor and it exists because the latch is
     // the one BET transition with no action row: the end-of-block pass writes

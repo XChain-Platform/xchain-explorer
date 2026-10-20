@@ -50,60 +50,9 @@ class LifecycleEvents {
 
         for (const eventType of eventTypes) {
             const lifecycleEvent = baseLifecycleEvent(eventType, actionType, action);
-
-            // Enrich ORDER_MATCH with settlement info and COINPAY_REQUIRED
-            if (actionType === 'ORDER_MATCH') {
-                await enrichOrderMatch(this, coin, config, action, lifecycleEvent);
-            }
-
-            // Enrich DISPENSE with its parent dispenser's action_index: the base
-            // payload's action_index is the dispense itself, but SDK consumers
-            // correlate on data.dispenser_action_index (xchain-sdk XChainSDK
-            // DISPENSE handler). Mirrors the ORDER_MATCH enrichment above.
-            if (actionType === 'DISPENSE') {
-                try {
-                    lifecycleEvent.data.dispenser_action_index =
-                        await this.db.getDispenseDispenserIndex(config, action.action_index);
-                } catch (e) {
-                    // Non-fatal: emit the base event with a null parent index
-                    lifecycleEvent.data.dispenser_action_index = null;
-                }
-            }
-
-            // Route dispenser lifecycle events (DISPENSE / DISPENSER_CLOSED /
-            // DISPENSER_EXPIRED) to the dedicated `dispenser` entity channel that
-            // the SDK's onDispenser() subscribes to, keyed on the parent
-            // dispenser's action_index. Without this they only reached the
-            // `actions`/`address` channels, so the SDK's typed dispenser handlers
-            // were dead (mirrors the `attestation` channel pattern below).
-            if (actionType === 'DISPENSE' || actionType === 'DISPENSER_CLOSE' || actionType === 'DISPENSER_EXPIRE') {
-                if (actionType === 'DISPENSER_CLOSE' || actionType === 'DISPENSER_EXPIRE') {
-                    await enrichDispenserEnd(this, config, actionType, action, lifecycleEvent);
-                }
-                lifecycleEvent.channel = 'dispenser';
-            }
-
-            // Cancel and edit actions have no validity on the generic actions row.
-            // Resolve them through their protocol row and emit only a valid mutation.
-            if (actionType === 'DISPENSER_CANCEL' || actionType === 'DISPENSER_EDIT') {
-                const routed = await routeValidDispenserMutation(
-                    this, config, actionType, action, lifecycleEvent);
-                if (!routed) continue;
-            }
-
-            // Route BET-family events to the `bet_feed` entity channel, keyed on the
-            // PARENT market rather than the action itself, so a market page subscribed
-            // to one feed sees every bet placed on it plus its latch/resolve/cancel/
-            // expire transitions (§11.1). Same shape as the dispenser routing above.
-            if (actionType === 'BET' || actionType === 'BET_EXPIRE') {
-                await routeBetEvent(this, config, action, lifecycleEvent);
-            }
-
-            if (actionType === 'BET_EDIT') {
-                const routed = await routeValidBetEdit(this, config, action, lifecycleEvent);
-                if (!routed) continue;
-            }
-
+            const routed = await enrichAndRouteLifecycleEvent(
+                this, coin, config, actionType, action, lifecycleEvent);
+            if (!routed) continue;
             this.emit('lifecycle_event', coin, lifecycleEvent);
         }
     }
@@ -193,6 +142,46 @@ function baseLifecycleEvent(eventType, actionType, action) {
             status:       action.status        || null
         }
     };
+}
+
+async function enrichAndRouteLifecycleEvent(
+    detector, coin, config, actionType, action, lifecycleEvent
+) {
+    if (actionType === 'ORDER_MATCH') {
+        await enrichOrderMatch(detector, coin, config, action, lifecycleEvent);
+    }
+
+    await routeDispenserEvent(detector, config, actionType, action, lifecycleEvent);
+    if (actionType === 'DISPENSER_CANCEL' || actionType === 'DISPENSER_EDIT') {
+        return routeValidDispenserMutation(
+            detector, config, actionType, action, lifecycleEvent);
+    }
+
+    if (actionType === 'BET' || actionType === 'BET_EXPIRE') {
+        await routeBetEvent(detector, config, action, lifecycleEvent);
+    }
+    if (actionType === 'BET_EDIT') {
+        return routeValidBetEdit(detector, config, action, lifecycleEvent);
+    }
+    return true;
+}
+
+async function routeDispenserEvent(detector, config, actionType, action, lifecycleEvent) {
+    if (actionType === 'DISPENSE') {
+        try {
+            lifecycleEvent.data.dispenser_action_index =
+                await detector.db.getDispenseDispenserIndex(config, action.action_index);
+        } catch (e) {
+            lifecycleEvent.data.dispenser_action_index = null;
+        }
+    }
+
+    if (actionType !== 'DISPENSE' &&
+        actionType !== 'DISPENSER_CLOSE' && actionType !== 'DISPENSER_EXPIRE') return;
+    if (actionType === 'DISPENSER_CLOSE' || actionType === 'DISPENSER_EXPIRE') {
+        await enrichDispenserEnd(detector, config, actionType, action, lifecycleEvent);
+    }
+    lifecycleEvent.channel = 'dispenser';
 }
 
 // The ORDER_MATCH family: the settlement type onto the event, and a coinpay

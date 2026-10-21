@@ -141,3 +141,34 @@ describe('processFeeQuoteRequest busy-retry', function () {
         expect(stub.callCount).to.equal(0);
     });
 });
+
+describe('processFeeQuoteRequest POST body path', function () {
+    afterEach(() => sinon.restore());
+
+    async function post(body) {
+        const res = mockRes();
+        await XChainExplorer.prototype.processFeeQuoteRequest.call(fakeThis(), { params: { coin: 'RBTC' }, query: {}, method: 'POST', body }, res);
+        return res;
+    }
+
+    it('reads the JSON body and accepts params above the query cap', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x');
+        const stub = sinon.stub(IndexerConnector.prototype, 'feequote').resolves(QUOTE);
+        const big = 'a'.repeat(20000);
+        const res = await post({ action: 'ISSUE', params: big });
+        expect(res._status).to.equal(200);
+        expect(stub.firstCall.args[0].params).to.equal(big);
+    });
+
+    it('rejects params over MAX_PREFLIGHT_PARAMS_LENGTH', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x');
+        const res = await post({ action: 'ISSUE', params: 'a'.repeat(XChainExplorer.MAX_PREFLIGHT_PARAMS_LENGTH + 1) });
+        expect(res._status).to.equal(400);
+    });
+
+    it('rejects non-string fields and missing action', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x');
+        expect((await post({ action: 'ISSUE', params: { a: 1 } }))._status).to.equal(400);
+        expect((await post(undefined))._status).to.equal(400);
+    });
+});

@@ -2767,6 +2767,18 @@
         "dispenser/dispense legs are values, not shared scratch state renders a NATIVE-coin get leg byte-identically to the pre-refactor expression",
         "dispenser/dispense legs are values, not shared scratch state renders a TOKEN get leg byte-identically to the pre-refactor expression"
       ],
+      "05918af886571116": [
+        "processFeeQuoteRequest POST body path reads the JSON body and accepts params above the query cap",
+        "processFeeQuoteRequest POST body path rejects non-string fields and missing action",
+        "processFeeQuoteRequest POST body path rejects params over MAX_PREFLIGHT_PARAMS_LENGTH",
+        "processFeeQuoteRequest busy-retry a transport failure is still a 502, now flagged retryable",
+        "processFeeQuoteRequest busy-retry a valid quote is returned on the first hop",
+        "processFeeQuoteRequest busy-retry does not retry a busy answer that is not marked retryable",
+        "processFeeQuoteRequest busy-retry gives up inside the budget and answers busy rather than holding the request open",
+        "processFeeQuoteRequest busy-retry input validation still runs before any hop",
+        "processFeeQuoteRequest busy-retry never re-asks a real verdict: one hop, answered verbatim",
+        "processFeeQuoteRequest busy-retry retries past a busy answer and returns the quote the wallet was blocked on"
+      ],
       "060f67fd0ddd33fb": [
         "validateParams integer searches allows safe action and checkpoint indexes",
         "validateParams integer searches rejects an unsafe action index",
@@ -3978,6 +3990,10 @@
         "getDelegations type=pubkey is a declared TYPE of the /delegations API route, beside the old three",
         "getDelegations type=pubkey is scoped to getDelegations: another method with type=pubkey gets no a3 clause",
         "getDelegations type=pubkey leaves the address lane binding the search as given"
+      ],
+      "1dabb285226ea02f": [
+        "isFeeQuotePostRequest matches POST /{COIN}/api/feequote",
+        "isFeeQuotePostRequest rejects other methods and paths"
       ],
       "1e1976bad11c17b0": [
         "abi-core parseAbi defaults params to an empty array when the method omits them",
@@ -7562,15 +7578,6 @@
         "getQuery() explorer start guard falls back to start=0 for a non-finite ?start=\"abc\"",
         "getQuery() explorer start guard falls back to start=0 for a repeated (array-valued) ?start=",
         "getQuery() explorer start guard leaves normal paging alone"
-      ],
-      "7138f42fd5de3a0b": [
-        "processFeeQuoteRequest busy-retry a transport failure is still a 502, now flagged retryable",
-        "processFeeQuoteRequest busy-retry a valid quote is returned on the first hop",
-        "processFeeQuoteRequest busy-retry does not retry a busy answer that is not marked retryable",
-        "processFeeQuoteRequest busy-retry gives up inside the budget and answers busy rather than holding the request open",
-        "processFeeQuoteRequest busy-retry input validation still runs before any hop",
-        "processFeeQuoteRequest busy-retry never re-asks a real verdict: one hop, answered verbatim",
-        "processFeeQuoteRequest busy-retry retries past a busy answer and returns the quote the wallet was blocked on"
       ],
       "71e23443944752dd": [
         "decoder mempool reply contract empty reply (rows [] with a good read) flags the cache entry malformed only for a malformed reply",
@@ -12131,8 +12138,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 455,
-        "titleCount": 7749,
+        "fileCount": 456,
+        "titleCount": 7754,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12430,6 +12437,7 @@
           "test/unit/explorer/feeds/explorer_emissions.test.js": "9fb26656b70a86c1",
           "test/unit/explorer/feeds/explorer_feed_shaping_branches.test.js": "af7981f422df163c",
           "test/unit/explorer/fees_preflight/fee_schedule_cache.test.js": "99f0e1cb22b10854",
+          "test/unit/explorer/fees_preflight/feequote_post_predicate.test.js": "1dabb285226ea02f",
           "test/unit/explorer/mount/limiters.test.js": "2b0b536b03e785d6",
           "test/unit/explorer/paging/feed_rows.test.js": "385571ec21b4dc98",
           "test/unit/explorer/paging/list_rows.test.js": "1c638f41c50742ba",
@@ -12470,7 +12478,7 @@
           "test/unit/http/contract_state_proof.test.js": "09a5bd038de2012d",
           "test/unit/http/cors_rate_limit_headers.test.js": "1350bbd1148fa068",
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
-          "test/unit/http/feequote_route.test.js": "7138f42fd5de3a0b",
+          "test/unit/http/feequote_route.test.js": "05918af886571116",
           "test/unit/http/jsonrpc_batch_cap.test.js": "499b1161f24ec495",
           "test/unit/http/jsonrpc_body_guard.test.js": "58706b2a54fa0008",
           "test/unit/http/locked_balance_proof.test.js": "82bea5d0f3a179b3",

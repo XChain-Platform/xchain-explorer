@@ -38,7 +38,7 @@
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
-const { buildFeeQuoteLimiter, buildPreflightPostLimiter, buildBatchLimiter,
+const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
 
 // Body-parser ceiling for POST /{COIN}/api/preflight. Above
@@ -64,6 +64,7 @@ class RouteMounts {
         this.mountFileRawRoute();
         const feeQuoteLimiter = this.mountFeeQuoteRoutes(host);
         this.mountPreflightPostRoute(host);
+        this.mountFeeQuotePostRoute(host);
         this.mountBatchRoutes(host, feeQuoteLimiter);
         const checkpointListLimiter = this.mountCheckpointRoutes(host);
         this.mountProofRoutes(host, checkpointListLimiter);
@@ -175,6 +176,20 @@ class RouteMounts {
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
             (req, res) => { this.processPreflightRequest(req, res); });
+    }
+
+    mountFeeQuotePostRoute(host){
+        const { express } = host;
+        // POST sibling of GET /:coin/api/feequote: same inputs and verdict, with the
+        // params in a JSON body for actions too large for a query string. It reuses the
+        // preflight body ceiling (the params cap is the same) but has its own limiter, so
+        // a burst of large quote bodies cannot spend the GET quote bucket or the preflight
+        // POST bucket. Limiter BEFORE the parser, as for preflight.
+        const feeQuotePostLimiter = buildFeeQuotePostLimiter(host);
+        this.app.post('/:coin/api/feequote',
+            feeQuotePostLimiter,
+            express.json({ limit: PREFLIGHT_BODY_LIMIT }),
+            (req, res) => { this.processFeeQuoteRequest(req, res); });
     }
 
     mountBatchRoutes(host, feeQuoteLimiter){

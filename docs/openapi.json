@@ -15961,6 +15961,96 @@
           }
         }
       },
+      "post": {
+        "operationId": "postFeeQuote",
+        "tags": [
+          "Fees"
+        ],
+        "summary": "Native-coin fee quote with the inputs in a JSON body (for params too large for a query string)",
+        "description": "Identical to the GET in inputs and quote. Use it when `params` will not fit a URL. Shares the pre-flight body ceiling and has its own rate limit (EXPLORER_FEE_QUOTE_POST_RATE_LIMIT_RPM).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "pattern": "^[A-Z0-9_]{1,32}$",
+                    "example": "SEND",
+                    "description": "Action name"
+                  },
+                  "params": {
+                    "type": "string",
+                    "maxLength": 390000,
+                    "description": "Pipe-delimited action parameters, exactly as encoded on the wire"
+                  },
+                  "source": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "description": "Source address the action would be sent from"
+                  },
+                  "feeOutputSats": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Native fee output size in satoshis, when already composed"
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "description": "Request body exceeds the body limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many fee-quote POSTs from this client",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ]
+      },
       "x-registered": "express"
     },
     "/{COIN}/api/feeschedule": {

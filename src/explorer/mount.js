@@ -38,7 +38,7 @@
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
-const { buildFeeQuoteLimiter, buildPreflightPostLimiter, buildBatchLimiter,
+const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
 
 // Body-parser ceiling for POST /{COIN}/api/preflight. Above
@@ -153,6 +153,16 @@ class RouteMounts {
         this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { this.processFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
         this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
+
+        // POST sibling of /feequote for params too large for a query string. Same body
+        // ceiling as the preflight POST, its own limiter bucket, limiter before the
+        // parser so a refused caller's body is never read.
+        const { express } = host;
+        const feeQuotePostLimiter = buildFeeQuotePostLimiter(host);
+        this.app.post('/:coin/api/feequote',
+            feeQuotePostLimiter,
+            express.json({ limit: PREFLIGHT_BODY_LIMIT }),
+            (req, res) => { this.processFeeQuoteRequest(req, res); });
 
         return feeQuoteLimiter;
     }

@@ -344,7 +344,38 @@ const SPECIAL = [
     ['/{COIN}/api/applied-policy/{TICK}', 'Cross-chain',
         'Latest inherited policy snapshot applied to this bridged token copy',
         null, { schema: { type: ['object', 'null'] } }],
-    ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)'],
+    ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)',
+        'The same inputs are accepted as a JSON body on **POST** to this path, for params too large for a query string.',
+        {
+            post: {
+                operationId: 'postFeeQuote',
+                summary: 'Native-coin fee quote with the inputs in a JSON body (for batches too large for a query string)',
+                description: 'Identical to the GET in inputs and quote. Use it when `params` will not fit a URL, such as a large BATCH.',
+                requestBody: {
+                    required: true,
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    action: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$', example: 'SEND', description: 'Action name' },
+                                    params: { type: 'string', maxLength: PREFLIGHT_PARAMS_MAX_LENGTH, description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
+                                    source: { type: 'string', maxLength: 4096, description: 'Source address the action would be sent from' },
+                                    feeOutputSats: { type: 'integer', minimum: 0, description: 'Fee output size in satoshis already composed, if any' },
+                                },
+                                required: ['action'],
+                            },
+                        },
+                    },
+                },
+                responses: {
+                    413: { description: 'Request body exceeds the body limit',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+                    429: { description: 'Too many fee-quote POSTs from this client',
+                        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+                },
+            },
+        }],
     ['/{COIN}/api/feeschedule', 'Fees', 'Fee schedule + oracle prices (proxied from the indexer)'],
     // This entry existed in the generated openapi.json but not here, so it was
     // hand-written into the output and the next regeneration would have

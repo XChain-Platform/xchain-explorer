@@ -32,6 +32,11 @@
 
 const { sinon, expect, configInfo, makeDb, cfg } = require('./helpers.js');
 const { clearTipEnvironment, restoreTipEnvironment, configurePool } = require('./tip_freshness_helpers.js');
+const { resolveRoute }       = require('../../../../../../src/explorer/request/resolve_route.js');
+const { applyFallbacks }     = require('../../../../../../src/explorer/request/not_found.js');
+const { sendResponse }       = require('../../../../../../src/explorer/request/send_response.js');
+const { buildFederationRpc, NOT_READY } = require('../../../../../../src/federation');
+const WebSocketServer        = require('../../../../../../src/ws/websocket_server.js');
 
 let db;
 let savedEnv;
@@ -219,8 +224,7 @@ describe('Database tip-freshness gate', () => {
             [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
             expect(data.stale['RBTC']).to.equal(true);
             expect(data.available['RBTC']).to.equal(undefined);
-            // federation read refuses off the same halt signal
-            expect(await db.getReplicaHaltStatus('RBTC')).to.equal(true);
+            // the federation read is pinned end to end in 'one verdict on every surface'
         });
 
         it('reads as stale with null tip fields when the indexer is unreadable', async () => {
@@ -349,4 +353,113 @@ describe('Database tip-freshness gate', () => {
             }
         });
     });
+});
+
+// A pool that answers by statement, so the real halt read runs: a young tip and
+// an uncleared sync_halt row (or none), with nothing stubbed on the db itself.
+function poolWithHaltRow(coin, blockTime, haltActive) {
+    db.pools = {};
+    db.pools[coin] = {
+        pool: {
+            getConnection: sinon.stub().resolves({
+                query: sinon.stub().callsFake(async (sql) => {
+                    if (/information_schema/.test(sql)) return [{ 1: 1 }];
+                    if (/FROM sync_halt/.test(sql))     return haltActive ? [{ id: 1 }] : [];
+                    return [{ max_index: 850, block_time: blockTime }];
+                }),
+                release: sinon.stub().resolves()
+            })
+        },
+        config: {}
+    };
+}
+
+// Drive one data request through the real route stage, the real 503 fallback and
+// the real response writer; returns what the client would see.
+async function httpAnswer(coin) {
+    const explorer = { db, util: db.util, headers: {}, urls: { api: {}, explorer: {}, html: {} } };
+    const st = {
+        config:   { COIN_SUPPORTED: { [coin]: 'x' }, COIN_AVAILABLE: { [coin]: 'x' } },
+        cfg:      { coin: null, type: null, file: null, data: { method: null, offset: {} } },
+        response: { code: 200, json: { rows: [] }, html: null, time: null },
+        debugTimer: { started: true }, data: [], total: 0, dbError: false, badParam: false
+    };
+    await resolveRoute(explorer, { path: '/' + coin + '/api/blocks', query: {} }, st);
+    st.cfg.data.method = 'getBlocks';
+    applyFallbacks(explorer, st);
+    const out = { headers: {}, status: null, body: null };
+    sendResponse(explorer, { path: '/' + coin + '/api/blocks' }, {
+        set(a, b) { if (typeof a === 'object') Object.assign(out.headers, a); else out.headers[a] = b; },
+        status(c)  { out.status = c; },
+        send(b)    { out.body = JSON.parse(b); }
+    }, st, { configEnv: () => ({}), stats: { record() {}, slow() {} } });
+    return out;
+}
+
+async function welcomeFrame(coin) {
+    const frames = [];
+    const server = new WebSocketServer({ explorer: { db, version: '1.0.0' }, broadcaster: null });
+    await server.sendWelcome({
+        id: 1, coin, chain: 'BTC', network: 'regtest', subscriptions: new Set(),
+        ws: { readyState: 1, send: (raw) => frames.push(JSON.parse(raw)) }
+    });
+    return frames.find((f) => f.type === 'WELCOME');
+}
+
+async function federationAnswer(coin) {
+    const rpc = buildFederationRpc(() => ({ db }), {
+        env: {},
+        getConfig: async () => ({ COIN_NETWORKS: { BTC: 'Bitcoin' }, COIN_PREFIXES: { mainnet: '', testnet: 'T', regtest: 'R' } })
+    });
+    try { return await rpc.getanchoraction({}, { req: { path: '/' + coin + '/api/' } }); }
+    catch (e) { return { thrown: e.message }; }
+}
+
+// The row's acceptance: a coin with a young tip and an uncleared sync_halt row
+// gets one verdict from the XChain-Freshness header, the WS WELCOME marker, the
+// opt-in 503, /status and the federation read. Each surface runs its real code
+// over the same real db; only the pool underneath answers canned rows.
+describe('Database tip-freshness gate: one verdict on every surface', () => {
+    beforeEach(setupTipTest);
+    afterEach(restoreTipTest);
+
+    const young = () => Math.floor(Date.now() / 1000) - 60;
+
+    for (const haltActive of [true, false]) {
+        const label = haltActive ? 'active' : 'cleared';
+
+        it('agrees across header, WS WELCOME, status and federation for a young tip, halt ' + label, async () => {
+            poolWithHaltRow('RBTC', young(), haltActive);
+
+            const http = await httpAnswer('RBTC');
+            expect(http.status).to.equal(200);
+            expect(http.headers['XChain-Freshness']).to.equal(haltActive ? 'stale' : 'live');
+            expect(!!http.body.freshness).to.equal(haltActive);
+
+            const welcome = await welcomeFrame('RBTC');
+            expect(!!welcome.stale).to.equal(haltActive);
+            expect(!!welcome.data.stale).to.equal(haltActive);
+
+            const [status] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(status.stale['RBTC']).to.equal(haltActive);
+            expect(status.available).to.have.property('RBTC');   // marked, still listed
+
+            const fed = await federationAnswer('RBTC');
+            if (haltActive) expect(fed).to.deep.equal({ error: NOT_READY });
+            else expect(fed.error).to.not.equal(NOT_READY);
+        });
+
+        it('agrees on the opt-in refusal for a young tip, halt ' + label, async () => {
+            process.env.EXPLORER_STALE_FAIL_CLOSED = '1';
+            poolWithHaltRow('RBTC', young(), haltActive);
+
+            const http = await httpAnswer('RBTC');
+            expect(http.status).to.equal(haltActive ? 503 : 200);
+            if (haltActive) expect(http.body.code).to.equal('COIN_DATA_STALE');
+
+            const [status] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(status.stale['RBTC']).to.equal(haltActive);
+            expect(status.available.RBTC === undefined).to.equal(haltActive);
+        });
+    }
 });

@@ -103,6 +103,13 @@ function cspDirectives(HTTPS_HARDENING){
     };
 }
 
+// POST /{COIN}/api/feequote mounts the same per-route parser and ceiling as the
+// preflight POST, so the global 10kb parser must stand aside for it too.
+function isFeeQuotePostRequest(req){
+    if (!req || String(req.method || '').toUpperCase() !== 'POST') return false;
+    return /^\/[^/]+\/api\/feequote\/?$/i.test(String(req.path || ''));
+}
+
 /**
  * Mount the header set and the body ceiling, in that order.
  *
@@ -131,7 +138,7 @@ function applySecurityHeaders(app, configInfo, XChainExplorer){
     // predicate lives beside that route so the two cannot drift apart.
     const globalJson = express.json({ limit: '10kb' });
     app.use((req, res, next) => {
-        if (XChainExplorer.isPreflightPostRequest(req)) return next();
+        if (XChainExplorer.isPreflightPostRequest(req) || isFeeQuotePostRequest(req)) return next();
         return globalJson(req, res, next);
     });
 }

@@ -344,7 +344,36 @@ const SPECIAL = [
     ['/{COIN}/api/applied-policy/{TICK}', 'Cross-chain',
         'Latest inherited policy snapshot applied to this bridged token copy',
         null, { schema: { type: ['object', 'null'] } }],
-    ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)'],
+    ['/{COIN}/api/feequote', 'Fees', 'Native-coin protocol fee pre-flight quote (proxied from the indexer)',
+        null,
+        { post: {
+            operationId: 'postFeequote',
+            summary: 'Native-coin protocol fee quote, with the inputs in a JSON body (for actions too large for a query string)',
+            description: 'Identical to the GET in inputs and answer; the body fields are the query parameters. Rate limited separately from the GET.',
+            requestBody: {
+                required: true,
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            properties: {
+                                action: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$', description: 'Action name' },
+                                params: { type: 'string', maxLength: 8192, description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
+                                source: { type: 'string', maxLength: 4096, description: 'Source address the action would be sent from' },
+                                feeOutputSats: { type: 'string', pattern: '^[0-9]+$', description: 'Native fee output size in satoshis' },
+                            },
+                            required: ['action'],
+                        },
+                    },
+                },
+            },
+            responses: {
+                413: { description: 'Request body exceeds the body limit',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+                429: { description: 'Too many fee-quote POSTs from this client',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
+            },
+        } }],
     ['/{COIN}/api/feeschedule', 'Fees', 'Fee schedule + oracle prices (proxied from the indexer)'],
     // This entry existed in the generated openapi.json but not here, so it was
     // hand-written into the output and the next regeneration would have

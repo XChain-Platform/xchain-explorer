@@ -38,7 +38,7 @@
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
-const { buildFeeQuoteLimiter, buildPreflightPostLimiter, buildBatchLimiter,
+const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
 
 // Body-parser ceiling for POST /{COIN}/api/preflight. Above
@@ -64,6 +64,7 @@ class RouteMounts {
         this.mountFileRawRoute();
         const feeQuoteLimiter = this.mountFeeQuoteRoutes(host);
         this.mountPreflightPostRoute(host);
+        this.mountFeeQuotePostRoute(host);
         this.mountBatchRoutes(host, feeQuoteLimiter);
         const checkpointListLimiter = this.mountCheckpointRoutes(host);
         this.mountProofRoutes(host, checkpointListLimiter);
@@ -175,6 +176,28 @@ class RouteMounts {
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
             (req, res) => { this.processPreflightRequest(req, res); });
+    }
+
+    mountFeeQuotePostRoute(host){
+        const { express } = host;
+        // POST sibling of GET /feequote, for the same reason as the preflight POST: the
+        // quote takes the same action/params/source inputs, and a composed action can
+        // outgrow a query string. It reuses the preflight body ceiling, and takes its
+        // own limiter rather than the GET bucket so a body-carrying caller cannot spend
+        // the quote budget of the cacheable GET (or the reverse).
+        const feeQuotePostLimiter = buildFeeQuotePostLimiter(host);
+        // Limiter BEFORE the parser, as for preflight: a refused caller is not read.
+        this.app.post('/:coin/api/feequote',
+            feeQuotePostLimiter,
+            express.json({ limit: PREFLIGHT_BODY_LIMIT }),
+            (req, res) => {
+                // processFeeQuoteRequest reads only req.query and req.params. Hand it a
+                // view whose query is the JSON body, so the validation and the verdict
+                // are the one code path for both transports.
+                const body = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {};
+                const view = Object.create(req, { query: { value: body } });
+                this.processFeeQuoteRequest(view, res);
+            });
     }
 
     mountBatchRoutes(host, feeQuoteLimiter){

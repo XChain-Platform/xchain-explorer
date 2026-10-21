@@ -18,11 +18,11 @@
 const fs = require('fs');
 const path = require('path');
 const { expect } = require('chai');
-const XChainExplorer = require('../../../src/XChainExplorer.js');
-const { methods, PREFLIGHT_BODY_LIMIT } = require('../../../src/explorer/mount.js');
-const { applySecurityHeaders } = require('../../../src/http/api_boot/security_headers.js');
+const XChainExplorer = require('../../../../src/XChainExplorer.js');
+const { methods, PREFLIGHT_BODY_LIMIT } = require('../../../../src/explorer/mount.js');
+const { applySecurityHeaders } = require('../../../../src/http/api_boot/security_headers.js');
 
-const read = (rel) => fs.readFileSync(path.join(__dirname, '../../..', rel), 'utf8');
+const read = (rel) => fs.readFileSync(path.join(__dirname, '../../../..', rel), 'utf8');
 
 describe('POST /:coin/api/feequote mount', function () {
     function mount() {

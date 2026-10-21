@@ -12486,7 +12486,7 @@
           "test/unit/http/contract_state_proof.test.js": "09a5bd038de2012d",
           "test/unit/http/cors_rate_limit_headers.test.js": "1350bbd1148fa068",
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
-          "test/unit/http/feequote_post_route.test.js": "6891ebcf3aeba7eb",
+          "test/unit/http/feequote/feequote_post_route.test.js": "6891ebcf3aeba7eb",
           "test/unit/http/feequote_route.test.js": "05918af886571116",
           "test/unit/http/jsonrpc_batch_cap.test.js": "499b1161f24ec495",
           "test/unit/http/jsonrpc_body_guard.test.js": "58706b2a54fa0008",

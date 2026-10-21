@@ -213,17 +213,31 @@ render.
 
 ## The blind spot, stated plainly
 
-Across the six captured pages, only **79 of the 120** selectors in the
-stylesheets are ever instantiated (re-measured on the tokenized tree). The
-uncovered 41 include the whole
-`.xc-chart*` family, the external-explorer glyphs, the `#transaction` detail
-table, and the row colours `xchain.js` applies only to non-valid or negative
-rows.
+When measured on 2026-08-20, across the six pages captured then, only
+**79 of the 120** selectors in the two page-level stylesheets (`xchain.css` and
+`xchain-charts.css`) were instantiated, on the tokenized tree; the figure is the
+`coverage` block of `baseline-2026-08-20.json`. The uncovered 41 included the
+whole `.xc-chart*` family, the external-explorer glyphs, the `#transaction`
+detail table, and the row colours `xchain.js` applies only to non-valid or
+negative rows.
+
+That measurement is dated, and it is not a statement of current coverage:
+
+- The 120 counts the page-level sheets only. The per-component `component.css`
+  sheets landed after that capture and are not in the count, and pages now
+  mount components (`coin_home` has mounted stat tiles since 2026-09-26).
+- It is a selector count, so the later render-census property change does not
+  touch it, but that file's hashes are not evidence for the current probe (see
+  "Mode-switch correction (2026-09-05)").
+- No later baseline records coverage: `baseline-2026-10-12-classic.json` has no
+  `coverage` block. Current runtime coverage cannot be stated until a fresh
+  `baseline-<date>.json` is captured with the current probe.
 
 A rule no page instantiates cannot be proven at runtime by any amount of
 capturing. That is why the static token-literal gate is a
-separate acceptance test rather than a nicety: it covers all 120 by reading the
-stylesheet, while this probe proves the 79 that actually render.
+separate acceptance test rather than a nicety: it covers all 120, plus the
+component sheets, by reading the stylesheet text, while this probe proves only
+the selectors that actually render on the captured pages.
 
 ## Falsification record (2026-08-20)
 

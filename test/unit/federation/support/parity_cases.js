@@ -44,6 +44,11 @@ const ROLLCALL_CASES = [
     { name: 'a network mismatch', params: Object.assign({}, ROLLCALL_PARAMS, { network: 'mainnet' }), scenario: ROLLCALL },
     { name: 'a negative epoch', params: Object.assign({}, ROLLCALL_PARAMS, { epoch_height: -1 }), scenario: ROLLCALL },
     { name: 'a non-numeric window end', params: Object.assign({}, ROLLCALL_PARAMS, { max_block_time: 'soon' }), scenario: ROLLCALL },
+    { name: 'an epoch with trailing junk', params: Object.assign({}, ROLLCALL_PARAMS, { epoch_height: '100junk' }), scenario: ROLLCALL },
+    { name: 'an array epoch', params: Object.assign({}, ROLLCALL_PARAMS, { epoch_height: [100] }), scenario: ROLLCALL },
+    { name: 'an exponent window end', params: Object.assign({}, ROLLCALL_PARAMS, { max_block_time: '1.7e9' }), scenario: ROLLCALL },
+    { name: 'a digit-string epoch and window end',
+      params: Object.assign({}, ROLLCALL_PARAMS, { epoch_height: '100', max_block_time: '1789000100' }), scenario: ROLLCALL },
     { name: 'a key list past the ceiling',
       params: Object.assign({}, ROLLCALL_PARAMS, { pubkeys: Array.from({ length: 2049 }, (_, i) => i.toString(16).padStart(64, '0')) }),
       scenario: ROLLCALL },
@@ -145,6 +150,9 @@ const PRICE_CASES = [
     { name: 'a reversed range', params: { first_round: 9, last_round: 3 }, scenario: PRICES },
     { name: 'a negative round', params: { first_round: -1, last_round: 3 }, scenario: PRICES },
     { name: 'a missing range', params: {}, scenario: PRICES },
+    { name: 'a null and boolean range', params: { first_round: null, last_round: true }, scenario: PRICES },
+    { name: 'a hex range', params: { first_round: '0x0', last_round: '0x10' }, scenario: PRICES },
+    { name: 'an array limit', params: { first_round: 0, last_round: 100, limit: [2] }, scenario: PRICES },
     { name: 'a failed batch read', params: { first_round: 0, last_round: 1 }, scenario: Object.assign({}, PRICES, { throwOn: 'prices' }) }
 ];
 

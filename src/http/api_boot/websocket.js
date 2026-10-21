@@ -46,8 +46,15 @@ function wsSettings(configInfo){
         // X-Forwarded-For token. The upgrade is handled on the raw HTTP server,
         // where Express trust-proxy does not apply, so the hop count must be
         // passed through explicitly.
-        WS_TRUST_PROXY_HOPS: parseInt(configInfo.env.WS_TRUST_PROXY_HOPS, 10) || 1
+        WS_TRUST_PROXY_HOPS: trustProxyHops(configInfo.env.WS_TRUST_PROXY_HOPS)
     };
+}
+
+// The hop count from its env value: 0 is kept (no proxy in front, key the cap on the
+// TCP peer), and only a missing, negative or non-numeric value falls back to 1.
+function trustProxyHops(raw){
+    const hops = parseInt(raw, 10);
+    return (Number.isInteger(hops) && hops >= 0) ? hops : 1;
 }
 
 /**

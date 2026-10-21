@@ -33,8 +33,9 @@
  *  4. A REORG REWINDS THE CURSOR. rollback clears resolved_block, so a call
  *     that re-resolves on the new chain gets a fresh stamp; without the rewind
  *     that second resolution sits below the high-water mark and is never sent.
- *  5. A CAPPED FETCH STOPS ON A BLOCK BOUNDARY. The cursor is a block height,
- *     not a row id, so resuming mid-block would re-emit calls already sent.
+ *  5. A CAPPED FETCH RESUMES INSIDE ITS BLOCK. The cursor is a (block,
+ *     action_index) pair, so a block larger than one fetch drains over the
+ *     next polls with no call sent twice and none dropped.
  *  6. A MISSING TABLE IS PARKED, NOT RE-DISCOVERED EVERY POLL.
  */
 
@@ -44,6 +45,7 @@ const sinon      = require('sinon');
 const { expect } = require('chai');
 const ChangeDetector = require('../../../src/ws/change_detector.js');
 const ChannelManager = require('../../../src/ws/channel_manager.js');
+const { pairInRead } = require('./change_detector.test/support/helpers.js');
 
 const CALL_A = 'a'.repeat(64);
 const CALL_B = 'b'.repeat(64);
@@ -58,10 +60,11 @@ function createMockDb(opts) {
     };
 }
 
-// Stands in for the real SQL: resolved_block > since, ASC, capped at limit.
+// Stands in for the real SQL: the cursor's (resolved_block, action_index) range, ASC,
+// capped at limit.
 function withPhases(db, calls) {
-    db.getXcallPhasesSince = sinon.spy(async (config, since, limit) =>
-        calls.filter((c) => Number(c.resolved_block) > Number(since))
+    db.getXcallPhasesSince = sinon.spy(async (config, since, limit, bounds) =>
+        calls.filter((c) => pairInRead(c.resolved_block, c.action_index, since, bounds))
              .sort((a, b) => (a.resolved_block - b.resolved_block) || (a.action_index - b.action_index))
              .slice(0, limit));
     return db;
@@ -186,9 +189,9 @@ describe('XCALL phase cursor (M5.4)', function () {
 
     afterEach(() => sinon.restore());
 
-    it('stops a capped fetch on the last COMPLETE block rather than mid-block', async function () {
-        // Emitting a partial tail and advancing past its block silently drops the
-        // rest of it. fetchLimit 2 with three calls, two of them in block 2599.
+    it('resumes a capped fetch inside a block so each call goes out once', async function () {
+        // fetchLimit 2 cuts block 2599 after call 2. The cursor holds (2599, 2), so
+        // the next poll sends call 3 and neither re-sends call 2 nor skips call 3.
         const calls = [call(1, 2598), call(2, 2599, { call_id: CALL_B }), call(3, 2599)];
         const db = withPhases(createMockDb({ blockIndex: 2600, actionIndex: 500 }), calls);
         const cd = detector(db, { fetchLimit: 2 });
@@ -197,20 +200,57 @@ describe('XCALL phase cursor (M5.4)', function () {
         const spy = sinon.spy();
         cd.on('lifecycle_event', spy);
         await cd.checkCoin('RDOGE');
+        expect(spy.callCount, 'the whole page goes out').to.equal(2);
+        expect(cd.state['RDOGE'].xcallBlock).to.equal(2599);
+        expect(Number(cd.state['RDOGE'].xcallAction)).to.equal(2);
 
-        expect(spy.callCount, 'only the complete block 2598 is emitted').to.equal(1);
-        expect(Number(spy.firstCall.args[1].data.block_index)).to.equal(2598);
-        expect(cd.state['RDOGE'].xcallBlock).to.equal(2598);
+        await cd.checkCoin('RDOGE');
+        expect(spy.getCalls().map((c) => Number(c.args[1].data.action_index))).to.deep.equal([1, 2, 3]);
+        expect(cd.state['RDOGE'].xcallBlock).to.equal(2600);
     });
 
     it('moves past a single oversized block rather than looping on it forever', async function () {
-        const calls = [call(1, 2599), call(2, 2599, { call_id: CALL_B })];
+        // More calls resolve in block 2599 than one fetch holds: the cursor pages
+        // through the block and then leaves it, sending every call once.
+        const calls = [call(1, 2599), call(2, 2599, { call_id: CALL_B }), call(3, 2599)];
         const db = withPhases(createMockDb({ blockIndex: 2600, actionIndex: 500 }), calls);
         const cd = detector(db, { fetchLimit: 2 });
         seed(cd, 'RDOGE', { blockIndex: 2600, actionIndex: 500, xcallBlock: 2598 });
 
+        const spy = sinon.spy();
+        cd.on('lifecycle_event', spy);
         await cd.checkCoin('RDOGE');
-        expect(cd.state['RDOGE'].xcallBlock).to.equal(2599);
+        await cd.checkCoin('RDOGE');
+        await cd.checkCoin('RDOGE');
+        expect(spy.getCalls().map((c) => Number(c.args[1].data.action_index))).to.deep.equal([1, 2, 3]);
+        expect(cd.state['RDOGE'].xcallBlock).to.equal(2600);
+    });
+
+});
+
+describe('XCALL phase cursor (M5.4)', function () {
+
+    afterEach(() => sinon.restore());
+
+    it('holds XCALL_COMPLETED while a backlog still owes the callback EXECUTE', async function () {
+        // The call resolves in block 2600, whose callback EXECUTE is the fourth of
+        // four backlogged rows; a fetch of two leaves it for the second poll.
+        const rows = [[1, 2598], [2, 2599], [3, 2600], [4, 2600]]
+            .map(([i, b]) => ({ action_index: i, block_index: b, action: 'SEND', source: 'mSourceAddr' }));
+        const db = withPhases(createMockDb({ blockIndex: 2600, actionIndex: 4 }), [call(4100, 2600)]);
+        db.getActionsSince = sinon.spy(async (config, since, limit) =>
+            rows.filter((a) => a.action_index > Number(since)).slice(0, limit));
+        const cd = detector(db, { fetchLimit: 2 });
+        seed(cd, 'RDOGE', { blockIndex: 2600, actionIndex: 0, xcallBlock: 2597 });
+
+        const order = [];
+        cd.on('action', (coin, a) => order.push('action ' + a.action_index));
+        cd.on('lifecycle_event', (coin, e) => order.push(e.type));
+        await cd.checkCoin('RDOGE');
+        expect(order, 'block 2600 still owes its EXECUTE').to.deep.equal(['action 1', 'action 2']);
+
+        await cd.checkCoin('RDOGE');
+        expect(order).to.deep.equal(['action 1', 'action 2', 'action 3', 'action 4', 'XCALL_COMPLETED']);
     });
 
 });

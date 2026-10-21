@@ -20,6 +20,7 @@ const os     = require('os');
 const path   = require('path');
 
 const support = require('../../conformance/schema_conformance.test/support/dashboard_manifest.js');
+const { siblingCheckout } = require('../../helpers/sibling_checkout.js');
 const seed    = require('../../conformance/schema_conformance.test/support/dashboard_manifest_seed.js');
 
 let tempDir;
@@ -36,16 +37,45 @@ function moduleFile(source) {
     return file;
 }
 
+// Spell the client path out, so a constant pointing at the wrong file cannot pass by comparing with itself
+const CLIENT_IN_DASHBOARD = path.join('plugins', 'monitor', 'src', 'lib', 'clients', 'explorer_client.js');
+
 function resolvesDashboardClient() {
     const defaultPath = support.dashboardClientPath({}, path.join('/checkout', 'xchain-explorer'));
     assert.strictEqual(defaultPath,
-        path.join('/checkout', 'xchain-dashboard', support.DASHBOARD_CLIENT));
+        path.join('/checkout', 'xchain-dashboard', CLIENT_IN_DASHBOARD));
 
     const overridePath = support.dashboardClientPath(
         { XCHAIN_DASHBOARD_DIR: path.join('/venue', 'dashboard') },
         path.join('/ignored', 'xchain-explorer'));
     assert.strictEqual(overridePath,
-        path.join('/venue', 'dashboard', support.DASHBOARD_CLIENT));
+        path.join('/venue', 'dashboard', CLIENT_IN_DASHBOARD));
+}
+
+function failsWhenDashboardCheckoutLacksClient() {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashboard-checkout-'));
+    fs.writeFileSync(path.join(tempDir, 'package.json'), '{}\n');
+    const clientFile = path.join(tempDir, support.DASHBOARD_CLIENT);
+    assert.throws(() => support.dashboardManifestForCheckout(
+        { usable: false, reason: 'sibling path absent: ' + clientFile }, clientFile),
+    /has no .*explorer_client\.js: point DASHBOARD_CLIENT at the file that exports EXPLORER_ROW_FIELDS/);
+}
+
+function failsRefusedClientOnlyInStrictMode() {
+    const file = moduleFile("module.exports = { EXPLORER_ROW_FIELDS: { getTokens: ['live'] } };\n");
+    const refused = { usable: false, reason: 'sibling resolves through a symlink into the live main checkout' };
+    assert.throws(() => support.dashboardManifestForCheckout(refused, file, undefined,
+        { XCHAIN_REQUIRE_SIBLINGS: '1' }), /XCHAIN_REQUIRE_SIBLINGS=1 .*symlink into the live main checkout/);
+    assert.strictEqual(support.dashboardManifestForCheckout(refused, file, undefined, {}),
+        support.loadDashboardManifestFixture());
+}
+
+// Skip, never fail, without the dashboard: it is a private repo no CI venue checks out
+function pinnedManifestMatchesDashboardClient() {
+    const clientFile = support.dashboardClientPath();
+    if (!siblingCheckout(__dirname, clientFile).usable) return this.skip();
+    assert.deepStrictEqual(support.loadDashboardManifest(clientFile), support.loadDashboardManifestFixture(),
+        'test/fixtures/dashboard-explorer-row-fields.json differs from the dashboard EXPLORER_ROW_FIELDS');
 }
 
 function loadsReaderManifest() {
@@ -279,6 +309,12 @@ function registerTests() {
         loadsPinnedManifestWhenDashboardIsAbsent);
     it('prefers the dashboard reader manifest when the sibling is usable',
         prefersDashboardManifestWhenDashboardIsUsable);
+    it('fails when a dashboard checkout is present but has no reader client at the expected path',
+        failsWhenDashboardCheckoutLacksClient);
+    it('fails a refused dashboard client in strict mode and falls back to the fixture otherwise',
+        failsRefusedClientOnlyInStrictMode);
+    it('pins a fixture equal to the dashboard reader manifest whenever the dashboard is checked out',
+        pinnedManifestMatchesDashboardClient);
     it('rejects a missing or empty reader manifest', rejectsInvalidReaderManifest);
     it('collects projected keys from rows and MariaDB metadata', collectsProjectedKeys);
     it('uses the widest reader query projection and restores an inherited doQuery', usesWidestReaderProjection);

@@ -15,14 +15,15 @@
 'use strict';
 
 const assert = require('assert');
+const fs     = require('fs');
 const path   = require('path');
 
-const { siblingCheckout } = require('../../../helpers/sibling_checkout.js');
+const { siblingCheckout, siblingsRequired } = require('../../../helpers/sibling_checkout.js');
 const { makeConfig: defaultMakeConfig } = require('../../../fixtures/mock-query-args.js');
 const { seedManifestReaders, deleteSeeded } = require('./dashboard_manifest_seed.js');
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..', '..');
-const DASHBOARD_CLIENT = path.join('monitor', 'src', 'lib', 'clients', 'explorer_client.js');
+const DASHBOARD_CLIENT = path.join('plugins', 'monitor', 'src', 'lib', 'clients', 'explorer_client.js');
 const DASHBOARD_MANIFEST_FIXTURE = path.join(REPO_ROOT, 'test', 'fixtures',
     'dashboard-explorer-row-fields.json');
 // The contract readers take a bare contract index, as the /contract/{QUERY}
@@ -55,9 +56,28 @@ function loadDashboardManifestFixture(fixtureFile = DASHBOARD_MANIFEST_FIXTURE) 
     return manifest;
 }
 
+// Name the checkout a client path sits in, or null when the path is not one DASHBOARD_CLIENT built
+function dashboardCheckoutOf(clientFile) {
+    const suffix = path.sep + DASHBOARD_CLIENT;
+    return clientFile.endsWith(suffix) ? clientFile.slice(0, -suffix.length) : null;
+}
+
+// Fall back to the pinned fixture only when no dashboard checkout is there: a checkout
+// without the client means DASHBOARD_CLIENT is stale, and a strict run fails a refused client.
 function dashboardManifestForCheckout(dashboard, clientFile,
-    fixtureFile = DASHBOARD_MANIFEST_FIXTURE) {
-    return dashboard.usable ? loadDashboardManifest(clientFile) : loadDashboardManifestFixture(fixtureFile);
+    fixtureFile = DASHBOARD_MANIFEST_FIXTURE, env = process.env) {
+    if (dashboard.usable) return loadDashboardManifest(clientFile);
+    if (fs.existsSync(clientFile)) {
+        if (siblingsRequired(env))
+            throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but the dashboard reader manifest cannot be read: '
+                + dashboard.reason);
+        return loadDashboardManifestFixture(fixtureFile);
+    }
+    const checkout = dashboardCheckoutOf(clientFile);
+    if (checkout && fs.existsSync(path.join(checkout, 'package.json')))
+        throw new Error('dashboard checkout ' + checkout + ' has no ' + DASHBOARD_CLIENT
+            + ': point DASHBOARD_CLIENT at the file that exports EXPLORER_ROW_FIELDS');
+    return loadDashboardManifestFixture(fixtureFile);
 }
 
 function addResultKeys(keys, result) {

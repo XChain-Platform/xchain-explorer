@@ -62,7 +62,8 @@ describe('IconResolver json_url lane mirrors the token page scheme', function(){
      'http://example.com/meta.json',
      'https://example.com/meta.json',
      'example.com/meta.json;abc123sha',
-     'http://j-dog.net/json/JDOG.json;abc123sha'].forEach(desc => {
+     'http://j-dog.net/json/JDOG.json;abc123sha', 'http://a.example/r?u=https://b.example/x.json',
+     'HTTPS://h.example/x.json', 'Http://h.example/x.json;abc123sha'].forEach(desc => {
         it(`"${desc}" resolves to the page's URL`, function(){
             const r = resolveDescriptionToSource(desc);
             expect(r).to.be.an('object');
@@ -123,7 +124,6 @@ describe('IconResolver json_url lane uses the token page JSON-link rule', functi
 // before it ever reads stamp:, imgur or youtube/soundcloud forms, so the listing
 // icon has to follow that same order or the two fetch different documents.
 describe('IconResolver picks the page lane for a description matching two lanes', function(){
-    // Lower-case schemes only: the page strips the scheme case-sensitively.
     ['imgur.com/abc.json', 'https://imgur.com/abc.json', 'http://imgur.com/abc.json',
      'imgur/abc.json', 'imgur.com/abc.json?v=1', 'youtube/x.json', 'soundcloud/x.json;Track',
      'stamp:AAAA.json'].forEach(desc => {

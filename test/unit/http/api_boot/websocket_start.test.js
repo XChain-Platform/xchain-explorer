@@ -29,10 +29,10 @@ const WebSocketServer     = require('../../../../src/ws/websocket_server.js');
 const ChangeDetector      = require('../../../../src/ws/change_detector.js');
 const { startWebsockets } = require('../../../../src/http/api_boot/websocket.js');
 
-// The boot deps with the given pool map; the listeners are never attached.
-function bootDeps(pools) {
+// The boot deps with the given pool map and env; the listeners are never attached.
+function bootDeps(pools, env) {
     return {
-        configInfo:  { env: {} },
+        configInfo:  { env: env || {} },
         explorer:    { db: { pools } },
         httpServer:  {},
         httpsServer: null,
@@ -64,5 +64,38 @@ describe('startWebsockets live-feed start', function () {
         startWebsockets(bootDeps({ BTC: { pool: {} }, TLTC: { pool: {} } }));
         expect(start.calledOnce).to.equal(true);
         expect(start.firstCall.args[0]).to.deep.equal(['BTC', 'TLTC']);
+    });
+});
+
+// The hop count keys the per-IP cap. 0 means no proxy in front, so the cap must key
+// on the TCP peer and never on a client-written X-Forwarded-For token.
+describe('startWebsockets trusted proxy hops', function () {
+    beforeEach(function () {
+        sinon.stub(WebSocketServer.prototype, 'attach');
+        sinon.stub(ChangeDetector.prototype, 'start');
+    });
+
+    afterEach(function () {
+        sinon.restore();
+    });
+
+    function hopsFor(env) {
+        const deps = bootDeps({}, env);
+        startWebsockets(deps);
+        return deps.runtime.wsServer.trustProxyHops;
+    }
+
+    it('keeps WS_TRUST_PROXY_HOPS=0 so the cap keys on the TCP peer', function () {
+        expect(hopsFor({ WS_TRUST_PROXY_HOPS: '0' })).to.equal(0);
+        const server = new WebSocketServer({ trustProxyHops: hopsFor({ WS_TRUST_PROXY_HOPS: '0' }) });
+        const req = { headers: { 'x-forwarded-for': '6.6.6.6' }, socket: { remoteAddress: '10.0.0.9' } };
+        expect(server.clientIp(req)).to.equal('10.0.0.9');
+    });
+
+    it('defaults to one hop only when the value is missing or invalid', function () {
+        expect(hopsFor({})).to.equal(1);
+        expect(hopsFor({ WS_TRUST_PROXY_HOPS: 'many' })).to.equal(1);
+        expect(hopsFor({ WS_TRUST_PROXY_HOPS: '-1' })).to.equal(1);
+        expect(hopsFor({ WS_TRUST_PROXY_HOPS: '2' })).to.equal(2);
     });
 });

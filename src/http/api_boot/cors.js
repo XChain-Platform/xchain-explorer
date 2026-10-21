@@ -46,12 +46,17 @@ function applyCors(app, configInfo){
             return cb(null, false);
         },
         methods:        ['GET', 'POST'],
+        // A browser hides any response header not listed here from cross-origin script,
+        // so the tip-freshness marker send_response.js stamps must be listed to reach the SDK.
         exposedHeaders: [
             'Retry-After',
             'RateLimit-Policy',
             'RateLimit-Limit',
             'RateLimit-Remaining',
-            'RateLimit-Reset'
+            'RateLimit-Reset',
+            'XChain-Freshness',
+            'XChain-Tip-Block',
+            'XChain-Tip-Age-S'
         ],
     }));
 }

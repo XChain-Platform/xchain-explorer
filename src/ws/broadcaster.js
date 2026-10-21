@@ -109,7 +109,7 @@ class Broadcaster {
     }
 
     onActionRowStart(coin, action) {
-        this._actionRows.set(coin, { action, admissions: new Map() });
+        this._actionRows.set(coin, { action, admissions: new Map(), joined: new Set() });
     }
 
     onActionRowEnd(coin, action) {
@@ -271,7 +271,7 @@ class Broadcaster {
         // it names. The catch-up replay routes by the same lifecycleChannelKeys.
         const actionRow = this._actionRows.get(coin);
         for (const channelKey of lifecycleChannelKeys(this, coin, lifecycleEvent)) {
-            this.broadcastToChannelKey(channelKey, event, lifecycleEvent, actionRow);
+            this.broadcastToChannelKey(channelKey, event, lifecycleEvent, actionRow, true);
         }
     }
 

@@ -27,6 +27,8 @@
 
 'use strict';
 
+const { blockPairRange } = require('../../shared.js');
+
 // The rest of one call's lifecycle, hung onto its valid xcalls row: the parsed
 // parameter arrays, then the target-chain execution and the source-chain callback
 // delivery, read in that order. `db` is the Database instance getXcall runs on; this
@@ -165,7 +167,10 @@ class XcallDetailReaders {
     // expiries, which is the asymmetry that makes a live timeline wrong rather than
     // merely incomplete. The event carries `synthetic` so a consumer can tell which of
     // the two had a causing action.
-    async getXcallPhasesSince(config, sinceBlockIndex, limit){
+    // (resolved_block, action_index) is a total order (action_index is unique per row),
+    // and `bounds` resumes and caps it exactly as getBetFeedsClosedSince's does.
+    async getXcallPhasesSince(config, sinceBlockIndex, limit, bounds){
+        const { where, params } = blockPairRange('m.resolved_block', sinceBlockIndex, bounds);
         let query = `SELECT
                         m.action_index,
                         m.call_id,
@@ -188,12 +193,12 @@ class XcallDetailReaders {
                         LEFT JOIN index_addresses a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                         LEFT JOIN index_statuses  s1 ON (s1.id=m.status_id)
                     WHERE
-                        m.resolved_block > ?
+                        ${where}
                         AND m.request_status IN ('completed','expired')
                         AND s1.status='valid'
                     ORDER BY m.resolved_block ASC, m.action_index ASC
                     LIMIT ?`;
-        let results = await this.doQuery(config, query, [sinceBlockIndex, limit]);
+        let results = await this.doQuery(config, query, [...params, limit]);
         return results || [];
     }
 }

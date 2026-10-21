@@ -38,7 +38,7 @@ const themeResolver    = require('./content/themes/resolve.js');
 // class as statics and api.js reads isPreflightPostRequest from there.
 const { installExplorerFamilies } = require('./explorer/install.js');
 const { canonicalCheckpointString } = require('./explorer/proofs.js');
-const { isPreflightPostRequest, MAX_PREFLIGHT_PARAMS_LENGTH } = require('./explorer/fees_preflight.js');
+const { isPreflightPostRequest, isFeeQuotePostRequest, MAX_PREFLIGHT_PARAMS_LENGTH } = require('./explorer/fees_preflight.js');
 
 // Every express listener the explorer registers, and the stages one request
 // runs through. Both are called with a bag of this file's own module bindings,
@@ -319,6 +319,7 @@ installExplorerFamilies(XChainExplorer.prototype, { fs, axios, dns, configEnv })
 module.exports = Object.assign(XChainExplorer, {
     canonicalCheckpointString,
     isPreflightPostRequest,
+    isFeeQuotePostRequest,
     MAX_PREFLIGHT_PARAMS_LENGTH,
     PREFLIGHT_BODY_LIMIT
 });

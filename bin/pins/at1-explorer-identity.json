@@ -9218,6 +9218,13 @@
         "Database#getContracts name lane without the meta_search FULLTEXT index keeps the MATCH, bound to the sanitized term, when the index exists",
         "Database#getContracts name lane without the meta_search FULLTEXT index probes the contracts table once per coin, not once per request"
       ],
+      "9c1eac0e493a87d8": [
+        "list_item_gates: any-coin address LIST items at the tip flips at the per-coin testnet height and not before",
+        "list_item_gates: any-coin address LIST items at the tip reads false for an unknown tip or a route code naming no configured coin",
+        "list_item_gates: any-coin address LIST items at the tip reads false on mainnet, where the row is unarmed",
+        "list_item_gates: any-coin address LIST items at the tip reads true on regtest from genesis",
+        "list_item_gates: the flag in the /api/status report publishes list_any_coin_items per measured coin"
+      ],
       "9c5dfd7e2915588a": [
         "@p0 @core Address API regression GET /RBTC/api/address/{addr}: returns address summary",
         "@p0 @core Balances API regression GET /RBTC/api/balances/{address}: returns all token balances",
@@ -12146,8 +12153,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 457,
-        "titleCount": 7760,
+        "fileCount": 458,
+        "titleCount": 7765,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12413,6 +12420,7 @@
           "test/unit/db/readers/dispenser/dispenser_price_stale/dispenser_price_stale.test.js": "ec5292d336fec81a",
           "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "92f2617a955643a0",
           "test/unit/db/readers/governance_parent_labels/db_governance_parent_labels.test.js": "c7f0e0c27e12078a",
+          "test/unit/db/readers/list_item_gates.test.js": "9c1eac0e493a87d8",
           "test/unit/db/readers/list_share/db_list_share_mirror.test.js": "0511b140e1bed140",
           "test/unit/db/readers/markets/amounts_fixed_notation.test.js": "1c8fccee6defea87",
           "test/unit/db/readers/markets/db_orderbook_memoless.test.js": "ac459281d01e49b0",

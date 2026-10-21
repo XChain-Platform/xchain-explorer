@@ -7257,6 +7257,14 @@
         "src/content charting assets: licence hygiene serves the Chart.js stack with its upstream MIT banners intact",
         "src/content charting assets: licence hygiene vendors no Highcharts/Highstock file"
       ],
+      "6891ebcf3aeba7eb": [
+        "POST /:coin/api/feequote mount has its own limiter bucket",
+        "POST /:coin/api/feequote mount is registered in mount.js source",
+        "POST /:coin/api/feequote mount registers the route: limiter, then parser, then handler",
+        "POST /:coin/api/feequote mount uses the preflight body ceiling",
+        "global json parser skips POST feequote calls next() for it and parses other bodies",
+        "openapi documents POST feequote has a postFeeQuote operation with 413 and 429"
+      ],
       "68e21b0f2e984921": [
         "Database#_checkpointSource rewardTable accessor (M3.7 addition) resolves rewardTable to the database-qualified anchor_reward_attestations name",
         "Database#_checkpointSource rewardTable accessor (M3.7 addition) rewardTable fails loud with no co-located hub DB configured, same as table/capTable",
@@ -12138,8 +12146,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 456,
-        "titleCount": 7754,
+        "fileCount": 457,
+        "titleCount": 7760,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12478,6 +12486,7 @@
           "test/unit/http/contract_state_proof.test.js": "09a5bd038de2012d",
           "test/unit/http/cors_rate_limit_headers.test.js": "1350bbd1148fa068",
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
+          "test/unit/http/feequote_post_route.test.js": "6891ebcf3aeba7eb",
           "test/unit/http/feequote_route.test.js": "05918af886571116",
           "test/unit/http/jsonrpc_batch_cap.test.js": "499b1161f24ec495",
           "test/unit/http/jsonrpc_body_guard.test.js": "58706b2a54fa0008",

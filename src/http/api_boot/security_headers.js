@@ -124,11 +124,11 @@ function applySecurityHeaders(app, configInfo, XChainExplorer){
     }));
 
     // Tight global body ceiling: nothing on this read-only API legitimately posts more.
-    // The exceptions are POST /{COIN}/api/preflight and POST /{COIN}/api/feequote, which carries a whole composed
-    // action (a 250-command BATCH is ~17,500 characters) and mounts its own parser with
-    // its own ceiling at the route. Skipping it here rather than raising the global limit
-    // keeps the large-body allowance scoped to the single route that needs it; the
-    // predicate lives beside that route so the two cannot drift apart.
+    // The exceptions are POST /{COIN}/api/preflight and POST /{COIN}/api/feequote, which each carry a whole composed
+    // action (a 250-command BATCH is ~17,500 characters) and mount their own parser with
+    // their own ceiling at the route. Skipping them here rather than raising the global limit
+    // keeps the large-body allowance scoped to the two routes that need it; the
+    // predicates live beside those routes so a predicate cannot drift from its route.
     const globalJson = express.json({ limit: '10kb' });
     app.use((req, res, next) => {
         if (XChainExplorer.isPreflightPostRequest(req) || XChainExplorer.isFeeQuotePostRequest(req)) return next();

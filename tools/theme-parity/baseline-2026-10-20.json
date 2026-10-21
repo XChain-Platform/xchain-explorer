@@ -1,0 +1,137 @@
+{
+  "note": "Parity baseline captured with a schema-identified probe. Compare only with captures whose probe schema matches.",
+  "captured": "2026-10-20",
+  "venue": "testnet explorer",
+  "phase": "baseline",
+  "probe": {
+    "version": 1,
+    "anchors": {
+      "count": 31,
+      "hash": "dade2bfb"
+    },
+    "properties": {
+      "count": 29,
+      "hash": "54b1785e"
+    }
+  },
+  "layers": {
+    "rule": "Properties declared by admitted first-party stylesheets, read on the first matching element, hashed per mode because a declared value that resolves through a mode-following token differs by mode.",
+    "rend": "A fixed census of 31 selectors x 29 properties, including an absence key for unmatched selectors."
+  },
+  "pages": {
+    "action": {
+      "url": "/TDOGE/action/5625",
+      "anchors": "18/31",
+      "cssRules": 101,
+      "rule": {
+        "light": "829426c3",
+        "dark": "64ec04a1",
+        "keys": 144
+      },
+      "rend": {
+        "light": "9ab56ce3",
+        "dark": "cd235f38",
+        "keys": 535
+      },
+      "rendered": {
+        "light": "rgb(255, 255, 255) | rgb(33, 37, 41) | rgb(33, 37, 41)",
+        "dark": "rgb(33, 37, 41) | rgb(222, 226, 230) | rgb(222, 226, 230)"
+      }
+    },
+    "address": {
+      "url": "/TDOGE/address/ngasn6zHFzJ72zpk3DBKmXhD2XtszujSDW",
+      "anchors": "19/31",
+      "cssRules": 101,
+      "rule": {
+        "light": "bbbfc082",
+        "dark": "54400360",
+        "keys": 162
+      },
+      "rend": {
+        "light": "bcf1ca1e",
+        "dark": "48ac5a16",
+        "keys": 563
+      },
+      "rendered": {
+        "light": "rgb(255, 255, 255) | rgb(33, 37, 41) | rgb(33, 37, 41)",
+        "dark": "rgb(33, 37, 41) | rgb(222, 226, 230) | rgb(222, 226, 230)"
+      }
+    },
+    "coin_home": {
+      "url": "/TDOGE",
+      "anchors": "21/31",
+      "cssRules": 106,
+      "rule": {
+        "light": "d7944b2d",
+        "dark": "7b5e3a3e",
+        "keys": 244
+      },
+      "rend": {
+        "light": "54cc18cc",
+        "dark": "b78c6b46",
+        "keys": 619
+      },
+      "rendered": {
+        "light": "rgb(255, 255, 255) | rgb(33, 37, 41) | rgb(33, 37, 41)",
+        "dark": "rgb(33, 37, 41) | rgb(222, 226, 230) | rgb(222, 226, 230)"
+      }
+    },
+    "market": {
+      "url": "/TDOGE/market/XCHAIN",
+      "anchors": "19/31",
+      "cssRules": 113,
+      "rule": {
+        "light": "da307ade",
+        "dark": "cde66ce7",
+        "keys": 181
+      },
+      "rend": {
+        "light": "131edb7b",
+        "dark": "995ecb3e",
+        "keys": 563
+      },
+      "rendered": {
+        "light": "rgb(255, 255, 255) | rgb(33, 37, 41) | rgb(33, 37, 41)",
+        "dark": "rgb(33, 37, 41) | rgb(222, 226, 230) | rgb(222, 226, 230)"
+      }
+    },
+    "token": {
+      "url": "/TDOGE/token/XCHAIN",
+      "anchors": "12/31",
+      "cssRules": 101,
+      "rule": {
+        "light": "36202dcd",
+        "dark": "36202dcd",
+        "keys": 130
+      },
+      "rend": {
+        "light": "e972f71e",
+        "dark": "0e3a4a5e",
+        "keys": 367
+      },
+      "rendered": {
+        "light": "rgb(255, 255, 255) | rgb(33, 37, 41) | rgb(33, 37, 41)",
+        "dark": "rgb(33, 37, 41) | rgb(222, 226, 230) | rgb(222, 226, 230)"
+      }
+    },
+    "transaction": {
+      "url": "/TDOGE/transaction/c663af692683858d6aced76894f244c044a4553fce40609979d16d3a6baa1c4c",
+      "anchors": "19/31",
+      "cssRules": 101,
+      "rule": {
+        "light": "2c712d7d",
+        "dark": "b981c67d",
+        "keys": 145
+      },
+      "rend": {
+        "light": "fb8edfb8",
+        "dark": "7681c006",
+        "keys": 563
+      },
+      "rendered": {
+        "light": "rgb(255, 255, 255) | rgb(33, 37, 41) | rgb(33, 37, 41)",
+        "dark": "rgb(33, 37, 41) | rgb(222, 226, 230) | rgb(222, 226, 230)"
+      }
+    }
+  }
+}

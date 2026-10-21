@@ -100,8 +100,19 @@ a baseline fails the suite.
 
 ## Dated baselines in this directory
 
-Both dated baselines are records and stay as they are.
+Every dated baseline is a record and stays as it is.
 
+- `baseline-2026-10-20.json` is the first builder-made baseline the current
+  probe accepts (`--check` passes), so it arms the baseline guard in
+  `test/unit/content/components/theme_parity_baselines.test.js`. It is a real
+  capture, not a conversion of an older file: `parity-probe.js` ran in headless
+  Playwright Chromium (1280 by 900 viewport, each page given 8 s to settle
+  after load) against the public testnet explorer on the six pages the classic
+  baseline names, all on TDOGE: `coin_home` `/TDOGE`, `address` (the XCHAIN
+  owner), `token` and `market` for XCHAIN, `action` 5625 and that action's
+  `transaction`. Every page returned 200 with no console errors and no
+  rejected capture, and `capture-baseline.js` built the file from the probe's
+  own `__XC.export` manifest. Each page's `url` is recorded in the file.
 - `baseline-2026-08-20.json` is the M1 tokens capture from the regtest venue,
   taken with the 23-property census and the pre-correction mode flip (see
   "Mode-switch correction (2026-09-05)" below).

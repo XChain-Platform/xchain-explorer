@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-10-21
+
+### Changed
+- Released with the testnet arming patch; this component carries no code change.
+
 ## [0.26.1] - 2026-10-21
 
 ### Added

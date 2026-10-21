@@ -32,7 +32,8 @@ const SPECS = [
     { label: 'checkpoint-verify',   build: 'buildCheckpointLimiters', pick: 'checkpointVerifyLimiter',  name: 'checkpoint-verify',   envVar: 'EXPLORER_CHECKPOINT_VERIFY_RATE_LIMIT_RPM',   limit: 60,  error: 'Too many checkpoint verification requests' },
     { label: 'action-proof',        build: 'buildProofLimiters',      pick: 'actionProofLimiter',       name: 'action-proof',        envVar: 'EXPLORER_ACTION_PROOF_RATE_LIMIT_RPM',        limit: 90,  error: 'Too many proof requests' },
     { label: 'validator-set-proof', build: 'buildProofLimiters',      pick: 'validatorSetProofLimiter', name: 'validator-set-proof', envVar: 'EXPLORER_VALIDATOR_SET_PROOF_RATE_LIMIT_RPM', limit: 30,  error: 'Too many proof requests' },
-    { label: 'vm-query',            build: 'buildVmQueryLimiter',     pick: null,                       name: 'vm-query',            envVar: 'EXPLORER_VM_QUERY_RATE_LIMIT_RPM',            limit: 20,  error: 'Too many simulation requests' }
+    { label: 'vm-query',            build: 'buildVmQueryLimiter',     pick: null,                       name: 'vm-query',            envVar: 'EXPLORER_VM_QUERY_RATE_LIMIT_RPM',            limit: 20,  error: 'Too many simulation requests' },
+    { label: 'fee-quote-post',      build: 'buildFeeQuotePostLimiter', pick: null,                     name: 'fee-quote-post',      envVar: 'EXPLORER_FEE_QUOTE_POST_RATE_LIMIT_RPM',      limit: 60,  error: 'Too many fee requests' }
 ];
 
 // Each rateLimit call returns its own marker so a limiter wired to the wrong

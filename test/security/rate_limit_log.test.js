@@ -254,8 +254,8 @@ const blocks = [...rateLimitOptionBlocks(apiSource), ...rateLimitOptionBlocks(ex
 
 describe('Security: Rate limit counter line: every explorer limiter carries it (row 18)', function () {
 
-    it('finds the ten limiter declarations (sanity: the parser matched something)', function () {
-        expect(blocks).to.have.lengthOf(10);
+    it('finds the eleven limiter declarations (sanity: the parser matched something)', function () {
+        expect(blocks).to.have.lengthOf(11);
     });
 
     it('gives every limiter a counter-line handler', function () {
@@ -274,14 +274,14 @@ describe('Security: Rate limit counter line: every explorer limiter carries it (
 
 describe('Security: Rate limit counter line: every explorer limiter carries it (row 18)', function () {
 
-    it('names each of the ten limiters distinctly, so a line points at one knob', function () {
+    it('names each of the eleven limiters distinctly, so a line points at one knob', function () {
         const names = blocks
             .map((b) => (b.match(/name:\s*'([a-z-]+)'/) || [])[1])
             .filter(Boolean)
             .sort();
         expect(names).to.deep.equal([
             'action-proof', 'app-wide', 'batch', 'checkpoint-list', 'checkpoint-verify',
-            'fee-quote', 'preflight-post', 'static', 'validator-set-proof', 'vm-query'
+            'fee-quote', 'fee-quote-post', 'preflight-post', 'static', 'validator-set-proof', 'vm-query'
         ]);
     });
 

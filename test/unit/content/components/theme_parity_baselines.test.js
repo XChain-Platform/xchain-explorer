@@ -43,9 +43,9 @@ const KNOWN_INCOMPATIBLE = {
     'baseline-2026-10-12-classic.json': /Page coin_home\.anchors must have matched\/total form$/,
 };
 
-// Why no baseline is usable evidence today; set to null once a builder-made baseline lands
-const AWAITING_VALID_BASELINE = 'Since 2026-10-19 both dated baselines predate the current probe schema; ' +
-    'recapture one through capture-baseline.js per tools/theme-parity/README.md';
+// Why no baseline is usable evidence today; null since baseline-2026-10-20.json, a builder-made
+// testnet capture, validates against the current probe
+const AWAITING_VALID_BASELINE = null;
 
 // List the dated baseline files in the tool directory
 function baselineFiles() {

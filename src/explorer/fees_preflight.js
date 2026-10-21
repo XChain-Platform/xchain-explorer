@@ -85,19 +85,29 @@ class FeesPreflight {
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
                 return res.status(501).json({ error: 'native fee pre-flight unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
-            if(this.util.isNull(req.query.action))
+            let early = (String(req.method || 'GET').toUpperCase() === 'POST') ? (req.body || {}) : (req.query || {});
+            if(this.util.isNull(early.action))
                 return res.status(400).json({ error: 'action is required', code: 'MISSING_PARAMETER' });
             // Validate the proxied query params before forwarding to the indexer.
             // Express yields arrays for repeated keys (?action=A&action=B) and none of
             // these are type/charset/length-checked on this hop, so an arbitrary-shape or
             // unbounded value would reach the indexer's feequote endpoint. Mirror the
             // sibling proof routes in this file, which anchor every query param before use.
-            let action        = req.query.action;
-            let params        = req.query.params;   // pipe-delimited string; the indexer splits it
-            let source        = req.query.source;
-            let feeOutputSats = req.query.feeOutputSats;
+            // A POST reads its JSON body (the largest legal params cannot ride a query
+            // string); anything else reads the query string, as before.
+            let isPost        = String(req.method || 'GET').toUpperCase() === 'POST';
+            let input         = isPost ? (req.body || {}) : (req.query || {});
+            let action        = input.action;
+            let params        = input.params;   // pipe-delimited string; the indexer splits it
+            let source        = input.source;
+            let feeOutputSats = input.feeOutputSats;
             if(Array.isArray(action) || Array.isArray(params) || Array.isArray(source) || Array.isArray(feeOutputSats))
                 return res.status(400).json({ error: 'repeated query parameters are not allowed', code: 'INVALID_PARAMETER' });
+            for(let field of ['action', 'params', 'source', 'feeOutputSats']){
+                let value = input[field];
+                if(value !== undefined && value !== null && typeof value !== 'string' && !(field === 'feeOutputSats' && typeof value === 'number'))
+                    return res.status(400).json({ error: field + ' must be a string', code: 'INVALID_PARAMETER' });
+            }
             action = String(action);
             if(!/^[A-Z0-9_]{1,32}$/.test(action))
                 return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
@@ -105,7 +115,7 @@ class FeesPreflight {
                 return res.status(400).json({ error: 'invalid feeOutputSats', code: 'INVALID_PARAMETER' });
             params = this.util.isNull(params) ? undefined : String(params);
             source = this.util.isNull(source) ? undefined : String(source);
-            if((params && params.length > 8192) || (source && source.length > 4096))
+            if((params && params.length > (isPost ? MAX_PREFLIGHT_PARAMS_LENGTH : 8192)) || (source && source.length > MAX_PREFLIGHT_SOURCE_LENGTH))
                 return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
             let connector = new IndexerConnector(url);
             let result = await this.feeQuoteWithBusyRetry(connector, {
@@ -288,4 +298,11 @@ function isPreflightPostRequest(req){
     return /^\/[^/]+\/api\/preflight\/?$/i.test(String(req.path || ''));
 }
 
-module.exports = { methods: FeesPreflight.prototype, useHostBindings, isPreflightPostRequest, MAX_PREFLIGHT_PARAMS_LENGTH };
+// Same predicate for POST /{COIN}/api/feequote, so the global json() parser can
+// be told to skip it once the route registers its own body parser.
+function isFeeQuotePostRequest(req){
+    if(!req || String(req.method || '').toUpperCase() !== 'POST') return false;
+    return /^\/[^/]+\/api\/feequote\/?$/i.test(String(req.path || ''));
+}
+
+module.exports = { methods: FeesPreflight.prototype, useHostBindings, isPreflightPostRequest, isFeeQuotePostRequest, MAX_PREFLIGHT_PARAMS_LENGTH };

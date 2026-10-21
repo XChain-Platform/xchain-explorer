@@ -108,7 +108,7 @@ function cspDirectives(HTTPS_HARDENING){
  *
  * @param {object} app the express app
  * @param {object} configInfo src/config.js, for its live env view
- * @param {function} XChainExplorer the explorer class (isPreflightPostRequest)
+ * @param {function} XChainExplorer the explorer class (isPreflightPostRequest, isFeeQuotePostRequest)
  */
 function applySecurityHeaders(app, configInfo, XChainExplorer){
     const HTTPS_HARDENING = httpsHardening(configInfo.env);
@@ -124,14 +124,14 @@ function applySecurityHeaders(app, configInfo, XChainExplorer){
     }));
 
     // Tight global body ceiling: nothing on this read-only API legitimately posts more.
-    // The one exception is POST /{COIN}/api/preflight, which carries a whole composed
+    // The exceptions are POST /{COIN}/api/preflight and POST /{COIN}/api/feequote, which carries a whole composed
     // action (a 250-command BATCH is ~17,500 characters) and mounts its own parser with
     // its own ceiling at the route. Skipping it here rather than raising the global limit
     // keeps the large-body allowance scoped to the single route that needs it; the
     // predicate lives beside that route so the two cannot drift apart.
     const globalJson = express.json({ limit: '10kb' });
     app.use((req, res, next) => {
-        if (XChainExplorer.isPreflightPostRequest(req)) return next();
+        if (XChainExplorer.isPreflightPostRequest(req) || XChainExplorer.isFeeQuotePostRequest(req)) return next();
         return globalJson(req, res, next);
     });
 }

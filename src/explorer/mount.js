@@ -38,7 +38,7 @@
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
-const { buildFeeQuoteLimiter, buildPreflightPostLimiter, buildBatchLimiter,
+const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
 
 // Body-parser ceiling for POST /{COIN}/api/preflight. Above
@@ -64,6 +64,7 @@ class RouteMounts {
         this.mountFileRawRoute();
         const feeQuoteLimiter = this.mountFeeQuoteRoutes(host);
         this.mountPreflightPostRoute(host);
+        this.mountFeeQuotePostRoute(host);
         this.mountBatchRoutes(host, feeQuoteLimiter);
         const checkpointListLimiter = this.mountCheckpointRoutes(host);
         this.mountProofRoutes(host, checkpointListLimiter);
@@ -175,6 +176,21 @@ class RouteMounts {
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
             (req, res) => { this.processPreflightRequest(req, res); });
+    }
+
+    mountFeeQuotePostRoute(host){
+        const { express } = host;
+        // POST sibling of /feequote: same handler and verdict, the inputs in a JSON body
+        // because the largest legal params cannot ride a query string. It takes the
+        // preflight body ceiling (the same payload ceiling applies) and its own limiter,
+        // separate from the GET bucket, since a megabyte-class body costs more to accept.
+        const feeQuotePostLimiter = buildFeeQuotePostLimiter(host);
+        // Limiter BEFORE the parser, as for preflight: a limited caller is refused
+        // without the server reading their body.
+        this.app.post('/:coin/api/feequote',
+            feeQuotePostLimiter,
+            express.json({ limit: PREFLIGHT_BODY_LIMIT }),
+            (req, res) => { this.processFeeQuoteRequest(req, res); });
     }
 
     mountBatchRoutes(host, feeQuoteLimiter){

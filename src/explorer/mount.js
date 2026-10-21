@@ -38,7 +38,7 @@
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
-const { buildFeeQuoteLimiter, buildPreflightPostLimiter, buildBatchLimiter,
+const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
 
 // Body-parser ceiling for POST /{COIN}/api/preflight. Above
@@ -64,6 +64,7 @@ class RouteMounts {
         this.mountFileRawRoute();
         const feeQuoteLimiter = this.mountFeeQuoteRoutes(host);
         this.mountPreflightPostRoute(host);
+        this.mountFeeQuotePostRoute(host);
         this.mountBatchRoutes(host, feeQuoteLimiter);
         const checkpointListLimiter = this.mountCheckpointRoutes(host);
         this.mountProofRoutes(host, checkpointListLimiter);
@@ -175,6 +176,19 @@ class RouteMounts {
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
             (req, res) => { this.processPreflightRequest(req, res); });
+    }
+
+    mountFeeQuotePostRoute(host){
+        const { express } = host;
+        // POST sibling of GET /feequote: same inputs and quote, with the body carrying
+        // what a query string cannot (a large BATCH). It reuses the preflight body
+        // ceiling and gets its own limiter so the GET bucket is untouched. Limiter
+        // before the parser, so a rate-limited caller is refused without the body read.
+        const feeQuotePostLimiter = buildFeeQuotePostLimiter(host);
+        this.app.post('/:coin/api/feequote',
+            feeQuotePostLimiter,
+            express.json({ limit: PREFLIGHT_BODY_LIMIT }),
+            (req, res) => { this.processFeeQuoteRequest(req, res); });
     }
 
     mountBatchRoutes(host, feeQuoteLimiter){

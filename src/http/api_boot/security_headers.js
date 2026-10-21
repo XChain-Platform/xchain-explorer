@@ -104,6 +104,18 @@ function cspDirectives(HTTPS_HARDENING){
 }
 
 /**
+ * True for POST /{COIN}/api/feequote, which mounts its own parser with the preflight
+ * ceiling at the route (see mountFeeQuotePostRoute) and so must skip the global one.
+ *
+ * @param {object} req the express request
+ * @returns {boolean}
+ */
+function isFeeQuotePostRequest(req){
+    if (!req || String(req.method || '').toUpperCase() !== 'POST') return false;
+    return /^\/[^/]+\/api\/feequote\/?$/i.test(String(req.path || ''));
+}
+
+/**
  * Mount the header set and the body ceiling, in that order.
  *
  * @param {object} app the express app
@@ -131,7 +143,7 @@ function applySecurityHeaders(app, configInfo, XChainExplorer){
     // predicate lives beside that route so the two cannot drift apart.
     const globalJson = express.json({ limit: '10kb' });
     app.use((req, res, next) => {
-        if (XChainExplorer.isPreflightPostRequest(req)) return next();
+        if (XChainExplorer.isPreflightPostRequest(req) || isFeeQuotePostRequest(req)) return next();
         return globalJson(req, res, next);
     });
 }
@@ -147,4 +159,4 @@ function applyProxyTrust(app){
     applyTrustProxy(app);
 }
 
-module.exports = { applySecurityHeaders, applyProxyTrust };
+module.exports = { applySecurityHeaders, applyProxyTrust, isFeeQuotePostRequest };

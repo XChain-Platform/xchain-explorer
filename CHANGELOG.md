@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-10-21
+
+### Added
+- Published whether address list items accept any coin in the status report.
+- Mounted POST /:coin/api/feequote with the preflight body ceiling.
+
+### Fixed
+- Treated an active replica halt as stale on every surface.
+- Raised follow-redirects to its patched release for two new advisories.
+
 ## [0.26.0] - 2026-10-20
 
 ### Added

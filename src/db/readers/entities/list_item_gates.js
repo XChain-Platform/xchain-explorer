@@ -28,6 +28,11 @@
 
 'use strict';
 
+// The core registry, not the gate_registry facade: the facade loads config.js, which can
+// load this file mid-build, so the facade export may still be half-built here. The facade
+// registers its rows into this same object, and every entry point loads it before serving.
+const { registry: gateRegistry } = require('../../../consensus/gate_registry/core.js');
+
 const TOKEN_POLICY_INHERITANCE_KEY = 'token_policy_activation.TOKEN_POLICY_INHERITANCE_ACTIVATION';
 
 // Route code (BTC / TBTC / RDOGE) to { coin, network } against the loaded
@@ -50,8 +55,6 @@ function listAnyCoinItemsAtTip(coinConfigs, code, tip){
     let resolved = routeCoinNetwork(coinConfigs || {}, code);
     if(!resolved || !Number.isInteger(tip)) return false;
     try {
-        // Required at the call: the registry loads the db readers, so a top-level require is a cycle.
-        const gateRegistry = require('../../../consensus/gate_registry');
         return gateRegistry.activeAt(TOKEN_POLICY_INHERITANCE_KEY, resolved.network, resolved.coin, tip, null) === true;
     } catch(e){
         return false;

@@ -97,6 +97,7 @@
     "supertest": "^7.2.2"
   },
   "overrides": {
+    "follow-redirects": "^1.16.1",
     "brace-expansion": "^5.0.9",
     "minimatch": "^10.2.5",
     "decimal.js": "10.4.3",

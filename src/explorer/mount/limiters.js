@@ -80,6 +80,27 @@ function buildPreflightPostLimiter(host){
 }
 
 /**
+ * The POST fee-quote bucket.
+ */
+function buildFeeQuotePostLimiter(host){
+    const { rateLimit, limitedHandler, configEnv } = host;
+    const feeQuotePostPolicy = {
+        limit:    parseInt(configEnv().EXPLORER_FEE_QUOTE_POST_RATE_LIMIT_RPM, 10) || 60,
+        envVar:   'EXPLORER_FEE_QUOTE_POST_RATE_LIMIT_RPM',
+        windowMs: 60 * 1000,
+        message:  { error: 'Too many fee requests', code: 'RATE_LIMITED' }
+    };
+    const feeQuotePostLimiter = rateLimit({
+        windowMs:        feeQuotePostPolicy.windowMs,
+        limit:           feeQuotePostPolicy.limit,
+        standardHeaders: true,
+        legacyHeaders:   false,
+        handler:         limitedHandler({ service: 'Explorer', name: 'fee-quote-post', ...feeQuotePostPolicy })
+    });
+    return feeQuotePostLimiter;
+}
+
+/**
  * The batch-read bucket, shared by both batch POSTs.
  */
 function buildBatchLimiter(host){
@@ -221,4 +242,4 @@ function buildVmQueryLimiter(host){
     return vmQueryLimiter;
 }
 
-module.exports = { buildFeeQuoteLimiter, buildPreflightPostLimiter, buildBatchLimiter, buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter };
+module.exports = { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter, buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter };

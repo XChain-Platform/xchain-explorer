@@ -34,6 +34,7 @@
 const DecoderConnector = require('../../../connectors/decoder.js');
 const IndexerConnector = require('../../../connectors/indexer.js');
 const { staleFailClosed } = require('../../shared.js');
+const { listAnyCoinItemsAtTip } = require('./list_item_gates.js');
 
 // Tracks the decoder tip and the indexer's distance from it for every coin.
 function decoderMeasurementFields(){
@@ -134,6 +135,8 @@ function statusReportSkeleton(coinConfigs, hubFetchedAtMs){
         hub_config_age_seconds: (hubFetchedAtMs != null) ? Math.floor((Date.now() - hubFetchedAtMs) / 1000) : null,
         last_block:      {},
         last_block_time: {},
+        // Per coin: address LIST items accept any configured coin at the tip.
+        list_any_coin_items: {},
     }, statusMeasurementFields());
 }
 
@@ -241,6 +244,7 @@ async function measureIndexerState(db, data, coin, nowSec, coinConfigs){
 // Everything /status measures for one coin this instance actually holds a pool for.
 async function measureCoinStatus(db, data, coin, coinConfigs){
     await measureIndexerPosition(db, data, coin);
+    data.list_any_coin_items[coin] = listAnyCoinItemsAtTip(coinConfigs, coin, data.last_block[coin]);
     // Flag a frozen replica: a coin whose newest indexed block has aged past
     // its threshold reads `stale`, so a consumer cannot mistake a 55-hour-old
     // tip for live data. Only coins this instance actually MEASURED are gated;

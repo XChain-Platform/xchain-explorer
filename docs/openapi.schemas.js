@@ -452,6 +452,13 @@ const EXPLORER_STATUS = {
                 ]
             }
         },
+        "list_any_coin_items": {
+            "type": "object",
+            "description": "Whether an address LIST (TYPE=2) create or edit accepts any configured coin's address, keyed by coin ticker: true once TOKEN_POLICY_INHERITANCE_ACTIVATION is active at that coin's indexed tip. false below the activation, and also when the tip could not be read or the ticker resolves to no configured coin, so a client keeps other-coin addresses out unless this reads true. Only coins this instance measures appear here.",
+            "additionalProperties": {
+                "type": "boolean"
+            }
+        },
         "decoder_tip": {
             "type": "object",
             "description": "Decoder's highest processed block index, keyed by coin ticker. null when the decoder tip is unavailable.",

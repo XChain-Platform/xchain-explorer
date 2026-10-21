@@ -161,8 +161,9 @@ class HealthTipReaders {
     }
 
     // Cached per-coin freshness snapshot: the newest indexed block, how old it is
-    // against this host's clock, whether that age passes the coin's stale
-    // threshold, and whether the replica carries an active sync halt. This is
+    // against this host's clock, whether the coin is stale (that age
+    // past the coin's threshold, or an active sync halt on the replica), and
+    // whether the replica carries an active sync halt. This is
     // what every data response is annotated with (XChainExplorer.processRequest)
     // and what the WS serving boundaries read, so it is one cache fill per coin
     // per TIP_STALE_CACHE_TTL_MS rather than a query per request. An unreadable
@@ -199,15 +200,14 @@ class HealthTipReaders {
             // Leave the fail-closed defaults: stale unless the gate is disabled,
             // and no tip to report.
         }
-        // The halt signal is only worth a query while the tip is already stale:
-        // a fresh tip means the replica is applying blocks, so it cannot be
-        // halted, and the banner only needs the reason once there is one.
-        if (snapshot.stale) {
-            try { snapshot.replica_halted = await this.getReplicaHaltStatus(coin); }
-            catch (e) { snapshot.replica_halted = null; }
-        } else {
-            snapshot.replica_halted = false;
-        }
+        // An active sync halt marks the coin stale whatever the tip age says: a
+        // halted replica keeps a young tip while holding rows that may diverge
+        // from the chain, so age alone would let the header, the WS marker, the
+        // opt-in 503 and /status disagree about it. The verdict is made here once
+        // and every surface reads it. An unreadable halt (null) adds nothing.
+        try { snapshot.replica_halted = await this.getReplicaHaltStatus(coin); }
+        catch (e) { snapshot.replica_halted = null; }
+        if (snapshot.replica_halted === true) snapshot.stale = true;
         this._tipStaleCache[coin] = { at: Date.now(), snapshot };
         return snapshot;
     }

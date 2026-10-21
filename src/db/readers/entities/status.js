@@ -250,17 +250,19 @@ async function measureCoinStatus(db, data, coin, coinConfigs){
     let tipSec = data.last_block_time[coin];
     measureTipAge(data, coin, nowSec, tipSec);
     await measureIndexerState(db, data, coin, nowSec, coinConfigs);
-    data.stale[coin] = db.isTipStale(coin, tipSec, nowSec);
+    // Same verdict as db.getCoinFreshness: an active replica halt is stale
+    // even while the tip is young, so /status agrees with the header, the WS
+    // marker and the opt-in 503.
+    let halted = await db.getReplicaHaltStatus(coin);
+    data.stale[coin] = db.isTipStale(coin, tipSec, nowSec) || halted === true;
     // A stale coin stays listed in `available`: it IS served, with its
     // rows annotated (see staleFailClosed). The client reads `stale`,
     // tip_age_seconds, last_block and indexer_state to draw its degraded
     // banner. Only the fail-closed opt-in still delists it, because
     // there the data routes really do answer 503.
     if (data.stale[coin] && staleFailClosed(db.configInfo)) delete data.available[coin];
-    // Published beside stale, not folded into it: a halted replica keeps
-    // reporting a small lag until its source mints past it, so stale
-    // detects it eventually and halted detects it immediately.
-    data.replica_halted[coin] = await db.getReplicaHaltStatus(coin);
+    // Published beside stale too, so a consumer can tell a halt from age.
+    data.replica_halted[coin] = halted;
 }
 
 // Reads a route code (BTC / TBTC / RDOGE) as a base coin plus a network, against

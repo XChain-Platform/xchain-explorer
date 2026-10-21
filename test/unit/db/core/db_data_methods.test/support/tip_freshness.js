@@ -48,6 +48,9 @@ function restoreTipTest() {
 
 function poolWithBlockTime(coin, blockTime) {
     configurePool(db, coin, blockTime);
+    // The fake pool answers every query with a row, which the halt read would
+    // take for an uncleared sync_halt row; default to no halt.
+    db.getReplicaHaltStatus = async () => false;
 }
 
 // The freshness gate that stops a frozen replica advertising itself as available.
@@ -190,13 +193,34 @@ describe('Database tip-freshness gate', () => {
             expect(f.replica_halted).to.be.a('boolean');
         });
 
-        it('reports a fresh coin as not halted without querying sync_halt', async () => {
+        it('reports a fresh coin with no halt as live and not halted', async () => {
             poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) - 60);
-            const halt = sinon.spy(db, 'getReplicaHaltStatus');
+            sinon.stub(db, 'getReplicaHaltStatus').resolves(false);
             const f = await db.getCoinFreshness('RBTC');
             expect(f.stale).to.equal(false);
             expect(f.replica_halted).to.equal(false);
-            expect(halt.called).to.equal(false);
+        });
+
+        // Young tip + uncleared sync_halt row: every surface gives one verdict.
+        it('gives the same stale verdict on every surface for a young tip with an active halt', async () => {
+            poolWithBlockTime('RBTC', Math.floor(Date.now() / 1000) - 60);
+            sinon.stub(db, 'getReplicaHaltStatus').resolves(true);
+            const f = await db.getCoinFreshness('RBTC');
+            // header / WS WELCOME marker / 503 gate all read these
+            expect(f.stale).to.equal(true);
+            expect(f.replica_halted).to.equal(true);
+            expect(await db.isCoinTipStale('RBTC')).to.equal(true);
+            // /status: stale, delisted from available only under the opt-in
+            let [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.stale['RBTC']).to.equal(true);
+            expect(data.replica_halted['RBTC']).to.equal(true);
+            process.env.EXPLORER_STALE_FAIL_CLOSED = '1';
+            expect(db.staleFailClosed()).to.equal(true);
+            [data] = await db.getStatus(cfg({ coin: 'RBTC' }));
+            expect(data.stale['RBTC']).to.equal(true);
+            expect(data.available['RBTC']).to.equal(undefined);
+            // federation read refuses off the same halt signal
+            expect(await db.getReplicaHaltStatus('RBTC')).to.equal(true);
         });
 
         it('reads as stale with null tip fields when the indexer is unreadable', async () => {

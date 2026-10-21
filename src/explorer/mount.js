@@ -38,10 +38,10 @@
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
-const { buildFeeQuoteLimiter, buildPreflightPostLimiter, buildBatchLimiter,
+const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
 
-// Body-parser ceiling for POST /{COIN}/api/preflight. Above
+// Body-parser ceiling for POST /{COIN}/api/preflight and POST /{COIN}/api/feequote. Above
 // MAX_PREFLIGHT_PARAMS_LENGTH (explorer/fees_preflight.js, where the route that
 // enforces it lives) because JSON string escaping can inflate a payload before the
 // length check there can see it; the real refusal is the character check on the
@@ -64,6 +64,7 @@ class RouteMounts {
         this.mountFileRawRoute();
         const feeQuoteLimiter = this.mountFeeQuoteRoutes(host);
         this.mountPreflightPostRoute(host);
+        this.mountFeeQuotePostRoute(host);
         this.mountBatchRoutes(host, feeQuoteLimiter);
         const checkpointListLimiter = this.mountCheckpointRoutes(host);
         this.mountProofRoutes(host, checkpointListLimiter);
@@ -175,6 +176,20 @@ class RouteMounts {
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
             (req, res) => { this.processPreflightRequest(req, res); });
+    }
+
+    mountFeeQuotePostRoute(host){
+        const { express } = host;
+        // POST sibling of GET /feequote: the same quote for an input too large for a
+        // query string (a 250-command BATCH), sharing the pre-flight body ceiling. The
+        // limiter is its own bucket rather than the GET's, because this surface takes a
+        // large body, and it runs BEFORE the parser so a limited caller is refused
+        // without the server reading their megabyte.
+        const feeQuotePostLimiter = buildFeeQuotePostLimiter(host);
+        this.app.post('/:coin/api/feequote',
+            feeQuotePostLimiter,
+            express.json({ limit: PREFLIGHT_BODY_LIMIT }),
+            (req, res) => { this.processFeeQuoteRequest(req, res); });
     }
 
     mountBatchRoutes(host, feeQuoteLimiter){

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.26.2] - 2026-10-21
+
+### Changed
+- Released with the testnet arming patch; this component carries no code change.
+- Updated the Node base image to 22.23.4, which fixes ten Node security issues.
+
 ## [0.26.1] - 2026-10-21
 
 ### Added

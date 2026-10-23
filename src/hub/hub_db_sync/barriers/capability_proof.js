@@ -28,8 +28,46 @@ const { getLogger } = require('../../../observability/index.js');
 const { CAPABILITY_SNAPSHOT_KEY_CAP, capabilitySnapshotKey } = require('../mirror_bounds.js');
 
 const CAPABILITY_PROOF_RETRY_MS = 15000;
+const CAPABILITY_PROOF_REQUEST_INTERVAL_MS = 110;
 
 module.exports = {
+
+    async paceCapabilityProofRequest() {
+        let previous = this._capabilityProofPaceChain || Promise.resolve();
+        let turn = previous.then(async () => {
+            let earliest = Number(this._capabilityProofNextRequestAt) || 0;
+            let delay = Math.max(0, earliest - Date.now());
+            if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+            this._capabilityProofNextRequestAt = Date.now() + CAPABILITY_PROOF_REQUEST_INTERVAL_MS;
+        });
+        this._capabilityProofPaceChain = turn.catch(() => {});
+        return turn;
+    },
+
+    // The judge for one served row, skipped when the local mirror already holds the row's
+    // natural key. capability_snapshots lands by plain INSERT IGNORE on that key, so a row
+    // already mirrored writes nothing whatever its proof says, and no verdict deletes a
+    // local row: re-proving it cannot change the mirror and could only hold a row that is
+    // present. Every restart, failover and owed re-page serves the whole table from id 0
+    // (see resolveDrainCursor), and on a chain that proves rows through the hub each judge
+    // is one paced proof GET, so re-proving an intact mirror blocked parsing about 22 min.
+    // A key the mirror lacks (a fresh or rolled-back local DB) is judged exactly as before.
+    async judgeUnmirroredCapabilityRow(db, row, fetchProof) {
+        if (await this.capabilitySnapshotMirrored(row))
+            return { verdict: 'mirrored', reason: 'the local mirror already holds this key' };
+        return db.verifyCapabilitySnapshotRow(row, { fetchProof: fetchProof });
+    },
+
+    // True only when a local row reads back with this row's own natural key. doQuery
+    // reports a failed read as no rows, so any doubt leaves the row to the judge.
+    async capabilitySnapshotMirrored(row) {
+        let rows = await this.hubDb.doQuery(
+            'SELECT snapshot_block, capability, signing_pubkey, source FROM capability_snapshots ' +
+            'WHERE snapshot_block = ? AND capability = ? AND signing_pubkey = ? AND source = ? LIMIT 1',
+            [row.snapshot_block, row.capability, row.signing_pubkey, row.source == null ? '' : row.source]);
+        let key = capabilitySnapshotKey(row);
+        return Array.isArray(rows) && rows.some(local => local && capabilitySnapshotKey(local) === key);
+    },
 
     capabilityProofSatisfied() {
         return !this.enabled || (this._capabilityProofHolds.size === 0 && !this._capabilityProofOverflow);

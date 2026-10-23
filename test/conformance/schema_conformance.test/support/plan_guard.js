@@ -100,10 +100,10 @@ function report(result) {
         if (list.length) console.log('plan guard: ' + label + ':\n  ' + list.join('\n  '));
 }
 
-// The allowlist is taken on the CI venue's MariaDB 10.11, and the reconcile
-// verdicts enforce by default. PLAN_GUARD_ENFORCE=0 turns them into a printed
-// diff under a PLAN_GUARD_DIFF marker, for retaking the list on a venue whose
-// planner differs.
+// The allowlist is taken on the CI venue's MariaDB 10.11. Missing offenders
+// enforce by default, while entries not reproduced locally are reported as
+// venue differences. PLAN_GUARD_ENFORCE=0 prints missing offenders under a
+// PLAN_GUARD_DIFF marker for retaking the list on a venue whose planner differs.
 const ENFORCE = process.env.PLAN_GUARD_ENFORCE !== '0';
 
 function reconcileVerdict(lines, message) {
@@ -112,6 +112,10 @@ function reconcileVerdict(lines, message) {
         return;
     }
     if (lines.length) console.log('PLAN_GUARD_DIFF ' + message + '\n  ' + lines.join('\n  '));
+}
+
+function reportVenueDifferences(lines, message, log) {
+    if (lines.length) (log || console.log)('PLAN_GUARD_VENUE ' + message + '\n  ' + lines.join('\n  '));
 }
 
 function registerPlanGuard(runtime) {
@@ -139,10 +143,23 @@ function registerPlanGuard(runtime) {
                 'to ' + allowlist.ALLOWLIST_PATH + ' with the reason it cannot be:');
         });
 
-        it('carries no stale allowlist entry', function () {
+        it('reports allowlist entries not reproduced by this venue', function () {
             const { stale } = allowlist.reconcile(state.entries, state.result.observed);
-            reconcileVerdict(stale, 'allowlisted plans that no longer offend; remove these lines from ' +
-                allowlist.ALLOWLIST_PATH + ':');
+            reportVenueDifferences(stale, 'allowlisted plans not reproduced on this venue; retain them for venues whose ' +
+                'optimizer still produces them:');
+        });
+
+        it('tolerates an allowlist line that only one venue reproduces', function () {
+            const key = 'getSends all row sends scan';
+            const entries = new Map([[key, 'the venue-dependent plan scans sends']]);
+            const offendingPlan = new Map([[key, 'the observed plan scans sends']]);
+            const nonOffendingPlan = new Map();
+            const reports = [];
+            expect(allowlist.reconcile(entries, offendingPlan).stale).to.deep.equal([]);
+            const { stale } = allowlist.reconcile(entries, nonOffendingPlan);
+            expect(stale).to.deep.equal([key + ' | the venue-dependent plan scans sends']);
+            expect(() => reportVenueDifferences(stale, 'not reproduced', (line) => reports.push(line))).not.to.throw();
+            expect(reports).to.deep.equal(['PLAN_GUARD_VENUE not reproduced\n  ' + stale[0]]);
         });
 
         it('probed and explained enough plans to mean something', function () {

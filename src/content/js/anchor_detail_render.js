@@ -276,7 +276,7 @@ function renderAnchorCoveringCheckpoint(d){
 }
 
 // Publisher election
-// The oracle_publish electorate at this anchor's snapshot_block, plus which
+// The selected publisher electorate at this anchor's snapshot_block, plus which
 // member the anchor names as the elected publisher. capability_snapshots is
 // chain-agnostic, so this set is the platform-wide one at that snapshot block.
 function renderAnchorElection(d){
@@ -284,6 +284,8 @@ function renderAnchorElection(d){
     let t     = anchorRenderTraits(row);
     let set   = Array.isArray(row.publisher_election) ? row.publisher_election : [];
     let tail  = Array.isArray(row.publisher_attestations) ? row.publisher_attestations : [];
+    let capability = row.publisher_election_capability === 'archive_publish'
+        ? 'archive_publish' : 'oracle_publish';
     let html  = '';
     if(!t.publisher && isNull(row.publisher))
         html += anchorEmpty('This ANCHOR version carries no publisher tail, so no publisher was elected for it.');
@@ -293,7 +295,7 @@ function renderAnchorElection(d){
         ? '<span class="text-muted">-</span>'
         : '<span class="font-monospace small text-break anchor-publisher">' + anchorEsc(row.publisher) + '</span>', 'anchor-publisher-row');
     html += anchorFieldRow('Elected At', anchorBlockLink(row.snapshot_block, 'BTC')
-        + anchorNote('The BTC snapshot block whose oracle_publish set the publisher was drawn from.'));
+        + anchorNote('The BTC snapshot block whose ' + capability + ' set the publisher was drawn from.'));
     html += anchorFieldRow('Wire Attestations',
         '<span class="anchor-tail-count">' + tail.length + '</span> carried'
         + anchorNote('Raw XANCPUB transport, not a verified quorum. Consumers re-verify these against their own validator set.'),
@@ -301,10 +303,10 @@ function renderAnchorElection(d){
     html += '</tbody></table>';
 
     if(!set.length){
-        return html + anchorEmpty('No oracle_publish electorate is recorded at that snapshot block.');
+        return html + anchorEmpty('No ' + capability + ' electorate is recorded at that snapshot block.');
     }
     html += '<div class="small text-muted mt-2 mb-1">' + set.length + ' member'
-        + (set.length === 1 ? '' : 's') + ' in the oracle_publish set:</div>';
+        + (set.length === 1 ? '' : 's') + ' in the ' + capability + ' set:</div>';
     html += '<table class="table table-sm mb-0 anchor-election-table"><thead><tr>'
         + '<th>Signing Pubkey</th><th>Amount</th><th>Source</th></tr></thead><tbody>';
     set.forEach(function(m){

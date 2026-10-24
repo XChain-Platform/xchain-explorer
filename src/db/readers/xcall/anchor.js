@@ -28,6 +28,10 @@
 'use strict';
 
 const { ANCHOR_BUNDLE_VERSIONS } = require('../../action_detail/consensus_sql');
+const gateRegistry = require('../../../consensus/gate_registry');
+
+const ARCHIVE_ROLLCALL_PRESENCE_KEY =
+    'archive_rollcall_presence_activation.ARCHIVE_ROLLCALL_PRESENCE_ACTIVATION';
 
 function anchorIdentityLookup(db, config){
     let search = config.data.search;
@@ -218,11 +222,23 @@ async function readCoveringCheckpoint(db, config, row, src){
     return checkpoint;
 }
 
+function publisherElectionCapability(db, row){
+    let version = Number(row.version);
+    let archive = (version === 1 && !db.util.isNull(row.match_batch_seq)) ||
+        (version === 3 && row.sections.some(s =>
+            db.util.isNull(s.chain) && !db.util.isNull(s.match_batch_seq)));
+    let active = archive && gateRegistry.activeAt(
+        ARCHIVE_ROLLCALL_PRESENCE_KEY, row.network, 'BTC', row.snapshot_block, null);
+    return active ? 'archive_publish' : 'oracle_publish';
+}
+
 // The publisher electorate at this anchor's snapshot block.
 async function readPublisherElection(db, config, row, src, limit){
     // Publisher election. capability_snapshots is CHAIN-AGNOSTIC: no chain/network
-    // filter is bound, matching getCapabilitySnapshots. 'oracle_publish' is the
-    // capability the publisher election draws its set from.
+    // filter is bound, matching getCapabilitySnapshots. Archive heads and folded
+    // archive wrappers move to archive_publish at the roll-call-presence gate;
+    // every other anchor keeps the oracle_publish electorate.
+    let capability = publisherElectionCapability(db, row);
     let electorate = [];
     if(!db.util.isNull(row.snapshot_block))
         electorate = await db.doQuery(config,
@@ -233,8 +249,8 @@ async function readPublisherElection(db, config, row, src, limit){
                 FROM ${src.capTable} m
                 WHERE m.snapshot_block=? AND m.capability=?
                 ORDER BY m.id ASC
-                LIMIT ` + limit, [Number(row.snapshot_block), 'oracle_publish']) || [];
-    return electorate;
+                LIMIT ` + limit, [Number(row.snapshot_block), capability]) || [];
+    return { capability, electorate };
 }
 
 // The reward attestations attributable to this anchor, by proof or by inference.
@@ -306,12 +322,13 @@ class AnchorReaders {
 
         let src        = this.checkpointSource(config);
         let checkpoint = await readCoveringCheckpoint(this, config, row, src);
-        let electorate = await readPublisherElection(this, config, row, src, limit);
+        let election   = await readPublisherElection(this, config, row, src, limit);
         let rewards    = await readRewardTrail(this, config, row, src, limit);
 
         row.chunks             = chunks;
         row.checkpoint         = (checkpoint.length) ? this.normalizeCheckpointRows(checkpoint)[0] : null;
-        row.publisher_election = electorate;
+        row.publisher_election_capability = election.capability;
+        row.publisher_election = election.electorate;
         row.reward_attestations = rewards;
         return [row];
     }

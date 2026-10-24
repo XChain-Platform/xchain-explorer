@@ -37,7 +37,8 @@ const { srcText }   = require('../../helpers/source_text');
 
 const PRICE_PARAMS = { first_round: 0, last_round: 10 };
 const PRICE_RESULT = { block_index: 42, first_round: 0, last_round: 10, truncated: false,
-    batches: [{ action_index: 3, first_round: 1, last_round: 2, round_count: 2 }] };
+    batches: [{ action_index: 3, first_round: 1, last_round: 2, round_count: 2,
+        block_index: null, block_time: null }] };
 
 // An app over a scripted DOGE testnet replica with one price batch on it.
 function replicaApp() {

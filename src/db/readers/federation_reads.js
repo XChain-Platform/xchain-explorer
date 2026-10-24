@@ -46,6 +46,18 @@ class FederationReaders {
         return (rows && rows[0]) ? parseInt(rows[0].block_time) : null;
     }
 
+    // Return decoder timestamps immediately before one height, newest first. The
+    // decoder is the source of the protocol clock carried by pushpricebatch.
+    async getPreviousDecoderBlockTimes(config, blockIndex, span) {
+        let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
+        if (dbName === null || dbName === undefined || !/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
+        let rows = await this.doDecoderQuery(config,
+            `SELECT block_time FROM \`${dbName}\`.blocks
+             WHERE block_index < ? AND block_time IS NOT NULL
+             ORDER BY block_index DESC LIMIT ?`, [blockIndex, span]);
+        return (rows || []).map(row => row.block_time);
+    }
+
     // The roll-call window cut: the highest block stamped at or before maxBlockTime.
     // Null means no block is inside the window yet, which the caller must read as
     // "defer", never as "nobody signed".
@@ -120,12 +132,13 @@ class FederationReaders {
     // starts at or before the range's end and ends at or after its start, which is why
     // the two round arguments read in the opposite order to the range itself.
     async getPriceBatchesOverlappingRange(config, validationStatus, lastRound, firstRound, limit) {
-        let query = `SELECT action_index, batch_first_round, batch_last_round, round_count
-                     FROM prices
-                     WHERE version = 0 AND validation_status = ?
-                     AND batch_first_round IS NOT NULL AND batch_last_round IS NOT NULL
-                     AND batch_first_round <= ? AND batch_last_round >= ?
-                     ORDER BY batch_first_round ASC, action_index ASC
+        let query = `SELECT p.action_index, p.batch_first_round, p.batch_last_round, p.round_count,
+                     a.block_index
+                     FROM prices p LEFT JOIN actions a ON a.action_index = p.action_index
+                     WHERE p.version = 0 AND p.validation_status = ?
+                     AND p.batch_first_round IS NOT NULL AND p.batch_last_round IS NOT NULL
+                     AND p.batch_first_round <= ? AND p.batch_last_round >= ?
+                     ORDER BY p.batch_first_round ASC, p.action_index ASC
                      LIMIT ?`;
         return await this.doQuery(config, query, [validationStatus, lastRound, firstRound, limit]);
     }

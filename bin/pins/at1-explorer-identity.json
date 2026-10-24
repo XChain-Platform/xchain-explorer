@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 322,
+    "count": 323,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2528,6 +2528,7 @@
       "getPoll",
       "getPollResults",
       "getPolls",
+      "getPreviousDecoderBlockTimes",
       "getPriceBatchesOverlappingRange",
       "getPriceSnapshots",
       "getPrices",
@@ -5216,14 +5217,6 @@
         "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) reads back every pinned name in the source (row 33: no orphaned pin)",
         "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) sees eleven limiter env vars on each side today (sanity: the parsers matched something)"
       ],
-      "39b81da21d0230a3": [
-        "price batch parameter validation clamps oversized limits and rejects invalid limits",
-        "price batch parameter validation normalizes string rounds and default limits",
-        "price batch parameter validation rejects invalid round bounds",
-        "price batch response mapping maps absent latest block indexes to null",
-        "price batch response mapping maps non-array rows to an untruncated empty list",
-        "price batch response mapping maps numeric fields and reports a full page as truncated"
-      ],
       "39d38d610943e3e4": [
         "config validation describeHubResponse describes a null response as an unreachable hub returning nothing",
         "config validation describeHubResponse describes a populated response as reachable and non-empty",
@@ -7406,6 +7399,17 @@
         "structure markers client: getActionDetails a multi-leg airdrop row gets a legs toggle after its one-leg summary",
         "structure markers client: getActionDetails a multi-send row gets a recipients toggle after its leg-0 summary",
         "structure markers client: getActionDetails a plain send row carries no marker at all"
+      ],
+      "70a8e0cdefb4631a": [
+        "price batch landing protocol time uses testnet median time and resolves each distinct landing block once",
+        "price batch landing protocol time uses the stored raw timestamp outside testnet",
+        "price batch parameter validation clamps oversized limits and rejects invalid limits",
+        "price batch parameter validation normalizes string rounds and default limits",
+        "price batch parameter validation rejects invalid round bounds",
+        "price batch response mapping carries each batch landing block and its resolved protocol time",
+        "price batch response mapping maps absent latest block indexes to null",
+        "price batch response mapping maps non-array rows to an untruncated empty list",
+        "price batch response mapping maps numeric fields and reports a full page as truncated"
       ],
       "71e23443944752dd": [
         "decoder mempool reply contract empty reply (rows [] with a good read) flags the cache entry malformed only for a malformed reply",
@@ -12185,7 +12189,7 @@
       },
       "test": {
         "fileCount": 459,
-        "titleCount": 7794,
+        "titleCount": 7797,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12515,7 +12519,7 @@
           "test/unit/federation/federation_coin_routing.test.js": "ede31e64f456f593",
           "test/unit/federation/federation_indexer_parity.test.js": "d81d7dd7a525a360",
           "test/unit/federation/federation_public_reads.test.js": "fb661a3bc9b784fa",
-          "test/unit/federation/price_batches.test.js": "39b81da21d0230a3",
+          "test/unit/federation/price_batches.test.js": "70a8e0cdefb4631a",
           "test/unit/helpers/source_slice.test.js": "4b7b0941e0e9456b",
           "test/unit/http/api_boot/listen_host.test.js": "78cd57ab43cd9d97",
           "test/unit/http/api_boot/websocket_start.test.js": "2d909ab5ef9dd060",

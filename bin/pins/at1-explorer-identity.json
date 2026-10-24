@@ -7780,6 +7780,12 @@
         "BET cancel/resolve action status @regression serves a REJECTED resolve its claimed outcome, which no other surface carries",
         "BET cancel/resolve action status @regression serves the outcome a resolve declared"
       ],
+      "8372e81d200825cb": [
+        "anchor archive publisher electorate keeps archive rows below the gate and non-archive rows on oracle_publish",
+        "anchor archive publisher electorate names the selected set in the election note and member label",
+        "anchor archive publisher electorate selects archive_publish for a v1 archive head above the gate",
+        "anchor archive publisher electorate selects archive_publish for a v3 fold wrapper with an archive row above the gate"
+      ],
       "83a5193730da3433": [
         "@p0 @security LIKE wildcard escaping regression escapes % wildcard",
         "@p0 @security LIKE wildcard escaping regression escapes _ wildcard",
@@ -12188,8 +12194,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 459,
-        "titleCount": 7797,
+        "fileCount": 460,
+        "titleCount": 7801,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12278,6 +12284,7 @@
           "test/unit/content/detail/address_and_validator/content_client_token_info.test/token_null_market.test.js": "a4a4ffcd25aa1936",
           "test/unit/content/detail/address_and_validator/content_client_token_info.test/token_relay_url.test.js": "ca873f112a4fe7aa",
           "test/unit/content/detail/address_and_validator/content_client_validator_detail.test.js": "81a740106ba2f03f",
+          "test/unit/content/detail/anchor/archive_publish_electorate.test.js": "8372e81d200825cb",
           "test/unit/content/detail/anchor/content_client_anchor_detail.test.js": "345117f3a5282aa5",
           "test/unit/content/detail/anchor/content_client_anchor_detail.test/anchor_v3_verdicts.test.js": "5789ac155009ed3f",
           "test/unit/content/detail/anchor/content_client_anchor_sections_row.test.js": "6ec62f07f4cf0059",

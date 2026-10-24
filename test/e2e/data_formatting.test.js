@@ -29,6 +29,9 @@ const { createApp } = require('../integration/helpers/app-setup');
 
 let request;
 
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR4 = 'bcrt1qqszqgpqyqszqgpqyqszqgpqyqszqgpqyuza2rq';
+
 before(async function () {
     this.timeout(30000);
     await db.setupE2EDatabase();
@@ -48,8 +51,7 @@ after(async function () {
 describe('E2E-14: BigInt values survive serialization', function () {
 
     it('BIGTOKEN balance is a string without truncation', async function () {
-        const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-        const res  = await request.get(`/RBTC/api/balances/${addr}`);
+        const res = await request.get(`/RBTC/api/balances/${ADDR1}`);
         expect(res.status).to.equal(200);
 
         const row = res.body.data.find(r => r.tick === 'BIGTOKEN');
@@ -202,8 +204,7 @@ describe('E2E-17: Null fields are JSON null', function () {
 describe('E2E-18: Amount decimal places match token config', function () {
 
     it('8-decimal token amounts have 8 decimal places', async function () {
-        const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-        const res  = await request.get(`/RBTC/api/balances/${addr}`);
+        const res = await request.get(`/RBTC/api/balances/${ADDR1}`);
         expect(res.status).to.equal(200);
 
         const xchainRow = res.body.data.find(r => r.tick === 'XCHAIN');
@@ -213,8 +214,7 @@ describe('E2E-18: Amount decimal places match token config', function () {
     });
 
     it('4-decimal token amounts have 4 decimal places', async function () {
-        const addr = 'bc1qaddr4ddddddddddddddddddddddddddd';
-        const res  = await request.get(`/RBTC/api/balances/${addr}`);
+        const res = await request.get(`/RBTC/api/balances/${ADDR4}`);
         expect(res.status).to.equal(200);
 
         const row = res.body.data.find(r => r.tick === 'TOKENTHREE');
@@ -224,8 +224,7 @@ describe('E2E-18: Amount decimal places match token config', function () {
     });
 
     it('different decimal tokens on same address maintain their precision', async function () {
-        const addr = 'bc1qaddr4ddddddddddddddddddddddddddd';
-        const res  = await request.get(`/RBTC/api/balances/${addr}`);
+        const res = await request.get(`/RBTC/api/balances/${ADDR4}`);
         expect(res.status).to.equal(200);
 
         // addr4 holds TOKENONE (8 dec) and TOKENTHREE (4 dec)

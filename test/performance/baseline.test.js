@@ -30,13 +30,13 @@ const ENDPOINTS = [
     { name: 'token list',          path: '/RBTC/explorer/tokens' },
     { name: 'token detail',        path: '/RBTC/api/token/XCHAIN' },
     { name: 'sends by block',      path: '/RBTC/api/sends/50/block' },
-    { name: 'address balances',    path: '/RBTC/api/balances/bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa' },
+    { name: 'address balances',    path: '/RBTC/api/balances/bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t' },
     { name: 'block detail',        path: '/RBTC/api/block/50' },
     { name: 'blocks list',         path: '/RBTC/explorer/blocks' },
     { name: 'broadcasts',          path: '/RBTC/explorer/broadcasts' },
     { name: 'issues list',         path: '/RBTC/explorer/issues' },
     { name: 'orders list',         path: '/RBTC/explorer/orders' },
-    { name: 'history (address)',   path: '/RBTC/api/history/bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa/address' },
+    { name: 'history (address)',   path: '/RBTC/api/history/bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t/address' },
     { name: 'network status',      path: '/RBTC/api/network' },
 ];
 

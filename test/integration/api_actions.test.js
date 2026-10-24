@@ -31,8 +31,8 @@ let request;
 let app, explorer, configInfo;
 
 // Addresses that appear in the seeded test data, so the queries below find rows
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR2 = 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa';
 
 before(async function () {
     this.timeout(30000);

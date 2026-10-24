@@ -27,6 +27,18 @@
 
 'use strict';
 
+const { canonicalAnyCoinAddress, canonicalCoinAddress } = require('./address_shape.js');
+const { canonicalTransactionHash } = require('../../lib/transaction_hash.js');
+
+const TICK_PATH_TYPES = new Set(['token', 'tick', 'gate']);
+const ADDRESS_PATH_TYPES = new Set(['address', 'source', 'destination', 'oracle', 'delegator', 'delegate']);
+// Lanes that match a column holding another chain's address on the same network:
+// hub-mirrored oracle_prices.source_address, MESSAGE DESTINATION (checked against
+// its COIN), SWAP GET_ADDRESS (checked against GET_COIN) behind the swap match
+// lane, and XBRIDGE DEST_ADDRESS. A wallet reads its inbox on every chain's
+// explorer with one address, so these accept any configured chain's address.
+const MULTI_CHAIN_ADDRESS_METHODS = new Set(['getOraclePrices', 'getMessages', 'getSwapMatches', 'getXbridges']);
+
 // Path filter types that bind an integer column, with the refusal each answers.
 // MariaDB casts a string like '7junk' to 7 in a numeric comparison, so a malformed
 // segment would otherwise answer another record's data.
@@ -68,6 +80,45 @@ function integerPathRefusal(explorer, cfg){
     return { error, code };
 }
 
+function lookupPathRefusal(explorer, st){
+    let cfg    = st.cfg;
+    let method = cfg.data.method;
+    let type   = cfg.data.type;
+    let search = cfg.data.search;
+    // Require the exact persisted shape before a transaction hash lookup.
+    if(method === 'getTransaction' && type === 'tx_hash'){
+        const canonical = canonicalTransactionHash(search);
+        if(canonical === false)
+            return { error: 'Invalid transaction hash', code: 'INVALID_TX_HASH' };
+        cfg.data.search = canonical;
+    }
+    // Require a safe decimal id after the compact ticker marker.
+    if(TICK_PATH_TYPES.has(type) && typeof search === 'string' && search.startsWith('^') &&
+       !explorer.util.isSafeIntegerParam(search.substring(1)))
+        return { error: 'Invalid ticker reference', code: 'INVALID_TICK_REF' };
+    if(TICK_PATH_TYPES.has(type) && typeof search === 'string' && search.startsWith('^'))
+        cfg.data.search = '^' + Number(search.substring(1));
+    // Require an address for the route network, across chains only for mirror rows.
+    if(ADDRESS_PATH_TYPES.has(type) && method !== 'getSearch' && !isNoFilterSegment(method, search)){
+        let canonical = MULTI_CHAIN_ADDRESS_METHODS.has(method)
+            ? canonicalAnyCoinAddress(st.config, cfg.coin, search)
+            : canonicalCoinAddress(st.config, cfg.coin, search);
+        if(canonical === false)
+            return { error: 'Invalid address', code: 'INVALID_ADDRESS' };
+        if(canonical !== null)
+            cfg.data.search = canonical;
+    }
+    // Require the optional market counterparty filter to name a route-network address.
+    if(['getMarketHistory', 'getMarketOrders'].includes(method) && !explorer.util.isNull(cfg.data.search3)){
+        let canonical = canonicalCoinAddress(st.config, cfg.coin, cfg.data.search3);
+        if(canonical === false)
+            return { error: 'Invalid address', code: 'INVALID_ADDRESS' };
+        if(canonical !== null)
+            cfg.data.search3 = canonical;
+    }
+    return null;
+}
+
 /**
  * Settle the request without a query where its parameters say to.
  *
@@ -87,7 +138,7 @@ function validateParams(explorer, st){
     // otherwise annotate lag. Same gate as the checkpoint routes.
     st.mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? explorer.mirrorGate(cfg.coin) : null;
     let mirrorGate = st.mirrorGate;
-    let refusal    = integerPathRefusal(explorer, cfg);
+    let refusal    = integerPathRefusal(explorer, cfg) || lookupPathRefusal(explorer, st);
     // /{COIN}/api/action/{QUERY} binds its path segment against the BIGINT
     // action_index column, and MariaDB coerces the string, so `/api/action/7junk`
     // answered 200 with action 7 and `/api/action/junk` with action 0. Reject the

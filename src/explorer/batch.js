@@ -32,6 +32,7 @@
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
+const { canonicalCoinAddress } = require('./request/address_shape.js');
 const log = getLogger();
 
 // Ceiling on one batch body's address list. Twenty covers a wallet's worst
@@ -49,6 +50,19 @@ const BATCH_READ_CONCURRENCY = 8;
 // be arbitrarily long and echoing it whole would let the caller size the error
 // body from an unvalidated string.
 const BATCH_INVALID_ECHO_MAX = 128;
+
+// Canonicalize every address once before the per-address reads fan out.
+function canonicalBatchAddresses(config, coin, addresses){
+    const canonicalAddresses = new Map();
+    let invalidAddress = null;
+    for(const address of addresses){
+        const canonical = canonicalCoinAddress(config, coin, address);
+        if(canonical === false && invalidAddress === null)
+            invalidAddress = address;
+        canonicalAddresses.set(address, canonical === null ? address : canonical);
+    }
+    return { canonicalAddresses, invalidAddress };
+}
 
 class BatchReads {
 
@@ -177,16 +191,30 @@ class BatchReads {
         const addresses = parsed.addresses;
         const query     = (req.query && typeof req.query === 'object') ? req.query : {};
 
+        const config = await this.configInfo.getConfig();
+        const { canonicalAddresses, invalidAddress } = canonicalBatchAddresses(config, coin, addresses);
+
         // The coin gate (unsupported coin, or a tip stale past the fail-closed
         // threshold) is a whole-request verdict every inner read would repeat, so
         // the first read is driven alone and its refusal answers the batch. Buried
         // inside a 200 it would read to a client as twenty empty addresses, which
         // is the opposite of what a fail-closed gate is for. Its result is carried
         // into the fan-out below rather than re-read.
-        const firstPath = parts[0].path(addresses[0]);
+        // Probe a malformed entry first when there is one. Its ordinary route
+        // reaches no database read, while an unavailable or fail-closed coin can
+        // still return the whole-request 503 that takes precedence for every GET.
+        const firstAddress = invalidAddress === null
+            ? canonicalAddresses.get(addresses[0])
+            : invalidAddress;
+        const firstPath = parts[0].path(firstAddress);
         const firstRead = await this.readApi(coin, firstPath, query);
         if(firstRead.code === 503 && firstRead.json && String(firstRead.json.code || '').startsWith('COIN_'))
             return this.sendBatchJson(res, firstRead.code, firstRead.json);
+        if(invalidAddress !== null)
+            return this.sendBatchJson(res, 400, {
+                error: 'Invalid address: ' + invalidAddress.slice(0, BATCH_INVALID_ECHO_MAX),
+                code:  'INVALID_ADDRESS'
+            });
 
         const seeded  = new Map([[firstPath, firstRead]]);
         const entries = new Map();
@@ -196,7 +224,8 @@ class BatchReads {
                 const idx = cursor++;
                 if(idx >= addresses.length) return;
                 const address = addresses[idx];
-                entries.set(address, await this.batchEntry(coin, address, parts, query, seeded));
+                const canonical = canonicalAddresses.get(address);
+                entries.set(address, await this.batchEntry(coin, canonical, parts, query, seeded));
             }
         };
 

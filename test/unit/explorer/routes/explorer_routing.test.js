@@ -22,6 +22,8 @@
 
 const { expect, makeExplorer, request, state } = require('./explorer_routing.test/support/helpers.js');
 
+const BTC_ADDRESS = '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev';
+
 describe('XChainExplorer.processRequest – routing', function () {
 
     before(function () {
@@ -55,16 +57,16 @@ describe('XChainExplorer.processRequest – routing', function () {
     describe('list filter route parity', function () {
         const cases = [
             ['api', 'links', 'XCHAIN', 'token', 'getLinks'],
-            ['api', 'order_matches', '1Address', 'address', 'getOrderMatches'],
+            ['api', 'order_matches', BTC_ADDRESS, 'address', 'getOrderMatches'],
             ['api', 'order_matches', 'XCHAIN', 'token', 'getOrderMatches'],
-            ['explorer', 'order_matches', '1Address', 'address', 'getOrderMatches'],
+            ['explorer', 'order_matches', BTC_ADDRESS, 'address', 'getOrderMatches'],
             ['explorer', 'order_matches', 'XCHAIN', 'token', 'getOrderMatches'],
-            ['api', 'swap_matches', '1Address', 'address', 'getSwapMatches'],
+            ['api', 'swap_matches', BTC_ADDRESS, 'address', 'getSwapMatches'],
             ['api', 'swap_matches', 'XCHAIN', 'token', 'getSwapMatches'],
-            ['explorer', 'swap_matches', '1Address', 'address', 'getSwapMatches'],
+            ['explorer', 'swap_matches', BTC_ADDRESS, 'address', 'getSwapMatches'],
             ['explorer', 'swap_matches', 'XCHAIN', 'token', 'getSwapMatches'],
             ['api', 'validators', '100', 'block', 'getValidators'],
-            ['api', 'validators', '1Address', 'address', 'getValidators']
+            ['api', 'validators', BTC_ADDRESS, 'address', 'getValidators']
         ];
 
         for (const [surface, resource, search, type, method] of cases) {

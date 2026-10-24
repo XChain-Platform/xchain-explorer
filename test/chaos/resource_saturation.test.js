@@ -122,13 +122,13 @@ describe('CE-RES-02: Cache Behavior Under Load', function () {
 
     it('should complete all 200 concurrent cache-exercising requests without crashing', async function () {
         // Fire three batches concurrently to exercise different LRU caches:
-        //   addressId cache  → /RBTC/api/balances/bcrt1qchaosaddr1aaaaaaaaaaaaaaaaaaaaaa/address
+        //   addressId cache  → /RBTC/api/balances/bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t/address
         //   tickId cache     → /RBTC/api/sends/100/block
         //   general query    → /RBTC/explorer/blocks/all
         const [blocksResult, sendsResult, balancesResult] = await Promise.all([
             concurrentRequests('/RBTC/explorer/blocks/all',   100, { timeout: 30000 }),
             concurrentRequests('/RBTC/api/sends/100/block',     50, { timeout: 30000 }),
-            concurrentRequests('/RBTC/api/balances/bcrt1qchaosaddr1aaaaaaaaaaaaaaaaaaaaaa/address',  50, { timeout: 30000 })
+            concurrentRequests('/RBTC/api/balances/bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t/address',  50, { timeout: 30000 })
         ]);
 
         const totalCompleted = blocksResult.responses.length

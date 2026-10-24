@@ -106,7 +106,8 @@ describe('XChainExplorer.processRequest – /api/block/{QUERY} malformed id', fu
         explorer = makeExplorer();
     });
 
-    ['zzz-no-such-entity-9999', 'junk', '9junk', '7.5', '-1', '1e5', '0x7', '500 ', 'null'].forEach((bad) => {
+    ['zzz-no-such-entity-9999', 'junk', '9junk', '7.5', '-1', '1e5', '0x7', '500 ', 'null',
+        '9007199254740992'].forEach((bad) => {
         it(`400s /BTC/api/block/${JSON.stringify(bad)} instead of answering with block 0`, async function () {
             const { res } = await request(explorer, '/BTC/api/block/' + encodeURIComponent(bad));
             expect(res._status).to.equal(400);
@@ -167,4 +168,25 @@ describe('XChainExplorer.processRequest /api/actions blockIndex guard', function
         await request(explorer, '/BTC/api/actions', { blockIndex: '7' });
         expect(queried).to.equal(true);
     });
+
+    for(const txid of [
+        'GENESIS-BTC-P1-' + '01'.repeat(24),
+        'GENESIS-BTC-A-' + 'a2'.repeat(24),
+        'XPOLICY-' + 'f3'.repeat(24)
+    ]){
+        it(`serves actions filtered by persisted synthetic txid ${txid.slice(0, 16)}`, async function () {
+            const { res } = await request(explorer, '/BTC/api/actions', { txid });
+            expect(res._status).to.equal(200);
+            expect(queried).to.equal(true);
+        });
+    }
+
+    for(const bad of ['abc', 'g'.repeat(64), 'a'.repeat(63), ['a', 'b']]){
+        it(`400s malformed txid ${JSON.stringify(bad)} before querying`, async function () {
+            const { res } = await request(explorer, '/BTC/api/actions', { txid: bad });
+            expect(res._status).to.equal(400);
+            expect(JSON.parse(res._body).code).to.equal('INVALID_TX_HASH');
+            expect(queried, 'the DB was never queried').to.equal(false);
+        });
+    }
 });

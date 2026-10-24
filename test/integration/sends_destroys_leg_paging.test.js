@@ -19,8 +19,8 @@ const supertest = require('supertest');
 const db = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const ADDR3 = 'bc1qaddr3ccccccccccccccccccccccccccc';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR3 = 'bcrt1qqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcruj60yu';
 
 let request;
 

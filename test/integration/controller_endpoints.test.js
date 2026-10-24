@@ -40,12 +40,16 @@ let request;
 // The baseline seed loads blocks 1..10, so the chain tip (MAX(block_index)) is
 // 10. Cooldown gating is resolved against this tip.
 const TIP = 10;
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR2 = 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa';
+const ADDR5 = 'bcrt1qq5zs2pg9q5zs2pg9q5zs2pg9q5zs2pg9ajutfp';
+const DEPLOYER_ADDR = 'bcrt1q8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pudntcry';
 
 async function seedContracts() {
     // DEPLOY action type (not in the baseline index_actions set) + the actions/
     // transactions chain the contract SELECT joins through.
     await db.query(`INSERT IGNORE INTO index_actions (id, action) VALUES (20,'DEPLOY')`);
-    await db.query(`INSERT IGNORE INTO index_addresses (id, address) VALUES (60,'bc1qdeployerxxxxxxxxxxxxxxxxxxxxxxx')`);
+    await db.query(`INSERT IGNORE INTO index_addresses (id, address) VALUES (60,'${DEPLOYER_ADDR}')`);
     await db.query(`INSERT IGNORE INTO index_transactions (id, hash) VALUES (60,'contract_deploy_tx_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')`);
     await db.query(`INSERT IGNORE INTO transactions (tx_index, block_index, tx_hash_id, source_id) VALUES (60, 5, 60, 60)`);
     await db.query(`INSERT IGNORE INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format) VALUES (90, 5, 60, 0, 20, 0)`);
@@ -175,10 +179,6 @@ describe('Token API (/api/token/{tick}): controllers[]', function () {
 });
 
 describe('Address API (/api/address/{addr}): controllers[]', function () {
-
-    const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-    const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
-
     it('lists the address bindings still gating at the chain tip', async function () {
         const res = await request.get('/RBTC/api/address/' + ADDR1);
         expect(res.status).to.equal(200);
@@ -193,7 +193,7 @@ describe('Address API (/api/address/{addr}): controllers[]', function () {
     });
 
     it('returns [] for an address with no controller events', async function () {
-        const res = await request.get('/RBTC/api/address/bc1qaddr5eeeeeeeeeeeeeeeeeeeeeeeeeee');
+        const res = await request.get('/RBTC/api/address/' + ADDR5);
         expect(res.status).to.equal(200);
         expect(res.body.controllers).to.be.an('array').with.lengthOf(0);
     });

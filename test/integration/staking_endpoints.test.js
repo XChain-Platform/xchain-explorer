@@ -30,8 +30,8 @@ const { createApp } = require('./helpers/app-setup');
 
 let request;
 
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR2 = 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa';
 
 const PUBKEY1 = 'aa'.repeat(32);
 const PUBKEY2 = 'bb'.repeat(32);

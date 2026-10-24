@@ -31,8 +31,9 @@ const { createApp } = require('./helpers/app-setup');
 let request;
 let app, explorer, configInfo;
 
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const ADDR4 = 'bc1qaddr4ddddddddddddddddddddddddddd';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR4 = 'bcrt1qqszqgpqyqszqgpqyqszqgpqyqszqgpqyuza2rq';
+const ABSENT_ADDR = 'bcrt1qvd3kxcmrvd3kxcmrvd3kxcmrvd3kxcmrsrrf6a';
 
 before(async function () {
     this.timeout(30000);
@@ -210,7 +211,7 @@ describe('Boundary Integration: Response format consistency', function () {
     });
 
     it('API response with no results has total=0 and empty data', async function () {
-        const res = await request.get('/RBTC/api/sends/bc1qnonexistentaddresszzzzzzzzzzzz/address');
+        const res = await request.get(`/RBTC/api/sends/${ABSENT_ADDR}/address`);
         expect(res.status).to.equal(200);
         expect(res.body).to.have.property('total', 0);
         expect(res.body.data).to.be.an('array').with.lengthOf(0);

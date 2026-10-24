@@ -22,6 +22,8 @@
 
 const { expect, mockReq, mockRes, makeExplorer, request, state } = require('./helpers.js');
 
+const BTC_ADDRESS = '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev';
+
 let explorer;
 before(function () { explorer = state.explorer; });
 
@@ -40,7 +42,7 @@ describe('explorer offset params', function () {
     it('populates cfg.data.offset from query params ?offset=100&action=next', async function () {
         const { cfg } = await request(
             explorer,
-            '/BTC/explorer/sends/addr1/address',
+            '/BTC/explorer/sends/' + BTC_ADDRESS + '/address',
             { offset: '100', action: 'next' }
         );
         expect(cfg).to.not.be.null;
@@ -51,7 +53,7 @@ describe('explorer offset params', function () {
     it('leaves offset as false (no-value sentinel) when no query params are provided', async function () {
         // processRequest uses `false` (not null) when offset/action are absent:
         //   let offset = (q && !isNull(q.offset)) ? q.offset : false;
-        const { cfg } = await request(explorer, '/BTC/explorer/sends/addr1/address');
+        const { cfg } = await request(explorer, '/BTC/explorer/sends/' + BTC_ADDRESS + '/address');
         expect(cfg).to.not.be.null;
         expect(cfg.data.offset.start).to.equal(false);
         expect(cfg.data.offset.action).to.equal(false);

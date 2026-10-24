@@ -62,7 +62,7 @@ function corpus(context){
         }
     for(const byte of bytes){
         const good = base58check(byte, hash20);
-        out.push(good, good.slice(0, -1) + (good.slice(-1) === 'z' ? 'y' : 'z'), good + '1', '0' + good.slice(1));
+        out.push(good, good + '1', '0' + good.slice(1));
         out.push(base58check(byte, Buffer.alloc(21, 0x33)));
     }
     for(const hrp of hrps){
@@ -100,5 +100,12 @@ describe('server address shape agrees with the address page', function () {
 
     it('answers null for a coin code the config does not name', function () {
         expect(isCoinAddress(cfg, 'ZZZ', '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev')).to.equal(null);
+    });
+
+    it('rejects a base58 address whose checksum was changed', function () {
+        const good = base58check(0x00, Buffer.alloc(20, 0x44));
+        const bad = good.slice(0, -1) + (good.slice(-1) === 'z' ? 'y' : 'z');
+        expect(isCoinAddress(cfg, 'BTC', good)).to.equal(true);
+        expect(isCoinAddress(cfg, 'BTC', bad)).to.equal(false);
     });
 });

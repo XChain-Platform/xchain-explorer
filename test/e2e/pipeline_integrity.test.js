@@ -28,6 +28,9 @@ const { createApp } = require('../integration/helpers/app-setup');
 
 let request;
 
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR4 = 'bcrt1qqszqgpqyqszqgpqyqszqgpqyqszqgpqyuza2rq';
+
 before(async function () {
     this.timeout(30000);
     await db.setupE2EDatabase();
@@ -87,8 +90,7 @@ describe('E2E-01: Token query returns exact seeded values', function () {
 describe('E2E-02: Balance returns exact seeded amount', function () {
 
     it('addr1 XCHAIN balance matches seed', async function () {
-        const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-        const res  = await request.get(`/RBTC/api/balances/${addr}`);
+        const res = await request.get(`/RBTC/api/balances/${ADDR1}`);
         expect(res.status).to.equal(200);
 
         const xchainRow = res.body.data.find(r => r.tick === 'XCHAIN');
@@ -98,8 +100,7 @@ describe('E2E-02: Balance returns exact seeded amount', function () {
     });
 
     it('addr4 TOKENTHREE balance matches seed (4 decimals)', async function () {
-        const addr = 'bc1qaddr4ddddddddddddddddddddddddddd';
-        const res  = await request.get(`/RBTC/api/balances/${addr}`);
+        const res = await request.get(`/RBTC/api/balances/${ADDR4}`);
         expect(res.status).to.equal(200);
 
         const row = res.body.data.find(r => r.tick === 'TOKENTHREE');
@@ -192,8 +193,7 @@ describe('E2E-04: Multi-action block 201', function () {
 describe('E2E-07: Address profile endpoint', function () {
 
     it('returns address field for known address', async function () {
-        const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-        const res  = await request.get(`/RBTC/api/address/${addr}`);
+        const res = await request.get(`/RBTC/api/address/${ADDR1}`);
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
         // getAddress() is currently a stub; this documents current behavior

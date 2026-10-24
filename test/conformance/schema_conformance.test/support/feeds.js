@@ -48,14 +48,14 @@ function registerWebSocketFeed(runtime) {
             // Index one block with one SEND action, real-schema column names.
             const ledgerHashId = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['conformance-ledger-1']);
             const txHashId     = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['conformance-tx-1']);
-            const addressId    = await insertId('INSERT INTO index_addresses (address) VALUES (?)', ['bcrt1qconformance']);
+            const addressId    = await insertId('INSERT INTO index_addresses (address) VALUES (?)', ['bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p']);
             const tickId       = await insertId('INSERT INTO index_tickers (tick) VALUES (?)', ['CONFTICK']);
             const statusId     = await insertId('INSERT INTO index_statuses (status) VALUES (?)', ['valid']);
             const actionId     = await insertId('INSERT INTO index_actions (action) VALUES (?)', ['SEND']);
             await conn.query('INSERT INTO blocks (block_index, block_time, ledger_hash_id) VALUES (?, ?, ?)',
                 [101, 1700000000, ledgerHashId]);
             await conn.query('INSERT INTO transactions (tx_index, block_index, tx_hash_id, source_id, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
-                [1, 101, txHashId, addressId, 1000, 'SEND|0|CONFTICK|1|bcrt1qconformance|']);
+                [1, 101, txHashId, addressId, 1000, 'SEND|0|CONFTICK|1|bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p|']);
             await conn.query('INSERT INTO actions (action_index, block_index, tx_index, tx_vout, action_id, action_format, source_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
                 [1, 101, 1, 0, actionId, 0, addressId]);
             await conn.query('INSERT INTO sends (action_index, tick_id, destination_id, amount, status_id) VALUES (?, ?, ?, ?, ?)',
@@ -71,7 +71,7 @@ function registerWebSocketFeed(runtime) {
             expect(Number(events.block[0].block_index)).to.equal(101);
             expect(events.action.length, 'NEW_ACTION feed emitted nothing for a fresh action').to.be.at.least(1);
             expect(events.action[0].action).to.equal('SEND');
-            expect(events.action[0].source).to.equal('bcrt1qconformance');
+            expect(events.action[0].source).to.equal('bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p');
         } finally {
             conn.release();
         }
@@ -92,7 +92,7 @@ function registerDecoderMempool(runtime) {
             // on every insert but parseTransaction never sets it (see the
             // getDecoderMempoolRows contract note in src/db.js).
             await conn.query('INSERT INTO mempool_transactions (tx_hash, source, destination, amount, fee, data) VALUES (?, ?, ?, ?, ?, ?)',
-                ['conf-mempool-tx-1', 'bcrt1qconformance', null, 0, 500, MEMPOOL_ACTION_STRING]);
+                ['conf-mempool-tx-1', 'bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p', null, 0, 500, MEMPOOL_ACTION_STRING]);
         } finally {
             conn.release();
         }

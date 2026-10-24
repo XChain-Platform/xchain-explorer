@@ -36,6 +36,11 @@ const { expect }               = require('chai');
 const proxyquire               = require('proxyquire').noCallThru();
 const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 const { mockReq, mockRes }     = require('../../../fixtures/mock-query-args.js');
+const { base58check } = require('../request/address_shape.test/support/address_encode.js');
+
+const VALID_ADDRESSES = Array.from({ length: 20 }, (_, i) => base58check(0, Buffer.alloc(20, i + 1)));
+const ADDR_ONE = VALID_ADDRESSES[0];
+const ADDR_TWO = VALID_ADDRESSES[1];
 
 // Per-test DB behaviour, keyed by the reader method processRequest resolves the
 // path to. A handler receives the cfg processRequest built and returns the
@@ -145,11 +150,11 @@ function withoutRuntime(body) {
 function healthyHandlers() {
     return {
         getBalances: (cfg) => [{
-            balances: [{ tick: 'XCP', amount: cfg.data.search === 'addrOne' ? '100' : '250' }]
+            balances: [{ tick: 'XCP', amount: cfg.data.search === ADDR_ONE ? '100' : '250' }]
         }, null],
         getAddress: (cfg) => [{
             address: cfg.data.search,
-            balance: cfg.data.search === 'addrOne' ? '1.5' : '9.25'
+            balance: cfg.data.search === ADDR_ONE ? '1.5' : '9.25'
         }, null],
         getCoinpayObligations: (cfg) => [[{
             block_index:    100,
@@ -202,18 +207,18 @@ describe('Batch read endpoints: POST /{COIN}/api/balances (C53)', function () {
     });
 
     it('answers an object keyed by address carrying both halves per entry', async function () {
-        const { code, body } = await post(balancesRoute, 'BTC', { addresses: ['addrOne', 'addrTwo'] });
+        const { code, body } = await post(balancesRoute, 'BTC', { addresses: [ADDR_ONE, ADDR_TWO] });
         expect(code).to.equal(200);
-        expect(Object.keys(body)).to.deep.equal(['addrOne', 'addrTwo']);
-        expect(body.addrOne).to.have.all.keys('balances', 'address', 'error');
-        expect(body.addrOne.error).to.equal(null);
-        expect(body.addrTwo.error).to.equal(null);
+        expect(Object.keys(body)).to.deep.equal([ADDR_ONE, ADDR_TWO]);
+        expect(body[ADDR_ONE]).to.have.all.keys('balances', 'address', 'error');
+        expect(body[ADDR_ONE].error).to.equal(null);
+        expect(body[ADDR_TWO].error).to.equal(null);
     });
 
     it('carries EXACTLY the per-address GET bodies (the acceptance test)', async function () {
-        const { body } = await post(balancesRoute, 'BTC', { addresses: ['addrOne', 'addrTwo'] });
+        const { body } = await post(balancesRoute, 'BTC', { addresses: [ADDR_ONE, ADDR_TWO] });
 
-        for (const address of ['addrOne', 'addrTwo']) {
+        for (const address of [ADDR_ONE, ADDR_TWO]) {
             const balancesGet = await get(`/BTC/api/balances/${address}`);
             const addressGet  = await get(`/BTC/api/address/${address}`);
             expect(balancesGet.code).to.equal(200);
@@ -231,17 +236,17 @@ describe('Batch read endpoints: POST /{COIN}/api/balances (C53)', function () {
     });
 
     it('echoes json.address on the balances half, as the per-address route does', async function () {
-        const { body } = await post(balancesRoute, 'BTC', { addresses: ['addrOne'] });
-        expect(body.addrOne.balances.address).to.equal('addrOne');
+        const { body } = await post(balancesRoute, 'BTC', { addresses: [ADDR_ONE] });
+        expect(body[ADDR_ONE].balances.address).to.equal(ADDR_ONE);
     });
 
     it('deduplicates repeats while preserving first-seen order', async function () {
         const { body } = await post(balancesRoute, 'BTC', {
-            addresses: ['addrTwo', 'addrOne', 'addrTwo', 'addrOne']
+            addresses: [ADDR_TWO, ADDR_ONE, ADDR_TWO, ADDR_ONE]
         });
-        expect(Object.keys(body)).to.deep.equal(['addrTwo', 'addrOne']);
+        expect(Object.keys(body)).to.deep.equal([ADDR_TWO, ADDR_ONE]);
         const searched = dbCalls.filter((c) => c.method === 'getBalances').map((c) => c.search);
-        expect(searched, 'a duplicate address was read twice').to.deep.equal(['addrTwo', 'addrOne']);
+        expect(searched, 'a duplicate address was read twice').to.deep.equal([ADDR_TWO, ADDR_ONE]);
     });
 });
 
@@ -254,7 +259,7 @@ describe('Batch read endpoints: POST /{COIN}/api/balances (C53)', function () {
     });
 
     it('forwards the query string to every inner read, so paging matches the GET', async function () {
-        await post(balancesRoute, 'BTC', { addresses: ['addrOne', 'addrTwo'] }, { limit: '5', page: '2' });
+        await post(balancesRoute, 'BTC', { addresses: [ADDR_ONE, ADDR_TWO] }, { limit: '5', page: '2' });
         expect(dbCalls).to.have.length.greaterThan(0);
         for (const call of dbCalls)
             expect(call.query, `query lost on ${call.method}/${call.search}`)
@@ -262,8 +267,7 @@ describe('Batch read endpoints: POST /{COIN}/api/balances (C53)', function () {
     });
 
     it('runs at most eight inner reads at once', async function () {
-        const addresses = [];
-        for (let i = 0; i < 20; i++) addresses.push(`addr${String(i).padStart(2, '0')}`);
+        const addresses = VALID_ADDRESSES.slice();
         const { code } = await post(balancesRoute, 'BTC', { addresses });
         expect(code).to.equal(200);
         expect(dbCalls).to.have.lengthOf(40);   // two halves per address
@@ -309,8 +313,7 @@ describe('Batch read endpoints: body validation (C53)', function () {
     });
 
     it('accepts exactly 20 addresses, so the cap is not off by one', async function () {
-        const addresses = [];
-        for (let i = 0; i < 20; i++) addresses.push(`addr${String(i).padStart(2, '0')}`);
+        const addresses = VALID_ADDRESSES.slice();
         const res = await post(balancesRoute, 'BTC', { addresses });
         expect(res.code).to.equal(200);
         expect(Object.keys(res.body)).to.have.lengthOf(20);
@@ -325,6 +328,30 @@ describe('Batch read endpoints: body validation (C53)', function () {
     });
 });
 
+describe('Batch read endpoints: address shape (C53)', function () {
+
+    beforeEach(function () {
+        dbHandlers = healthyHandlers();
+        dbCalls    = [];
+    });
+
+    it('accepts a configured cross-chain contract address for every inner read', async function () {
+        const requested = 'C:DOGE:42';
+        const res = await post(balancesRoute, 'BTC', { addresses: [requested] });
+        expect(res.code).to.equal(200);
+        expect(Object.keys(res.body)).to.deep.equal([requested]);
+        expect(dbCalls.map((call) => call.search)).to.deep.equal([requested, requested]);
+    });
+
+    it('refuses the whole body before reading when one entry has an unknown contract chain', async function () {
+        const res = await post(balancesRoute, 'BTC', { addresses: [ADDR_ONE, 'C:ZZZ:42'] });
+        expect(res.code).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_ADDRESS');
+        expect(res.body.error).to.equal('Invalid address: C:ZZZ:42');
+        expect(dbCalls).to.deep.equal([]);
+    });
+});
+
 describe('Batch read endpoints: body validation (C53)', function () {
 
     beforeEach(function () {
@@ -333,11 +360,19 @@ describe('Batch read endpoints: body validation (C53)', function () {
     });
 
     it('refuses a malformed entry with 400 INVALID_ADDRESS naming it', async function () {
-        const res = await post(balancesRoute, 'BTC', { addresses: ['addrOne', 'not an address!'] });
+        const res = await post(balancesRoute, 'BTC', { addresses: [ADDR_ONE, 'not an address!'] });
         expect(res.code).to.equal(400);
         expect(res.body.code).to.equal('INVALID_ADDRESS');
         expect(res.body.error).to.equal('Invalid address: not an address!');
         expect(dbCalls, 'a batch with one bad entry still read the good ones').to.deep.equal([]);
+    });
+
+    it('refuses an address whose base58 checksum does not hold', async function () {
+        const malformed = ADDR_ONE.slice(0, -1) + (ADDR_ONE.endsWith('1') ? '2' : '1');
+        const res = await post(balancesRoute, 'BTC', { addresses: [malformed] });
+        expect(res.code).to.equal(400);
+        expect(res.body.code).to.equal('INVALID_ADDRESS');
+        expect(dbCalls).to.deep.equal([]);
     });
 
     it('truncates the echoed entry, so an oversized string cannot size the error body', async function () {

@@ -21,9 +21,9 @@ INSERT IGNORE INTO index_actions (id, action) VALUES
     (1, 'SEND'), (2, 'ISSUE'), (3, 'ORDER'), (4, 'DESTROY');
 
 INSERT IGNORE INTO index_addresses (id, address) VALUES
-    (1, 'bcrt1qchaosaddr1aaaaaaaaaaaaaaaaaaaaaa'),
-    (2, 'bcrt1qchaosaddr2bbbbbbbbbbbbbbbbbbbbbb'),
-    (3, 'bcrt1qchaosaddr3cccccccccccccccccccccc');
+    (1, 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t'),
+    (2, 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa'),
+    (3, 'bcrt1qqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcruj60yu');
 
 INSERT IGNORE INTO index_tickers (id, tick) VALUES
     (1, 'XCHAIN'), (2, 'CHAOSTEST'), (3, 'BTC');

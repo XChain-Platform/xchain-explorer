@@ -140,7 +140,7 @@ async function seed(){
 
         const ledgerId  = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['mirror-ledger-1']);
         const txHashId  = await insertId('INSERT INTO index_transactions (hash) VALUES (?)', ['mirror-tx-1']);
-        const addressId = await insertId('INSERT INTO index_addresses (address) VALUES (?)', ['bcrt1qattestmirror']);
+        const addressId = await insertId('INSERT INTO index_addresses (address) VALUES (?)', ['bcrt1qyysjzgfpyysjzgfpyysjzgfpyysjzgfpp3g5ee']);
         const validId   = await insertId('INSERT INTO index_statuses (status) VALUES (?)', ['valid']);
         const invalidId = await insertId('INSERT INTO index_statuses (status) VALUES (?)',
             ['invalid: REQUEST_ID (no matching request)']);

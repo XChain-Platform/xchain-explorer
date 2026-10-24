@@ -22,6 +22,8 @@
 
 const { expect, mockReq, mockRes, makeExplorer, request, state } = require('./helpers.js');
 
+const BTC_ADDRESS = '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev';
+
 let explorer;
 before(function () { explorer = state.explorer; });
 
@@ -47,7 +49,7 @@ describe('tip-freshness gate', function () {
     // it is not the 503, and that the marker rides on whatever was answered.
     it('serves a data read from a stale tip and marks it, rather than refusing it', async function () {
         const res = mockRes();
-        await withTip(true).processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
+        await withTip(true).processRequest(mockReq('/BTC/api/sends/' + BTC_ADDRESS + '/address'), res);
         expect(res._status).to.not.equal(503);
         expect(res._headers['XChain-Freshness']).to.equal('stale');
         expect(res._headers['XChain-Tip-Block']).to.equal('850');
@@ -59,14 +61,14 @@ describe('tip-freshness gate', function () {
 
     it('marks a fresh read live in the headers and leaves the body without a freshness field', async function () {
         const res = mockRes();
-        await withTip(false).processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
+        await withTip(false).processRequest(mockReq('/BTC/api/sends/' + BTC_ADDRESS + '/address'), res);
         expect(res._headers['XChain-Freshness']).to.equal('live');
         expect(JSON.parse(res._body)).to.not.have.property('freshness');
     });
 
     it('keeps the 503 COIN_DATA_STALE refusal behind the EXPLORER_STALE_FAIL_CLOSED opt-in', async function () {
         const res = mockRes();
-        await withTip(true, true).processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
+        await withTip(true, true).processRequest(mockReq('/BTC/api/sends/' + BTC_ADDRESS + '/address'), res);
         expect(res._status).to.equal(503);
         expect(JSON.parse(res._body)).to.include({ code: 'COIN_DATA_STALE' });
         expect(res._headers).to.not.have.property('XChain-Freshness');
@@ -80,7 +82,7 @@ describe('tip-freshness gate', function () {
 
     it('serves normally when the tip is fresh', async function () {
         const res = mockRes();
-        await withTip(false).processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
+        await withTip(false).processRequest(mockReq('/BTC/api/sends/' + BTC_ADDRESS + '/address'), res);
         expect(res._status).to.not.equal(503);
     });
 });

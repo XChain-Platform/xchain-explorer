@@ -28,6 +28,7 @@ const { CACHE_CLASSES } = require('../../../../src/http/cache_control.js');
 const { buildApp, state } = require('./support/app.js');
 
 const ROWS = [{ action_index: 1, block_index: 100, tx_hash: 'a'.repeat(64) }];
+const TEST_ADDRESS = '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev';
 
 function varyFields(res) {
     return String(res.headers.vary || '').split(',').map(s => s.trim().toLowerCase());
@@ -39,7 +40,7 @@ describe('cache control: successful answers through the real app', function () {
 
     it('caches a table route briefly and varies it on Origin', async () => {
         const { app } = buildApp();
-        const res = await request(app).get('/BTC/api/sends/addr1/address').set('Origin', 'https://wallet.example');
+        const res = await request(app).get('/BTC/api/sends/' + TEST_ADDRESS + '/address').set('Origin', 'https://wallet.example');
         expect(res.status).to.equal(200);
         expect(res.headers['cache-control']).to.equal(CACHE_CLASSES.tip);
         expect(res.headers['access-control-allow-origin']).to.equal('https://wallet.example');
@@ -48,7 +49,7 @@ describe('cache control: successful answers through the real app', function () {
 
     it('varies on Origin when an allowlist refuses the caller and CORS adds no header', async () => {
         const { app } = buildApp({ corsOrigin: 'https://allowed.example' });
-        const res = await request(app).get('/BTC/api/sends/addr1/address').set('Origin', 'https://other.example');
+        const res = await request(app).get('/BTC/api/sends/' + TEST_ADDRESS + '/address').set('Origin', 'https://other.example');
         expect(res.status).to.equal(200);
         expect(res.headers).to.not.have.property('access-control-allow-origin');
         expect(res.headers['cache-control']).to.equal(CACHE_CLASSES.tip);
@@ -57,7 +58,7 @@ describe('cache control: successful answers through the real app', function () {
 
     it('caches an explorer feed with the same tip class', async () => {
         const { app } = buildApp();
-        const res = await request(app).get('/BTC/explorer/sends/addr1/address').query({ start: 0, length: 10 });
+        const res = await request(app).get('/BTC/explorer/sends/' + TEST_ADDRESS + '/address').query({ start: 0, length: 10 });
         expect(res.status).to.equal(200);
         expect(res.headers['cache-control']).to.equal(CACHE_CLASSES.tip);
     });
@@ -112,7 +113,7 @@ describe('cache control: error answers through the real app', function () {
     it('never caches a database failure on a cacheable route', async () => {
         state.getDataError = new Error('pool exhausted');
         const { app } = buildApp();
-        const res = await request(app).get('/BTC/api/sends/addr1/address');
+        const res = await request(app).get('/BTC/api/sends/' + TEST_ADDRESS + '/address');
         expect(res.status).to.equal(500);
         expect(res.headers['cache-control']).to.equal('no-store');
     });

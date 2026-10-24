@@ -31,7 +31,7 @@ const EMIT_BLOCK = 801;
 const TX_ACTION  = 900;
 const EMIT_SEND  = 901;
 const EMIT_BURN  = 902;
-const EMITTER    = 'C:BTC:txless-emitter';
+const EMITTER    = 'C:BTC:901';
 const DATABASE_MODULE = '../../src/db/index.js';
 
 let adminPool;
@@ -59,7 +59,7 @@ async function seed(){
     try {
         await conn.query('USE `' + DATABASE + '`');
         await conn.query("INSERT INTO index_actions (id, action) VALUES (1,'SEND'),(2,'DESTROY')");
-        await conn.query("INSERT INTO index_addresses (id, address) VALUES (1,'tx-backed-source'),(2,?),(3,'send-destination')", [EMITTER]);
+        await conn.query("INSERT INTO index_addresses (id, address) VALUES (1,'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t'),(2,?),(3,'bcrt1qqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcruj60yu')", [EMITTER]);
         await conn.query("INSERT INTO index_tickers (id, tick) VALUES (1,'TXLESS')");
         await conn.query("INSERT INTO index_statuses (id, status) VALUES (1,'valid')");
         await conn.query("INSERT INTO index_memos (id, memo) VALUES (1,'fixture')");

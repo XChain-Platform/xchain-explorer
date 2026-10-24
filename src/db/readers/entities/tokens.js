@@ -305,7 +305,7 @@ class EntityTokenReaders {
         // with a caret prefix (^1234). For the id form, filter on tick_id instead
         // of the name so both references resolve to the same token.
         let search   = String(config.data.search);
-        let tickIdRef = (search.charAt(0) === '^' && this.util.isNumeric(search.substring(1)));
+        let tickIdRef = (search.charAt(0) === '^' && this.util.isSafeIntegerParam(search.substring(1)));
         let tickWhere = tickIdRef ? 't1.tick_id=?' : 't2.tick=?';
         let args  = [ tickIdRef ? Number(search.substring(1)) : config.data.search ];
         let withBridge = await bridgeColumnsPresent(this, config);

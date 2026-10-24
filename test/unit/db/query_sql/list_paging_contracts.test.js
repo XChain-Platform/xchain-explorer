@@ -194,15 +194,14 @@ describe('malformed paging parameters answer 400', function () {
         expect([plain.data.sql.limit, plain.data.sql.order, plain.data.sql.apiOffset]).to.deep.equal([100, 'DESC', 0]);
     });
 
-    it('refuses a fractional or non-numeric explorer length instead of emitting LIMIT 1.5', async function () {
+    it('refuses fractional explorer lengths and totals instead of emitting a fractional LIMIT', async function () {
         db.getActions = db.probe;
         for(const length of ['1.5', '2.25', 'abc', '0', '-1'])
             expect(await refusal(db.getQuery(explorerConfig('getActions', { start: '0', length, action: 'first' }))),
                 length).to.equal('INVALID_LENGTH');
         const last = explorerConfig('getActions', { start: '10', length: '10', action: 'last', total: '12.5' });
         last.data.query.total = '12.5';
-        await db.getQuery(last);
-        expect(Number.isInteger(last.data.sql.limit)).to.equal(true);
+        expect(await refusal(db.getQuery(last))).to.equal('INVALID_TOTAL');
     });
 
     it('refuses a non-integer explorer offset on a cursor-paged feed', async function () {

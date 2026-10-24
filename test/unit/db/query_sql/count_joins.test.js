@@ -88,7 +88,7 @@ describe('pruneCountJoins: list lanes', function(){
     });
 
     it('keeps the transaction chain a txid filter reaches through', async function(){
-        expect(await prunedFor('getActions', null, { txid: 'ab' })).to.equal(flat('SELECT count(*) as total FROM actions m ' +
+        expect(await prunedFor('getActions', null, { txid: 'ab'.repeat(32) })).to.equal(flat('SELECT count(*) as total FROM actions m ' +
             'INNER JOIN blocks             b1 ON (b1.block_index=m.block_index) ' +
             'LEFT  JOIN transactions       t1 ON (t1.tx_index=m.tx_index) ' +
             'LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id) ' +

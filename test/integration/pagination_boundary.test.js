@@ -31,7 +31,7 @@ let request;
 let app, explorer, configInfo;
 
 // Seed address with 7 sends (source or destination)
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
 
 before(async function () {
     this.timeout(30000);

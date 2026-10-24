@@ -24,9 +24,9 @@ INSERT INTO index_tickers (id, tick) VALUES
 (201, 'SUMTOKEN');
 
 INSERT INTO index_addresses (id, address) VALUES
-(210, 'bc1qe2eaddr210aaaaaaaaaaaaaaaaaaaaaa'),
-(211, 'bc1qe2eaddr211bbbbbbbbbbbbbbbbbbbbbb'),
-(212, 'bc1qe2eaddr212cccccccccccccccccccccc');
+(210, 'bcrt1q6tfd95kj6tfd95kj6tfd95kj6tfd95kjnua23u'),
+(211, 'bcrt1q60fa857n60fa857n60fa857n60fa857njvutma'),
+(212, 'bcrt1q6n2df4x56n2df4x56n2df4x56n2df4x5jumwup');
 
 INSERT INTO index_transactions (id, hash) VALUES
 (200, 'e2e_tx_200_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),

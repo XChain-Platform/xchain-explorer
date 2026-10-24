@@ -30,8 +30,8 @@ const { createApp } = require('./helpers/app-setup');
 let request;
 let app, explorer, configInfo;
 
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR2 = 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa';
 
 before(async function () {
     this.timeout(30000);

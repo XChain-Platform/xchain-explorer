@@ -39,7 +39,7 @@ async function insertRow(conn, made, table, row, key) {
 
 async function seedIndexes(conn, made, balanceAddress) {
     const ids = {};
-    ids.source = await intern(conn, made, 'index_addresses', 'address', 'bcrt1qmanifestsource');
+    ids.source = await intern(conn, made, 'index_addresses', 'address', 'bcrt1qru0378clru0378clru0378clru0378cl3qcz5q');
     ids.custody = await intern(conn, made, 'index_addresses', 'address', balanceAddress);
     ids.tick = await intern(conn, made, 'index_tickers', 'tick', 'MANIFESTA');
     ids.tick2 = await intern(conn, made, 'index_tickers', 'tick', 'MANIFESTB');

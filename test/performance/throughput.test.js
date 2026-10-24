@@ -46,7 +46,7 @@ const SCENARIOS = [
     },
     {
         name: 'GET /balances (by address)',
-        path: '/RBTC/api/balances/bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa',
+        path: '/RBTC/api/balances/bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t',
         minRps: 20,
         maxErrorRate: 0.05
     },

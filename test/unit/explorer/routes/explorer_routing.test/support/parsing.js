@@ -22,25 +22,28 @@
 
 const { expect, mockReq, mockRes, makeExplorer, request, state } = require('./helpers.js');
 
+const BTC_ADDRESS  = '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev';
+const RBTC_ADDRESS = 'mrDH7rA2ZmGoh4Qx5guhDBJbZotUd6XyVH';
+
 let explorer;
 before(function () { explorer = state.explorer; });
 
 describe('coin parsing', function () {
 
     it('parses BTC from /BTC/api/sends/addr1/address', async function () {
-        const { cfg } = await request(explorer, '/BTC/api/sends/addr1/address');
+        const { cfg } = await request(explorer, '/BTC/api/sends/' + BTC_ADDRESS + '/address');
         expect(cfg).to.not.be.null;
         expect(cfg.coin).to.equal('BTC');
     });
 
     it('parses RBTC (regtest) from /RBTC/api/sends/addr1/address', async function () {
-        const { cfg } = await request(explorer, '/RBTC/api/sends/addr1/address');
+        const { cfg } = await request(explorer, '/RBTC/api/sends/' + RBTC_ADDRESS + '/address');
         expect(cfg).to.not.be.null;
         expect(cfg.coin).to.equal('RBTC');
     });
 
     it('is case-insensitive for the coin segment (/btc/ → coin=BTC)', async function () {
-        const { cfg } = await request(explorer, '/btc/api/sends/addr1/address');
+        const { cfg } = await request(explorer, '/btc/api/sends/' + BTC_ADDRESS + '/address');
         expect(cfg).to.not.be.null;
         expect(cfg.coin).to.equal('BTC');
     });
@@ -81,10 +84,10 @@ describe('type detection', function () {
 
 function registerSendsMethodMatchTest() {
     it('/BTC/api/sends/addr1/address → method=getSends, search=addr1, type=address', async function () {
-        const { cfg } = await request(explorer, '/BTC/api/sends/addr1/address');
+        const { cfg } = await request(explorer, '/BTC/api/sends/' + BTC_ADDRESS + '/address');
         expect(cfg).to.not.be.null;
         expect(cfg.data.method).to.equal('getSends');
-        expect(cfg.data.search).to.equal('addr1');
+        expect(cfg.data.search).to.equal(BTC_ADDRESS);
         expect(cfg.data.type).to.equal('address');
     });
 }
@@ -93,7 +96,7 @@ describe('method matching (api)', function () {
 
     registerSendsMethodMatchTest();
     it('/BTC/api/balances/addr1 → method=getBalances, type=address', async function () {
-        const { cfg } = await request(explorer, '/BTC/api/balances/addr1');
+        const { cfg } = await request(explorer, '/BTC/api/balances/' + BTC_ADDRESS);
         expect(cfg).to.not.be.null;
         expect(cfg.data.method).to.equal('getBalances');
         expect(cfg.data.type).to.equal('address');
@@ -144,7 +147,7 @@ describe('method matching (api)', function () {
     });
 
     it('/BTC/api/dispensers/addr1/source → method=getDispensers, type=source', async function () {
-        const { cfg } = await request(explorer, '/BTC/api/dispensers/addr1/source');
+        const { cfg } = await request(explorer, '/BTC/api/dispensers/' + BTC_ADDRESS + '/source');
         expect(cfg).to.not.be.null;
         expect(cfg.data.method).to.equal('getDispensers');
         expect(cfg.data.type).to.equal('source');

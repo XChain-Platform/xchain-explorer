@@ -225,7 +225,7 @@ async function seedRichListSubject() {
     try {
         await conn.query('USE `' + INDEXER_DB + '`');
         const tick = await conn.query('INSERT INTO index_tickers (tick) VALUES (?)', ['RICHTICK']);
-        const addr = await conn.query('INSERT INTO index_addresses (address) VALUES (?)', ['bcrt1qrichlist']);
+        const addr = await conn.query('INSERT INTO index_addresses (address) VALUES (?)', ['bcrt1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqqpf4nc']);
         await conn.query(
             'INSERT INTO tokens (tick_id, action_index, supply, max_supply, max_mint, decimals, lock_max_supply, owner_id) ' +
             'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',

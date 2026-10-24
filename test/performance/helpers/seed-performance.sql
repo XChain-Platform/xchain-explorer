@@ -89,26 +89,26 @@ INSERT INTO index_memos (id, memo) VALUES
 
 -- 20 addresses
 INSERT INTO index_addresses (id, address) VALUES
-(1,  'bc1qperf_addr_001_aaaaaaaaaaaaaaaaaaaaa'),
-(2,  'bc1qperf_addr_002_bbbbbbbbbbbbbbbbbbbbb'),
-(3,  'bc1qperf_addr_003_ccccccccccccccccccccc'),
-(4,  'bc1qperf_addr_004_ddddddddddddddddddddd'),
-(5,  'bc1qperf_addr_005_eeeeeeeeeeeeeeeeeeeee'),
-(6,  'bc1qperf_addr_006_fffffffffffffffffffff'),
-(7,  'bc1qperf_addr_007_ggggggggggggggggggggg'),
-(8,  'bc1qperf_addr_008_hhhhhhhhhhhhhhhhhhhhh'),
-(9,  'bc1qperf_addr_009_iiiiiiiiiiiiiiiiiiiii'),
-(10, 'bc1qperf_addr_010_jjjjjjjjjjjjjjjjjjjjj'),
-(11, 'bc1qperf_addr_011_kkkkkkkkkkkkkkkkkkkkk'),
-(12, 'bc1qperf_addr_012_lllllllllllllllllllll'),
-(13, 'bc1qperf_addr_013_mmmmmmmmmmmmmmmmmmmmm'),
-(14, 'bc1qperf_addr_014_nnnnnnnnnnnnnnnnnnnnn'),
-(15, 'bc1qperf_addr_015_ooooooooooooooooooooo'),
-(16, 'bc1qperf_addr_016_ppppppppppppppppppppp'),
-(17, 'bc1qperf_addr_017_qqqqqqqqqqqqqqqqqqqqq'),
-(18, 'bc1qperf_addr_018_rrrrrrrrrrrrrrrrrrrrr'),
-(19, 'bc1qperf_addr_019_sssssssssssssssssssss'),
-(20, 'bc1qperf_addr_020_ttttttttttttttttttttt');
+(1,  'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t'),
+(2,  'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa'),
+(3,  'bcrt1qqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcruj60yu'),
+(4,  'bcrt1qqszqgpqyqszqgpqyqszqgpqyqszqgpqyuza2rq'),
+(5,  'bcrt1qq5zs2pg9q5zs2pg9q5zs2pg9q5zs2pg9ajutfp'),
+(6,  'bcrt1qqcrqvpsxqcrqvpsxqcrqvpsxqcrqvpsxvk6wzh'),
+(7,  'bcrt1qqurswpc8qurswpc8qurswpc8qurswpc8dxm0gk'),
+(8,  'bcrt1qpqyqszqgpqyqszqgpqyqszqgpqyqszqgz7fmv0'),
+(9,  'bcrt1qpyysjzgfpyysjzgfpyysjzgfpyysjzgfrwg6xw'),
+(10, 'bcrt1qpg9q5zs2pg9q5zs2pg9q5zs2pg9q5zs2j2wldc'),
+(11, 'bcrt1qpv9skzctpv9skzctpv9skzctpv9skzctn6078e'),
+(12, 'bcrt1qpsxqcrqvpsxqcrqvpsxqcrqvpsxqcrqvn2gmq9'),
+(13, 'bcrt1qp5xs6rgdp5xs6rgdp5xs6rgdp5xs6rgdj6f62y'),
+(14, 'bcrt1qpc8qurswpc8qurswpc8qurswpc8qurswr70lpj'),
+(15, 'bcrt1qpu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0zww7tn'),
+(16, 'bcrt1qzqgpqyqszqgpqyqszqgpqyqszqgpqyqs7c2kse'),
+(17, 'bcrt1qzyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3lgth6c'),
+(18, 'bcrt1qzgfpyysjzgfpyysjzgfpyysjzgfpyysjwvdj3w'),
+(19, 'bcrt1qzvf3xycnzvf3xycnzvf3xycnzvf3xycn0uvnm0'),
+(20, 'bcrt1qzs2pg9q5zs2pg9q5zs2pg9q5zs2pg9q50vtkun');
 
 -- 10 tokens
 INSERT INTO index_tickers (id, tick) VALUES

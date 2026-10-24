@@ -18,6 +18,10 @@ const { expect }               = require('chai');
 const proxyquire               = require('proxyquire').noCallThru();
 const { createConfigInfoStub } = require('../../../../../fixtures/mock-config.js');
 const { mockReq, mockRes }     = require('../../../../../fixtures/mock-query-args.js');
+const { base58check } = require('../../../request/address_shape.test/support/address_encode.js');
+
+const ADDR_ONE = base58check(0, Buffer.alloc(20, 1));
+const ADDR_TWO = base58check(0, Buffer.alloc(20, 2));
 
 let dbHandlers = {};
 
@@ -102,11 +106,11 @@ function withoutRuntime(body) {
 function healthyHandlers() {
     return {
         getBalances: (cfg) => [{
-            balances: [{ tick: 'XCP', amount: cfg.data.search === 'addrOne' ? '100' : '250' }]
+            balances: [{ tick: 'XCP', amount: cfg.data.search === ADDR_ONE ? '100' : '250' }]
         }, null],
         getAddress: (cfg) => [{
             address: cfg.data.search,
-            balance: cfg.data.search === 'addrOne' ? '1.5' : '9.25'
+            balance: cfg.data.search === ADDR_ONE ? '1.5' : '9.25'
         }, null],
         getCoinpayObligations: (cfg) => [[{
             block_index:    100,
@@ -128,18 +132,18 @@ describe('Batch read endpoints: per-entry degradation (C53)', function () {
     it('nulls only the half that failed and attaches its own body as the error', async function () {
         const failing = dbHandlers.getAddress;
         dbHandlers.getAddress = (cfg) => {
-            if (cfg.data.search === 'addrTwo') throw new Error('connection lost');
+            if (cfg.data.search === ADDR_TWO) throw new Error('connection lost');
             return failing(cfg);
         };
 
-        const { code, body } = await post(balancesRoute, 'BTC', { addresses: ['addrOne', 'addrTwo'] });
+        const { code, body } = await post(balancesRoute, 'BTC', { addresses: [ADDR_ONE, ADDR_TWO] });
         expect(code).to.equal(200);
-        expect(body.addrOne.error).to.equal(null);
-        expect(body.addrOne.address).to.not.equal(null);
+        expect(body[ADDR_ONE].error).to.equal(null);
+        expect(body[ADDR_ONE].address).to.not.equal(null);
 
-        expect(body.addrTwo.address).to.equal(null);
-        expect(body.addrTwo.balances, 'the healthy half was lost with the failing one').to.not.equal(null);
-        expect(body.addrTwo.error).to.deep.equal({
+        expect(body[ADDR_TWO].address).to.equal(null);
+        expect(body[ADDR_TWO].balances, 'the healthy half was lost with the failing one').to.not.equal(null);
+        expect(body[ADDR_TWO].error).to.deep.equal({
             code:   'DB_ERROR',
             error:  'A database error occurred while serving this request.',
             status: 500
@@ -155,21 +159,21 @@ describe('Batch read endpoints: per-entry degradation (C53)', function () {
         };
         dbHandlers.getAddress = () => { throw new Error('connection lost'); };
 
-        const { body } = await post(balancesRoute, 'BTC', { addresses: ['addrOne'] });
-        expect(body.addrOne.balances).to.equal(null);
-        expect(body.addrOne.address).to.equal(null);
-        expect(body.addrOne.error.status).to.equal(400);
-        expect(body.addrOne.error.code).to.equal('INVALID_PARAMETER');
+        const { body } = await post(balancesRoute, 'BTC', { addresses: [ADDR_ONE] });
+        expect(body[ADDR_ONE].balances).to.equal(null);
+        expect(body[ADDR_ONE].address).to.equal(null);
+        expect(body[ADDR_ONE].error.status).to.equal(400);
+        expect(body[ADDR_ONE].error.code).to.equal('INVALID_PARAMETER');
     });
 
     it('keeps a 404 on one address from refusing the whole batch', async function () {
-        dbHandlers.getCoinpayObligations = (cfg) => (cfg.data.search === 'addrTwo' ? [null, null] : [[], 0]);
-        const { code, body } = await post(coinpayRoute, 'BTC', { addresses: ['addrOne', 'addrTwo'] });
+        dbHandlers.getCoinpayObligations = (cfg) => (cfg.data.search === ADDR_TWO ? [null, null] : [[], 0]);
+        const { code, body } = await post(coinpayRoute, 'BTC', { addresses: [ADDR_ONE, ADDR_TWO] });
         expect(code).to.equal(200);
-        expect(body.addrOne.coinpay_obligations).to.not.equal(null);
-        expect(body.addrOne.error).to.equal(null);
-        expect(body.addrTwo.coinpay_obligations).to.equal(null);
-        expect(body.addrTwo.error).to.deep.equal({
+        expect(body[ADDR_ONE].coinpay_obligations).to.not.equal(null);
+        expect(body[ADDR_ONE].error).to.equal(null);
+        expect(body[ADDR_TWO].coinpay_obligations).to.equal(null);
+        expect(body[ADDR_TWO].error).to.deep.equal({
             code:   'NOT_FOUND',
             error:  'The requested resource was not found.',
             status: 404
@@ -223,31 +227,31 @@ describe('Batch read endpoints: POST /{COIN}/api/coinpay_obligations (C54)', fun
     });
 
     it('answers one coinpay_obligations half per address, keyed by address', async function () {
-        const { code, body } = await post(coinpayRoute, 'BTC', { addresses: ['addrOne', 'addrTwo'] });
+        const { code, body } = await post(coinpayRoute, 'BTC', { addresses: [ADDR_ONE, ADDR_TWO] });
         expect(code).to.equal(200);
-        expect(Object.keys(body)).to.deep.equal(['addrOne', 'addrTwo']);
-        expect(body.addrOne).to.have.all.keys('coinpay_obligations', 'error');
-        expect(body.addrOne.error).to.equal(null);
+        expect(Object.keys(body)).to.deep.equal([ADDR_ONE, ADDR_TWO]);
+        expect(body[ADDR_ONE]).to.have.all.keys('coinpay_obligations', 'error');
+        expect(body[ADDR_ONE].error).to.equal(null);
     });
 
     it('carries EXACTLY the per-address GET body (the acceptance test)', async function () {
-        const { body } = await post(coinpayRoute, 'BTC', { addresses: ['addrOne'] });
-        const perAddress = await get('/BTC/api/coinpay_obligations/addrOne/address');
+        const { body } = await post(coinpayRoute, 'BTC', { addresses: [ADDR_ONE] });
+        const perAddress = await get('/BTC/api/coinpay_obligations/' + ADDR_ONE + '/address');
         expect(perAddress.code).to.equal(200);
-        expect(withoutRuntime(body.addrOne.coinpay_obligations))
+        expect(withoutRuntime(body[ADDR_ONE].coinpay_obligations))
             .to.deep.equal(withoutRuntime(perAddress.body));
         expect(perAddress.body.total).to.equal(1);
     });
 
     it('reads the /address/ type route, not the bare list route', async function () {
-        await post(coinpayRoute, 'BTC', { addresses: ['addrOne'] });
+        await post(coinpayRoute, 'BTC', { addresses: [ADDR_ONE] });
         const call = dbCalls.find((c) => c.method === 'getCoinpayObligations');
         expect(call.type).to.equal('address');
-        expect(call.search).to.equal('addrOne');
+        expect(call.search).to.equal(ADDR_ONE);
     });
 
     it('sets the JSON content type the per-address routes use', async function () {
-        const { headers } = await post(coinpayRoute, 'BTC', { addresses: ['addrOne'] });
+        const { headers } = await post(coinpayRoute, 'BTC', { addresses: [ADDR_ONE] });
         expect(headers['Content-Type']).to.equal('application/json; charset=utf-8');
     });
 });

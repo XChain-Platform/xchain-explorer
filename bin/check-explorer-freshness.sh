@@ -4,8 +4,9 @@
 # Licensed under the GNU Affero GPL v3.0 or later; see LICENSE.md.
 #
 # Alert when any non-regtest coin this explorer serves is stale-gated or its
-# replica carries an active sync halt. Prints the problem to STDERR and exits
-# 1, so a cron line with MAILTO mails the operator; silent rc=0 when healthy.
+# replica carries an active sync halt. Prints the problem to STDERR once per
+# unhealthy episode and exits 1, so a cron line with MAILTO mails the operator;
+# silent rc=0 when healthy.
 #
 # Exists because a consensus-divergence halt (xchain-sync protecting the
 # replica) once sat unnoticed for ~12 hours: the explorer's freshness gate
@@ -20,6 +21,7 @@
 set -u
 
 STATUS_URL="${EXPLORER_STATUS_URL:-http://127.0.0.1:18080/BTC/api/status}"
+ALERT_LATCH_DIR="${EXPLORER_FRESHNESS_ALERT_LATCH_DIR:-${TMPDIR:-/tmp}/check-explorer-freshness.alerted}"
 
 command -v jq >/dev/null 2>&1 || { echo "check-explorer-freshness: jq is required" >&2; exit 1; }
 
@@ -35,7 +37,12 @@ bad=$(echo "$json" | jq -r '
   | join(" ")')
 
 if [ -n "$bad" ]; then
-    echo "explorer-freshness ALERT on $(hostname): $bad (freshness gate tripped or sync halt active; check the sync client journal for the coin, and $STATUS_URL)" >&2
+    if mkdir "$ALERT_LATCH_DIR" 2>/dev/null; then
+        echo "explorer-freshness ALERT on $(hostname): $bad (freshness gate tripped or sync halt active; check the sync client journal for the coin, and $STATUS_URL)" >&2
+    elif [ ! -d "$ALERT_LATCH_DIR" ]; then
+        echo "explorer-freshness ALERT on $(hostname): $bad (freshness gate tripped or sync halt active; check the sync client journal for the coin, and $STATUS_URL; alert latch unavailable at $ALERT_LATCH_DIR)" >&2
+    fi
     exit 1
 fi
+rmdir "$ALERT_LATCH_DIR" 2>/dev/null || true
 exit 0

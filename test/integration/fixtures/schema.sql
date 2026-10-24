@@ -95,7 +95,7 @@ CREATE TABLE index_tickers (
     block_index BIGINT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
-CREATE UNIQUE INDEX tick on index_tickers (tick(200));
+CREATE UNIQUE INDEX tick on index_tickers (tick(250));
 
 DROP TABLE IF EXISTS index_transactions;
 CREATE TABLE index_transactions (

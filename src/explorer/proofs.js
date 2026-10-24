@@ -32,8 +32,13 @@ const swq  = require('../consensus/stake_weighted_quorum.js');
 // (W5): the predicate is activeAt over the checkpoint's BTC-anchored snapshot_block.
 const gateRegistry = require('../consensus/gate_registry');
 const CHECKPOINT_COMMITMENT_KEY = 'checkpoint_commitment_activation.CHECKPOINT_COMMITMENT_ACTIVATION';
+const ARCHIVE_ROLLCALL_PRESENCE_KEY = 'archive_rollcall_presence_activation.ARCHIVE_ROLLCALL_PRESENCE_ACTIVATION';
 function isCheckpointCommitmentActive(snapshotBlock, network){
     return gateRegistry.activeAt(CHECKPOINT_COMMITMENT_KEY, network, null, snapshotBlock, null);
+}
+function isArchiveRollcallPresenceActive(snapshotBlock, network){
+    return swq.isStakeWeightedQuorumActive(snapshotBlock, network)
+        && gateRegistry.activeAt(ARCHIVE_ROLLCALL_PRESENCE_KEY, network, 'BTC', snapshotBlock, null);
 }
 const { sendProofError } = require('./proof_errors.js');
 // Module-scope logger, not a method on the class these parts install onto: every
@@ -95,8 +100,13 @@ class CheckpointProofs {
             let canonical = canonicalCheckpointString(cp);
 
             let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
+            let result = this.checkpointVerifyResult(cp, canonical, validators);
+            if(isArchiveRollcallPresenceActive(cp.snapshot_block, cp.network)){
+                let archiveValidators = await this.db.getCapabilitySnapshotRows(config, 'archive_publish', cp.snapshot_block) || [];
+                result.archive_validators = this.checkpointValidatorSet(archiveValidators);
+            }
 
-            return res.json(this.checkpointVerifyResult(cp, canonical, validators));
+            return res.json(result);
         } catch (e) {
             log.error('CHECKPOINT_VERIFY_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });

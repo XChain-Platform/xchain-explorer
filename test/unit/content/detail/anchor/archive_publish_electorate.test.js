@@ -71,6 +71,38 @@ function anchor(version, network, extras){
     }, extras || {});
 }
 
+function assertArchiveElectionLabels(){
+    const dom = new JSDOM('<div id="election"></div>', { runScripts: 'outside-only' });
+    dom.window.eval(`
+        function isNull(v){ return v === null || v === undefined; }
+        function $(tag){
+            var value = '';
+            return {
+                text: function(v){ value = v == null ? '' : String(v); return this; },
+                html: function(){ return value.replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }); }
+            };
+        }
+        function formatAmount(v){ return String(v); }
+    `);
+    dom.window.eval(srcText('src/content/js/anchor_detail_render.js'));
+    dom.window.anchorTraits = function () {
+        return { known: true, version: 1, publisher: true };
+    };
+    dom.window.anchorBlockLink = function (v) { return String(v); };
+
+    const html = dom.window.renderAnchorElection({
+        version: 1, snapshot_block: 10, publisher: PUBLISHER,
+        publisher_attestations: [], publisher_election_capability: 'archive_publish',
+        publisher_election: [{ signing_pubkey: PUBLISHER, amount: '5', source: 'stake' }]
+    });
+    dom.window.document.querySelector('#election').innerHTML = html;
+
+    expect(dom.window.document.querySelector('.anchor-note').textContent)
+        .to.contain('archive_publish set');
+    expect(dom.window.document.querySelector('.small.text-muted.mt-2.mb-1').textContent)
+        .to.contain('in the archive_publish set');
+}
+
 describe('anchor archive publisher electorate', function () {
     it('selects archive_publish for a v1 archive head above the gate', async function () {
         const db = database(anchor(1, 'regtest', { match_batch_seq: 7 }), [], 'regtest');
@@ -106,35 +138,5 @@ describe('anchor archive publisher electorate', function () {
         expect(plainRow.publisher_election_capability).to.equal('oracle_publish');
     });
 
-    it('names the selected set in the election note and member label', function () {
-        const dom = new JSDOM('<div id="election"></div>', { runScripts: 'outside-only' });
-        dom.window.eval(`
-            function isNull(v){ return v === null || v === undefined; }
-            function $(tag){
-                var value = '';
-                return {
-                    text: function(v){ value = v == null ? '' : String(v); return this; },
-                    html: function(){ return value.replace(/[&<>"']/g, function(c){ return '&#' + c.charCodeAt(0) + ';'; }); }
-                };
-            }
-            function formatAmount(v){ return String(v); }
-        `);
-        dom.window.eval(srcText('src/content/js/anchor_detail_render.js'));
-        dom.window.anchorTraits = function () {
-            return { known: true, version: 1, publisher: true };
-        };
-        dom.window.anchorBlockLink = function (v) { return String(v); };
-
-        const html = dom.window.renderAnchorElection({
-            version: 1, snapshot_block: 10, publisher: PUBLISHER,
-            publisher_attestations: [], publisher_election_capability: 'archive_publish',
-            publisher_election: [{ signing_pubkey: PUBLISHER, amount: '5', source: 'stake' }]
-        });
-        dom.window.document.querySelector('#election').innerHTML = html;
-
-        expect(dom.window.document.querySelector('.anchor-note').textContent)
-            .to.contain('archive_publish set');
-        expect(dom.window.document.querySelector('.small.text-muted.mt-2.mb-1').textContent)
-            .to.contain('in the archive_publish set');
-    });
+    it('names the selected set in the election note and member label', assertArchiveElectionLabels);
 });

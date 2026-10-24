@@ -234,10 +234,6 @@ function publisherElectionCapability(db, row){
 
 // The publisher electorate at this anchor's snapshot block.
 async function readPublisherElection(db, config, row, src, limit){
-    // Publisher election. capability_snapshots is CHAIN-AGNOSTIC: no chain/network
-    // filter is bound, matching getCapabilitySnapshots. Archive heads and folded
-    // archive wrappers move to archive_publish at the roll-call-presence gate;
-    // every other anchor keeps the oracle_publish electorate.
     let capability = publisherElectionCapability(db, row);
     let electorate = [];
     if(!db.util.isNull(row.snapshot_block))

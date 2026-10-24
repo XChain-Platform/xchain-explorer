@@ -275,7 +275,6 @@ function renderAnchorCoveringCheckpoint(d){
     return html;
 }
 
-// Publisher election
 // The selected publisher electorate at this anchor's snapshot_block, plus which
 // member the anchor names as the elected publisher. capability_snapshots is
 // chain-agnostic, so this set is the platform-wide one at that snapshot block.
@@ -284,8 +283,7 @@ function renderAnchorElection(d){
     let t     = anchorRenderTraits(row);
     let set   = Array.isArray(row.publisher_election) ? row.publisher_election : [];
     let tail  = Array.isArray(row.publisher_attestations) ? row.publisher_attestations : [];
-    let capability = row.publisher_election_capability === 'archive_publish'
-        ? 'archive_publish' : 'oracle_publish';
+    let capability = row.publisher_election_capability === 'archive_publish' ? 'archive_publish' : 'oracle_publish';
     let html  = '';
     if(!t.publisher && isNull(row.publisher))
         html += anchorEmpty('This ANCHOR version carries no publisher tail, so no publisher was elected for it.');

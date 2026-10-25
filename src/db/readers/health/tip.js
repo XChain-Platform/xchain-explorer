@@ -32,6 +32,7 @@
 'use strict';
 
 const { staleFailClosed } = require('../../shared.js');
+const IndexerConnector = require('../../../connectors/indexer.js');
 
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
 // instance is no longer serving current data for a coin. Deliberately far above
@@ -84,6 +85,38 @@ class HealthTipReaders {
         if (results && results.length && results[0].block_time !== null)
             return Number(results[0].block_time);
         return 0;
+    }
+
+    async getIndexerRules(config) {
+        let parsed = await this.parseCoinCode(config.coin);
+        if(!parsed) return null;
+        let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
+        if(!url) return null;
+        let health = await new IndexerConnector(url).health();
+        return health && health.rules != null ? health.rules : null;
+    }
+
+    async getCheckpointSupersessionRows(config, checkpoint) {
+        let src;
+        try { src = this.checkpointSource(config); }
+        catch(e) { return [checkpoint]; }
+        let checkpointSeq = Number(checkpoint.checkpoint_seq);
+        let blockIndex = Number(checkpoint.block_index);
+        let query = `SELECT checkpoint_seq, block_index, chain, network,
+                            supersedes_from, rules_digest
+                     FROM ${src.table}
+                     WHERE 1 = 1${src.filter}
+                       AND (checkpoint_seq = ? OR
+                            (checkpoint_seq > ? AND supersedes_from IS NOT NULL
+                             AND supersedes_from <= ?))
+                     ORDER BY checkpoint_seq ASC`;
+        let rows = await this.doQuery(config, query,
+            [...src.filterParams, checkpointSeq, checkpointSeq, blockIndex]);
+        return (rows || []).map(row => Object.assign({}, row, {
+            checkpoint_seq: Number(row.checkpoint_seq),
+            block_index: Number(row.block_index),
+            supersedes_from: row.supersedes_from == null ? null : Number(row.supersedes_from)
+        }));
     }
 
     // Max tip age for a coin, in seconds: EXPLORER_TIP_MAX_AGE_S_<COIN> if set,

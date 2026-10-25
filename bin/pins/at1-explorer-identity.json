@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 323,
+    "count": 325,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2408,6 +2408,7 @@
       "getCheckpointAtOrAbove",
       "getCheckpointRange",
       "getCheckpointRows",
+      "getCheckpointSupersessionRows",
       "getCheckpoints",
       "getCoinFreshness",
       "getCoinPriceUsd",
@@ -2480,6 +2481,7 @@
       "getHistory",
       "getHistoryData",
       "getHolders",
+      "getIndexerRules",
       "getIssues",
       "getLinks",
       "getListCurrentMembership",
@@ -4520,6 +4522,19 @@
         "HubOperationalCache: mixed-version fleet with the upgraded hub down serves within-ceiling stale rows when the old hub answers -32601 and the new hub is unreachable",
         "HubOperationalCache: mixed-version fleet with the upgraded hub down still throws the capability-gap error when every endpoint answers -32601",
         "HubOperationalCache: mixed-version fleet with the upgraded hub down the connector flags allEndpointsAnswered only when every endpoint gave a protocol answer"
+      ],
+      "230ddd7f6049bbc1": [
+        "checkpoint supersede canonical matches the hub @regression matches the hub canonical byte for byte for a plain checkpoint",
+        "checkpoint supersede canonical matches the hub @regression matches the hub canonical byte for byte for a superseding checkpoint",
+        "checkpoint supersede canonical matches the hub @regression serves the hub canonical from the verify route for plain and superseding rows",
+        "checkpoint supersede verify defines both supersession columns in the hub mirror schema",
+        "checkpoint supersede verify keeps a height below an open replay target final",
+        "checkpoint supersede verify reads current metadata and later superseders from the scoped mirror",
+        "checkpoint supersede verify reads replay rules from the indexer health surface",
+        "checkpoint supersede verify refuses supersession fields below the activation gate",
+        "checkpoint supersede verify reports the lowest superseding sequence for an older row",
+        "checkpoint supersede verify serves the target and higher heights as not final while replay is open",
+        "checkpoint supersede verify verifies a superseding checkpoint with both fields in the gated canonical"
       ],
       "23218d3f38f6d825": [
         "PRICE detail rounds parse failure keeps ordinary rows with no rounds hidden",
@@ -12225,8 +12240,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 463,
-        "titleCount": 7826,
+        "fileCount": 464,
+        "titleCount": 7837,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12515,6 +12530,7 @@
           "test/unit/explorer/attest/explorer_attest_validator_stats.test.js": "67c45fd621dd71eb",
           "test/unit/explorer/attest/explorer_slash_proposals.test.js": "9faae2fa2817f069",
           "test/unit/explorer/attest/explorer_vote_delegations.test.js": "0bfb8b4bc19093b0",
+          "test/unit/explorer/checkpoint_supersede_verify.test.js": "230ddd7f6049bbc1",
           "test/unit/explorer/checkpoint_supersession_rules.test.js": "6240a3eee5ef7232",
           "test/unit/explorer/explorer_checkpoints.test.js": "e6913c4e00113071",
           "test/unit/explorer/explorer_icon.test.js": "8a54f6aebda2a1b0",

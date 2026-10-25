@@ -34,7 +34,7 @@ function row(checkpointSeq, blockIndex, supersedesFrom, chain = 'LTC', network =
     };
 }
 
-describe('@regression checkpoint supersession rules', function () {
+describe('@regression superseded checkpoint sequence rules', function () {
     it('supersedes rows at and above its supersedes_from boundary, but not below it', function () {
         const superseder = row(12, 120, 105);
 
@@ -66,7 +66,9 @@ describe('@regression checkpoint supersession rules', function () {
 
         expect(supersededBySeq(subject, [row('12', '120', '105')])).to.equal(12);
     });
+});
 
+describe('@regression checkpoint supersession body fields', function () {
     it('returns exactly superseded_by_seq and supersedes_from from supersessionBody', function () {
         const subject = row(11, 110);
         const body = supersessionBody(subject, [row(12, 120, 105)]);

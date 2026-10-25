@@ -33,6 +33,7 @@
 
 const { staleFailClosed } = require('../../shared.js');
 const IndexerConnector = require('../../../connectors/indexer.js');
+const { heightIsFinal, parseReplay } = require('../../../explorer/replay_finality.js');
 
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
 // instance is no longer serving current data for a coin. Deliberately far above
@@ -205,7 +206,7 @@ class HealthTipReaders {
     // case of that.
     /**
      * @param {string} coin coin code
-     * @returns {Promise<{stale: boolean, tip_block: number|null, tip_time: number|null,
+     * @returns {Promise<{stale: boolean, final: boolean|null, tip_block: number|null, tip_time: number|null,
      *   tip_age_seconds: number|null, replica_halted: boolean|null, max_age_seconds: number}>}
      */
     async getCoinFreshness(coin) {
@@ -214,6 +215,7 @@ class HealthTipReaders {
         if (cached && (Date.now() - cached.at) < TIP_STALE_CACHE_TTL_MS) return cached.snapshot;
         let snapshot = {
             stale:           this.tipMaxAgeSeconds(coin) !== 0,
+            final:           null,
             tip_block:       null,
             tip_time:        null,
             tip_age_seconds: null,
@@ -229,6 +231,8 @@ class HealthTipReaders {
                 snapshot.tip_age_seconds = Math.max(0, nowSec - Number(tipSec));
             }
             snapshot.tip_block = await this.getMaxBlockIndex({ coin, data: {} });
+            let rules = await this.getIndexerRules({ coin, data: {} });
+            snapshot.final = heightIsFinal(snapshot.tip_block, parseReplay(rules));
         } catch (e) {
             // Leave the fail-closed defaults: stale unless the gate is disabled,
             // and no tip to report.

@@ -8505,6 +8505,19 @@
         "the WebSocket dispenser snapshot reports the lifecycle agrees with the /dispensers row for the same dispenser",
         "the WebSocket dispenser snapshot reports the lifecycle an open dispenser reports open, not the create validity"
       ],
+      "9351e6c31789d350": [
+        "replay finality rules @regression coerces replay heights into a new object without mutating the input",
+        "replay finality rules @regression compares string heights and targets from the JSON body numerically",
+        "replay finality rules @regression keeps a null replay_to value null",
+        "replay finality rules @regression keeps both sides of a replayed target final",
+        "replay finality rules @regression keeps heights final when replay metadata is absent",
+        "replay finality rules @regression publishes the frozen replay-state vocabulary",
+        "replay finality rules @regression recognises only pending and replaying bodies as open",
+        "replay finality rules @regression rejects an unknown replay state",
+        "replay finality rules @regression rejects negative, non-numeric, fractional, and unsafe targets",
+        "replay finality rules @regression returns null when the rules body or replay field is absent",
+        "replay finality rules @regression withholds finality at and above an open replay target"
+      ],
       "93966786e23d8601": [
         "unconfirmed count formatting formats numeric mempool counts",
         "unconfirmed count formatting marks unavailable mempool reads without displaying a zero",
@@ -12194,8 +12207,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 460,
-        "titleCount": 7801,
+        "fileCount": 461,
+        "titleCount": 7812,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12504,6 +12517,7 @@
           "test/unit/explorer/paging_response/explorer_paging.test.js": "66cd3cb942505c74",
           "test/unit/explorer/paging_response/explorer_response.test.js": "217895db758d81cd",
           "test/unit/explorer/relay/explorer_relay_shared_lookup.test.js": "7cec30338161fbc6",
+          "test/unit/explorer/replay_finality_rules.test.js": "9351e6c31789d350",
           "test/unit/explorer/request/address_shape.test.js": "4b80427ce63f03e8",
           "test/unit/explorer/request/bare_detail.test.js": "a94445f3f95eaca1",
           "test/unit/explorer/request/detail_record.test.js": "069598e437835fdd",

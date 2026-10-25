@@ -122,6 +122,9 @@ class CheckpointProofs {
             let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
             let result = this.checkpointVerifyResult(cp, canonical, validators);
             Object.assign(result, supersessionBody(cp, supersessionRows));
+            result.rules_digest = cp.rules_digest == null
+                ? null
+                : String(cp.rules_digest).toLowerCase();
             let rules = typeof this.db.getIndexerRules === 'function'
                 ? await this.db.getIndexerRules(config)
                 : null;

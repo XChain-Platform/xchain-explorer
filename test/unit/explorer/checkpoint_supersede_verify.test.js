@@ -23,8 +23,27 @@ const {
 } = require('./explorer_checkpoints.test/support/helpers.js');
 const tipReaders = require('../../../src/db/readers/health/tip.js');
 const IndexerConnector = require('../../../src/connectors/indexer.js');
+const { canonicalCheckpointString } = require('../../../src/explorer/proofs.js');
 
 const DIGEST = 'd4'.repeat(32);
+
+// The hub signs the checkpoint over StateCheckpointEngine's canonicalCheckpoint, whose
+// one copy lives in the sibling hub's canonical_forms.js. The explorer re-types the same
+// bytes in proofs.js, so the hub copy is the reference the verify route must match.
+const HUB_CANONICAL_FORMS = process.env.XCHAIN_HUB_DIR
+    ? path.join(process.env.XCHAIN_HUB_DIR, 'src', 'anchor', 'checkpoint_engine', 'canonical_forms.js')
+    : path.join(__dirname, '..', '..', '..', '..', 'xchain-hub',
+        'src', 'anchor', 'checkpoint_engine', 'canonical_forms.js');
+
+// A regtest checkpoint carrying the light-client roots, so every flag the canonical
+// reads (EQUIV wrap, root suffix, SUPERSEDE suffix) is live on both sides.
+const ROOTED_CP = {
+    ...CP, state_root: 'AB'.repeat(32), state_root_version: 1,
+    block_merkle_root: 'CD'.repeat(32), block_merkle_version: 1
+};
+const SUPERSEDING_CP = {
+    ...ROOTED_CP, checkpoint_seq: 8, supersedes_from: '400', rules_digest: DIGEST.toUpperCase()
+};
 
 async function verify(cp, supersessionRows, rules){
     const explorer = makeExplorer();
@@ -57,6 +76,8 @@ async function verifiesSupersedingCheckpoint(){
 
     expect(res._status).to.equal(200);
     expect(res._body.canonical).to.equal(base + '|SUPERSEDE|400|' + DIGEST);
+    expect(res._body.canonical).to.equal(canonicalCheckpointString(
+        { ...cp, supersedes_from: 400, rules_digest: DIGEST }));
     expect(res._body.verified).to.equal(true);
     expect(res._body.checkpoint).to.include({ supersedes_from: 400, rules_digest: DIGEST });
     expect(res._body).to.include({ superseded_by_seq: null, supersedes_from: 400 });
@@ -176,3 +197,58 @@ function checkpointSupersedeVerify(){
 }
 
 describe('checkpoint supersede verify', checkpointSupersedeVerify);
+
+function hubForms(){
+    return require(HUB_CANONICAL_FORMS);
+}
+
+function requireHubSibling(){
+    if(fs.existsSync(HUB_CANONICAL_FORMS)) return;
+    if(process.env.XCHAIN_REQUIRE_SIBLINGS === '1')
+        throw new Error('XCHAIN_REQUIRE_SIBLINGS=1 but the xchain-hub canonical forms are not at ' +
+            HUB_CANONICAL_FORMS);
+    this.skip();
+}
+
+function mirrorRow(cp){
+    return {
+        chain: cp.chain, network: cp.network, block_index: cp.block_index,
+        checkpoint_seq: cp.checkpoint_seq,
+        supersedes_from: cp.supersedes_from == null ? null : Number(cp.supersedes_from),
+        rules_digest: cp.rules_digest == null ? null : cp.rules_digest
+    };
+}
+
+function matchesHubForPlainCheckpoint(){
+    const explorer = canonicalCheckpointString({ ...ROOTED_CP });
+    expect(explorer).to.equal(hubForms().canonicalCheckpoint({ ...ROOTED_CP }));
+    expect(explorer).to.not.include('SUPERSEDE');
+}
+
+function matchesHubForSupersedingCheckpoint(){
+    const explorer = canonicalCheckpointString({ ...SUPERSEDING_CP });
+    expect(explorer).to.equal(hubForms().canonicalCheckpoint({ ...SUPERSEDING_CP }));
+    expect(explorer).to.include('|SUPERSEDE|400|' + DIGEST);
+}
+
+async function servesHubCanonicalFromVerifyRoute(){
+    for(const cp of [ROOTED_CP, SUPERSEDING_CP]){
+        const plain = { ...cp, supersedes_from: undefined, rules_digest: undefined };
+        const res = await verify(plain, [mirrorRow(cp)]);
+        expect(res._status, String(cp.checkpoint_seq)).to.equal(200);
+        expect(res._body.canonical, String(cp.checkpoint_seq))
+            .to.equal(hubForms().canonicalCheckpoint({ ...cp }));
+    }
+}
+
+// Real flag-day gates on both sides: the hub reads its own registry and EQUIV header,
+// so pinning only the explorer's copies would manufacture a mismatch.
+function checkpointSupersedeHubBytes(){
+    before(requireHubSibling);
+    afterEach(function(){ sinon.restore(); });
+    it('matches the hub canonical byte for byte for a plain checkpoint', matchesHubForPlainCheckpoint);
+    it('matches the hub canonical byte for byte for a superseding checkpoint', matchesHubForSupersedingCheckpoint);
+    it('serves the hub canonical from the verify route for plain and superseding rows', servesHubCanonicalFromVerifyRoute);
+}
+
+describe('checkpoint supersede canonical matches the hub @regression', checkpointSupersedeHubBytes);

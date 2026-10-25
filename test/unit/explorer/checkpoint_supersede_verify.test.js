@@ -153,8 +153,8 @@ async function readsIndexerRules(){
 function definesMirrorColumns(){
     const sql = fs.readFileSync(path.join(__dirname,
         '../../../src/sql/hub-mirror/state_checkpoints.sql'), 'utf8');
-    expect(sql).to.match(/supersedes_from\s+BIGINT UNSIGNED/);
-    expect(sql).to.match(/rules_digest\s+CHAR\(64\)/);
+    expect(sql).to.match(/supersedes_from\s+BIGINT UNSIGNED DEFAULT NULL/);
+    expect(sql).to.match(/rules_digest\s+CHAR\(64\) DEFAULT NULL/);
 }
 
 function checkpointSupersedeVerify(){

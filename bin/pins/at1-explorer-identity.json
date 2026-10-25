@@ -4460,6 +4460,11 @@
         "M5.4 XCALL phase reads (spec row 35) getXcallInfo point-reads one call by id, valid row only, bounded to one row",
         "M5.4 XCALL phase reads (spec row 35) resumes inside a block and caps the read when the cursor passes bounds"
       ],
+      "2163aadc0055e628": [
+        "Database tip health replay finality clears the not-final verdict once the indexer reports replayed",
+        "Database tip health replay finality keeps an indexed height below the open replay target final",
+        "Database tip health replay finality marks the replay target and higher indexed heights as not final"
+      ],
       "217895db758d81cd": [
         "XChainExplorer.processRequest \u2013 API response shape always includes a runtime field in the JSON response",
         "XChainExplorer.processRequest \u2013 API response shape returns total and data array when getData resolves with numeric total",
@@ -12240,8 +12245,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 464,
-        "titleCount": 7837,
+        "fileCount": 465,
+        "titleCount": 7840,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12523,6 +12528,7 @@
           "test/unit/db/readers/search/contracts_name_fulltext_missing.test.js": "9bf3b4e752d10319",
           "test/unit/db/readers/search/search_fulltext_index_missing.test.js": "1e8012403a6f5857",
           "test/unit/db/readers/search/search_token_panel.test.js": "7d41d7cd293ca09b",
+          "test/unit/db/readers/status_barrier_hold/health_tip_replay_window.test.js": "2163aadc0055e628",
           "test/unit/db/readers/status_barrier_hold/status_barrier_hold.test.js": "13ef9434f1e196bb",
           "test/unit/db/schema_probe/schema_probe.test.js": "180445d38720eaff",
           "test/unit/db/utc_decode_non_utc_host.test.js": "f4c74d2eccc02b65",

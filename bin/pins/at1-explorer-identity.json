@@ -7697,6 +7697,15 @@
         "token-literal classifier (function-wrapped values) still honours the url() asset allowlist",
         "token-literal classifier (function-wrapped values) still reads a var() fallback as a legitimate degradation path"
       ],
+      "8075de00dc3cc188": [
+        "@regression checkpoint supersession rules answers both fields null for a plain row",
+        "@regression checkpoint supersession rules compares and returns numeric driver strings as numbers",
+        "@regression checkpoint supersession rules does not mutate the row or rows",
+        "@regression checkpoint supersession rules ignores another chain, another network, and lower checkpoint sequences",
+        "@regression checkpoint supersession rules returns exactly superseded_by_seq and supersedes_from from supersessionBody",
+        "@regression checkpoint supersession rules returns the lowest sequence of multiple qualifying superseders",
+        "@regression checkpoint supersession rules supersedes rows at and above its supersedes_from boundary, but not below it"
+      ],
       "808199788faa2378": [
         "parseHubList drops unsupported URL shapes",
         "parseHubList returns an empty list for invalid containers",
@@ -12194,8 +12203,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 460,
-        "titleCount": 7801,
+        "fileCount": 461,
+        "titleCount": 7808,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12484,6 +12493,7 @@
           "test/unit/explorer/attest/explorer_attest_validator_stats.test.js": "67c45fd621dd71eb",
           "test/unit/explorer/attest/explorer_slash_proposals.test.js": "9faae2fa2817f069",
           "test/unit/explorer/attest/explorer_vote_delegations.test.js": "0bfb8b4bc19093b0",
+          "test/unit/explorer/checkpoint_supersession_rules.test.js": "8075de00dc3cc188",
           "test/unit/explorer/explorer_checkpoints.test.js": "e6913c4e00113071",
           "test/unit/explorer/explorer_icon.test.js": "8a54f6aebda2a1b0",
           "test/unit/explorer/explorer_mirror_gate.test.js": "4f8dc649cba900a8",

@@ -105,12 +105,13 @@ class HealthTipReaders {
         let query = `SELECT checkpoint_seq, block_index, chain, network,
                             supersedes_from, rules_digest
                      FROM ${src.table}
-                     WHERE (checkpoint_seq = ? OR
+                     WHERE 1 = 1${src.filter}
+                       AND (checkpoint_seq = ? OR
                             (checkpoint_seq > ? AND supersedes_from IS NOT NULL
-                             AND supersedes_from <= ?))${src.filter}
+                             AND supersedes_from <= ?))
                      ORDER BY checkpoint_seq ASC`;
         let rows = await this.doQuery(config, query,
-            [checkpointSeq, checkpointSeq, blockIndex, ...src.filterParams]);
+            [...src.filterParams, checkpointSeq, checkpointSeq, blockIndex]);
         return (rows || []).map(row => Object.assign({}, row, {
             checkpoint_seq: Number(row.checkpoint_seq),
             block_index: Number(row.block_index),

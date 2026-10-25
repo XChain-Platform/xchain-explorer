@@ -129,9 +129,14 @@ async function readsScopedSupersessionRows(){
     const rows = await tipReaders.getCheckpointSupersessionRows.call(db,
         { coin: 'BTC', data: {} }, { checkpoint_seq: 7, block_index: 500 });
 
-    expect(doQuery.firstCall.args[1]).to.include('supersedes_from <= ?');
-    expect(doQuery.firstCall.args[1]).to.include('AND chain = ? AND network = ?');
-    expect(doQuery.firstCall.args[2]).to.deep.equal([7, 7, 500, 'BTC', 'regtest']);
+    expect(doQuery.firstCall.args[1].replace(/\s+/g, ' ').trim()).to.equal(
+        'SELECT checkpoint_seq, block_index, chain, network, supersedes_from, rules_digest ' +
+        'FROM `HubMirror`.state_checkpoints ' +
+        'WHERE 1 = 1 AND chain = ? AND network = ? ' +
+        'AND (checkpoint_seq = ? OR ' +
+        '(checkpoint_seq > ? AND supersedes_from IS NOT NULL AND supersedes_from <= ?)) ' +
+        'ORDER BY checkpoint_seq ASC');
+    expect(doQuery.firstCall.args[2]).to.deep.equal(['BTC', 'regtest', 7, 7, 500]);
     expect(rows[0]).to.include({
         checkpoint_seq: 8, block_index: 600,
         supersedes_from: 500, rules_digest: DIGEST

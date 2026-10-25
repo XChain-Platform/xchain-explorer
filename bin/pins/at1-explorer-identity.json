@@ -5951,6 +5951,15 @@
         "theme parity baselines: the classic record and the validator self-test fits every classic render key count to the current anchor and property census",
         "theme parity baselines: the classic record and the validator self-test passes the capture-baseline self-test"
       ],
+      "519bea532fb2d794": [
+        "@regression explorer checkpoint supersede suffix bytes detects non-null supersedes_from or rules_digest fields",
+        "@regression explorer checkpoint supersede suffix bytes leaves canonicalCheckpointString free of SUPERSEDE text for a plain checkpoint",
+        "@regression explorer checkpoint supersede suffix bytes returns an empty suffix when both supersession fields are absent or null",
+        "@regression explorer checkpoint supersede suffix bytes serializes string supersedes_from and uppercase rules_digest to exact bytes",
+        "@regression explorer checkpoint supersede suffix bytes throws when only one supersession field is present",
+        "@regression explorer checkpoint supersede suffix bytes throws when rules_digest is not 64 hexadecimal characters",
+        "@regression explorer checkpoint supersede suffix bytes throws when supersedes_from is not a non-negative safe integer"
+      ],
       "5284c2c92b0f568a": [
         "db.getActionsSince destinations (M1.4) QUARANTINES only the missing family, so the next poll is back to one query",
         "db.getActionsSince destinations (M1.4) a MISSING table costs only its own family: the others still resolve",
@@ -12216,8 +12225,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 462,
-        "titleCount": 7819,
+        "fileCount": 463,
+        "titleCount": 7826,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12547,6 +12556,7 @@
           "test/unit/explorer/routes/protocol_lifecycle_routes.test.js": "4bce1f0ae0adc733",
           "test/unit/explorer/shared_lists/shared_lists_names.test.js": "c23f1c94403319c0",
           "test/unit/explorer/shared_lists/shared_lists_route.test.js": "8c99885039c10bc3",
+          "test/unit/explorer/supersede_suffix_bytes.test.js": "519bea532fb2d794",
           "test/unit/federation/federation_coin_routing.test.js": "ede31e64f456f593",
           "test/unit/federation/federation_indexer_parity.test.js": "d81d7dd7a525a360",
           "test/unit/federation/federation_public_reads.test.js": "fb661a3bc9b784fa",

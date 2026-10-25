@@ -11861,6 +11861,10 @@
         "explorer bridge panel routes, HEAD and failures fails unavailable sources as JSON without falling through to HTML",
         "explorer bridge panel routes, HEAD and failures rejects suffix aliases without calling the hub"
       ],
+      "f37fb79cecf6bbff": [
+        "checkpoint verify rules digest field exposes rules_digest where the SDK supersessionFields reader consumes it",
+        "checkpoint verify rules digest field exposes the superseding checkpoint rules_digest at the response top level"
+      ],
       "f39210a98ed00fc2": [
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path carries the BET_EXPIRE, ROLLCALL, XBRIDGE and COINPAY_EXPIRE key fields identically",
         "getActionSummaryData: batched fetch is byte-equal to the old per-row path fetches each distinct action_index exactly once",
@@ -12245,8 +12249,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 465,
-        "titleCount": 7840,
+        "fileCount": 466,
+        "titleCount": 7842,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12530,6 +12534,7 @@
           "test/unit/db/readers/search/search_token_panel.test.js": "7d41d7cd293ca09b",
           "test/unit/db/readers/status_barrier_hold/health_tip_replay_window.test.js": "2163aadc0055e628",
           "test/unit/db/readers/status_barrier_hold/status_barrier_hold.test.js": "13ef9434f1e196bb",
+          "test/unit/db/readers/status_barrier_hold/verify_rules_digest_field.test.js": "f37fb79cecf6bbff",
           "test/unit/db/schema_probe/schema_probe.test.js": "180445d38720eaff",
           "test/unit/db/utc_decode_non_utc_host.test.js": "f4c74d2eccc02b65",
           "test/unit/explorer/attest/explorer_anchor_reward_attestations.test.js": "68e21b0f2e984921",

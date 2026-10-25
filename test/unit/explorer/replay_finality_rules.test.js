@@ -29,7 +29,7 @@ function replay(state, target = 10){
     return { state, target, replay_to: 20 };
 }
 
-describe('replay finality rules @regression', function(){
+function registerReplayStateTests(){
     it('publishes the frozen replay-state vocabulary', function(){
         assert.deepStrictEqual(REPLAY_STATES, ['pending', 'replaying', 'replayed']);
         assert.strictEqual(Object.isFrozen(REPLAY_STATES), true);
@@ -43,7 +43,9 @@ describe('replay finality rules @regression', function(){
         assert.strictEqual(replayIsOpen(undefined), false);
         assert.strictEqual(replayIsOpen({ state: 'done' }), false);
     });
+}
 
+function registerFinalityTests(){
     it('withholds finality at and above an open replay target', function(){
         for(const state of ['pending', 'replaying']){
             assert.strictEqual(heightIsFinal(9, replay(state)), true);
@@ -67,7 +69,9 @@ describe('replay finality rules @regression', function(){
         assert.strictEqual(heightIsFinal('9', body), true);
         assert.strictEqual(heightIsFinal('10', body), false);
     });
+}
 
+function registerParsingTests(){
     it('returns null when the rules body or replay field is absent', function(){
         assert.strictEqual(parseReplay(undefined), null);
         assert.strictEqual(parseReplay({}), null);
@@ -102,4 +106,10 @@ describe('replay finality rules @regression', function(){
             );
         }
     });
+}
+
+describe('replay finality rules @regression', function(){
+    registerReplayStateTests();
+    registerFinalityTests();
+    registerParsingTests();
 });

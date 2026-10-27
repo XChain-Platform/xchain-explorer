@@ -71,13 +71,27 @@ function addressKeys(params, keys) {
     }
 }
 
+// A tick is a non-empty string. An array or object would be bound into the
+// snapshot SQL (the driver expands it into the statement) and keyed by its
+// string form, a subscription no frame can ever route to.
+function tickError(channel, tick) {
+    if (typeof tick === 'string' && tick.length > 0) return null;
+    return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel ticks must be non-empty strings` } };
+}
+
 function tokenKeys(params, keys) {
     // "ticks" as a batch param vs "tick" as singular, but "ticks" is also used as a filter
     // Use context: if subscribing to "token" channel, ticks means entity list
     if (params.tick) {
+        const refused = tickError('token', params.tick);
+        if (refused) return refused;
         keys.push({ tick: params.tick });
     } else if (params.ticks && Array.isArray(params.ticks)) {
-        for (const t of params.ticks) keys.push({ tick: t });
+        for (const t of params.ticks) {
+            const refused = tickError('token', t);
+            if (refused) return refused;
+            keys.push({ tick: t });
+        }
     } else {
         return { error: { code: 'INVALID_CHANNEL', message: 'token channel requires tick or ticks param' } };
     }
@@ -87,10 +101,14 @@ function marketKeys(params, keys) {
     if (params.pairs && Array.isArray(params.pairs)) {
         for (const pair of params.pairs) {
             if (Array.isArray(pair) && pair.length === 2) {
+                const refused = tickError('market', pair[0]) || tickError('market', pair[1]);
+                if (refused) return refused;
                 keys.push({ tick1: pair[0], tick2: pair[1] });
             }
         }
     } else if (params.tick1 && params.tick2) {
+        const refused = tickError('market', params.tick1) || tickError('market', params.tick2);
+        if (refused) return refused;
         keys.push({ tick1: params.tick1, tick2: params.tick2 });
     } else {
         return { error: { code: 'INVALID_CHANNEL', message: 'market channel requires tick1+tick2 or pairs param' } };

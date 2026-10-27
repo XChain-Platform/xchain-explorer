@@ -192,3 +192,42 @@ describe('call-id and invalid entity-key resolution', function () {
     });
 
 });
+
+describe('token and market tick type validation', function () {
+
+    const badTicks = [['A', 'B'], { a: 'B' }, 5, true, [['A']]];
+
+    it('refuses a non-string token tick', function () {
+        for (const tick of badTicks) {
+            expectInvalid(channelKeys.resolveEntityKeys('token', { tick }));
+        }
+    });
+
+    it('refuses non-string or empty members of token ticks', function () {
+        for (const bad of [['A'], { a: 'B' }, 5, '', null]) {
+            expectInvalid(channelKeys.resolveEntityKeys('token', { ticks: ['A', bad] }));
+        }
+    });
+
+    it('refuses non-string market tick1 or tick2', function () {
+        for (const bad of badTicks) {
+            expectInvalid(channelKeys.resolveEntityKeys('market', { tick1: bad, tick2: 'XCHAIN' }));
+            expectInvalid(channelKeys.resolveEntityKeys('market', { tick1: 'XCHAIN', tick2: bad }));
+        }
+    });
+
+    it('refuses non-string members of market pairs', function () {
+        for (const bad of [['A'], { a: 'B' }, 5, '']) {
+            expectInvalid(channelKeys.resolveEntityKeys('market', { pairs: [['A', 'B'], [bad, 'B']] }));
+            expectInvalid(channelKeys.resolveEntityKeys('market', { pairs: [['A', bad]] }));
+        }
+    });
+
+    it('still resolves string ticks', function () {
+        expect(channelKeys.resolveEntityKeys('token', { tick: 'A' })).to.deep.equal({ keys: [{ tick: 'A' }] });
+        expect(channelKeys.resolveEntityKeys('token', { ticks: ['A', 'B'] }))
+            .to.deep.equal({ keys: [{ tick: 'A' }, { tick: 'B' }] });
+        expect(channelKeys.resolveEntityKeys('market', { tick1: 'A', tick2: 'B' }))
+            .to.deep.equal({ keys: [{ tick1: 'A', tick2: 'B' }] });
+    });
+});

@@ -212,7 +212,9 @@ class WebSocketSubscriptions {
         }
 
         if (!msg || typeof msg.action !== 'string') {
-            this.sendError(client, 'INVALID_ACTION', 'Missing action field');
+            // Echo the request id when the frame is an object that carries one.
+            const id = (msg && typeof msg === 'object' && !Array.isArray(msg)) ? msg.id : undefined;
+            this.sendError(client, 'INVALID_ACTION', 'Missing action field', id);
             return;
         }
 

@@ -21,7 +21,7 @@
 
 const sinon           = require('sinon');
 const { expect }      = require('chai');
-const WebSocketServer = require('../../../src/ws/websocket_server.js');
+const WebSocketServer = require('../../../../src/ws/websocket_server.js');
 
 function setup() {
     const s = new WebSocketServer({ explorer: { db: {} }, broadcaster: null });

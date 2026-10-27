@@ -304,3 +304,22 @@ describe('ChannelManager', function () {
     });
 });
 
+
+describe('ChannelManager subscribe: a key repeated inside one batch', function () {
+    beforeEach(resetChannelManager);
+
+    it('yields one subscribed element per distinct key, in first-seen order', function () {
+        const client = createClient(1);
+        const result = cm.subscribe(client, ['address'], { addresses: ['A', 'A', 'A', 'B', 'A'] });
+        expect(result.success).to.be.true;
+        expect(result.subscribed.map((s) => s.address)).to.deep.equal(['A', 'B']);
+        expect(client.subscriptions.size).to.equal(2);
+    });
+
+    it('collapses a repeated global channel to one entry', function () {
+        const client = createClient(1);
+        const result = cm.subscribe(client, ['blocks', 'blocks']);
+        expect(result.subscribed).to.have.lengthOf(1);
+        expect(client.subscriptions.size).to.equal(1);
+    });
+});

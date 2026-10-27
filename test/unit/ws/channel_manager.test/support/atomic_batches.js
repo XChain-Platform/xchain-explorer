@@ -82,7 +82,7 @@ describe('ChannelManager', function () {
             cm.subscribe(client, ['address'], { address: '1abc' });
             const result = cm.subscribe(client, ['address'], { addresses: ['1abc', '1def', '1def'] });
             expect(result.success).to.be.true;
-            expect(result.subscribed.map(s => s.address)).to.deep.equal(['1abc', '1def', '1def']);
+            expect(result.subscribed.map(s => s.address)).to.deep.equal(['1abc', '1def']);
             expect(client.subscriptions.size).to.equal(2);
         });
     });

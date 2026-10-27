@@ -119,20 +119,29 @@ function buildFilter(channels, params) {
 }
 
 // Resolves every entry a request names, in request order, without saving any of
-// them: { error } for the first channel whose entity keys do not resolve, else
+// them. An entry naming a channel key an earlier entry already named is dropped, so
+// a batch that repeats one entity yields one entry (and one SUBSCRIBED frame and
+// one snapshot fan-out) per distinct key, first-seen order: { error } for the first channel whose entity keys do not resolve, else
 // { entries } of { channel, entityKey } (entityKey null for a global channel).
-function resolveEntries(manager, channels, params) {
+function resolveEntries(manager, client, channels, params) {
     const entries = [];
+    const seen = new Set();
+    const add = (channel, entityKey) => {
+        const channelKey = manager.buildChannelKey(client.coin, channel, entityKey);
+        if (seen.has(channelKey)) return;
+        seen.add(channelKey);
+        entries.push({ channel, entityKey });
+    };
     for (const channel of channels) {
         // Global channel (no entity key)
         if (GLOBAL_CHANNELS.has(channel)) {
-            entries.push({ channel, entityKey: null });
+            add(channel, null);
             continue;
         }
         // Entity channel: resolve entity key(s) from params
         const entityKeys = manager.resolveEntityKeys(channel, params);
         if (entityKeys.error) return { error: entityKeys.error };
-        for (const entityKey of entityKeys.keys) entries.push({ channel, entityKey });
+        for (const entityKey of entityKeys.keys) add(channel, entityKey);
     }
     return { entries };
 }
@@ -166,7 +175,7 @@ class ChannelSubscriptions {
         const filter = built.filter;
 
         // Resolve entity keys for batch and single subscriptions
-        const resolved = resolveEntries(this, channels, params);
+        const resolved = resolveEntries(this, client, channels, params);
         if (resolved.error) return { success: false, error: resolved.error };
 
         // Check the limit for the whole batch before saving any of it

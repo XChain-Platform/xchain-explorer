@@ -231,3 +231,33 @@ describe('token and market tick type validation', function () {
             .to.deep.equal({ keys: [{ tick1: 'A', tick2: 'B' }] });
     });
 });
+
+describe('falsy ticks never collapse onto a bare entity key', function () {
+
+    it('refuses falsy ticks so no request collapses onto a bare entity key', function () {
+        for (const bad of ['', null, 0, undefined, false]) {
+            expectInvalid(channelKeys.resolveEntityKeys('token', { ticks: [bad] }));
+            expectInvalid(channelKeys.resolveEntityKeys('market', { pairs: [[bad, 'X']] }));
+            expectInvalid(channelKeys.resolveEntityKeys('market', { pairs: [['X', bad]] }));
+        }
+        expectInvalid(channelKeys.resolveEntityKeys('market', { tick1: '', tick2: 'X' }));
+        expectInvalid(channelKeys.resolveEntityKeys('market', { tick1: 'X', tick2: '' }));
+        expectInvalid(channelKeys.resolveEntityKeys('token', { tick: '' }));
+    });
+
+    it('never builds a bare token or market key from a resolved entity key', function () {
+        const resolved = [
+            channelKeys.resolveEntityKeys('token', { ticks: ['A', 'B'] }),
+            channelKeys.resolveEntityKeys('market', { pairs: [['A', 'B'], ['C', 'D']] })
+        ];
+        const seen = new Set();
+        for (const [i, channel] of [[0, 'token'], [1, 'market']]) {
+            for (const k of resolved[i].keys) {
+                const key = channelKeys.buildChannelKey('RLTC', channel, k);
+                expect(key).to.not.equal('RLTC:' + channel);
+                seen.add(key);
+            }
+        }
+        expect(seen.size).to.equal(4);
+    });
+});

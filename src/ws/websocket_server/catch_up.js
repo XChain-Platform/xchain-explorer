@@ -64,7 +64,11 @@ function catchUpCursor(server, client, sinceActionIndex, requestId) {
     // unguarded value silently bypasses CATCH_UP_TOO_OLD and reaches the SQL bind
     // param as NaN/Infinity. Anchor with the same non-negative-integer guard the
     // REST checkpoint-range handler uses (XChainExplorer.js) and reply INVALID_PARAMS.
-    if (!/^[0-9]+$/.test(String(sinceActionIndex))) {
+    // String() throws on an object with no usable toString; the async caller is not awaited,
+    // so that would be an unhandled rejection with no reply. Unstringifiable means malformed.
+    let text = null;
+    try { text = String(sinceActionIndex); } catch (_) { /* refused below */ }
+    if (text === null || !/^[0-9]+$/.test(text)) {
         server.sendError(client, 'INVALID_PARAMS', 'since_action_index must be a non-negative integer', requestId);
         return null;
     }

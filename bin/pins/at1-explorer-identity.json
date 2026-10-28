@@ -4546,6 +4546,18 @@
         "PRICE detail rounds parse failure renders populated rounds unchanged when the parse flag is absent",
         "PRICE detail rounds parse failure shows an error marker and clears a prior rounds summary"
       ],
+      "2338933dbd3b78ef": [
+        "channel manager hostile toString input non-callable toString answers an unsubscribe with a refusal, not a throw",
+        "channel manager hostile toString input non-callable toString refuses a channel name",
+        "channel manager hostile toString input non-callable toString refuses a dispenser action_index",
+        "channel manager hostile toString input non-callable toString refuses an actions type",
+        "channel manager hostile toString input non-callable toString refuses an xcall call_id",
+        "channel manager hostile toString input throwing toString answers an unsubscribe with a refusal, not a throw",
+        "channel manager hostile toString input throwing toString refuses a channel name",
+        "channel manager hostile toString input throwing toString refuses a dispenser action_index",
+        "channel manager hostile toString input throwing toString refuses an actions type",
+        "channel manager hostile toString input throwing toString refuses an xcall call_id"
+      ],
       "23809e480c3c6ebd": [
         "sendResponse applies freshness headers and metadata from the request state",
         "sendResponse writes the JSON response and records its cost once"
@@ -7845,6 +7857,13 @@
         "attestations list row [v0] links the row to its ACTION index, never to the fee-payer address",
         "attestations list row [v1] links the row to its ACTION index, never to the fee-payer address"
       ],
+      "85201d34a6aed887": [
+        "handshake block tip stops at the live NEW_BLOCK boundary WELCOME names the last block sent live, not a committed but unpolled tip",
+        "handshake block tip stops at the live NEW_BLOCK boundary a connection before the first poll seeds the coin and the next block still goes out live",
+        "handshake block tip stops at the live NEW_BLOCK boundary a reorg rewind lowers the reported tip with the block cursor",
+        "handshake block tip stops at the live NEW_BLOCK boundary the blocks SNAPSHOT names the same tip, and the next NEW_BLOCK is strictly above it",
+        "handshake block tip stops at the live NEW_BLOCK boundary with no detector, WELCOME and the blocks SNAPSHOT fall back to the database tip"
+      ],
       "852e82ad8bc84098": [
         "client: indexed governance labels renders BET and VOTE list rows with labels",
         "client: indexed governance labels renders BET wager and resolve indexes with parent outcome labels",
@@ -9569,6 +9588,17 @@
         "src/content/json static assets ships at least one JSON asset (guards against a moved directory)",
         "src/content/json static assets xchain-platform-api.json parses as strict JSON",
         "src/content/json static assets xchain-token-information-standard-v1.0.0-example.json parses as strict JSON"
+      ],
+      "b38ff8fd98115d13": [
+        "catch-up cursor: hostile since_action_index a valid cursor \"4\" still completes",
+        "catch-up cursor: hostile since_action_index a valid cursor \"9007199254740995\" still completes",
+        "catch-up cursor: hostile since_action_index a valid cursor 4 still completes",
+        "catch-up cursor: hostile since_action_index handleCatchUp resolves with one INVALID_PARAMS for empty array",
+        "catch-up cursor: hostile since_action_index handleCatchUp resolves with one INVALID_PARAMS for non-callable toString",
+        "catch-up cursor: hostile since_action_index handleCatchUp resolves with one INVALID_PARAMS for null-prototype object",
+        "catch-up cursor: hostile since_action_index handleCatchUp resolves with one INVALID_PARAMS for true",
+        "catch-up cursor: hostile since_action_index handleCatchUp resolves with one INVALID_PARAMS for valueOf object",
+        "catch-up cursor: hostile since_action_index handleSubscribe with {toString:1} replies INVALID_PARAMS and fires no unhandledRejection"
       ],
       "b3e2bff72762fc63": [
         "single-record api endpoints keeps the two endpoint maps in agreement on every name both handle",
@@ -12273,8 +12303,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 467,
-        "titleCount": 7864,
+        "fileCount": 470,
+        "titleCount": 7888,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12727,6 +12757,7 @@
           "test/unit/ws/channel_manager.test.js": "be4ff7ef515565cf",
           "test/unit/ws/channel_manager/channels.test.js": "60c0064eeeceb96e",
           "test/unit/ws/channel_manager/channels_manifest_guard.test.js": "9db60fe63190a377",
+          "test/unit/ws/channel_manager/hostile_tostring_input.test.js": "2338933dbd3b78ef",
           "test/unit/ws/feed_correctness/ws02_midpoll_rollback.test.js": "85f354869351a2c3",
           "test/unit/ws/feed_correctness/ws02_since_query_unfiltered.test.js": "36e5b55ced507ceb",
           "test/unit/ws/feed_correctness/ws03_ws05_browser_client.test.js": "efed66d0d914c043",
@@ -12736,9 +12767,11 @@
           "test/unit/ws/feed_correctness/ws07_ws08_replay_frames.test.js": "dd2b29dee44f9b10",
           "test/unit/ws/schema_version_client.test.js": "9268dad3a4993a0e",
           "test/unit/ws/serialize.test.js": "ddb2427d6ae835b0",
+          "test/unit/ws/websocket_requests/catch_up_cursor_hostile.test.js": "b38ff8fd98115d13",
           "test/unit/ws/websocket_requests/missing_action_id_echo.test.js": "6d27a0ab01ec255b",
           "test/unit/ws/websocket_server.test.js": "c4e8d5c84e5ec8df",
           "test/unit/ws/websocket_welcome/coin_resolution.test.js": "5778b0be08bc8353",
+          "test/unit/ws/websocket_welcome/ws_block_tip_live_boundary.test.js": "85201d34a6aed887",
           "test/unit/ws/ws_catch_up_live_boundary.test.js": "4003619ee66f822c",
           "test/unit/ws/ws_catch_up_routing.test.js": "a7e51b04a478ac2b",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "01f66d0301b77ff5",

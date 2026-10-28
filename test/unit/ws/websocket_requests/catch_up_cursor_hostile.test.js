@@ -22,8 +22,8 @@
 const { EventEmitter } = require('events');
 const sinon           = require('sinon');
 const { expect }      = require('chai');
-const WebSocketServer = require('../../../src/ws/websocket_server.js');
-const Broadcaster     = require('../../../src/ws/broadcaster.js');
+const WebSocketServer = require('../../../../src/ws/websocket_server.js');
+const Broadcaster     = require('../../../../src/ws/broadcaster.js');
 
 function setup(db) {
     const s = new WebSocketServer({ explorer: { db }, broadcaster: null });

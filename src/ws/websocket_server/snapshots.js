@@ -40,10 +40,14 @@ const log = getLogger();
 // fan-out yields to the event loop exactly as often as the inline awaits did.
 // `shape` builds the frame's data from the sub and the read results. A channel
 // with no entry (actions, mempool, attestation) sends no SNAPSHOT. A Map, not an
-// object literal, so no inherited name can ever resolve to an entry.
+// object literal, so no inherited name can ever resolve to an entry. Each read
+// also gets the server, for a read that is the live feed's position, not a table's.
 const SNAPSHOTS = new Map([
+    // The blocks tip is the last block sent live (WebSocketServer.liveBlockTip, the
+    // same read WELCOME makes), not the DB tip, which runs up to one poll ahead: a
+    // client seeding its block cursor here must not then get that block as NEW_BLOCK.
     ['blocks', {
-        reads: [(db, config) => db.getMaxBlockIndex(config)],
+        reads: [(db, config, sub, server) => server.liveBlockTip(config.coin)],
         shape: (sub, [maxBlock]) => {
             // One tip key across both frame families on this channel. The
             // snapshot named the tip latest_block_index (matching WELCOME)
@@ -182,7 +186,7 @@ class WebSocketSnapshots {
                 const snapshot = SNAPSHOTS.get(sub.channel);
                 if (snapshot) {
                     const values = [];
-                    for (const read of snapshot.reads) values.push(await read(db, config, sub));
+                    for (const read of snapshot.reads) values.push(await read(db, config, sub, this));
                     snapshotData = snapshot.shape(sub, values);
                 }
 

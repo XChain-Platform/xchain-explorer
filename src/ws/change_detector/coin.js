@@ -99,6 +99,9 @@ class CoinPass {
         return (prev && prev.initialized && prev.liveActionMark !== undefined) ? prev.liveActionMark : null;
     }
 
+    // The last block_index sent live (or seeded past), or null while unseeded; every later NEW_BLOCK is above it.
+    liveBlockMark(coin) { return this.state[coin] && this.state[coin].initialized ? this.state[coin].blockIndex : null; }
+
     // The mark this coin was seeded at, or null while it is unseeded: the ceiling of a key
     // that went live before the first poll, every row above which the feed sends live.
     seedActionMark(coin) {
@@ -329,12 +332,10 @@ async function emitNewBlocks(detector, coin, config, prev, currentBlockIndex) {
         }
         rememberBlocks(prev, newBlocks);
     }
-    // Advance by what was actually fetched, NOT to the observed tip:
-    // getBlocksSince returns the LOWEST `fetchLimit` rows (block_index ASC),
-    // so a burst larger than fetchLimit must drain over successive polls.
-    // Jumping straight to currentBlockIndex would permanently skip every
-    // block past the first fetchLimit seen in one interval.
-    // A fetch short of the tip holds the cursor at its last row (see nextCursor).
+    // Advance by what was actually fetched, NOT to the observed tip: getBlocksSince returns
+    // the LOWEST `fetchLimit` rows, so a larger burst drains over successive polls, and a
+    // fetch short of the tip holds the cursor at its last row (see nextCursor). No await
+    // since the emits, so the cursor (liveBlockMark) never sits below a block already sent.
     prev.blockIndex = detector.nextCursor(newBlocks, 'block_index', currentBlockIndex, from);
     noteShortFetch(detector, prev, newBlocks, 'block_index', from, currentBlockIndex);
 }

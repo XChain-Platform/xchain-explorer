@@ -43,6 +43,23 @@ const CANONICAL_INDEX = /^(0|[1-9][0-9]*)$/;
 // subscription sit alongside a lower-case event and receive nothing.
 const CANONICAL_CALL_ID = /^[0-9a-f]{64}$/;
 
+// The text of a client-supplied value for a key check or a refusal message. A JSON
+// object such as {"toString":1} makes String() and template literals throw, so a
+// value that will not stringify falls back to its JSON form (which can never match
+// a canonical key) rather than throwing out of the message handler.
+function printable(value) {
+    try {
+        return String(value);
+    } catch (_) {
+        try {
+            const json = JSON.stringify(value);
+            return json === undefined ? typeof value : json;
+        } catch (__) {
+            return typeof value;
+        }
+    }
+}
+
 // Each resolver below pushes the entity keys its channel's params name onto
 // `keys` and returns nothing, or returns the { error } result that refuses the
 // request. A resolver that refuses part way through a batch has already pushed
@@ -134,7 +151,7 @@ function actionIndexKeys(channel, params, keys) {
     if (raw === null)
         return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel requires action_index or action_indexes param` } };
     for (const idx of raw) {
-        const str = String(idx);
+        const str = printable(idx);
         if (!CANONICAL_INDEX.test(str))
             return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel action_index must be a canonical decimal integer (got: ${str})` } };
         keys.push({ action_index: str });
@@ -152,9 +169,10 @@ function callIdKeys(params, keys) {
     if (raw === null)
         return { error: { code: 'INVALID_CHANNEL', message: 'xcall channel requires call_id or call_ids param' } };
     for (const id of raw) {
-        const str = String(id).toLowerCase();
+        const shown = printable(id);
+        const str = shown.toLowerCase();
         if (!CANONICAL_CALL_ID.test(str))
-            return { error: { code: 'INVALID_CHANNEL', message: `xcall channel call_id must be a 64-character hex string (got: ${String(id)})` } };
+            return { error: { code: 'INVALID_CHANNEL', message: `xcall channel call_id must be a 64-character hex string (got: ${shown})` } };
         keys.push({ call_id: str });
     }
 }

@@ -32,6 +32,18 @@
 
 const { GLOBAL_CHANNELS, ALL_CHANNELS, VALID_TYPES } = require('./channels.js');
 
+// A client-supplied name for a refusal message. An object whose toString is not a
+// function would throw out of a template literal, so non-strings print as JSON.
+function nameForMessage(value) {
+    if (typeof value === 'string') return value;
+    try {
+        const json = JSON.stringify(value);
+        return json === undefined ? typeof value : json;
+    } catch (_) {
+        return typeof value;
+    }
+}
+
 // The first refusal a channels list earns, or null when every name is valid.
 function channelsError(channels) {
     // Validate channels
@@ -40,7 +52,7 @@ function channelsError(channels) {
     }
     for (const ch of channels) {
         if (!ALL_CHANNELS.has(ch)) {
-            return { code: 'INVALID_CHANNEL', message: `Unknown channel: ${ch}` };
+            return { code: 'INVALID_CHANNEL', message: `Unknown channel: ${nameForMessage(ch)}` };
         }
     }
     return null;
@@ -54,7 +66,7 @@ function buildTypesFilter(params) {
     }
     for (const t of params.types) {
         if (!VALID_TYPES.has(t)) {
-            return { error: { code: 'INVALID_TYPE', message: `Unknown action type: ${t}` } };
+            return { error: { code: 'INVALID_TYPE', message: `Unknown action type: ${nameForMessage(t)}` } };
         }
     }
     return { filter: new Set(params.types) };
@@ -206,10 +218,7 @@ class ChannelSubscriptions {
 
         for (const channel of channels) {
             if (!ALL_CHANNELS.has(channel)) {
-                // JSON for a non-string name: an object whose toString is not a function would
-                // throw out of a template literal.
-                const name = (typeof channel === 'string') ? channel : JSON.stringify(channel);
-                refused.push({ code: 'INVALID_CHANNEL', message: `Unknown channel: ${name}` });
+                refused.push({ code: 'INVALID_CHANNEL', message: `Unknown channel: ${nameForMessage(channel)}` });
             } else if (GLOBAL_CHANNELS.has(channel)) {
                 const was_subscribed = this.removeSubscription(client, channel, null);
                 unsubscribed.push({ channel, was_subscribed });

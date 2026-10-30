@@ -27,10 +27,12 @@
 
 'use strict';
 
+const sinon = require('sinon');
 const { expect } = require('chai');
 const WebSocketServer = require('../../../src/ws/websocket_server.js');
 const ChangeDetector  = require('../../../src/ws/change_detector.js');
 const Broadcaster     = require('../../../src/ws/broadcaster.js');
+const { makeDb }      = require('../db/core/db_data_methods.test/support/helpers.js');
 
 // Collect every frame the server writes to this client.
 function makeClient(coin) {
@@ -76,10 +78,39 @@ async function replayWithFields(stale) {
     return typesOf(frames, 'NEW_ACTION');
 }
 
+async function frozenWelcomeTest() {
+    const clock = sinon.useFakeTimers();
+    try {
+        const db = makeDb();
+        const frozen = {
+            query:   sinon.stub().returns(new Promise(() => {})),
+            release: sinon.spy(),
+            destroy: sinon.spy()
+        };
+        db.pools = {
+            BTC: {
+                pool: { getConnection: sinon.stub().resolves(frozen) },
+                config: { queryTimeout: 25 }
+            }
+        };
+        db.getReplicaHaltStatus = sinon.stub().resolves(false);
+        const s = new WebSocketServer({ explorer: { db, version: '1.0.0' }, broadcaster: null });
+        const { client, frames } = makeClient('BTC');
+        let settled = false;
+        s.sendWelcome(client).then(() => { settled = true; });
+        await clock.tickAsync(60);
+        expect(settled).to.equal(true);
+        const welcome = typesOf(frames, 'WELCOME')[0];
+        expect(welcome.stale).to.equal(true);
+        expect(welcome.data.latest_block_index).to.equal('0');
+        expect(welcome.data.latest_action_index).to.equal('0');
+    } finally {
+        clock.restore();
+    }
+}
+
 describe('WS frozen-replica freshness gate', function () {
-
     describe('WELCOME', function () {
-
         it('marks the handshake stale rather than withholding it', async function () {
             const s = makeServer(true);
             const { client, frames } = makeClient('BTC');
@@ -113,10 +144,11 @@ describe('WS frozen-replica freshness gate', function () {
             await s.sendWelcome(client);
             expect(typesOf(frames, 'WELCOME')[0]).to.not.have.property('stale');
         });
+
+        it('sends a fail-closed stale handshake when the database stops answering', frozenWelcomeTest);
     });
 
     describe('frame shape', function () {
-
         it('puts the stale marker at the top level of WELCOME, SNAPSHOT, replayed and COMPLETE frames alike', async function () {
             const s = makeServer(true, {
                 getActionsSince: async () => [{ action_index: 7n, action: 'SEND', block_index: 5 }]

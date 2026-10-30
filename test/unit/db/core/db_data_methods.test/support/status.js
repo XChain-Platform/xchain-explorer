@@ -118,4 +118,29 @@ describe('Database#getStatus', () => {
         expect(Object.keys(data.last_block)).to.have.lengthOf(0);
         expect(Object.keys(data.last_block_time)).to.have.lengthOf(0);
     });
+
+    it('returns a fail-closed stale status when the database stops answering', async () => {
+        const clock = sinon.useFakeTimers();
+        const frozen = {
+            query:   sinon.stub().returns(new Promise(() => {})),
+            release: sinon.spy(),
+            destroy: sinon.spy()
+        };
+        db.pools = {
+            RBTC: {
+                pool: { getConnection: sinon.stub().resolves(frozen) },
+                config: { queryTimeout: 25 }
+            }
+        };
+        db.getReplicaHaltStatus = sinon.stub().resolves(false);
+
+        let result;
+        db.getStatus(cfg({ coin: 'RBTC' })).then((rows) => { result = rows; });
+        await clock.tickAsync(30);
+
+        expect(result).to.be.an('array');
+        expect(result[0].last_block.RBTC).to.equal(null);
+        expect(result[0].last_block_time.RBTC).to.equal(null);
+        expect(result[0].stale.RBTC).to.equal(true);
+    });
 });

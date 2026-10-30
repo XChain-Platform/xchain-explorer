@@ -138,3 +138,86 @@ describe('ROLLCALL detail across the gates migration @regression', function () {
         assert.strictEqual(named(state, /m\.gates/).length, 1, 'exactly one statement pays for the wrong memo');
     });
 });
+
+function missingTableError(table) {
+    const driver = new Error("Table 'xchain." + table + "' doesn't exist");
+    driver.errno = 1146;
+    driver.code  = 'ER_NO_SUCH_TABLE';
+    return new DbQueryError('SQL query failed: ' + driver.message, driver);
+}
+
+const LEDGER = 'ab'.repeat(32);
+const PUBLISHER = 'cd'.repeat(32);
+
+// Emulate a DOGE replica with or without rollcall_actions: `actionRow` is that table's
+// row for the action, `signerRows` the first-seen rows rollcall_signers holds for it.
+function makeRollcallDb(state) {
+    const db = makeDb('ROLLCALL', state);
+    db.doQuery = async (cfg, sql) => {
+        const text = String(sql);
+        state.queries.push(text);
+        if (/information_schema\.TABLES/i.test(text)) return state.tables.map((TABLE_NAME) => ({ TABLE_NAME }));
+        if (/information_schema\.COLUMNS/i.test(text)) return ['gates'].map((COLUMN_NAME) => ({ COLUMN_NAME }));
+        if (/FROM\s+rollcall_actions/.test(text)) {
+            if (!state.tables.includes('rollcall_actions')) throw missingTableError('rollcall_actions');
+            return state.actionRow ? [Object.assign({}, state.actionRow)] : [];
+        }
+        const rows = state.signerRows || [];
+        if (/SELECT\s+m\.gates/.test(text)) return rows.length ? [{ gates: 'vm.CALL' }] : [];
+        if (/FROM\s+rollcall_signers/.test(text) && text.includes('LIMIT 1'))
+            return rows.length ? [{ action: 'ROLLCALL', action_format: 1, action_index: 9, epoch_height: 300,
+                ledger_hash: LEDGER, publisher: PUBLISHER }] : [];
+        if (/FROM\s+rollcall_signers/.test(text)) return rows.slice();
+        return [];
+    };
+    return db;
+}
+
+const SIGNER_ROWS = [{ pubkey: '01'.repeat(32), sig: 'aa'.repeat(64), block_index: 50 },
+    { pubkey: '02'.repeat(32), sig: 'bb'.repeat(64), block_index: 50 }];
+
+describe('ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression', function () {
+    it('renders an action that carried only already-seen pubkeys from its rollcall_actions row', async function () {
+        const state = { queries: [], tables: ['rollcall_actions'], signerRows: [], actionRow: { action: 'ROLLCALL',
+            action_format: 1, action_index: 9, epoch_height: 300, ledger_hash: LEDGER, publisher: PUBLISHER,
+            gates: 'vm.CALL,vm.DEPLOY', carried_count: 3, first_seen_count: 0 } };
+        const data = await makeRollcallDb(state).getActionData(config, 9);
+        assert.strictEqual(data.epoch_height, 300);
+        assert.strictEqual(data.ledger_hash, LEDGER);
+        assert.strictEqual(data.publisher, PUBLISHER);
+        assert.deepStrictEqual(data.gates, ['vm.CALL', 'vm.DEPLOY']);
+        assert.deepStrictEqual(data.signers, []);
+        assert.strictEqual(data.carried_count, 3);
+        assert.strictEqual(data.first_seen_count, 0);
+        assert.strictEqual(named(state, /FROM\s+rollcall_signers[\s\S]*LIMIT 1/).length, 0, 'the row needed no legacy read');
+    });
+
+    it('falls back to rollcall_signers for an action indexed before rollcall_actions existed', async function () {
+        const state = { queries: [], tables: ['rollcall_actions'], signerRows: SIGNER_ROWS, actionRow: null };
+        const data = await makeRollcallDb(state).getActionData(config, 9);
+        assert.strictEqual(data.epoch_height, 300);
+        assert.strictEqual(data.publisher, PUBLISHER);
+        assert.deepStrictEqual(data.gates, ['vm.CALL']);
+        assert.strictEqual(data.signers.length, 2);
+        assert.strictEqual(data.carried_count, null, 'no row states how many the action carried');
+        assert.strictEqual(data.first_seen_count, 2);
+    });
+
+    it('a replica without the table never names it and reads rollcall_signers as before', async function () {
+        const state = { queries: [], tables: [], signerRows: SIGNER_ROWS };
+        const data = await makeRollcallDb(state).getActionData(config, 9);
+        assert.strictEqual(named(state, /rollcall_actions/).length, 0);
+        assert.strictEqual(data.epoch_height, 300);
+        assert.strictEqual(data.carried_count, null);
+        assert.strictEqual(data.first_seen_count, 2);
+    });
+
+    it('recovers from the missing-table error a stale positive memo earns', async function () {
+        const state = { queries: [], tables: [], signerRows: SIGNER_ROWS };
+        const db = makeRollcallDb(state);
+        db.schemaTableMemo = { [config.coin]: { rollcall_actions: { present: true, at: Date.now() } } };
+        const data = await db.getActionData(config, 9);
+        assert.strictEqual(data.epoch_height, 300);
+        assert.strictEqual(db.schemaTableMemo[config.coin].rollcall_actions.present, false);
+    });
+});

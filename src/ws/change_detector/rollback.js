@@ -23,7 +23,8 @@
  *
  * Plain functions over the detector and its per-coin state, not a mixin part:
  * coin.js calls them, and the detector's reorgCovering method delegates to
- * reorgCovering here.
+ * reorgCovering here. The catch-up gates read rollbackSeq and rollbackSince over
+ * the coin state directly.
  *
  ********************************************************************/
 
@@ -47,6 +48,7 @@ function announceRollback(detector, coin, prev, before, fork) {
     const forkBlock    = (fork !== null) ? fork : Number(prev.blockIndex) + 1;
     const firstInvalid = BigInt(prev.actionIndex) + 1n;
     const previousTip  = BigInt(before.actionIndex);
+    noteRollback(prev, forkBlock, firstInvalid);
     // Only a rollback that voided rows a client may hold matters to a catch-up.
     if (firstInvalid <= previousTip) {
         if (!prev.reorgLog) prev.reorgLog = [];
@@ -96,4 +98,34 @@ function reorgCovering(prev, cursor) {
     return null;
 }
 
-module.exports = { REORG_LOG_DEPTH, announceRollback, noteShortFetch, reorgCovering };
+// Number every announced rollback and keep the newest REORG_LOG_DEPTH of them, so a
+// replay that read rows before one landed can tell (rollbackSince).
+function noteRollback(prev, forkBlock, firstInvalid) {
+    prev.rollbackSeq = rollbackSeq(prev) + 1;
+    if (!prev.rollbacks) prev.rollbacks = [];
+    prev.rollbacks.push({ seq: prev.rollbackSeq, forkBlock, firstInvalid });
+    if (prev.rollbacks.length > REORG_LOG_DEPTH) prev.rollbacks.shift();
+}
+
+// The number of the coin's newest announced rollback, 0 before any.
+function rollbackSeq(prev) {
+    return (prev && prev.rollbackSeq) || 0;
+}
+
+// The rollback announced after number `seq` with the lowest first invalidated index at or
+// below `highWater`, or null. Once one announced after `seq` has been dropped from the kept
+// list, the lowest kept one answers whatever its index, since the dropped one may have
+// voided a row at or below `highWater`.
+function rollbackSince(prev, seq, highWater) {
+    if (rollbackSeq(prev) <= seq) return null;
+    const after   = prev.rollbacks.filter((entry) => entry.seq > seq);
+    const dropped = after[0].seq > seq + 1;
+    let found = null;
+    for (const entry of after) {
+        if (!dropped && entry.firstInvalid > highWater) continue;
+        if (!found || entry.firstInvalid < found.firstInvalid) found = entry;
+    }
+    return found;
+}
+
+module.exports = { REORG_LOG_DEPTH, announceRollback, noteShortFetch, reorgCovering, rollbackSeq, rollbackSince };

@@ -25,6 +25,7 @@
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const { chainDb, feed, connect, sent, frames, actionIndexes, range, subscribe, settle } = require('./support/chain.js');
+const ChangeDetector = require('../../../../src/ws/change_detector.js');
 
 // Seeded at 100 (blocks 1..10), one live subscriber that saw 101..120 (blocks 11, 12),
 // then a rollback to height 10 replaced by `blocks` blocks of `perBlock` rows.
@@ -104,5 +105,113 @@ describe('WS-01: a catch-up across a rollback asks for a resync', function () {
 
         expect(frames(back, 'error')).to.have.lengthOf(0);
         expect(actionIndexes(back)).to.deep.equal(range(126, 130));
+    });
+});
+
+// Seeded at 100 with 101..120 sent live, then a catch-up from 100 whose replay is held
+// inside the lifecycle read of its `pauseAt`-th row until the test releases it.
+async function heldReplay(pauseAt) {
+    const db = chainDb();
+    db.commit(10, 10);
+    const { s, detector } = feed(db);
+    await detector.checkCoin('BTC');
+    db.commit(2, 10);
+    await detector.checkCoin('BTC');
+    let release, calls = 0;
+    const held = new Promise((resolve) => { release = resolve; });
+    const original = ChangeDetector.prototype.emitLifecycleEvents;
+    sinon.stub(ChangeDetector.prototype, 'emitLifecycleEvents').callsFake(async function (...args) {
+        if (this !== detector && ++calls === pauseAt) await held;
+        return original.apply(this, args);
+    });
+    const back = connect(s, 3);
+    subscribe(s, back, ['actions'], { since_action_index: '100' }, 'r1');
+    await settle();
+    return { db, detector, back, release };
+}
+
+// The frames a client received after its first REORG.
+function afterReorg(client) {
+    const all = sent(client);
+    return all.slice(all.findIndex((m) => m.type === 'REORG') + 1);
+}
+
+describe('WS-05: a rollback during a catch-up replay ends it with CATCH_UP_REORGED', function () {
+    afterEach(() => sinon.restore());
+
+    it('sends no old-chain replay frame and no CATCH_UP_COMPLETE after the REORG', async function () {
+        const { db, detector, back, release } = await heldReplay(3);
+        expect(frames(back, 'REORG')).to.have.lengthOf(0);
+        db.rollbackTo(10);
+        db.epoch = 1;
+        db.commit(3, 10);
+        db.reorgVerdict = true;
+        await detector.checkCoin('BTC');
+        release();
+        await settle();
+
+        const after = afterReorg(back);
+        expect(frames(back, 'REORG')).to.have.lengthOf(1);
+        expect(after.filter((m) => m.catch_up === true)).to.have.lengthOf(0);
+        expect(frames(back, 'CATCH_UP_COMPLETE')).to.have.lengthOf(0);
+        const errors = frames(back, 'error');
+        expect(errors).to.have.lengthOf(1);
+        expect(errors[0].id).to.equal('r1');
+        expect(errors[0].data).to.include({ code: 'CATCH_UP_REORGED', fork_block_index: '11', first_invalid_action_index: '101' });
+        expect(after.filter((m) => m.type === 'NEW_ACTION').every((m) => /e1$/.test(m.data.tx_hash))).to.equal(true);
+    });
+
+    it('ends the replay the same way when the rollback lands during its batch read', async function () {
+        const back = await rolledBackDuringBatchRead();
+        expect(frames(back, 'REORG')).to.have.lengthOf(1);
+        expect(afterReorg(back).filter((m) => m.catch_up === true)).to.have.lengthOf(0);
+        expect(frames(back, 'CATCH_UP_COMPLETE')).to.have.lengthOf(0);
+        expect(frames(back, 'error').map((m) => m.data.code)).to.deep.equal(['CATCH_UP_REORGED']);
+    });
+});
+
+// A catch-up from 100 whose batch read runs only after a rollback to height 10 is detected.
+async function rolledBackDuringBatchRead() {
+    const db = chainDb();
+    db.commit(10, 10);
+    const { s, detector } = feed(db);
+    await detector.checkCoin('BTC');
+    db.commit(2, 10);
+    await detector.checkCoin('BTC');
+    const back = connect(s, 3);
+    db.hooks.beforeActionsSince = async () => {
+        db.rollbackTo(10);
+        db.epoch = 1;
+        db.commit(3, 10);
+        db.reorgVerdict = true;
+        await detector.checkCoin('BTC');
+    };
+    subscribe(s, back, ['actions'], { since_action_index: '100' }, 'r2');
+    await settle();
+    return back;
+}
+
+describe('WS-05: a rollback above every replayed row lets the catch-up finish', function () {
+    afterEach(() => sinon.restore());
+
+    it('finishes the replay when the rollback voids only rows above every row it read', async function () {
+        const { db, detector, back, release } = await heldReplay(3);
+        db.commit(1, 10);
+        await detector.checkCoin('BTC');
+        db.rollbackTo(12);
+        db.epoch = 1;
+        db.commit(1, 10);
+        db.reorgVerdict = true;
+        await detector.checkCoin('BTC');
+        release();
+        await settle();
+
+        expect(frames(back, 'REORG').map((m) => m.data.first_invalid_action_index)).to.deep.equal(['121']);
+        expect(frames(back, 'error')).to.have.lengthOf(0);
+        const replayed = frames(back, 'NEW_ACTION').filter((m) => m.catch_up === true).map((m) => String(m.data.action_index));
+        expect(replayed).to.deep.equal(range(101, 120));
+        const complete = frames(back, 'CATCH_UP_COMPLETE');
+        expect(complete).to.have.lengthOf(1);
+        expect(complete[0].data.latest_action_index).to.equal('120');
     });
 });

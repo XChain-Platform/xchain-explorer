@@ -53,9 +53,10 @@ function ageNodeMempoolCount(snapshot, now){
     if(!snapshot || !Object.prototype.hasOwnProperty.call(snapshot, 'node_updated_at')) return snapshot;
     const updatedAt = Number(snapshot.node_updated_at); return Number.isFinite(updatedAt) && updatedAt > 0 && now - updatedAt < NODE_MEMPOOL_MAX_AGE_MS ? snapshot : Object.assign({}, snapshot, { node_tx_count: null });
 }
-// Build the cached snapshot from a reply; a stale reply with no read_ok_at has no good read behind it.
+// Build the cached snapshot from a reply. A present but non-positive read_ok_at (a decoder with no DB yet) or a stale
+// reply without one has no good read behind it; only a reply lacking the property (an older decoder) is stamped now.
 function snapshotValue(reply, now){
-    const reportedOkAt = Number(reply.read_ok_at), okAt = Number.isFinite(reportedOkAt) && reportedOkAt > 0 ? reportedOkAt : (reply.stale === true ? null : now);
+    const reportedOkAt = Number(reply.read_ok_at), reported = Object.prototype.hasOwnProperty.call(reply, 'read_ok_at'), okAt = Number.isFinite(reportedOkAt) && reportedOkAt > 0 ? reportedOkAt : (reported || reply.stale === true ? null : now);
     const value = { node_tx_count: typeof reply.node_tx_count === 'number' && reply.node_tx_count >= 0 ? reply.node_tx_count : null, total: Number(reply.total) || 0, rows: reply.rows, read_ok_at: okAt };
     if(Object.prototype.hasOwnProperty.call(reply, 'node_updated_at')) value.node_updated_at = reply.node_updated_at; return { okAt, value: ageNodeMempoolCount(value, now) };
 }
@@ -232,8 +233,8 @@ class HealthDecoderReaders {
             const reply = await new DecoderConnector(url).getmempool(500);
             if(!reply || !Array.isArray(reply.rows)) return (this._mempoolApiCache[code] = { t: now, v: null, okAt: null, malformed: true }).v;
             const { okAt, value } = snapshotValue(reply, now);
-            // A stale reply never refreshes the cache clock, so the decoder is asked again next request.
-            if(reply.stale === true){ const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
+            // A stale reply, or one with no good read behind it, never refreshes the cache clock, so the decoder is asked again.
+            if(reply.stale === true || okAt === null){ const usable = okAt && (now - okAt) < 2 * ttl ? value : null;
                 return (this._mempoolApiCache[code] = { t: now - ttl, v: usable, okAt, stale: true, unavailable: usable === null }).v; }
             return (this._mempoolApiCache[code] = { t: now, v: value, okAt }).v;
         } catch(e){

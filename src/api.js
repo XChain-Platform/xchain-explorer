@@ -38,6 +38,7 @@ const { applySecurityHeaders, applyProxyTrust } = require('./http/api_boot/secur
 const { applyCors }          = require('./http/api_boot/cors.js');
 const { applyRateLimits }    = require('./http/api_boot/rate_limits.js');
 const { applyObservability } = require('./http/api_boot/observability.js');
+const { applyJsonBody, applyBodyErrorHandler } = require('./http/api_boot/json_body.js');
 const { startHttpListener }  = require('./http/api_boot/http_listener.js');
 const { startTlsListener }   = require('./http/api_boot/tls.js');
 const { resolveBindHost }    = require('./http/api_boot/bind_host.js');
@@ -156,10 +157,11 @@ function createApp(options = {}){
 
     // First, so the refusals the guards below answer are stamped no-store too.
     applyCacheControl(app);
-    applySecurityHeaders(app, appConfigInfo, XChainExplorer);
+    applySecurityHeaders(app, appConfigInfo);
     applyCors(app, appConfigInfo);
     const requestGate = applyRateLimits(app, appConfigInfo, isStaticAsset);
     applyObservability(app, appConfigInfo);
+    applyJsonBody(app, XChainExplorer);
     applyProxyTrust(app);
 
     let explorer = null;
@@ -170,6 +172,8 @@ function createApp(options = {}){
 
     explorer = new XChainExplorer(app, appConfigInfo);
     mountJsonRpc(app, appConfigInfo, jsonRpcController);
+    // Last, so a body refusal from any parser above reaches it.
+    applyBodyErrorHandler(app);
 
     return { app, explorer };
 }

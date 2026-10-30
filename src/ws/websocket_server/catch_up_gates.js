@@ -23,11 +23,20 @@
  * makes at each row's start, and the bounded wait for a backed-up socket to
  * drain below the cap before the replay sheds it.
  *
- * Plain functions over the server; `server` is the WebSocketServer.
+ * Plain functions over the server; `server` is the WebSocketServer. Also the
+ * check a running replay makes after each wait for a rollback announced since
+ * its reorg gate passed, which ends the replay with the same refusal.
  *
  ********************************************************************/
 
 'use strict';
+
+// Module-scope logger, not the server's own log() method (see websocket_server.js).
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
+// The detector's rollback numbering, read over its per-coin state.
+const rollback = require('../change_detector/rollback.js');
 
 // The live detector behind this server, or null (a direct caller or a unit double).
 function liveDetector(server) {
@@ -69,20 +78,54 @@ function reorgGate(server, client, sinceBig, requestId) {
     if (!detector || typeof detector.reorgCovering !== 'function') return true;
     const entry = detector.reorgCovering(client.coin, sinceBig);
     if (!entry) return true;
+    sendReorged(server, client, entry, 'A chain reorganization since action_index ' + sinceBig +
+        ' replaced rows at or below it. Use REST API to resync.', requestId);
+    return false;
+}
+
+// Sends the CATCH_UP_REORGED refusal naming one rollback's fork fields.
+function sendReorged(server, client, entry, message, requestId) {
     const error = {
         type:      'error',
         timestamp: Date.now(),
         data: {
             code:                       'CATCH_UP_REORGED',
-            message:                    'A chain reorganization since action_index ' + sinceBig +
-                                        ' replaced rows at or below it. Use REST API to resync.',
+            message,
             fork_block_index:           String(entry.forkBlock),
             first_invalid_action_index: String(entry.firstInvalid)
         }
     };
     if (requestId !== undefined) error.id = requestId;
     server.send(client, error);
-    return false;
+}
+
+// The coin's rollback number as a replay starts, read with its reorg gate, or null when no
+// live detector numbers rollbacks for this server.
+function replayStartSeq(server, client) {
+    const detector = liveDetector(server);
+    return (detector && detector.state) ? rollback.rollbackSeq(detector.state[client.coin]) : null;
+}
+
+// A check the replay runs after each wait, answering whether a rollback announced since
+// `startSeq` may have voided a row it read (any row up to the batch's highest index, or the
+// cursor for an empty batch). On one it sends CATCH_UP_REORGED in place of the COMPLETE, so no
+// old-chain frame follows the live REORG and the client does not close its gap past it.
+function midReplayReorg(server, client, startSeq, actions, sinceBig, requestId) {
+    const detector  = liveDetector(server);
+    const highWater = actions.reduce((high, row) => (BigInt(row.action_index) > high ? BigInt(row.action_index) : high), sinceBig);
+    let refused = false;
+    return () => {
+        if (refused) return true;
+        if (startSeq === null || !detector) return false;
+        const entry = rollback.rollbackSince(detector.state[client.coin], startSeq, highWater);
+        if (!entry) return false;
+        refused = true;
+        log.warn('WS_CATCH_UP_REORGED_MID_REPLAY', { client: client.id, coin: client.coin,
+            fork_block_index: String(entry.forkBlock), first_invalid_action_index: String(entry.firstInvalid) });
+        sendReorged(server, client, entry, 'A chain reorganization during this replay replaced rows it had read. ' +
+            'Use REST API to resync.', requestId);
+        return true;
+    };
 }
 
 // Whether the client's socket holds more unsent bytes than the live fan-out lets a
@@ -111,4 +154,4 @@ async function replayDrained(server, client) {
     return true;
 }
 
-module.exports = { liveDetector, seedGate, reorgGate, replayBackedUp, replayDrained };
+module.exports = { liveDetector, seedGate, reorgGate, replayStartSeq, midReplayReorg, replayBackedUp, replayDrained };

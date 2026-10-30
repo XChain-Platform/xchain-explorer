@@ -273,6 +273,35 @@ const ROLLCALL_DETAIL = `SELECT
                     m.action_index=?
                 LIMIT 1`;
 
+// Read the same ROLLCALL detail from rollcall_actions, the one-row-per-action table,
+// so an action that carried only already-seen pubkeys (no rollcall_signers row) renders.
+const ROLLCALL_DETAIL_ACTIONS = `SELECT
+                    a4.action,
+                    a1.action_format,
+                    r.action_index,
+                    r.epoch_height,
+                    r.ledger_hash,
+                    r.publisher,
+                    r.gates,
+                    r.carried_count,
+                    r.first_seen_count,
+                    a2.address as source,
+                    r.block_index,
+                    b1.block_time as timestamp,
+                    t2.hash as tx_hash,
+                    t1.tx_index
+                FROM
+                    rollcall_actions r
+                    INNER JOIN actions            a1 ON (a1.action_index=r.action_index)
+                    LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                    INNER JOIN blocks             b1 ON (b1.block_index=r.block_index)
+                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
+                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)
+                WHERE
+                    r.action_index=?
+                LIMIT 1`;
+
 // Read the GATES this ROLLCALL action carried, from any one of its rows. Kept apart
 // from ROLLCALL_DETAIL because the column arrives by a later indexer migration, and
 // the handler reads it behind a schema probe so an older replica still renders.
@@ -302,6 +331,7 @@ module.exports = {
     NODEPROOF_VERIFICATIONS,
     PRICE_DETAIL,
     ROLLCALL_DETAIL,
+    ROLLCALL_DETAIL_ACTIONS,
     ROLLCALL_GATES,
     ROLLCALL_SIGNERS
 };

@@ -1369,6 +1369,23 @@ CREATE TABLE rollcall_signers (
     KEY idx_rollcall_signers_block (block_index),
     KEY idx_rollcall_signers_epoch_pub (epoch_height, publisher)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
+
+-- ROLLCALL actions, DOGE side: one row per valid action, even one that added no
+-- rollcall_signers row. Mirrors xchain-indexer/src/sql/rollcall_actions.sql.
+DROP TABLE IF EXISTS rollcall_actions;
+CREATE TABLE rollcall_actions (
+    action_index     BIGINT UNSIGNED NOT NULL,     -- the ROLLCALL action
+    block_index      BIGINT UNSIGNED NOT NULL,     -- DOGE block the action landed in
+    epoch_height     BIGINT UNSIGNED NOT NULL,     -- BTC height of the roll-call epoch
+    ledger_hash      CHAR(64)        NOT NULL,     -- BTC ledger_hash AS CARRIED, lowercase hex
+    publisher        CHAR(64)        NOT NULL,     -- publishing validator's signing key, lowercase hex
+    gates            TEXT            DEFAULT NULL, -- ROLLCALL v1 GATES field as carried; NULL for v0
+    carried_count    INT UNSIGNED    NOT NULL,     -- verified signatures carried by this action
+    first_seen_count INT UNSIGNED    NOT NULL,     -- of those, pubkeys first landed by this action for the epoch
+    PRIMARY KEY (action_index),
+    KEY idx_rollcall_actions_epoch (epoch_height, action_index),
+    KEY idx_rollcall_actions_block (block_index)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
 CREATE        INDEX pubkey_block    ON full_node_verifications (signing_pubkey_id, block_index);
 CREATE        INDEX source_id       ON full_node_verifications (source_id);
 CREATE        INDEX block_index     ON full_node_verifications (block_index);

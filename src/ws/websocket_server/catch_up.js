@@ -52,9 +52,8 @@ const { actionChannelKeys, carriesActions, lifecycleChannelKeys } = require('../
 // The live detector, whose own lifecycle emitters rebuild a missed row's lifecycle events.
 const ChangeDetector = require('../change_detector.js');
 
-// The seed and reorg gates a replay passes first, the live detector they read, and the
-// per-row backpressure wait.
-const { liveDetector, seedGate, reorgGate, replayBackedUp, replayDrained } = require('./catch_up_gates.js');
+// The seed and reorg gates, the live detector they read, the per-row backpressure wait and the mid-replay rollback check.
+const { liveDetector, seedGate, reorgGate, replayStartSeq, midReplayReorg, replayBackedUp, replayDrained } = require('./catch_up_gates.js');
 
 // The replay cursor as a BigInt, or null once an INVALID_PARAMS frame has been sent
 // for a malformed cursor.
@@ -212,27 +211,28 @@ function sendToTargets(server, client, event, actionData, targets) {
 }
 
 // Replays each missed row in live order: its NEW_ACTION, then each lifecycle event the
-// live detector derives from it, each to every subscribed channel it routes to. Returns
-// how many frames were sent, and whether the replay stopped because the client backed
-// up. The cap is checked at each row's start, as the live fan-out admits a row: over
-// it, the replay waits for the socket to drain (replayDrained), so at most one row is
-// ever buffered past the cap. A socket that stays over it is shed with 4008 at that
-// row boundary, never holding part of a row, and its reconnect replays from the
-// cursor it still holds.
-async function replayActions(server, client, actions, info, filter, tipStale, requestKeys, ceilings) {
+// live detector derives from it, to every subscribed channel it routes to. Returns the
+// frames sent and whether the client was shed or a rollback overtook the replay. Over
+// the cap at a row's start, the replay waits for the socket to drain (replayDrained) and
+// sheds it with 4008 at that row boundary if it does not. After each wait it stops once
+// `reorged` reports a rollback that voided a row it read, before sending another frame.
+async function replayActions(server, client, actions, info, filter, tipStale, requestKeys, ceilings, reorged) {
     let eventsReplayed = 0;
     for (const action of actions) {
         if (replayBackedUp(server, client) && !await replayDrained(server, client)) {
             server.broadcaster.shedBackedUpClient(client);
             return { eventsReplayed, shed: true };
         }
+        if (reorged()) return { eventsReplayed, shed: false, reorged: true };
         const channelKeys = keysOwedRow(requestKeys, ceilings, action);
         const event = replayEnvelope('NEW_ACTION', info, tipStale, newActionData(action));
         const routes = actionChannelKeys(client.coin, action.source, action.destinations);
         eventsReplayed += sendToTargets(server, client, event, action,
             replayTargets(server, client, routes, filter, channelKeys));
 
-        for (const lifecycleEvent of await rowLifecycleEvents(server.explorer.db, client.coin, action)) {
+        const lifecycleEvents = await rowLifecycleEvents(server.explorer.db, client.coin, action);
+        if (reorged()) return { eventsReplayed, shed: false, reorged: true };
+        for (const lifecycleEvent of lifecycleEvents) {
             const frame = replayEnvelope(lifecycleEvent.type, info, tipStale, lifecycleEvent.data);
             const keys  = lifecycleChannelKeys(server.broadcaster, client.coin, lifecycleEvent);
             eventsReplayed += sendToTargets(server, client, frame, lifecycleEvent,
@@ -255,9 +255,9 @@ function notReplayedFor(coin, keys) {
 // The CATCH_UP_COMPLETE frame that closes a replay.
 function catchUpComplete(info, actions, sinceBig, replay, requestId, notReplayed) {
     // Determine latest action index from replayed events. Emit as a decimal STRING
-    // to match the v2 wire contract (ws/schema_version.js:26-29): every other
-    // action_index on WS v2 serializes as a string, and Number() here would both
-    // break that type contract and lose precision above 2^53.
+    // to match the v2 wire contract (ws/schema_version.js, the "v2 (BIGINT-as-string)"
+    // note): every other action_index on WS v2 serializes as a string, and Number()
+    // here would both break that type contract and lose precision above 2^53.
     const latestIdx = actions.length > 0
         ? String(actions[actions.length - 1].action_index)
         : String(sinceBig);
@@ -343,6 +343,7 @@ async function runCatchUp(server, client, sinceBig, filter, requestId, keys) {
     }
 
     if (!await seedGate(server, client, requestId)) return;
+    const startSeq = replayStartSeq(server, client);
     if (!reorgGate(server, client, sinceBig, requestId)) return;
 
     // Check the cursor against the tip: reject one above it or too far behind it
@@ -370,12 +371,12 @@ async function runCatchUp(server, client, sinceBig, filter, requestId, keys) {
         return;
     }
 
-    await replayFrom(server, client, sinceBig, filter, requestId, keys, tipStale);
+    await replayFrom(server, client, sinceBig, filter, requestId, keys, tipStale, startSeq);
 }
 
 // The replay step once every gate has passed: the missed rows up to the keys' ceilings,
-// their frames, then one CATCH_UP_COMPLETE (none for a client shed mid-replay).
-async function replayFrom(server, client, sinceBig, filter, requestId, keys, tipStale) {
+// their frames, then one CATCH_UP_COMPLETE (none for a client shed or a rollback mid-replay).
+async function replayFrom(server, client, sinceBig, filter, requestId, keys, tipStale, startSeq) {
     const db     = server.explorer.db;
     const config = { coin: client.coin };
     // Bounded by the keys' ceilings, so a row the live feed sends these keys is not
@@ -387,9 +388,10 @@ async function replayFrom(server, client, sinceBig, filter, requestId, keys, tip
         : await db.getActionsSince(config, sinceBig, server.catchUpMaxEvents, upTo);
     const info      = server.getCoinInfo(client.coin);
     const truncated = actions.length >= server.catchUpMaxEvents;
-    const replay    = await replayActions(server, client, actions, info, filter, tipStale, keys, ceilings);
-    // A shed client is closing, and a COMPLETE would claim rows it never received.
-    if (replay.shed) return;
+    const reorged   = midReplayReorg(server, client, startSeq, actions, sinceBig, requestId);
+    const replay    = await replayActions(server, client, actions, info, filter, tipStale, keys, ceilings, reorged);
+    // A COMPLETE would claim rows a shed client never received, or rows a rollback voided.
+    if (replay.shed || replay.reorged || reorged()) return;
     server.send(client, catchUpComplete(info, actions, sinceBig,
         { eventsReplayed: replay.eventsReplayed, truncated, tipStale }, requestId, notReplayedFor(client.coin, keys)));
 }

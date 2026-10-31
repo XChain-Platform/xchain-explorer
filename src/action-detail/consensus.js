@@ -27,11 +27,12 @@ const {
     NODEPROOF_VERIFICATIONS,
     PRICE_DETAIL,
     ROLLCALL_DETAIL,
+    ROLLCALL_DETAIL_ACTIONS,
     ROLLCALL_GATES,
     ROLLCALL_SIGNERS
 } = require('../db/action_detail/consensus_sql');
 const { attestBatchColumnsPresent } = require('../db/shared.js');
-const { columnsPresent, setColumnsAbsent, isUnknownColumnError } = require('../db/schema_probe.js');
+const { columnsPresent, setColumnsAbsent, isUnknownColumnError, tablesPresent } = require('../db/schema_probe.js');
 
 // One logger for the whole service, cached at require time per the
 // observability contract: getLogger() returns a lazy singleton that resolves to
@@ -277,14 +278,15 @@ const ROLLCALL = {
     // being rendered here, so credits/debits/escrows keyed on this action_index are
     // always empty. Same shape as NODEPROOF above.
     effects: { credits: false, debits: false, escrows: false },
-    queries() {
+    async queries({ db, config }) {
         let query  = null;
         let query2 = null;
         let query3 = null;
-        // epoch_height / ledger_hash / publisher are action-level constants repeated
-        // on every rollcall_signers row this action wrote, so any one row carries
-        // them; the per-validator present list is attached in afterMain below.
-        query = ROLLCALL_DETAIL;
+        // Prefer rollcall_actions: one row per valid action, even one that added no
+        // first-seen signer, which rollcall_signers cannot show.
+        query = await tablesPresent(db, config, ['rollcall_actions'])
+            ? ROLLCALL_DETAIL_ACTIONS
+            : ROLLCALL_DETAIL;
         return { query, query2, query3 };
     },
     // The signer list IS the present list: a validator is recorded present at an
@@ -299,16 +301,27 @@ const ROLLCALL = {
     // (its primary key is the composite (epoch_height, pubkey)), so the `ORDER BY id`
     // that the NODEPROOF handler above can use would be a SQL error here.
     async afterMain({ db, config, action_index }, data) {
+        let counted = !db.util.isNull(data['carried_count']);
+        // Read an action indexed before rollcall_actions existed from rollcall_signers (that table has no backfill).
+        if(!counted && db.util.isNull(data['epoch_height']) && await tablesPresent(db, config, ['rollcall_actions'])){
+            let legacy = await db.doQuery(config, ROLLCALL_DETAIL, [action_index]);
+            if(legacy && legacy.length) Object.assign(data, legacy[0]);
+        }
         let signers = await db.doQuery(config, ROLLCALL_SIGNERS, [action_index]);
         data['signers'] = (signers && signers.length) ? signers : [];
         // ROLLCALL v1 GATES field as carried on this action's row (comma-joined
-        // '<module>.<EXPORT>' consensus-gate keys, `rollcall_signers.gates`); NULL
-        // on every v0 row, so the client badges v0 without a gates list and v1 as
-        // 'ROLLCALL v1' with the parsed list (action_format already selected above).
-        let gates = await readRollcallGates(db, config, action_index);
-        data['gates'] = gates ? gates.split(',') : [];
+        // '<module>.<EXPORT>' consensus-gate keys); NULL on every v0 row, so the client
+        // badges v0 without a gates list and v1 as 'ROLLCALL v1' with the parsed list.
+        let gates = counted ? data['gates'] : await readRollcallGates(db, config, action_index);
+        data['gates'] = gates ? String(gates).split(',') : [];
+        // State carried_count only from a rollcall_actions row; signers lists first-seen signatures only.
+        data['carried_count']    = counted ? Number(data['carried_count']) : null;
+        data['first_seen_count'] = counted ? Number(data['first_seen_count']) : data['signers'].length;
     },
 };
+
+// Declare rollcall_actions optional: it arrives by a later indexer migration, and a replica without it reads rollcall_signers.
+Object.defineProperty(ROLLCALL, 'optionalTables', { value: Object.freeze(['rollcall_actions']) });
 
 // PRICE v1 (the user TOKEN/FIAT oracle) writes the prices row the detail query reads;
 // the validator v0 snapshot and batch are not user-encodable.

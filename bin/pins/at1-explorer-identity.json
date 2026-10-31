@@ -2275,8 +2275,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/action-detail-golden.json",
-      "bytes": 405389,
-      "sha256": "e70cd74a0fb5d68e6a0b4e928fdb2ff7ce6c5952beb9f82b255cd5512f232585"
+      "bytes": 406139,
+      "sha256": "0df3f43889df0b820fa11226b1c59766e7f6068e4797abea97023b0cfadeefb0"
     },
     {
       "path": "test/fixtures/list-page-baseline.json",
@@ -4457,25 +4457,6 @@
         "checkpoint self_sync / hub-endpoint pairing resolveHubUrl() prefers the config-borne hub_url over the env",
         "checkpoint self_sync / hub-endpoint pairing resolveHubUrl() treats a whitespace-only value as absent"
       ],
-      "2a0cc571c8110ee0": [
-        "mempool change detector availability the change detector also keeps state when the direct row reader returns null",
-        "mempool change detector availability the change detector skips the poll and keeps state on null",
-        "mempool feed availability getMempool throws instead of answering an empty list",
-        "mempool feed availability reads decoder DB rows after a malformed endpoint reply",
-        "mempool feed availability reads the decoder DB when no endpoint is configured",
-        "mempool feed availability returns rows and read_ok_at for a fresh snapshot",
-        "mempool feed decoder selection decoder configured and unreachable",
-        "mempool feed decoder selection decoder not configured",
-        "mempool feed failure handling ages node_tx_count independently using node_updated_at",
-        "mempool feed failure handling does not cache a stale decoder reply as a successful refresh",
-        "mempool feed failure handling rejects a stale reply with no recent successful read",
-        "mempool feed failure handling returns null count and rows instead of falling back when a configured decoder is unavailable",
-        "mempool feed when the decoder is unavailable decoder configured and healthy",
-        "mempool feed when the decoder is unavailable decoder configured and malformed",
-        "mempool feed when the decoder is unavailable decoder configured with an empty malformed reply",
-        "mempool feed when the decoder is unavailable decoder configured with invalid rows",
-        "mempool feed when the decoder is unavailable uses the decoder DB for an unrecognized configured-decoder reply"
-      ],
       "2b0502bfb008c233": [
         "offset_cursors CURSOR_BY_METHOD has 26 own keys",
         "offset_cursors DEFAULT_CURSOR is m.action_index",
@@ -4703,15 +4684,6 @@
         "Fuzz: Utility BC math comparison helpers obey trichotomy + reflexivity across 2000 pairs",
         "Fuzz: Utility BC math sub-1e-12 values compare exactly (epsilon-bug guard) across 2000 values",
         "Fuzz: Utility BC math subtraction self-cancels and add/sub round-trips across 2000 values"
-      ],
-      "2f8d8d22edffca97": [
-        "ATTEST detail across the batch-column migration @regression a history list with an ATTEST row resolves on a pre-batch replica",
-        "ATTEST detail across the batch-column migration @regression a pre-batch replica renders, names no batch column and keeps the keys as null",
-        "ATTEST detail across the batch-column migration @regression a probe that errors takes the safe pre-batch read",
-        "ATTEST detail across the batch-column migration @regression an upgraded replica reads every batch column",
-        "ROLLCALL detail across the gates migration @regression a replica without the column renders with no gates and never names it",
-        "ROLLCALL detail across the gates migration @regression an upgraded replica reads and splits the gates",
-        "ROLLCALL detail across the gates migration @regression recovers from the 1054 a stale positive memo earns, then stops paying it"
       ],
       "302896c799e03ce8": [
         "getToken failures that are not a missing column propagates a genuine query failure instead of answering a degraded body",
@@ -5096,6 +5068,16 @@
         "LIST metadata values lets the higher action_index row win for one root",
         "LIST metadata values returns a root's metadata under an edit index",
         "LIST metadata values returns the newest valid metadata for a named root"
+      ],
+      "3f27876fb6b6bf47": [
+        "WS-03: the browser client paces its resubscribe paces to the rate WELCOME advertises",
+        "WS-03: the browser client paces its resubscribe sends a 25-subscription reconnect without exceeding the server rate, and sends all of it",
+        "WS-03: the browser client sends a dropped request again sends a catch-up again after a second on CATCH_UP_NOT_READY",
+        "WS-03: the browser client sends a dropped request again sends a catch-up again on RATE_LIMITED instead of reporting resync_required",
+        "WS-03: the browser client sends a dropped request again sends a subscribe again when the server drops it with RATE_LIMITED naming its id",
+        "WS-05: the browser client applies REORG to its cursor drops the cursor below the first invalidated index, then follows the replacements",
+        "WS-05: the browser client applies REORG to its cursor keeps the cursor below the rollback when a running catch-up ends with CATCH_UP_REORGED",
+        "WS-05: the browser client applies REORG to its cursor leaves a cursor that is already below the rollback where it is"
       ],
       "3f4206ff6e22e166": [
         "static mounts lists at least one directory, so the check below cannot pass vacuously",
@@ -6752,14 +6734,6 @@
         "Security: Input Validation: Type confusion refuses page as negative number before any SQL",
         "Security: Input Validation: Type confusion refuses sortorder as array before any SQL"
       ],
-      "65cbd0477fb22600": [
-        "ROLLCALL detail version and consensus gates escapes gate names before writing badge markup",
-        "ROLLCALL detail version and consensus gates keeps the shipped markup and rollcall row layout exactly aligned",
-        "ROLLCALL detail version and consensus gates preserves the published gate order",
-        "ROLLCALL detail version and consensus gates renders v0 from action_format and shows no gate list",
-        "ROLLCALL detail version and consensus gates renders v1 from action_format and every published gate as a badge",
-        "ROLLCALL detail version and consensus gates shows a dash when a v1 payload has no gates"
-      ],
       "65d6c70d53e3106b": [
         "xbridge-panels-render as a module builds per-chain rows sorted by chain and names the three payload states",
         "xbridge-panels-render as a module classifies an invariant delta and keeps a malformed one unknown",
@@ -7134,44 +7108,6 @@
         "price batch response mapping maps non-array rows to an untruncated empty list",
         "price batch response mapping maps numeric fields and reports a full page as truncated"
       ],
-      "71e23443944752dd": [
-        "decoder mempool reply contract empty reply (rows [] with a good read) flags the cache entry malformed only for a malformed reply",
-        "decoder mempool reply contract empty reply (rows [] with a good read) getDecoderMempoolCount",
-        "decoder mempool reply contract empty reply (rows [] with a good read) getDecoderMempoolFeed",
-        "decoder mempool reply contract empty reply (rows [] with a good read) getDecoderMempoolRows",
-        "decoder mempool reply contract empty reply (rows [] with a good read) getDecoderMempoolSnapshot",
-        "decoder mempool reply contract malformed reply (null) flags the cache entry malformed only for a malformed reply",
-        "decoder mempool reply contract malformed reply (null) getDecoderMempoolCount",
-        "decoder mempool reply contract malformed reply (null) getDecoderMempoolFeed",
-        "decoder mempool reply contract malformed reply (null) getDecoderMempoolRows",
-        "decoder mempool reply contract malformed reply (null) getDecoderMempoolSnapshot",
-        "decoder mempool reply contract malformed reply (rows is not an array) flags the cache entry malformed only for a malformed reply",
-        "decoder mempool reply contract malformed reply (rows is not an array) getDecoderMempoolCount",
-        "decoder mempool reply contract malformed reply (rows is not an array) getDecoderMempoolFeed",
-        "decoder mempool reply contract malformed reply (rows is not an array) getDecoderMempoolRows",
-        "decoder mempool reply contract malformed reply (rows is not an array) getDecoderMempoolSnapshot",
-        "decoder mempool reply contract populated reply flags the cache entry malformed only for a malformed reply",
-        "decoder mempool reply contract populated reply getDecoderMempoolCount",
-        "decoder mempool reply contract populated reply getDecoderMempoolFeed",
-        "decoder mempool reply contract populated reply getDecoderMempoolRows",
-        "decoder mempool reply contract populated reply getDecoderMempoolSnapshot",
-        "decoder mempool reply contract serves the last good window when the decoder becomes unreachable within two TTLs",
-        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) flags the cache entry malformed only for a malformed reply",
-        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) getDecoderMempoolCount",
-        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) getDecoderMempoolFeed",
-        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) getDecoderMempoolRows",
-        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) getDecoderMempoolSnapshot",
-        "decoder mempool reply contract unknown reply (stale with no read_ok_at) flags the cache entry malformed only for a malformed reply",
-        "decoder mempool reply contract unknown reply (stale with no read_ok_at) getDecoderMempoolCount",
-        "decoder mempool reply contract unknown reply (stale with no read_ok_at) getDecoderMempoolFeed",
-        "decoder mempool reply contract unknown reply (stale with no read_ok_at) getDecoderMempoolRows",
-        "decoder mempool reply contract unknown reply (stale with no read_ok_at) getDecoderMempoolSnapshot",
-        "decoder mempool reply contract unreachable decoder (transport throws) flags the cache entry malformed only for a malformed reply",
-        "decoder mempool reply contract unreachable decoder (transport throws) getDecoderMempoolCount",
-        "decoder mempool reply contract unreachable decoder (transport throws) getDecoderMempoolFeed",
-        "decoder mempool reply contract unreachable decoder (transport throws) getDecoderMempoolRows",
-        "decoder mempool reply contract unreachable decoder (transport throws) getDecoderMempoolSnapshot"
-      ],
       "71e51d6b88fd1922": [
         "ATTEST v5 batch head rendering keeps request and response legs unchanged",
         "ATTEST v5 batch head rendering labels v5 and v6 legs as batch legs carrying the batch key",
@@ -7253,6 +7189,17 @@
         "E2E-18: Amount decimal places match token config 4-decimal token amounts have 4 decimal places",
         "E2E-18: Amount decimal places match token config 8-decimal token amounts have 8 decimal places",
         "E2E-18: Amount decimal places match token config different decimal tokens on same address maintain their precision"
+      ],
+      "77185424288034ff": [
+        "json body refusal rules leaves a non-body error to the default handler",
+        "json body refusal rules treats only / and /{COIN}/api as the dispatcher paths",
+        "json body refusals on the boot steps answers a REST body over the global ceiling with 413 BODY_TOO_LARGE",
+        "json body refusals on the boot steps answers a malformed REST body with INVALID_JSON_BODY, CORS and rate-limit headers",
+        "json body refusals on the boot steps answers a malformed body on POST / with JSON-RPC -32700",
+        "json body refusals on the boot steps answers a preflight body over its own route ceiling with 413 BODY_TOO_LARGE",
+        "json body refusals on the boot steps answers an oversized body on POST /{COIN}/api/ with JSON-RPC -32600",
+        "json body refusals on the boot steps still serves a well-formed body",
+        "json body: mount order mounts the parser after the guards and the refusal handler last"
       ],
       "77bf9501ade114ae": [
         "search result cells fed a null column blanks a null at the helper itself, for every result type at once",
@@ -7419,6 +7366,59 @@
         "token-literal classifier (function-wrapped values) still honours the chart-tooltip opacity allowlist",
         "token-literal classifier (function-wrapped values) still honours the url() asset allowlist",
         "token-literal classifier (function-wrapped values) still reads a var() fallback as a legitimate degradation path"
+      ],
+      "8012d67790d6cc64": [
+        "decoder mempool reply contract empty reply (rows [] with a good read) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract empty reply (rows [] with a good read) getDecoderMempoolCount",
+        "decoder mempool reply contract empty reply (rows [] with a good read) getDecoderMempoolFeed",
+        "decoder mempool reply contract empty reply (rows [] with a good read) getDecoderMempoolRows",
+        "decoder mempool reply contract empty reply (rows [] with a good read) getDecoderMempoolSnapshot",
+        "decoder mempool reply contract legacy reply (no read_ok_at property, not stale) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract legacy reply (no read_ok_at property, not stale) getDecoderMempoolCount",
+        "decoder mempool reply contract legacy reply (no read_ok_at property, not stale) getDecoderMempoolFeed",
+        "decoder mempool reply contract legacy reply (no read_ok_at property, not stale) getDecoderMempoolRows",
+        "decoder mempool reply contract legacy reply (no read_ok_at property, not stale) getDecoderMempoolSnapshot",
+        "decoder mempool reply contract malformed reply (null) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract malformed reply (null) getDecoderMempoolCount",
+        "decoder mempool reply contract malformed reply (null) getDecoderMempoolFeed",
+        "decoder mempool reply contract malformed reply (null) getDecoderMempoolRows",
+        "decoder mempool reply contract malformed reply (null) getDecoderMempoolSnapshot",
+        "decoder mempool reply contract malformed reply (rows is not an array) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract malformed reply (rows is not an array) getDecoderMempoolCount",
+        "decoder mempool reply contract malformed reply (rows is not an array) getDecoderMempoolFeed",
+        "decoder mempool reply contract malformed reply (rows is not an array) getDecoderMempoolRows",
+        "decoder mempool reply contract malformed reply (rows is not an array) getDecoderMempoolSnapshot",
+        "decoder mempool reply contract populated reply flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract populated reply getDecoderMempoolCount",
+        "decoder mempool reply contract populated reply getDecoderMempoolFeed",
+        "decoder mempool reply contract populated reply getDecoderMempoolRows",
+        "decoder mempool reply contract populated reply getDecoderMempoolSnapshot",
+        "decoder mempool reply contract serves the last good window when the decoder becomes unreachable within two TTLs",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at 0) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at 0) getDecoderMempoolCount",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at 0) getDecoderMempoolFeed",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at 0) getDecoderMempoolRows",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at 0) getDecoderMempoolSnapshot",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at null: decoder has no database yet) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at null: decoder has no database yet) getDecoderMempoolCount",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at null: decoder has no database yet) getDecoderMempoolFeed",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at null: decoder has no database yet) getDecoderMempoolRows",
+        "decoder mempool reply contract unknown reply (not stale, read_ok_at null: decoder has no database yet) getDecoderMempoolSnapshot",
+        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) getDecoderMempoolCount",
+        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) getDecoderMempoolFeed",
+        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) getDecoderMempoolRows",
+        "decoder mempool reply contract unknown reply (stale with a read older than two TTLs) getDecoderMempoolSnapshot",
+        "decoder mempool reply contract unknown reply (stale with no read_ok_at) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract unknown reply (stale with no read_ok_at) getDecoderMempoolCount",
+        "decoder mempool reply contract unknown reply (stale with no read_ok_at) getDecoderMempoolFeed",
+        "decoder mempool reply contract unknown reply (stale with no read_ok_at) getDecoderMempoolRows",
+        "decoder mempool reply contract unknown reply (stale with no read_ok_at) getDecoderMempoolSnapshot",
+        "decoder mempool reply contract unreachable decoder (transport throws) flags the cache entry malformed only for a malformed reply",
+        "decoder mempool reply contract unreachable decoder (transport throws) getDecoderMempoolCount",
+        "decoder mempool reply contract unreachable decoder (transport throws) getDecoderMempoolFeed",
+        "decoder mempool reply contract unreachable decoder (transport throws) getDecoderMempoolRows",
+        "decoder mempool reply contract unreachable decoder (transport throws) getDecoderMempoolSnapshot"
       ],
       "808199788faa2378": [
         "parseHubList drops unsupported URL shapes",
@@ -8530,6 +8530,19 @@
         "action summary key-fields fixture names the four intended action types with nonempty, unique field lists",
         "action summary key-fields fixture rejects a field absent from both the detail SQL and handler"
       ],
+      "972ad1e45bc08cc1": [
+        "ATTEST detail across the batch-column migration @regression a history list with an ATTEST row resolves on a pre-batch replica",
+        "ATTEST detail across the batch-column migration @regression a pre-batch replica renders, names no batch column and keeps the keys as null",
+        "ATTEST detail across the batch-column migration @regression a probe that errors takes the safe pre-batch read",
+        "ATTEST detail across the batch-column migration @regression an upgraded replica reads every batch column",
+        "ROLLCALL detail across the gates migration @regression a replica without the column renders with no gates and never names it",
+        "ROLLCALL detail across the gates migration @regression an upgraded replica reads and splits the gates",
+        "ROLLCALL detail across the gates migration @regression recovers from the 1054 a stale positive memo earns, then stops paying it",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression a replica without the table never names it and reads rollcall_signers as before",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression falls back to rollcall_signers for an action indexed before rollcall_actions existed",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression recovers from the missing-table error a stale positive memo earns",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression renders an action that carried only already-seen pubkeys from its rollcall_actions row"
+      ],
       "9799067d395e6260": [
         "Database#getReorgs (M3.5 dual-path data leg) RPC-first via HubOperationalCache maps type=block to the reorg_height param and leaves status undefined",
         "Database#getReorgs (M3.5 dual-path data leg) RPC-first via HubOperationalCache maps type=status to the status param and leaves reorg_height undefined",
@@ -9510,6 +9523,26 @@
         "an order with no MEMO is still on the book [REGRESSION] getOrderInfoBatch LEFT JOINs index_memos",
         "an order with no MEMO is still on the book the batch still keys its result by action_index, so the book can resolve a row"
       ],
+      "acad798f76f89852": [
+        "mempool change detector availability the change detector also keeps state when the direct row reader returns null",
+        "mempool change detector availability the change detector skips the poll and keeps state on null",
+        "mempool feed availability getMempool throws instead of answering an empty list",
+        "mempool feed availability reads decoder DB rows after a malformed endpoint reply",
+        "mempool feed availability reads the decoder DB when no endpoint is configured",
+        "mempool feed availability returns rows and read_ok_at for a fresh snapshot",
+        "mempool feed decoder selection decoder configured and unreachable",
+        "mempool feed decoder selection decoder not configured",
+        "mempool feed failure handling ages node_tx_count independently using node_updated_at",
+        "mempool feed failure handling does not cache a stale decoder reply as a successful refresh",
+        "mempool feed failure handling reads a non-stale reply with an explicit null read_ok_at as unknown and asks again",
+        "mempool feed failure handling rejects a stale reply with no recent successful read",
+        "mempool feed failure handling returns null count and rows instead of falling back when a configured decoder is unavailable",
+        "mempool feed when the decoder is unavailable decoder configured and healthy",
+        "mempool feed when the decoder is unavailable decoder configured and malformed",
+        "mempool feed when the decoder is unavailable decoder configured with an empty malformed reply",
+        "mempool feed when the decoder is unavailable decoder configured with invalid rows",
+        "mempool feed when the decoder is unavailable uses the decoder DB for an unrecognized configured-decoder reply"
+      ],
       "acafd7633f12616b": [
         "XChainHubConnector hub-vs-bundle consensus-hash cross-check does not re-log an unchanged mismatch on the next poll",
         "XChainHubConnector hub-vs-bundle consensus-hash cross-check ignores a coin the hub serves that this build does not bundle",
@@ -9779,6 +9812,16 @@
         "graceful shutdown resolveTimeoutMs prefers an explicit budget, then the env var, then the default",
         "graceful shutdown resolveTimeoutMs stays under Docker's 10s default stop grace"
       ],
+      "bbba32ab7d6eea77": [
+        "ROLLCALL detail validator count counts every carried signature, naming how many were first seen",
+        "ROLLCALL detail validator count falls back to the signer list length when the carried count is unknown",
+        "ROLLCALL detail version and consensus gates escapes gate names before writing badge markup",
+        "ROLLCALL detail version and consensus gates keeps the shipped markup and rollcall row layout exactly aligned",
+        "ROLLCALL detail version and consensus gates preserves the published gate order",
+        "ROLLCALL detail version and consensus gates renders v0 from action_format and shows no gate list",
+        "ROLLCALL detail version and consensus gates renders v1 from action_format and every published gate as a badge",
+        "ROLLCALL detail version and consensus gates shows a dash when a v1 payload has no gates"
+      ],
       "bbe02ed916d7a772": [
         "getCommitments bound through runListQuery api offset is clamped to the 100k ceiling and ignored on the explorer transport",
         "getCommitments bound through runListQuery api page>1: the offset splices into the page derived table and no trailing OFFSET ? is appended",
@@ -9961,6 +10004,16 @@
         "XChainExplorer.processRequest \u2013 routing type detection sets cfg.type=\"api\" for /BTC/api/sends/1/block",
         "XChainExplorer.processRequest \u2013 routing type detection sets cfg.type=\"explorer\" for /BTC/explorer/sends/1/block",
         "XChainExplorer.processRequest \u2013 routing type detection sets cfg.type=\"html\" for /BTC/tokens"
+      ],
+      "c07b82637cae22f9": [
+        "WS-01: a catch-up across a rollback asks for a resync refuses a cursor inside the rolled-back range with CATCH_UP_REORGED and the fork fields",
+        "WS-01: a catch-up across a rollback asks for a resync replays normally from a cursor above the old tip, which only the new chain reached",
+        "WS-01: a catch-up across a rollback asks for a resync replays normally from a cursor below the first invalidated index",
+        "WS-05: a rollback above every replayed row lets the catch-up finish finishes the replay when the rollback voids only rows above every row it read",
+        "WS-05: a rollback during a catch-up replay ends it with CATCH_UP_REORGED ends the replay the same way when the rollback lands during its batch read",
+        "WS-05: a rollback during a catch-up replay ends it with CATCH_UP_REORGED sends no old-chain replay frame and no CATCH_UP_COMPLETE after the REORG",
+        "WS-05: a rollback is announced before its replacement rows announces a shorter replacement, so the deleted rows above its tip are void too",
+        "WS-05: a rollback is announced before its replacement rows sends REORG with the fork height and first invalidated index ahead of every replacement frame"
       ],
       "c14c6e48c018ed36": [
         "theme parity probe (behavioural) a degenerate capture is an explicit invalid result, not a hash does not let a degenerate capture overwrite a good stored snapshot",
@@ -11672,13 +11725,6 @@
         "Database#getDispenserPriceStaleBatch returns boolean false without price reads for non-fiat or non-open rows",
         "Database#getDispenserPriceStaleBatch uses the full two-window snapshot range needed for Mode B pairing"
       ],
-      "ed4023b3acd8eb68": [
-        "WS-01: a catch-up across a rollback asks for a resync refuses a cursor inside the rolled-back range with CATCH_UP_REORGED and the fork fields",
-        "WS-01: a catch-up across a rollback asks for a resync replays normally from a cursor above the old tip, which only the new chain reached",
-        "WS-01: a catch-up across a rollback asks for a resync replays normally from a cursor below the first invalidated index",
-        "WS-05: a rollback is announced before its replacement rows announces a shorter replacement, so the deleted rows above its tip are void too",
-        "WS-05: a rollback is announced before its replacement rows sends REORG with the fork height and first invalidated index ahead of every replacement frame"
-      ],
       "edcfed4e5189ca51": [
         "getMarkets tick slot orientation keeps a search that matches the stored tick2 in tick2, with that tick's values",
         "getMarkets tick slot orientation puts a search that matches the stored tick1 in tick2, with that tick's values",
@@ -11701,6 +11747,10 @@
         "federation reads: refusals and the log line writes one log line per read with coin, method, verdict, tip and duration",
         "federation reads: routing and log helpers reads a refusal or an uncut roll-call window as undecided",
         "federation reads: routing and log helpers splits a path code into pool key, base coin and network"
+      ],
+      "eead836d35d1c6ae": [
+        "packaging: image Node patch matches CI pins every Dockerfile FROM to one full node patch",
+        "packaging: image Node patch matches CI tests in ci.yml on the patch the image ships"
       ],
       "eed4fc76083c6fc6": [
         "PRICE detail render: malformed pairs JSON keeps the per-round fallback for a batch row",
@@ -11729,15 +11779,6 @@
         "dashboard manifest conformance support seeds the custody address with a single C: prefix",
         "dashboard manifest conformance support treats an undefined-valued row key as absent from the served row",
         "dashboard manifest conformance support uses the widest reader query projection and restores an inherited doQuery"
-      ],
-      "efed66d0d914c043": [
-        "WS-03: the browser client paces its resubscribe paces to the rate WELCOME advertises",
-        "WS-03: the browser client paces its resubscribe sends a 25-subscription reconnect without exceeding the server rate, and sends all of it",
-        "WS-03: the browser client sends a dropped request again sends a catch-up again after a second on CATCH_UP_NOT_READY",
-        "WS-03: the browser client sends a dropped request again sends a catch-up again on RATE_LIMITED instead of reporting resync_required",
-        "WS-03: the browser client sends a dropped request again sends a subscribe again when the server drops it with RATE_LIMITED naming its id",
-        "WS-05: the browser client applies REORG to its cursor drops the cursor below the first invalidated index, then follows the replacements",
-        "WS-05: the browser client applies REORG to its cursor leaves a cursor that is already below the rollback where it is"
       ],
       "f03ba5cec7f4f595": [
         "swap action-detail SQL defines each statement as a valid SELECT with one binding",
@@ -12306,8 +12347,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 470,
-        "titleCount": 7891,
+        "fileCount": 472,
+        "titleCount": 7928,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12332,7 +12373,7 @@
           "test/unit/action_detail/registry/db_action_detail_registry.test.js": "df70ad2a817c2af5",
           "test/unit/action_detail/registry/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",
           "test/unit/action_detail/registry/db_action_detail_supplements.test.js": "23c6716810b12da0",
-          "test/unit/action_detail/schema_skew/consensus_schema_skew.test.js": "2f8d8d22edffca97",
+          "test/unit/action_detail/schema_skew/consensus_schema_skew.test.js": "972ad1e45bc08cc1",
           "test/unit/action_detail/terminal_state/action_detail_swap_terminal_state.test.js": "f4c6ed4c802dfa24",
           "test/unit/action_detail/terminal_state/action_detail_terminal_state_parity.test.js": "6390a235b151401f",
           "test/unit/action_detail/type_details/db_action_tx_less_render.test.js": "a59eb5c50dbf65ee",
@@ -12411,7 +12452,7 @@
           "test/unit/content/detail/content_client_emission_provenance.test.js": "dca56f3433db9448",
           "test/unit/content/detail/content_client_entity_not_found.test.js": "3fe2198241ca51fc",
           "test/unit/content/detail/content_client_price_detail.test.js": "39701c08849b2ca3",
-          "test/unit/content/detail/content_client_rollcall_gates.test.js": "65cbd0477fb22600",
+          "test/unit/content/detail/content_client_rollcall_gates.test.js": "bbba32ab7d6eea77",
           "test/unit/content/detail/poll/content_client_poll_detail.test.js": "c8abd7dec6ab652e",
           "test/unit/content/detail/poll/content_client_poll_winning_option.test.js": "442821ec9fe9713e",
           "test/unit/content/detail/protocol_sentinels/content_client_protocol_sentinels.test.js": "852e82ad8bc84098",
@@ -12519,7 +12560,7 @@
           "test/unit/db/mempool/db_mempool_listall_paging.test.js": "21dd83888010e79b",
           "test/unit/db/mempool/db_mempool_reader_ownership.test.js": "1571701800a32267",
           "test/unit/db/mempool/db_transaction_pending_fallback.test.js": "e256bed9b44a9a7f",
-          "test/unit/db/mempool/decoder_mempool_reply_contract.test.js": "71e23443944752dd",
+          "test/unit/db/mempool/decoder_mempool_reply_contract.test.js": "8012d67790d6cc64",
           "test/unit/db/mempool/mempool.test.js": "8bc5ff64b8859343",
           "test/unit/db/query_sql/blocks_last_page_paging.test.js": "0327f252f909f77e",
           "test/unit/db/query_sql/count_joins.test.js": "f953b74844f8299e",
@@ -12581,7 +12622,7 @@
           "test/unit/db/readers/markets/markets_native_coin_side.test.js": "edcfed4e5189ca51",
           "test/unit/db/readers/markets/order_display_precision.test.js": "82666ae359972f98",
           "test/unit/db/readers/markets/order_remaining_pending_coinpay.test.js": "2b1a61c1dc884236",
-          "test/unit/db/readers/mempool_unavailable.test.js": "2a0cc571c8110ee0",
+          "test/unit/db/readers/mempool_unavailable.test.js": "acad798f76f89852",
           "test/unit/db/readers/oracle/db_oracle_fees.test.js": "848ec7b4eb6a7563",
           "test/unit/db/readers/oracle/db_oracle_price_record.test.js": "54a8fb5c0bb49270",
           "test/unit/db/readers/project_roster/project_roster_coin_items.test.js": "94de69b5f5aa2e24",
@@ -12646,6 +12687,7 @@
           "test/unit/federation/federation_public_reads.test.js": "fb661a3bc9b784fa",
           "test/unit/federation/price_batches.test.js": "70a8e0cdefb4631a",
           "test/unit/helpers/source_slice.test.js": "4b7b0941e0e9456b",
+          "test/unit/http/api_boot/json_body.test.js": "77185424288034ff",
           "test/unit/http/api_boot/listen_host.test.js": "78cd57ab43cd9d97",
           "test/unit/http/api_boot/websocket_start.test.js": "2d909ab5ef9dd060",
           "test/unit/http/cache_control/cache_control_requests.test.js": "f761c855dcd23cf7",
@@ -12731,6 +12773,7 @@
           "test/unit/repo/fixture_ports.test.js": "dc378898866ff01a",
           "test/unit/repo/fixture_preflight.test.js": "8bbbe82f8531cb02",
           "test/unit/repo/fixture_sql_splitter.test.js": "8ab52715f3b3229c",
+          "test/unit/repo/image_node_matches_ci.test.js": "eead836d35d1c6ae",
           "test/unit/repo/sibling_coverage.test.js": "d8d1e52267ea606f",
           "test/unit/security/configuration/bundled_sibling_snapshot.test.js": "13dfdbaefb6250f2",
           "test/unit/security/configuration/dependency_advisories.test.js": "5cc2b8143bdd5808",
@@ -12763,10 +12806,10 @@
           "test/unit/ws/channel_manager/hostile_tostring_input.test.js": "2338933dbd3b78ef",
           "test/unit/ws/feed_correctness/ws02_midpoll_rollback.test.js": "85f354869351a2c3",
           "test/unit/ws/feed_correctness/ws02_since_query_unfiltered.test.js": "36e5b55ced507ceb",
-          "test/unit/ws/feed_correctness/ws03_ws05_browser_client.test.js": "efed66d0d914c043",
+          "test/unit/ws/feed_correctness/ws03_ws05_browser_client.test.js": "3f27876fb6b6bf47",
           "test/unit/ws/feed_correctness/ws03_ws10_requests.test.js": "1e58ece960dd9161",
           "test/unit/ws/feed_correctness/ws04_ws06_unseeded_coin.test.js": "e6c9708ad9f18958",
-          "test/unit/ws/feed_correctness/ws05_reorg_frame.test.js": "ed4023b3acd8eb68",
+          "test/unit/ws/feed_correctness/ws05_reorg_frame.test.js": "c07b82637cae22f9",
           "test/unit/ws/feed_correctness/ws07_ws08_replay_frames.test.js": "dd2b29dee44f9b10",
           "test/unit/ws/schema_version_client.test.js": "9268dad3a4993a0e",
           "test/unit/ws/serialize.test.js": "ddb2427d6ae835b0",

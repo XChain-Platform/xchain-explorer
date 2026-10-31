@@ -12,23 +12,17 @@
  *
  **********************************************************************
  *
- * XChain Explorer - browser security headers and the global body ceiling
+ * XChain Explorer - browser security headers and proxy trust
  *
  * One boot step of src/api.js (the entry calls it first, before anything else
- * touches the app). Helmet's header set with the explorer's own CSP, the tight
- * JSON body limit every route but preflight answers under, and the proxy-hop
- * trust the per-IP guards downstream key on.
- *
- * XChainExplorer arrives as an argument rather than a require: the class is the
- * entry's, the preflight predicate lives beside the route that needs the larger
- * body, and passing it keeps this step free of the explorer's whole dependency
- * tree.
+ * touches the app). Helmet's header set with the explorer's own CSP, and the
+ * proxy-hop trust the per-IP guards downstream key on. The global JSON body
+ * ceiling is its own later step (json_body.js).
  *
  ********************************************************************/
 
 'use strict';
 
-const express = require('express');
 const helmet  = require('helmet');
 const { applyTrustProxy } = require('../trust_proxy.js');   // proxy-hop policy, shared with the WS path's hop count
 
@@ -104,13 +98,12 @@ function cspDirectives(HTTPS_HARDENING){
 }
 
 /**
- * Mount the header set and the body ceiling, in that order.
+ * Mount the header set.
  *
  * @param {object} app the express app
  * @param {object} configInfo src/config.js, for its live env view
- * @param {function} XChainExplorer the explorer class (isPreflightPostRequest, isFeeQuotePostRequest)
  */
-function applySecurityHeaders(app, configInfo, XChainExplorer){
+function applySecurityHeaders(app, configInfo){
     const HTTPS_HARDENING = httpsHardening(configInfo.env);
 
     // Helmet sets the browser security headers; each directive below is tuned
@@ -122,18 +115,6 @@ function applySecurityHeaders(app, configInfo, XChainExplorer){
             directives: cspDirectives(HTTPS_HARDENING)
         },
     }));
-
-    // Tight global body ceiling: nothing on this read-only API legitimately posts more.
-    // The exceptions are POST /{COIN}/api/preflight and POST /{COIN}/api/feequote, which each carry a whole composed
-    // action (a 250-command BATCH is ~17,500 characters) and mount their own parser with
-    // their own ceiling at the route. Skipping them here rather than raising the global limit
-    // keeps the large-body allowance scoped to the two routes that need it; the
-    // predicates live beside those routes so a predicate cannot drift from its route.
-    const globalJson = express.json({ limit: '10kb' });
-    app.use((req, res, next) => {
-        if (XChainExplorer.isPreflightPostRequest(req) || XChainExplorer.isFeeQuotePostRequest(req)) return next();
-        return globalJson(req, res, next);
-    });
 }
 
 /**

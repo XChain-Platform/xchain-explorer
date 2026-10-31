@@ -174,6 +174,25 @@ describe('WS-05: the browser client applies REORG to its cursor', function () {
         expect(ws.lastActionIndex).to.equal('105');
     });
 
+    it('keeps the cursor below the rollback when a running catch-up ends with CATCH_UP_REORGED', function () {
+        const ws = loadClient();
+        const events = [];
+        ws.on('resync_required', (m) => events.push(m.data));
+        ws.lastActionIndex = '100';
+        ws.subscriptions = [{ channels: ['actions'], params: {} }];
+        ws._resubscribe();
+        const first = subscribes(ws)[0].msg;
+        recv(ws, { type: 'NEW_ACTION', catch_up: true, data: { action_index: '101' } });
+        recv(ws, { type: 'NEW_ACTION', catch_up: true, data: { action_index: '103' } });
+        recv(ws, { type: 'REORG', data: { fork_block_index: '11', first_invalid_action_index: '101' } });
+        recv(ws, { type: 'error', id: first.id, data: { code: 'CATCH_UP_REORGED', message: 'replaced',
+            fork_block_index: '11', first_invalid_action_index: '101' } });
+
+        expect(events).to.have.lengthOf(1);
+        expect(events[0]).to.include({ code: 'CATCH_UP_REORGED', fork_block_index: '11', first_invalid_action_index: '101' });
+        expect(ws.lastActionIndex).to.equal('100');
+    });
+
     it('leaves a cursor that is already below the rollback where it is', function () {
         const ws = loadClient();
         ws.lastActionIndex = '90';

@@ -31,6 +31,11 @@
 
 'use strict';
 
+const { getLogger } = require('../../observability');
+const log = getLogger();
+const MEMPOOL_WINDOW = 500;
+const SATURATION_LOG_MS = 5 * 60 * 1000;
+
 class MempoolDiff {
 
     // Diff the decoder-DB mempool snapshot against the last poll. New rows emit
@@ -49,22 +54,20 @@ class MempoolDiff {
         const state = this.mempoolState[coin];
         if (!state) return;
 
-        const WINDOW = 500;
         let rows;
         if (typeof this.db.getDecoderMempoolFeed === 'function') {
-            const feed = await this.db.getDecoderMempoolFeed({ coin }, WINDOW);
+            const feed = await this.db.getDecoderMempoolFeed({ coin }, MEMPOOL_WINDOW);
             rows = feed === null ? null : feed.rows;
         } else {
-            rows = await this.db.getDecoderMempoolRows({ coin }, WINDOW);
+            rows = await this.db.getDecoderMempoolRows({ coin }, MEMPOOL_WINDOW);
         }
         if (rows === null) return;
         const { current, decodedNew, maxHash } = indexMempoolRows(this.db, state, rows);
-        // The read is ORDER BY tx_hash LIMIT 500 (getDecoderMempoolRows). When the
-        // window came back full the table may hold more rows than it covers, and
-        // an already-seen hash sorting above the largest hash read was never
-        // looked at: its absence proves nothing. Only a hash at or below that
-        // bound is known gone. A short window covers the whole table.
-        const covered = (rows.length >= WINDOW) ? maxHash : null;
+        logSaturatedWindow(this, coin, rows);
+
+        // The hash-ordered read is capped. A full result cannot prove that a
+        // higher hash is absent, and it can omit new rows above this bound.
+        const covered = (rows.length >= MEMPOOL_WINDOW) ? maxHash : null;
 
         // First poll: seed without emitting (mirrors block/action init)
         if (!state.initialized) {
@@ -98,9 +101,17 @@ class MempoolDiff {
                 data:    (parties && parties.data)   || null
             });
         }
-
         state.seenHashes = next;
     }
+}
+
+function logSaturatedWindow(detector, coin, rows) {
+    if (rows.length < MEMPOOL_WINDOW) return;
+    if (!detector._mempoolSaturationLoggedAt) detector._mempoolSaturationLoggedAt = new Map();
+    const now = Date.now(), last = detector._mempoolSaturationLoggedAt.get(coin);
+    if (last !== undefined && now - last < SATURATION_LOG_MS) return;
+    detector._mempoolSaturationLoggedAt.set(coin, now);
+    log.warn('MEMPOOL_WINDOW_SATURATED', { coin, window: rows.length });
 }
 
 // One poll's window walked into the Map the next poll diffs against: every row

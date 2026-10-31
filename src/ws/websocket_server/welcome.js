@@ -75,18 +75,10 @@ function schemaBlock(server) {
         // actually validates params.types) so this self-description cannot
         // silently under-advertise a filterable type again.
         types: [...ChannelManager.VALID_TYPES],
-        // 'statuses' is intentionally NOT advertised: the block-derived
-        // actions feed (getActionsSince) never populates a per-action
-        // status, so a statuses filter on the actions channel is a silent
-        // no-op. Rather than imply a filter we can't honor there (the
-        // per-type status joins are deferred), we drop it from the
-        // advertised contract so clients cannot rely on it. The filter
-        // mechanism still runs for events that do carry a status (e.g.
-        // lifecycle/COINPAY frames); it is simply not advertised.
-        // 'ticks' is omitted for the same reason: getActionsSince
-        // selects no tick/give_tick/get_tick column, so Broadcaster's
-        // `if (tick && ...)` check never fires on the actions channel, the
-        // only channel ChannelManager.subscribe attaches a ticks filter to.
+        // 'statuses' and 'ticks' are intentionally not advertised or evaluated
+        // as event filters. They remain accepted for compatibility and are
+        // reported as ignored on actions subscriptions; `ticks` also remains
+        // the supported plural entity key for token subscriptions.
         features: ['snapshot', 'once', 'fields', 'batch', 'catch_up']
     };
 }

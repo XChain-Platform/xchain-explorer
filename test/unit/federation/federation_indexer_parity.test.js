@@ -71,7 +71,19 @@ function loadIndexer() {
         return { error: e };
     }
 }
-const INDEXER_MODULES = loadIndexer();
+
+// Loading two vendored xchain-vm copies in one process loads isolated-vm twice,
+// which its native binding does not support. The focused federation run has no
+// explorer VM loaded and still exercises parity; the aggregate run skips this
+// sibling-backed suite after another test has loaded the explorer copy.
+function explorerVmIsLoaded() {
+    const root = path.join(REPO_ROOT, 'xchain-vm') + path.sep;
+    return Object.keys(require.cache).some((file) => file.startsWith(root));
+}
+
+const INDEXER_MODULES = explorerVmIsLoaded()
+    ? { error: new Error('explorer xchain-vm is already loaded in this process') }
+    : loadIndexer();
 
 // Skip or fail, per STRICT, when the indexer could not be loaded.
 function requireIndexer() {

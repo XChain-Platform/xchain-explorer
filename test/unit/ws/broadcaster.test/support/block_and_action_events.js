@@ -344,7 +344,7 @@ describe('Broadcaster', function () {
                 action_index: 501, action: 'SEND', source: '1abc', status: 'valid'
             });
 
-            expect(client.ws.send.callCount).to.equal(0);
+            expect(client.ws.send.callCount).to.equal(1);
         });
     });
 });

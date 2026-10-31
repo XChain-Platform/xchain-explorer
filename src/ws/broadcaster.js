@@ -15,9 +15,8 @@
  * XChain Explorer - Broadcaster
  *
  * Receives events from the ChangeDetector and broadcasts them to
- * subscribed WebSocket clients. Evaluates per-client filter pipeline:
- * types -> statuses -> ticks (AND logic), then applies fields
- * projection. Handles once auto-unsubscribe after first match.
+ * subscribed WebSocket clients. Evaluates the per-client types filter, then
+ * applies fields projection. Handles once auto-unsubscribe after first match.
  *
  * WHERE THE METHODS LIVE
  *

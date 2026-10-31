@@ -81,14 +81,6 @@ function buildStatusesFilter(params) {
     return { filter: new Set(params.statuses) };
 }
 
-function buildTicksFilter(channels, params) {
-    // Validate ticks filter (for global actions channel)
-    if (params.ticks && Array.isArray(params.ticks) && channels.includes('actions')) {
-        return new Set(params.ticks);
-    }
-    return null;
-}
-
 function buildFieldsFilter(params) {
     // Validate fields filter. Mirrors the types/statuses guard: without it a
     // non-iterable `fields` (e.g. {"fields":1} or {"fields":{}}) reaches
@@ -112,16 +104,12 @@ function buildFilter(channels, params) {
     const statuses = buildStatusesFilter(params);
     if (statuses.error) return statuses;
 
-    const ticks = buildTicksFilter(channels, params);
-
     const fields = buildFieldsFilter(params);
     if (fields.error) return fields;
 
     // Build filter object
     const filter = {
         types:              types.filter,
-        statuses:           statuses.filter,
-        ticks,
         fields:             fields.filter,
         once:               !!params.once,
         snapshot:           !!params.snapshot,

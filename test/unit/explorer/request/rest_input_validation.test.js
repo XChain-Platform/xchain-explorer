@@ -110,7 +110,7 @@ describe('REST ticker reference validation', function(){
     });
 });
 
-describe('REST address validation', function(){
+function defineAcceptedAddressTests(){
     it('accepts a checksummed address for the selected coin', function(){
         expect(settle('getAddress', 'address', BTC_ADDRESS).settled).to.equal(false);
         const upper = settle('getAddress', 'address', BTC_BECH32.toUpperCase());
@@ -145,6 +145,23 @@ describe('REST address validation', function(){
         expect(wrongNetwork.settled).to.equal(true);
         expect(wrongNetwork.st.response.json.code).to.equal('INVALID_ADDRESS');
     });
+}
+
+function defineAddressPassThroughAndRejectionTests(){
+    it('leaves a malformed free-text address query for the search reader', function(){
+        const { settled, st } = settle('getSearch', 'address', 'not-an-address');
+        expect(settled).to.equal(false);
+        expect(st.cfg.data.search).to.equal('not-an-address');
+        expect(st.response).to.deep.equal({});
+    });
+
+    it('passes every address no-filter sentinel through to the list reader', function(){
+        for(const value of [undefined, null, '', 'null']){
+            const { settled, st } = settle('getAddress', 'address', value);
+            expect(settled, String(value)).to.equal(false);
+            expect(st.response).to.deep.equal({});
+        }
+    });
 
     it('refuses malformed, wrong-network and bad-checksum addresses before the read', function(){
         const wrongNetwork = 'bcrt1qqurswpc8qurswpc8qurswpc8qurswpc8m9e9c7';
@@ -156,6 +173,11 @@ describe('REST address validation', function(){
             expect(st.response.json.code).to.equal('INVALID_ADDRESS');
         }
     });
+}
+
+describe('REST address validation', function(){
+    defineAcceptedAddressTests();
+    defineAddressPassThroughAndRejectionTests();
 });
 
 describe('REST cross-chain address lanes', function(){

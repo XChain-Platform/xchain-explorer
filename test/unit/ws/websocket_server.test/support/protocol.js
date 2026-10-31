@@ -86,8 +86,7 @@ describe('WebSocketServer#_sendWelcome (ws-3: types self-description conformance
     });
 
     it('does NOT advertise a "ticks" feature (no action frame carries a tick)', async function () {
-        // Same honesty contract as statuses: getActionsSince selects no tick column,
-        // so the ticks check in Broadcaster.passesFilter can never reject anything.
+        // Same honesty contract as statuses: ticks is not an event filter.
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 

@@ -48,6 +48,35 @@ describe('Broadcaster', function () {
     });
 });
 
+describe('Broadcaster entity filters advertised as ignored', function () {
+    beforeEach(setupBroadcaster);
+
+    it('delivers entity fields that do not match statuses or ticks params', function () {
+        const statusClient = createClient(1, 'BTC');
+        const tickClient = createClient(2, 'BTC');
+        wsServer.addClient(statusClient);
+        wsServer.addClient(tickClient);
+        wsServer.channelManager.subscribe(statusClient, ['dispenser'], {
+            action_index: 7, statuses: ['valid']
+        });
+        wsServer.channelManager.subscribe(tickClient, ['actions', 'dispenser'], {
+            action_index: 7, ticks: ['PEPE']
+        });
+
+        changeDetector.emit('entity_update', 'BTC', {
+            type: 'DISPENSER_UPDATE', channel: 'dispenser',
+            data: { action_index: 7, status: 'open', give_tick: 'XCP', get_tick: 'BTC' }
+        });
+
+        expect(statusClient.ws.send.callCount).to.equal(1);
+        expect(tickClient.ws.send.callCount).to.equal(1);
+        expect(broadcaster.passesFilter(
+            { statuses: new Set(['valid']), ticks: new Set(['PEPE']) },
+            { type: 'BET_CLOSED', data: { status: 'closed', tick: 'XCP' } }
+        )).to.equal(true);
+    });
+});
+
 describe('Broadcaster', function () {
     beforeEach(setupBroadcaster);
 

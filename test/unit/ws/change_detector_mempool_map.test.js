@@ -33,6 +33,7 @@ const { expect }     = require('chai');
 const Database       = require('../../../src/db/index.js');
 const Utility        = require('../../../src/lib/utility.js');
 const ChangeDetector = require('../../../src/ws/change_detector.js');
+const { getLogger }  = require('../../../src/observability');
 
 // A db with the real decodeMempoolRow over a scripted window sequence.
 function mkDb(windows) {
@@ -100,6 +101,29 @@ describe('ChangeDetector mempool seen-state Map (M1.1)', () => {
         await cd.checkMempoolForCoin('RBTC');
         expect(seen).to.deep.equal([]);
         expect(removed).to.deep.equal([{ tx_hash: 'cc33', source: 'thirdAddr', action: null, data: null }]);
+    });
+});
+
+describe('ChangeDetector saturated mempool window', () => {
+    afterEach(() => sinon.restore());
+
+    const row = (i) => ({
+        tx_hash: 'h' + String(i).padStart(4, '0'), source: 's' + i, data: 'MINT|0|TOK|1'
+    });
+    const full = () => Array.from({ length: 500 }, (_, i) => row(i * 2));
+    it('rate-limits saturation logging and stays silent for a short window', async () => {
+        const clock = sinon.useFakeTimers();
+        const warn = sinon.stub(getLogger(), 'warn');
+        const rows = full();
+        const db = mkDb([rows, rows, [row(1)]]);
+        const cd = mkDetector(db);
+
+        await cd.checkMempoolForCoin('RBTC');
+        await cd.checkMempoolForCoin('RBTC');
+        clock.tick(5 * 60 * 1000);
+        await cd.checkMempoolForCoin('RBTC');
+
+        expect(warn.withArgs('MEMPOOL_WINDOW_SATURATED').callCount).to.equal(1);
     });
 });
 

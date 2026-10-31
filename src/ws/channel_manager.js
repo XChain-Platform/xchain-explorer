@@ -15,7 +15,7 @@
  * XChain Explorer - Channel Manager
  *
  * Manages per-client WebSocket subscriptions with optional filters
- * (types, statuses, ticks, fields, once, snapshot, since_action_index).
+ * (types, fields, once, snapshot, since_action_index).
  * Supports batch entity subscriptions and subscription limits.
  *
  * This file is the entry and keeps the read side of the subscription map.

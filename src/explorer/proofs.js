@@ -47,13 +47,26 @@ function isCheckpointSupersedeActive(snapshotBlock, network){
 const { sendProofError } = require('./proof_errors.js');
 const { hasSupersedeFields, supersedeSuffix } = require('./supersede_suffix.js');
 const { supersessionBody } = require('./checkpoint_supersession.js');
-const { heightIsFinal, parseReplay } = require('./replay_finality.js');
+const { finalityFromRules } = require('./replay_finality.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
 const log = getLogger();
 
 class CheckpointProofs {
+
+    async checkpointFinality(config, blockIndex){
+        let rules = null;
+        if(typeof this.db.getIndexerRules === 'function'){
+            try { rules = await this.db.getIndexerRules(config); }
+            catch(e) {
+                log.warn('CHECKPOINT_VERIFY_RULES_UNAVAILABLE', {
+                    err: e && e.message ? e.message : String(e)
+                });
+            }
+        }
+        return finalityFromRules(blockIndex, rules);
+    }
 
     async processCheckpointsRequest(req, res){
         try {
@@ -125,10 +138,7 @@ class CheckpointProofs {
             result.rules_digest = cp.rules_digest == null
                 ? null
                 : String(cp.rules_digest).toLowerCase();
-            let rules = typeof this.db.getIndexerRules === 'function'
-                ? await this.db.getIndexerRules(config)
-                : null;
-            result.final = heightIsFinal(cp.block_index, parseReplay(rules));
+            result.final = await this.checkpointFinality(config, cp.block_index);
             if(isArchiveRollcallPresenceActive(cp.snapshot_block, cp.network)){
                 let archiveValidators = await this.db.getCapabilitySnapshotRows(config, 'archive_publish', cp.snapshot_block) || [];
                 result.archive_validators = this.checkpointValidatorSet(archiveValidators);

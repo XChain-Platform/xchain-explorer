@@ -27,6 +27,27 @@ function resetFreshness(){
     if(db._tipStaleCache) delete db._tipStaleCache.RBTC;
 }
 
+function unknownFinalityCases(){
+    it('reports unknown finality while keeping tip data when indexer health fails', async function(){
+        axios.post.rejects(new Error('connect refused'));
+        const health = await db.getCoinFreshness('RBTC');
+        expect(health.tip_block).to.equal(TARGET);
+        expect(health.final).to.equal(null);
+    });
+
+    it('reports unknown finality when an older indexer omits rules', async function(){
+        axios.post.resolves({ data: { result: {} } });
+        const health = await db.getCoinFreshness('RBTC');
+        expect(health.tip_block).to.equal(TARGET);
+        expect(health.final).to.equal(null);
+    });
+
+    it('reports final when known rules say no replay is open', async function(){
+        rules = { digest: 'a'.repeat(64), replay: null };
+        expect((await db.getCoinFreshness('RBTC')).final).to.equal(true);
+    });
+}
+
 describe('Database tip health replay finality', function(){
     beforeEach(function(){
         db = makeDb();
@@ -76,4 +97,6 @@ describe('Database tip health replay finality', function(){
         expect((await db.getCoinFreshness('RBTC')).final).to.equal(true);
         expect(axios.post.lastCall.args[1].method).to.equal('health');
     });
+
+    unknownFinalityCases();
 });

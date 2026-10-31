@@ -168,6 +168,7 @@ class DatabaseCache {
     // parent; v0 bundles and v2 chunks are never restamped.
     isCacheableAction(data){
         if(this.util.isNull(data) || this.util.isNull(data['action_index'])) return false;
+        if(data['detail_incomplete'] === true) return false;
         if(!this.util.isNull(data['state'])) return false;
         if(!this.util.isNull(data['status']) && /^pending/i.test(String(data['status']))) return false;
         if(data['action'] === 'ANCHOR' && ANCHOR_RESTAMPED_VERSIONS.includes(Number(data['version']))) return false;

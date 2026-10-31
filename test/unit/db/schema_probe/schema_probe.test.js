@@ -174,6 +174,25 @@ describe('schema column probe isolation', function(){
         expect(db.doQuery.callCount).to.equal(2);
     });
 
+    it('scopes a column probe and its memo to an explicit schema', async function(){
+        db.doQuery.resolves(columnRows('x', 'y'));
+
+        expect(await columnsPresent(db, config, 't', ['x', 'y'], 'HubMirror')).to.equal(true);
+        expect(db.doQuery.firstCall.args[1]).to.include('TABLE_SCHEMA=?');
+        expect(db.doQuery.firstCall.args[2]).to.deep.equal(['HubMirror', 't', 'x', 'y']);
+        await columnsPresent(db, config, 't', ['x', 'y']);
+        expect(db.doQuery.callCount).to.equal(2);
+    });
+
+    it('keeps absent markers separate between named and connected schemas', async function(){
+        setColumnsAbsent(db, config, 't', ['x', 'y'], 'HubMirror');
+        db.doQuery.resolves(columnRows('x', 'y'));
+
+        expect(await columnsPresent(db, config, 't', ['x', 'y'], 'HubMirror')).to.equal(false);
+        expect(await columnsPresent(db, config, 't', ['x', 'y'])).to.equal(true);
+        expect(db.doQuery.calledOnce).to.equal(true);
+    });
+
     it('lets an absent marker bypass the column query', async function(){
         setColumnsAbsent(db, config, 't', ['x', 'y']);
 

@@ -48,4 +48,14 @@ function parseReplay(rules){
     };
 }
 
-module.exports = { REPLAY_STATES, replayIsOpen, heightIsFinal, parseReplay };
+// Null means the explorer has no evidence either way, which is distinct from
+// known rules reporting that no replay is open.
+function finalityFromRules(height, rules){
+    if(!rules || typeof rules !== 'object' ||
+        !Object.prototype.hasOwnProperty.call(rules, 'replay') ||
+        height == null || !Number.isFinite(Number(height))) return null;
+    try { return heightIsFinal(height, parseReplay(rules)); }
+    catch(e) { return null; }
+}
+
+module.exports = { REPLAY_STATES, replayIsOpen, heightIsFinal, parseReplay, finalityFromRules };

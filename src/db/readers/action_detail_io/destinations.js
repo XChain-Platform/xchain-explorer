@@ -32,6 +32,14 @@
 // installObservability and falls through to bare console.* before that.
 const { getLogger } = require('../../../observability');
 const log = getLogger();
+const ACTION_DESTINATION_RETRY_MS = 5 * 60 * 1000;
+
+function enableRecoveredFamilies(parked, tables, coin){
+    for(const table of tables){
+        if(!parked.delete(table)) continue;
+        log.info('ACTION_DESTINATIONS_FAMILY_ENABLED', { table, coin });
+    }
+}
 
 // The action families that carry a real RECIPIENT, and the column on each that
 // points back at the action (decision I-46, measured against xchain-indexer/src/sql).
@@ -132,35 +140,42 @@ class ActionDestinationReaders {
         // Lazily initialized (not in the constructor) because the unit harness
         // builds a Database with Object.create(Database.prototype) and never runs it.
         if(!this._actionDestinationSkip) this._actionDestinationSkip = new Map();
-        let skip     = this._actionDestinationSkip.get(config.coin) || new Set();
-        let families = ACTION_DESTINATION_FAMILIES.filter(f => !skip.has(f.table));
+        let parked   = this._actionDestinationSkip.get(config.coin) || new Map();
+        let now      = Date.now();
+        let families = ACTION_DESTINATION_FAMILIES.filter(f =>
+            !parked.has(f.table) || now >= parked.get(f.table));
+        let retrying = families.filter(f => parked.has(f.table)).map(f => f.table);
         let map      = new Map();
         if(!families.length) return map;
 
         try {
             let [query, args] = this.actionDestinationSql(families, indexes);
             this.collectActionDestinations(map, await this.doQuery(config, query, args));
+            enableRecoveredFamilies(parked, retrying, config.coin);
             return map;
         } catch(e){
             // The union is all-or-nothing: one absent table (an older deployment
             // without capability_slash_events, say) loses the destinations of all
             // ten families. Retry family by family so the rest still resolve, and
-            // QUARANTINE only the ones that fail for a schema reason, so the steady
-            // state on such a deployment is back to one query per poll rather than
-            // ten. A transient failure (connection lost) is deliberately NOT
-            // quarantined: it would silence destinations permanently for a fault
-            // that clears on its own.
+            // Park schema failures for a bounded cooldown, then probe again. A
+            // schema gap can disappear after a migration, while transient failures
+            // remain eligible on the next poll. Actions read during the cooldown
+            // are not pushed again, but future routing recovers without a restart.
             map.clear();
             for(let family of families){
                 try {
                     let [q, a] = this.actionDestinationSql([family], indexes);
                     this.collectActionDestinations(map, await this.doQuery(config, q, a));
+                    enableRecoveredFamilies(parked, [family.table], config.coin);
                 } catch(err){
                     if(this.isSchemaShapeError(err)){
-                        skip.add(family.table);
-                        this._actionDestinationSkip.set(config.coin, skip);
-                        log.error('ACTION_DESTINATIONS_FAMILY_DISABLED', { table: family.table,
-                            coin: config.coin, err: err && err.message });
+                        const firstFailure = !parked.has(family.table);
+                        parked.set(family.table, Date.now() + ACTION_DESTINATION_RETRY_MS);
+                        this._actionDestinationSkip.set(config.coin, parked);
+                        if(firstFailure) log.error('ACTION_DESTINATIONS_FAMILY_DISABLED', {
+                            table: family.table, coin: config.coin,
+                            err: err && err.message, reprobe_s: ACTION_DESTINATION_RETRY_MS / 1000
+                        });
                     }
                 }
             }

@@ -9719,6 +9719,12 @@
         "client: dispenser detail route parameters resolves the dispenser address into XC.query",
         "client: dispenser detail route parameters resolves the same way the sibling address-keyed routes do"
       ],
+      "b77da13a80fd4cfe": [
+        "action destination family cooldown keeps cooldown state isolated by coin",
+        "action destination family cooldown logs disabled and enabled once per transition",
+        "action destination family cooldown re-parks a family that is still missing after the deadline",
+        "action destination family cooldown re-probes a missing bridge family and restores its credited address"
+      ],
       "b78828029c1b6221": [
         "UNSTAKE detail: Token row @regression hides both rows for an ordinary capability unstake",
         "UNSTAKE detail: Token row @regression shows the token on a cooldown completion that has no contract index",
@@ -12347,8 +12353,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 472,
-        "titleCount": 7928,
+        "fileCount": 473,
+        "titleCount": 7932,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12587,6 +12593,7 @@
           "test/unit/db/query_sql/where_vote_clauses.test.js": "c95c9f03a953fc82",
           "test/unit/db/reader_parts.test.js": "6427b7bf2f94fa4d",
           "test/unit/db/readers/actions/action_summary_key_fields_fixture.test.js": "972154035e45120c",
+          "test/unit/db/readers/actions/db_action_destination_recovery.test.js": "b77da13a80fd4cfe",
           "test/unit/db/readers/actions/db_action_destinations.test.js": "5284c2c92b0f568a",
           "test/unit/db/readers/actions/db_action_detail_field_contract.test.js": "847a34f234a1bf06",
           "test/unit/db/readers/actions/db_action_ledger_ticks_real_ddl.test.js": "12b0ffb05d87eed8",

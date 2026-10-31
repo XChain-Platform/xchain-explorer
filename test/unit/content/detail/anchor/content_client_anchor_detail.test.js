@@ -112,8 +112,9 @@ function domWithPage() {
 }
 
 // Drives renderAnchorPage exactly as anchor.html's success branch does.
-function renderPage(d) {
+function renderPage(d, pageNetwork) {
     const dom = domWithPage();
+    dom.window.XC.network = pageNetwork || d.network || dom.window.XC.network;
     dom.window.renderAnchorPage(d);
     return dom.window.$;
 }

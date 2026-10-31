@@ -51,6 +51,7 @@ describe('anchor.html detail render @regression', function () {
         function renderWithTable(row, table) {
             const dom = domWithPage();
             dom.window.eval('ANCHOR_ACTIVATION = ' + JSON.stringify(table) + ';');
+            dom.window.XC.network = row.network || dom.window.XC.network;
             dom.window.renderAnchorPage(row);
             return dom.window.$;
         }

@@ -64,7 +64,8 @@ const SNAPSHOTS = new Map([
         }
     }],
     ['network', {
-        reads: [(db, config) => db.getMaxBlockIndex(config), (db, config) => db.getMaxActionIndex(config)],
+        reads: [(db, config, sub, server) => server.liveBlockTip(config.coin),
+            (db, config) => db.getMaxActionIndex(config)],
         shape: (sub, [maxBlock, maxAction]) =>
             ({ channel: 'network', block_height: String(maxBlock || 0), total_actions: String(maxAction || 0) })
     }],

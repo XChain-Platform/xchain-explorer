@@ -6419,17 +6419,6 @@
         "channel manager channel and type names keeps channel groups disjoint and exposes exactly their union",
         "channel manager channel and type names uses unique non-empty upper-case type names made of letters and underscores"
       ],
-      "60c80522ef3dea0d": [
-        "Security: Proxy spoofing: WebSocket upgrade key ignores a forged CF-Connecting-IP with no proxy chain",
-        "Security: Proxy spoofing: WebSocket upgrade key resolves the same appended entry as HTTP for every forgery",
-        "Security: Proxy spoofing: rate-limit buckets a forged value matching another visitor does not borrow their bucket",
-        "Security: Proxy spoofing: rate-limit buckets two forged values behind one appended entry share one bucket",
-        "Security: Proxy spoofing: req.ip through Cloudflare and Apache ignores forged loopback, own-address and multi-entry values",
-        "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys an IPv6 visitor on the appended entry",
-        "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys on the edge when Apache appended the edge address",
-        "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys on the visitor when mod_remoteip resolved CF-Connecting-IP",
-        "Security: Proxy spoofing: req.ip through Cloudflare and Apache never reads CF-Connecting-IP itself"
-      ],
       "612f83af8994b9ac": [
         "transaction page: an empty action list renders instead of throwing [REGRESSION] showActionDatatable clears the placeholder row when there are no actions",
         "transaction page: an empty action list renders instead of throwing [REGRESSION] the placeholder colspan matches the header column count",
@@ -8946,6 +8935,18 @@
         "hub-mirror created_at DATETIME retype safeguards keeps every retype definition equal to its SQL twin",
         "hub-mirror created_at DATETIME retype safeguards logs a failed retype and continues with the other tables",
         "hub-mirror created_at DATETIME retype skips a missing table and a missing created_at column"
+      ],
+      "9ef701de120af9c6": [
+        "Security: Proxy spoofing: WebSocket upgrade key ignores a forged CF-Connecting-IP with no proxy chain",
+        "Security: Proxy spoofing: WebSocket upgrade key resolves the same appended entry as HTTP for every forgery",
+        "Security: Proxy spoofing: rate-limit buckets a forged value matching another visitor does not borrow their bucket",
+        "Security: Proxy spoofing: rate-limit buckets two forged values behind one appended entry share one bucket",
+        "Security: Proxy spoofing: rate-limit buckets uses the forwarded client address through the fronting proxy hop",
+        "Security: Proxy spoofing: req.ip through Cloudflare and Apache ignores forged loopback, own-address and multi-entry values",
+        "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys an IPv6 visitor on the appended entry",
+        "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys on the edge when Apache appended the edge address",
+        "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys on the visitor when mod_remoteip resolved CF-Connecting-IP",
+        "Security: Proxy spoofing: req.ip through Cloudflare and Apache never reads CF-Connecting-IP itself"
       ],
       "9faae2fa2817f069": [
         "Database#getSlashProposals (M3.6 dual-path data leg) RPC-first via HubOperationalCache maps type=pubkey to the validator_pubkey param and leaves status undefined",
@@ -13129,7 +13130,7 @@
       },
       "test:security": {
         "fileCount": 12,
-        "titleCount": 225,
+        "titleCount": 226,
         "files": {
           "test/security/batch_rate_limit.test.js": "c4be9953af5078b6",
           "test/security/concurrency_gate.test.js": "669b9c4dd6af407b",
@@ -13137,7 +13138,7 @@
           "test/security/input_validation.test.js": "6588c4c6bf81913e",
           "test/security/npmrc_hygiene.test.js": "a1f62ebd773c03f5",
           "test/security/path_traversal.test.js": "d4ac69945c87d14c",
-          "test/security/proxy_spoof.test.js": "60c80522ef3dea0d",
+          "test/security/proxy_spoof.test.js": "9ef701de120af9c6",
           "test/security/rate_limit_log.test.js": "98a7d5d482c34aeb",
           "test/security/rate_limit_pins.test.js": "399d1971d77c5302",
           "test/security/rate_limiting.test.js": "93d927780b91e5db",

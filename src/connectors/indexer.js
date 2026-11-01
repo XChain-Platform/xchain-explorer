@@ -75,6 +75,16 @@ class XChainIndexerConnector {
                 e.code = 'INDEXER_AUTH_REQUIRED';
                 throw e;
             }
+            // The indexer rate-limits per IP and answers 429 with Retry-After. That is a
+            // transient "slow down", not an outage, so tag it for the proxy routes to relay
+            // as retryable instead of letting it read as a dead upstream.
+            if(status === 429){
+                const e = new Error('indexer rate limited');
+                e.code = 'INDEXER_RATE_LIMITED';
+                const ra = String((err.response.headers && err.response.headers['retry-after']) || '').trim();
+                if(/^[0-9]{1,6}$/.test(ra)) e.retryAfter = Number(ra);
+                throw e;
+            }
             throw err;
         }
         if(response.data && response.data.error)

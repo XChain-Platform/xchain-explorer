@@ -54,6 +54,18 @@ const MAX_PREFLIGHT_PARAMS_LENGTH = 390000;
 // of magnitude below this and it only exists to keep the field bounded.
 const MAX_PREFLIGHT_SOURCE_LENGTH = 4096;
 
+// Upstream failure answer for the preflight and feeschedule proxies. An indexer
+// rate-limit (tagged by the connector) is transient, so it carries retryable:true and
+// Retry-After like the feequote route; any other failure keeps the bare shape.
+function sendUpstreamError(res, e, message){
+    let body = { error: message, code: 'UPSTREAM_ERROR' };
+    if(e && e.code === 'INDEXER_RATE_LIMITED'){
+        body.retryable = true;
+        if(e.retryAfter > 0 && typeof res.set === 'function') res.set('Retry-After', String(e.retryAfter));
+    }
+    return res.status(502).json(body);
+}
+
 class FeesPreflight {
 
     // Resolve an explorer coin code (e.g. 'BTC', 'TBTC', 'RDOGE') to its base coin + network
@@ -263,7 +275,7 @@ class FeesPreflight {
             return res.json(result);
         } catch(e){
             log.error('PREFLIGHT_REQUEST_FAILED', { err: e.message || e });
-            return res.status(502).json({ error: 'pre-flight upstream error', code: 'UPSTREAM_ERROR' });
+            return sendUpstreamError(res, e, 'pre-flight upstream error');
         }
     }
 
@@ -283,7 +295,7 @@ class FeesPreflight {
             return res.json(await feeScheduleCache.get(url, () => new IndexerConnector(url).feeschedule()));
         } catch(e){
             log.error('FEE_SCHEDULE_REQUEST_FAILED', { err: e.message || e });
-            return res.status(502).json({ error: 'fee schedule upstream error', code: 'UPSTREAM_ERROR' });
+            return sendUpstreamError(res, e, 'fee schedule upstream error');
         }
     }
 }

@@ -5504,6 +5504,14 @@
         "@regression explorer checkpoint supersede suffix bytes throws when rules_digest is not 64 hexadecimal characters",
         "@regression explorer checkpoint supersede suffix bytes throws when supersedes_from is not a non-negative safe integer"
       ],
+      "524fb378f3fd0298": [
+        "indexer 429 through the preflight and feeschedule proxies a 429 without a usable Retry-After is still retryable and sets no header",
+        "indexer 429 through the preflight and feeschedule proxies control: a transport failure keeps the plain 502 UPSTREAM_ERROR shape",
+        "indexer 429 through the preflight and feeschedule proxies control: the feequote route keeps its retryable 502",
+        "indexer 429 through the preflight and feeschedule proxies feeschedule answers a 429 as retryable with Retry-After",
+        "indexer 429 through the preflight and feeschedule proxies preflight answers a 429 as retryable with Retry-After, not a bare 502",
+        "indexer connector: 429 tagging tags a 429 with its Retry-After and leaves other errors alone"
+      ],
       "5284c2c92b0f568a": [
         "db.getActionsSince destinations (M1.4) QUARANTINES only the missing family, so the next poll is back to one query",
         "db.getActionsSince destinations (M1.4) a MISSING table costs only its own family: the others still resolve",
@@ -12383,8 +12391,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 473,
-        "titleCount": 7962,
+        "fileCount": 474,
+        "titleCount": 7968,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12744,6 +12752,7 @@
           "test/unit/http/openapi_coverage.test.js": "49992a3e9860e255",
           "test/unit/http/openapi_response_schemas.test.js": "aab15b91e5ebf99f",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
+          "test/unit/http/preflight_route.test/upstream_rate_limit.test.js": "524fb378f3fd0298",
           "test/unit/http/proof_server.test.js": "736f86a7b212dc70",
           "test/unit/http/proof_server_stake_total.test.js": "c88a4399d3e54590",
           "test/unit/http/rate_limit_log_span.test.js": "cbdd7ea0c7618b4b",

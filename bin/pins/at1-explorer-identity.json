@@ -2637,8 +2637,8 @@
   },
   "suites": {
     "totals": {
-      "scripts": 51,
-      "collected": 21,
+      "scripts": 52,
+      "collected": 22,
       "skipped": 19,
       "composite": 0,
       "errored": 0,
@@ -13009,6 +13009,13 @@
           "test/unit/explorer/paging_response/explorer_paging.test.js": "66cd3cb942505c74",
           "test/unit/explorer/paging_response/explorer_response.test.js": "217895db758d81cd",
           "test/unit/explorer/routes/explorer_routing.test.js": "c04e83d263571f66"
+        }
+      },
+      "test:federation-parity": {
+        "fileCount": 1,
+        "titleCount": 73,
+        "files": {
+          "test/unit/federation/federation_indexer_parity.test.js": "447c966e7aa93c82"
         }
       },
       "test:fuzz": {

@@ -82,14 +82,16 @@ function explorerVmIsLoaded() {
 }
 
 const INDEXER_MODULES = explorerVmIsLoaded()
-    ? { error: new Error('explorer xchain-vm is already loaded in this process') }
+    ? { error: new Error('explorer xchain-vm is already loaded in this process'), vmConflict: true }
     : loadIndexer();
 
-// Skip or fail, per STRICT, when the indexer could not be loaded.
+// Skip or fail, per STRICT, when the indexer could not be loaded. A VM conflict
+// always skips: the sibling is present, and `npm run ci` runs this file alone
+// (test:federation-parity) so strict coverage comes from that focused run.
 function requireIndexer() {
     if (!INDEXER_MODULES.error) return;
     const why = 'xchain-indexer not loadable at ' + INDEXER + ': ' + INDEXER_MODULES.error.message;
-    if (STRICT) throw new Error(why);
+    if (STRICT && !INDEXER_MODULES.vmConflict) throw new Error(why);
     this.skip();
 }
 

@@ -114,6 +114,22 @@ describe('handshake block tip stops at the live NEW_BLOCK boundary', function ()
         for (const index of live) expect(index).to.be.greaterThan(handshakeTip);
         for (const index of live) expect(index).to.be.greaterThan(Number(snapshot.data.block_index));
     });
+
+    it('the network SNAPSHOT cannot start above the next live NETWORK_STATS height', async function () {
+        const db = fakeDb(9);
+        const { s, detector, client } = setup(db);
+        await detector.checkCoin('BTC');
+        db.blocks.push(block(10));
+
+        s.handleSubscribe(client, { action: 'subscribe', channels: ['network'], params: { snapshot: true }, id: 'r2' });
+        await settle();
+        const snapshot = frames(client, 'SNAPSHOT')[0];
+        expect(snapshot.data.block_height).to.equal('9');
+
+        await detector.checkCoin('BTC');
+        await settle();
+        expect(frames(client, 'NETWORK_STATS').map(m => m.data.block_height)).to.deep.equal(['10']);
+    });
 });
 
 describe('handshake block tip stops at the live NEW_BLOCK boundary', function () {

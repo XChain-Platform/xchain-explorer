@@ -216,6 +216,26 @@ describe('Batch read endpoints: coin gate propagation (C53)', function () {
         expect(code).to.equal(503);
         expect(body.code).to.equal('COIN_NOT_AVAILABLE');
     });
+
+    it('propagates the first inner read freshness headers on both batch routes', async function () {
+        const oldPools = explorer.db.pools;
+        const oldFreshness = explorer.db.getCoinFreshness;
+        explorer.db.pools = { BTC: {} };
+        explorer.db.getCoinFreshness = async () => ({
+            stale: true, tip_block: 850, tip_age_seconds: 99999, replica_halted: false
+        });
+        try {
+            for(const route of [balancesRoute, coinpayRoute]){
+                const { headers } = await post(route, 'BTC', { addresses: [ADDR_ONE] });
+                expect(headers['XChain-Freshness']).to.equal('stale');
+                expect(headers['XChain-Tip-Block']).to.equal('850');
+                expect(headers['XChain-Tip-Age-S']).to.equal('99999');
+            }
+        } finally {
+            explorer.db.pools = oldPools;
+            explorer.db.getCoinFreshness = oldFreshness;
+        }
+    });
 });
 
 describe('Batch read endpoints: POST /{COIN}/api/coinpay_obligations (C54)', function () {

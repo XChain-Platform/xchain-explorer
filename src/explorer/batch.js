@@ -64,6 +64,13 @@ function canonicalBatchAddresses(config, coin, addresses){
     return { canonicalAddresses, invalidAddress };
 }
 
+function forwardFreshnessHeaders(res, read){
+    for(const name of ['XChain-Freshness', 'XChain-Tip-Block', 'XChain-Tip-Age-S']){
+        if(read.headers && read.headers[name] !== undefined)
+            res.set(name, read.headers[name]);
+    }
+}
+
 class BatchReads {
 
     /**********************************************************
@@ -87,16 +94,21 @@ class BatchReads {
      * res.set/res.status/res.send, so a synthetic request plus a capturing
      * response reproduces exactly what the equivalent GET would have sent.
      *
-     * Returns { code, json }, json parsed back from the bytes that were sent
-     * (null when the body was not JSON). A throw is degraded to a 500 entry
+     * Returns { code, json, headers }, with json parsed back from the bytes that
+     * were sent (null when the body was not JSON). A throw is degraded to a 500 entry
      * rather than propagated: one address failing must not lose the other
      * nineteen answers the caller already paid for.
      */
     async readApi(coin, apiPath, query){
         let code = 200;
         const body = [];
+        const headers = {};
         const res  = {
-            set:    function(){ return this; },
+            set:    function(name, value){
+                if(typeof name === 'string') headers[name] = value;
+                else if(name && typeof name === 'object') Object.assign(headers, name);
+                return this;
+            },
             status: function(c){ code = c; return this; },
             send:   function(chunk){ body.push(chunk); return this; }
         };
@@ -108,7 +120,7 @@ class BatchReads {
         }
         let json = null;
         try { json = JSON.parse(body.join('')); } catch(_){ json = null; }
-        return { code, json };
+        return { code, json, headers };
     }
 
     /**
@@ -208,6 +220,7 @@ class BatchReads {
             : invalidAddress;
         const firstPath = parts[0].path(firstAddress);
         const firstRead = await this.readApi(coin, firstPath, query);
+        forwardFreshnessHeaders(res, firstRead);
         if(firstRead.code === 503 && firstRead.json && String(firstRead.json.code || '').startsWith('COIN_'))
             return this.sendBatchJson(res, firstRead.code, firstRead.json);
         if(invalidAddress !== null)

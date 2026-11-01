@@ -140,7 +140,7 @@ function actionDetail_renderBasicActions(html, action, info, coin){
         let lead = actionDetail_legTotalLead(info, coin, 'across');
         if(lead !== null) html += lead;
         else {
-            html += info.amount + formatLink(tokenUrl(coin, info.tick), info.tick, info.tick) + ' to ';
+            html += formatLinkAmount(tokenUrl(coin, info.tick), info.tick, info.tick, info.amount) + ' to ';
             // list_action_index identifies the LIST action being paid out.
             html += 'List ' + formatLink('/' + coin + '/action/' + info.list_action_index, info.list_action_index);
         }

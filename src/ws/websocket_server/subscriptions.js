@@ -80,19 +80,13 @@ function overRateLimit(server, client) {
 
 // The filter names a subscribe request sent that no event this server produces
 // can ever match, or null when it sent none.
-function ignoredFiltersFor(params) {
-    // Still accept a `statuses` filter (non-breaking: ChannelManager keeps
-    // validating and storing it), but it is a no-op on every event this server
-    // currently produces (action.status is a literal SQL NULL from db/index.js
-    // getActionsSince, so Broadcaster.passesFilter's status check never fires).
-    // Surface that as `ignored_filters` so a client that sent it can observe the
-    // no-op instead of silently getting nothing. Same params object for the whole
-    // subscribe() call, so this is constant across every confirmation below.
-    // `ticks` joins it for the same reason: no action frame carries a
-    // tick field, so the ticks check never fires either.
+function ignoredFiltersFor(channels, params) {
+    // Both names stay accepted for compatibility but are never delivery filters.
+    // `ticks` is reported only when an actions subscription tried to use it that
+    // way; on token it is the entity list and was honored while resolving keys.
     const ignored = [];
     if (params.statuses) ignored.push('statuses');
-    if (params.ticks)    ignored.push('ticks');
+    if (params.ticks && channels.includes('actions')) ignored.push('ticks');
     return ignored.length ? ignored : null;
 }
 
@@ -212,7 +206,9 @@ class WebSocketSubscriptions {
         }
 
         if (!msg || typeof msg.action !== 'string') {
-            this.sendError(client, 'INVALID_ACTION', 'Missing action field');
+            // Echo the request id when the frame is an object that carries one.
+            const id = (msg && typeof msg === 'object' && !Array.isArray(msg)) ? msg.id : undefined;
+            this.sendError(client, 'INVALID_ACTION', 'Missing action field', id);
             return;
         }
 
@@ -256,7 +252,7 @@ class WebSocketSubscriptions {
             return;
         }
 
-        const ignoredFilters = ignoredFiltersFor(params);
+        const ignoredFilters = ignoredFiltersFor(channels, params);
 
         // Send SUBSCRIBED confirmation for each entity subscribed
         for (const sub of result.subscribed) {

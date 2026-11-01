@@ -28,6 +28,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const coins = require('../../coins');
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -46,6 +47,8 @@ const paramsCache = new Map();
  * @returns {{p2pkh: number, p2sh: number, hrp: string|null}|null}
  */
 function addressParams(config, code){
+    if(!config)
+        return null;
     if(paramsCache.has(code))
         return paramsCache.get(code);
     let params = null;
@@ -146,6 +149,71 @@ function bech32Decode(address){
     return hrp;
 }
 
+function sha256(value){
+    return crypto.createHash('sha256').update(value).digest();
+}
+
+function base58ChecksumHolds(bytes){
+    const body     = Buffer.from(bytes.slice(0, -4));
+    const checksum = Buffer.from(bytes.slice(-4));
+    const expected = sha256(sha256(body)).subarray(0, 4);
+    return checksum.equals(expected);
+}
+
+/**
+ * Return the canonical address spelling, false for a malformed address, or null
+ * when the coin code is unknown.
+ */
+function canonicalCoinAddress(config, code, address){
+    const params = addressParams(config, String(code).toUpperCase());
+    if(params === null)
+        return null;
+    const str = String(address);
+    // Accept only the canonical custody spelling emitted by contract actions.
+    const contract = /^C:([A-Z]+):(0|[1-9][0-9]*)$/.exec(str);
+    if(contract){
+        const chain = contract[1];
+        // Refuse unknown chains and indices JavaScript cannot represent exactly.
+        if(!Object.prototype.hasOwnProperty.call(config.COIN_NETWORKS || {}, chain) ||
+           !Number.isSafeInteger(Number(contract[2])))
+            return false;
+        return str;
+    }
+    const hrp = bech32Decode(str);
+    if(hrp !== false)
+        return params.hrp !== null && hrp === params.hrp ? str.toLowerCase() : false;
+    const bytes = base58Decode(str);
+    if(!bytes || bytes.length !== 25 || !base58ChecksumHolds(bytes))
+        return false;
+    return (bytes[0] === params.p2pkh || bytes[0] === params.p2sh) ? str : false;
+}
+
+/**
+ * Return the canonical spelling when an address belongs to any configured
+ * chain on the route network, for hub mirror rows that carry their own chain.
+ */
+function canonicalAnyCoinAddress(config, code, address){
+    if(!config)
+        return null;
+    const upperCode = String(code).toUpperCase();
+    let prefix = null;
+    // Resolve the route network once so another network cannot match by shape.
+    for(const network of Object.keys(config.COIN_PREFIXES || {})){
+        const candidate = config.COIN_PREFIXES[network];
+        if(Object.keys(config.COIN_NETWORKS || {}).some(tick => candidate + tick === upperCode))
+            prefix = candidate;
+    }
+    if(prefix === null)
+        return null;
+    // Check every mirrored chain because the row stores its source chain.
+    for(const tick of Object.keys(config.COIN_NETWORKS || {})){
+        const canonical = canonicalCoinAddress(config, prefix + tick, address);
+        if(canonical !== false)
+            return canonical;
+    }
+    return false;
+}
+
 /**
  * Whether a path segment has the shape of an address on this coin and network.
  *
@@ -156,17 +224,8 @@ function bech32Decode(address){
  *   check knows, so the caller can leave the page alone
  */
 function isCoinAddress(config, code, address){
-    const params = addressParams(config, String(code).toUpperCase());
-    if(params === null)
-        return null;
-    const str = String(address);
-    const hrp = bech32Decode(str);
-    if(hrp !== false)
-        return params.hrp !== null && hrp === params.hrp;
-    const bytes = base58Decode(str);
-    if(!bytes || bytes.length !== 25)
-        return false;
-    return bytes[0] === params.p2pkh || bytes[0] === params.p2sh;
+    const canonical = canonicalCoinAddress(config, code, address);
+    return canonical === null ? null : canonical !== false;
 }
 
-module.exports = { isCoinAddress };
+module.exports = { canonicalAnyCoinAddress, canonicalCoinAddress, isCoinAddress };

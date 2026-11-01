@@ -62,6 +62,7 @@ function render(data) {
     return {
         version: cell('rollcall-version'),
         gates: cell('rollcall-gates'),
+        count: cell('rollcall-signer-count'),
         gateBadges: [...cell('rollcall-gates').querySelectorAll('.badge')]
             .map((badge) => badge.textContent)
     };
@@ -124,5 +125,19 @@ describe('ROLLCALL detail version and consensus gates', function () {
             'rollcall-gates',
             'rollcall-signer-count'
         ]);
+    });
+});
+
+describe('ROLLCALL detail validator count', function () {
+    it('counts every carried signature, naming how many were first seen', function () {
+        const signers = [{ pubkey: '01'.repeat(32), sig: 'aa'.repeat(64) }];
+        expect(render({ action_format: 1, carried_count: 3, signers }).count.textContent).to.equal('3 (1 first seen in this epoch)');
+        expect(render({ action_format: 1, carried_count: 2, signers: [] }).count.textContent).to.equal('2 (0 first seen in this epoch)');
+        expect(render({ action_format: 1, carried_count: 1, signers }).count.textContent).to.equal('1');
+    });
+
+    it('falls back to the signer list length when the carried count is unknown', function () {
+        const signers = [{ pubkey: '01'.repeat(32), sig: 'aa'.repeat(64) }, { pubkey: '02'.repeat(32), sig: 'bb'.repeat(64) }];
+        expect(render({ action_format: 0, carried_count: null, signers }).count.textContent).to.equal('2');
     });
 });

@@ -206,6 +206,8 @@ describe('explorer pool sizing is per dbType', function () {
         const { indexer, decoder } = limitsByKind();
         for (const cfg of decoder) expect(cfg.queryTimeout).to.equal(5000);
         for (const cfg of indexer) expect(cfg.queryTimeout).to.equal(30000);
+        for (const cfg of decoder) expect(cfg.acquireTimeout).to.equal(cfg.queryTimeout);
+        for (const cfg of indexer) expect(cfg.acquireTimeout).to.equal(cfg.queryTimeout);
     });
 
     // Upstream timestamp columns are UTC-literal DATETIME, so every read session

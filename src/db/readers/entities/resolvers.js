@@ -147,7 +147,7 @@ class EntityResolverReaders {
         // A `^<id>` reference resolves directly to the numeric id, no lookup
         // needed. Everything after the caret is the id (do not drop any digit).
         let str = String(tick);
-        if(str.charAt(0) === '^' && this.util.isNumeric(str.substring(1)))
+        if(str.charAt(0) === '^' && this.util.isSafeIntegerParam(str.substring(1)))
             return Number(str.substring(1));
         let key    = this.cacheKey(config.coin, str.toLowerCase());
         let cached = this.cacheGet(this._tickIdCache, key);

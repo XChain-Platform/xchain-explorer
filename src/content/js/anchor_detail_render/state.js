@@ -171,7 +171,10 @@ function anchorTraits(d){
     let row = d || {};
     let v   = isNull(row.version) ? null : Number(row.version);
 
-    let net    = isNull(row.network) ? null : String(row.network);
+    // Use this explorer's configured network, as the indexer did when it
+    // assigned the stored verdict. row.network is wire data and can differ on
+    // an invalid row.
+    let net = (typeof XC !== 'undefined' && XC && !isNull(XC.network)) ? String(XC.network) : null;
     // Mirror the indexer's reached() for a listed network: a non-finite threshold (UNPINNED)
     // or height is not activated, so the row reads Legacy; no entry or no height is unjudged.
     let pinned = (net !== null && Object.prototype.hasOwnProperty.call(ANCHOR_ACTIVATION, net));

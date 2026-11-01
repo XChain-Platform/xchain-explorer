@@ -26,7 +26,7 @@
 'use strict';
 
 const {
-    sinon, expect, mockRes, mockResults, state, makeExplorer, handle, parseBody
+    sinon, expect, mockRes, mockResults, TEST_ADDRESS, state, makeExplorer, handle, parseBody
 } = require('./helpers.js');
 
 describe('XChainExplorer.processRequest – error responses', function () {
@@ -34,7 +34,7 @@ describe('XChainExplorer.processRequest – error responses', function () {
         // LTC is in COIN_SUPPORTED but not in COIN_AVAILABLE (per mock-config fixture).
         // validDataRequest=false so getData is never called; 503 is returned.
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/LTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/LTC/api/sends/' + TEST_ADDRESS + '/address');
         const body     = parseBody(res);
 
         expect(res._status).to.equal(503);
@@ -44,7 +44,7 @@ describe('XChainExplorer.processRequest – error responses', function () {
     it('returns HTTP 404 when getData returns null data and null total', async function () {
         state.getDataResult  = [null, null];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         const body     = parseBody(res);
 
         expect(res._status).to.equal(404);
@@ -69,7 +69,7 @@ describe('XChainExplorer.processRequest – error responses', function () {
         err.code       = 'DB_ERROR';
         sinon.stub(explorer.db, 'getData').rejects(err);
 
-        const res  = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res  = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         const body = parseBody(res);
 
         expect(res._status).to.equal(500);
@@ -85,7 +85,7 @@ describe('XChainExplorer.processRequest – error responses', function () {
         // throw. getData resolving [[], 0] is a successful empty page.
         state.getDataResult  = [[], 0];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         const body     = parseBody(res);
 
         expect(res._status).to.equal(200);
@@ -100,7 +100,7 @@ describe('XChainExplorer.processRequest – response headers', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
 
         expect(res._headers).to.not.have.property('XChain-Explorer-Version');
     });
@@ -109,7 +109,7 @@ describe('XChainExplorer.processRequest – response headers', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
 
         // Custom headers object should not contain this (cors middleware handles it)
         expect(res._headers).to.not.have.property('Access-Control-Allow-Origin');
@@ -121,7 +121,7 @@ describe('XChainExplorer.processRequest – response headers', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
 
         expect(res._headers).to.not.have.property('XChain-Runtime-Ms');
         if(origDebug) process.env.DEBUG = origDebug;

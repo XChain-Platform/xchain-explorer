@@ -34,11 +34,11 @@ const { sinon, expect, configInfo, mockResults, makeDb, cfg } = require('./helpe
 
 let db;
 
-function setupMockPool(coin, fakeConn) {
+function setupMockPool(coin, fakeConn, queryTimeout) {
     db.pools = {};
     db.pools[coin] = {
         pool: { getConnection: sinon.stub().resolves(fakeConn) },
-        config: {}
+        config: queryTimeout ? { queryTimeout } : {}
     };
 }
 
@@ -89,6 +89,50 @@ describe('Database#doQuery', () => {
 
         await db.doQuery(cfg(), 'SELECT 1', []);
         expect(fakeConn.release.calledOnce).to.be.true;
+    });
+
+    it('fails a frozen statement closed at the client-side wall-clock deadline', async () => {
+        const clock = sinon.useFakeTimers();
+        const fakeConn = {
+            query:   sinon.stub().returns(new Promise(() => {})),
+            release: sinon.spy(),
+            destroy: sinon.spy()
+        };
+        setupMockPool('BTC', fakeConn, 25);
+
+        let outcome;
+        db.doQuery(cfg(), 'SELECT frozen', []).then(
+            () => { outcome = 'resolved'; },
+            (error) => { outcome = error; }
+        );
+        await clock.tickAsync(26);
+
+        expect(outcome).to.be.an('error');
+        expect(outcome.name).to.equal('DbQueryError');
+        expect(outcome.cause.code).to.equal('DB_DEADLINE_EXCEEDED');
+        expect(fakeConn.destroy.calledOnce).to.equal(true);
+        expect(fakeConn.release.called).to.equal(false);
+    });
+
+    it('fails a frozen pool acquisition closed at the client-side wall-clock deadline', async () => {
+        const clock = sinon.useFakeTimers();
+        db.pools = {
+            BTC: {
+                pool: { getConnection: sinon.stub().returns(new Promise(() => {})) },
+                config: { queryTimeout: 25 }
+            }
+        };
+
+        let outcome;
+        db.doQuery(cfg(), 'SELECT frozen', []).then(
+            () => { outcome = 'resolved'; },
+            (error) => { outcome = error; }
+        );
+        await clock.tickAsync(26);
+
+        expect(outcome).to.be.an('error');
+        expect(outcome.name).to.equal('DbQueryError');
+        expect(outcome.cause.code).to.equal('DB_DEADLINE_EXCEEDED');
     });
 });
 

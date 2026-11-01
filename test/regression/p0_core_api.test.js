@@ -28,9 +28,9 @@ const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
 // Addresses that appear in the seeded test data, so the queries below find rows
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
-const ADDR3 = 'bc1qaddr3ccccccccccccccccccccccccccc';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR2 = 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa';
+const ADDR3 = 'bcrt1qqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcruj60yu';
 
 let request;
 

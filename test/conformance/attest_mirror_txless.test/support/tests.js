@@ -76,7 +76,7 @@ function registerListingTests(fixture) {
         expect(row.tx_index, 'tx_index should be a real null, not a string').to.equal(null);
         // Source resolves through the ACTION's source_id (COALESCE's first arm),
         // so it survives the missing transaction.
-        expect(row.source).to.equal('bcrt1qattestmirror');
+        expect(row.source).to.equal('bcrt1qyysjzgfpyysjzgfpyysjzgfpyysjzgfpp3g5ee');
         expect(row.version).to.not.equal(undefined);
         expect(row.request_id).to.equal(MIRROR_REQUEST_ID);
         // Both status fields ride the feed, which is what lets the page show the
@@ -120,7 +120,7 @@ function registerActionTests(fixture) {
         expect(row.action).to.equal('ATTEST');
         expect(Number(row.block_index)).to.equal(BLOCK);
         expect(row.tx_hash, 'tx_hash should be a real null on a synthesized action').to.equal(null);
-        expect(row.source).to.equal('bcrt1qattestmirror');
+        expect(row.source).to.equal('bcrt1qyysjzgfpyysjzgfpyysjzgfpyysjzgfpp3g5ee');
         expect(row.destinations, 'the destinations enrichment did not run').to.be.an('array');
     });
 }

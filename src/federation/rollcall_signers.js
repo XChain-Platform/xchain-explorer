@@ -80,11 +80,12 @@ function rollcallManifestHash() {
     return manifestHashMemo;
 }
 
-// A JSON number or a decimal-digit string as a number, anything else NaN. Typed
-// before it is numbered, because parseInt reads '960junk' as 960 and '1.7e9' as 1.
+// A JSON number or a canonical decimal-digit string as a number, anything else
+// NaN. Typed before it is numbered, because parseInt reads '960junk' as 960 and
+// '1.7e9' as 1, while leading zeroes are not canonical JSON integers.
 function integerParam(v) {
     if (typeof v === 'number') return v;
-    return (typeof v === 'string' && /^\d+$/.test(v)) ? Number(v) : NaN;
+    return (typeof v === 'string' && /^(0|[1-9][0-9]*)$/.test(v)) ? Number(v) : NaN;
 }
 
 // The caller's request checked in the indexer's order: DOGE only, this network,
@@ -95,7 +96,7 @@ function rollcallSignersRequest(chain, {network, epoch_height, max_block_time, p
     if (String(chain['COIN']) !== 'DOGE')
         return { error: 'getrollcallsigners is DOGE-only' };
     // A caller asking about another network is asking the wrong replica
-    if (network !== undefined && String(network) !== String(chain['NETWORK']))
+    if (network !== undefined && (typeof network !== 'string' || network !== String(chain['NETWORK'])))
         return { error: 'network mismatch' };
 
     let epoch = integerParam(epoch_height);
@@ -104,15 +105,21 @@ function rollcallSignersRequest(chain, {network, epoch_height, max_block_time, p
     if (!Number.isSafeInteger(epoch) || epoch < 0) return { error: 'invalid epoch_height' };
     if (!Number.isSafeInteger(maxT) || maxT < 0)   return { error: 'invalid max_block_time' };
 
+    // Supplied key collections must retain their JSON array shape.
+    if (pubkeys !== undefined && !Array.isArray(pubkeys)) return { error: 'invalid key list' };
+    if (publishers !== undefined && !Array.isArray(publishers)) return { error: 'invalid key list' };
     let keys = Array.isArray(pubkeys)    ? pubkeys    : [];
     let pubs = Array.isArray(publishers) ? publishers : [];
-    // Keep only 64-hex keys: a caller asking about a key it cannot name is enumerating
+    // Every requested key must be a 64-character hexadecimal string.
     const HEX64 = /^[0-9a-fA-F]{64}$/;
-    keys = keys.filter((k) => HEX64.test(String(k))).map((k) => String(k).toLowerCase());
-    pubs = pubs.filter((k) => HEX64.test(String(k))).map((k) => String(k).toLowerCase());
     // Refuse a key list past the ceiling rather than answer part of it
     if (keys.length > ROLLCALL_READ_MAX_KEYS || pubs.length > ROLLCALL_READ_MAX_KEYS)
         return { error: 'too many keys requested' };
+    if (keys.some(k => typeof k !== 'string' || !HEX64.test(k)) ||
+        pubs.some(k => typeof k !== 'string' || !HEX64.test(k)))
+        return { error: 'invalid key list' };
+    keys = keys.map((k) => k.toLowerCase());
+    pubs = pubs.map((k) => k.toLowerCase());
     return { epoch, maxT, keys, pubs };
 }
 

@@ -120,6 +120,7 @@ function setNetworkPools(db, mariadb, info, coin, net){
 
 // Build the connection options for one indexer database.
 function indexerPoolConfig(cfg){
+    let queryTimeout = poolSizing.resolveQueryTimeout('indexer');
     return {
         host:     cfg.db_host,
         port:     cfg.db_port,
@@ -137,9 +138,12 @@ function indexerPoolConfig(cfg){
         // the indexer and decoder pools carry very
         // different loads.
         connectionLimit:  poolSizing.resolvePoolSize('indexer'),
-        //connectTimeout: 0,
+        // The driver's acquire timeout is explicit and shares the query budget;
+        // doQuery independently enforces the same wall-clock deadline so a
+        // frozen server cannot strand callers before or during a statement.
+        acquireTimeout:   queryTimeout,
         insertIdAsNumber: true,
-        queryTimeout:     poolSizing.resolveQueryTimeout('indexer'),
+        queryTimeout,
         // Run the session at +00:00 like the indexer and decoder writers, so
         // UNIX_TIMESTAMP() and NOW() agree with their UTC-literal DATETIME columns
         timezone:         'Z',
@@ -202,6 +206,7 @@ function setDecoderPool(db, mariadb, dcfg, cfg, key){
         if(!db.util.isNull(dHost) && !db.util.isNull(dPort)){
             db.decoderDb[key] = dcfg.name;
             if(!(dHost==cfg.db_host && dPort==cfg.db_port && dcfg.user==cfg.user && dcfg.pass==cfg.pass)){
+                let queryTimeout = poolSizing.resolveQueryTimeout('decoder');
                 db.decoderPools[key] = mariadb.createPool({
                     host:             dHost,
                     port:             dPort,
@@ -216,8 +221,9 @@ function setDecoderPool(db, mariadb, dcfg, cfg, key){
                     // queued behind three connections with no
                     // knob to raise it.
                     connectionLimit:  poolSizing.resolvePoolSize('decoder'),
+                    acquireTimeout:   queryTimeout,
                     insertIdAsNumber: true,
-                    queryTimeout:     poolSizing.resolveQueryTimeout('decoder'),
+                    queryTimeout,
                     // Session at +00:00: mempool first_seen is a UTC-literal DATETIME
                     timezone:         'Z',
                     typeCast:         utcTypeCast

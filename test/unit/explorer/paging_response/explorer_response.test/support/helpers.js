@@ -32,6 +32,7 @@ const { expect } = require('chai');
 const { createConfigInfoStub }   = require('../../../../../fixtures/mock-config.js');
 const { mockReq, mockRes }       = require('../../../../../fixtures/mock-query-args.js');
 const mockResults                = require('../../../../../fixtures/mock-db-results.js');
+const TEST_ADDRESS               = '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev';
 
 // Shared state: control what getData returns per test
 const state = { getDataResult: [[], null] };
@@ -88,4 +89,4 @@ function parseBody(res) {
     return res._body;
 }
 
-module.exports = { sinon, expect, mockRes, mockResults, state, makeExplorer, handle, parseBody };
+module.exports = { sinon, expect, mockRes, mockResults, TEST_ADDRESS, state, makeExplorer, handle, parseBody };

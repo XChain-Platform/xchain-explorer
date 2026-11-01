@@ -30,6 +30,9 @@ const { createApp } = require('./helpers/app-setup');
 
 let request, app, explorer, configInfo;
 
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR2 = 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa';
+
 before(async function () {
     this.timeout(30000);
     await db.setupDatabase();
@@ -56,12 +59,11 @@ describe('Single-Item API Endpoints', function () {
     });
 
     it('GET /RBTC/api/balances/{address}: returns all token balances', async function () {
-        const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-        const res  = await request.get(`/RBTC/api/balances/${addr}`);
+        const res = await request.get(`/RBTC/api/balances/${ADDR1}`);
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
         // Address is echoed back at the top level
-        expect(res.body.address).to.equal(addr);
+        expect(res.body.address).to.equal(ADDR1);
         // addr1 holds TOKENONE, TOKENTWO, XCHAIN → 3 tokens
         expect(Number(res.body.total)).to.equal(3);
         expect(res.body.data).to.be.an('array').with.length.greaterThan(0);
@@ -87,7 +89,7 @@ describe('Single-Item API Endpoints', function () {
         expect(first).to.have.property('address').that.is.a('string');
         expect(first).to.have.property('amount').that.is.a('string');
         // Default sort is DESC by ABS(amount), so addr1 (500000) should be first
-        expect(first.address).to.equal('bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa');
+        expect(first.address).to.equal(ADDR1);
     });
 
 });
@@ -189,8 +191,7 @@ describe('Single-Item API Endpoints', function () {
     });
 
     it('GET /RBTC/api/credits/{address}/address: returns credits for address', async function () {
-        const addr = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
-        const res  = await request.get(`/RBTC/api/credits/${addr}/address`);
+        const res = await request.get(`/RBTC/api/credits/${ADDR2}/address`);
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
         // addr2 has credit rows at action_index 3, 10, 18, 19
@@ -209,8 +210,7 @@ describe('Single-Item API Endpoints', function () {
 describe('Single-Item API Endpoints', function () {
 
     it('GET /RBTC/api/debits/{address}/address: returns debits for address', async function () {
-        const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-        const res  = await request.get(`/RBTC/api/debits/${addr}/address`);
+        const res = await request.get(`/RBTC/api/debits/${ADDR1}/address`);
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
         // addr1 has debit rows at action_index 3, 6, 9, 19
@@ -233,8 +233,7 @@ describe('Single-Item API Endpoints', function () {
     });
 
     it('GET /RBTC/api/address/{addr}: returns address summary', async function () {
-        const addr = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-        const res  = await request.get(`/RBTC/api/address/${addr}`);
+        const res = await request.get(`/RBTC/api/address/${ADDR1}`);
         expect(res.status).to.equal(200);
         expect(res.body).to.be.an('object');
         // getAddress() currently returns a hardcoded stub; the address field is always present

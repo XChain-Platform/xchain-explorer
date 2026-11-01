@@ -127,10 +127,10 @@ function registerDetailReads(runtime) {
             ['getActionsSince',    () => db.getActionsSince({ coin: 'RBTC' }, 0, 10)],
             ['checkReorg',         () => db.checkReorgAndInvalidate({ coin: 'RBTC' })],
             ['getActionData',      () => db.getActionData(makeConfig({ coin: 'RBTC' }), 1)],
-            ['getAddressId',       () => db.getAddressId(makeConfig({ coin: 'RBTC' }), 'bcrt1qconformance')],
+            ['getAddressId',       () => db.getAddressId(makeConfig({ coin: 'RBTC' }), 'bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p')],
             ['getTickId',          () => db.getTickId(makeConfig({ coin: 'RBTC' }), 'XCHAIN')],
             ['getActionType',      () => db.getActionType(makeConfig({ coin: 'RBTC' }), 1)],
-            ['getAddressBalances', () => db.getAddressBalances(makeConfig({ coin: 'RBTC' }), 'bcrt1qconformance')],
+            ['getAddressBalances', () => db.getAddressBalances(makeConfig({ coin: 'RBTC' }), 'bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p')],
             ['getTokenInfo',       () => db.getTokenInfo(makeConfig({ coin: 'RBTC' }), 'XCHAIN')]
         ];
         for (const [name, fn] of probes) {

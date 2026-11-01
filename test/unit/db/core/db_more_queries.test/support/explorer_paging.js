@@ -229,19 +229,20 @@ describe('Database#getQuery (Explorer path)', () => {
         expect(config.data.sql.limit).to.equal(100);
     });
 
-    it('falls back to the page length when the action=last total is not numeric', async () => {
+    it('refuses a non-numeric action=last total', async () => {
         stubLastPageQuery();
         const config = lastPageConfig({ total: 'abc' });
-        await db.getQuery(config);
-        expect(Number.isFinite(config.data.sql.limit)).to.be.true;
-        expect(config.data.sql.limit).to.equal(10);
+        let error;
+        try { await db.getQuery(config); } catch(err) { error = err; }
+        expect(error).to.have.property('code', 'INVALID_TOTAL');
     });
 
-    it('falls back to the page length when action=last total is a repeated param', async () => {
+    it('refuses a repeated action=last total', async () => {
         stubLastPageQuery();
         const config = lastPageConfig({ total: ['1', '2'] });
-        await db.getQuery(config);
-        expect(config.data.sql.limit).to.equal(10);
+        let error;
+        try { await db.getQuery(config); } catch(err) { error = err; }
+        expect(error).to.have.property('code', 'INVALID_TOTAL');
     });
 
     it('never emits a negative action=last limit when total is below start', async () => {

@@ -20,7 +20,7 @@ const path = require('path');
 const { expect } = require('chai');
 const XChainExplorer = require('../../../../src/XChainExplorer.js');
 const { methods, PREFLIGHT_BODY_LIMIT } = require('../../../../src/explorer/mount.js');
-const { applySecurityHeaders } = require('../../../../src/http/api_boot/security_headers.js');
+const { applyJsonBody } = require('../../../../src/http/api_boot/json_body.js');
 
 const read = (rel) => fs.readFileSync(path.join(__dirname, '../../../..', rel), 'utf8');
 
@@ -67,7 +67,7 @@ describe('global json parser skips POST feequote', function () {
     it('calls next() for it and parses other bodies', function () {
         const mw = [];
         const app = { use: (f) => mw.push(f) };
-        applySecurityHeaders(app, { env: () => ({}) }, XChainExplorer);
+        applyJsonBody(app, XChainExplorer);
         const guard = mw[mw.length - 1];
         let nexted = false;
         guard({ method: 'POST', path: '/btc/api/feequote' }, {}, () => { nexted = true; });

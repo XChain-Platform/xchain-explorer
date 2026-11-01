@@ -1,8 +1,9 @@
 # Query-plan guard allowlist: plans that read a production-large table whole.
 # Line shape: <method> <filter> <kind> <table> <finding> | <reason>
 # Findings: scan, dependent-count; error and unjudged mark probes the guard could not judge.
-# Fix a plan and its line must go; add a line only with a reason the plan cannot be indexed.
-# PLAN_GUARD_WRITE=1 npm run test:conformance rewrites this file from the current run.
+# A line not reproduced on one venue is reported and retained for venues whose optimizer still produces it.
+# Add a line only with a reason the plan cannot be indexed.
+# PLAN_GUARD_WRITE=1 npm run test:conformance explicitly retakes this file from the current run.
 getAirdrops all row airdrops scan | an unfiltered sorted read covers every airdrops row
 getAnchors all count anchor_actions scan | an unfiltered count covers every anchor_actions row
 getAnchors all row anchor_actions scan | an unfiltered sorted read covers every anchor_actions row

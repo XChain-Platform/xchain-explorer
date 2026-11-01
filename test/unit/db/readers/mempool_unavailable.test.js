@@ -151,6 +151,19 @@ describe('mempool feed failure handling', () => {
         clock.restore();
     });
 
+    it('reads a non-stale reply with an explicit null read_ok_at as unknown and asks again', async () => {
+        const clock = sinon.useFakeTimers({ now: 100000, toFake: ['Date'] });
+        const stub = sinon.stub(DecoderConnector.prototype, 'getmempool')
+            .resolves(reply({ stale: false, read_ok_at: null, total: 0, rows: [] }));
+        const db = makeDb();
+
+        expect(await db.getDecoderMempoolSnapshot({ coin: 'TST' })).to.equal(null);
+        expect(await db.getDecoderMempoolCount({ coin: 'TST' })).to.equal(null);
+        expect(stub.callCount).to.equal(2);
+        expect(db.doDecoderQuery.called).to.equal(false);
+        clock.restore();
+    });
+
     it('returns null count and rows instead of falling back when a configured decoder is unavailable', async () => {
         sinon.stub(DecoderConnector.prototype, 'getmempool').rejects(new Error('offline'));
         const db = makeDb();

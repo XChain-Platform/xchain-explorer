@@ -43,6 +43,23 @@ const CANONICAL_INDEX = /^(0|[1-9][0-9]*)$/;
 // subscription sit alongside a lower-case event and receive nothing.
 const CANONICAL_CALL_ID = /^[0-9a-f]{64}$/;
 
+// The text of a client-supplied value for a key check or a refusal message. A JSON
+// object such as {"toString":1} makes String() and template literals throw, so a
+// value that will not stringify falls back to its JSON form (which can never match
+// a canonical key) rather than throwing out of the message handler.
+function printable(value) {
+    try {
+        return String(value);
+    } catch (_) {
+        try {
+            const json = JSON.stringify(value);
+            return json === undefined ? typeof value : json;
+        } catch (__) {
+            return typeof value;
+        }
+    }
+}
+
 // Each resolver below pushes the entity keys its channel's params name onto
 // `keys` and returns nothing, or returns the { error } result that refuses the
 // request. A resolver that refuses part way through a batch has already pushed
@@ -71,13 +88,27 @@ function addressKeys(params, keys) {
     }
 }
 
+// A tick is a non-empty string. An array or object would be bound into the
+// snapshot SQL (the driver expands it into the statement) and keyed by its
+// string form, a subscription no frame can ever route to.
+function tickError(channel, tick) {
+    if (typeof tick === 'string' && tick.length > 0) return null;
+    return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel ticks must be non-empty strings` } };
+}
+
 function tokenKeys(params, keys) {
     // "ticks" as a batch param vs "tick" as singular, but "ticks" is also used as a filter
     // Use context: if subscribing to "token" channel, ticks means entity list
     if (params.tick) {
+        const refused = tickError('token', params.tick);
+        if (refused) return refused;
         keys.push({ tick: params.tick });
     } else if (params.ticks && Array.isArray(params.ticks)) {
-        for (const t of params.ticks) keys.push({ tick: t });
+        for (const t of params.ticks) {
+            const refused = tickError('token', t);
+            if (refused) return refused;
+            keys.push({ tick: t });
+        }
     } else {
         return { error: { code: 'INVALID_CHANNEL', message: 'token channel requires tick or ticks param' } };
     }
@@ -87,10 +118,14 @@ function marketKeys(params, keys) {
     if (params.pairs && Array.isArray(params.pairs)) {
         for (const pair of params.pairs) {
             if (Array.isArray(pair) && pair.length === 2) {
+                const refused = tickError('market', pair[0]) || tickError('market', pair[1]);
+                if (refused) return refused;
                 keys.push({ tick1: pair[0], tick2: pair[1] });
             }
         }
     } else if (params.tick1 && params.tick2) {
+        const refused = tickError('market', params.tick1) || tickError('market', params.tick2);
+        if (refused) return refused;
         keys.push({ tick1: params.tick1, tick2: params.tick2 });
     } else {
         return { error: { code: 'INVALID_CHANNEL', message: 'market channel requires tick1+tick2 or pairs param' } };
@@ -116,7 +151,7 @@ function actionIndexKeys(channel, params, keys) {
     if (raw === null)
         return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel requires action_index or action_indexes param` } };
     for (const idx of raw) {
-        const str = String(idx);
+        const str = printable(idx);
         if (!CANONICAL_INDEX.test(str))
             return { error: { code: 'INVALID_CHANNEL', message: `${channel} channel action_index must be a canonical decimal integer (got: ${str})` } };
         keys.push({ action_index: str });
@@ -134,9 +169,10 @@ function callIdKeys(params, keys) {
     if (raw === null)
         return { error: { code: 'INVALID_CHANNEL', message: 'xcall channel requires call_id or call_ids param' } };
     for (const id of raw) {
-        const str = String(id).toLowerCase();
+        const shown = printable(id);
+        const str = shown.toLowerCase();
         if (!CANONICAL_CALL_ID.test(str))
-            return { error: { code: 'INVALID_CHANNEL', message: `xcall channel call_id must be a 64-character hex string (got: ${String(id)})` } };
+            return { error: { code: 'INVALID_CHANNEL', message: `xcall channel call_id must be a 64-character hex string (got: ${shown})` } };
         keys.push({ call_id: str });
     }
 }
@@ -182,7 +218,7 @@ class ChannelKeys {
         // Keep the dispenser action_index as the canonical decimal STRING carried in the
         // channel key. Number() here diverged SUBSCRIPTION_LIST/UNSUBSCRIBED (number) from
         // SUBSCRIBED (client value) and lost precision above 2^53; the v2 wire contract is
-        // BIGINT-as-string (ws/schema_version.js:26-29).
+        // BIGINT-as-string (ws/schema_version.js, the "v2 (BIGINT-as-string)" note).
         if (channel === 'dispenser' && parts.length > 2)  entityKey = { action_index: parts[2] };
         if (channel === 'bet_feed'  && parts.length > 2)  entityKey = { action_index: parts[2] };
         if (channel === 'xcall'     && parts.length > 2)  entityKey = { call_id: parts[2] };

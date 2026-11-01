@@ -28,7 +28,7 @@ const NUMERAL_SRC = fs.readFileSync(path.resolve(__dirname, '..', '../../../../.
 
 // fold is the ANCHOR_FOLD_ACTIVATION table the page receives; null leaves the
 // global undeclared, the shape a page served without the injection would have.
-function render(row, fold = { regtest: 0 }){
+function render(row, fold = { regtest: 0 }, pageNetwork){
     const ids = [
         'anchor-heading', 'anchor-identity', 'anchor-heights', 'anchor-checkpoint-payload',
         'anchor-sections', 'anchor-archive-payload', 'anchor-covering-checkpoint',
@@ -52,6 +52,7 @@ function render(row, fold = { regtest: 0 }){
     `);
     dom.window.eval(NETWORK_COIN_SRC);
     dom.window.eval(RENDER_SRC);
+    dom.window.XC.network = pageNetwork || row.network || dom.window.XC.network;
     dom.window.renderAnchorPage(row);
     return dom.window.$;
 }
@@ -144,6 +145,15 @@ describe('ANCHOR v3 fold activation gate', function(){
         const $ = render(PRE_FOLD, { regtest: 131 });
         expectPreFold($);
         expect($('#anchor-identity .anchor-note').text()).to.contain('Stored status: invalid: VERSION (unknown).');
+    });
+
+    it('uses the explorer network when an invalid row declares a different network', function(){
+        const mismatched = Object.assign({}, FOLDED, {
+            network: 'testnet', status: 'invalid: NETWORK (not this network)'
+        });
+        const $ = render(mismatched, { regtest: 0, testnet: null }, 'regtest');
+        expect($('.anchor-kind').text()).to.equal('Folded checkpoint + archive bundle');
+        expect($('.anchor-bundle-chains-row').text()).to.contain('testnet');
     });
 
     it('a v3 row AT the fold height is recognized (>= is the boundary)', function(){

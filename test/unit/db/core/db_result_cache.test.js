@@ -106,6 +106,15 @@ describe('Database#getData result cache', () => {
         expect(stub.callCount).to.equal(3);
     });
 
+    it('does not collide across record totals that change a last-page response', async () => {
+        const stub = stubQuery(db, [{ id: 1 }], 7);
+        await db.getData(cfg('getBalances', { type: 'explorer',
+            data: { search: 'addr1', query: { start: 10, length: 10, action: 'last', total: 11 } } }));
+        await db.getData(cfg('getBalances', { type: 'explorer',
+            data: { search: 'addr1', query: { start: 10, length: 10, action: 'last', total: 20 } } }));
+        expect(stub.callCount).to.equal(2);
+    });
+
     it('never caches non-listed methods', async () => {
         const stub = stubQuery(db, [{ id: 1 }], 7);
         const config = () => cfg('getSends', { data: { search: 'addr1' } });

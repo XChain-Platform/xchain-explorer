@@ -88,8 +88,8 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
     it('SUBSCRIBED active_filters does not echo a statuses filter (honesty contract)', function () {
         // api-contracts finding: the actions feed cannot honor a status filter,
         // so confirming one back in SUBSCRIBED would let a client rely on a no-op.
-        // A client may still send `statuses` (it is stored + works for events that
-        // carry a status), but the confirmation must not advertise it.
+        // A client may still send `statuses`, but it is deliberately not stored
+        // or evaluated and the confirmation must not advertise it as active.
         const s = makeServer();
         const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
 
@@ -137,6 +137,20 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(subscribed.data.ignored_filters).to.deep.equal(['ticks']);
         expect(subscribed.data.filters).to.not.have.property('ticks');
         expect(subscribed.data.active_filters).to.not.have.property('ticks');
+    });
+
+    it('does not call token batch ticks ignored after using them as entity keys', function () {
+        const s = makeServer();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s.handleSubscribe(client, { channels: ['token'], params: { ticks: ['PEPE', 'XCP'] } });
+
+        const subscribed = client.ws.send.getCalls()
+            .map((c) => JSON.parse(c.args[0]))
+            .filter((m) => m.type === 'SUBSCRIBED');
+        expect(subscribed).to.have.lengthOf(2);
+        expect(subscribed.map((m) => m.data.tick)).to.deep.equal(['PEPE', 'XCP']);
+        expect(subscribed.every((m) => !('ignored_filters' in m.data))).to.equal(true);
     });
 
     it('SUBSCRIBED has no ignored_filters key when no statuses filter was sent', function () {

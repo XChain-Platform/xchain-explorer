@@ -34,12 +34,6 @@ const { DbInputError } = require('../../shared.js');
 const { isMissingTableError } = require('../../schema_probe.js');
 const { pagedRowQuery } = require('../../query_sql/data_rows.js');
 
-// A block height is a non-negative integer and nothing else. parseInt/Number
-// cannot make this call: parseInt('9junk') is 9 and Number('') is 0, both of
-// which reproduce the coercion bug in JS instead of catching it. Same strict
-// shape as the /api/action and /api/checkpoint route guards in XChainExplorer.js.
-const BLOCK_INDEX_RE = /^[0-9]+$/;
-
 // The per-action-table count query for one page of blocks, as [query, args]. One
 // UNION ALL over every action table rather than a query per table, so a page costs
 // one round trip however many action families the protocol has. A module function
@@ -165,7 +159,7 @@ class EntityBlockReaders {
         // an unguarded /api/block/zzz would answer 200 with BLOCK 0's real
         // record - a wrong answer dressed as a right one, which nothing
         // downstream can detect. Refuse the id before it reaches the query.
-        if(!BLOCK_INDEX_RE.test(String(config.data.search ?? '')))
+        if(!this.util.isSafeIntegerParam(config.data.search))
             throw new DbInputError('Invalid block_index', 'INVALID_BLOCK_INDEX');
         let args  = [config.data.search];
         let query = `SELECT

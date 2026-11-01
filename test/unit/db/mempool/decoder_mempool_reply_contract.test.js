@@ -97,6 +97,33 @@ const OUTCOMES = [
         malformed: false
     },
     {
+        name: 'unknown reply (not stale, read_ok_at null: decoder has no database yet)',
+        reply: () => ({ rows: [], total: 0, stale: false, read_ok_at: null }),
+        snapshot: null,
+        count: null,
+        rows: null,
+        feed: null,
+        malformed: false
+    },
+    {
+        name: 'unknown reply (not stale, read_ok_at 0)',
+        reply: () => ({ rows: [ROW], total: 1, stale: false, read_ok_at: 0 }),
+        snapshot: null,
+        count: null,
+        rows: null,
+        feed: null,
+        malformed: false
+    },
+    {
+        name: 'legacy reply (no read_ok_at property, not stale)',
+        reply: () => ({ rows: [ROW], total: 1 }),
+        snapshot: { total: 1, rows: [ROW] },
+        count: 1,
+        rows: [ROW],
+        feed: { rows: [ROW] },
+        malformed: false
+    },
+    {
         name: 'unreachable decoder (transport throws)',
         reply: () => { throw new Error('ECONNREFUSED'); },
         snapshot: null,

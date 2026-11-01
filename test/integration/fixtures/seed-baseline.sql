@@ -21,11 +21,11 @@ INSERT INTO index_actions (id, action) VALUES
 (5, 'DISPENSER'), (6, 'DISPENSE'), (7, 'MINT'), (8, 'BROADCAST'), (9, 'XCALL');
 
 INSERT INTO index_addresses (id, address) VALUES
-(1, 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa'),
-(2, 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb'),
-(3, 'bc1qaddr3ccccccccccccccccccccccccccc'),
-(4, 'bc1qaddr4ddddddddddddddddddddddddddd'),
-(5, 'bc1qaddr5eeeeeeeeeeeeeeeeeeeeeeeeeee');
+(1, 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t'),
+(2, 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa'),
+(3, 'bcrt1qqvpsxqcrqvpsxqcrqvpsxqcrqvpsxqcruj60yu'),
+(4, 'bcrt1qqszqgpqyqszqgpqyqszqgpqyqszqgpqyuza2rq'),
+(5, 'bcrt1qq5zs2pg9q5zs2pg9q5zs2pg9q5zs2pg9ajutfp');
 
 INSERT INTO index_tickers (id, tick) VALUES
 (1, 'XCHAIN'), (2, 'TOKENONE'), (3, 'TOKENTWO'), (4, 'TOKENTHREE');

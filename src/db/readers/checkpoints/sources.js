@@ -50,7 +50,8 @@ class CheckpointSourceReaders {
     checkpointSource(config){
         let src = this.checkpointDb ? this.checkpointDb[config.coin] : null;
         if (src && /^[A-Za-z0-9_$]+$/.test(src.name))
-            return { table: '`' + src.name + '`.state_checkpoints',
+            return { schema: src.name,
+                     table: '`' + src.name + '`.state_checkpoints',
                      capTable: '`' + src.name + '`.capability_snapshots',
                      // Quorum-attested ANCHOR publisher rewards (HUB_STATE_TABLES in
                      // hub_db_sync.js, mirrored on the same terms as state_checkpoints).

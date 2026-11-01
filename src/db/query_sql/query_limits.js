@@ -88,13 +88,14 @@ function apiPageOffset(db, config, q, limit){
 
 // The explorer transport's page size and order, clamped against the method's max.
 function explorerLimits(db, config, q, max, limit, order){
+    q = q || {};
     let data   = config.data;
     let action = (q.action) ? q.action : false;
-    // An unusable start reads the first page, as the page window does; only a whole
-    // number can reach LIMIT.
-    let start  = Number(q.start);
-    if(!Number.isSafeInteger(start) || start < 0) start = 0;
+    let start  = queryInteger(db, q, 'start', 0, 0, 'INVALID_START');
     let length = Math.min(queryInteger(db, q, 'length', 10, 1, 'INVALID_LENGTH'), max);
+    let rawTotal = config.data.query.total;
+    let total = (rawTotal === undefined || rawTotal === null || rawTotal === '') ? null :
+        queryInteger(db, { total: rawTotal }, 'total', 0, 0, 'INVALID_TOTAL');
     if(FORWARD_ONLY_METHODS.includes(data.method) && ['prev','last'].includes(action))
         config.data.query.action = config.data.offset.action = action = 'next';
     let sliced = SLICE_PAGED_METHODS.includes(data.method) ||
@@ -105,11 +106,10 @@ function explorerLimits(db, config, q, max, limit, order){
         throw new DbInputError('Invalid offset', 'INVALID_OFFSET');
     limit = length;
     // Size the jump-to-last page from the client's record total, within one page of
-    // rows; an unusable or fractional total keeps the page length.
-    if(action=='last'){
-        let tail = Number(config.data.query.total) - start;
-        if(Number.isSafeInteger(tail))
-            limit = Math.max(1, Math.min(tail, max));
+    // rows. An absent total keeps the page length.
+    if(action=='last' && total !== null){
+        let tail  = total - start;
+        limit = Math.max(1, Math.min(tail, max));
     }
     // Row-position lists fetch start+length rows and keep the window, with the
     // offset fed to LIMIT capped so one request cannot force an unbounded scan.

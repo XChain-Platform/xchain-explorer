@@ -151,7 +151,7 @@ const PROBE_ARGS = {
 // The canonical UTF-8 ACTION string the decoder writes to
 // mempool_transactions.data. Kept as plain text on purpose: it is the
 // same representation the confirmed-block path writes to transactions.data.
-const MEMPOOL_ACTION_STRING = 'SEND|0|CONFTICK|1|bcrt1qconformance|';
+const MEMPOOL_ACTION_STRING = 'SEND|0|CONFTICK|1|bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p|';
 
 // A MariaDB error that means the SQL disagrees with the schema. This is the
 // drift class the canary exists for; anything matching it is a hard failure.

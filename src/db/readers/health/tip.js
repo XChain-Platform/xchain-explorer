@@ -32,6 +32,9 @@
 'use strict';
 
 const { staleFailClosed } = require('../../shared.js');
+const { columnsPresent, setColumnsAbsent, isUnknownColumnError } = require('../../schema_probe.js');
+const IndexerConnector = require('../../../connectors/indexer.js');
+const { finalityFromRules } = require('../../../explorer/replay_finality.js');
 
 // Wall-clock age, in seconds, past which the newest INDEXED block means this
 // instance is no longer serving current data for a coin. Deliberately far above
@@ -84,6 +87,56 @@ class HealthTipReaders {
         if (results && results.length && results[0].block_time !== null)
             return Number(results[0].block_time);
         return 0;
+    }
+
+    async getIndexerRules(config) {
+        let parsed = await this.parseCoinCode(config.coin);
+        if(!parsed) return null;
+        let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
+        if(!url) return null;
+        try {
+            let health = await new IndexerConnector(url).health();
+            return health && health.rules != null ? health.rules : null;
+        } catch(e) {
+            return null;
+        }
+    }
+
+    async getCheckpointSupersessionRows(config, checkpoint) {
+        let src;
+        try { src = this.checkpointSource(config); }
+        catch(e) { return [checkpoint]; }
+        const columns = ['supersedes_from', 'rules_digest'];
+        const fallback = () => [Object.assign({}, checkpoint, {
+            supersedes_from: null,
+            rules_digest: null
+        })];
+        if(!(await columnsPresent(this, config, 'state_checkpoints', columns, src.schema)))
+            return fallback();
+        let checkpointSeq = Number(checkpoint.checkpoint_seq);
+        let blockIndex = Number(checkpoint.block_index);
+        let query = `SELECT checkpoint_seq, block_index, chain, network,
+                            supersedes_from, rules_digest
+                     FROM ${src.table}
+                     WHERE 1 = 1${src.filter}
+                       AND (checkpoint_seq = ? OR
+                            (checkpoint_seq > ? AND supersedes_from IS NOT NULL
+                             AND supersedes_from <= ?))
+                     ORDER BY checkpoint_seq ASC`;
+        let rows;
+        try {
+            rows = await this.doQuery(config, query,
+                [...src.filterParams, checkpointSeq, checkpointSeq, blockIndex]);
+        } catch(e) {
+            if(!isUnknownColumnError(e)) throw e;
+            setColumnsAbsent(this, config, 'state_checkpoints', columns, src.schema);
+            return fallback();
+        }
+        return (rows || []).map(row => Object.assign({}, row, {
+            checkpoint_seq: Number(row.checkpoint_seq),
+            block_index: Number(row.block_index),
+            supersedes_from: row.supersedes_from == null ? null : Number(row.supersedes_from)
+        }));
     }
 
     // Max tip age for a coin, in seconds: EXPLORER_TIP_MAX_AGE_S_<COIN> if set,
@@ -172,7 +225,7 @@ class HealthTipReaders {
     // case of that.
     /**
      * @param {string} coin coin code
-     * @returns {Promise<{stale: boolean, tip_block: number|null, tip_time: number|null,
+     * @returns {Promise<{stale: boolean, final: boolean|null, tip_block: number|null, tip_time: number|null,
      *   tip_age_seconds: number|null, replica_halted: boolean|null, max_age_seconds: number}>}
      */
     async getCoinFreshness(coin) {
@@ -181,6 +234,7 @@ class HealthTipReaders {
         if (cached && (Date.now() - cached.at) < TIP_STALE_CACHE_TTL_MS) return cached.snapshot;
         let snapshot = {
             stale:           this.tipMaxAgeSeconds(coin) !== 0,
+            final:           null,
             tip_block:       null,
             tip_time:        null,
             tip_age_seconds: null,
@@ -196,6 +250,8 @@ class HealthTipReaders {
                 snapshot.tip_age_seconds = Math.max(0, nowSec - Number(tipSec));
             }
             snapshot.tip_block = await this.getMaxBlockIndex({ coin, data: {} });
+            let rules = await this.getIndexerRules({ coin, data: {} });
+            snapshot.final = finalityFromRules(snapshot.tip_block, rules);
         } catch (e) {
             // Leave the fail-closed defaults: stale unless the gate is disabled,
             // and no tip to report.

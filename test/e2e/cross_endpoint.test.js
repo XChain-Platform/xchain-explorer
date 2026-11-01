@@ -46,7 +46,7 @@ after(async function () {
 
 describe('E2E-37: Balance equals credits minus debits', function () {
 
-    const E2E_ADDR = 'bc1qe2eaddr210aaaaaaaaaaaaaaaaaaaaaa';
+    const E2E_ADDR = 'bcrt1q6tfd95kj6tfd95kj6tfd95kj6tfd95kjnua23u';
 
     it('XCHAIN balance for E2E address matches credits - debits', async function () {
         // 1. Get balance

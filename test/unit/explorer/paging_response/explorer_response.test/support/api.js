@@ -26,7 +26,7 @@
 'use strict';
 
 const {
-    sinon, expect, mockRes, mockResults, state, makeExplorer, handle, parseBody
+    sinon, expect, mockRes, mockResults, TEST_ADDRESS, state, makeExplorer, handle, parseBody
 } = require('./helpers.js');
 
 describe('XChainExplorer.processRequest – API response shape', function () {
@@ -35,7 +35,7 @@ describe('XChainExplorer.processRequest – API response shape', function () {
         const rows       = mockResults.sendRows();
         state.getDataResult    = [rows, rows.length];
         const explorer   = makeExplorer();
-        const res        = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res        = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         const body       = parseBody(res);
 
         expect(res._status).to.equal(200);
@@ -47,7 +47,7 @@ describe('XChainExplorer.processRequest – API response shape', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         const body     = parseBody(res);
 
         const keys = Object.keys(body);
@@ -66,7 +66,7 @@ describe('XChainExplorer.processRequest – API response shape', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         const body     = parseBody(res);
 
         expect(body.data).to.have.length.greaterThan(0);
@@ -81,7 +81,7 @@ describe('XChainExplorer.processRequest – API response shape', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         const body     = parseBody(res);
 
         expect(body).to.have.property('runtime').that.is.a('string');
@@ -95,7 +95,7 @@ describe('XChainExplorer.processRequest – Explorer response shape', function (
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/explorer/sends/addr1/address', { start: 0, length: 10 });
+        const res      = await handle(explorer, '/BTC/explorer/sends/' + TEST_ADDRESS + '/address', { start: 0, length: 10 });
         const body     = parseBody(res);
 
         expect(res._status).to.equal(200);
@@ -111,7 +111,7 @@ describe('XChainExplorer.processRequest – Explorer response shape', function (
         const explorer  = makeExplorer();
         const res       = await handle(
             explorer,
-            '/BTC/explorer/sends/addr1/address',
+            '/BTC/explorer/sends/' + TEST_ADDRESS + '/address',
             { start: 0, length: 10, total: overrideTotal }
         );
         const body = parseBody(res);
@@ -120,18 +120,15 @@ describe('XChainExplorer.processRequest – Explorer response shape', function (
         expect(body.recordsFiltered).to.equal(overrideTotal);
     });
 
-    // An unguarded non-numeric ?total= override flows straight into
-    // getPagingDataResults -> bcsub (mathjs), throwing a DecimalError outside any
-    // try/catch; on the fire-and-forget catch-all handler that becomes an unhandled
-    // rejection that terminates the process (unauthenticated crash-loop DoS). The
-    // override must be ignored when non-numeric, keeping the real DB count.
-    it('ignores a non-numeric ?total= override instead of crashing (DoS regression)', async function () {
+    // Response assembly remains defensive when a test double bypasses the real
+    // reader guard: a malformed override cannot reach its decimal arithmetic.
+    it('ignores a non-numeric ?total= override after a reader guard is bypassed', async function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
         const res      = await handle(
             explorer,
-            '/BTC/explorer/sends/addr1/address',
+            '/BTC/explorer/sends/' + TEST_ADDRESS + '/address',
             { start: 0, length: 10, total: 'abc' }
         );
         const body = parseBody(res);

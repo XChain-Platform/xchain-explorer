@@ -71,13 +71,27 @@ function loadIndexer() {
         return { error: e };
     }
 }
-const INDEXER_MODULES = loadIndexer();
 
-// Skip or fail, per STRICT, when the indexer could not be loaded.
+// Loading two vendored xchain-vm copies in one process loads isolated-vm twice,
+// which its native binding does not support. The focused federation run has no
+// explorer VM loaded and still exercises parity; the aggregate run skips this
+// sibling-backed suite after another test has loaded the explorer copy.
+function explorerVmIsLoaded() {
+    const root = path.join(REPO_ROOT, 'xchain-vm') + path.sep;
+    return Object.keys(require.cache).some((file) => file.startsWith(root));
+}
+
+const INDEXER_MODULES = explorerVmIsLoaded()
+    ? { error: new Error('explorer xchain-vm is already loaded in this process'), vmConflict: true }
+    : loadIndexer();
+
+// Skip or fail, per STRICT, when the indexer could not be loaded. A VM conflict
+// always skips: the sibling is present, and `npm run ci` runs this file alone
+// (test:federation-parity) so strict coverage comes from that focused run.
 function requireIndexer() {
     if (!INDEXER_MODULES.error) return;
     const why = 'xchain-indexer not loadable at ' + INDEXER + ': ' + INDEXER_MODULES.error.message;
-    if (STRICT) throw new Error(why);
+    if (STRICT && !INDEXER_MODULES.vmConflict) throw new Error(why);
     this.skip();
 }
 

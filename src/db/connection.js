@@ -62,6 +62,7 @@ const mariadb = require('mariadb');
 const { DbQueryError } = require('./shared.js');
 const { composeReaderParts } = require('./reader_parts.js');
 const { resetPoolMaps, setNetworkPools } = require('./connection/pool_setup.js');
+const poolSizing = require('../mirror/pool_sizing.js');
 
 // The two method parts this entry composes with its own class body below.
 const cacheMethods = require('./connection/cache.js');
@@ -73,6 +74,58 @@ const poolMethods  = require('./connection/pools.js');
 // is the shape the unit suites see.
 const { getLogger } = require('../observability');
 const log = getLogger();
+
+const DB_DEADLINE_EXCEEDED = 'DB_DEADLINE_EXCEEDED';
+
+function deadlineError(timeoutMs){
+    let error = new Error('Database read exceeded its ' + timeoutMs + 'ms wall-clock deadline');
+    error.code = DB_DEADLINE_EXCEEDED;
+    return error;
+}
+
+// MariaDB's queryTimeout is a server-side max_statement_time. A server frozen
+// below the SQL executor cannot enforce it, so bound both pool acquisition and
+// statement completion in this process too. Late-acquired connections are
+// destroyed instead of leaking back into the pool after their caller has gone.
+function settleByDeadline(work, deadlineAt, options = {}){
+    let timeoutMs = Math.max(0, deadlineAt - Date.now());
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        let timer = setTimeout(() => {
+            if(settled) return;
+            settled = true;
+            if(options.onTimeout) options.onTimeout();
+            reject(deadlineError(timeoutMs));
+        }, timeoutMs);
+        Promise.resolve(work).then((value) => {
+            if(settled){
+                if(options.onLateResolve) options.onLateResolve(value);
+                return;
+            }
+            settled = true;
+            clearTimeout(timer);
+            resolve(value);
+        }, (error) => {
+            if(settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(error);
+        });
+    });
+}
+
+function destroyConnection(connection){
+    if(connection && typeof connection.destroy === 'function'){
+        try { connection.destroy(); } catch(e) { /* already unusable */ }
+    }
+}
+
+function queryDeadlineMs(db, config, poolOverride){
+    let entry = !poolOverride && db.pools && db.pools[config.coin];
+    let configured = entry && entry.config ? Number(entry.config.queryTimeout) : NaN;
+    if(Number.isFinite(configured) && configured > 0) return configured;
+    return poolSizing.resolveQueryTimeout(poolOverride ? 'decoder' : 'indexer');
+}
 
 class DatabaseConnection {
     async setupConnectionPools(){
@@ -193,15 +246,22 @@ class DatabaseConnection {
             log.info('DB_POOL_UNAVAILABLE', { coin: config && config.coin });
             throw new DbQueryError('No database connection pool for ' + (config && config.coin));
         }
+        let timeoutMs = queryDeadlineMs(this, config, poolOverride);
+        let deadlineAt = Date.now() + timeoutMs;
         let db = null,
             retryCount = 0,
             maxRetrys  = 3;
         while(db === null){
             try {
-                db = await pool.getConnection();
+                let acquisition = pool.getConnection();
+                db = await settleByDeadline(acquisition, deadlineAt, {
+                    onLateResolve: destroyConnection
+                });
             } catch (e){
                 if(this.configInfo.env.DEBUG) log.debug('DB_CONNECTION_ERROR', { coin: config && config.coin, err: e && e.message ? e.message : e });
                 db = null;
+                if(e && e.code === DB_DEADLINE_EXCEEDED)
+                    throw new DbQueryError(e.message, e);
                 if(retryCount <= maxRetrys){
                     retryCount++;
                     log.info('DB_CONNECT_RETRY', { coin: config && config.coin, attempt: retryCount });
@@ -213,14 +273,20 @@ class DatabaseConnection {
             }
         }
         let result = false;
+        let discard = false;
         try {
-            result = await db.query(query, args);
+            result = await settleByDeadline(db.query(query, args), deadlineAt, {
+                onTimeout: () => {
+                    discard = true;
+                    destroyConnection(db);
+                }
+            });
         } catch (error){
             if(this.configInfo.env.DEBUG) log.debug('SQL_QUERY_ERROR', { coin: config && config.coin, err: error && error.message, stack: error && error.stack });
             else log.error('SQL_QUERY_FAILED', { coin: config && config.coin, err: error.message, stack: error.stack });
             throw new DbQueryError('SQL query failed: ' + (error && error.message), error);
         } finally {
-            db.release();
+            if(!discard) db.release();
         }
         return result;
     }

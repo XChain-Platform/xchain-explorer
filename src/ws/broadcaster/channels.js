@@ -15,7 +15,7 @@
  * XChain Explorer - Broadcaster, channel fan-out
  *
  * Delivery of one frame to every subscriber of a channel key: the per-client
- * filter pipeline (types -> statuses -> ticks), the fields projection, the
+ * types filter, the fields projection, the
  * schema-version and stale stamps, and the once auto-unsubscribe.
  *
  * HOW THIS ATTACHES
@@ -109,29 +109,6 @@ class ChannelFanout {
             if (!filter.types.has(actionType) && !filter.types.has(event.type)) {
                 return false;
             }
-        }
-
-        // Statuses filter. This is currently a no-op for every event this
-        // server produces (action.status is always the literal SQL NULL from db/index.js
-        // getActionsSince, so `status` below is always falsy and the `has()` check
-        // never runs). Left evaluating rather than short-circuited: proving it dead
-        // requires tracing every passesFilter caller (live actions/lifecycle/ATTEST
-        // path and the catch-up replay path in WebSocketServer.handleCatchUp) plus
-        // every producer in ws/change_detector.js, which is not a change safe to make
-        // as a drive-by; WebSocketServer.handleSubscribe now echoes
-        // `ignored_filters: ['statuses']` so a client sending it can observe the
-        // no-op without relying on this evaluation being removed.
-        if (filter.statuses) {
-            const status = (actionData && actionData.status) || (event.data && event.data.status);
-            if (status && !filter.statuses.has(status)) return false;
-        }
-
-        // Ticks filter (for global actions channel): filter by token
-        if (filter.ticks) {
-            const tick = (actionData && actionData.tick) || (event.data && event.data.tick) ||
-                         (event.data && event.data.give_tick) || (event.data && event.data.get_tick);
-            if (tick && !filter.ticks.has(tick)) return false;
-            // If no tick field at all, let it through (e.g., block events)
         }
 
         return true;

@@ -32,16 +32,41 @@ const swq  = require('../consensus/stake_weighted_quorum.js');
 // (W5): the predicate is activeAt over the checkpoint's BTC-anchored snapshot_block.
 const gateRegistry = require('../consensus/gate_registry');
 const CHECKPOINT_COMMITMENT_KEY = 'checkpoint_commitment_activation.CHECKPOINT_COMMITMENT_ACTIVATION';
+const ARCHIVE_ROLLCALL_PRESENCE_KEY = 'archive_rollcall_presence_activation.ARCHIVE_ROLLCALL_PRESENCE_ACTIVATION';
+const CHECKPOINT_SUPERSEDE_KEY = 'checkpoint_supersede_activation.CHECKPOINT_SUPERSEDE_ACTIVATION';
 function isCheckpointCommitmentActive(snapshotBlock, network){
     return gateRegistry.activeAt(CHECKPOINT_COMMITMENT_KEY, network, null, snapshotBlock, null);
 }
+function isArchiveRollcallPresenceActive(snapshotBlock, network){
+    return swq.isStakeWeightedQuorumActive(snapshotBlock, network)
+        && gateRegistry.activeAt(ARCHIVE_ROLLCALL_PRESENCE_KEY, network, 'BTC', snapshotBlock, null);
+}
+function isCheckpointSupersedeActive(snapshotBlock, network){
+    return gateRegistry.activeAt(CHECKPOINT_SUPERSEDE_KEY, network, 'BTC', snapshotBlock, null);
+}
 const { sendProofError } = require('./proof_errors.js');
+const { hasSupersedeFields, supersedeSuffix } = require('./supersede_suffix.js');
+const { supersessionBody } = require('./checkpoint_supersession.js');
+const { finalityFromRules } = require('./replay_finality.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
 const log = getLogger();
 
 class CheckpointProofs {
+
+    async checkpointFinality(config, blockIndex){
+        let rules = null;
+        if(typeof this.db.getIndexerRules === 'function'){
+            try { rules = await this.db.getIndexerRules(config); }
+            catch(e) {
+                log.warn('CHECKPOINT_VERIFY_RULES_UNAVAILABLE', {
+                    err: e && e.message ? e.message : String(e)
+                });
+            }
+        }
+        return finalityFromRules(blockIndex, rules);
+    }
 
     async processCheckpointsRequest(req, res){
         try {
@@ -89,14 +114,37 @@ class CheckpointProofs {
                 return res.status(404).json({ error: 'No checkpoint at this height', code: 'CHECKPOINT_NOT_FOUND' });
             let cp = rows[0];
 
+            let supersessionRows = [cp];
+            if(typeof this.db.getCheckpointSupersessionRows === 'function'){
+                supersessionRows = await this.db.getCheckpointSupersessionRows(config, cp) || [cp];
+                let current = supersessionRows.find(row =>
+                    Number(row.checkpoint_seq) === Number(cp.checkpoint_seq));
+                if(current){
+                    cp = Object.assign({}, cp, {
+                        supersedes_from: current.supersedes_from,
+                        rules_digest: current.rules_digest
+                    });
+                }
+            }
+
             // Canonical signing string, byte-identical to the hub engine + ANCHOR
             // verifier + SDK (canonicalCheckpointString below the class; exported so
             // the unit suite cross-checks it against the SDK builder byte-for-byte).
             let canonical = canonicalCheckpointString(cp);
 
             let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
+            let result = this.checkpointVerifyResult(cp, canonical, validators);
+            Object.assign(result, supersessionBody(cp, supersessionRows));
+            result.rules_digest = cp.rules_digest == null
+                ? null
+                : String(cp.rules_digest).toLowerCase();
+            result.final = await this.checkpointFinality(config, cp.block_index);
+            if(isArchiveRollcallPresenceActive(cp.snapshot_block, cp.network)){
+                let archiveValidators = await this.db.getCapabilitySnapshotRows(config, 'archive_publish', cp.snapshot_block) || [];
+                result.archive_validators = this.checkpointValidatorSet(archiveValidators);
+            }
 
-            return res.json(this.checkpointVerifyResult(cp, canonical, validators));
+            return res.json(result);
         } catch (e) {
             log.error('CHECKPOINT_VERIFY_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
             return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
@@ -126,8 +174,10 @@ class CheckpointProofs {
         let commitmentMissing = isCheckpointCommitmentActive(cp.snapshot_block, cp.network)
             && (!cp.state_root || !cp.block_merkle_root
                 || cp.state_root_version == null || cp.block_merkle_version == null);
+        let supersedeBelowGate = hasSupersedeFields(cp)
+            && !isCheckpointSupersedeActive(cp.snapshot_block, cp.network);
 
-        let verified = !commitmentMissing && (isWeighted
+        let verified = !commitmentMissing && !supersedeBelowGate && (isWeighted
             ? (qualified.size > 0 && swq.meetsStakeThreshold(validatorSet, counted.validSigners))
             : (qualified.size > 0 && counted.validSigs >= quorum));
 
@@ -291,6 +341,8 @@ function canonicalCheckpointString(cp){
        cp.state_root_version != null && cp.block_merkle_version != null)
         canonRaw += '|' + [String(cp.state_root).toLowerCase(), String(cp.state_root_version),
                            String(cp.block_merkle_root).toLowerCase(), String(cp.block_merkle_version)].join('|');
+    if(isCheckpointSupersedeActive(cp.snapshot_block, cp.network))
+        canonRaw += supersedeSuffix(cp);
     return eq.isEquivHeaderActive(cp.snapshot_block, cp.network)
         ? eq.buildEquivCanonical(eq.ENGINE_TAGS.CHECKPOINT,
             cp.chain + '|' + cp.network + '|' + cp.block_index + '|' + cp.checkpoint_seq, 0, canonRaw)

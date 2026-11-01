@@ -30,8 +30,9 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const ADDR2 = 'bc1qaddr2bbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
+const ADDR2 = 'bcrt1qqgpqyqszqgpqyqszqgpqyqszqgpqyqszazmwwa';
+const ADDR4 = 'bcrt1qqszqgpqyqszqgpqyqszqgpqyqszqgpqyuza2rq';
 
 let request;
 
@@ -177,8 +178,7 @@ describe('@p2 @action Less-used action type endpoints regression', function () {
     });
 
     it('escrows endpoint returns data for seeded address', async function () {
-        const addr4 = 'bc1qaddr4ddddddddddddddddddddddddddd';
-        const res = await request.get(`/RBTC/api/escrows/${addr4}/address`);
+        const res = await request.get(`/RBTC/api/escrows/${ADDR4}/address`);
         expect(res.status).to.be.a('number');
         expect(res.status).to.not.equal(500);
     });

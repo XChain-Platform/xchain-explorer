@@ -256,7 +256,10 @@ function showRollcallDetails(data){
     // The signer list IS the present list: presence at an epoch is recorded by having
     // signed the canonical, so there is no separate attendance flag to render.
     let signers = Array.isArray(data.signers) ? data.signers : [];
-    $('#info-rollcall .rollcall-signer-count').text(signers.length);
+    // Count every signature the action carried; the table lists only those first seen this epoch.
+    let carried = isNull(data.carried_count) ? null : Number(data.carried_count);
+    $('#info-rollcall .rollcall-signer-count').text((carried === null) ? signers.length
+        : (carried > signers.length) ? carried + ' (' + signers.length + ' first seen in this epoch)' : carried);
     let rows = '';
     for(let s of signers)
         rows += '<tr><td>' + formatHash(s.pubkey, 32) + '</td><td>' + formatHash(s.sig, 32) + '</td></tr>';

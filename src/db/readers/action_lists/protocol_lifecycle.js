@@ -19,6 +19,7 @@
 'use strict';
 
 const { DbInputError } = require('../../shared.js');
+const { tablesPresent } = require('../../schema_probe.js');
 
 // Report whether the request's route code (BTC, TDOGE, ...) is on the given base chain
 // The indexer writes ROLLCALL publications only on DOGE and epoch closes only on BTC,
@@ -65,37 +66,52 @@ function betLegQuery(config, table, fields){
 }
 
 class ProtocolLifecycleReaders {
-    // ROLLCALL publications, DOGE only: one row per action from rollcall_signers.
+    // ROLLCALL publications, DOGE only. New rows come from rollcall_actions;
+    // grouped first-seen rows preserve actions indexed before that table existed.
     // The epoch-close verdict lives on BTC and is served by getRollcallCloses.
     async getRollcalls(config){
         // Refuse a non-DOGE coin: rollcall_signers is empty there by construction
         if(!(await onChain(this, config, 'DOGE')))
             throw new DbInputError('rollcalls is DOGE-only; BTC epoch closes are at /{COIN}/api/rollcall_closes', 'ROLLCALLS_DOGE_ONLY');
         let sql = config.data.sql;
-        let from = `rollcall_signers m
+        let hasActions = await tablesPresent(this, config, ['rollcall_actions']);
+        if(hasActions) sql.optionalTables = ['rollcall_actions'];
+        else delete sql.optionalTables;
+        let from = hasActions ? `actions m
+                    INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
+                    INNER JOIN index_actions      a4 ON (a4.id=m.action_id AND a4.action='ROLLCALL')
+                    INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
+                    LEFT  JOIN transactions       t1 ON (t1.tx_index=m.tx_index)
+                    LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(m.source_id, t1.source_id))
+                    LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
+                    LEFT  JOIN rollcall_actions   r  ON (r.action_index=m.action_index)
+                    LEFT  JOIN rollcall_signers   s  ON (s.action_index=m.action_index)` : `rollcall_signers m
                     INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=m.block_index)
                     LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_addresses    a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     LEFT  JOIN index_actions      a4 ON (a4.id=a1.action_id)`;
-        let count = `SELECT count(DISTINCT m.action_index) as total FROM ${from} WHERE ${sql.where.data}`;
+        let visibility = hasActions ? ' AND (r.action_index IS NOT NULL OR s.action_index IS NOT NULL)' : '';
+        let count = `SELECT count(DISTINCT m.action_index) as total FROM ${from} WHERE ${sql.where.data}${visibility}`;
         let query = `SELECT
                     MIN(a4.action) as action,
                     m.action_index,
                     MIN(a1.action_format) as action_format,
                     MIN(a2.address) as source,
-                    m.epoch_height,
-                    MIN(m.ledger_hash) as ledger_hash,
-                    MIN(m.publisher) as publisher,
-                    COUNT(*) as signer_count,
+                    ${hasActions ? 'COALESCE(MAX(r.epoch_height), MIN(s.epoch_height))' : 'm.epoch_height'} as epoch_height,
+                    ${hasActions ? 'COALESCE(MAX(r.ledger_hash), MIN(s.ledger_hash))' : 'MIN(m.ledger_hash)'} as ledger_hash,
+                    ${hasActions ? 'COALESCE(MAX(r.publisher), MIN(s.publisher))' : 'MIN(m.publisher)'} as publisher,
+                    ${hasActions ? 'COUNT(s.action_index)' : 'COUNT(*)'} as signer_count,
+                    ${hasActions ? 'MAX(r.carried_count)' : 'NULL'} as carried_count,
+                    ${hasActions ? 'COALESCE(MAX(r.first_seen_count), COUNT(s.action_index))' : 'COUNT(*)'} as first_seen_count,
                     MIN(m.block_index) as block_index,
                     MIN(b1.block_time) as timestamp,
                     MIN(t2.hash) as tx_hash,
                     MIN(t1.tx_index) as tx_index
                 FROM ${from}
-                WHERE ${sql.where.data}${sql.where.offset}
-                GROUP BY m.action_index, m.epoch_height
+                WHERE ${sql.where.data}${visibility}${sql.where.offset}
+                GROUP BY m.action_index${hasActions ? '' : ', m.epoch_height'}
                 ORDER BY m.action_index ${sql.order}
                 LIMIT ${sql.limit}`;
         return [query, null, count];
@@ -109,6 +125,9 @@ class ProtocolLifecycleReaders {
         if(!(await onChain(this, config, 'BTC')))
             throw new DbInputError('rollcall_closes is BTC-only; DOGE ROLLCALL publications are at /{COIN}/api/rollcalls', 'ROLLCALL_CLOSES_BTC_ONLY');
         let sql = config.data.sql;
+        // rollcall_gates arrived after the close and absence tables. A replica
+        // that has not taken that migration can still serve the close rows.
+        let hasGates = await tablesPresent(this, config, ['rollcall_gates']);
         let from = `rollcalls m
                     LEFT  JOIN blocks             b1 ON (b1.block_index=m.close_block)`;
         let count = `SELECT count(*) as total FROM rollcalls m WHERE ${sql.where.data}`;
@@ -119,7 +138,9 @@ class ProtocolLifecycleReaders {
                     m.rolled,
                     (SELECT COUNT(*) FROM rollcall_absences ra WHERE ra.epoch_height=m.epoch_height) as absence_count,
                     (SELECT COUNT(*) FROM rollcall_absences ra WHERE ra.epoch_height=m.epoch_height AND ra.evicted=1) as evicted_count,
-                    (SELECT COUNT(*) FROM rollcall_gates rg WHERE rg.epoch_height=m.epoch_height) as gate_signer_count,
+                    ${hasGates
+        ? '(SELECT COUNT(*) FROM rollcall_gates rg WHERE rg.epoch_height=m.epoch_height)'
+        : 'NULL'} as gate_signer_count,
                     b1.block_time as timestamp
                 FROM ${from}
                 WHERE ${sql.where.data}${sql.where.offset}

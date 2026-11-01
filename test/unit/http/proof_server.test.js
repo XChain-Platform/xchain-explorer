@@ -41,7 +41,14 @@ const SDK_DIR = process.env.XCHAIN_SDK_DIR
     || path.join(__dirname, '..', '..', '..', '..', 'xchain-sdk');
 const SDK_LIGHT = [path.join(SDK_DIR, 'src', 'protocol', 'light_client.js'),
                    path.join(SDK_DIR, 'src', 'light.js')].find((p) => fs.existsSync(p)) || null;
-const verifyBalanceProof = SDK_LIGHT ? require(SDK_LIGHT).verifyBalanceProof : null;
+let verifyBalanceProof = null;
+if (SDK_LIGHT) {
+    try {
+        verifyBalanceProof = require(SDK_LIGHT).verifyBalanceProof;
+    } catch (e) {
+        if (!e || e.code !== 'MODULE_NOT_FOUND') throw e;
+    }
+}
 
 const { EMPTY_ROOT, makeServer, CHAIN, NET, COIN, ADDR_A, ADDR_Z, TICK, BLOCK, blockRows, BLOCK_MERKLE, makeActionServer, S, CAP, PKA, PKB, PKC, VALS, makeValidatorSetServer } = require('./proof_server.test/support/helpers.js');
 const { CP_HEIGHT, makeMovedServer } = require('./proof_server.test/support/moved_balance_server.js');

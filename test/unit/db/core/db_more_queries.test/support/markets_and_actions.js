@@ -253,10 +253,39 @@ describe('Database#getActions', () => {
     it('includes extra txid filter when q.txid is set', async () => {
         const db = makeDb();
         const config = makeActionConfig('getActions');
-        config.data.query = { txid: 'abc123' };
+        config.data.query = { txid: 'ab'.repeat(32) };
         const [query, args] = await db.getActions(config);
         expect(query).to.include('t2.hash=?');
-        expect(args).to.include('abc123');
+        expect(args).to.include('ab'.repeat(32));
+    });
+
+    it('binds indexer synthetic transaction hashes without lowercasing them', async () => {
+        const hashes = [
+            'GENESIS-BTC-P1-' + '01'.repeat(24),
+            'GENESIS-LTC-A-' + 'a2'.repeat(24),
+            'XPOLICY-' + 'f3'.repeat(24),
+            'GENESIS-BTC-GAS-' + 'b4'.repeat(24),
+            'XBRIDGE-LTC-BRIDGE-' + 'c5'.repeat(24),
+            'LIST_SHARE-' + 'd6'.repeat(24)
+        ];
+        for(const hash of hashes){
+            const db = makeDb();
+            const config = makeActionConfig('getActions');
+            config.data.query = { txid: hash };
+            const [query, args] = await db.getActions(config);
+            expect(query).to.include('t2.hash=?');
+            expect(args).to.include(hash);
+        }
+    });
+
+    it('refuses a txid filter without a persisted transaction hash shape', async () => {
+        for(const txid of ['abc123', 'XPOLICY-' + 'a'.repeat(47), 'g'.repeat(64)]){
+            const config = makeActionConfig('getActions');
+            config.data.query = { txid };
+            let error;
+            try { await makeDb().getActions(config); } catch(err) { error = err; }
+            expect(error, txid).to.have.property('code', 'INVALID_TX_HASH');
+        }
     });
 
     it('includes extra tick filter when q.tick is set', async () => {

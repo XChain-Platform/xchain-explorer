@@ -22,6 +22,8 @@
 
 const { expect, mockReq, mockRes, makeExplorer, request, state } = require('./helpers.js');
 
+const BTC_ADDRESS = '1JDogZS6tQcSxwfxhv6XKKjcyicYA4Feev';
+
 let explorer;
 before(function () { explorer = state.explorer; });
 
@@ -31,7 +33,7 @@ describe('response codes', function () {
         // is null, processRequest falls into the not-found branch (404, so the
         // HTTP status agrees with the NOT_FOUND body code).
         const res = mockRes();
-        await explorer.processRequest(mockReq('/BTC/api/sends/addr1/address'), res);
+        await explorer.processRequest(mockReq('/BTC/api/sends/' + BTC_ADDRESS + '/address'), res);
         expect(res._status).to.equal(404);
     });
 

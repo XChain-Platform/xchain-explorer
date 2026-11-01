@@ -197,6 +197,11 @@ describe('client: action-index summary links open actions, not token searches', 
         expect(html).to.contain('href="/BTC/token/XCP"');
     });
 
+    it('formats the single-leg AIRDROP amount through the shared amount-link helper', function () {
+        const html = summary('AIRDROP', { amount: 5, tick: 'XCP', list_action_index: 4242 });
+        expect(html).to.contain('>5 XCP</a>');
+    });
+
     it('a LINK links both chain legs as actions on their own chains', function () {
         const html = summary('LINK', {
             coin1: 'BTC', coin1_action_index: 11,

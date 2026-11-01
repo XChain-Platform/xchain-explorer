@@ -51,10 +51,29 @@ describe('apiPageOffset', function(){
 });
 
 describe('explorerLimits', function(){
-    it('falls back to start=0 for a non-numeric start', function(){
+    it('defaults start to zero when it is absent', function(){
         const config = { data: { method: 'getSends', query: {}, offset: {} } };
-        const { limit } = explorerLimits(fakeDb(), config, { start: 'nope', length: 5 }, 50, 0, 'DESC');
+        const { limit } = explorerLimits(fakeDb(), config, { length: 5 }, 50, 0, 'DESC');
         assert.strictEqual(limit, 5);
+    });
+
+    it('refuses malformed row offsets instead of silently reading the first page', function(){
+        const bad = ['nope', '-1', '1.5', '1e3', 'NaN', '9007199254740992', ['1', '2']];
+        for(const start of bad){
+            const config = { data: { method: 'getSends', query: {}, offset: {} } };
+            assert.throws(() => explorerLimits(fakeDb(), config, { start, length: 5 }, 50, 0, 'DESC'),
+                { code: 'INVALID_START' }, JSON.stringify(start));
+        }
+    });
+
+    it('refuses malformed record totals that size the last page', function(){
+        const bad = ['nope', '-1', '1.5', '1e3', 'NaN', '9007199254740992', ['1', '2']];
+        for(const total of bad){
+            const config = { data: { method: 'getSends', query: { total }, offset: {} } };
+            assert.throws(() => explorerLimits(fakeDb(), config,
+                { start: '0', length: '5', total }, 50, 0, 'DESC'),
+            { code: 'INVALID_TOTAL' }, JSON.stringify(total));
+        }
     });
 
     it('clamps length to the method max', function(){

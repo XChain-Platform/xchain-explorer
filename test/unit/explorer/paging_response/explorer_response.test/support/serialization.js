@@ -26,7 +26,7 @@
 'use strict';
 
 const {
-    sinon, expect, mockRes, mockResults, state, makeExplorer, handle, parseBody
+    sinon, expect, mockRes, mockResults, TEST_ADDRESS, state, makeExplorer, handle, parseBody
 } = require('./helpers.js');
 
 describe('XChainExplorer.processRequest – JSON serialization', function () {
@@ -34,7 +34,7 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
 
         expect(res._type).to.equal('json');
     });
@@ -43,7 +43,7 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/explorer/sends/addr1/address', { start: 0, length: 10 });
+        const res      = await handle(explorer, '/BTC/explorer/sends/' + TEST_ADDRESS + '/address', { start: 0, length: 10 });
 
         expect(res._type).to.equal('json');
     });
@@ -56,10 +56,10 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
         // Should not throw; jsonStringify handles BigInt
         let res;
         expect(async () => {
-            res = await handle(explorer, '/BTC/api/sends/addr1/address');
+            res = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         }).to.not.throw();
 
-        res = await handle(explorer, '/BTC/api/sends/addr1/address');
+        res = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
         expect(res._status).to.equal(200);
         // The body should be a valid JSON string (BigInt serialised as string)
         expect(() => JSON.parse(res._body)).to.not.throw();
@@ -69,7 +69,7 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
         const rows     = mockResults.sendRows();
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
 
         expect(res._body).to.be.a('string');
     });
@@ -85,7 +85,7 @@ describe('XChainExplorer.processRequest – JSON serialization', function () {
         const rows = [{ action_index: 1, evil: { mathjs: 'BigNumber', value: 'not-a-number' } }];
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
-        const res      = await handle(explorer, '/BTC/api/sends/addr1/address');
+        const res      = await handle(explorer, '/BTC/api/sends/' + TEST_ADDRESS + '/address');
 
         expect(res._status).to.equal(200);
         expect(res._body).to.be.a('string');

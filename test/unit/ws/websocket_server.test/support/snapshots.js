@@ -165,3 +165,31 @@ describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame',
         expect(data).to.include({ channel: 'market', tick1: 'pepe', tick2: 'btc', last_price: '1.5' });
     });
 });
+
+describe('WS SNAPSHOT: a key repeated inside one subscribe batch is snapshotted once', function () {
+    afterEach(() => sinon.restore());
+
+    it('150 copies of one address send one SUBSCRIBED frame and one snapshot fan-out', async function () {
+        const s = serverWithEntityDb();
+        const fanout = sinon.spy(s, 'startSnapshotFanout');
+        const client = spyClient();
+        const msg = { action: 'subscribe', id: 'p5', channels: ['address'],
+            params: { snapshot: true, addresses: new Array(150).fill('L3d') } };
+
+        s.handleSubscribe(client, msg);
+        await new Promise((r) => setImmediate(r));
+        await new Promise((r) => setImmediate(r));
+
+        expect(framesOf(client, 'SUBSCRIBED')).to.have.lengthOf(1);
+        expect(fanout.callCount).to.equal(1);
+        expect(fanout.firstCall.args[1]).to.have.lengthOf(1);
+        expect(s.explorer.db.getAddressBalances.callCount).to.equal(1);
+        expect(s.explorer.db.getMaxActionIndex.callCount).to.equal(1);
+
+        // Re-sending once the key is held yields no fresh key.
+        s.handleSubscribe(client, { ...msg });
+        await new Promise((r) => setImmediate(r));
+        expect(fanout.callCount).to.equal(1);
+        expect(s.explorer.db.getAddressBalances.callCount).to.equal(1);
+    });
+});

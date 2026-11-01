@@ -75,18 +75,10 @@ function schemaBlock(server) {
         // actually validates params.types) so this self-description cannot
         // silently under-advertise a filterable type again.
         types: [...ChannelManager.VALID_TYPES],
-        // 'statuses' is intentionally NOT advertised: the block-derived
-        // actions feed (getActionsSince) never populates a per-action
-        // status, so a statuses filter on the actions channel is a silent
-        // no-op. Rather than imply a filter we can't honor there (the
-        // per-type status joins are deferred), we drop it from the
-        // advertised contract so clients cannot rely on it. The filter
-        // mechanism still runs for events that do carry a status (e.g.
-        // lifecycle/COINPAY frames); it is simply not advertised.
-        // 'ticks' is omitted for the same reason: getActionsSince
-        // selects no tick/give_tick/get_tick column, so Broadcaster's
-        // `if (tick && ...)` check never fires on the actions channel, the
-        // only channel ChannelManager.subscribe attaches a ticks filter to.
+        // 'statuses' and 'ticks' are intentionally not advertised or evaluated
+        // as event filters. They remain accepted for compatibility and are
+        // reported as ignored on actions subscriptions; `ticks` also remains
+        // the supported plural entity key for token subscriptions.
         features: ['snapshot', 'once', 'fields', 'batch', 'catch_up']
     };
 }
@@ -97,29 +89,45 @@ function schemaBlock(server) {
 // the mark are committed but not yet sent live, so a client that seeded its cursor
 // from the tip and dropped before the next poll would resume past rows it never got.
 async function liveResumeMark(server, coin) {
+    return liveMark(server, coin, 'liveActionMark');
+}
+
+// The detector mark named by `method` for the coin, seeding the coin first, or null
+// when this server has no detector polling it (each caller then serves the DB tip).
+async function liveMark(server, coin, method) {
     const detector = server.broadcaster && server.broadcaster.changeDetector;
-    if (!detector || typeof detector.liveActionMark !== 'function') return null;
+    if (!detector || typeof detector[method] !== 'function') return null;
     if (typeof detector.ensureSeeded === 'function') {
         try {
             await detector.ensureSeeded(coin);
         } catch (e) {
-            // The fallback below serves the DB tip, as a server with no detector does.
+            // The fallback serves the DB tip, as a server with no detector does.
         }
     }
-    return detector.liveActionMark(coin);
+    return detector[method](coin);
 }
 
 class WebSocketWelcome {
 
+    // The block tip a client may seed its block cursor from: the last block the live
+    // feed has sent for the coin, so every NEW_BLOCK that follows is strictly above it.
+    // The DB tip is NOT that position: it runs up to one detector poll ahead, so a
+    // client told the DB tip would then get that same block as a live NEW_BLOCK. The DB
+    // tip stands in only where no detector polls the coin. WELCOME and the blocks
+    // SNAPSHOT both read it, so the two never disagree.
+    async liveBlockTip(coin) {
+        const mark = await liveMark(this, coin, 'liveBlockMark');
+        return (mark !== null) ? mark : (await this.explorer.db.getMaxBlockIndex({ coin }) || 0);
+    }
+
     // Send WELCOME message with server info
     async sendWelcome(client) {
-        // Get latest indexes from the database
         let latestBlockIndex  = 0;
         let latestActionIndex = 0;
         try {
             const db     = this.explorer.db;
             const config = { coin: client.coin };
-            latestBlockIndex  = await db.getMaxBlockIndex(config) || 0;
+            latestBlockIndex  = await this.liveBlockTip(client.coin);
             // latest_action_index is the position live delivery resumes from (the
             // detector's mark), so a client that seeds its cursor from it misses
             // nothing; the DB tip stands in only where no detector polls the coin.

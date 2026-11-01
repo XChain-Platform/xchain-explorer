@@ -37,11 +37,13 @@ function toSqlite(ddl) {
         .replace(/ UNSIGNED/g, '')
         .replace(/CHARACTER SET \w+ COLLATE \w+/g, '')
         .replace(/\) ENGINE=\w+[^;]*;/g, ');')
+        .replace(/^\s*KEY\s+[^\n]*\n/gm, '')
+        .replace(/,\s*\)/g, '\n)')
         .replace(/^CREATE\s+(UNIQUE\s+)?INDEX[^;]*;/gim, '');
 }
 
 function columnsOf(ddl, table) {
-    const m = ddl.match(new RegExp('CREATE TABLE ' + table + ' \\(([\\s\\S]*?)\\)\\s*(ENGINE|;)'));
+    const m = ddl.match(new RegExp('CREATE TABLE (?:IF NOT EXISTS )?' + table + ' \\(([\\s\\S]*?)\\)\\s*(ENGINE|;)'));
     if (!m) throw new Error('CREATE TABLE ' + table + ' not found');
     return m[1].split('\n').map(l => l.trim()).filter(l => /^[a-z_]+\s/.test(l)).map(l => l.split(/\s+/)[0]);
 }

@@ -26,7 +26,7 @@
 'use strict';
 
 const {
-    sinon, expect, mockRes, mockResults, state, makeExplorer, handle, parseBody
+    sinon, expect, mockRes, mockResults, TEST_ADDRESS, state, makeExplorer, handle, parseBody
 } = require('./helpers.js');
 
 describe('XChainExplorer.processRequest – special method responses', function () {
@@ -35,10 +35,10 @@ describe('XChainExplorer.processRequest – special method responses', function 
         state.getDataResult  = [rows, rows.length];
         const explorer = makeExplorer();
         // /BTC/api/balances/{address}
-        const res      = await handle(explorer, '/BTC/api/balances/addr1');
+        const res      = await handle(explorer, '/BTC/api/balances/' + TEST_ADDRESS);
         const body     = parseBody(res);
 
-        expect(body).to.have.property('address', 'addr1');
+        expect(body).to.have.property('address', TEST_ADDRESS);
     });
 
     it('getHolders: adds tick, supply, decimals, coin_price to top-level JSON', async function () {
@@ -76,12 +76,12 @@ describe('XChainExplorer.processRequest – special method responses', function 
         const searchData = {
             data: mockResults.searchAddressRows(),
             type: 'address',
-            query: 'addr1'
+            query: TEST_ADDRESS
         };
         // No numeric total means json = data (not wrapped)
         state.getDataResult   = [searchData, null];
         const explorer  = makeExplorer();
-        const res       = await handle(explorer, '/BTC/explorer/search/addr1/address', { start: 0, length: 10 });
+        const res       = await handle(explorer, '/BTC/explorer/search/' + TEST_ADDRESS + '/address', { start: 0, length: 10 });
         const body      = parseBody(res);
 
         // The merged object should include extra fields from searchData
@@ -107,7 +107,7 @@ describe('XChainExplorer.processRequest – ownership row shape (action_index la
     it('getDispensers: give_ownership sits before status/action_index', async function () {
         state.getDataResult  = [[{ ...mockResults.dispenserRows()[0], give_ownership: 1 }], 1];
         const explorer = makeExplorer();
-        const row      = parseBody(await handle(explorer, '/BTC/explorer/dispensers/addr1/address', dtQuery)).data[0];
+        const row      = parseBody(await handle(explorer, '/BTC/explorer/dispensers/' + TEST_ADDRESS + '/address', dtQuery)).data[0];
         expect(row[row.length - 1]).to.equal(70, 'action_index is the last element (paging cursor)');
         expect(row[row.length - 4]).to.equal(1,  'give_ownership sits before price_stale/status/action_index');
         expect(row[row.length - 3]).to.equal(false, 'price_stale is the boolean before status/action_index');
@@ -116,7 +116,7 @@ describe('XChainExplorer.processRequest – ownership row shape (action_index la
     it('getOrders: give/get_ownership sit before status/action_index', async function () {
         state.getDataResult  = [[{ ...mockResults.orderRows()[0], give_ownership: 1, get_ownership: 1 }], 1];
         const explorer = makeExplorer();
-        const row      = parseBody(await handle(explorer, '/BTC/explorer/orders/addr1/address', dtQuery)).data[0];
+        const row      = parseBody(await handle(explorer, '/BTC/explorer/orders/' + TEST_ADDRESS + '/address', dtQuery)).data[0];
         expect(row[row.length - 1]).to.equal(60, 'action_index is the last element');
         expect(row[row.length - 4]).to.equal(1,  'give_ownership before status/action_index');
         expect(row[row.length - 3]).to.equal(1,  'get_ownership before status/action_index');
@@ -125,7 +125,7 @@ describe('XChainExplorer.processRequest – ownership row shape (action_index la
     it('getSwaps: give/get_ownership sit before status/action_index', async function () {
         state.getDataResult  = [[{ ...mockResults.orderRows()[0], give_ownership: 1, get_ownership: 1 }], 1];
         const explorer = makeExplorer();
-        const row      = parseBody(await handle(explorer, '/BTC/explorer/swaps/addr1/address', dtQuery)).data[0];
+        const row      = parseBody(await handle(explorer, '/BTC/explorer/swaps/' + TEST_ADDRESS + '/address', dtQuery)).data[0];
         expect(row[row.length - 1]).to.equal(60, 'action_index is the last element');
         expect(row[row.length - 4]).to.equal(1,  'give_ownership before status/action_index');
         expect(row[row.length - 3]).to.equal(1,  'get_ownership before status/action_index');

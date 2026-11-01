@@ -45,8 +45,8 @@ const { createApp } = require('./helpers/app-setup');
 
 let request;
 
-const VALIDATOR_ADDR = 'bc1qvalidatoraaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const USER_ADDR      = 'bc1quseraddrbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const VALIDATOR_ADDR = 'bcrt1qqurswpc8qurswpc8qurswpc8qurswpc8dxm0gk';
+const USER_ADDR      = 'bcrt1qqcrqvpsxqcrqvpsxqcrqvpsxqcrqvpsxvk6wzh';
 
 const PUBKEY_EVICTED = 'ee'.repeat(32);
 const PUBKEY_USER    = 'dd'.repeat(32);

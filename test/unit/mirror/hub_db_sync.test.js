@@ -27,6 +27,12 @@ function makeSync(maxReferenceBlock, opts = {}) {
     return { sync, hubDb, doQuery };
 }
 
+// Certify that price_snapshots completed its drain on this connection.
+function certifyPriceDrain(sync) {
+    sync.certifyTableDrain({ table: 'price_snapshots', connectionEpoch: sync._wsEpoch,
+        selectorRevision: sync._selectorRevision, watermark: 0 });
+}
+
 describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
     it('exports the class plus the ensureTables helper', function () {
         assert.strictEqual(typeof HubDbSync, 'function');
@@ -101,6 +107,8 @@ describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
 
     it('waitForPriceSyncHeight resolves immediately when already caught up', async function () {
         const { sync } = makeSync(0);
+        certifyPriceDrain(sync);
+        sync.priceBootstrapped = true;
         sync.priceSyncHeight = 200;
         const got = await sync.waitForPriceSyncHeight(150, 1000);
         assert.strictEqual(got, 200);
@@ -108,6 +116,7 @@ describe('HubDbSync price-sync barrier (explorer vendored copy)', function () {
 
     it('waitForPriceSyncHeight resolves once a later sync raises the height', async function () {
         const { sync, doQuery } = makeSync(80);
+        certifyPriceDrain(sync);
         const pending = sync.waitForPriceSyncHeight(100, 2000);
         assert.strictEqual(sync._priceWaiters.length, 1, 'a not-yet-reached target parks a waiter');
         doQuery.callsFake(async () => [{ h: 120, ts: 0 }]);

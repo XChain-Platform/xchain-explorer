@@ -32,6 +32,18 @@
 
 const { GLOBAL_CHANNELS, ALL_CHANNELS, VALID_TYPES } = require('./channels.js');
 
+// A client-supplied name for a refusal message. An object whose toString is not a
+// function would throw out of a template literal, so non-strings print as JSON.
+function nameForMessage(value) {
+    if (typeof value === 'string') return value;
+    try {
+        const json = JSON.stringify(value);
+        return json === undefined ? typeof value : json;
+    } catch (_) {
+        return typeof value;
+    }
+}
+
 // The first refusal a channels list earns, or null when every name is valid.
 function channelsError(channels) {
     // Validate channels
@@ -40,7 +52,7 @@ function channelsError(channels) {
     }
     for (const ch of channels) {
         if (!ALL_CHANNELS.has(ch)) {
-            return { code: 'INVALID_CHANNEL', message: `Unknown channel: ${ch}` };
+            return { code: 'INVALID_CHANNEL', message: `Unknown channel: ${nameForMessage(ch)}` };
         }
     }
     return null;
@@ -54,7 +66,7 @@ function buildTypesFilter(params) {
     }
     for (const t of params.types) {
         if (!VALID_TYPES.has(t)) {
-            return { error: { code: 'INVALID_TYPE', message: `Unknown action type: ${t}` } };
+            return { error: { code: 'INVALID_TYPE', message: `Unknown action type: ${nameForMessage(t)}` } };
         }
     }
     return { filter: new Set(params.types) };
@@ -67,14 +79,6 @@ function buildStatusesFilter(params) {
         return { error: { code: 'INVALID_ACTION', message: 'statuses must be an array' } };
     }
     return { filter: new Set(params.statuses) };
-}
-
-function buildTicksFilter(channels, params) {
-    // Validate ticks filter (for global actions channel)
-    if (params.ticks && Array.isArray(params.ticks) && channels.includes('actions')) {
-        return new Set(params.ticks);
-    }
-    return null;
 }
 
 function buildFieldsFilter(params) {
@@ -100,16 +104,12 @@ function buildFilter(channels, params) {
     const statuses = buildStatusesFilter(params);
     if (statuses.error) return statuses;
 
-    const ticks = buildTicksFilter(channels, params);
-
     const fields = buildFieldsFilter(params);
     if (fields.error) return fields;
 
     // Build filter object
     const filter = {
         types:              types.filter,
-        statuses:           statuses.filter,
-        ticks,
         fields:             fields.filter,
         once:               !!params.once,
         snapshot:           !!params.snapshot,
@@ -119,20 +119,29 @@ function buildFilter(channels, params) {
 }
 
 // Resolves every entry a request names, in request order, without saving any of
-// them: { error } for the first channel whose entity keys do not resolve, else
+// them. An entry naming a channel key an earlier entry already named is dropped, so
+// a batch that repeats one entity yields one entry (and one SUBSCRIBED frame and
+// one snapshot fan-out) per distinct key, first-seen order: { error } for the first channel whose entity keys do not resolve, else
 // { entries } of { channel, entityKey } (entityKey null for a global channel).
-function resolveEntries(manager, channels, params) {
+function resolveEntries(manager, client, channels, params) {
     const entries = [];
+    const seen = new Set();
+    const add = (channel, entityKey) => {
+        const channelKey = manager.buildChannelKey(client.coin, channel, entityKey);
+        if (seen.has(channelKey)) return;
+        seen.add(channelKey);
+        entries.push({ channel, entityKey });
+    };
     for (const channel of channels) {
         // Global channel (no entity key)
         if (GLOBAL_CHANNELS.has(channel)) {
-            entries.push({ channel, entityKey: null });
+            add(channel, null);
             continue;
         }
         // Entity channel: resolve entity key(s) from params
         const entityKeys = manager.resolveEntityKeys(channel, params);
         if (entityKeys.error) return { error: entityKeys.error };
-        for (const entityKey of entityKeys.keys) entries.push({ channel, entityKey });
+        for (const entityKey of entityKeys.keys) add(channel, entityKey);
     }
     return { entries };
 }
@@ -166,7 +175,7 @@ class ChannelSubscriptions {
         const filter = built.filter;
 
         // Resolve entity keys for batch and single subscriptions
-        const resolved = resolveEntries(this, channels, params);
+        const resolved = resolveEntries(this, client, channels, params);
         if (resolved.error) return { success: false, error: resolved.error };
 
         // Check the limit for the whole batch before saving any of it
@@ -197,10 +206,7 @@ class ChannelSubscriptions {
 
         for (const channel of channels) {
             if (!ALL_CHANNELS.has(channel)) {
-                // JSON for a non-string name: an object whose toString is not a function would
-                // throw out of a template literal.
-                const name = (typeof channel === 'string') ? channel : JSON.stringify(channel);
-                refused.push({ code: 'INVALID_CHANNEL', message: `Unknown channel: ${name}` });
+                refused.push({ code: 'INVALID_CHANNEL', message: `Unknown channel: ${nameForMessage(channel)}` });
             } else if (GLOBAL_CHANNELS.has(channel)) {
                 const was_subscribed = this.removeSubscription(client, channel, null);
                 unsubscribed.push({ channel, was_subscribed });

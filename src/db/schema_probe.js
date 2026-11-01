@@ -108,23 +108,28 @@ function columnBucket(db, config){
     return db.schemaColumnMemo[coin];
 }
 
+function columnKey(table, columns, schema){
+    return (schema ? schema + ':' : '') + table + ':' + memoKey(columns);
+}
+
 // Whether `table` on the connected schema carries EVERY named column, on the same
 // terms as tablesPresent: memoized per coin, a negative answer aging out on the TTL,
 // and a probe that itself fails answering true and caching nothing. Callers pair
 // this with isUnknownColumnError below.
-async function columnsPresent(db, config, table, columns){
+async function columnsPresent(db, config, table, columns, schema){
     const bucket = columnBucket(db, config);
-    const key    = table + ':' + memoKey(columns);
+    const key    = columnKey(table, columns, schema);
     const memo   = bucket[key];
     if(memo && (memo.present || (Date.now() - memo.at) < SCHEMA_PROBE_TTL_MS))
         return memo.present;
     try {
         const placeholders = columns.map(() => '?').join(',');
+        const schemaClause = schema ? 'TABLE_SCHEMA=?' : 'TABLE_SCHEMA=DATABASE()';
         const rows = await db.doQuery(config,
             `SELECT COLUMN_NAME
              FROM information_schema.COLUMNS
-             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME IN (${placeholders})`,
-            [table].concat(columns));
+             WHERE ${schemaClause} AND TABLE_NAME=? AND COLUMN_NAME IN (${placeholders})`,
+            (schema ? [schema, table] : [table]).concat(columns));
         const found   = new Set((rows || []).map(r => String(r.COLUMN_NAME)));
         const present = columns.every(name => found.has(name));
         bucket[key] = { present, at: Date.now() };
@@ -135,8 +140,8 @@ async function columnsPresent(db, config, table, columns){
 }
 
 // Record that `table` does NOT carry these columns, after a statement proved it.
-function setColumnsAbsent(db, config, table, columns){
-    columnBucket(db, config)[table + ':' + memoKey(columns)] = { present: false, at: Date.now() };
+function setColumnsAbsent(db, config, table, columns, schema){
+    columnBucket(db, config)[columnKey(table, columns, schema)] = { present: false, at: Date.now() };
 }
 
 // MariaDB error 1054 (ER_BAD_FIELD_ERROR), "Unknown column", unwrapped from doQuery's

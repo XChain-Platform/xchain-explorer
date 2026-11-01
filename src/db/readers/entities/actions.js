@@ -32,6 +32,7 @@
 'use strict';
 
 const { DbInputError } = require('../../shared.js');
+const { canonicalTransactionHash } = require('../../../lib/transaction_hash.js');
 
 async function findPendingTransaction(db, config) {
     let search = String(config.data.search).toLowerCase();
@@ -160,8 +161,11 @@ class EntityActionReaders {
             args.push(Number(q.blockIndex));
         }
         if (!this.util.isNull(q.txid)) {
+            const canonical = canonicalTransactionHash(q.txid);
+            if(canonical === false)
+                throw new DbInputError('Invalid transaction hash', 'INVALID_TX_HASH');
             extra += ' AND t2.hash=?';
-            args.push(q.txid);
+            args.push(canonical);
         }
         if (!this.util.isNull(q.tick)) {
             extra += ` AND m.action_index IN (

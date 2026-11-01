@@ -87,21 +87,21 @@ describe('getQuery() explorer start guard', function () {
     // NaN here is `LIMIT NaN`: a rejected query, answered 5xx on an unauthenticated
     // read route. Pre-guard these two cases produced the string "NaN".
     ['abc', '7junk', '1e999'].forEach((bad) => {
-        it(`falls back to start=0 for a non-finite ?start=${JSON.stringify(bad)}`, async function () {
+        it(`refuses a non-finite ?start=${JSON.stringify(bad)}`, async function () {
             const db = makeDbWithProbe();
             const config = explorerConfig({ start: bad, length: '10' });
-            await db.getQuery(config);
-            expect(Number.isFinite(Number(config.data.sql.limit))).to.equal(true);
-            expect(Number(config.data.sql.limit)).to.equal(10);
+            let error;
+            try { await db.getQuery(config); } catch(err) { error = err; }
+            expect(error).to.have.property('code', 'INVALID_START');
         });
     });
 
-    it('falls back to start=0 for a repeated (array-valued) ?start=', async function () {
+    it('refuses a repeated (array-valued) ?start=', async function () {
         const db = makeDbWithProbe();
         const config = explorerConfig({ start: ['1', '2'], length: '10' });
-        await db.getQuery(config);
-        expect(Number.isFinite(Number(config.data.sql.limit))).to.equal(true);
-        expect(Number(config.data.sql.limit)).to.equal(10);
+        let error;
+        try { await db.getQuery(config); } catch(err) { error = err; }
+        expect(error).to.have.property('code', 'INVALID_START');
     });
 
     it('leaves normal paging alone', async function () {

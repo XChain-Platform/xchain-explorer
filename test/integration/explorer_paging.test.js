@@ -22,10 +22,10 @@
  * for getSends: [count_reverse, block_index, timestamp, source, tick, amount, destination, status, action_index]
  *
  * Seed data used (seed-baseline.sql):
- *   - 10 sends total involving bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa as source or destination
+ *   - 10 sends total involving ADDR1 as source or destination
  *   - 4 tokens (XCHAIN, TOKENONE, TOKENTWO, TOKENTHREE)
  *   - 10 blocks
- *   - balances for bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa across multiple tickers
+ *   - balances for ADDR1 across multiple tickers
  */
 
 const { expect } = require('chai');
@@ -33,7 +33,7 @@ const supertest  = require('supertest');
 const db         = require('./helpers/db-setup');
 const { createApp } = require('./helpers/app-setup');
 
-const ADDR1 = 'bc1qaddr1aaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const ADDR1 = 'bcrt1qqyqszqgpqyqszqgpqyqszqgpqyqszqgpvxat9t';
 
 let request, app, explorer, configInfo;
 

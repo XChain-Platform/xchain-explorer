@@ -37,6 +37,7 @@
 const { resultCacheLookup, resultCacheStore } = require('./data_cache.js');
 const { runListQuery } = require('./data_rows.js');
 const { applyPostPasses } = require('./data_post.js');
+const { setTablesAbsent, isMissingTableError } = require('../schema_probe.js');
 const { apiLimit, querySortOrder, apiPageOffset, explorerLimits, explorerOffsets } = require('./query_limits.js');
 const { apiKeyset, keysetWalkOrder } = require('./keyset.js');
 
@@ -65,6 +66,19 @@ async function canonicalizeTickerFilters(db, config){
     config[CANONICAL_TICKERS] = true;
 }
 
+async function runListQueryWithSchemaFallback(db, config, query, args, count, page){
+    try {
+        return await runListQuery(db, config, query, args, count, page);
+    } catch(e){
+        const sql = config.data && config.data.sql;
+        const optionalTables = sql && sql.optionalTables;
+        if(!Array.isArray(optionalTables) || !optionalTables.length || !isMissingTableError(e)) throw e;
+        setTablesAbsent(db, config, optionalTables);
+        [query, args, count, page] = await db.getQuery(config);
+        return runListQuery(db, config, query, args, count, page);
+    }
+}
+
 class QueryData {
 
     /******************************************************************
@@ -84,7 +98,7 @@ class QueryData {
             if(this.util.isNumeric(count))
                 total = count;
         } else {
-            [data, total] = await runListQuery(this, config, query, args, count, page);
+            [data, total] = await runListQueryWithSchemaFallback(this, config, query, args, count, page);
         }
         // A keyset page read against its requested order is shown in that order.
         if(config.data.sql && config.data.sql.keysetReversed && Array.isArray(data))

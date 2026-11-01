@@ -289,13 +289,10 @@ const ROLLCALL = {
             : ROLLCALL_DETAIL;
         return { query, query2, query3 };
     },
-    // The signer list IS the present list: a validator is recorded present at an
-    // epoch precisely by having signed the canonical. Scoped to THIS action_index,
-    // not to the epoch: rollcall_signers is unique on (epoch_height, pubkey) with
-    // INSERT IGNORE, so it is a first-seen index across the whole epoch, and several
-    // ROLLCALL actions per epoch are EXPECTED and union together. Showing the epoch's
-    // full union on one action's page would credit this action with signatures it
-    // did not carry.
+    // rollcall_signers is a first-seen index across the epoch, so this action-scoped
+    // list may be smaller than the set the action carried or empty for a valid action.
+    // Showing the epoch's full union here would credit this action with signatures it
+    // did not carry; carried_count comes only from its rollcall_actions row.
     //
     // Ordered by pubkey, not by an autoincrement: rollcall_signers has NO id column
     // (its primary key is the composite (epoch_height, pubkey)), so the `ORDER BY id`
@@ -309,6 +306,7 @@ const ROLLCALL = {
         }
         let signers = await db.doQuery(config, ROLLCALL_SIGNERS, [action_index]);
         data['signers'] = (signers && signers.length) ? signers : [];
+        data['signers_scope'] = 'first_seen';
         // ROLLCALL v1 GATES field as carried on this action's row (comma-joined
         // '<module>.<EXPORT>' consensus-gate keys); NULL on every v0 row, so the client
         // badges v0 without a gates list and v1 as 'ROLLCALL v1' with the parsed list.
@@ -317,6 +315,7 @@ const ROLLCALL = {
         // State carried_count only from a rollcall_actions row; signers lists first-seen signatures only.
         data['carried_count']    = counted ? Number(data['carried_count']) : null;
         data['first_seen_count'] = counted ? Number(data['first_seen_count']) : data['signers'].length;
+        if(db.util.isNull(data['epoch_height'])) data['detail_incomplete'] = true;
     },
 };
 

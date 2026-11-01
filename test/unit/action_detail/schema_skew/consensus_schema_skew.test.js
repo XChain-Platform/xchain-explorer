@@ -176,7 +176,7 @@ function makeRollcallDb(state) {
 const SIGNER_ROWS = [{ pubkey: '01'.repeat(32), sig: 'aa'.repeat(64), block_index: 50 },
     { pubkey: '02'.repeat(32), sig: 'bb'.repeat(64), block_index: 50 }];
 
-describe('ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression', function () {
+function rollcallActionRowCases() {
     it('renders an action that carried only already-seen pubkeys from its rollcall_actions row', async function () {
         const state = { queries: [], tables: ['rollcall_actions'], signerRows: [], actionRow: { action: 'ROLLCALL',
             action_format: 1, action_index: 9, epoch_height: 300, ledger_hash: LEDGER, publisher: PUBLISHER,
@@ -187,8 +187,11 @@ describe('ROLLCALL detail reads rollcall_actions for actions with no first-seen 
         assert.strictEqual(data.publisher, PUBLISHER);
         assert.deepStrictEqual(data.gates, ['vm.CALL', 'vm.DEPLOY']);
         assert.deepStrictEqual(data.signers, []);
+        assert.strictEqual(data.signers_scope, 'first_seen');
         assert.strictEqual(data.carried_count, 3);
         assert.strictEqual(data.first_seen_count, 0);
+        assert.strictEqual(data.detail_incomplete, undefined);
+        assert.strictEqual(makeRollcallDb(state).isCacheableAction(data), true);
         assert.strictEqual(named(state, /FROM\s+rollcall_signers[\s\S]*LIMIT 1/).length, 0, 'the row needed no legacy read');
     });
 
@@ -201,8 +204,11 @@ describe('ROLLCALL detail reads rollcall_actions for actions with no first-seen 
         assert.strictEqual(data.signers.length, 2);
         assert.strictEqual(data.carried_count, null, 'no row states how many the action carried');
         assert.strictEqual(data.first_seen_count, 2);
+        assert.strictEqual(data.signers_scope, 'first_seen');
     });
+}
 
+function rollcallFallbackCases() {
     it('a replica without the table never names it and reads rollcall_signers as before', async function () {
         const state = { queries: [], tables: [], signerRows: SIGNER_ROWS };
         const data = await makeRollcallDb(state).getActionData(config, 9);
@@ -220,4 +226,22 @@ describe('ROLLCALL detail reads rollcall_actions for actions with no first-seen 
         assert.strictEqual(data.epoch_height, 300);
         assert.strictEqual(db.schemaTableMemo[config.coin].rollcall_actions.present, false);
     });
+
+    it('marks and does not cache a detail that neither table can resolve', async function () {
+        const state = { queries: [], tables: ['rollcall_actions'], signerRows: [], actionRow: null };
+        const db = makeRollcallDb(state);
+        const first = await db.getActionData(config, 9);
+        const second = await db.getActionData(config, 9);
+        assert.strictEqual(first.detail_incomplete, true);
+        assert.strictEqual(first.signers_scope, 'first_seen');
+        assert.strictEqual(db.isCacheableAction(first), false);
+        assert.strictEqual(second.detail_incomplete, true);
+        assert.strictEqual(named(state, /FROM\s+rollcall_actions/).length, 2,
+            'an unresolved detail is queried again instead of coming from the LRU');
+    });
+}
+
+describe('ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression', function () {
+    rollcallActionRowCases();
+    rollcallFallbackCases();
 });

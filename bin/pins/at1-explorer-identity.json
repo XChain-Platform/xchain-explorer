@@ -2275,8 +2275,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/action-detail-golden.json",
-      "bytes": 406139,
-      "sha256": "0df3f43889df0b820fa11226b1c59766e7f6068e4797abea97023b0cfadeefb0"
+      "bytes": 406247,
+      "sha256": "8024d0bc1b7ee54f2b1df46feb4b3dd47f404ca1283dd734915a5355dfa8ffff"
     },
     {
       "path": "test/fixtures/list-page-baseline.json",
@@ -3154,26 +3154,6 @@
         "contract action-detail SQL exports a single-row DEPLOY_CONTRACT_DETAIL query",
         "contract action-detail SQL exports a single-row EXECUTE_DETAIL query",
         "contract action-detail SQL exports the ordered EXECUTE_EMISSIONS query without a row limit"
-      ],
-      "180445d38720eaff": [
-        "schema column probe isolation does not answer a table probe from a column memo",
-        "schema column probe isolation keeps column memos separate for each coin",
-        "schema column probe isolation lets an absent marker bypass the column query",
-        "schema column probe isolation returns true without caching when the column query rejects",
-        "schema column probes memoizes negative answers only inside the TTL",
-        "schema column probes memoizes positive answers for either column order",
-        "schema column probes queries for every column and reports an incomplete result",
-        "schema probe errors recognizes missing table errors directly and through a cause",
-        "schema probe errors recognizes unknown column errors directly and through a cause",
-        "schema probe errors rejects values that are not missing table errors",
-        "schema probe errors rejects values that are not unknown column errors",
-        "schema table probe isolation keeps table memos separate for each coin",
-        "schema table probe isolation lets an absent marker bypass the table query",
-        "schema table probe isolation returns true without caching when the table query rejects",
-        "schema table probes exports the schema probe TTL",
-        "schema table probes memoizes negative answers only inside the TTL",
-        "schema table probes memoizes positive answers for either table order",
-        "schema table probes queries for every table and reports an incomplete result"
       ],
       "184e2c0e8c048129": [
         "settlement anchor panels labels XPOLICY and LIST_SHARE rows in compact action feeds",
@@ -4127,11 +4107,6 @@
         "M5.4 XCALL phase reads (spec row 35) getXcallInfo point-reads one call by id, valid row only, bounded to one row",
         "M5.4 XCALL phase reads (spec row 35) resumes inside a block and caps the read when the cursor passes bounds"
       ],
-      "2163aadc0055e628": [
-        "Database tip health replay finality clears the not-final verdict once the indexer reports replayed",
-        "Database tip health replay finality keeps an indexed height below the open replay target final",
-        "Database tip health replay finality marks the replay target and higher indexed heights as not final"
-      ],
       "217895db758d81cd": [
         "XChainExplorer.processRequest \u2013 API response shape always includes a runtime field in the JSON response",
         "XChainExplorer.processRequest \u2013 API response shape returns total and data array when getData resolves with numeric total",
@@ -4195,19 +4170,6 @@
         "HubOperationalCache: mixed-version fleet with the upgraded hub down still throws the capability-gap error when every endpoint answers -32601",
         "HubOperationalCache: mixed-version fleet with the upgraded hub down the connector flags allEndpointsAnswered only when every endpoint gave a protocol answer"
       ],
-      "230ddd7f6049bbc1": [
-        "checkpoint supersede canonical matches the hub @regression matches the hub canonical byte for byte for a plain checkpoint",
-        "checkpoint supersede canonical matches the hub @regression matches the hub canonical byte for byte for a superseding checkpoint",
-        "checkpoint supersede canonical matches the hub @regression serves the hub canonical from the verify route for plain and superseding rows",
-        "checkpoint supersede verify defines both supersession columns in the hub mirror schema",
-        "checkpoint supersede verify keeps a height below an open replay target final",
-        "checkpoint supersede verify reads current metadata and later superseders from the scoped mirror",
-        "checkpoint supersede verify reads replay rules from the indexer health surface",
-        "checkpoint supersede verify refuses supersession fields below the activation gate",
-        "checkpoint supersede verify reports the lowest superseding sequence for an older row",
-        "checkpoint supersede verify serves the target and higher heights as not final while replay is open",
-        "checkpoint supersede verify verifies a superseding checkpoint with both fields in the gated canonical"
-      ],
       "23218d3f38f6d825": [
         "PRICE detail rounds parse failure keeps ordinary rows with no rounds hidden",
         "PRICE detail rounds parse failure renders populated rounds unchanged when the parse flag is absent",
@@ -4265,6 +4227,22 @@
         "coin-registry conformance (vendored copy) @regression pin == consensusHash over the vendored files LTC/regtest vendored pin matches the vendored consensusHash",
         "coin-registry conformance (vendored copy) @regression pin == consensusHash over the vendored files LTC/testnet vendored pin matches the vendored consensusHash",
         "coin-registry conformance (vendored copy) @regression pin == consensusHash over the vendored files verifyConsensusPin passes for every network on the vendored bundle"
+      ],
+      "24905eefb1836077": [
+        "replay finality rules @regression coerces replay heights into a new object without mutating the input",
+        "replay finality rules @regression compares string heights and targets from the JSON body numerically",
+        "replay finality rules @regression distinguishes known no-replay rules from an unknown rules source",
+        "replay finality rules @regression keeps a null replay_to value null",
+        "replay finality rules @regression keeps both sides of a replayed target final",
+        "replay finality rules @regression keeps heights final when replay metadata is absent",
+        "replay finality rules @regression publishes the frozen replay-state vocabulary",
+        "replay finality rules @regression recognises only pending and replaying bodies as open",
+        "replay finality rules @regression rejects an unknown replay state",
+        "replay finality rules @regression rejects negative, non-numeric, fractional, and unsafe targets",
+        "replay finality rules @regression reports unknown finality for malformed replay rules without throwing",
+        "replay finality rules @regression reports unknown finality when rules or height are unavailable",
+        "replay finality rules @regression returns null when the rules body or replay field is absent",
+        "replay finality rules @regression withholds finality at and above an open replay target"
       ],
       "24c2ed622aad4c9d": [
         "explorer FILE decompression BATCH-wrapped FILE fails closed on a BATCH carrying no FILE",
@@ -5411,30 +5389,6 @@
         "VOTE poll option parsing leaves absent options empty and unmarked",
         "VOTE poll option parsing leaves valid options unmarked",
         "VOTE poll option parsing marks malformed options as unparseable"
-      ],
-      "4bce1f0ae0adc733": [
-        "protocol lifecycle list routes binds every address and token alternative in the XBRIDGE filters",
-        "protocol lifecycle list routes getBetCancels is parameterized, capped, and ordered by an indexed action key",
-        "protocol lifecycle list routes getBetEdits is parameterized, capped, and ordered by an indexed action key",
-        "protocol lifecycle list routes getBetExpires is parameterized, capped, and ordered by an indexed action key",
-        "protocol lifecycle list routes getBetResolves is parameterized, capped, and ordered by an indexed action key",
-        "protocol lifecycle list routes getRollcalls is parameterized, capped, and ordered by an indexed action key",
-        "protocol lifecycle list routes getXbridges is parameterized, capped, and ordered by an indexed action key",
-        "protocol lifecycle list routes getXexecs is parameterized, capped, and ordered by an indexed action key",
-        "protocol lifecycle list routes reads BTC epoch closes from rollcalls with live counts, paged by epoch",
-        "protocol lifecycle list routes reads ROLLCALL publications from the DOGE-written table only",
-        "protocol lifecycle list routes refuses ROLLCALL epoch closes on a non-BTC chain with a 400 input error",
-        "protocol lifecycle list routes refuses ROLLCALL publications on a non-DOGE chain with a 400 input error",
-        "protocol lifecycle list routes registers bare and filtered /api/bet_cancels routes",
-        "protocol lifecycle list routes registers bare and filtered /api/bet_edits routes",
-        "protocol lifecycle list routes registers bare and filtered /api/bet_expires routes",
-        "protocol lifecycle list routes registers bare and filtered /api/bet_resolves routes",
-        "protocol lifecycle list routes registers bare and filtered /api/rollcall_closes routes",
-        "protocol lifecycle list routes registers bare and filtered /api/rollcalls routes",
-        "protocol lifecycle list routes registers bare and filtered /api/xbridges routes",
-        "protocol lifecycle list routes registers bare and filtered /api/xexecs routes",
-        "protocol lifecycle list routes restricts BET_EXPIRE rows to the synthetic action type",
-        "protocol lifecycle list routes unifies user and settlement XBRIDGE legs without dropping transactionless rows"
       ],
       "4be9769ccc00d430": [
         "db.getIssues: ids-first edge cases against the real indexer DDL a duplicated blocks row repeats an id, and the page runs as the single statement",
@@ -8168,19 +8122,6 @@
         "the WebSocket dispenser snapshot reports the lifecycle agrees with the /dispensers row for the same dispenser",
         "the WebSocket dispenser snapshot reports the lifecycle an open dispenser reports open, not the create validity"
       ],
-      "9351e6c31789d350": [
-        "replay finality rules @regression coerces replay heights into a new object without mutating the input",
-        "replay finality rules @regression compares string heights and targets from the JSON body numerically",
-        "replay finality rules @regression keeps a null replay_to value null",
-        "replay finality rules @regression keeps both sides of a replayed target final",
-        "replay finality rules @regression keeps heights final when replay metadata is absent",
-        "replay finality rules @regression publishes the frozen replay-state vocabulary",
-        "replay finality rules @regression recognises only pending and replaying bodies as open",
-        "replay finality rules @regression rejects an unknown replay state",
-        "replay finality rules @regression rejects negative, non-numeric, fractional, and unsafe targets",
-        "replay finality rules @regression returns null when the rules body or replay field is absent",
-        "replay finality rules @regression withholds finality at and above an open replay target"
-      ],
       "93966786e23d8601": [
         "unconfirmed count formatting formats numeric mempool counts",
         "unconfirmed count formatting marks unavailable mempool reads without displaying a zero",
@@ -8472,19 +8413,6 @@
         "action summary key-fields fixture XBRIDGE key fields come from detail SQL or its handler",
         "action summary key-fields fixture names the four intended action types with nonempty, unique field lists",
         "action summary key-fields fixture rejects a field absent from both the detail SQL and handler"
-      ],
-      "972ad1e45bc08cc1": [
-        "ATTEST detail across the batch-column migration @regression a history list with an ATTEST row resolves on a pre-batch replica",
-        "ATTEST detail across the batch-column migration @regression a pre-batch replica renders, names no batch column and keeps the keys as null",
-        "ATTEST detail across the batch-column migration @regression a probe that errors takes the safe pre-batch read",
-        "ATTEST detail across the batch-column migration @regression an upgraded replica reads every batch column",
-        "ROLLCALL detail across the gates migration @regression a replica without the column renders with no gates and never names it",
-        "ROLLCALL detail across the gates migration @regression an upgraded replica reads and splits the gates",
-        "ROLLCALL detail across the gates migration @regression recovers from the 1054 a stale positive memo earns, then stops paying it",
-        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression a replica without the table never names it and reads rollcall_signers as before",
-        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression falls back to rollcall_signers for an action indexed before rollcall_actions existed",
-        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression recovers from the missing-table error a stale positive memo earns",
-        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression renders an action that carried only already-seen pubkeys from its rollcall_actions row"
       ],
       "9799067d395e6260": [
         "Database#getReorgs (M3.5 dual-path data leg) RPC-first via HubOperationalCache maps type=block to the reorg_height param and leaves status undefined",
@@ -9572,6 +9500,14 @@
         "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): no JSON_STRINGIFY_HOOK_GATE_BLOCK_TIME",
         "vm-query vendored-VM consensus gate refuses to simulate with VM_QUERY_VM_DRIFT (503): no PKG3_SANDBOX_ACTIVATION",
         "vm-query vendored-VM consensus gate the flag being off still answers VM_QUERY_DISABLED, not drift"
+      ],
+      "aeb3ed801c47f3bf": [
+        "Database tip health replay finality clears the not-final verdict once the indexer reports replayed",
+        "Database tip health replay finality keeps an indexed height below the open replay target final",
+        "Database tip health replay finality marks the replay target and higher indexed heights as not final",
+        "Database tip health replay finality reports final when known rules say no replay is open",
+        "Database tip health replay finality reports unknown finality when an older indexer omits rules",
+        "Database tip health replay finality reports unknown finality while keeping tip data when indexer health fails"
       ],
       "af7981f422df163c": [
         "explorer feed shaping branches finds a plausibly-sized method table and branch set",
@@ -11439,6 +11375,35 @@
         "change detector reorg retry after a failed read keeps a one-shot reorg verdict when the tip read fails",
         "change detector reorg retry after a failed read rewinds every cursor below a lower new tip after a failed poll"
       ],
+      "e469e2696bc2d982": [
+        "protocol lifecycle list routes binds every address and token alternative in the XBRIDGE filters",
+        "protocol lifecycle list routes executes the mixed-generation ROLLCALL list against the real indexer column sets",
+        "protocol lifecycle list routes fails open to the newest close query when the table probe is unavailable",
+        "protocol lifecycle list routes getBetCancels is parameterized, capped, and ordered by an indexed action key",
+        "protocol lifecycle list routes getBetEdits is parameterized, capped, and ordered by an indexed action key",
+        "protocol lifecycle list routes getBetExpires is parameterized, capped, and ordered by an indexed action key",
+        "protocol lifecycle list routes getBetResolves is parameterized, capped, and ordered by an indexed action key",
+        "protocol lifecycle list routes getRollcalls is parameterized, capped, and ordered by an indexed action key",
+        "protocol lifecycle list routes getXbridges is parameterized, capped, and ordered by an indexed action key",
+        "protocol lifecycle list routes getXexecs is parameterized, capped, and ordered by an indexed action key",
+        "protocol lifecycle list routes joins one-row ROLLCALL records with pre-migration first-seen groups",
+        "protocol lifecycle list routes reads BTC epoch closes from rollcalls with live counts, paged by epoch",
+        "protocol lifecycle list routes reads ROLLCALL publications from the DOGE-written table only",
+        "protocol lifecycle list routes refuses ROLLCALL epoch closes on a non-BTC chain with a 400 input error",
+        "protocol lifecycle list routes refuses ROLLCALL publications on a non-DOGE chain with a 400 input error",
+        "protocol lifecycle list routes registers bare and filtered /api/bet_cancels routes",
+        "protocol lifecycle list routes registers bare and filtered /api/bet_edits routes",
+        "protocol lifecycle list routes registers bare and filtered /api/bet_expires routes",
+        "protocol lifecycle list routes registers bare and filtered /api/bet_resolves routes",
+        "protocol lifecycle list routes registers bare and filtered /api/rollcall_closes routes",
+        "protocol lifecycle list routes registers bare and filtered /api/rollcalls routes",
+        "protocol lifecycle list routes registers bare and filtered /api/xbridges routes",
+        "protocol lifecycle list routes registers bare and filtered /api/xexecs routes",
+        "protocol lifecycle list routes restricts BET_EXPIRE rows to the synthetic action type",
+        "protocol lifecycle list routes retries the legacy list when a failed probe is followed by a missing table",
+        "protocol lifecycle list routes serves close rows without a gate count on a replica predating rollcall_gates",
+        "protocol lifecycle list routes unifies user and settlement XBRIDGE legs without dropping transactionless rows"
+      ],
       "e47fb8abb8b74e70": [
         "attestBatchLabel keeps both UTC dates when the window crosses midnight",
         "attestBatchLabel labels continuation chunks from their zero-based slot",
@@ -11677,6 +11642,26 @@
         "Database#getDispenserPriceStaleBatch flags fresh and stale Mode A and Mode B fixtures using the settlement windows",
         "Database#getDispenserPriceStaleBatch returns boolean false without price reads for non-fiat or non-open rows",
         "Database#getDispenserPriceStaleBatch uses the full two-window snapshot range needed for Mode B pairing"
+      ],
+      "eccc793bc5e7df9f": [
+        "checkpoint supersede canonical matches the hub @regression matches the hub canonical byte for byte for a plain checkpoint",
+        "checkpoint supersede canonical matches the hub @regression matches the hub canonical byte for byte for a superseding checkpoint",
+        "checkpoint supersede canonical matches the hub @regression serves the hub canonical from the verify route for plain and superseding rows",
+        "checkpoint supersede verify defines both supersession columns in the hub mirror schema",
+        "checkpoint supersede verify keeps a height below an open replay target final",
+        "checkpoint supersede verify keeps checkpoint verification available when the rules request fails",
+        "checkpoint supersede verify propagates supersession read failures unrelated to schema skew",
+        "checkpoint supersede verify reads current metadata and later superseders from the scoped mirror",
+        "checkpoint supersede verify reads replay rules from the indexer health surface",
+        "checkpoint supersede verify recovers when a stale positive probe meets unknown supersession columns",
+        "checkpoint supersede verify refuses supersession fields below the activation gate",
+        "checkpoint supersede verify reports finality as unknown when indexer rules are unavailable",
+        "checkpoint supersede verify reports malformed replay rules as unknown without failing verification",
+        "checkpoint supersede verify reports the lowest superseding sequence for an older row",
+        "checkpoint supersede verify returns plain checkpoint metadata when the mirror predates supersession columns",
+        "checkpoint supersede verify returns unknown rules when the configured indexer is unavailable",
+        "checkpoint supersede verify serves the target and higher heights as not final while replay is open",
+        "checkpoint supersede verify verifies a superseding checkpoint with both fields in the gated canonical"
       ],
       "edcfed4e5189ca51": [
         "getMarkets tick slot orientation keeps a search that matches the stored tick2 in tick2, with that tick's values",
@@ -12211,6 +12196,20 @@
         "ADDRESS_PARAMS parity with the consensus-pinned coins registry LTC/testnet base58 prefixes + HRP equal the canonical net object",
         "ADDRESS_PARAMS parity with the consensus-pinned coins registry covers exactly the allowed coins and networks"
       ],
+      "fec2f28137015b1f": [
+        "ATTEST detail across the batch-column migration @regression a history list with an ATTEST row resolves on a pre-batch replica",
+        "ATTEST detail across the batch-column migration @regression a pre-batch replica renders, names no batch column and keeps the keys as null",
+        "ATTEST detail across the batch-column migration @regression a probe that errors takes the safe pre-batch read",
+        "ATTEST detail across the batch-column migration @regression an upgraded replica reads every batch column",
+        "ROLLCALL detail across the gates migration @regression a replica without the column renders with no gates and never names it",
+        "ROLLCALL detail across the gates migration @regression an upgraded replica reads and splits the gates",
+        "ROLLCALL detail across the gates migration @regression recovers from the 1054 a stale positive memo earns, then stops paying it",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression a replica without the table never names it and reads rollcall_signers as before",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression falls back to rollcall_signers for an action indexed before rollcall_actions existed",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression marks and does not cache a detail that neither table can resolve",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression recovers from the missing-table error a stale positive memo earns",
+        "ROLLCALL detail reads rollcall_actions for actions with no first-seen signer @regression renders an action that carried only already-seen pubkeys from its rollcall_actions row"
+      ],
       "ff48afd63b75d2cc": [
         "action detail cards (M2.5) configures no type the page does not carry",
         "action detail cards (M2.5) found the per-type blocks it is asserting about",
@@ -12266,6 +12265,28 @@
         "WS frozen-replica freshness gate frame shape puts the stale marker at the top level of WELCOME, SNAPSHOT, replayed and COMPLETE frames alike",
         "WS frozen-replica freshness gate gate probe fails open for a db double that has no isCoinTipStale, never throwing in a send path",
         "WS frozen-replica freshness gate gate probe fails open rather than propagating a gate read error"
+      ],
+      "ff71495c47c9732f": [
+        "schema column probe isolation does not answer a table probe from a column memo",
+        "schema column probe isolation keeps absent markers separate between named and connected schemas",
+        "schema column probe isolation keeps column memos separate for each coin",
+        "schema column probe isolation lets an absent marker bypass the column query",
+        "schema column probe isolation returns true without caching when the column query rejects",
+        "schema column probe isolation scopes a column probe and its memo to an explicit schema",
+        "schema column probes memoizes negative answers only inside the TTL",
+        "schema column probes memoizes positive answers for either column order",
+        "schema column probes queries for every column and reports an incomplete result",
+        "schema probe errors recognizes missing table errors directly and through a cause",
+        "schema probe errors recognizes unknown column errors directly and through a cause",
+        "schema probe errors rejects values that are not missing table errors",
+        "schema probe errors rejects values that are not unknown column errors",
+        "schema table probe isolation keeps table memos separate for each coin",
+        "schema table probe isolation lets an absent marker bypass the table query",
+        "schema table probe isolation returns true without caching when the table query rejects",
+        "schema table probes exports the schema probe TTL",
+        "schema table probes memoizes negative answers only inside the TTL",
+        "schema table probes memoizes positive answers for either table order",
+        "schema table probes queries for every table and reports an incomplete result"
       ],
       "ff78e9c5894e4233": [
         "WS SNAPSHOT: a key repeated inside one subscribe batch is snapshotted once 150 copies of one address send one SUBSCRIBED frame and one snapshot fan-out",
@@ -12359,7 +12380,7 @@
       },
       "test": {
         "fileCount": 473,
-        "titleCount": 7937,
+        "titleCount": 7958,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12384,7 +12405,7 @@
           "test/unit/action_detail/registry/db_action_detail_registry.test.js": "df70ad2a817c2af5",
           "test/unit/action_detail/registry/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",
           "test/unit/action_detail/registry/db_action_detail_supplements.test.js": "23c6716810b12da0",
-          "test/unit/action_detail/schema_skew/consensus_schema_skew.test.js": "972ad1e45bc08cc1",
+          "test/unit/action_detail/schema_skew/consensus_schema_skew.test.js": "fec2f28137015b1f",
           "test/unit/action_detail/terminal_state/action_detail_swap_terminal_state.test.js": "f4c6ed4c802dfa24",
           "test/unit/action_detail/terminal_state/action_detail_terminal_state_parity.test.js": "6390a235b151401f",
           "test/unit/action_detail/type_details/db_action_tx_less_render.test.js": "a59eb5c50dbf65ee",
@@ -12642,16 +12663,16 @@
           "test/unit/db/readers/search/contracts_name_fulltext_missing.test.js": "9bf3b4e752d10319",
           "test/unit/db/readers/search/search_fulltext_index_missing.test.js": "1e8012403a6f5857",
           "test/unit/db/readers/search/search_token_panel.test.js": "7d41d7cd293ca09b",
-          "test/unit/db/readers/status_barrier_hold/health_tip_replay_window.test.js": "2163aadc0055e628",
+          "test/unit/db/readers/status_barrier_hold/health_tip_replay_window.test.js": "aeb3ed801c47f3bf",
           "test/unit/db/readers/status_barrier_hold/status_barrier_hold.test.js": "13ef9434f1e196bb",
           "test/unit/db/readers/status_barrier_hold/verify_rules_digest_field.test.js": "f37fb79cecf6bbff",
-          "test/unit/db/schema_probe/schema_probe.test.js": "180445d38720eaff",
+          "test/unit/db/schema_probe/schema_probe.test.js": "ff71495c47c9732f",
           "test/unit/db/utc_decode_non_utc_host.test.js": "f4c74d2eccc02b65",
           "test/unit/explorer/attest/explorer_anchor_reward_attestations.test.js": "68e21b0f2e984921",
           "test/unit/explorer/attest/explorer_attest_validator_stats.test.js": "67c45fd621dd71eb",
           "test/unit/explorer/attest/explorer_slash_proposals.test.js": "9faae2fa2817f069",
           "test/unit/explorer/attest/explorer_vote_delegations.test.js": "0bfb8b4bc19093b0",
-          "test/unit/explorer/checkpoint_supersede_verify.test.js": "230ddd7f6049bbc1",
+          "test/unit/explorer/checkpoint_supersede_verify.test.js": "eccc793bc5e7df9f",
           "test/unit/explorer/checkpoint_supersession_rules.test.js": "6240a3eee5ef7232",
           "test/unit/explorer/explorer_checkpoints.test.js": "e6913c4e00113071",
           "test/unit/explorer/explorer_icon.test.js": "8a54f6aebda2a1b0",
@@ -12673,7 +12694,7 @@
           "test/unit/explorer/paging_response/explorer_paging.test.js": "66cd3cb942505c74",
           "test/unit/explorer/paging_response/explorer_response.test.js": "217895db758d81cd",
           "test/unit/explorer/relay/explorer_relay_shared_lookup.test.js": "7cec30338161fbc6",
-          "test/unit/explorer/replay_finality_rules.test.js": "9351e6c31789d350",
+          "test/unit/explorer/replay_finality_rules.test.js": "24905eefb1836077",
           "test/unit/explorer/request/address_shape.test.js": "4b80427ce63f03e8",
           "test/unit/explorer/request/bare_detail.test.js": "a94445f3f95eaca1",
           "test/unit/explorer/request/detail_record.test.js": "069598e437835fdd",
@@ -12690,7 +12711,7 @@
           "test/unit/explorer/routes/explorer_file_raw_and_action_miss.test.js": "84b057534c968f36",
           "test/unit/explorer/routes/explorer_list_all_routes.test.js": "53f45d90a9a823fb",
           "test/unit/explorer/routes/explorer_routing.test.js": "c04e83d263571f66",
-          "test/unit/explorer/routes/protocol_lifecycle_routes.test.js": "4bce1f0ae0adc733",
+          "test/unit/explorer/routes/protocol_lifecycle_routes.test.js": "e469e2696bc2d982",
           "test/unit/explorer/shared_lists/shared_lists_names.test.js": "c23f1c94403319c0",
           "test/unit/explorer/shared_lists/shared_lists_route.test.js": "8c99885039c10bc3",
           "test/unit/explorer/supersede_suffix_bytes.test.js": "519bea532fb2d794",

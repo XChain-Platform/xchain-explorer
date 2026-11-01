@@ -22,7 +22,8 @@ const {
     REPLAY_STATES,
     replayIsOpen,
     heightIsFinal,
-    parseReplay
+    parseReplay,
+    finalityFromRules
 } = require('../../../src/explorer/replay_finality.js');
 
 function replay(state, target = 10){
@@ -108,8 +109,31 @@ function registerParsingTests(){
     });
 }
 
+function registerRulesVerdictTests(){
+    it('reports unknown finality when rules or height are unavailable', function(){
+        assert.strictEqual(finalityFromRules(10, null), null);
+        assert.strictEqual(finalityFromRules(10, undefined), null);
+        assert.strictEqual(finalityFromRules(10, {}), null);
+        assert.strictEqual(finalityFromRules(null, { replay: null }), null);
+        assert.strictEqual(finalityFromRules(undefined, { replay: null }), null);
+    });
+
+    it('distinguishes known no-replay rules from an unknown rules source', function(){
+        assert.strictEqual(finalityFromRules(10, { digest: 'a', replay: null }), true);
+        assert.strictEqual(finalityFromRules(9, { replay: replay('pending') }), true);
+        assert.strictEqual(finalityFromRules(10, { replay: replay('pending') }), false);
+        assert.strictEqual(finalityFromRules(10, { replay: replay('replayed') }), true);
+    });
+
+    it('reports unknown finality for malformed replay rules without throwing', function(){
+        assert.strictEqual(finalityFromRules(10, { replay: replay('done') }), null);
+        assert.strictEqual(finalityFromRules(10, { replay: replay('pending', 'bad') }), null);
+    });
+}
+
 describe('replay finality rules @regression', function(){
     registerReplayStateTests();
     registerFinalityTests();
     registerParsingTests();
+    registerRulesVerdictTests();
 });

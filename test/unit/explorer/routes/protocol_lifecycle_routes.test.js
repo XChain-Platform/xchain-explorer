@@ -19,6 +19,7 @@ const { expect } = require('chai');
 const Utility = require('../../../../src/lib/utility.js');
 const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 const { makeConfig } = require('../../../fixtures/mock-query-args.js');
+const { openIndexerTables, runOnSqlite } = require('../../../helpers/indexer_ddl_sqlite.js');
 const API = require('../../../../src/explorer/routes/api_methods.js').api;
 
 const Database = proxyquire('../../../../src/db/index.js', {
@@ -59,6 +60,45 @@ function lifecycleDb(){
     return db;
 }
 
+function lifecycleDbWithRollcallActions(){
+    const db = lifecycleDb();
+    db.doQuery = async (config, query) => String(query).includes('information_schema.TABLES')
+        ? [{ TABLE_NAME: 'rollcall_actions' }]
+        : [];
+    return db;
+}
+
+function lifecycleDbWithTables(tables){
+    const db = lifecycleDb();
+    db.doQuery = async (config, query, args) => String(query).includes('information_schema.TABLES')
+        ? (args || []).filter(name => tables.includes(name)).map(TABLE_NAME => ({ TABLE_NAME }))
+        : [];
+    return db;
+}
+
+function seedRollcallList(sqlite){
+    sqlite.exec(`
+        INSERT INTO index_actions (id, action) VALUES (1, 'ROLLCALL'), (2, 'SEND');
+        INSERT INTO index_addresses (id, address) VALUES (1, 'Dpublisher');
+        INSERT INTO index_transactions (id, hash) VALUES (1, 'tx10'), (2, 'tx11'), (3, 'tx12'), (4, 'tx13');
+        INSERT INTO blocks (id, block_index, block_time) VALUES (1, 100, 1000), (2, 101, 1001), (3, 102, 1002), (4, 103, 1003);
+        INSERT INTO transactions (tx_index, block_index, tx_hash_id, source_id)
+            VALUES (10, 100, 1, 1), (11, 101, 2, 1), (12, 102, 3, 1), (13, 103, 4, 1);
+        INSERT INTO actions (action_index, block_index, tx_index, action_id, action_format, source_id)
+            VALUES (10, 100, 10, 1, 0, 1), (11, 101, 11, 1, 1, 1),
+                   (12, 102, 12, 1, 1, 1), (13, 103, 13, 2, 0, 1);
+        INSERT INTO rollcall_actions
+            (action_index, block_index, epoch_height, ledger_hash, publisher, gates, carried_count, first_seen_count)
+            VALUES (11, 101, 500, 'ledger11', 'publisher11', NULL, 3, 0),
+                   (12, 102, 500, 'ledger12', 'publisher12', NULL, 2, 1);
+        INSERT INTO rollcall_signers
+            (epoch_height, pubkey, sig, ledger_hash, publisher, action_index, block_index, gates)
+            VALUES (400, 'key10a', 'sig10a', 'ledger10', 'publisher10', 10, 100, NULL),
+                   (400, 'key10b', 'sig10b', 'ledger10', 'publisher10', 10, 100, NULL),
+                   (500, 'key12a', 'sig12a', 'ledger12', 'publisher12', 12, 102, NULL);
+    `);
+}
+
 // Capture the refusal: a DbInputError (answered 400), never an empty page
 async function refusal(db, method, coin){
     try { await db.getQuery(queryConfig(method, null, null, coin)); }
@@ -91,8 +131,7 @@ function endpointCases(db, endpoint){
     });
 }
 
-// Register the ROLLCALL publication and epoch-close cases.
-function rollcallCases(db){
+function rollcallPublicationShapeCases(db){
     it('reads ROLLCALL publications from the DOGE-written table only', async function () {
         const [query, , count] = await db.getQuery(queryConfig('getRollcalls', 'block', '100', 'RDOGE'));
         expect(query).to.include('FROM rollcall_signers m');
@@ -100,8 +139,82 @@ function rollcallCases(db){
             expect(query + count).to.not.include(table);
         for(const field of ['absence_count', 'evicted_count', 'gate_signer_count', 'close_block', 'rolled'])
             expect(query).to.not.include(field);
+        expect(query).to.include('COUNT(*) as signer_count');
+        expect(query).to.include('NULL as carried_count');
+        expect(query).to.include('COUNT(*) as first_seen_count');
     });
 
+    it('joins one-row ROLLCALL records with pre-migration first-seen groups', async function () {
+        const upgraded = lifecycleDbWithRollcallActions();
+        const [query, , count] = await upgraded.getQuery(queryConfig('getRollcalls', 'block', '100', 'RDOGE'));
+
+        expect(query).to.include('FROM actions m');
+        expect(query).to.include('LEFT  JOIN rollcall_actions   r  ON (r.action_index=m.action_index)');
+        expect(query).to.include('LEFT  JOIN rollcall_signers   s  ON (s.action_index=m.action_index)');
+        expect(query).to.include("a4.id=m.action_id AND a4.action='ROLLCALL'");
+        expect(query).to.include('COUNT(s.action_index) as signer_count');
+        expect(query).to.include('MAX(r.carried_count) as carried_count');
+        expect(query).to.include('COALESCE(MAX(r.first_seen_count), COUNT(s.action_index)) as first_seen_count');
+        expect(query).to.match(/WHERE m\.action_index IS NOT NULL AND m\.block_index=\? AND \(r\.action_index IS NOT NULL OR s\.action_index IS NOT NULL\)/);
+        expect(query).to.match(/ORDER BY m\.action_index DESC[\s\S]*LIMIT 100\s*$/);
+        expect(count).to.include('SELECT count(DISTINCT m.action_index) as total');
+        expect(count).to.include('rollcall_actions');
+        expect(count).to.include('rollcall_signers');
+    });
+}
+
+function rollcallPublicationExecutionCases(){
+    it('executes the mixed-generation ROLLCALL list against the real indexer column sets', async function () {
+        const tables = ['actions', 'index_actions', 'blocks', 'transactions', 'index_addresses',
+            'index_transactions', 'rollcall_actions', 'rollcall_signers'];
+        const sqlite = openIndexerTables(this, tables);
+        if(!sqlite) return;
+        try {
+            seedRollcallList(sqlite);
+            const upgraded = lifecycleDbWithRollcallActions();
+            const [query, args, count] = await upgraded.getQuery(
+                queryConfig('getRollcalls', null, null, 'RDOGE'));
+            const rows = runOnSqlite(sqlite, query, args);
+            const total = runOnSqlite(sqlite, count, args)[0].total;
+
+            expect(rows.map(row => [row.action_index, row.signer_count,
+                row.carried_count, row.first_seen_count])).to.deep.equal([
+                [12, 1, 2, 1], [11, 0, 3, 0], [10, 2, null, 2]
+            ]);
+            expect(total).to.equal(3);
+        } finally {
+            sqlite.close();
+        }
+    });
+
+    it('retries the legacy list when a failed probe is followed by a missing table', async function () {
+        const recovering = lifecycleDb();
+        const statements = [];
+        recovering.doQuery = async (config, query) => {
+            const text = String(query);
+            statements.push(text);
+            if(text.includes('information_schema.TABLES')) throw new Error('probe unavailable');
+            if(text.includes('rollcall_actions')){
+                const error = new Error('rollcall_actions does not exist');
+                error.errno = 1146;
+                error.code = 'ER_NO_SUCH_TABLE';
+                throw error;
+            }
+            if(/^SELECT count\(/.test(text)) return [{ total: 0 }];
+            return [];
+        };
+
+        const [rows, total] = await recovering.getData(
+            queryConfig('getRollcalls', 'block', '100', 'RDOGE'));
+        expect(rows).to.deep.equal([]);
+        expect(total).to.equal(0);
+        expect(statements.some(text => text.includes('rollcall_actions'))).to.equal(true);
+        expect(statements.some(text => text.includes('FROM rollcall_signers m'))).to.equal(true);
+        expect(recovering.schemaTableMemo.RDOGE.rollcall_actions.present).to.equal(false);
+    });
+}
+
+function rollcallPublicationPolicyCases(db){
     it('refuses ROLLCALL publications on a non-DOGE chain with a 400 input error', async function () {
         for(const coin of ['BTC', 'TBTC', 'RBTC', 'LTC']){
             const err = await refusal(db, 'getRollcalls', coin);
@@ -111,7 +224,9 @@ function rollcallCases(db){
             expect(err.message).to.include('/api/rollcall_closes');
         }
     });
+}
 
+function rollcallCloseCases(db){
     it('registers bare and filtered /api/rollcall_closes routes', function () {
         expect(API['/{COIN}/api/rollcall_closes']).to.deep.equal(['getRollcallCloses']);
         expect(API['/{COIN}/api/rollcall_closes/{QUERY}/{TYPE}']).to.deep.equal(['getRollcallCloses', ['block']]);
@@ -120,7 +235,8 @@ function rollcallCases(db){
 
     it('reads BTC epoch closes from rollcalls with live counts, paged by epoch', async function () {
         const search = '987654321';
-        const [query, args, count] = await db.getQuery(queryConfig('getRollcallCloses', 'block', search, 'RBTC'));
+        const upgraded = lifecycleDbWithTables(['rollcall_gates']);
+        const [query, args, count] = await upgraded.getQuery(queryConfig('getRollcallCloses', 'block', search, 'RBTC'));
         expect(query).to.include('FROM rollcalls m');
         expect(query).to.include('rollcall_absences ra WHERE ra.epoch_height=m.epoch_height) as absence_count');
         expect(query).to.include('ra.evicted=1) as evicted_count');
@@ -135,6 +251,24 @@ function rollcallCases(db){
         if(args) expect(args).to.not.include(search);
     });
 
+    it('serves close rows without a gate count on a replica predating rollcall_gates', async function () {
+        const [query, , count] = await lifecycleDb().getQuery(
+            queryConfig('getRollcallCloses', 'block', '987654321', 'RBTC'));
+        expect(query).to.include('NULL as gate_signer_count');
+        expect(query).to.not.include('FROM rollcall_gates');
+        expect(query).to.include('FROM rollcalls m');
+        expect(query).to.include('rollcall_absences ra WHERE ra.epoch_height=m.epoch_height');
+        expect(count).to.match(/FROM rollcalls m WHERE m\.epoch_height IS NOT NULL AND m\.close_block=\?/);
+    });
+
+    it('fails open to the newest close query when the table probe is unavailable', async function () {
+        const probeFailure = lifecycleDb();
+        probeFailure.doQuery = async () => { throw new Error('probe unavailable'); };
+        const [query] = await probeFailure.getQuery(
+            queryConfig('getRollcallCloses', 'block', '987654321', 'RBTC'));
+        expect(query).to.include('FROM rollcall_gates');
+    });
+
     it('refuses ROLLCALL epoch closes on a non-BTC chain with a 400 input error', async function () {
         for(const coin of ['DOGE', 'TDOGE', 'RDOGE', 'LTC']){
             const err = await refusal(db, 'getRollcallCloses', coin);
@@ -144,6 +278,14 @@ function rollcallCases(db){
             expect(err.message).to.include('/api/rollcalls');
         }
     });
+}
+
+// Register the ROLLCALL publication and epoch-close cases.
+function rollcallCases(db){
+    rollcallPublicationShapeCases(db);
+    rollcallPublicationExecutionCases();
+    rollcallPublicationPolicyCases(db);
+    rollcallCloseCases(db);
 }
 
 // Register the XBRIDGE join and filter cases and the BET_EXPIRE action restriction.

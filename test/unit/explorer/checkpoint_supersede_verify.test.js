@@ -57,6 +57,18 @@ async function verify(cp, supersessionRows, rules){
     return res;
 }
 
+async function verifyWithRulesFailure(cp){
+    const explorer = makeExplorer();
+    explorer.db.getCheckpointRows.resolves([cp]);
+    explorer.db.getCapabilitySnapshotRows.resolves([snapRow(PK('a'), 'src_a')]);
+    explorer.db.getCheckpointSupersessionRows = sinon.stub().resolves([plainMetadata(cp)]);
+    explorer.db.getIndexerRules = sinon.stub().rejects(new Error('connect refused'));
+    const res = mockRes();
+    await explorer.processCheckpointVerifyRequest(
+        req({ coin: 'BTC', blockIndex: String(cp.block_index) }), res);
+    return res;
+}
+
 function pinGates(){
     sinon.stub(eq, 'isEquivHeaderActive').returns(false);
     sinon.stub(swq, 'isStakeWeightedQuorumActive').returns(false);
@@ -134,13 +146,42 @@ async function keepsPreReplayHeightFinal(){
     expect(res._body.final).to.equal(true);
 }
 
+async function reportsUnknownFinalityWithoutRules(){
+    const cp = { ...CP };
+    const res = await verify(cp, [plainMetadata(cp)], null);
+    expect(res._status).to.equal(200);
+    expect(res._body.verified).to.equal(true);
+    expect(res._body.final).to.equal(null);
+}
+
+async function keepsVerifyAvailableWhenRulesFail(){
+    const res = await verifyWithRulesFailure({ ...CP });
+    expect(res._status).to.equal(200);
+    expect(res._body.verified).to.equal(true);
+    expect(res._body.final).to.equal(null);
+}
+
+async function reportsMalformedRulesAsUnknown(){
+    const cp = { ...CP };
+    const res = await verify(cp, [plainMetadata(cp)], {
+        digest: DIGEST, replay: { state: 'done', target: 500, replay_to: 550 }
+    });
+    expect(res._status).to.equal(200);
+    expect(res._body.final).to.equal(null);
+}
+
 async function readsScopedSupersessionRows(){
-    const doQuery = sinon.stub().resolves([{
+    const supersession = {
         checkpoint_seq: '8', block_index: '600', chain: 'BTC', network: 'regtest',
         supersedes_from: '500', rules_digest: DIGEST
-    }]);
+    };
+    const doQuery = sinon.stub().callsFake(async (config, sql) =>
+        String(sql).includes('information_schema.COLUMNS')
+            ? [{ COLUMN_NAME: 'supersedes_from' }, { COLUMN_NAME: 'rules_digest' }]
+            : [supersession]);
     const db = {
         checkpointSource: sinon.stub().returns({
+            schema: 'HubMirror',
             table: '`HubMirror`.state_checkpoints',
             filter: ' AND chain = ? AND network = ?',
             filterParams: ['BTC', 'regtest']
@@ -150,18 +191,71 @@ async function readsScopedSupersessionRows(){
     const rows = await tipReaders.getCheckpointSupersessionRows.call(db,
         { coin: 'BTC', data: {} }, { checkpoint_seq: 7, block_index: 500 });
 
-    expect(doQuery.firstCall.args[1].replace(/\s+/g, ' ').trim()).to.equal(
+    expect(doQuery.firstCall.args[1]).to.include('TABLE_SCHEMA=?');
+    expect(doQuery.firstCall.args[2]).to.deep.equal(
+        ['HubMirror', 'state_checkpoints', 'supersedes_from', 'rules_digest']);
+    expect(doQuery.secondCall.args[1].replace(/\s+/g, ' ').trim()).to.equal(
         'SELECT checkpoint_seq, block_index, chain, network, supersedes_from, rules_digest ' +
         'FROM `HubMirror`.state_checkpoints ' +
         'WHERE 1 = 1 AND chain = ? AND network = ? ' +
         'AND (checkpoint_seq = ? OR ' +
         '(checkpoint_seq > ? AND supersedes_from IS NOT NULL AND supersedes_from <= ?)) ' +
         'ORDER BY checkpoint_seq ASC');
-    expect(doQuery.firstCall.args[2]).to.deep.equal(['BTC', 'regtest', 7, 7, 500]);
+    expect(doQuery.secondCall.args[2]).to.deep.equal(['BTC', 'regtest', 7, 7, 500]);
     expect(rows[0]).to.include({
         checkpoint_seq: 8, block_index: 600,
         supersedes_from: 500, rules_digest: DIGEST
     });
+}
+
+function supersessionReaderDb(doQuery){
+    return {
+        checkpointSource: sinon.stub().returns({
+            schema: 'HubMirror', table: '`HubMirror`.state_checkpoints',
+            filter: ' AND chain = ? AND network = ?', filterParams: ['BTC', 'regtest']
+        }),
+        doQuery
+    };
+}
+
+async function fallsBackWhenSupersessionColumnsAreAbsent(){
+    const doQuery = sinon.stub().resolves([]);
+    const checkpoint = { checkpoint_seq: 7, block_index: 500 };
+    const rows = await tipReaders.getCheckpointSupersessionRows.call(
+        supersessionReaderDb(doQuery), { coin: 'BTC', data: {} }, checkpoint);
+    expect(rows).to.deep.equal([{ ...checkpoint, supersedes_from: null, rules_digest: null }]);
+    expect(doQuery.callCount).to.equal(1);
+    expect(doQuery.firstCall.args[1]).to.include('information_schema.COLUMNS');
+}
+
+async function recoversFromUnknownSupersessionColumns(){
+    const doQuery = sinon.stub();
+    doQuery.onFirstCall().resolves([
+        { COLUMN_NAME: 'supersedes_from' }, { COLUMN_NAME: 'rules_digest' }
+    ]);
+    doQuery.onSecondCall().rejects({ cause: { errno: 1054, code: 'ER_BAD_FIELD_ERROR' } });
+    const db = supersessionReaderDb(doQuery);
+    const checkpoint = { checkpoint_seq: 7, block_index: 500 };
+    const rows = await tipReaders.getCheckpointSupersessionRows.call(
+        db, { coin: 'BTC', data: {} }, checkpoint);
+    expect(rows[0]).to.include({ supersedes_from: null, rules_digest: null });
+    expect(db.schemaColumnMemo.BTC['HubMirror:state_checkpoints:rules_digest,supersedes_from'].present)
+        .to.equal(false);
+}
+
+async function propagatesOtherSupersessionReadFailures(){
+    const doQuery = sinon.stub();
+    doQuery.onFirstCall().resolves([
+        { COLUMN_NAME: 'supersedes_from' }, { COLUMN_NAME: 'rules_digest' }
+    ]);
+    doQuery.onSecondCall().rejects({ cause: { errno: 2006, code: 'ER_SERVER_GONE_ERROR' } });
+    let caught;
+    try {
+        await tipReaders.getCheckpointSupersessionRows.call(
+            supersessionReaderDb(doQuery), { coin: 'BTC', data: {} },
+            { checkpoint_seq: 7, block_index: 500 });
+    } catch(e) { caught = e; }
+    expect(caught.cause.code).to.equal('ER_SERVER_GONE_ERROR');
 }
 
 async function readsIndexerRules(){
@@ -174,6 +268,13 @@ async function readsIndexerRules(){
     const db = { parseCoinCode: sinon.stub().resolves({ coin: 'BTC', network: 'regtest' }) };
     expect(await tipReaders.getIndexerRules.call(db, { coin: 'BTC', data: {} }))
         .to.deep.equal(rules);
+}
+
+async function returnsUnknownForUnavailableIndexerRules(){
+    const db = { parseCoinCode: sinon.stub().resolves({ coin: 'BTC', network: 'regtest' }) };
+    sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('configured-indexer');
+    sinon.stub(IndexerConnector.prototype, 'health').rejects(new Error('connect refused'));
+    expect(await tipReaders.getIndexerRules.call(db, { coin: 'BTC', data: {} })).to.equal(null);
 }
 
 function definesMirrorColumns(){
@@ -191,8 +292,15 @@ function checkpointSupersedeVerify(){
     it('refuses supersession fields below the activation gate', refusesFieldsBelowGate);
     it('serves the target and higher heights as not final while replay is open', withholdsOpenReplayFinality);
     it('keeps a height below an open replay target final', keepsPreReplayHeightFinal);
+    it('reports finality as unknown when indexer rules are unavailable', reportsUnknownFinalityWithoutRules);
+    it('keeps checkpoint verification available when the rules request fails', keepsVerifyAvailableWhenRulesFail);
+    it('reports malformed replay rules as unknown without failing verification', reportsMalformedRulesAsUnknown);
     it('reads current metadata and later superseders from the scoped mirror', readsScopedSupersessionRows);
+    it('returns plain checkpoint metadata when the mirror predates supersession columns', fallsBackWhenSupersessionColumnsAreAbsent);
+    it('recovers when a stale positive probe meets unknown supersession columns', recoversFromUnknownSupersessionColumns);
+    it('propagates supersession read failures unrelated to schema skew', propagatesOtherSupersessionReadFailures);
     it('reads replay rules from the indexer health surface', readsIndexerRules);
+    it('returns unknown rules when the configured indexer is unavailable', returnsUnknownForUnavailableIndexerRules);
     it('defines both supersession columns in the hub mirror schema', definesMirrorColumns);
 }
 

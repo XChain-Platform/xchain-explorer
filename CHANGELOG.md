@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-01
+
+### Added
+- The explorer now shows archive checkpoint validators and the publisher electorate on anchor details, and exposes the checkpoint rules digest.
+
+### Changed
+- Armed this release's testnet gates, verifies superseding checkpoints, and requires VM consensus epoch 8 for simulation.
+- Database reads now fail closed at a client-side deadline.
+- Armed ARCHIVE_ROLLCALL_PRESENCE_ACTIVATION on BTC:testnet at 158557.
+- Armed ARCHIVE_ROLLCALL_PRESENCE_ACTIVATION on LTC:testnet at 4949697.
+- Armed ARCHIVE_ROLLCALL_PRESENCE_ACTIVATION on DOGE:testnet at 68035864.
+- Armed CHECKPOINT_SUPERSEDE_ACTIVATION on BTC:testnet at 158557.
+- Armed CHECKPOINT_SUPERSEDE_ACTIVATION on LTC:testnet at 4949697.
+- Armed CHECKPOINT_SUPERSEDE_ACTIVATION on DOGE:testnet at 68035864.
+- Armed ADMIT_CHAIN_MARGIN_ACTIVATION on LTC:testnet at 4949697.
+
+### Fixed
+- WebSocket subscribe and catch-up refusals now reply with clean errors, WELCOME reports the live block tip, and repeated entities subscribe once.
+- Hub mirror attest barriers now open on their own table certificate.
+- WebSocket catch-up, subscriptions, rollback and mempool change detection were corrected so clients see consistent updates.
+- Request bodies are parsed more strictly, and security headers were tightened.
+- Batch, proof and replay finality views were corrected.
+
 ## [0.26.2] - 2026-10-21
 
 ### Changed

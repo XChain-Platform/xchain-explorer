@@ -350,24 +350,27 @@ async function measureDecoderHealth(db, data, code, parseCode){
 
 // The chain->decoder slice for every advertised coin, in parallel.
 async function measureChainVisibility(db, data, coinConfigs, available){
-    // Chain->decoder visibility: the slice the DB-derived fields above can't
-    // see (the explorer never talks to a coin node, so a decoder stalled far
-    // behind the chain still shows decoder_lag_blocks=0 once the indexer
-    // catches up to its tip). Best-effort per coin via the decoder's own
-    // health() JSON-RPC: chain_tip is the coin node's tip as the decoder
-    // sees it, chain_lag_blocks the decoder's self-reported gap to it, and
-    // decoder_health the decoder's own status ('healthy'/'unhealthy'),
-    // 'reorg-halted' / 'reorg-halt-parked' while it carries a REORG_HALT
-    // marker (see reorgHaltHealth), 'node-stale' when its node tip froze,
-    // 'unconfigured' when no endpoint resolves for the coin (neither the
-    // loaded config nor DECODER_API_URL[_<COIN>_<NETWORK>]), or 'unreachable'
-    // when the call fails. Calls run in parallel and are bounded by the
+    // Chain->decoder slice the DB fields can't see (a decoder stalled behind
+    // its node still shows decoder_lag_blocks=0): per coin, best-effort via the
+    // decoder's health() (see measureDecoderHealth), in parallel, bounded by the
     // connector timeout so /status stays responsive.
     data.chain_tip        = {};
     data.chain_lag_blocks = {};
     data.decoder_health   = {};
     let parseCode = coinCodeParser(coinConfigs);
     await Promise.all(Object.keys(available).map((code) => measureDecoderHealth(db, data, code, parseCode)));
+}
+
+// A coin past its deadline degrades to the nulls a failed read gives.
+const STATUS_COIN_DEADLINE_MS = 8000;
+async function measureCoinWithDeadline(db, data, coin, coinConfigs, deadlineMs){
+    let timer;
+    let work = measureCoinStatus(db, data, coin, coinConfigs).then(() => false);
+    work.catch(() => {});
+    let late = new Promise((resolve) => { timer = setTimeout(() => resolve(true), deadlineMs); });
+    let timedOut = await Promise.race([work, late]);
+    clearTimeout(timer);
+    if (timedOut) for (let k of ['last_block', 'last_block_time', 'decoder_tip', 'decoder_lag_blocks']) data[k][coin] = null;
 }
 
 class EntityStatusReaders {
@@ -383,10 +386,12 @@ class EntityStatusReaders {
                                 : null;
         let data = statusReportSkeleton(coinConfigs, hubFetchedAtMs);
         let available = coinConfigs['COIN_AVAILABLE'] || {};
-        for (let coin of Object.keys(available)) {
-            if (this.pools && this.pools[coin] && this.pools[coin].pool)
-                await measureCoinStatus(this, data, coin, coinConfigs);
-        }
+        // Coins run in parallel, each under a deadline: one coin's unreachable DB
+        // must not stall the route (one deadline at most, never the sum).
+        let deadlineMs = Number(this.statusCoinDeadlineMs) > 0 ? Number(this.statusCoinDeadlineMs) : STATUS_COIN_DEADLINE_MS;
+        await Promise.all(Object.keys(available)
+            .filter((coin) => this.pools && this.pools[coin] && this.pools[coin].pool)
+            .map((coin) => measureCoinWithDeadline(this, data, coin, coinConfigs, deadlineMs)));
         await measureChainVisibility(this, data, coinConfigs, available);
         return [data];
     }

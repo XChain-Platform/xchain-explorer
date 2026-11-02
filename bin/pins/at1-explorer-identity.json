@@ -9022,6 +9022,10 @@
         "XBRIDGE SQL constants exports table names that are safe plain identifiers",
         "XBRIDGE SQL constants keeps each query tied to its table and uses only question-mark binding"
       ],
+      "a0e1b5d92fa7b5a6": [
+        "getStatus isolates a stalled coin from a healthy one answers within the deadline, keeps the healthy coin and nulls the stalled one",
+        "getStatus isolates a stalled coin from a healthy one does not sum two stalls"
+      ],
       "a17eef7b6df9c7c5": [
         "client: native coin market legs renders empty and null ticks as native coin legs in current and terminal list rows",
         "client: native coin market legs renders native tick fields plainly across dispenser, order, swap, and match panels",
@@ -12392,8 +12396,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 474,
-        "titleCount": 7968,
+        "fileCount": 475,
+        "titleCount": 7970,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12594,6 +12598,7 @@
           "test/unit/db/core/db_reorg_cache_and_outage.test.js": "d77548f71fa8f07b",
           "test/unit/db/core/db_reorg_real_ddl.test.js": "604a229cef54f8d7",
           "test/unit/db/core/db_result_cache.test.js": "c52649880b115c3a",
+          "test/unit/db/core/db_status_coin_isolation.test.js": "a0e1b5d92fa7b5a6",
           "test/unit/db/guards/block_query_guard.test.js": "fa17ad3e8edcf750",
           "test/unit/db/guards/checkpoint_query_guard.test.js": "82adc841104ffb13",
           "test/unit/db/guards/ping_empty_pool_guard.test.js": "c02294c909b16034",

@@ -99,11 +99,57 @@ describe('getStatus fences a coin measurement that outlives its deadline', funct
         expect(data.decoder_lag_blocks.BTC).to.be.null;
         expect(data.tip_age_seconds.BTC).to.be.undefined;
         expect(data.indexer_state.BTC).to.be.undefined;
-        expect(data.stale.BTC).to.be.undefined;
+        expect(data.stale.BTC).to.equal(true);
         // Writes landing after the response is returned must not reach it either.
         await sleep(400);
         expect(data.last_block.BTC).to.be.null;
         expect(data.tip_age_seconds.BTC).to.be.undefined;
         expect(data.last_block.RBTC).to.equal(50);
+    });
+});
+
+describe('getStatus reads a coin that missed its deadline as not fresh', function () {
+    let db, savedEnv;
+    beforeEach(() => {
+        savedEnv = process.env.EXPLORER_STALE_FAIL_CLOSED;
+        delete process.env.EXPLORER_STALE_FAIL_CLOSED;
+        db = new Database({ configInfo, util });
+        db.statusCoinDeadlineMs = 150;
+        db.pools = { BTC: { pool: {}, config: {} }, RBTC: { pool: {}, config: {} } };
+        sinon.stub(db, 'getDecoderTip').resolves(50);
+        sinon.stub(db, 'getReplicaHaltStatus').resolves(null);
+        sinon.stub(db, 'getMaxBlockTime').callsFake(async () => Math.floor(Date.now() / 1000) - 10);
+        sinon.stub(db, 'getMaxBlockIndex').callsFake(({ coin }) => (coin === 'BTC' ? new Promise(() => {}) : Promise.resolve(50)));
+    });
+    afterEach(() => {
+        sinon.restore();
+        if (savedEnv === undefined) delete process.env.EXPLORER_STALE_FAIL_CLOSED;
+        else process.env.EXPLORER_STALE_FAIL_CLOSED = savedEnv;
+    });
+
+    it('marks the stalled coin stale, keeps it listed by default, leaves the healthy coin fresh', async function () {
+        const [data] = await db.getStatus({});
+        expect(data.stale.BTC, 'stale.BTC after a missed deadline').to.equal(true);
+        expect(data.available).to.have.property('BTC');
+        expect(data.stale.RBTC).to.equal(false);
+        for (const coin of Object.keys(data.available)) expect(data.stale[coin], coin).to.be.a('boolean');
+    });
+
+    it('delists the stalled coin under EXPLORER_STALE_FAIL_CLOSED and leaves the healthy coin', async function () {
+        process.env.EXPLORER_STALE_FAIL_CLOSED = '1';
+        const [data] = await db.getStatus({});
+        expect(data.available).to.not.have.property('BTC');
+        expect(data.available).to.have.property('RBTC');
+        expect(data.stale.BTC).to.equal(true);
+        expect(data.stale.RBTC).to.equal(false);
+    });
+
+    it('agrees with getCoinFreshness for a coin whose read hit the DB deadline', async function () {
+        db.getMaxBlockTime.restore();
+        sinon.stub(db, 'getMaxBlockTime').rejects(new Error('DB_DEADLINE_EXCEEDED'));
+        const [data] = await db.getStatus({});
+        const fresh = await db.getCoinFreshness('BTC');
+        expect(fresh.stale).to.equal(true);
+        expect(data.stale.BTC).to.equal(true);
     });
 });

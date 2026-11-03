@@ -385,6 +385,13 @@ async function measureCoinWithDeadline(db, data, coin, coinConfigs, deadlineMs){
         return;
     }
     for (let k of ['last_block', 'last_block_time', 'decoder_tip', 'decoder_lag_blocks']) data[k][coin] = null;
+    // A coin whose measurement was abandoned was never shown to be fresh, so it
+    // reads stale (the verdict getCoinFreshness gives a read that hit the DB
+    // deadline) and is delisted under the fail-closed opt-in, exactly as a
+    // measured stale coin is. The halt state could not be determined: null.
+    data.stale[coin] = true;
+    data.replica_halted[coin] = null;
+    if (staleFailClosed(db.configInfo)) delete data.available[coin];
 }
 
 class EntityStatusReaders {

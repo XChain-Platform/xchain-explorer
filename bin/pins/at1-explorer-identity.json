@@ -2745,18 +2745,6 @@
         "dispenser/dispense legs are values, not shared scratch state renders a NATIVE-coin get leg byte-identically to the pre-refactor expression",
         "dispenser/dispense legs are values, not shared scratch state renders a TOKEN get leg byte-identically to the pre-refactor expression"
       ],
-      "05918af886571116": [
-        "processFeeQuoteRequest POST body path reads the JSON body and accepts params above the query cap",
-        "processFeeQuoteRequest POST body path rejects non-string fields and missing action",
-        "processFeeQuoteRequest POST body path rejects params over MAX_PREFLIGHT_PARAMS_LENGTH",
-        "processFeeQuoteRequest busy-retry a transport failure is still a 502, now flagged retryable",
-        "processFeeQuoteRequest busy-retry a valid quote is returned on the first hop",
-        "processFeeQuoteRequest busy-retry does not retry a busy answer that is not marked retryable",
-        "processFeeQuoteRequest busy-retry gives up inside the budget and answers busy rather than holding the request open",
-        "processFeeQuoteRequest busy-retry input validation still runs before any hop",
-        "processFeeQuoteRequest busy-retry never re-asks a real verdict: one hop, answered verbatim",
-        "processFeeQuoteRequest busy-retry retries past a busy answer and returns the quote the wallet was blocked on"
-      ],
       "060f67fd0ddd33fb": [
         "validateParams integer searches allows safe action and checkpoint indexes",
         "validateParams integer searches rejects an unsafe action index",
@@ -2835,6 +2823,15 @@
         "SPV Stage A: existing proofs survive an armed contract_state_root @regression a balance proof still serves and still binds at an armed height",
         "SPV Stage A: existing proofs survive an armed contract_state_root @regression a row that omits a slot the checkpoint committed is refused, not served",
         "SPV Stage A: existing proofs survive an armed contract_state_root @regression the inert chain is completely unaffected (NULL column, v1 assembly)"
+      ],
+      "09bc7cc9762f2665": [
+        "UTXO tracker egress: fair share across explorer clients a heavy client over its share is answered unavailable without a tracker call",
+        "UTXO tracker egress: fair share across explorer clients a light client keeps its tracker figures while heavy batch clients drain the shared bucket",
+        "UTXO tracker egress: refusals and the log 1000 refused sub-reads make one tracker call and one warn line, then a counted line",
+        "UTXO tracker egress: refusals and the log a transport outage still answers null and logs at once",
+        "UTXO tracker egress: refusals and the log pauses the tracker for its Retry-After, then asks again",
+        "UTXO tracker egress: the end client reaches the reader a batch inner read carries the batch caller's ip",
+        "UTXO tracker egress: the end client reaches the reader request state carries req.ip as config.clientIp"
       ],
       "0a3d87a27d1bcc72": [
         "Fuzz: Utility input sanitization escapeLike leaves no unescaped % or _ wildcard across 2000 hostile strings",
@@ -2974,6 +2971,18 @@
         "expire-feed COUNT queries count the same set as their list queries getSwapExpires count and list agree on every lifecycle table they join",
         "expire-feed COUNT queries count the same set as their list queries getSwapExpires joins swaps in BOTH its count and its list query",
         "expire-feed COUNT queries count the same set as their list queries no expire getter joins orders against a non-order action index"
+      ],
+      "0f17ceaef4dcb05b": [
+        "processFeeQuoteRequest POST body path reads the JSON body and accepts params above the query cap",
+        "processFeeQuoteRequest POST body path rejects non-string fields and missing action",
+        "processFeeQuoteRequest POST body path rejects params over MAX_PREFLIGHT_PARAMS_LENGTH",
+        "processFeeQuoteRequest busy-retry a transport failure the connector marked transient is a retryable 502",
+        "processFeeQuoteRequest busy-retry a valid quote is returned on the first hop",
+        "processFeeQuoteRequest busy-retry does not retry a busy answer that is not marked retryable",
+        "processFeeQuoteRequest busy-retry gives up inside the budget and answers busy rather than holding the request open",
+        "processFeeQuoteRequest busy-retry input validation still runs before any hop",
+        "processFeeQuoteRequest busy-retry never re-asks a real verdict: one hop, answered verbatim",
+        "processFeeQuoteRequest busy-retry retries past a busy answer and returns the quote the wallet was blocked on"
       ],
       "0fb440fe8ab93be0": [
         "loadData logs a rejected read and writes the database error response",
@@ -5049,6 +5058,15 @@
         "@p2 @consistency Transaction-Send cross-reference regression transaction actions array includes all actions in that tx",
         "@p2 @icon Icon endpoint regression nonexistent icon redirects to default"
       ],
+      "3e5436d63f71679f": [
+        "feequote upstream failures: refusals and verdicts are not retryable a 400 refusal is a bare 502 with no retryable flag or Retry-After",
+        "feequote upstream failures: refusals and verdicts are not retryable a 404 is a bare 502 with no retryable flag or Retry-After",
+        "feequote upstream failures: refusals and verdicts are not retryable a JSON-RPC error result is a bare 502 with no retryable flag",
+        "feequote upstream failures: refusals and verdicts are not retryable an auth rejection (401) is a bare 502 with no retryable flag or Retry-After",
+        "feequote upstream failures: transient ones are retryable marks a timeout and a refused connection retryable, with no Retry-After",
+        "feequote upstream failures: transient ones are retryable relays an indexer 429 as retryable with its Retry-After",
+        "feequote upstream failures: transient ones are retryable relays an indexer 503 as retryable with its Retry-After"
+      ],
       "3eae330fe921766d": [
         "data cache isolation keeps values for different keys separate",
         "data cache isolation recomputes an entry past the TTL",
@@ -5577,14 +5595,6 @@
         "@regression explorer checkpoint supersede suffix bytes throws when only one supersession field is present",
         "@regression explorer checkpoint supersede suffix bytes throws when rules_digest is not 64 hexadecimal characters",
         "@regression explorer checkpoint supersede suffix bytes throws when supersedes_from is not a non-negative safe integer"
-      ],
-      "524fb378f3fd0298": [
-        "indexer 429 through the preflight and feeschedule proxies a 429 without a usable Retry-After is still retryable and sets no header",
-        "indexer 429 through the preflight and feeschedule proxies control: a transport failure keeps the plain 502 UPSTREAM_ERROR shape",
-        "indexer 429 through the preflight and feeschedule proxies control: the feequote route keeps its retryable 502",
-        "indexer 429 through the preflight and feeschedule proxies feeschedule answers a 429 as retryable with Retry-After",
-        "indexer 429 through the preflight and feeschedule proxies preflight answers a 429 as retryable with Retry-After, not a bare 502",
-        "indexer connector: 429 tagging tags a 429 with its Retry-After and leaves other errors alone"
       ],
       "5284c2c92b0f568a": [
         "db.getActionsSince destinations (M1.4) QUARANTINES only the missing family, so the next poll is back to one query",
@@ -7641,6 +7651,15 @@
         "action summary field contract: projection vs getActionDetails every field getActionDetails reads is in ACTION_SUMMARY_FIELDS",
         "action summary field contract: projection vs getActionDetails returns details false when no summary field is present",
         "action summary field contract: system summaries the system summaries actionDetail_renderSystemActions reads are projected"
+      ],
+      "89d9558fbb94bdec": [
+        "indexer 429 through the preflight and feeschedule proxies a 429 without a usable Retry-After is still retryable and sets no header",
+        "indexer 429 through the preflight and feeschedule proxies a refused connection is transient: retryable, with no Retry-After",
+        "indexer 429 through the preflight and feeschedule proxies control: a refusal verdict keeps the plain 502 UPSTREAM_ERROR shape",
+        "indexer 429 through the preflight and feeschedule proxies control: the feequote route keeps its retryable 502",
+        "indexer 429 through the preflight and feeschedule proxies feeschedule answers a 429 as retryable with Retry-After",
+        "indexer 429 through the preflight and feeschedule proxies preflight answers a 429 as retryable with Retry-After, not a bare 502",
+        "indexer connector: 429 tagging tags a 429 with its Retry-After and leaves other errors alone"
       ],
       "8a54f6aebda2a1b0": [
         "XChainExplorer#processIconRequest allows a .. segment that resolves back into the icons directory",
@@ -12455,8 +12474,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 477,
-        "titleCount": 8010,
+        "fileCount": 479,
+        "titleCount": 8025,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12725,6 +12744,7 @@
           "test/unit/db/readers/dispenser/db_dispenser_list_delay.test.js": "a219864686e88121",
           "test/unit/db/readers/dispenser/dispenser_price_stale/dispenser_price_stale.test.js": "ec5292d336fec81a",
           "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "92f2617a955643a0",
+          "test/unit/db/readers/entities/address_tracker_egress.test.js": "09bc7cc9762f2665",
           "test/unit/db/readers/governance_parent_labels/db_governance_parent_labels.test.js": "c7f0e0c27e12078a",
           "test/unit/db/readers/list_item_gates.test.js": "9c1eac0e493a87d8",
           "test/unit/db/readers/list_share/db_list_share_mirror.test.js": "0511b140e1bed140",
@@ -12809,7 +12829,8 @@
           "test/unit/http/cors_rate_limit_headers.test.js": "1350bbd1148fa068",
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
           "test/unit/http/feequote/feequote_post_route.test.js": "6891ebcf3aeba7eb",
-          "test/unit/http/feequote_route.test.js": "05918af886571116",
+          "test/unit/http/feequote/feequote_upstream_failures.test.js": "3e5436d63f71679f",
+          "test/unit/http/feequote_route.test.js": "0f17ceaef4dcb05b",
           "test/unit/http/jsonrpc_batch_cap.test.js": "6617cf65d8625bb0",
           "test/unit/http/jsonrpc_body_guard.test.js": "58706b2a54fa0008",
           "test/unit/http/locked_balance_proof.test.js": "82bea5d0f3a179b3",
@@ -12819,7 +12840,7 @@
           "test/unit/http/openapi_response_schemas.test.js": "aab15b91e5ebf99f",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
           "test/unit/http/preflight_route.test/shared_indexer_egress_budget.test.js": "cfd98f78eeb5603f",
-          "test/unit/http/preflight_route.test/upstream_rate_limit.test.js": "524fb378f3fd0298",
+          "test/unit/http/preflight_route.test/upstream_rate_limit.test.js": "89d9558fbb94bdec",
           "test/unit/http/proof_server.test.js": "736f86a7b212dc70",
           "test/unit/http/proof_server_stake_total.test.js": "c88a4399d3e54590",
           "test/unit/http/rate_limit_log_span.test.js": "cbdd7ea0c7618b4b",

@@ -2948,6 +2948,14 @@
         "Database#getVoteDelegations (M3.2 data leg) returns a 3-element array",
         "Database#getVoteDelegations (M3.2 data leg) the list query carries a LIMIT sourced from config.data.sql.limit"
       ],
+      "0c1f2e3a9a415ed4": [
+        "Security: a batch read stops on every abort source drops the gate hold even when a read throws",
+        "Security: a batch read stops on every abort source honours the gate abort signal alone, without a close event",
+        "Security: a batch read stops on every abort source stops on close when no gate is mounted (gate disabled or route skipped)",
+        "Security: a batch read stops when its client goes away runs every read and answers when the client stays (control)",
+        "Security: a batch read stops when its client goes away starts no read after the client closes during the first read",
+        "Security: a batch read stops when its client goes away stops the fan-out mid-batch: only reads already running finish"
+      ],
       "0cf00288b7efda19": [
         "SM-06: Connection pool initializes RBTC pool entry has a non-null pool property",
         "SM-06: Connection pool initializes RBTC pool entry has config with correct database name",
@@ -4101,6 +4109,10 @@
         "indexed source lane against the REAL indexer DDL selects the action source first and the transaction source only as a fallback",
         "indexed source lane against the REAL indexer DDL the a2.address form these two replaced names a column their joins do not carry"
       ],
+      "1f1054c5352fd8fb": [
+        "Security: CSP inline-script allowance matches its documentation components.js does not claim the policy forbids inline script",
+        "Security: CSP inline-script allowance matches its documentation the served policy allows inline script in script-src"
+      ],
       "1ffaac579a96af26": [
         "edit and cancel lifecycle routing does not route BET_EDIT when no valid protocol row exists",
         "edit and cancel lifecycle routing does not route DISPENSER_CANCEL when no valid protocol row exists",
@@ -4390,6 +4402,17 @@
         "XChainDecoderConnector resolveDecoderUrl() prefers the config-derived endpoint over the GENERIC env var",
         "XChainDecoderConnector resolveDecoderUrl() returns null when nothing is configured",
         "XChainDecoderConnector resolveDecoderUrl() uses the config-derived endpoint when no env var is set"
+      ],
+      "274303d09098605f": [
+        "highlightSearchTerm keeps stored text intact highlights a raw \"<\" term and escapes it",
+        "highlightSearchTerm keeps stored text intact highlights one span with the original case",
+        "highlightSearchTerm keeps stored text intact matches an uppercase term case-insensitively",
+        "highlightSearchTerm keeps stored text intact returns escaped text for an empty term",
+        "highlightSearchTerm keeps stored text intact term \"#39\" leaves textContent equal to the stored text",
+        "highlightSearchTerm keeps stored text intact term \"amp\" leaves textContent equal to the stored text",
+        "highlightSearchTerm keeps stored text intact term \"gt\" leaves textContent equal to the stored text",
+        "highlightSearchTerm keeps stored text intact term \"lt\" leaves textContent equal to the stored text",
+        "highlightSearchTerm keeps stored text intact term \"quot\" leaves textContent equal to the stored text"
       ],
       "27c4f5aecc2fdf18": [
         "ATTEST batch (v5 head / v6 continuation) detail render badges a v5 as a batch head rather than a request",
@@ -6666,17 +6689,6 @@
         "xcall.html lifecycle timeline @regression [refused] a request consensus refused starts no lifecycle at all",
         "xcall.html lifecycle timeline @regression [rejected] a reverted far-chain execution and a skipped callback are told apart from success"
       ],
-      "669b9c4dd6af407b": [
-        "Security: global in-flight concurrency cap api.js wiring mounts the gate on the app with an env-overridable cap",
-        "Security: global in-flight concurrency cap api.js wiring reports the gate stats so a stampede is visible to operators",
-        "Security: global in-flight concurrency cap exempts requests the skip predicate matches, even while saturated",
-        "Security: global in-flight concurrency cap frees a slot when a request completes, so the next caller is served",
-        "Security: global in-flight concurrency cap frees a slot when the client aborts mid-request",
-        "Security: global in-flight concurrency cap is disabled by a cap of 0 (operator escape hatch)",
-        "Security: global in-flight concurrency cap refuses the (cap+1)th concurrent request with 429, though every request has a distinct IP",
-        "Security: global in-flight concurrency cap resolveLimit honours an explicit value and treats <= 0 as disabled",
-        "Security: global in-flight concurrency cap resolveLimit keeps the caller default when the env var is unset or unparseable"
-      ],
       "66cd3cb942505c74": [
         "XChainExplorer.getPagingDataResults API pagination API getHolders strips all fields except address and amount",
         "XChainExplorer.getPagingDataResults API pagination empty data returns empty array",
@@ -7076,6 +7088,20 @@
         "E2E-18: Amount decimal places match token config 8-decimal token amounts have 8 decimal places",
         "E2E-18: Amount decimal places match token config different decimal tokens on same address maintain their precision"
       ],
+      "76febfc387c4882e": [
+        "Security: concurrency cap counts work an aborted client left running keeps an aborted request counted while its handler holds the slot",
+        "Security: concurrency cap counts work an aborted client left running signals abort on a client hang-up, and not on a normal response",
+        "Security: concurrency cap hold on a completed response frees a held slot on a normal response without waiting for the hold",
+        "Security: global in-flight concurrency cap api.js wiring mounts the gate on the app with an env-overridable cap",
+        "Security: global in-flight concurrency cap api.js wiring reports the gate stats so a stampede is visible to operators",
+        "Security: global in-flight concurrency cap exempts requests the skip predicate matches, even while saturated",
+        "Security: global in-flight concurrency cap frees a slot when a request completes, so the next caller is served",
+        "Security: global in-flight concurrency cap frees a slot when the client aborts mid-request",
+        "Security: global in-flight concurrency cap is disabled by a cap of 0 (operator escape hatch)",
+        "Security: global in-flight concurrency cap refuses the (cap+1)th concurrent request with 429, though every request has a distinct IP",
+        "Security: global in-flight concurrency cap resolveLimit honours an explicit value and treats <= 0 as disabled",
+        "Security: global in-flight concurrency cap resolveLimit keeps the caller default when the env var is unset or unparseable"
+      ],
       "77bf9501ade114ae": [
         "search result cells fed a null column blanks a null at the helper itself, for every result type at once",
         "search result cells fed a null column confirms String(null) is the word \"null\"",
@@ -7170,42 +7196,6 @@
         "price batch response mapping maps absent latest block indexes to null",
         "price batch response mapping maps non-array rows to an untruncated empty list",
         "price batch response mapping maps numeric fields and reports a full page as truncated"
-      ],
-      "7c9836278ad0ead1": [
-        "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet promotes key to most-recent (LRU behavior)",
-        "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet returns correct value (not just truthy)",
-        "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet returns undefined for missing key",
-        "Database \u2013 connection management _cacheGet / _cacheSet _cacheSet and _cacheGet round-trip a value",
-        "Database \u2013 connection management _cacheGet / _cacheSet _cacheSet evicts oldest entry when maxSize exceeded",
-        "Database \u2013 connection management _cacheGet / _cacheSet _cacheSet overwrites existing key without increasing size",
-        "Database \u2013 connection management constructor actionTables contains core expected table names",
-        "Database \u2013 connection management constructor initialises transactionConnection to null",
-        "Database \u2013 connection management constructor registers an onConfigChanged listener",
-        "Database \u2013 connection management constructor sets configInfo alias from explorer",
-        "Database \u2013 connection management constructor sets util alias from explorer",
-        "Database \u2013 connection management getConnection() resolves immediately on success without calling sleep",
-        "Database \u2013 connection management getConnection() retries up to 3 times on repeated connection failure then returns null",
-        "Database \u2013 connection management getConnection() returns a connection from the correct pool for the given coin",
-        "Database \u2013 connection management getConnection() returns null when no pool exists for the coin",
-        "Database \u2013 connection management getConnection() returns transactionConnection immediately if one is already set",
-        "Database \u2013 connection management releaseConnection() calls release() on the active connection and sets transactionConnection to null",
-        "Database \u2013 connection management releaseConnection() does nothing when transactionConnection is already null",
-        "Database \u2013 connection management setupConnectionPools() calls mariadb.createPool with a new pool when connection details differ",
-        "Database \u2013 connection management setupConnectionPools() creates a pool entry keyed \"BTC\" for BTC mainnet",
-        "Database \u2013 connection management setupConnectionPools() creates a pool entry keyed \"RBTC\" for BTC regtest",
-        "Database \u2013 connection management setupConnectionPools() creates a pool entry keyed \"TBTC\" for BTC testnet",
-        "Database \u2013 connection management setupConnectionPools() decoder API endpoint derives the endpoint from the hub-config host/port pair",
-        "Database \u2013 connection management setupConnectionPools() decoder API endpoint does NOT read a config.json decoder DB (host/port, no db_host) as an endpoint",
-        "Database \u2013 connection management setupConnectionPools() decoder API endpoint does not double-prefix a host that already carries a scheme",
-        "Database \u2013 connection management setupConnectionPools() decoder API endpoint honors an explicit api_host + api_port in the config.json shape",
-        "Database \u2013 connection management setupConnectionPools() decoder API endpoint honors an explicit api_url over the host/port pair",
-        "Database \u2013 connection management setupConnectionPools() decoder API endpoint records no endpoint for a coin whose decoder entry carries none",
-        "Database \u2013 connection management setupConnectionPools() decoder API endpoint resets the endpoint map on each call so a removed endpoint stops being polled",
-        "Database \u2013 connection management setupConnectionPools() does NOT share a pool across different databases even when host/port/user/pass match",
-        "Database \u2013 connection management setupConnectionPools() pool config uses correct host / port / user / password / database",
-        "Database \u2013 connection management setupConnectionPools() remaps host/port to db_host/db_port when only host/port are present",
-        "Database \u2013 connection management setupConnectionPools() resets pools to empty object on each call",
-        "Database \u2013 connection management setupConnectionPools() reuses the same pool only when host/port/user/pass AND database all match"
       ],
       "7cec30338161fbc6": [
         "XChainExplorer#ssrfSafeLookup shared guard delegates to ssrf_guard.makeSafeLookup built from the host dns binding",
@@ -7932,6 +7922,21 @@
       "8f07c8b4794b7a91": [
         "BET websocket frame keys emits exactly the seven documented data keys on a BET",
         "BET websocket frame keys keeps all seven keys when the parent lookup fails and the format is absent"
+      ],
+      "8f9df6b9182c0a1c": [
+        "json body refusal rules answers a synthetic URIError with status 400 and leaves a status-less one alone",
+        "json body refusal rules leaves a non-body error to the default handler",
+        "json body refusal rules treats only / and /{COIN}/api as the dispatcher paths",
+        "json body refusals on the boot steps answers a REST body over the global ceiling with 413 BODY_TOO_LARGE",
+        "json body refusals on the boot steps answers a malformed REST body with INVALID_JSON_BODY, CORS and rate-limit headers",
+        "json body refusals on the boot steps answers a malformed body on POST / with JSON-RPC -32700",
+        "json body refusals on the boot steps answers a preflight body over its own route ceiling with 413 BODY_TOO_LARGE",
+        "json body refusals on the boot steps answers an oversized body on POST /{COIN}/api/ with JSON-RPC -32600",
+        "json body: mount order mounts the parser after the guards and the refusal handler last",
+        "json body: thrown errors on the boot steps answers a malformed percent-escape in a route param with a JSON 400 and no stack",
+        "json body: thrown errors on the boot steps answers any other thrown error with a bounded JSON body and no stack",
+        "json body: thrown errors on the boot steps delegates to the default handler once headers are sent",
+        "json body: thrown errors on the boot steps still serves a well-formed body"
       ],
       "9010ff13dd7b7339": [
         "action summary structure markers: declared totals a BATCH parent carries member_count even though it projects no other field",
@@ -9570,11 +9575,6 @@
         "explorer feed shaping branches registers every method a shaping branch names",
         "explorer feed shaping branches shapes every method registered in urls.explorer"
       ],
-      "b008879bd2fb65e6": [
-        "getStatus fences a coin measurement that outlives its deadline a measurement finishing after its deadline cannot rewrite the degraded report",
-        "getStatus isolates a stalled coin from a healthy one answers within the deadline, keeps the healthy coin and nulls the stalled one",
-        "getStatus isolates a stalled coin from a healthy one does not sum two stalls"
-      ],
       "b046a2dbe696f25d": [
         "addressBoundaryWhere falls back to the own-or-inherited source filter for an unlisted method",
         "addressBoundaryWhere filters on owner_id for getTokens",
@@ -9666,21 +9666,6 @@
         "db.js composes its extracted reader families reaches every extracted method on Database.prototype",
         "db.js composes its extracted reader families spot-checks one method from each family, since a family could be empty",
         "db.js composes its extracted reader families wires every module file into the composition"
-      ],
-      "b56081941853284c": [
-        "json body refusal rules answers a synthetic URIError with status 400 and leaves a status-less one alone",
-        "json body refusal rules leaves a non-body error to the default handler",
-        "json body refusal rules treats only / and /{COIN}/api as the dispatcher paths",
-        "json body refusals on the boot steps answers a REST body over the global ceiling with 413 BODY_TOO_LARGE",
-        "json body refusals on the boot steps answers a malformed REST body with INVALID_JSON_BODY, CORS and rate-limit headers",
-        "json body refusals on the boot steps answers a malformed body on POST / with JSON-RPC -32700",
-        "json body refusals on the boot steps answers a malformed percent-escape in a route param with a JSON 400 and no stack",
-        "json body refusals on the boot steps answers a preflight body over its own route ceiling with 413 BODY_TOO_LARGE",
-        "json body refusals on the boot steps answers an oversized body on POST /{COIN}/api/ with JSON-RPC -32600",
-        "json body refusals on the boot steps answers any other thrown error with a bounded JSON body and no stack",
-        "json body refusals on the boot steps delegates to the default handler once headers are sent",
-        "json body refusals on the boot steps still serves a well-formed body",
-        "json body: mount order mounts the parser after the guards and the refusal handler last"
       ],
       "b5e4f4287a73a292": [
         "client: dispenser detail route parameters never leaves the query null, which is what emptied the feeds",
@@ -10363,6 +10348,14 @@
         "applyConfigResult() hostile delta keys gives an inherited name such as toString its own plain level",
         "applyConfigResult() hostile delta keys ignores __proto__ and constructor keys and keeps the legitimate rows"
       ],
+      "ccecc38acaf586ce": [
+        "getStatus fences a coin measurement that outlives its deadline a measurement finishing after its deadline cannot rewrite the degraded report",
+        "getStatus isolates a stalled coin from a healthy one answers within the deadline, keeps the healthy coin and nulls the stalled one",
+        "getStatus isolates a stalled coin from a healthy one does not sum two stalls",
+        "getStatus reads a coin that missed its deadline as not fresh agrees with getCoinFreshness for a coin whose read hit the DB deadline",
+        "getStatus reads a coin that missed its deadline as not fresh delists the stalled coin under EXPLORER_STALE_FAIL_CLOSED and leaves the healthy coin",
+        "getStatus reads a coin that missed its deadline as not fresh marks the stalled coin stale, keeps it listed by default, leaves the healthy coin fresh"
+      ],
       "cd6a31d8029c0060": [
         "ATTEST batch cross-chain response read reads carried responses from the network mirror instead of the DOGE attests table",
         "ATTEST batch detail limits returns all 101 carried responses independently of the generic detail limit",
@@ -10412,6 +10405,13 @@
         "cache control: status rules stamps no-store on every error, whatever the class or a handler set",
         "cache control: status rules stamps no-store without Vary on a no-store success",
         "cache control: status rules varies a shared-cacheable answer on Origin and Accept-Encoding"
+      ],
+      "cfd98f78eeb5603f": [
+        "shared indexer egress budget: connector a light client keeps its share when a heavy one drains the rest",
+        "shared indexer egress budget: connector caps calls per sliding window, whoever makes them, without reaching the indexer",
+        "shared indexer egress budget: proxied preflight clients a refusal names a usable Retry-After and is marked retryable",
+        "shared indexer egress budget: proxied preflight clients the indexer never refuses the explorer and no client gets an upstream 502",
+        "shared indexer egress budget: proxied preflight clients the light client keeps every request while the heavy clients drain the budget"
       ],
       "d08e49017df36523": [
         "consensus-primitive conformance: activation predicate vectors @regression every group this repo runs is a non-empty list",
@@ -12084,6 +12084,43 @@
         "inferred contract fee amounts against the real indexer DDL leaves a persisted fee amount exactly as stored",
         "inferred contract fee amounts against the real indexer DDL serves an inferred sum as its canonical decimal string"
       ],
+      "f8ae58c4ed450e76": [
+        "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet promotes key to most-recent (LRU behavior)",
+        "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet returns correct value (not just truthy)",
+        "Database \u2013 connection management _cacheGet / _cacheSet _cacheGet returns undefined for missing key",
+        "Database \u2013 connection management _cacheGet / _cacheSet _cacheSet and _cacheGet round-trip a value",
+        "Database \u2013 connection management _cacheGet / _cacheSet _cacheSet evicts oldest entry when maxSize exceeded",
+        "Database \u2013 connection management _cacheGet / _cacheSet _cacheSet overwrites existing key without increasing size",
+        "Database \u2013 connection management constructor actionTables contains core expected table names",
+        "Database \u2013 connection management constructor initialises transactionConnection to null",
+        "Database \u2013 connection management constructor registers an onConfigChanged listener",
+        "Database \u2013 connection management constructor sets configInfo alias from explorer",
+        "Database \u2013 connection management constructor sets util alias from explorer",
+        "Database \u2013 connection management getConnection() resolves immediately on success without calling sleep",
+        "Database \u2013 connection management getConnection() retries up to 3 times on repeated connection failure then returns null",
+        "Database \u2013 connection management getConnection() returns a connection from the correct pool for the given coin",
+        "Database \u2013 connection management getConnection() returns null when no pool exists for the coin",
+        "Database \u2013 connection management getConnection() returns transactionConnection immediately if one is already set",
+        "Database \u2013 connection management releaseConnection() calls release() on the active connection and sets transactionConnection to null",
+        "Database \u2013 connection management releaseConnection() does nothing when transactionConnection is already null",
+        "Database \u2013 connection management setupConnectionPools() calls mariadb.createPool with a new pool when connection details differ",
+        "Database \u2013 connection management setupConnectionPools() creates a pool entry keyed \"BTC\" for BTC mainnet",
+        "Database \u2013 connection management setupConnectionPools() creates a pool entry keyed \"RBTC\" for BTC regtest",
+        "Database \u2013 connection management setupConnectionPools() creates a pool entry keyed \"TBTC\" for BTC testnet",
+        "Database \u2013 connection management setupConnectionPools() decoder API endpoint derives the endpoint from the hub-config host/port pair",
+        "Database \u2013 connection management setupConnectionPools() decoder API endpoint does NOT read a config.json decoder DB (host/port, no db_host) as an endpoint",
+        "Database \u2013 connection management setupConnectionPools() decoder API endpoint does not double-prefix a host that already carries a scheme",
+        "Database \u2013 connection management setupConnectionPools() decoder API endpoint honors an explicit api_host + api_port in the config.json shape",
+        "Database \u2013 connection management setupConnectionPools() decoder API endpoint honors an explicit api_url over the host/port pair",
+        "Database \u2013 connection management setupConnectionPools() decoder API endpoint records no endpoint for a coin whose decoder entry carries none",
+        "Database \u2013 connection management setupConnectionPools() decoder API endpoint resets the endpoint map on each call so a removed endpoint stops being polled",
+        "Database \u2013 connection management setupConnectionPools() does NOT share a pool across different databases even when host/port/user/pass match",
+        "Database \u2013 connection management setupConnectionPools() overlapping setupConnectionPools runs never orphan a pool",
+        "Database \u2013 connection management setupConnectionPools() pool config uses correct host / port / user / password / database",
+        "Database \u2013 connection management setupConnectionPools() remaps host/port to db_host/db_port when only host/port are present",
+        "Database \u2013 connection management setupConnectionPools() resets pools to empty object on each call",
+        "Database \u2013 connection management setupConnectionPools() reuses the same pool only when host/port/user/pass AND database all match"
+      ],
       "f9199ddce914d40b": [
         "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY query",
         "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY2 query",
@@ -12418,8 +12455,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 475,
-        "titleCount": 7992,
+        "fileCount": 477,
+        "titleCount": 8010,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12574,6 +12611,7 @@
           "test/unit/content/pages/client/content_client_oracle_price_record.test.js": "722fe65d2b44f89e",
           "test/unit/content/pages/client/content_client_renderer_action_parity.test.js": "a2613ba059476d16",
           "test/unit/content/pages/client/content_client_search_empty_query.test.js": "86408b397e17bc49",
+          "test/unit/content/pages/client/content_client_search_highlight_entities.test.js": "274303d09098605f",
           "test/unit/content/pages/client/content_client_search_null_render.test.js": "77bf9501ade114ae",
           "test/unit/content/pages/client/content_client_xss.test.js": "d64ac316072379c5",
           "test/unit/content/pages/client/content_viewer_frame.test.js": "5fd0ee6bf48c474f",
@@ -12604,7 +12642,7 @@
           "test/unit/db/contract_permissions_error.test.js": "5c020c0fd5865d97",
           "test/unit/db/core/db_action_queries.test.js": "1c5efd6c75b2046a",
           "test/unit/db/core/db_blocks_paging.test.js": "3c294c0defd84648",
-          "test/unit/db/core/db_connection.test.js": "7c9836278ad0ead1",
+          "test/unit/db/core/db_connection.test.js": "f8ae58c4ed450e76",
           "test/unit/db/core/db_data_methods.test.js": "9a77ed9932b56fdd",
           "test/unit/db/core/db_execution_single_record.test.js": "f97206c42ef35a94",
           "test/unit/db/core/db_files_name_mode.test.js": "c1cd80da64ceab63",
@@ -12620,7 +12658,7 @@
           "test/unit/db/core/db_reorg_cache_and_outage.test.js": "d77548f71fa8f07b",
           "test/unit/db/core/db_reorg_real_ddl.test.js": "604a229cef54f8d7",
           "test/unit/db/core/db_result_cache.test.js": "c52649880b115c3a",
-          "test/unit/db/core/db_status_coin_isolation.test.js": "b008879bd2fb65e6",
+          "test/unit/db/core/db_status_coin_isolation.test.js": "ccecc38acaf586ce",
           "test/unit/db/guards/block_query_guard.test.js": "fa17ad3e8edcf750",
           "test/unit/db/guards/checkpoint_query_guard.test.js": "82adc841104ffb13",
           "test/unit/db/guards/ping_empty_pool_guard.test.js": "c02294c909b16034",
@@ -12760,7 +12798,7 @@
           "test/unit/federation/federation_public_reads.test.js": "fb661a3bc9b784fa",
           "test/unit/federation/price_batches.test.js": "7b73323831ace85a",
           "test/unit/helpers/source_slice.test.js": "4b7b0941e0e9456b",
-          "test/unit/http/api_boot/json_body.test.js": "b56081941853284c",
+          "test/unit/http/api_boot/json_body.test.js": "8f9df6b9182c0a1c",
           "test/unit/http/api_boot/listen_host.test.js": "78cd57ab43cd9d97",
           "test/unit/http/api_boot/websocket_start.test.js": "2d909ab5ef9dd060",
           "test/unit/http/cache_control/cache_control_requests.test.js": "f761c855dcd23cf7",
@@ -12780,6 +12818,7 @@
           "test/unit/http/openapi_coverage.test.js": "49992a3e9860e255",
           "test/unit/http/openapi_response_schemas.test.js": "aab15b91e5ebf99f",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
+          "test/unit/http/preflight_route.test/shared_indexer_egress_budget.test.js": "cfd98f78eeb5603f",
           "test/unit/http/preflight_route.test/upstream_rate_limit.test.js": "524fb378f3fd0298",
           "test/unit/http/proof_server.test.js": "736f86a7b212dc70",
           "test/unit/http/proof_server_stake_total.test.js": "c88a4399d3e54590",
@@ -12965,7 +13004,7 @@
       },
       "test:db": {
         "fileCount": 47,
-        "titleCount": 1534,
+        "titleCount": 1535,
         "files": {
           "test/unit/action_detail/history/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/history/db_history_unmapped_actions.test.js": "381a93ad4ecc32fc",
@@ -12980,7 +13019,7 @@
           "test/unit/action_detail/type_details/db_destroy_detail.test.js": "957edf88f1536ca9",
           "test/unit/db/core/db_action_queries.test.js": "1c5efd6c75b2046a",
           "test/unit/db/core/db_blocks_paging.test.js": "3c294c0defd84648",
-          "test/unit/db/core/db_connection.test.js": "7c9836278ad0ead1",
+          "test/unit/db/core/db_connection.test.js": "f8ae58c4ed450e76",
           "test/unit/db/core/db_data_methods.test.js": "9a77ed9932b56fdd",
           "test/unit/db/core/db_files_name_mode.test.js": "c1cd80da64ceab63",
           "test/unit/db/core/db_m4_compositions.test.js": "4afc4342423ffd23",
@@ -13156,11 +13195,13 @@
         }
       },
       "test:security": {
-        "fileCount": 12,
-        "titleCount": 226,
+        "fileCount": 14,
+        "titleCount": 237,
         "files": {
+          "test/security/batch_abort_stops_reads.test.js": "0c1f2e3a9a415ed4",
           "test/security/batch_rate_limit.test.js": "c4be9953af5078b6",
-          "test/security/concurrency_gate.test.js": "669b9c4dd6af407b",
+          "test/security/concurrency_gate.test.js": "76febfc387c4882e",
+          "test/security/csp_inline_script_comment.test.js": "1f1054c5352fd8fb",
           "test/security/info_leakage.test.js": "c6ec3d74c1eddb60",
           "test/security/input_validation.test.js": "6588c4c6bf81913e",
           "test/security/npmrc_hygiene.test.js": "a1f62ebd773c03f5",

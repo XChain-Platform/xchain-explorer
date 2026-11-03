@@ -128,7 +128,19 @@ function queryDeadlineMs(db, config, poolOverride){
 }
 
 class DatabaseConnection {
-    async setupConnectionPools(){
+    // Serialized: the init path (cache.js) and the config-changed handler
+    // (index.js) can both enter while the hub config is still arriving. Two
+    // concurrent runs both pass endPools on the same old maps, then the second
+    // resetPoolMaps drops the first run's fresh pools without closing them,
+    // leaking a full indexer+decoder connection set. Each call queues behind
+    // the previous one, so endPools always sees the previous run's pools.
+    setupConnectionPools(){
+        let run = (this._poolSetupTail || Promise.resolve()).then(() => this._setupConnectionPoolsOnce());
+        this._poolSetupTail = run.catch(() => {});
+        return run;
+    }
+
+    async _setupConnectionPoolsOnce(){
         let coinConfigs = await this.configInfo.getConfig()
 
         // End previous pools before discarding the maps. Without this, any

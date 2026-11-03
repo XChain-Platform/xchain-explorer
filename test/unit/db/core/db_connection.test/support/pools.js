@@ -175,6 +175,31 @@ function poolTestsThree() {
         expect(db.pools).to.not.equal(firstPools);
     });
 
+    it('overlapping setupConnectionPools runs never orphan a pool', async function () {
+        const created = [];
+        setMockMariadb({ createPool: sinon.stub().callsFake(() => {
+            const pool = createMockPool();
+            pool.end = sinon.stub().resolves();
+            created.push(pool);
+            return pool;
+        }) });
+
+        const db = freshDatabase();
+        // Yield inside the teardown so two entrants interleave the way the
+        // init path and the config-changed handler do at boot.
+        const realEnd = db.endPools.bind(db);
+        db.endPools = async (maps) => { await new Promise((r) => setImmediate(r)); return realEnd(maps); };
+
+        await Promise.all([db.setupConnectionPools(), db.setupConnectionPools()]);
+
+        const live = new Set();
+        for (const map of [db.pools, db.decoderPools]) {
+            for (const k in map) if (map[k] && map[k].pool) live.add(map[k].pool);
+        }
+        const orphans = created.filter((p) => !live.has(p) && p.end.callCount === 0);
+        expect(orphans, 'pools neither live nor ended').to.have.length(0);
+        expect(created.length - created.filter((p) => p.end.callCount > 0).length).to.equal(live.size);
+    });
 
 }
 

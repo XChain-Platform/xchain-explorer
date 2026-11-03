@@ -365,12 +365,26 @@ async function measureChainVisibility(db, data, coinConfigs, available){
 const STATUS_COIN_DEADLINE_MS = 8000;
 async function measureCoinWithDeadline(db, data, coin, coinConfigs, deadlineMs){
     let timer;
-    let work = measureCoinStatus(db, data, coin, coinConfigs).then(() => false);
+    // Measure into a private copy of this coin's slice and publish it only if the
+    // coin finishes in time. A measurement that outlives its deadline keeps running
+    // (it cannot be cancelled) but writes only into the discarded copy, so it can
+    // never rewrite fields the deadline already nulled, nor touch a returned report.
+    let scratch = {};
+    for (let k of ['available', 'last_block', 'last_block_time', 'list_any_coin_items', ...Object.keys(statusMeasurementFields())])
+        scratch[k] = Object.assign({}, data[k]);
+    let work = measureCoinStatus(db, scratch, coin, coinConfigs).then(() => false);
     work.catch(() => {});
     let late = new Promise((resolve) => { timer = setTimeout(() => resolve(true), deadlineMs); });
     let timedOut = await Promise.race([work, late]);
     clearTimeout(timer);
-    if (timedOut) for (let k of ['last_block', 'last_block_time', 'decoder_tip', 'decoder_lag_blocks']) data[k][coin] = null;
+    if (!timedOut) {
+        for (let k of Object.keys(scratch)) {
+            if (Object.prototype.hasOwnProperty.call(scratch[k], coin)) data[k][coin] = scratch[k][coin];
+            else delete data[k][coin];
+        }
+        return;
+    }
+    for (let k of ['last_block', 'last_block_time', 'decoder_tip', 'decoder_lag_blocks']) data[k][coin] = null;
 }
 
 class EntityStatusReaders {

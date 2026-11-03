@@ -21,6 +21,7 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const Utility    = require('../../../../src/lib/utility.js');
+const DecoderConnector = require('../../../../src/connectors/decoder.js');
 const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 
 const Database = proxyquire('../../../../src/db/index.js', {
@@ -69,5 +70,40 @@ describe('getStatus isolates a stalled coin from a healthy one', function () {
         expect(Date.now() - t0).to.be.below(1500);
         expect(data.last_block.BTC).to.be.null;
         expect(data.last_block.RBTC).to.be.null;
+    });
+});
+
+describe('getStatus fences a coin measurement that outlives its deadline', function () {
+    let db;
+    beforeEach(() => {
+        db = new Database({ configInfo, util });
+        db.statusCoinDeadlineMs = 150;
+        db.pools = { BTC: { pool: {}, config: {} }, RBTC: { pool: {}, config: {} } };
+        sinon.stub(db, 'getDecoderTip').callsFake(async ({ coin }) => (coin === 'BTC' ? 100 : 50));
+        sinon.stub(db, 'getReplicaHaltStatus').resolves(null);
+        sinon.stub(db, 'getMaxBlockTime').resolves(1700000000);
+    });
+    afterEach(() => { sinon.restore(); });
+
+    it('a measurement finishing after its deadline cannot rewrite the degraded report', async function () {
+        const sleep = (ms, v) => new Promise((r) => setTimeout(() => r(v), ms));
+        sinon.stub(db, 'getMaxBlockIndex').callsFake(({ coin }) => (coin === 'BTC' ? sleep(300, 50) : Promise.resolve(50)));
+        db.decoderApiUrl = { BTC: 'http://127.0.0.1:1', RBTC: 'http://127.0.0.1:1' };
+        // Keeps getStatus open (chain visibility runs after the coins) past the late write.
+        sinon.stub(DecoderConnector.prototype, 'health')
+            .callsFake(() => sleep(600, { status: 'ok', chainTipBlock: 50, lag_blocks: 0 }));
+        const [data] = await db.getStatus({});
+        expect(data.last_block.BTC).to.be.null;
+        expect(data.last_block_time.BTC).to.be.null;
+        expect(data.decoder_tip.BTC).to.be.null;
+        expect(data.decoder_lag_blocks.BTC).to.be.null;
+        expect(data.tip_age_seconds.BTC).to.be.undefined;
+        expect(data.indexer_state.BTC).to.be.undefined;
+        expect(data.stale.BTC).to.be.undefined;
+        // Writes landing after the response is returned must not reach it either.
+        await sleep(400);
+        expect(data.last_block.BTC).to.be.null;
+        expect(data.tip_age_seconds.BTC).to.be.undefined;
+        expect(data.last_block.RBTC).to.equal(50);
     });
 });

@@ -67,7 +67,9 @@ describe('XChainExplorer.processCheckpointsRequest', function () {
     // leading-prefix rule, matching processCheckpointVerifyRequest's INVALID_BLOCK_INDEX
     // guard on the sibling route. This replaces the old "-5 clamps to 1" expectation:
     // a negative is malformed input, not a value to silently repair.
-    ['-5', '20junk', '1.5', '1e2', 'abc', '+5'].forEach((bad) => {
+    // '0' and '00' are refused too, matching every other list route (INVALID_LIMIT),
+    // rather than being silently clamped up to 1.
+    ['-5', '20junk', '1.5', '1e2', 'abc', '+5', '0', '00'].forEach((bad) => {
         it(`400s a malformed ?limit=${bad} instead of coercing it`, async function () {
             const explorer = makeExplorer();
             const res = mockRes();
@@ -88,12 +90,14 @@ describe('XChainExplorer.processCheckpointsRequest', function () {
 });
 
 describe('XChainExplorer.processCheckpointsRequest', function () {
-    it('accepts a well-formed ?limit and still clamps 0 up to 1', async function () {
+    it('accepts a well-formed ?limit, passes 1 through and clamps above 100', async function () {
         const explorer = makeExplorer();
         await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '25' }), mockRes());
         expect(explorer.db.getCheckpointRows.firstCall.args[2]).to.equal(25);
-        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '0' }), mockRes());
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '1' }), mockRes());
         expect(explorer.db.getCheckpointRows.secondCall.args[2]).to.equal(1);
+        await explorer.processCheckpointsRequest(req({ coin: 'BTC' }, { limit: '9999' }), mockRes());
+        expect(explorer.db.getCheckpointRows.thirdCall.args[2]).to.equal(100);
     });
 
     it('returns null-safe { checkpoints: [], count: 0 } when the query yields nothing', async function () {

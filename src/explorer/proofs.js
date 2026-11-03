@@ -81,9 +81,10 @@ class CheckpointProofs {
             // clamped to 1 rather than reading as the malformed input it is.
             let limit = 10;
             if(!this.util.isNull(req.query.limit)){
-                if(!/^[0-9]+$/.test(String(req.query.limit)))
+                // Positive digits only: 0 is refused like every other list route's min-1 limit.
+                if(!/^[0-9]+$/.test(String(req.query.limit)) || parseInt(req.query.limit, 10) < 1)
                     return res.status(400).json({ error: 'Invalid limit', code: 'INVALID_LIMIT' });
-                limit = Math.max(1, Math.min(parseInt(req.query.limit, 10), 100));
+                limit = Math.min(parseInt(req.query.limit, 10), 100);
             }
             let rows = await this.db.getCheckpointRows({ coin, data: {} }, null, limit);
             return res.json({ checkpoints: rows || [], count: (rows || []).length, ...(gate.annotate || {}) });

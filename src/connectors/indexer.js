@@ -22,6 +22,7 @@
  ********************************************************************/
 
 const axios = require('axios');
+const { AsyncLocalStorage } = require('async_hooks');
 
 // Every environment read goes through config.js's live read-through view of
 // process.env, so config.js stays the one place the gate lets env be read. The
@@ -44,6 +45,113 @@ function resolveIndexerUrl(coin, network){
         || null;
 }
 
+// EGRESS BUDGET
+//
+// The indexer rate-limits per connecting IP, and every call this process makes
+// leaves from one IP, so every explorer client shares one upstream bucket. Left to
+// the indexer, that bucket refuses whoever happens to arrive after it drains, which
+// is usually a client well inside its own explorer limits. The explorer therefore
+// keeps its own budget per indexer URL, below the indexer's ceiling, and decides who
+// is shed before the indexer has to.
+//
+// The window is sliding (a log of call times), not fixed: the indexer's fixed window
+// is not aligned with ours, and a fixed window here could put two full budgets
+// inside one of its windows across our boundary.
+const EGRESS_WINDOW_MS    = 60 * 1000;
+// Below the indexer's default 600 per minute, leaving room for the odd call that
+// slips between the admission check and the call itself.
+const DEFAULT_EGRESS_RPM  = 540;
+// Under this share of the budget every client is admitted. Above it, only a client
+// still under its fair share (budget over active clients) is, so the clients
+// draining the budget are the ones shed and a light client keeps its share.
+const EGRESS_SOFT_FRACTION = 0.75;
+// Calls made outside any client request (background reads, tip snapshots).
+const INTERNAL_CLIENT     = '-';
+
+const egressClient  = new AsyncLocalStorage();
+const egressBudgets = new Map();   // indexer url -> EgressBudget
+
+function egressLimit(){
+    let n = parseInt(configEnv().EXPLORER_INDEXER_EGRESS_RPM, 10);
+    return n > 0 ? n : DEFAULT_EGRESS_RPM;
+}
+
+class EgressBudget {
+    constructor(){
+        this.times     = [];        // call times, oldest first
+        this.clients   = [];        // client key per call, parallel to times
+        this.head      = 0;         // first live entry
+        this.perClient = new Map(); // client key -> calls in the window
+    }
+
+    prune(now){
+        while(this.head < this.times.length && this.times[this.head] <= now - EGRESS_WINDOW_MS){
+            let k = this.clients[this.head];
+            let n = (this.perClient.get(k) || 1) - 1;
+            if(n > 0) this.perClient.set(k, n); else this.perClient.delete(k);
+            this.head++;
+        }
+        if(this.head > 1024 && this.head * 2 > this.times.length){
+            this.times   = this.times.slice(this.head);
+            this.clients = this.clients.slice(this.head);
+            this.head    = 0;
+        }
+    }
+
+    used(now){
+        this.prune(now);
+        return this.times.length - this.head;
+    }
+
+    // Fair-share admission for a client request about to reach the indexer.
+    admits(client, now, limit){
+        let total = this.used(now);
+        if(total >= limit) return false;
+        if(total < Math.floor(limit * EGRESS_SOFT_FRACTION)) return true;
+        let active = this.perClient.size + (this.perClient.has(client) ? 0 : 1);
+        return (this.perClient.get(client) || 0) < limit / active;
+    }
+
+    record(client, now){
+        this.times.push(now);
+        this.clients.push(client);
+        this.perClient.set(client, (this.perClient.get(client) || 0) + 1);
+    }
+
+    // Whole seconds until the oldest call in the window ages out.
+    retryAfter(now){
+        if(this.head >= this.times.length) return 1;
+        return Math.max(1, Math.ceil((this.times[this.head] + EGRESS_WINDOW_MS - now) / 1000));
+    }
+}
+
+function budgetFor(url){
+    let key = String(url || '');
+    let b = egressBudgets.get(key);
+    if(!b){ b = new EgressBudget(); egressBudgets.set(key, b); }
+    return b;
+}
+
+// Would a request from `client` to the indexer at `url` be admitted now? The route
+// guard asks this before the handler runs, so a shed client is refused locally.
+// Returns { ok, retryAfter }.
+function egressAdmit(url, client){
+    let now = Date.now();
+    let b = budgetFor(url);
+    if(b.admits(String(client || INTERNAL_CLIENT), now, egressLimit())) return { ok: true, retryAfter: 0 };
+    return { ok: false, retryAfter: b.retryAfter(now) };
+}
+
+// Run `fn` with every indexer call inside it counted against `client`.
+function withEgressClient(client, fn){
+    return egressClient.run(String(client || INTERNAL_CLIENT), fn);
+}
+
+// Forget every window. For suites, which share this module across files.
+function resetEgressBudgets(){
+    egressBudgets.clear();
+}
+
 class XChainIndexerConnector {
 
     constructor(url){
@@ -61,6 +169,18 @@ class XChainIndexerConnector {
     async call(method, params){
         const config = { timeout: this.timeout };
         if(this.apiKey) config.headers = { 'x-api-key': this.apiKey };
+        // Hard cap: no call leaves once the window holds the whole budget, whoever
+        // makes it. It answers the same tagged shape as an indexer 429, so the proxy
+        // routes relay it as retryable.
+        let now = Date.now();
+        let budget = budgetFor(this.url);
+        if(budget.used(now) >= egressLimit()){
+            const e = new Error('indexer egress budget exhausted');
+            e.code = 'INDEXER_RATE_LIMITED';
+            e.retryAfter = budget.retryAfter(now);
+            throw e;
+        }
+        budget.record(egressClient.getStore() || INTERNAL_CLIENT, now);
         let response;
         try {
             response = await axios.post(this.url, { jsonrpc: '2.0', method, params, id: 1 }, config);
@@ -129,5 +249,6 @@ class XChainIndexerConnector {
 }
 
 // One export shape: the class is the export and the URL resolver hangs on it,
-// so a requirer reads IndexerConnector.resolveIndexerUrl exactly as before.
-module.exports = Object.assign(XChainIndexerConnector, { resolveIndexerUrl });
+// so a requirer reads IndexerConnector.resolveIndexerUrl exactly as before. The
+// egress-budget entry points hang on it the same way.
+module.exports = Object.assign(XChainIndexerConnector, { resolveIndexerUrl, egressAdmit, withEgressClient, resetEgressBudgets });

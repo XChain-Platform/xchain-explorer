@@ -40,6 +40,7 @@ const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
 const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
+const IndexerConnector = require('../connectors/indexer.js');
 
 // Body-parser ceiling for POST /{COIN}/api/preflight. Above
 // MAX_PREFLIGHT_PARAMS_LENGTH (explorer/fees_preflight.js, where the route that
@@ -47,6 +48,34 @@ const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimite
 // length check there can see it; the real refusal is the character check on the
 // decoded value, not this.
 const PREFLIGHT_BODY_LIMIT = '1mb';
+
+// Guard for every route that proxies to the coin's indexer. The indexer limits per
+// connecting IP and this whole process is one IP to it, so without a share of our
+// own, the clients draining that one bucket get a client inside its own limits
+// refused. This sheds a client over its fair share of the explorer's egress budget
+// (see connectors/indexer.js) with a local, retryable 429 before the handler runs,
+// and counts the indexer calls the handler makes against the client that caused
+// them. A coin with no indexer configured passes straight to the handler, which
+// gives its own answer. It wraps the handler rather than sitting in the middleware
+// chain so each route keeps the chain shape it registers.
+async function guardIndexerEgress(explorer, req, res, handler){
+    let url = null;
+    try {
+        let config = await explorer.configInfo.getConfig();
+        let parsed = explorer.parseCoinCode(req.params.coin, config);
+        url = parsed ? IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network) : null;
+    } catch(e){
+        url = null;
+    }
+    if(url){
+        let verdict = IndexerConnector.egressAdmit(url, req.ip);
+        if(!verdict.ok){
+            res.set('Retry-After', String(verdict.retryAfter));
+            return res.status(429).json({ error: 'Too many indexer-backed requests', code: 'RATE_LIMITED', retryable: true });
+        }
+    }
+    return IndexerConnector.withEgressClient(req.ip, handler);
+}
 
 class RouteMounts {
 
@@ -151,9 +180,9 @@ class RouteMounts {
         // first. See xchain-documentation/concepts/gas.md (client pre-validation).
 
         const feeQuoteLimiter = buildFeeQuoteLimiter(host);
-        this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { this.processFeeQuoteRequest(req, res); });
-        this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
-        this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
+        this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processFeeQuoteRequest(req, res)); });
+        this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processOracleFeeQuoteRequest(req, res)); });
+        this.app.get('/:coin/api/preflight',   (req, res) => { guardIndexerEgress(this, req, res, () => this.processPreflightRequest(req, res)); });
 
         return feeQuoteLimiter;
     }
@@ -175,7 +204,7 @@ class RouteMounts {
         this.app.post('/:coin/api/preflight',
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
-            (req, res) => { this.processPreflightRequest(req, res); });
+            (req, res) => { guardIndexerEgress(this, req, res, () => this.processPreflightRequest(req, res)); });
     }
 
     mountFeeQuotePostRoute(host){
@@ -190,7 +219,7 @@ class RouteMounts {
         this.app.post('/:coin/api/feequote',
             feeQuotePostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
-            (req, res) => { this.processFeeQuoteRequest(req, res); });
+            (req, res) => { guardIndexerEgress(this, req, res, () => this.processFeeQuoteRequest(req, res)); });
     }
 
     mountBatchRoutes(host, feeQuoteLimiter){
@@ -212,7 +241,7 @@ class RouteMounts {
         this.app.post('/:coin/api/coinpay_obligations', batchLimiter,
             (req, res) => { this.processCoinpayObligationsBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
 
-        this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { this.processFeeScheduleRequest(req, res); });
+        this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processFeeScheduleRequest(req, res)); });
     }
 
     // Returns the checkpoint-list limiter: /checkpoints/range takes the same tier and
@@ -226,7 +255,7 @@ class RouteMounts {
 
         const { checkpointListLimiter, checkpointVerifyLimiter } = buildCheckpointLimiters(host);
         this.app.get('/:coin/api/checkpoints', checkpointListLimiter, (req, res) => { this.processCheckpointsRequest(req, res); });
-        this.app.get('/:coin/api/checkpoint/:blockIndex/verify', checkpointVerifyLimiter, (req, res) => { this.processCheckpointVerifyRequest(req, res); });
+        this.app.get('/:coin/api/checkpoint/:blockIndex/verify', checkpointVerifyLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processCheckpointVerifyRequest(req, res)); });
         // Self-synced hub-mirror observability: bootstrap +
         // watermark-lag state per coin, {enabled:false} in externally-maintained mode.
         this.app.get('/:coin/api/hub-mirror/status', (req, res) => { this.processHubMirrorStatusRequest(req, res); });
@@ -242,7 +271,7 @@ class RouteMounts {
         this.app.get('/:coin/api/proof/balance/:address/:tick', actionProofLimiter, (req, res) => { this.processBalanceProofRequest(req, res); });
         this.app.get('/:coin/api/checkpoints/range', checkpointListLimiter, (req, res) => { this.processCheckpointsRangeRequest(req, res); });
         this.app.get('/:coin/api/proof/action/:actionIndex', actionProofLimiter, (req, res) => { this.processActionProofRequest(req, res); });
-        this.app.get('/:coin/api/proof/validator-set', validatorSetProofLimiter, (req, res) => { this.processValidatorSetProofRequest(req, res); });
+        this.app.get('/:coin/api/proof/validator-set', validatorSetProofLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processValidatorSetProofRequest(req, res)); });
         // Contract-state proofs carry the action-proof limiter rather than running
         // uncapped: the handler is one 256-deep SMT descent (a sequential DB read per
         // non-empty level) plus two point reads, an unauthenticated CPU/IO amplifier
@@ -274,4 +303,4 @@ class RouteMounts {
     }
 }
 
-module.exports = { methods: RouteMounts.prototype, PREFLIGHT_BODY_LIMIT };
+module.exports = { methods: RouteMounts.prototype, PREFLIGHT_BODY_LIMIT, guardIndexerEgress };

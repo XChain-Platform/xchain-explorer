@@ -52,11 +52,24 @@ function resolveMaxBatch(rawValue, defaultMax){
  */
 function makeRpcBatchGuard(maxBatch){
     return function rpcBatchGuard(req, res, next){
-        if(Array.isArray(req.body) && req.body.length > maxBatch){
-            return res.status(400).json({
-                jsonrpc: '2.0', id: null,
-                error: { code: -32600, message: 'Batch too large (max ' + maxBatch + ' requests per call)' }
-            });
+        if(Array.isArray(req.body)){
+            if(req.body.length > maxBatch){
+                return res.status(400).json({
+                    jsonrpc: '2.0', id: null,
+                    error: { code: -32600, message: 'Batch too large (max ' + maxBatch + ' requests per call)' }
+                });
+            }
+            // The router destructures and dereferences every element, so a
+            // null, number, string or nested array makes it reject unhandled
+            // and Express answers an HTML 500 with a stack. Refuse the whole
+            // batch up front as an Invalid Request instead.
+            const bad = req.body.findIndex((el) => el === null || typeof el !== 'object' || Array.isArray(el));
+            if(bad !== -1){
+                return res.status(400).json({
+                    jsonrpc: '2.0', id: null,
+                    error: { code: -32600, message: 'Invalid Request: batch element ' + bad + ' is not a call object' }
+                });
+            }
         }
         next();
     };

@@ -97,6 +97,28 @@ describe('JSON-RPC batch cap', function () {
         assert.strictEqual(JSON.parse(r.text).length, CAP);
     });
 
+    it('refuses a batch with a non-object element as JSON -32600, never an HTML 500', async () => {
+        const ping = { jsonrpc: '2.0', method: 'ping', id: 7 };
+        for (const body of [[null], [1], ['x'], [[]], [null, ping], [ping, null]]) {
+            const counter = { calls: 0 };
+            const r = await post(buildApp(true, counter), body);
+            assert.strictEqual(r.status, 400, JSON.stringify(body));
+            const parsed = JSON.parse(r.text);
+            assert.strictEqual(parsed.error.code, -32600);
+            assert.match(parsed.error.message, /Invalid Request: batch element \d+ is not a call object/);
+            assert.strictEqual(parsed.id, null);
+            assert.ok(!/TypeError|<pre>/.test(r.text));
+            assert.strictEqual(counter.calls, 0);
+        }
+    });
+
+    it('still dispatches a batch of valid object elements', async () => {
+        const counter = { calls: 0 };
+        const r = await post(buildApp(true, counter), batch(3));
+        assert.strictEqual(r.status, 200);
+        assert.strictEqual(counter.calls, 3);
+    });
+
     it('leaves a single (non-array) call untouched', async () => {
         const counter = { calls: 0 };
         const r = await post(buildApp(true, counter), { jsonrpc: '2.0', id: 1, method: 'ping' });

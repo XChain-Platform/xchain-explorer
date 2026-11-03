@@ -72,12 +72,12 @@ function nullableNumber(v) {
     return Number.isFinite(n) ? n : null;
 }
 
-// Resolve the protocol clock the indexer places in data['BLOCK_TIME']. Testnet uses
-// the median of up to 11 preceding stored timestamps; other networks use the raw stamp.
-async function protocolTimeForStoredBlock(db, dbConfig, network, blockIndex) {
-    let raw = await db.getDecoderBlockTime(dbConfig, blockIndex);
+// The protocol clock the indexer places in data['BLOCK_TIME'] for one stored block,
+// from its raw stamp and the stamps before it, newest first. Testnet uses the median
+// of up to 11 preceding stored timestamps (never later than the raw stamp); other
+// networks use the raw stamp.
+function protocolTimeFromWindow(network, raw, previous) {
     if (raw === null || raw === undefined || raw === false || network !== 'testnet') return raw;
-    let previous = await db.getPreviousDecoderBlockTimes(dbConfig, blockIndex, MEDIAN_TIME_SPAN);
     let times = (Array.isArray(previous) ? previous : [])
         .slice(0, MEDIAN_TIME_SPAN).map(Number).filter(t => Number.isFinite(t) && t > 0)
         .sort((a, b) => a - b);
@@ -85,16 +85,41 @@ async function protocolTimeForStoredBlock(db, dbConfig, network, blockIndex) {
     return Math.min(times[Math.floor(times.length / 2)], Number(raw));
 }
 
-// Resolve each distinct landing block once. Missing actions or block history stay null
-// in the response rather than borrowing the tip clock or another batch's landing time.
+// Resolve every distinct landing block of the page with ONE decoder read: the window
+// statement returns each height's own row beside the earlier stamps its median needs,
+// and the grouping and median run here, so the reads a call makes do not grow with
+// the batches it returns. Missing actions or block history stay null in the response
+// rather than borrowing the tip clock or another batch's landing time.
 async function landingBlockTimes(db, dbConfig, network, rows) {
     let times = new Map();
+    let heights = [];
+    let seen = new Set();
     for (const row of (Array.isArray(rows) ? rows : [])) {
         if (row.block_index === null || row.block_index === undefined) continue;
         let blockIndex = Number(row.block_index);
-        if (!Number.isSafeInteger(blockIndex) || times.has(blockIndex)) continue;
-        let time = await protocolTimeForStoredBlock(db, dbConfig, network, blockIndex);
-        if (time !== false && time !== null && time !== undefined) times.set(blockIndex, Number(time));
+        if (!Number.isSafeInteger(blockIndex) || blockIndex < 0 || seen.has(blockIndex)) continue;
+        seen.add(blockIndex);
+        heights.push(blockIndex);
+    }
+    if (heights.length === 0) return times;
+    let span = network === 'testnet' ? MEDIAN_TIME_SPAN : 0;
+    let windowRows = await db.getDecoderBlockTimeWindows(dbConfig, heights, span);
+    // Group by the height each row was fetched for; the pool returns BIGINT as BigInt
+    let windows = new Map(heights.map(h => [h, []]));
+    for (const row of (Array.isArray(windowRows) ? windowRows : [])) {
+        let requested = Number(row.requested_block_index);
+        if (windows.has(requested)) windows.get(requested).push(row);
+    }
+    for (const height of heights) {
+        let window = windows.get(height);
+        let rawRow = window.find(row => Number(row.block_index) === height);
+        if (!rawRow) continue;
+        let previous = window
+            .filter(row => Number(row.block_index) < height)
+            .sort((a, b) => Number(b.block_index) - Number(a.block_index))
+            .map(row => row.block_time);
+        let time = protocolTimeFromWindow(network, nullableNumber(rawRow.block_time), previous);
+        if (time !== false && time !== null && time !== undefined) times.set(height, Number(time));
     }
     return times;
 }

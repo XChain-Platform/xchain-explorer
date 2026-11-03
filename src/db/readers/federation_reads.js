@@ -36,6 +36,9 @@ const {
     CHECKPOINT_VERSIONS, ANCHOR_ACTIONS_SQL, ARCHIVE_CHUNK_SET_BY_AUTHOR_SQL,
     ARCHIVE_ANCHOR_BY_CONTENT_SQL, ANCHOR_BY_TXID_SQL, ANCHOR_BY_TXID_AFTER_SQL
 } = require('../federation_sql.js');
+const { getLogger } = require('../../observability');
+
+const log = getLogger();
 
 class FederationReaders {
 
@@ -46,16 +49,42 @@ class FederationReaders {
         return (rows && rows[0]) ? parseInt(rows[0].block_time) : null;
     }
 
-    // Return decoder timestamps immediately before one height, newest first. The
-    // decoder is the source of the protocol clock carried by pushpricebatch.
-    async getPreviousDecoderBlockTimes(config, blockIndex, span) {
+    // Decoder block-time windows for a page of landing heights, in ONE statement. Each
+    // UNION branch walks the blocks primary key down from one requested height and
+    // returns that height's own row plus up to `previousCount` earlier stamped rows,
+    // tagged with the height it was asked for. The decoder is the source of the
+    // protocol clock carried by pushpricebatch, and one statement per page keeps the
+    // decoder-pool work of a request constant however many distinct blocks it covers
+    // (the indexer's getStoredBlockTimeWindows is the same statement). An unknown or
+    // unsafe decoder DB name, or a failed read, yields no rows, so those batches answer
+    // a null block_time as a missing block does.
+    async getDecoderBlockTimeWindows(config, blockIndexes, previousCount) {
         let dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
         if (dbName === null || dbName === undefined || !/^[A-Za-z0-9_$]+$/.test(dbName)) return [];
-        let rows = await this.doDecoderQuery(config,
-            `SELECT block_time FROM \`${dbName}\`.blocks
-             WHERE block_index < ? AND block_time IS NOT NULL
-             ORDER BY block_index DESC LIMIT ?`, [blockIndex, span]);
-        return (rows || []).map(row => row.block_time);
+        let keys = [];
+        let seen = new Set();
+        for (const value of (Array.isArray(blockIndexes) ? blockIndexes : [])) {
+            let key = Number(value);
+            if (!Number.isSafeInteger(key) || key < 0 || seen.has(key)) continue;
+            seen.add(key);
+            keys.push(key);
+        }
+        if (keys.length === 0) return [];
+        let span = Number(previousCount);
+        let rowCount = Number.isSafeInteger(span) && span > 0 ? span + 1 : 1;
+        let branch = `(SELECT ? AS requested_block_index, block_index, block_time
+             FROM \`${dbName}\`.blocks
+             WHERE block_index <= ? AND (block_index = ? OR block_time IS NOT NULL)
+             ORDER BY block_index DESC LIMIT ${rowCount})`;
+        try {
+            let rows = await this.doDecoderQuery(config, keys.map(() => branch).join(' UNION ALL '),
+                keys.flatMap(key => [key, key, key]));
+            return Array.isArray(rows) ? rows : [];
+        } catch (e) {
+            log.warn('DECODER_BLOCK_TIME_UNAVAILABLE', { method: 'getDecoderBlockTimeWindows', coin: config.coin,
+                heights: keys.length, err: e && e.message ? e.message : e });
+            return [];
+        }
     }
 
     // The roll-call window cut: the highest block stamped at or before maxBlockTime.

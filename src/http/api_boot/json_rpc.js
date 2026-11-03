@@ -57,7 +57,13 @@ function mountJsonRpc(app, configInfo, jsonRpcController){
     // The federation reads on the controller are public like every other route: the
     // rows are the replica's, readable through the pages already, and the per-IP rate
     // limiter above bounds a validator client retrying every block. No key gate.
-    app.use(jsonRouter({methods: jsonRpcController}))
+    // The router tests `method in controller` and then indexes its own hook maps by the
+    // caller-supplied name, so on a plain object every Object.prototype member
+    // (constructor, toString, valueOf, __proto__ ...) passes as a method. A
+    // null-prototype copy holds only the real methods, so any other name answers
+    // -32601 Method not found before a hook or method is looked up.
+    const methods = Object.assign(Object.create(null), jsonRpcController);
+    app.use(jsonRouter({methods}))
 }
 
 module.exports = { mountJsonRpc };

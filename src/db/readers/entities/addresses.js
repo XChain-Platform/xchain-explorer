@@ -31,11 +31,7 @@
 
 'use strict';
 
-// Structured logging. Cached at require time: getLogger() resolves lazily on
-// every call, so this reaches the real shipper once api.js has run
-// installObservability and falls through to bare console.* before that.
-const { getLogger } = require('../../../observability');
-const log = getLogger();
+const { readTrackerInfo } = require('../../../connectors/utxo_tracker.js');
 
 // The total order of a credit, debit or escrow list. An action writes several rows,
 // so the row's own columns break action_index ties and a page edge never splits or
@@ -113,21 +109,15 @@ class EntityAddressReaders {
     // (type + balances{confirmed,pending,received} + utxos{confirmed,pending}, full-precision
     // decimal strings). Returns null when no tracker is configured for this coin or it is
     // unreachable, so getAddress can fall back to an honest "Unavailable" instead of fake values.
+    // The read is charged to the end client (config.clientIp) against the explorer's
+    // fair-share tracker budget, so one client's batches cannot blank another's answers;
+    // see connectors/utxo_tracker.js.
     async getAddressTrackerInfo(config, address){
         const code = config.coin;
-        const base = this.configInfo.env['UTXO_TRACKER_URL_' + code] || this.configInfo.env.UTXO_TRACKER_URL;
+        const env  = this.configInfo.env;
+        const base = env['UTXO_TRACKER_URL_' + code] || env.UTXO_TRACKER_URL;
         if(!base || !address) return null;
-        try {
-            const url = base.replace(/\/+$/, '') + '/info/' + encodeURIComponent(address);
-            const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-            if(!res.ok) throw new Error('HTTP ' + res.status);
-            const j = await res.json();
-            if(j && j.balances && j.utxos) return j;
-            throw new Error('malformed /info response');
-        } catch(e){
-            log.warn('UTXO_TRACKER_UNAVAILABLE', { method: 'getAddressTrackerInfo', code, err: e && e.message ? e.message : e });
-            return null;
-        }
+        return readTrackerInfo({ base, address, client: config.clientIp, coin: code, env });
     }
 
     async getBalances(config){

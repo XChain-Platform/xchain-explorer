@@ -55,6 +55,10 @@ function newRequestState(explorer, req, config){
         coin: null, // COIN type (BTC, LTC, DOGE)
         type: null, // Request type (html, api, explorer)
         file: null, // File content to return
+        // The end client's address as Express resolved it (trust proxy applied). A
+        // reader that calls a per-IP rate-limited upstream (the UTXO tracker) charges
+        // the read to this client's fair share of the explorer's egress budget.
+        clientIp: req.ip,
         data: {
             method: null, // Method to run to get data
             search: null, // Search to pass to method

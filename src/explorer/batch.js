@@ -118,8 +118,12 @@ class BatchReads {
      * were sent (null when the body was not JSON). A throw is degraded to a 500 entry
      * rather than propagated: one address failing must not lose the other
      * nineteen answers the caller already paid for.
+     *
+     * `ip` is the batch caller's own address, carried on the synthetic request so
+     * an inner read that calls an upstream (the UTXO tracker) charges the end
+     * client rather than reading as the explorer itself.
      */
-    async readApi(coin, apiPath, query){
+    async readApi(coin, apiPath, query, ip){
         let code = 200;
         const body = [];
         const headers = {};
@@ -133,7 +137,7 @@ class BatchReads {
             send:   function(chunk){ body.push(chunk); return this; }
         };
         try {
-            await this.processRequest({ path: '/' + coin + '/api' + apiPath, query: query || {} }, res);
+            await this.processRequest({ path: '/' + coin + '/api' + apiPath, query: query || {}, ip }, res);
         } catch(err){
             log.error('BATCH_READ_FAILED', { api_path: apiPath, err: (err && err.message) ? err.message : err });
             return { code: 500, json: { error: 'An unexpected error occurred while serving this request.', code: 'INTERNAL_ERROR' } };
@@ -183,13 +187,13 @@ class BatchReads {
      * `seeded` carries reads the caller already drove (the coin gate probe), so
      * the address that paid for one is not charged for it twice.
      */
-    async batchEntry(coin, address, parts, query, seeded, isAborted){
+    async batchEntry(coin, address, parts, query, seeded, isAborted, ip){
         const entry = {};
         let failure = null;
         for(const part of parts){
             if(isAborted && isAborted()) return null;
             const readPath = part.path(address);
-            const read     = seeded.has(readPath) ? seeded.get(readPath) : await this.readApi(coin, readPath, query);
+            const read     = seeded.has(readPath) ? seeded.get(readPath) : await this.readApi(coin, readPath, query, ip);
             if(read.code === 200){
                 entry[part.key] = read.json;
                 continue;
@@ -247,7 +251,7 @@ class BatchReads {
             ? canonicalAddresses.get(addresses[0])
             : invalidAddress;
         const firstPath = parts[0].path(firstAddress);
-        const firstRead = await this.readApi(coin, firstPath, query);
+        const firstRead = await this.readApi(coin, firstPath, query, req.ip);
         if(isAborted()) return;
         forwardFreshnessHeaders(res, firstRead);
         if(firstRead.code === 503 && firstRead.json && String(firstRead.json.code || '').startsWith('COIN_'))
@@ -259,7 +263,7 @@ class BatchReads {
             });
 
         const seeded  = new Map([[firstPath, firstRead]]);
-        const entries = await this.fanOutBatch(coin, addresses, canonicalAddresses, parts, query, seeded, isAborted);
+        const entries = await this.fanOutBatch(coin, addresses, canonicalAddresses, parts, query, seeded, isAborted, req.ip);
         // A response nobody will read is not built or sent.
         if(isAborted()) return;
 
@@ -273,7 +277,7 @@ class BatchReads {
 
     // Drive every address through batchEntry, BATCH_READ_CONCURRENCY at a time.
     // A worker takes no new address once the client has gone away.
-    async fanOutBatch(coin, addresses, canonicalAddresses, parts, query, seeded, isAborted){
+    async fanOutBatch(coin, addresses, canonicalAddresses, parts, query, seeded, isAborted, ip){
         const entries = new Map();
         let cursor    = 0;
         const worker  = async () => {
@@ -283,7 +287,7 @@ class BatchReads {
                 if(idx >= addresses.length) return;
                 const address = addresses[idx];
                 const canonical = canonicalAddresses.get(address);
-                entries.set(address, await this.batchEntry(coin, canonical, parts, query, seeded, isAborted));
+                entries.set(address, await this.batchEntry(coin, canonical, parts, query, seeded, isAborted, ip));
             }
         };
 

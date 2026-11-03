@@ -127,6 +127,50 @@ function queryDeadlineMs(db, config, poolOverride){
     return poolSizing.resolveQueryTimeout(poolOverride ? 'decoder' : 'indexer');
 }
 
+// One pool setup pass; setupConnectionPools runs these one at a time.
+async function setupConnectionPoolsOnce(db){
+    let coinConfigs = await db.configInfo.getConfig()
+
+    // End previous pools before discarding the maps. Without this, any
+    // re-entry to setup (config refresh, manual reload) reassigns
+    // db.pools and orphans the prior mariadb.createPool() handles;
+    // their kept-alive connections linger until the explorer process
+    // exits, and MariaDB hits its max_connections ceiling in minutes
+    // once refresh is active.
+    //
+    // decoderPools was missed when the guard above was first written, and it
+    // is the DEFAULT shape rather than an edge case, because xchain-node
+    // installs provision per-service DB users and so always take the
+    // dedicated-pool branch below. rebuildPoolsIfStale() re-enters here as
+    // often as every 10s, so the omission leaked the decoder pool's 3
+    // connections per coin per rebuild: one live regtest explorer had
+    // accumulated 870 of that server's 1000 connections over four days, which
+    // surfaced as OTHER services being unable to connect at all.
+    await db.endPools([db.pools, db.decoderPools]);
+
+    resetPoolMaps(db);
+    let networks = ['mainnet', 'testnet', 'regtest'];
+    for(let coin in coinConfigs){
+        let info = coinConfigs[coin];
+        if(info.mainnet || info.testnet || info.regtest){
+            for(let net in info){
+                // Only a known network whose config names an indexer database
+                // can back a pool set.
+                if(networks.includes(net) && !db.util.isNull(info[net].database) && !db.util.isNull(info[net].database.indexer))
+                    setNetworkPools(db, mariadb, info, coin, net);
+            }
+        }
+    }
+
+    // Mandatory co-located mirror invariant. The hub-mirrored tables
+    // (state_checkpoints, capability_snapshots, cross_chain_matches) are NEVER
+    // replicated by xchain-sync, so a serving coin with no checkpoint schema
+    // (self-synced via HubMirrorSyncManager, or externally maintained) has
+    // only a stale/empty bootstrap copy. Fail loud at startup rather than
+    // letting a thin replica silently serve empty hub-mirror data with no alarm.
+    db.assertCheckpointDbForServingCoins();
+}
+
 class DatabaseConnection {
     // Serialized: the init path (cache.js) and the config-changed handler
     // (index.js) can both enter while the hub config is still arriving. Two
@@ -135,52 +179,9 @@ class DatabaseConnection {
     // leaking a full indexer+decoder connection set. Each call queues behind
     // the previous one, so endPools always sees the previous run's pools.
     setupConnectionPools(){
-        let run = (this._poolSetupTail || Promise.resolve()).then(() => this._setupConnectionPoolsOnce());
+        let run = (this._poolSetupTail || Promise.resolve()).then(() => setupConnectionPoolsOnce(this));
         this._poolSetupTail = run.catch(() => {});
         return run;
-    }
-
-    async _setupConnectionPoolsOnce(){
-        let coinConfigs = await this.configInfo.getConfig()
-
-        // End previous pools before discarding the maps. Without this, any
-        // re-entry to setup (config refresh, manual reload) reassigns
-        // this.pools and orphans the prior mariadb.createPool() handles;
-        // their kept-alive connections linger until the explorer process
-        // exits, and MariaDB hits its max_connections ceiling in minutes
-        // once refresh is active.
-        //
-        // decoderPools was missed when the guard above was first written, and it
-        // is the DEFAULT shape rather than an edge case, because xchain-node
-        // installs provision per-service DB users and so always take the
-        // dedicated-pool branch below. rebuildPoolsIfStale() re-enters here as
-        // often as every 10s, so the omission leaked the decoder pool's 3
-        // connections per coin per rebuild: one live regtest explorer had
-        // accumulated 870 of that server's 1000 connections over four days, which
-        // surfaced as OTHER services being unable to connect at all.
-        await this.endPools([this.pools, this.decoderPools]);
-
-        resetPoolMaps(this);
-        let networks = ['mainnet', 'testnet', 'regtest'];
-        for(let coin in coinConfigs){
-            let info = coinConfigs[coin];
-            if(info.mainnet || info.testnet || info.regtest){
-                for(let net in info){
-                    // Only a known network whose config names an indexer database
-                    // can back a pool set.
-                    if(networks.includes(net) && !this.util.isNull(info[net].database) && !this.util.isNull(info[net].database.indexer))
-                        setNetworkPools(this, mariadb, info, coin, net);
-                }
-            }
-        }
-
-        // Mandatory co-located mirror invariant. The hub-mirrored tables
-        // (state_checkpoints, capability_snapshots, cross_chain_matches) are NEVER
-        // replicated by xchain-sync, so a serving coin with no checkpoint schema
-        // (self-synced via HubMirrorSyncManager, or externally maintained) has
-        // only a stale/empty bootstrap copy. Fail loud at startup rather than
-        // letting a thin replica silently serve empty hub-mirror data with no alarm.
-        this.assertCheckpointDbForServingCoins();
     }
 
     /******************************************************************

@@ -101,6 +101,14 @@ describe('json body refusals on the boot steps', function () {
         expect(res.body.error.code).to.equal(-32600);
     });
 
+});
+
+describe('json body: thrown errors on the boot steps', function () {
+    let request;
+    before(function () {
+        request = supertest(bootApp());
+    });
+
     it('answers a malformed percent-escape in a route param with a JSON 400 and no stack', async function () {
         for(const p of ['/RBTC/api/tx/%E0%A4%A', '/%ZZ/api/status', '/RBTC/api/address/%']){
             const res = await request.get(p).set('Origin', 'https://example.com');

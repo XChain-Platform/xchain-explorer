@@ -44,6 +44,9 @@ function bootApp(){
     app.get('/:coin/api/tx/:id', (req, res) => res.json({ ok: true }));
     app.get('/:coin/api/address/:addr', (req, res) => res.json({ ok: true }));
     app.get('/:coin/api/status', (req, res) => res.json({ ok: true }));
+    app.get('/boom/generic', () => { throw new Error('secret internal /XChainExplorer/node_modules/x'); });
+    app.get('/boom/client', (req, res, next) => next(Object.assign(new Error('nope at node_modules'), { status: 403 })));
+    app.get('/boom/late', (req, res, next) => { res.write('partial'); next(new Error('after headers')); });
     app.post('/:coin/api/balances', (req, res) => res.json({ ok: true }));
     app.post('/:coin/api/preflight', express.json({ limit: PREFLIGHT_BODY_LIMIT }), (req, res) => res.json({ ok: true }));
     mountJsonRpc(app, configInfo, { ping: () => 'pong' });
@@ -107,6 +110,25 @@ describe('json body refusals on the boot steps', function () {
             expect(res.text, p).to.not.match(/URIError|node_modules|\n\s+at /);
             expect(res.headers['access-control-allow-origin'], p).to.equal('https://example.com');
         }
+    });
+
+    it('answers any other thrown error with a bounded JSON body and no stack', async function () {
+        const res = await request.get('/boom/generic');
+        expect(res.status).to.equal(500);
+        expect(res.headers['content-type']).to.match(/application\/json/);
+        expect(res.body.code).to.equal('INTERNAL_ERROR');
+        expect(res.text).to.not.match(/node_modules|XChainExplorer|Error:|\n\s+at |secret/);
+        const client = await request.get('/boom/client');
+        expect(client.status).to.equal(403);
+        expect(client.headers['content-type']).to.match(/application\/json/);
+        expect(client.body.code).to.equal('BAD_REQUEST');
+        expect(client.text).to.not.match(/node_modules|nope/);
+    });
+
+    it('delegates to the default handler once headers are sent', async function () {
+        const res = await request.get('/boom/late').catch((e) => e);
+        // The socket is torn down by the default handler; no JSON error body is appended.
+        expect(res.text || '').to.not.include('INTERNAL_ERROR');
     });
 
     it('still serves a well-formed body', async function () {

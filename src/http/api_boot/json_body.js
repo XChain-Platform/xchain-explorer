@@ -103,9 +103,17 @@ function applyJsonBody(app, XChainExplorer){
  * @param {object} app the express app
  */
 function applyBodyErrorHandler(app){
-    // Four arguments make this an error handler; a non-body error falls through unchanged.
+    // Four arguments make this an error handler. Body and path failures get their registered
+    // code; every other error gets a bounded JSON answer, because the framework's default
+    // handler prints err.stack (module paths, dependency layout) whenever NODE_ENV is not production.
     app.use((err, req, res, next) => {
-        if(res.headersSent || !sendBodyError(err, req, res)) return next(err);
+        if(res.headersSent) return next(err);
+        if(sendBodyError(err, req, res)) return undefined;
+        const status = Number(err && (err.status || err.statusCode));
+        if(status >= 400 && status < 500){
+            return res.status(status).json({ error: 'Request could not be processed', code: 'BAD_REQUEST' });
+        }
+        return res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
     });
 }
 

@@ -41,6 +41,9 @@ function bootApp(){
     applyCors(app, configInfo);
     applyRateLimits(app, configInfo, () => false);
     applyJsonBody(app, XChainExplorer);
+    app.get('/:coin/api/tx/:id', (req, res) => res.json({ ok: true }));
+    app.get('/:coin/api/address/:addr', (req, res) => res.json({ ok: true }));
+    app.get('/:coin/api/status', (req, res) => res.json({ ok: true }));
     app.post('/:coin/api/balances', (req, res) => res.json({ ok: true }));
     app.post('/:coin/api/preflight', express.json({ limit: PREFLIGHT_BODY_LIMIT }), (req, res) => res.json({ ok: true }));
     mountJsonRpc(app, configInfo, { ping: () => 'pong' });
@@ -95,6 +98,17 @@ describe('json body refusals on the boot steps', function () {
         expect(res.body.error.code).to.equal(-32600);
     });
 
+    it('answers a malformed percent-escape in a route param with a JSON 400 and no stack', async function () {
+        for(const p of ['/RBTC/api/tx/%E0%A4%A', '/%ZZ/api/status', '/RBTC/api/address/%']){
+            const res = await request.get(p).set('Origin', 'https://example.com');
+            expect(res.status, p).to.equal(400);
+            expect(res.headers['content-type'], p).to.match(/json/);
+            expect(res.body.code, p).to.equal('INVALID_PARAMETER');
+            expect(res.text, p).to.not.match(/URIError|node_modules|\n\s+at /);
+            expect(res.headers['access-control-allow-origin'], p).to.equal('https://example.com');
+        }
+    });
+
     it('still serves a well-formed body', async function () {
         const res = await request.post('/RBTC/api/balances').set('Content-Type', 'application/json')
             .send({ addresses: [] });
@@ -117,6 +131,15 @@ describe('json body refusal rules', function () {
         const serverSide = Object.assign(new Error('x'), { type: 'entity.parse.failed', status: 500 });
         expect(sendBodyError(serverSide, { path: '/' }, res)).to.equal(false);
         expect(res.sent).to.equal(null);
+    });
+
+    it('answers a synthetic URIError with status 400 and leaves a status-less one alone', function () {
+        const res = fakeRes();
+        const err = Object.assign(new URIError('Failed to decode param'), { status: 400 });
+        expect(sendBodyError(err, { path: '/x' }, res)).to.equal(true);
+        expect(res.code).to.equal(400);
+        expect(res.sent.code).to.equal('INVALID_PARAMETER');
+        expect(sendBodyError(new URIError('x'), { path: '/x' }, fakeRes())).to.equal(false);
     });
 
     it('treats only / and /{COIN}/api as the dispatcher paths', function () {

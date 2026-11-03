@@ -47,14 +47,20 @@ function isJsonRpcPath(reqPath){
 }
 
 /**
- * Answer a body-parser failure in the registered shape.
+ * Answer a body-parser failure, or a malformed-path URIError, in the registered shape.
  *
  * @param {object} err the error body-parser passed to next()
  * @param {object} req the request
  * @param {object} res the response
- * @returns {boolean} true when the error was a body failure and is answered
+ * @returns {boolean} true when the error was a body or path-decoding failure and is answered
  */
 function sendBodyError(err, req, res){
+    // A malformed percent-escape in a route param makes the router throw a URIError (status 400);
+    // answer it as a registered refusal so no stack or HTML page reaches the client.
+    if(err instanceof URIError && Number(err.status || err.statusCode) === 400){
+        res.status(400).json({ error: "Malformed percent-encoding in the request path", code: "INVALID_PARAMETER" });
+        return true;
+    }
     const status = Number(err && (err.status || err.statusCode));
     if(!(status >= 400 && status < 500) || !BODY_ERROR_TYPES.has(err.type)) return false;
 

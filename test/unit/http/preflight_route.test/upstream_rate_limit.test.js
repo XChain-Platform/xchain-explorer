@@ -98,11 +98,21 @@ describe('indexer 429 through the preflight and feeschedule proxies', function (
         expect(res._headers).to.not.have.property('retry-after');
     });
 
-    it('control: a transport failure keeps the plain 502 UPSTREAM_ERROR shape', async function () {
-        sinon.stub(axios, 'post').rejects(Object.assign(new Error('refused'), { code: 'ECONNREFUSED' }));
+    it('control: a refusal verdict keeps the plain 502 UPSTREAM_ERROR shape', async function () {
+        sinon.stub(axios, 'post').rejects(Object.assign(new Error('Request failed with status code 400'), {
+            response: { status: 400, headers: { 'retry-after': '5' } },
+        }));
         const res = await preflight(headerRes());
         expect(res._status).to.equal(502);
         expect(res._json).to.deep.equal({ error: 'pre-flight upstream error', code: 'UPSTREAM_ERROR' });
+        expect(res._headers).to.not.have.property('retry-after');
+    });
+
+    it('a refused connection is transient: retryable, with no Retry-After', async function () {
+        sinon.stub(axios, 'post').rejects(Object.assign(new Error('refused'), { code: 'ECONNREFUSED' }));
+        const res = await preflight(headerRes());
+        expect(res._status).to.equal(502);
+        expect(res._json).to.deep.equal({ error: 'pre-flight upstream error', code: 'UPSTREAM_ERROR', retryable: true });
         expect(res._headers).to.not.have.property('retry-after');
     });
 

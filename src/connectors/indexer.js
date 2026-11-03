@@ -23,6 +23,7 @@
 
 const axios = require('axios');
 const { AsyncLocalStorage } = require('async_hooks');
+const { budgetIn, INTERNAL_CLIENT } = require('./egress_budget.js');
 
 // Every environment read goes through config.js's live read-through view of
 // process.env, so config.js stays the one place the gate lets env be read. The
@@ -47,26 +48,12 @@ function resolveIndexerUrl(coin, network){
 
 // EGRESS BUDGET
 //
-// The indexer rate-limits per connecting IP, and every call this process makes
-// leaves from one IP, so every explorer client shares one upstream bucket. Left to
-// the indexer, that bucket refuses whoever happens to arrive after it drains, which
-// is usually a client well inside its own explorer limits. The explorer therefore
-// keeps its own budget per indexer URL, below the indexer's ceiling, and decides who
-// is shed before the indexer has to.
-//
-// The window is sliding (a log of call times), not fixed: the indexer's fixed window
-// is not aligned with ours, and a fixed window here could put two full budgets
-// inside one of its windows across our boundary.
-const EGRESS_WINDOW_MS    = 60 * 1000;
+// The indexer rate-limits per connecting IP and this whole process is one IP to it,
+// so the explorer keeps its own fair-share budget per indexer URL below the
+// indexer's ceiling (see egress_budget.js for the mechanism).
 // Below the indexer's default 600 per minute, leaving room for the odd call that
 // slips between the admission check and the call itself.
 const DEFAULT_EGRESS_RPM  = 540;
-// Under this share of the budget every client is admitted. Above it, only a client
-// still under its fair share (budget over active clients) is, so the clients
-// draining the budget are the ones shed and a light client keeps its share.
-const EGRESS_SOFT_FRACTION = 0.75;
-// Calls made outside any client request (background reads, tip snapshots).
-const INTERNAL_CLIENT     = '-';
 
 const egressClient  = new AsyncLocalStorage();
 const egressBudgets = new Map();   // indexer url -> EgressBudget
@@ -76,60 +63,8 @@ function egressLimit(){
     return n > 0 ? n : DEFAULT_EGRESS_RPM;
 }
 
-class EgressBudget {
-    constructor(){
-        this.times     = [];        // call times, oldest first
-        this.clients   = [];        // client key per call, parallel to times
-        this.head      = 0;         // first live entry
-        this.perClient = new Map(); // client key -> calls in the window
-    }
-
-    prune(now){
-        while(this.head < this.times.length && this.times[this.head] <= now - EGRESS_WINDOW_MS){
-            let k = this.clients[this.head];
-            let n = (this.perClient.get(k) || 1) - 1;
-            if(n > 0) this.perClient.set(k, n); else this.perClient.delete(k);
-            this.head++;
-        }
-        if(this.head > 1024 && this.head * 2 > this.times.length){
-            this.times   = this.times.slice(this.head);
-            this.clients = this.clients.slice(this.head);
-            this.head    = 0;
-        }
-    }
-
-    used(now){
-        this.prune(now);
-        return this.times.length - this.head;
-    }
-
-    // Fair-share admission for a client request about to reach the indexer.
-    admits(client, now, limit){
-        let total = this.used(now);
-        if(total >= limit) return false;
-        if(total < Math.floor(limit * EGRESS_SOFT_FRACTION)) return true;
-        let active = this.perClient.size + (this.perClient.has(client) ? 0 : 1);
-        return (this.perClient.get(client) || 0) < limit / active;
-    }
-
-    record(client, now){
-        this.times.push(now);
-        this.clients.push(client);
-        this.perClient.set(client, (this.perClient.get(client) || 0) + 1);
-    }
-
-    // Whole seconds until the oldest call in the window ages out.
-    retryAfter(now){
-        if(this.head >= this.times.length) return 1;
-        return Math.max(1, Math.ceil((this.times[this.head] + EGRESS_WINDOW_MS - now) / 1000));
-    }
-}
-
 function budgetFor(url){
-    let key = String(url || '');
-    let b = egressBudgets.get(key);
-    if(!b){ b = new EgressBudget(); egressBudgets.set(key, b); }
-    return b;
+    return budgetIn(egressBudgets, url);
 }
 
 // Would a request from `client` to the indexer at `url` be admitted now? The route
@@ -150,6 +85,49 @@ function withEgressClient(client, fn){
 // Forget every window. For suites, which share this module across files.
 function resetEgressBudgets(){
     egressBudgets.clear();
+}
+
+// FAILURE CLASSIFICATION
+//
+// A proxy route tells its caller whether the same request is worth sending again,
+// so the connector, the one place that sees the transport error, marks the failures
+// that are: `retryable` on the thrown error, plus `retryAfter` (seconds) when the
+// indexer named one. Transient means the indexer is slow, busy or briefly out of
+// reach: a 429 or 503, a 504 or client timeout, or a connection that never got an
+// answer. A 4xx refusal, an auth rejection or a JSON-RPC error result is a verdict
+// on this request and is never marked. ENOTFOUND is left out on purpose: a host
+// name that does not resolve is a configuration fault, and EAI_AGAIN already
+// covers a resolver that failed for the moment.
+const TRANSIENT_STATUSES   = new Set([429, 503, 504]);
+const TRANSIENT_NET_CODES  = new Set(['ECONNABORTED', 'ETIMEDOUT', 'ESOCKETTIMEDOUT', 'ECONNREFUSED', 'ECONNRESET',
+    'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN', 'ERR_NETWORK']);
+
+// Retry-After only in the seconds form, 1 to 6 digits; anything else is dropped.
+function retryAfterSeconds(headers){
+    const ra = String((headers && headers['retry-after']) || '').trim();
+    return /^[0-9]{1,6}$/.test(ra) ? Number(ra) : 0;
+}
+
+// The error call() throws for a failed axios post. Auth and rate-limit answers get a
+// fresh error with fixed text (no header or key material); anything else is the
+// original error, marked when it is transient.
+function upstreamFailure(err){
+    const status = err && err.response && err.response.status;
+    if(status === 401 || status === 403)
+        return Object.assign(new Error('indexer authentication required'), { code: 'INDEXER_AUTH_REQUIRED' });
+    if(status === 429){
+        const e = Object.assign(new Error('indexer rate limited'), { code: 'INDEXER_RATE_LIMITED', retryable: true });
+        const ra = retryAfterSeconds(err.response.headers);
+        if(ra > 0) e.retryAfter = ra;
+        return e;
+    }
+    if(!err || typeof err !== 'object') return err;
+    if(status ? TRANSIENT_STATUSES.has(status) : TRANSIENT_NET_CODES.has(err.code)){
+        err.retryable = true;
+        const ra = status ? retryAfterSeconds(err.response.headers) : 0;
+        if(ra > 0) err.retryAfter = ra;
+    }
+    return err;
 }
 
 class XChainIndexerConnector {
@@ -177,6 +155,7 @@ class XChainIndexerConnector {
         if(budget.used(now) >= egressLimit()){
             const e = new Error('indexer egress budget exhausted');
             e.code = 'INDEXER_RATE_LIMITED';
+            e.retryable = true;
             e.retryAfter = budget.retryAfter(now);
             throw e;
         }
@@ -185,27 +164,9 @@ class XChainIndexerConnector {
         try {
             response = await axios.post(this.url, { jsonrpc: '2.0', method, params, id: 1 }, config);
         } catch(err){
-            // Distinguish an indexer auth rejection (gate enabled, no/wrong key)
-            // from a transport outage so the caller can surface a clean
-            // configuration error rather than a generic "unavailable". The thrown
-            // error carries no header/key material.
-            const status = err && err.response && err.response.status;
-            if(status === 401 || status === 403){
-                const e = new Error('indexer authentication required');
-                e.code = 'INDEXER_AUTH_REQUIRED';
-                throw e;
-            }
-            // The indexer rate-limits per IP and answers 429 with Retry-After. That is a
-            // transient "slow down", not an outage, so tag it for the proxy routes to relay
-            // as retryable instead of letting it read as a dead upstream.
-            if(status === 429){
-                const e = new Error('indexer rate limited');
-                e.code = 'INDEXER_RATE_LIMITED';
-                const ra = String((err.response.headers && err.response.headers['retry-after']) || '').trim();
-                if(/^[0-9]{1,6}$/.test(ra)) e.retryAfter = Number(ra);
-                throw e;
-            }
-            throw err;
+            // Auth rejections read as a configuration error, rate limits and other
+            // transient failures carry `retryable`; see upstreamFailure.
+            throw upstreamFailure(err);
         }
         if(response.data && response.data.error)
             throw new Error(response.data.error.message || 'indexer error');

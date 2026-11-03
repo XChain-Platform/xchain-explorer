@@ -54,12 +54,14 @@ const MAX_PREFLIGHT_PARAMS_LENGTH = 390000;
 // of magnitude below this and it only exists to keep the field bounded.
 const MAX_PREFLIGHT_SOURCE_LENGTH = 4096;
 
-// Upstream failure answer for the preflight and feeschedule proxies. An indexer
-// rate-limit (tagged by the connector) is transient, so it carries retryable:true and
-// Retry-After like the feequote route; any other failure keeps the bare shape.
+// Upstream failure answer for the feequote, preflight and feeschedule proxies. A failure the
+// connector marked transient (a rate limit, a 503, a timeout, a connection that got
+// no answer) carries retryable:true, plus the indexer's Retry-After when it named
+// one; a refusal or error verdict keeps the bare shape, so a client never re-sends a
+// request the indexer has already judged.
 function sendUpstreamError(res, e, message){
     let body = { error: message, code: 'UPSTREAM_ERROR' };
-    if(e && e.code === 'INDEXER_RATE_LIMITED'){
+    if(e && e.retryable === true){
         body.retryable = true;
         if(e.retryAfter > 0 && typeof res.set === 'function') res.set('Retry-After', String(e.retryAfter));
     }
@@ -139,9 +141,10 @@ class FeesPreflight {
             return res.json(result);
         } catch(e){
             log.error('FEE_QUOTE_REQUEST_FAILED', { err: e.message || e });
-            // `retryable` so a client can tell a transient upstream blip from a verdict; the
-            // code and status stay as they were, because callers already branch on them.
-            return res.status(502).json({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true });
+            // `retryable` only for a transient upstream failure, so a client can tell a
+            // blip from a verdict; the code and status stay as they were, because callers
+            // already branch on them.
+            return sendUpstreamError(res, e, 'fee quote upstream error');
         }
     }
 

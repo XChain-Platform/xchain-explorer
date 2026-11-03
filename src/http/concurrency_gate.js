@@ -42,6 +42,59 @@ function resolveLimit(rawValue, defaultLimit){
     return limit > 0 ? limit : 0;
 }
 
+// Attach the slot lifecycle to one admitted response: onRelease runs exactly
+// once, when the slot is freed.
+function trackSlot(res, onRelease){
+    let released = false;
+    let finished = false;
+    let closed   = false;
+    let holds    = 0;
+    const release = () => {
+        if(released) return;
+        released = true;
+        onRelease();
+    };
+
+    // A client that hangs up does not stop the handler it started: its DB
+    // reads keep running. If the slot were freed at that moment, an abort
+    // storm would be admitted at full speed while the backend still did all
+    // of the abandoned work, so the cap would bound sockets, not load.
+    // Two tools close that gap. The abort signal tells a handler to stop
+    // starting new work; holdSlot() lets a handler whose work outlives the
+    // socket keep the slot counted until that work has actually settled.
+    const abort = new AbortController();
+    res.abortSignal = abort.signal;
+    res.holdSlot = () => {
+        holds++;
+        let dropped = false;
+        return () => {
+            if(dropped) return;
+            dropped = true;
+            holds--;
+            if(closed && holds === 0) release();
+        };
+    };
+
+    // 'finish' fires on a fully-sent response, which also means the
+    // handler's work is done, so it frees the slot unconditionally. 'close'
+    // fires on a client abort or a handler that never answers, and after
+    // 'finish' on every normal response. Only a 'close' with no 'finish'
+    // before it is an abort. It frees the slot at once unless a handler
+    // holds it, in which case the last dropped hold frees it. A handler
+    // that never takes a hold keeps the old behaviour, so an aborted
+    // request can never leak its slot and ratchet the gate shut. The
+    // released guard keeps in_flight from going negative.
+    res.on('finish', () => {
+        finished = true;
+        release();
+    });
+    res.on('close', () => {
+        closed = true;
+        if(!finished && !abort.signal.aborted) abort.abort();
+        if(holds === 0) release();
+    });
+}
+
 /**
  * Build the gate middleware.
  *
@@ -51,6 +104,11 @@ function resolveLimit(rawValue, defaultLimit){
  * @param {function} [options.skip]      (req) => true to exempt a request from the cap.
  * @param {object|function} [options.body] 429 JSON body, or (req) => body.
  * @returns {function} Express middleware, with .getStats() and .limit attached.
+ *
+ * Every admitted response also carries res.abortSignal (aborted when the
+ * client goes away before the response is sent) and res.holdSlot(), which
+ * returns a release function; while any hold is outstanding an aborted
+ * request keeps counting against the cap.
  */
 function createConcurrencyGate(options){
     options = options || {};
@@ -74,19 +132,7 @@ function createConcurrencyGate(options){
         }
 
         inFlight++;
-        let released = false;
-        const release = () => {
-            if(released) return;
-            released = true;
-            inFlight--;
-        };
-        // 'finish' fires on a fully-sent response; 'close' on a client abort or
-        // a handler that never answers. Whichever lands first frees the slot,
-        // and the guard makes the pair idempotent (both fire on a normal
-        // response). Without the 'close' leg an aborted request would leak its
-        // slot permanently and the gate would ratchet shut on a live service.
-        res.on('finish', release);
-        res.on('close', release);
+        trackSlot(res, () => { inFlight--; });
 
         next();
     };

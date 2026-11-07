@@ -57,6 +57,13 @@ async function feequote() {
     return res;
 }
 
+async function oracleFeequote() {
+    const res = headerRes();
+    await XChainExplorer.prototype.processOracleFeeQuoteRequest.call(fakeThis(),
+        { params: { coin: 'RBTC' }, query: { oracleAddress: 'addr', giveTick: 'XCH', fiatCode: 'USD' } }, res);
+    return res;
+}
+
 describe('feequote upstream failures: transient ones are retryable', function () {
     beforeEach(() => {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
@@ -77,6 +84,10 @@ describe('feequote upstream failures: transient ones are retryable', function ()
         const res = await feequote();
         expect(res._json.retryable).to.equal(true);
         expect(res._headers['retry-after']).to.equal('3');
+        const oracle = await oracleFeequote();
+        expect(oracle._status).to.equal(502);
+        expect(oracle._json).to.deep.equal({ error: 'oracle fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true });
+        expect(oracle._headers['retry-after']).to.equal('3');
     });
 
     it('marks a timeout and a refused connection retryable, with no Retry-After', async function () {
@@ -110,6 +121,11 @@ describe('feequote upstream failures: refusals and verdicts are not retryable', 
             expect(res._status).to.equal(502);
             expect(res._json).to.deep.equal({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR' });
             expect(res._headers).to.not.have.property('retry-after');
+            if(name === 'an auth rejection (401)'){
+                const oracle = await oracleFeequote();
+                expect(oracle._json).to.deep.equal({ error: 'oracle fee quote upstream error', code: 'UPSTREAM_ERROR' });
+                expect(oracle._headers).to.not.have.property('retry-after');
+            }
         });
     }
 

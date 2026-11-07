@@ -112,7 +112,8 @@ Every dated baseline is a record and stays as it is.
   owner), `token` and `market` for XCHAIN, `action` 5625 and that action's
   `transaction`. Every page returned 200 with no console errors and no
   rejected capture, and `capture-baseline.js` built the file from the probe's
-  own `__XC.export` manifest. Each page's `url` is recorded in the file.
+  own `__XC.export` manifest. Each page's `url` is recorded in the file. It has
+  no `coverage` block; see "The blind spot, stated plainly" below.
 - `baseline-2026-08-20.json` is the M1 tokens capture from the regtest venue,
   taken with the 23-property census and the pre-correction mode flip (see
   "Mode-switch correction (2026-09-05)" below).
@@ -240,9 +241,13 @@ That measurement is dated, and it is not a statement of current coverage:
 - It is a selector count, so the later render-census property change does not
   touch it, but that file's hashes are not evidence for the current probe (see
   "Mode-switch correction (2026-09-05)").
-- No later baseline records coverage: `baseline-2026-10-12-classic.json` has no
-  `coverage` block. Current runtime coverage cannot be stated until a fresh
-  `baseline-<date>.json` is captured with the current probe.
+- No later baseline records coverage, and the current tooling cannot produce
+  it. Neither `baseline-2026-10-12-classic.json` nor
+  `baseline-2026-10-20.json` has a `coverage` block, although the latter is a
+  real capture with the current probe. `capture-baseline.js` writes no coverage
+  field and `parity-probe.js` does not count instantiated selectors. Current
+  runtime coverage needs a selector-coverage count in the tooling and a new
+  capture made with it; a fresh capture alone is not enough.
 
 A rule no page instantiates cannot be proven at runtime by any amount of
 capturing. That is why the static token-literal gate is a

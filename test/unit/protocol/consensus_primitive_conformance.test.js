@@ -66,6 +66,15 @@ function docsFiles(absoluteDir){
     return fs.readdirSync(absoluteDir).filter((f) => f.endsWith('.js')).sort();
 }
 
+// Name the canonical owner before directing a maintainer to reconcile copies.
+function gateRegistryDriftMessage(f){
+    const source = f === 'core.js'
+        ? 'xchain-hub/src/consensus/gate_registry/core.js'
+        : 'xchain-indexer/src/protocol_changes/' + f;
+    return 'this repo\'s consensus/gate_registry/' + f + ' has drifted from the canonical source; ' +
+        'edit ' + source + ' and re-run reconcile-twins.sh to re-vendor every copy, never this copy alone.';
+}
+
 const quorumVec     = require(path.join(ACTIVE_VEC_DIR, 'stake_weighted_quorum.json'));
 const equivVec      = require(path.join(ACTIVE_VEC_DIR, 'equivocation_header.json'));
 const activationVec = require(path.join(ACTIVE_VEC_DIR, 'activation_predicates.json'));
@@ -187,10 +196,12 @@ describe('consensus-primitive conformance: gate_registry row parts byte-identity
     it('every vendored gate_registry/ part is byte-identical to the canonical copy', function(){
         const parts = canonParts();
         assert.ok(parts.length > 0, 'canonical gate_registry/ is empty');
+        assert.match(gateRegistryDriftMessage('core.js'), /xchain-hub\/src\/consensus\/gate_registry\/core\.js/);
+        assert.match(gateRegistryDriftMessage('shared_rows.js'), /xchain-indexer\/src\/protocol_changes\/shared_rows\.js/);
         for(const f of parts){
             const local = fs.readFileSync(path.join(LOCAL_DIR, 'consensus', 'gate_registry', f), 'utf8');
             const canon = docsFile(path.join(CANON_DIR, 'consensus', 'gate_registry', f));
-            assert.strictEqual(local, canon, 'consensus/gate_registry/' + f + ' has drifted from the canonical source; re-vendor it from xchain-indexer.');
+            assert.strictEqual(local, canon, gateRegistryDriftMessage(f));
         }
     });
 });

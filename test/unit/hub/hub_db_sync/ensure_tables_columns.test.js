@@ -31,10 +31,16 @@ function assertTableConstructsAreSkipped() {
     const sql = [
         'CREATE TABLE records (',
         '  `kept` INT,',
+        '  `fulltext_score` INT,',
+        '  `shape` GEOMETRY,',
         '  PRIMARY KEY (`kept`),',
         '  UNIQUE KEY `unique_kept` (`kept`),',
         '  INDEX `index_kept` (`kept`),',
         '  KEY `key_kept` (`kept`),',
+        '  FULLTEXT KEY `ft_kept` (`kept`),',
+        '  FULLTEXT INDEX `ft_kept_2` (`kept`),',
+        '  FULLTEXT `ft_kept_3` (`kept`),',
+        '  SPATIAL INDEX `sp_shape` (`shape`),',
         '  CHECK (`kept` > 0),',
         '  CONSTRAINT `positive_kept` CHECK (`kept` > 0),',
         '  FOREIGN KEY (`kept`) REFERENCES parents (`id`)',
@@ -42,7 +48,9 @@ function assertTableConstructsAreSkipped() {
     ].join('\n');
 
     assert.deepStrictEqual(parseDeclaredColumns(sql), [
-        { name: 'kept', definition: '`kept` INT', notNull: false, hasDefault: false }
+        { name: 'kept', definition: '`kept` INT', notNull: false, hasDefault: false },
+        { name: 'fulltext_score', definition: '`fulltext_score` INT', notNull: false, hasDefault: false },
+        { name: 'shape', definition: '`shape` GEOMETRY', notNull: false, hasDefault: false }
     ]);
 }
 

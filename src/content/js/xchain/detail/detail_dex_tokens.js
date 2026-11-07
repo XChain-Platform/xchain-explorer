@@ -49,8 +49,10 @@ function showIssueDetails(data){
         $('#info-issue .issue-controller').html(isNull(data.controller) ? '-' :
             formatLink('/' + XC.coin + '/contract/' + data.controller, data.controller));
         $('#info-issue .issue-action-class').text(isNull(data.action_class) ? '-' : data.action_class);
-        $('#info-issue .issue-cooldown-blocks').text(isNull(data.cooldown_blocks) ? '-' :
-            numeral(data.cooldown_blocks).format('0,0') + ' blocks');
+        let cooldown = isNull(data.cooldown_blocks) ? '-' : numeral(data.cooldown_blocks).format('0,0') + ' blocks';
+        if(Number(data.unbind) === 1 && !isNull(data.cooldown_end_block))
+            cooldown += ' (drops at block ' + numeral(data.cooldown_end_block).format('0,0') + ')';
+        $('#info-issue .issue-cooldown-blocks').text(cooldown);
         // Bind and unbind are the same wire format and differ only in this flag, so it
         // is rendered as the row's headline rather than a bare 0/1.
         $('#info-issue .issue-unbind').html(Number(data.unbind) === 1

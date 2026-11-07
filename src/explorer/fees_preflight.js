@@ -54,11 +54,12 @@ const MAX_PREFLIGHT_PARAMS_LENGTH = 390000;
 // of magnitude below this and it only exists to keep the field bounded.
 const MAX_PREFLIGHT_SOURCE_LENGTH = 4096;
 
-// Upstream failure answer for the feequote, preflight and feeschedule proxies. A failure the
-// connector marked transient (a rate limit, a 503, a timeout, a connection that got
-// no answer) carries retryable:true, plus the indexer's Retry-After when it named
-// one; a refusal or error verdict keeps the bare shape, so a client never re-sends a
-// request the indexer has already judged.
+// Answer upstream failures for both fee quotes, preflight and feeschedule.
+// Mark a transient failure retryable and carry Retry-After when the indexer names one.
+// Keep a refusal or error verdict bare.
+
+// Prevent clients from re-sending a request the indexer already judged.
+// Preserve one response contract across all four proxy routes.
 function sendUpstreamError(res, e, message){
     let body = { error: message, code: 'UPSTREAM_ERROR' };
     if(e && e.retryable === true){
@@ -215,7 +216,7 @@ class FeesPreflight {
             return res.json(result);
         } catch(e){
             log.error('ORACLE_FEE_QUOTE_REQUEST_FAILED', { err: e.message || e });
-            return res.status(502).json({ error: 'oracle fee quote upstream error', code: 'UPSTREAM_ERROR' });
+            return sendUpstreamError(res, e, 'oracle fee quote upstream error');
         }
     }
 

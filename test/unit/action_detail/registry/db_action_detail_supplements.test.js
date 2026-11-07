@@ -70,10 +70,11 @@ const EXEC_ROW = {
     gas_used: '118072', gas_limit: '500000'
 };
 
-describe('Action detail supplements (sibling-table wire fields) @regression', function () {
+function registerControllerLookupTests() {
     describe('ISSUE v6 controller bind/unbind', function () {
         const CONTROLLER_ROW = {
-            controller: 1138, action_class: 'mint', cooldown_blocks: 5, unbind: 0
+            controller: 1138, action_class: 'mint', cooldown_blocks: 5,
+            cooldown_end_block: null, unbind: 0
         };
 
         it('publishes CONTROLLER / ACTION_CLASS / COOLDOWN_BLOCKS / UNBIND from token_controllers', async function () {
@@ -85,16 +86,20 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
             assert.strictEqual(data.controller, 1138, 'CONTROLLER (guard contract index) missing from the API row');
             assert.strictEqual(data.action_class, 'mint');
             assert.strictEqual(data.cooldown_blocks, 5);
+            assert.strictEqual(data.cooldown_end_block, null);
             assert.strictEqual(data.unbind, 0, 'UNBIND flag missing from the API row');
         });
 
         it('an unbind row carries unbind=1', async function () {
             const db = makeDb('ISSUE', [
                 ['issues i1',           [Object.assign({}, ISSUE_V6_ROW, { action_index: 1164 })]],
-                ['token_controllers c', [Object.assign({}, CONTROLLER_ROW, { unbind: 1 })]],
+                ['token_controllers c', [Object.assign({}, CONTROLLER_ROW, {
+                    cooldown_end_block: '2890', unbind: 1
+                })]],
             ]);
             const data = await db.getActionData(config, 1164);
             assert.strictEqual(data.unbind, 1);
+            assert.strictEqual(data.cooldown_end_block, 2890);
         });
 
         it('binds the event lookup to the action_index', async function () {
@@ -105,10 +110,16 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
             await db.getActionData(config, 1163);
             const call = db.calls.find(c => c.sql.includes('token_controllers'));
             assert.ok(call, 'no token_controllers lookup was issued');
+            assert.match(call.sql, /c\.cooldown_end_block/);
             assert.ok(/WHERE\s+c\.action_index=\?/.test(call.sql));
             assert.deepStrictEqual(call.args, [1163]);
         });
 
+    });
+}
+
+function registerControllerFallbackTests() {
+    describe('ISSUE v6 controller bind/unbind', function () {
         it('a non-v6 ISSUE carries the keys present-as-null and skips the lookup', async function () {
             const db = makeDb('ISSUE', [
                 ['issues i1', [Object.assign({}, ISSUE_V6_ROW, { action_format: 0, max_supply: '1000' })]],
@@ -118,10 +129,18 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
             assert.strictEqual(data.action_class, null);
             assert.strictEqual(data.cooldown_blocks, null);
             assert.strictEqual(data.unbind, null);
+            assert.strictEqual(Object.prototype.hasOwnProperty.call(data, 'cooldown_end_block'), false);
+            assert.strictEqual(db.isCacheableAction(data), true,
+                'a non-v6 ISSUE must remain cacheable');
             assert.ok(!db.calls.some(c => c.sql.includes('token_controllers')),
                 'a non-v6 ISSUE must not query token_controllers');
         });
     });
+}
+
+describe('Action detail supplements (sibling-table wire fields) @regression', function () {
+    registerControllerLookupTests();
+    registerControllerFallbackTests();
 });
 
 describe('Action detail supplements (sibling-table wire fields) @regression', function () {
@@ -133,6 +152,7 @@ describe('Action detail supplements (sibling-table wire fields) @regression', fu
             const data = await db.getActionData(config, 1163);
             assert.strictEqual(data.controller, null);
             assert.strictEqual(data.unbind, null);
+            assert.strictEqual(data.cooldown_end_block, null);
         });
     });
 

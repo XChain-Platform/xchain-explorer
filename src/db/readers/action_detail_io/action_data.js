@@ -65,11 +65,14 @@ async function attachIssueControllerFields(db, config, action_index, data, fmt){
     data.cooldown_blocks = null;
     data.unbind          = null;
     if(fmt === 6){
+        // Keep this mutable-field key on v6 only so other ISSUE formats remain cacheable.
+        data.cooldown_end_block = null;
         let rows = await db.doQuery(config,
             `SELECT
                         c.contract_index as controller,
                         c.action_class,
                         c.cooldown_blocks,
+                        c.cooldown_end_block,
                         c.is_unbind as unbind
                     FROM
                         token_controllers c
@@ -78,8 +81,11 @@ async function attachIssueControllerFields(db, config, action_index, data, fmt){
                     LIMIT 1`, [action_index]);
         // No row = the bind/unbind never applied (invalid action, or rolled
         // back); the keys stay null rather than being reparsed from tx_data.
-        if(rows && rows.length)
+        if(rows && rows.length){
             Object.assign(data, rows[0]);
+            data.cooldown_end_block = db.util.isNull(data.cooldown_end_block)
+                ? null : Number(data.cooldown_end_block);
+        }
     }
 }
 

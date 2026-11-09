@@ -83,6 +83,33 @@ describe('MIRROR_CLAUSE_BUILDERS', function(){
             assert.strictEqual(build(method, 'unknown'), 'WHERE anchor');
     });
 
+    describe('non-BMP filters on utf8mb3 mirror columns', function(){
+        const EMOJI = '\u{1F600}';
+        const RTL   = '‮';
+        const cases = [
+            ['getOraclePrices', 'token', ' AND m.tick=?'],
+            ['getPriceSnapshots', 'pair', ' AND m.coin_pair=?'],
+            ['getCrossChainMatches', 'match', ' AND m.match_id=?']
+        ];
+        const buildWith = (method, type, search) =>
+            MIRROR_CLAUSE_BUILDERS[method](null, { data: { type, method, search } }, 'WHERE anchor');
+
+        for (const [method, type, fragment] of cases) {
+            it(`${method} ${type}: 4-byte filter becomes an always-false clause with one bind`, function(){
+                const sql = buildWith(method, type, EMOJI);
+                assert.strictEqual(sql, 'WHERE anchor AND (1=0 AND ? IS NOT NULL)');
+                assert.ok(!sql.includes('m.'), 'no column comparison with the 4-byte bind');
+            });
+            it(`${method} ${type}: 3-byte RTL override keeps the normal clause`, function(){
+                assert.strictEqual(buildWith(method, type, RTL), `WHERE anchor${fragment}`);
+            });
+        }
+
+        it('leaves a request without a filter untouched', function(){
+            assert.strictEqual(buildWith('getOraclePrices', 'unknown', EMOJI), 'WHERE anchor');
+        });
+    });
+
     it('always appends the call ID predicate for getXcall', function(){
         assert.strictEqual(
             build('getXcall', 'unknown'),

@@ -256,8 +256,8 @@ function xcallClause(db, config, sql){
     return sql;
 }
 
-const MIRROR_CLAUSE_BUILDERS = {
-    getSlashEvents:               slashEventsClause,
+const RAW_CLAUSE_BUILDERS = {
+    getSlashEvents:              slashEventsClause,
     getCapabilitySlashEvents:     capabilitySlashEventsClause,
     getFullNodeVerifications:     fullNodeVerificationsClause,
     getPriceSnapshots:            priceSnapshotsClause,
@@ -282,5 +282,29 @@ const MIRROR_CLAUSE_BUILDERS = {
     getCommitments:               commitmentsClause,
     getXcall:                     xcallClause
 };
+
+// The hub-mirror columns are utf8mb3, so a filter holding a code point above
+// U+FFFF (4 bytes in utf8mb4) makes MariaDB raise errno 1267 (illegal mix of
+// collations) on the comparison and the request answers 500. No stored value
+// can match such a filter, so the one-placeholder fragment a builder added is
+// swapped for an always-false one that still takes the bound filter: the route
+// answers 200 with 0 rows, the same as the core routes do.
+const NON_BMP       = /[\u{10000}-\u{10FFFF}]/u;
+const NEVER_MATCHES = ' AND (1=0 AND ? IS NOT NULL)';
+
+function guardNonBmp(build){
+    return function(db, config, sql){
+        const out    = build(db, config, sql);
+        const search = config.data.search;
+        if(typeof search !== 'string' || !NON_BMP.test(search)) return out;
+        if(out === sql || !out.startsWith(sql)) return out;
+        if(out.slice(sql.length).split('?').length !== 2) return out;
+        return sql + NEVER_MATCHES;
+    };
+}
+
+const MIRROR_CLAUSE_BUILDERS = {};
+for(const [method, build] of Object.entries(RAW_CLAUSE_BUILDERS))
+    MIRROR_CLAUSE_BUILDERS[method] = guardNonBmp(build);
 
 module.exports = { MIRROR_CLAUSE_BUILDERS };

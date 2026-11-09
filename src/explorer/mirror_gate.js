@@ -62,7 +62,10 @@ class MirrorGate {
         // message pointing at the configuration that is missing.
         if(status.configured === false)
             return { blocked: 'MIRROR_NOT_CONFIGURED', annotate: null };
-        if(!status.bootstrapDrained)
+        // A mirror that drained once and then lost its socket (bootstrapDrained drops on every
+        // close) is a lagging mirror, not an unbootstrapped one: it keeps serving with the lag
+        // annotation. Only a mirror that never drained is refused here.
+        if(!status.bootstrapDrained && !status.everBootstrapped)
             return { blocked: 'MIRROR_NOT_BOOTSTRAPPED', annotate: null };
         let annotate = { mirror_bootstrapped: true, mirror_lag_seconds: status.mirrorLagSeconds };
         let maxLag = parseInt(configEnv().MIRROR_MAX_LAG_S, 10) || 0;

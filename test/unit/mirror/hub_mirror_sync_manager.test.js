@@ -216,6 +216,17 @@ describe('HubMirrorSyncManager', function () {
         } finally { restoreEnv(); }
     });
 
+    it('statusForCoin: a mirror that never drained is not ever-bootstrapped', async function () {
+        const { HubMirrorSyncManager, restoreEnv } = load({ env: { HUB_API_URL: 'http://hub:10000' } });
+        try {
+            const mgr = new HubMirrorSyncManager(makeExplorer({ RBTC: TARGET() }));
+            await mgr.start();
+            const status = mgr.statusForCoin('RBTC');
+            expect(status.bootstrapDrained).to.equal(false);
+            expect(status.everBootstrapped).to.equal(false);
+        } finally { restoreEnv(); }
+    });
+
     it('statusForCoin reports watermark lag and bootstrap state; null when unmanaged', async function () {
         const clock = sinon.useFakeTimers(1000000 * 1000);
         const { HubMirrorSyncManager, restoreEnv } = load({ env: { HUB_API_URL: 'http://hub:10000' } });
@@ -230,7 +241,15 @@ describe('HubMirrorSyncManager', function () {
             expect(status.mirrorLagSeconds).to.equal(42);
             expect(status.target.name).to.equal('XChain_Hub_Mirror');
             expect(mgr.statusForCoin('RLTC')).to.equal(null);
+            expect(status.everBootstrapped).to.equal(true);
 
+            // A socket close drops the drain flag; the mirror stays ever-bootstrapped.
+            inst.sync._bootstrapDrained = false;
+            const closed = mgr.statusForCoin('RBTC');
+            expect(closed.bootstrapDrained).to.equal(false);
+            expect(closed.everBootstrapped).to.equal(true);
+
+            inst.sync._bootstrapDrained = true;
             inst.sync.streamWatermark = 0;
             expect(mgr.statusForCoin('RBTC').mirrorLagSeconds).to.equal(null,
                 'no heartbeat yet means lag is unknown, not zero');

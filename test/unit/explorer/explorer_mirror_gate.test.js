@@ -83,8 +83,24 @@ describe('explorer hub-mirror staleness gate', function () {
         });
 
         it('blocks while the mirror has never bootstrapped', function () {
-            const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false }).mirrorGate('BTC');
+            const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false, everBootstrapped: false }).mirrorGate('BTC');
             expect(gate.blocked).to.equal('MIRROR_NOT_BOOTSTRAPPED');
+        });
+
+        it('keeps serving with a lag annotation after a drained mirror loses its socket', function () {
+            const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false, everBootstrapped: true, mirrorLagSeconds: 70 })
+                .mirrorGate('BTC');
+            expect(gate.blocked).to.equal(null);
+            expect(gate.annotate).to.deep.equal({ mirror_bootstrapped: true, mirror_lag_seconds: 70 });
+        });
+
+        it('a drained-then-closed mirror past MIRROR_MAX_LAG_S is MIRROR_STALE under fail-closed, not NOT_BOOTSTRAPPED', function () {
+            process.env.MIRROR_MAX_LAG_S = '60';
+            process.env.MIRROR_LAG_FAIL_CLOSED = '1';
+            sinon.stub(console, 'warn');
+            const gate = makeExplorer({ ...OK_STATUS, bootstrapDrained: false, everBootstrapped: true, mirrorLagSeconds: 120 })
+                .mirrorGate('BTC');
+            expect(gate.blocked).to.equal('MIRROR_STALE');
         });
 
         it('annotates lag once bootstrapped', function () {

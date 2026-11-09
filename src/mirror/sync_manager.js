@@ -211,17 +211,26 @@ class HubMirrorSyncManager {
                 reason:            'HUB_URL_MISSING',
                 target:            { host: inst.target.host, name: inst.target.name },
                 bootstrapDrained:  false,
+                everBootstrapped:  false,
                 streamWatermark:   0,
                 mirrorLagSeconds:  null
             };
         }
         let sync = inst.sync;
         let watermark = sync ? Number(sync.streamWatermark) || 0 : 0;
+        let drained = !!(sync && sync._bootstrapDrained);
+        // bootstrapDrained drops on every socket close (the heartbeat gate must close until
+        // the reconnect re-drain), so it cannot tell a mirror that never bootstrapped from
+        // one mid-reconnect. everBootstrapped latches the first drain; a stream watermark
+        // above zero proves one too, as it only advances after a completed drain, which
+        // covers a drain and close that fell between two status reads.
+        if(drained || watermark > 0) inst.everBootstrapped = true;
         return {
             enabled:           true,
             configured:        true,
             target:            { host: inst.target.host, name: inst.target.name },
-            bootstrapDrained:  !!(sync && sync._bootstrapDrained),
+            bootstrapDrained:  drained,
+            everBootstrapped:  !!inst.everBootstrapped,
             streamWatermark:   watermark,
             mirrorLagSeconds:  watermark > 0 ? Math.max(0, Math.round(Date.now() / 1000 - watermark)) : null
         };

@@ -80,6 +80,24 @@ function integerPathRefusal(explorer, cfg){
     return { error, code };
 }
 
+// The hub's slash_proposals read refuses any status outside this set and any
+// validator_pubkey that is not 64 hex characters (it lowercases first). The
+// explorer would report that refusal as a hub outage (500), so the same shapes
+// are checked here and answer a 400 without a hub call.
+const SLASH_STATUSES = new Set(['pending', 'approved', 'rejected', 'expired']);
+const SLASH_PUBKEY_RE = /^[0-9a-f]{64}$/i;
+
+function slashFilterRefusal(cfg){
+    if(cfg.data.method !== 'getSlashProposals' || isNoFilterSegment(cfg.data.method, cfg.data.search))
+        return null;
+    let { type, search } = cfg.data;
+    if(type === 'status' && !SLASH_STATUSES.has(search))
+        return { error: 'Invalid slash proposal status', code: 'INVALID_SLASH_STATUS' };
+    if(type === 'pubkey' && !(typeof search === 'string' && SLASH_PUBKEY_RE.test(search)))
+        return { error: 'Invalid validator pubkey', code: 'INVALID_SLASH_PUBKEY' };
+    return null;
+}
+
 function lookupPathRefusal(explorer, st){
     let cfg    = st.cfg;
     let method = cfg.data.method;
@@ -138,7 +156,7 @@ function validateParams(explorer, st){
     // otherwise annotate lag. Same gate as the checkpoint routes.
     st.mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? explorer.mirrorGate(cfg.coin) : null;
     let mirrorGate = st.mirrorGate;
-    let refusal    = integerPathRefusal(explorer, cfg) || lookupPathRefusal(explorer, st);
+    let refusal    = integerPathRefusal(explorer, cfg) || slashFilterRefusal(cfg) || lookupPathRefusal(explorer, st);
     // /{COIN}/api/action/{QUERY} binds its path segment against the BIGINT
     // action_index column, and MariaDB coerces the string, so `/api/action/7junk`
     // answered 200 with action 7 and `/api/action/junk` with action 0. Reject the

@@ -56,6 +56,53 @@ describe('validateParams integer searches', function () {
     });
 });
 
+describe('validateParams slash proposal filters', function () {
+    const HEX64 = 'ab'.repeat(32);
+
+    it('refuses a malformed status or pubkey with a registered 400', function () {
+        const cases = [
+            ['status', 'bogus', 'INVALID_SLASH_STATUS'],
+            ['status', '-1', 'INVALID_SLASH_STATUS'],
+            ['status', '1e309', 'INVALID_SLASH_STATUS'],
+            ['status', 'pending\u0000', 'INVALID_SLASH_STATUS'],
+            ['status', 'x'.repeat(10240), 'INVALID_SLASH_STATUS'],
+            ['status', 'PENDING', 'INVALID_SLASH_STATUS'],
+            ['pubkey', 'abcd', 'INVALID_SLASH_PUBKEY'],
+            ['pubkey', 'AB'.repeat(33), 'INVALID_SLASH_PUBKEY'],
+            ['pubkey', 'zz'.repeat(32), 'INVALID_SLASH_PUBKEY']
+        ];
+
+        for(const [type, search, code] of cases){
+            const { explorer, st } = makeHarness('getSlashProposals', type, search);
+            expect(validateParams(explorer, st), type + ' ' + search.slice(0, 12)).to.be.true;
+            expect(st.badParam).to.be.true;
+            expect(st.response.code).to.equal(400);
+            expect(st.response.json.code).to.equal(code);
+            expect(st.data).to.equal(undefined);
+        }
+    });
+
+    it('lets valid filters and the unfiltered list through to the read', function () {
+        const cases = [
+            ['status', 'pending'], ['status', 'approved'], ['status', 'rejected'],
+            ['status', 'expired'], ['pubkey', HEX64], ['pubkey', HEX64.toUpperCase()],
+            [null, undefined], ['status', 'null']
+        ];
+
+        for(const [type, search] of cases){
+            const { explorer, st } = makeHarness('getSlashProposals', type, search);
+            expect(validateParams(explorer, st), type + ' ' + search).to.be.false;
+            expect(st.badParam).to.equal(undefined);
+        }
+    });
+
+    it('does not apply the filter rules to another method', function () {
+        const { explorer, st } = makeHarness('getVotes', 'status', 'bogus');
+
+        expect(validateParams(explorer, st)).to.be.false;
+    });
+});
+
 describe('validateParams mirror and token searches', function () {
     it('settles a cross-chain request when its mirror is blocked', function () {
         const gate = { blocked: true };

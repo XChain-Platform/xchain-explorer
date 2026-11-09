@@ -2745,16 +2745,6 @@
         "dispenser/dispense legs are values, not shared scratch state renders a NATIVE-coin get leg byte-identically to the pre-refactor expression",
         "dispenser/dispense legs are values, not shared scratch state renders a TOKEN get leg byte-identically to the pre-refactor expression"
       ],
-      "060f67fd0ddd33fb": [
-        "validateParams integer searches allows safe action and checkpoint indexes",
-        "validateParams integer searches rejects an unsafe action index",
-        "validateParams integer searches rejects an unsafe checkpoint block index",
-        "validateParams mirror and token searches allows a cross-chain request when its mirror is available",
-        "validateParams mirror and token searches allows long token searches and address searches",
-        "validateParams mirror and token searches does not check the mirror for another method",
-        "validateParams mirror and token searches settles a cross-chain request when its mirror is blocked",
-        "validateParams mirror and token searches settles short token and subtoken searches with an empty result"
-      ],
       "069598e437835fdd": [
         "detail pages answer 404 when their record cannot exist (continued) action when the high-water read fails leaves the page at 200",
         "detail pages answer 404 when their record cannot exist (continued) address answers 200 for base58 and bech32 addresses on this coin",
@@ -4234,6 +4224,21 @@
         "db.getMempool: paging honors sql.limit (M1.2) a page past the end of the matched set returns an empty page, not an error",
         "db.getMempool: paging honors sql.limit (M1.2) without a request-shaped sql/limit (minimal internal config), returns the full matched set unsliced"
       ],
+      "21e4e0376ccd700b": [
+        "MIRROR_CLAUSE_BUILDERS always appends the call ID predicate for getXcall",
+        "MIRROR_CLAUSE_BUILDERS exports exactly the mirror query builders as functions",
+        "MIRROR_CLAUSE_BUILDERS getCapabilitySlashEvents appends only the fragment selected by type",
+        "MIRROR_CLAUSE_BUILDERS getFullNodeVerifications appends only the fragment selected by type",
+        "MIRROR_CLAUSE_BUILDERS getSlashEvents appends only the fragment selected by type",
+        "MIRROR_CLAUSE_BUILDERS non-BMP filters on utf8mb3 mirror columns getCrossChainMatches match: 3-byte RTL override keeps the normal clause",
+        "MIRROR_CLAUSE_BUILDERS non-BMP filters on utf8mb3 mirror columns getCrossChainMatches match: 4-byte filter becomes an always-false clause with one bind",
+        "MIRROR_CLAUSE_BUILDERS non-BMP filters on utf8mb3 mirror columns getOraclePrices token: 3-byte RTL override keeps the normal clause",
+        "MIRROR_CLAUSE_BUILDERS non-BMP filters on utf8mb3 mirror columns getOraclePrices token: 4-byte filter becomes an always-false clause with one bind",
+        "MIRROR_CLAUSE_BUILDERS non-BMP filters on utf8mb3 mirror columns getPriceSnapshots pair: 3-byte RTL override keeps the normal clause",
+        "MIRROR_CLAUSE_BUILDERS non-BMP filters on utf8mb3 mirror columns getPriceSnapshots pair: 4-byte filter becomes an always-false clause with one bind",
+        "MIRROR_CLAUSE_BUILDERS non-BMP filters on utf8mb3 mirror columns leaves a request without a filter untouched",
+        "MIRROR_CLAUSE_BUILDERS preserves SQL for unknown types in type-filtered builders"
+      ],
       "2247f143d2d27245": [
         "file mount predicate leaves the unlimited image exemption exactly as it was",
         "file mount predicate matches every static directory and the Font Awesome tree by first segment",
@@ -5531,38 +5536,6 @@
         "SEND and DESTROY whole-action paging getSends uses cursor predicates instead of explorer starts for next pages",
         "SEND and DESTROY whole-action paging leaves single-row action boundaries unchanged"
       ],
-      "4f8dc649cba900a8": [
-        "explorer hub-mirror staleness gate GET /:coin/api/hub-mirror/status 404 on unknown coin",
-        "explorer hub-mirror staleness gate GET /:coin/api/hub-mirror/status passes the manager status through",
-        "explorer hub-mirror staleness gate GET /:coin/api/hub-mirror/status {enabled:false} for externally-maintained (non-self-sync) coins",
-        "explorer hub-mirror staleness gate _mirrorGate() annotates lag once bootstrapped",
-        "explorer hub-mirror staleness gate _mirrorGate() blocks a self_sync mirror that has no hub endpoint to sync from",
-        "explorer hub-mirror staleness gate _mirrorGate() blocks while the mirror has never bootstrapped",
-        "explorer hub-mirror staleness gate _mirrorGate() lag past MIRROR_MAX_LAG_S blocks under MIRROR_LAG_FAIL_CLOSED=1",
-        "explorer hub-mirror staleness gate _mirrorGate() lag past MIRROR_MAX_LAG_S warns but serves by default",
-        "explorer hub-mirror staleness gate _mirrorGate() names the missing configuration in the blocked body",
-        "explorer hub-mirror staleness gate _mirrorGate() names the unmeasurable-lag cause in the MIRROR_STALE body",
-        "explorer hub-mirror staleness gate _mirrorGate() open (no annotation) when no mirror manager runs for the coin",
-        "explorer hub-mirror staleness gate _mirrorGate() unknown lag blocks under MIRROR_LAG_FAIL_CLOSED=1 and says why",
-        "explorer hub-mirror staleness gate _mirrorGate() unknown lag is neither warned nor blocked with no MIRROR_MAX_LAG_S",
-        "explorer hub-mirror staleness gate _mirrorGate() unknown lag warns but serves when MIRROR_MAX_LAG_S is set without the opt-in",
-        "explorer hub-mirror staleness gate checkpoint route gating 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap",
-        "explorer hub-mirror staleness gate checkpoint route gating 503 MIRROR_NOT_CONFIGURED when self_sync has no hub endpoint",
-        "explorer hub-mirror staleness gate checkpoint route gating 503 MIRROR_STALE on an unmeasurable lag under the fail-closed opt-in",
-        "explorer hub-mirror staleness gate checkpoint route gating serves with mirror annotations once bootstrapped",
-        "explorer hub-mirror staleness gate checkpoint route gating unaffected (no annotations) in externally-maintained mode",
-        "explorer hub-mirror staleness gate proof route gating action-proof: 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap",
-        "explorer hub-mirror staleness gate proof route gating action-proof: gate stays open (no 503) in externally-maintained mode",
-        "explorer hub-mirror staleness gate proof route gating validator-set-proof error mapping leaves a suffix-free code with its own status and code",
-        "explorer hub-mirror staleness gate proof route gating validator-set-proof error mapping maps STAKE_SNAPSHOT_MALFORMED to 500 without echoing the exception text",
-        "explorer hub-mirror staleness gate proof route gating validator-set-proof error mapping maps a suffixed INDEXER_STAKE_WEIGHTS_UNAVAILABLE to 502 on its prefix",
-        "explorer hub-mirror staleness gate proof route gating validator-set-proof error mapping maps a suffixed STAKE_SNAPSHOT_TRUNCATED to 409 on its prefix",
-        "explorer hub-mirror staleness gate proof route gating validator-set-proof: 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap",
-        "proof routes answer only registered error codes action: answers SERVER_ERROR, never raw exception text, for an unregistered error",
-        "proof routes answer only registered error codes action: keeps a registered code with its own status",
-        "proof routes answer only registered error codes validator-set: answers SERVER_ERROR for an error named like an Object prototype key",
-        "proof routes answer only registered error codes validator-set: answers SERVER_ERROR, never raw exception text, for an unregistered error"
-      ],
       "50771260871b136d": [
         "hub mirror selector modes builds a pinned selector when only a hub URL is available",
         "hub mirror selector modes prefers config seeds over environment seeds and a hub URL",
@@ -6804,6 +6777,40 @@
         "src/content charting assets: licence hygiene serves the Chart.js stack with its upstream MIT banners intact",
         "src/content charting assets: licence hygiene vendors no Highcharts/Highstock file"
       ],
+      "6869de799069b0aa": [
+        "explorer hub-mirror staleness gate GET /:coin/api/hub-mirror/status 404 on unknown coin",
+        "explorer hub-mirror staleness gate GET /:coin/api/hub-mirror/status passes the manager status through",
+        "explorer hub-mirror staleness gate GET /:coin/api/hub-mirror/status {enabled:false} for externally-maintained (non-self-sync) coins",
+        "explorer hub-mirror staleness gate _mirrorGate() a drained-then-closed mirror past MIRROR_MAX_LAG_S is MIRROR_STALE under fail-closed, not NOT_BOOTSTRAPPED",
+        "explorer hub-mirror staleness gate _mirrorGate() annotates lag once bootstrapped",
+        "explorer hub-mirror staleness gate _mirrorGate() blocks a self_sync mirror that has no hub endpoint to sync from",
+        "explorer hub-mirror staleness gate _mirrorGate() blocks while the mirror has never bootstrapped",
+        "explorer hub-mirror staleness gate _mirrorGate() keeps serving with a lag annotation after a drained mirror loses its socket",
+        "explorer hub-mirror staleness gate _mirrorGate() lag past MIRROR_MAX_LAG_S blocks under MIRROR_LAG_FAIL_CLOSED=1",
+        "explorer hub-mirror staleness gate _mirrorGate() lag past MIRROR_MAX_LAG_S warns but serves by default",
+        "explorer hub-mirror staleness gate _mirrorGate() names the missing configuration in the blocked body",
+        "explorer hub-mirror staleness gate _mirrorGate() names the unmeasurable-lag cause in the MIRROR_STALE body",
+        "explorer hub-mirror staleness gate _mirrorGate() open (no annotation) when no mirror manager runs for the coin",
+        "explorer hub-mirror staleness gate _mirrorGate() unknown lag blocks under MIRROR_LAG_FAIL_CLOSED=1 and says why",
+        "explorer hub-mirror staleness gate _mirrorGate() unknown lag is neither warned nor blocked with no MIRROR_MAX_LAG_S",
+        "explorer hub-mirror staleness gate _mirrorGate() unknown lag warns but serves when MIRROR_MAX_LAG_S is set without the opt-in",
+        "explorer hub-mirror staleness gate checkpoint route gating 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap",
+        "explorer hub-mirror staleness gate checkpoint route gating 503 MIRROR_NOT_CONFIGURED when self_sync has no hub endpoint",
+        "explorer hub-mirror staleness gate checkpoint route gating 503 MIRROR_STALE on an unmeasurable lag under the fail-closed opt-in",
+        "explorer hub-mirror staleness gate checkpoint route gating serves with mirror annotations once bootstrapped",
+        "explorer hub-mirror staleness gate checkpoint route gating unaffected (no annotations) in externally-maintained mode",
+        "explorer hub-mirror staleness gate proof route gating action-proof: 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap",
+        "explorer hub-mirror staleness gate proof route gating action-proof: gate stays open (no 503) in externally-maintained mode",
+        "explorer hub-mirror staleness gate proof route gating validator-set-proof error mapping leaves a suffix-free code with its own status and code",
+        "explorer hub-mirror staleness gate proof route gating validator-set-proof error mapping maps STAKE_SNAPSHOT_MALFORMED to 500 without echoing the exception text",
+        "explorer hub-mirror staleness gate proof route gating validator-set-proof error mapping maps a suffixed INDEXER_STAKE_WEIGHTS_UNAVAILABLE to 502 on its prefix",
+        "explorer hub-mirror staleness gate proof route gating validator-set-proof error mapping maps a suffixed STAKE_SNAPSHOT_TRUNCATED to 409 on its prefix",
+        "explorer hub-mirror staleness gate proof route gating validator-set-proof: 503 MIRROR_NOT_BOOTSTRAPPED before first bootstrap",
+        "proof routes answer only registered error codes action: answers SERVER_ERROR, never raw exception text, for an unregistered error",
+        "proof routes answer only registered error codes action: keeps a registered code with its own status",
+        "proof routes answer only registered error codes validator-set: answers SERVER_ERROR for an error named like an Object prototype key",
+        "proof routes answer only registered error codes validator-set: answers SERVER_ERROR, never raw exception text, for an unregistered error"
+      ],
       "6891ebcf3aeba7eb": [
         "POST /:coin/api/feequote mount has its own limiter bucket",
         "POST /:coin/api/feequote mount is registered in mount.js source",
@@ -6918,6 +6925,12 @@
         "db.getFederationRegistry() returns null (unknown) when the legacy schema read throws",
         "db.getFederationRegistry() returns null (unknown) with no hub endpoint and no co-located hub schema",
         "db.getFederationRegistry() still answers from the capability rows when the manual registry read fails"
+      ],
+      "6caea309a998dce4": [
+        "explorer hub-mirror gate on the oracle_prices route 503 MIRROR_NOT_BOOTSTRAPPED before the first bootstrap",
+        "explorer hub-mirror gate on the oracle_prices route adds no mirror fields for a coin the sync manager does not manage",
+        "explorer hub-mirror gate on the oracle_prices route annotates mirror lag once bootstrapped",
+        "explorer hub-mirror gate on the oracle_prices route leaves a non-mirror method (getTokens) ungated"
       ],
       "6d27a0ab01ec255b": [
         "missing or non-string action refusal array with id-like entry is refused with no id field",
@@ -10721,18 +10734,6 @@
         "XCALL detail render: the recorded result reaches the page keeps the recorded record distinct from the mirrored execution record",
         "XCALL detail render: the recorded result reaches the page shows the recorded result for an expired request, which never executes on the far chain"
       ],
-      "d7304fac8a1b0b84": [
-        "HubMirrorSyncManager creates schema, then tables, then starts the client (in that order)",
-        "HubMirrorSyncManager dedupes by unique (host, port, schema) target, not by coin",
-        "HubMirrorSyncManager is a no-op when no checkpoint entry sets self_sync",
-        "HubMirrorSyncManager passes the resolved env hub URL to the client explicitly",
-        "HubMirrorSyncManager re-reports an unconfigured target on an interval instead of once at boot",
-        "HubMirrorSyncManager registers an UNCONFIGURED instance (not a skip) when self_sync has no hub URL",
-        "HubMirrorSyncManager statusForCoin reports watermark lag and bootstrap state; null when unmanaged",
-        "HubMirrorSyncManager stop() stops every client and closes every pool",
-        "HubMirrorSyncManager syncs on the config-borne hub URL alone, with no HUB_API_URL in the env",
-        "HubMirrorSyncManager takes the hub URL from the checkpoint config block, over the env"
-      ],
       "d77548f71fa8f07b": [
         "DB outage propagates (getData) getData rejects when the underlying data query fails",
         "DB outage propagates (getData) getData still returns a successful empty result without throwing",
@@ -11477,6 +11478,19 @@
         "attestBatchLabel returns null for v0 and v1 attestation rows",
         "attestBatchLabel returns null when a required field is missing or non-numeric"
       ],
+      "e4ae8b40040a6c46": [
+        "validateParams integer searches allows safe action and checkpoint indexes",
+        "validateParams integer searches rejects an unsafe action index",
+        "validateParams integer searches rejects an unsafe checkpoint block index",
+        "validateParams mirror and token searches allows a cross-chain request when its mirror is available",
+        "validateParams mirror and token searches allows long token searches and address searches",
+        "validateParams mirror and token searches does not check the mirror for another method",
+        "validateParams mirror and token searches settles a cross-chain request when its mirror is blocked",
+        "validateParams mirror and token searches settles short token and subtoken searches with an empty result",
+        "validateParams slash proposal filters does not apply the filter rules to another method",
+        "validateParams slash proposal filters lets valid filters and the unfiltered list through to the read",
+        "validateParams slash proposal filters refuses a malformed status or pubkey with a registered 400"
+      ],
       "e55afde36345b87b": [
         "component registry and runtime (M2.1) load-order contract with xchain.js components.js does NOT mount on jQuery ready",
         "component registry and runtime (M2.1) load-order contract with xchain.js the shell loads formatters.js and components.js before xchain.js",
@@ -11642,6 +11656,19 @@
         "list-page datatable endpoints finds at least one page action to check",
         "list-page datatable endpoints keeps the '-es' plurals covering the match tables",
         "list-page datatable endpoints maps every page action name to a registered /explorer route"
+      ],
+      "eb30e3f1d37d3a8a": [
+        "HubMirrorSyncManager creates schema, then tables, then starts the client (in that order)",
+        "HubMirrorSyncManager dedupes by unique (host, port, schema) target, not by coin",
+        "HubMirrorSyncManager is a no-op when no checkpoint entry sets self_sync",
+        "HubMirrorSyncManager passes the resolved env hub URL to the client explicitly",
+        "HubMirrorSyncManager re-reports an unconfigured target on an interval instead of once at boot",
+        "HubMirrorSyncManager registers an UNCONFIGURED instance (not a skip) when self_sync has no hub URL",
+        "HubMirrorSyncManager statusForCoin reports watermark lag and bootstrap state; null when unmanaged",
+        "HubMirrorSyncManager statusForCoin: a mirror that never drained is not ever-bootstrapped",
+        "HubMirrorSyncManager stop() stops every client and closes every pool",
+        "HubMirrorSyncManager syncs on the config-borne hub URL alone, with no HUB_API_URL in the env",
+        "HubMirrorSyncManager takes the hub URL from the checkpoint config block, over the env"
       ],
       "ec5292d336fec81a": [
         "Database#getDispenserPriceStaleBatch fails safe when the current tip time is unavailable",
@@ -12209,14 +12236,6 @@
         "XChainExplorer.processRequest \u2013 /api/block/{QUERY} malformed id still serves a well-formed /BTC/api/block/500",
         "XChainExplorer.processRequest \u2013 /api/block/{QUERY} malformed id still serves block 0 when block 0 is what was actually asked for"
       ],
-      "fa8a6b93a504df6a": [
-        "MIRROR_CLAUSE_BUILDERS always appends the call ID predicate for getXcall",
-        "MIRROR_CLAUSE_BUILDERS exports exactly the mirror query builders as functions",
-        "MIRROR_CLAUSE_BUILDERS getCapabilitySlashEvents appends only the fragment selected by type",
-        "MIRROR_CLAUSE_BUILDERS getFullNodeVerifications appends only the fragment selected by type",
-        "MIRROR_CLAUSE_BUILDERS getSlashEvents appends only the fragment selected by type",
-        "MIRROR_CLAUSE_BUILDERS preserves SQL for unknown types in type-filtered builders"
-      ],
       "fabae0e78ed6d361": [
         "client: BET summaries name the record shape a row with no format keeps the generic name",
         "client: BET summaries name the record shape a wager row without its stake fields reads Wager, never undefined",
@@ -12474,8 +12493,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 479,
-        "titleCount": 8025,
+        "fileCount": 480,
+        "titleCount": 8042,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12711,7 +12730,7 @@
           "test/unit/db/query_sql/where_action_clauses_generic.test.js": "caed491a7a766ae3",
           "test/unit/db/query_sql/where_anchors.test.js": "97e0a0a2562dcd67",
           "test/unit/db/query_sql/where_clauses.test.js": "ba686bb3d8e86c4a",
-          "test/unit/db/query_sql/where_mirror_clauses.test.js": "fa8a6b93a504df6a",
+          "test/unit/db/query_sql/where_mirror_clauses.test.js": "21e4e0376ccd700b",
           "test/unit/db/query_sql/where_source_lanes.test.js": "0826667f38c148d2",
           "test/unit/db/query_sql/where_vote_clauses.test.js": "c95c9f03a953fc82",
           "test/unit/db/reader_parts.test.js": "6427b7bf2f94fa4d",
@@ -12774,7 +12793,8 @@
           "test/unit/explorer/checkpoint_supersession_rules.test.js": "6240a3eee5ef7232",
           "test/unit/explorer/explorer_checkpoints.test.js": "18b5ccf95c96b3a6",
           "test/unit/explorer/explorer_icon.test.js": "8a54f6aebda2a1b0",
-          "test/unit/explorer/explorer_mirror_gate.test.js": "4f8dc649cba900a8",
+          "test/unit/explorer/explorer_mirror_gate.test.js": "6869de799069b0aa",
+          "test/unit/explorer/explorer_mirror_gate_oracle_prices.test.js": "6caea309a998dce4",
           "test/unit/explorer/explorer_relay.test.js": "56d48d89dc4b7c2c",
           "test/unit/explorer/explorer_reorgs.test.js": "9799067d395e6260",
           "test/unit/explorer/feeds/explorer_capability_snapshots.test.js": "5f7b1fb9e3851a00",
@@ -12801,7 +12821,7 @@
           "test/unit/explorer/request/send_response.test.js": "23809e480c3c6ebd",
           "test/unit/explorer/request/state.test.js": "88979ff09b9cd523",
           "test/unit/explorer/request/validate_integer_paths.test.js": "61395be67d101352",
-          "test/unit/explorer/request/validate_params.test.js": "060f67fd0ddd33fb",
+          "test/unit/explorer/request/validate_params.test.js": "e4ae8b40040a6c46",
           "test/unit/explorer/routes/batch_routes.test.js": "ef1481c59431774d",
           "test/unit/explorer/routes/explorer_bridge_invariant_states.test.js": "6d43bdb51068be0e",
           "test/unit/explorer/routes/explorer_bridge_panel_routes.test.js": "f31587786e59373d",
@@ -12878,7 +12898,7 @@
           "test/unit/mirror/hub_mirror_migrate_tick_width.test.js": "286e4cb43d7190ca",
           "test/unit/mirror/hub_mirror_pool.test.js": "950fcb2d3855471f",
           "test/unit/mirror/hub_mirror_selector_build.test.js": "50771260871b136d",
-          "test/unit/mirror/hub_mirror_sync_manager.test.js": "d7304fac8a1b0b84",
+          "test/unit/mirror/hub_mirror_sync_manager.test.js": "eb30e3f1d37d3a8a",
           "test/unit/mirror/hub_mirror_url_seeds.test.js": "b091c031874627c9",
           "test/unit/mirror/hub_operational_cache.test.js": "3f4281c653fea27e",
           "test/unit/mirror/hub_operational_cache_concurrency.test.js": "2da46dea864bcc52",
@@ -13089,7 +13109,7 @@
       },
       "test:explorer": {
         "fileCount": 15,
-        "titleCount": 489,
+        "titleCount": 491,
         "files": {
           "test/unit/explorer/attest/explorer_anchor_reward_attestations.test.js": "68e21b0f2e984921",
           "test/unit/explorer/attest/explorer_attest_validator_stats.test.js": "67c45fd621dd71eb",
@@ -13097,7 +13117,7 @@
           "test/unit/explorer/attest/explorer_vote_delegations.test.js": "0bfb8b4bc19093b0",
           "test/unit/explorer/explorer_checkpoints.test.js": "18b5ccf95c96b3a6",
           "test/unit/explorer/explorer_icon.test.js": "8a54f6aebda2a1b0",
-          "test/unit/explorer/explorer_mirror_gate.test.js": "4f8dc649cba900a8",
+          "test/unit/explorer/explorer_mirror_gate.test.js": "6869de799069b0aa",
           "test/unit/explorer/explorer_relay.test.js": "56d48d89dc4b7c2c",
           "test/unit/explorer/explorer_reorgs.test.js": "9799067d395e6260",
           "test/unit/explorer/feeds/explorer_capability_snapshots.test.js": "5f7b1fb9e3851a00",

@@ -215,6 +215,10 @@ describe('HubMirrorSyncManager', function () {
             expect(mgr.instances.size).to.equal(0);
         } finally { restoreEnv(); }
     });
+});
+
+describe('HubMirrorSyncManager', function () {
+    afterEach(function () { sinon.restore(); });
 
     it('statusForCoin: a mirror that never drained is not ever-bootstrapped', async function () {
         const { HubMirrorSyncManager, restoreEnv } = load({ env: { HUB_API_URL: 'http://hub:10000' } });

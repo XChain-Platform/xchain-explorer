@@ -102,7 +102,17 @@ describe('explorer hub-mirror staleness gate', function () {
                 .mirrorGate('BTC');
             expect(gate.blocked).to.equal('MIRROR_STALE');
         });
+    });
+});
 
+describe('explorer hub-mirror staleness gate', function () {
+    afterEach(function () {
+        sinon.restore();
+        delete process.env.MIRROR_MAX_LAG_S;
+        delete process.env.MIRROR_LAG_FAIL_CLOSED;
+    });
+
+    describe('_mirrorGate()', function () {
         it('annotates lag once bootstrapped', function () {
             const gate = makeExplorer(OK_STATUS).mirrorGate('BTC');
             expect(gate.blocked).to.equal(null);

@@ -37,6 +37,8 @@ const ADDRESS_PATH_TYPES = new Set(['address', 'source', 'destination', 'oracle'
 // its COIN), SWAP GET_ADDRESS (checked against GET_COIN) behind the swap match
 // lane, and XBRIDGE DEST_ADDRESS. A wallet reads its inbox on every chain's
 // explorer with one address, so these accept any configured chain's address.
+// Methods whose rows come only from the hub mirror.
+const MIRROR_GATED_METHODS = new Set(['getCrossChainMatches', 'getOraclePrices']);
 const MULTI_CHAIN_ADDRESS_METHODS = new Set(['getOraclePrices', 'getMessages', 'getSwapMatches', 'getXbridges']);
 
 // Path filter types that bind an integer column, with the refusal each answers.
@@ -154,7 +156,9 @@ function validateParams(explorer, st){
     // SELF-SYNCED mirror has never bootstrapped, refuse to serve (an
     // empty mirror must read as an outage, not an empty ledger), and
     // otherwise annotate lag. Same gate as the checkpoint routes.
-    st.mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? explorer.mirrorGate(cfg.coin) : null;
+    // getOraclePrices reads the mirror-only oracle_prices table, so it takes the
+    // same gate.
+    st.mirrorGate = MIRROR_GATED_METHODS.has(cfg.data.method) ? explorer.mirrorGate(cfg.coin) : null;
     let mirrorGate = st.mirrorGate;
     let refusal    = integerPathRefusal(explorer, cfg) || slashFilterRefusal(cfg) || lookupPathRefusal(explorer, st);
     // /{COIN}/api/action/{QUERY} binds its path segment against the BIGINT

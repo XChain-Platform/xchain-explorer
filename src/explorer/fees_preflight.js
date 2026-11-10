@@ -48,6 +48,7 @@ function useHostBindings(host){
 // Payload SIZE is not a work multiplier upstream: the 250-command consensus cap,
 // the 8-pending admission window and the 10s timeout bound the indexer dry-run,
 // and the POST route's own rate limiter bounds the bytes per minute.
+// The ceilings are UTF-8 bytes (the protocol's own ceiling is bytes), not UTF-16 units.
 const MAX_PREFLIGHT_PARAMS_LENGTH = 390000;
 
 // Upper bound on the `source` address string. Unchanged; an address is orders
@@ -130,7 +131,7 @@ class FeesPreflight {
                 return res.status(400).json({ error: 'invalid feeOutputSats', code: 'INVALID_PARAMETER' });
             params = this.util.isNull(params) ? undefined : String(params);
             source = this.util.isNull(source) ? undefined : String(source);
-            if((params && params.length > (isPost ? MAX_PREFLIGHT_PARAMS_LENGTH : 8192)) || (source && source.length > MAX_PREFLIGHT_SOURCE_LENGTH))
+            if((params && Buffer.byteLength(params, 'utf8') > (isPost ? MAX_PREFLIGHT_PARAMS_LENGTH : 8192)) || (source && Buffer.byteLength(source, 'utf8') > MAX_PREFLIGHT_SOURCE_LENGTH))
                 return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
             let connector = new IndexerConnector(url);
             let result = await this.feeQuoteWithBusyRetry(connector, {
@@ -265,7 +266,7 @@ class FeesPreflight {
                 return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
             params = this.util.isNull(params) ? undefined : String(params);
             source = this.util.isNull(source) ? undefined : String(source);
-            if((params && params.length > MAX_PREFLIGHT_PARAMS_LENGTH) || (source && source.length > MAX_PREFLIGHT_SOURCE_LENGTH))
+            if((params && Buffer.byteLength(params, 'utf8') > MAX_PREFLIGHT_PARAMS_LENGTH) || (source && Buffer.byteLength(source, 'utf8') > MAX_PREFLIGHT_SOURCE_LENGTH))
                 return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
             if(!this.util.isNull(feeMode)){
                 feeMode = String(feeMode).toLowerCase();

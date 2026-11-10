@@ -46,8 +46,10 @@ const IndexerConnector = require('../connectors/indexer.js');
 // MAX_PREFLIGHT_PARAMS_LENGTH (explorer/fees_preflight.js, where the route that
 // enforces it lives) because JSON string escaping can inflate a payload before the
 // length check there can see it; the real refusal is the character check on the
-// decoded value, not this.
-const PREFLIGHT_BODY_LIMIT = '1mb';
+// decoded value, not this. Sized for the worst legal case: 390,000 control
+// characters each escape to a 6-byte \u00XX sequence (about 2.34 MB), and the
+// indexer's own body ceiling is the same 2.5 MB so neither hop refuses first.
+const PREFLIGHT_BODY_LIMIT = '2.5mb';
 
 // Guard for every route that proxies to the coin's indexer. The indexer limits per
 // connecting IP and this whole process is one IP to it, so without a share of our

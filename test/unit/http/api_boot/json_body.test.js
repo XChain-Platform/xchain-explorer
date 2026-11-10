@@ -82,7 +82,7 @@ describe('json body refusals on the boot steps', function () {
 
     it('answers a preflight body over its own route ceiling with 413 BODY_TOO_LARGE', async function () {
         const res = await request.post('/RBTC/api/preflight')
-            .set('Content-Type', 'application/json').send(bigJson(2 * 1024 * 1024));
+            .set('Content-Type', 'application/json').send(bigJson(3 * 1024 * 1024));
         expect(res.status).to.equal(413);
         expect(res.body.code).to.equal('BODY_TOO_LARGE');
     });

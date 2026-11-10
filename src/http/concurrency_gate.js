@@ -33,6 +33,51 @@
 
 'use strict';
 
+// One logger for the whole service; it resolves to the shipper once api.js
+// installs observability and to bare console before that.
+const { getLogger } = require('../observability');
+const serviceLog = getLogger();
+
+/**
+ * Build the shed counter line.
+ *
+ * A shed that writes nothing leaves an operator reading timeouts with no
+ * trace of the cap that refused them. One line per refusal would turn a
+ * stampede into its own log flood, so refusals are counted and at most one
+ * line goes out per window, the same shape as the per-IP limiter's line.
+ * The window is checked against the clock at refusal time rather than a
+ * timer, so an idle explorer can still exit.
+ *
+ * @param {object}   options the gate options (envVar, logWindowMs, log, now)
+ * @param {function} stats   () => the gate's current { limit, in_flight, shed }
+ * @returns {function} call once per shed
+ */
+function createShedLine(options, stats){
+    const envVar      = options.envVar || 'the concurrency cap';
+    const logWindowMs = options.logWindowMs > 0 ? options.logWindowMs : 60 * 1000;
+    const log         = typeof options.log === 'function' ? options.log : (line) => serviceLog.warn(line);
+    const now         = typeof options.now === 'function' ? options.now : Date.now;
+
+    let shedSinceLine = 0;
+    let lastLineAt    = null;  // null, so the very first shed always logs
+
+    return function noteShed(){
+        shedSinceLine++;
+        const at = now();
+        if(lastLineAt !== null && at - lastLineAt < logWindowMs) return;
+        // Read the span before lastLineAt moves; afterwards it would be zero.
+        const spanSeconds = Math.round((lastLineAt === null ? logWindowMs : at - lastLineAt) / 1000);
+        lastLineAt = at;
+        const s = stats();
+        log('Explorer concurrency gate: ' + shedSinceLine +
+            ' request' + (shedSinceLine === 1 ? '' : 's') +
+            ' shed in the last ' + spanSeconds + ' s' +
+            ' (in_flight ' + s.in_flight + ', limit ' + s.limit + ', shed total ' + s.shed + '); raise ' + envVar +
+            ' if this is legitimate traffic');
+        shedSinceLine = 0;
+    };
+}
+
 // Parse a cap from the environment. A missing or unparseable value keeps the
 // caller's default (fail-safe: a typo must not silently remove the cap), and
 // anything <= 0 disables the gate outright as the operator escape hatch.
@@ -102,7 +147,14 @@ function trackSlot(res, onRelease){
  * @param {number}   options.limit       Max concurrent in-flight requests; <= 0 disables.
  * @param {number}   [options.retryAfter=1] Retry-After header value, seconds.
  * @param {function} [options.skip]      (req) => true to exempt a request from the cap.
+ * @param {function} [options.probe]     (req) => true for a request that reports the gate's own
+ *                                       state (ping, the healthcheck); never counted or shed, so a
+ *                                       full gate stays readable while it is full.
  * @param {object|function} [options.body] 429 JSON body, or (req) => body.
+ * @param {string}   [options.envVar]    Knob name the shed log line tells the operator to raise.
+ * @param {number}   [options.logWindowMs=60000] At most one shed line per this window.
+ * @param {function} [options.log]       Line sink, the service logger's warn by default; injectable for tests.
+ * @param {function} [options.now=Date.now] Clock, injectable for tests.
  * @returns {function} Express middleware, with .getStats() and .limit attached.
  *
  * Every admitted response also carries res.abortSignal (aborted when the
@@ -116,18 +168,23 @@ function createConcurrencyGate(options){
     const limit      = options.limit > 0 ? Math.floor(options.limit) : 0;
     const retryAfter = Number.isFinite(options.retryAfter) ? options.retryAfter : 1;
     const skip       = typeof options.skip === 'function' ? options.skip : () => false;
-    const body       = options.body || { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' };
+    const probe      = typeof options.probe === 'function' ? options.probe : () => false;
+    const body      = options.body || { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' };
 
     let inFlight = 0;
     let shed     = 0;
 
+    const stats    = () => ({ limit, in_flight: inFlight, shed });
+    const noteShed = createShedLine(options, stats);
+
     const middleware = function concurrencyGate(req, res, next){
-        if(limit <= 0 || skip(req)) return next();
+        if(limit <= 0 || skip(req) || probe(req)) return next();
 
         if(inFlight >= limit){
             shed++;
             res.setHeader('Retry-After', String(retryAfter));
             res.status(429).json(typeof body === 'function' ? body(req) : body);
+            noteShed();
             return;
         }
 
@@ -140,7 +197,7 @@ function createConcurrencyGate(options){
     middleware.limit    = limit;
     // Operational surface: a climbing `shed` is the signal that a stampede is
     // being refused, the same way sync exposes snapshots_rejected.
-    middleware.getStats = () => ({ limit, in_flight: inFlight, shed });
+    middleware.getStats = stats;
 
     return middleware;
 }

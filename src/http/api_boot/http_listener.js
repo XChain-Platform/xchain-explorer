@@ -23,6 +23,11 @@
 
 const http = require('http');
 
+// Per-read lookup, never at load: config.js requires the hub connector, so a
+// load-time require here would run its boot probe in every tool that only
+// wanted this module (the live env view reads process.env on each access).
+const configEnv = () => require('../../config.js').env;
+
 // The longest a client may take to deliver one whole request (headers and
 // body). Node's own ceiling is 300 s, and the concurrency gate counts a
 // request from the moment it arrives, so a client that trickles a body
@@ -49,7 +54,7 @@ function resolveRequestTimeoutMs(raw){
  * @returns {object} the listener
  */
 function startHttpListener(app, runtime, port, host, log){
-    const requestTimeout = resolveRequestTimeoutMs(process.env.EXPLORER_REQUEST_TIMEOUT_MS);
+    const requestTimeout = resolveRequestTimeoutMs(configEnv().EXPLORER_REQUEST_TIMEOUT_MS);
     // Node enforces requestTimeout only when its connection sweep runs (30 s
     // by default), so the sweep must tick faster than the timeout it enforces.
     const httpServer = http.createServer({

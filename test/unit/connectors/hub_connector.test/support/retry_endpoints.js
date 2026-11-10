@@ -58,6 +58,84 @@ function registerRetryBehavior() {
     });
 }
 
+// A hub outage under load must not log in proportion to request rate.
+function registerOutageLogThrottle() {
+    describe('hub outage warn throttle', function () {
+        const WARN_EVENTS = ['HUB_ENDPOINT_FAILED', 'HUB_ENDPOINTS_UNREACHABLE'];
+
+        function makeLogger() {
+            const lines = [];
+            const logger = {
+                warn: (event, fields) => lines.push({ event, fields }),
+                info() {}, error() {}, debug() {}
+            };
+            return { logger, lines };
+        }
+
+        async function burst(n) {
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.rejects(Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }));
+            const { logger, lines } = makeLogger();
+            const XChainHubConnector = loadConnector(axiosStub, logger);
+            const connector = new XChainHubConnector(['http://127.0.0.1:1']);
+            const outs = Array.from({ length: n }, () => ({}));
+            const results = await Promise.all(outs.map((out) =>
+                connector.call({ jsonrpc: '2.0', method: 'x', id: 1 }, { out })));
+            return { connector, lines, outs, results, axiosStub };
+        }
+
+        it('bounds warn lines per window independent of concurrent call count', async function () {
+            const small = await burst(10);
+            const large = await burst(100);
+            const count = (r) => r.lines.filter((l) => WARN_EVENTS.includes(l.event)).length;
+            expect(count(large)).to.equal(count(small));
+            expect(count(large)).to.be.at.most(4);
+            expect(count(large)).to.be.greaterThan(0);
+        });
+
+        it('keeps the stack on the first line only and still records every failure', async function () {
+            const r = await burst(50);
+            const failed = r.lines.filter((l) => l.event === 'HUB_ENDPOINT_FAILED');
+            expect(failed[0].fields.stack).to.be.a('string');
+            for (const l of failed.slice(1)) expect(l.fields.stack).to.equal(undefined);
+            for (const out of r.outs) expect(out.failures.length).to.equal(1);
+            expect(r.connector.lastFailures.length).to.equal(1);
+            expect(r.results.every((v) => v === null)).to.equal(true);
+            expect(r.axiosStub.post.callCount).to.equal(50 * 4);
+        });
+
+        it('reports the suppressed count on the next window line', async function () {
+            const axiosStub = makeAxiosStub();
+            axiosStub.post.rejects(Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }));
+            const { logger, lines } = makeLogger();
+            const XChainHubConnector = loadConnector(axiosStub, logger);
+            const connector = new XChainHubConnector(['http://127.0.0.1:1']);
+            const nowStub = sinon_stubNow(1000000);
+            try {
+                await Promise.all(Array.from({ length: 20 }, () =>
+                    connector.call({ jsonrpc: '2.0', method: 'x', id: 1 })));
+                const before = lines.filter((l) => l.event === 'HUB_ENDPOINT_FAILED').length;
+                nowStub.set(1000000 + 120000);
+                await connector.call({ jsonrpc: '2.0', method: 'x', id: 1 });
+                const failed = lines.filter((l) => l.event === 'HUB_ENDPOINT_FAILED');
+                const next = failed[before];
+                expect(next, 'a line in the next window').to.exist;
+                // 20 calls x 4 attempts = 80 failures in window one, 1 emitted.
+                expect(next.fields.suppressed).to.equal(80 - before);
+            } finally {
+                nowStub.restore();
+            }
+        });
+    });
+}
+
+function sinon_stubNow(start) {
+    const { sinon } = require('./helpers.js');
+    let t = start;
+    const stub = sinon.stub(Date, 'now').callsFake(() => t);
+    return { set: (v) => { t = v; }, restore: () => stub.restore() };
+}
+
     // Where the explorer looks for a hub: the host/port overrides, an explicit
     // validator list, or standalone mode, where there is no hub at all and the local
     // config file drives configuration instead.
@@ -154,4 +232,4 @@ function registerEndpointEnvironment() {
     });
 }
 
-module.exports = [registerRetryBehavior, registerEndpointModes, registerEndpointEnvironment];
+module.exports = [registerRetryBehavior, registerOutageLogThrottle, registerEndpointModes, registerEndpointEnvironment];

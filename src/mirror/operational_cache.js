@@ -65,6 +65,7 @@ const XChainHubConnector = require('../connectors/hub');
 // installs observability, and falls through to bare console before that.
 const { getLogger } = require('../observability');
 const log = getLogger();
+const { logWindowed } = require('../lib/log_window.js');
 
 // Every environment read goes through config.js's live read-through view of
 // process.env, so config.js stays the one place the gate lets env be read. The
@@ -116,7 +117,7 @@ function staleOrNull(hit, at, staleMaxMs){
 
 // The answer for a read the hub did not satisfy with rows: throw on a capability
 // gap, else the cached rows while they are inside the stale ceiling, else null.
-function settleMissedRead(method, result, call, hit, after, staleMaxMs){
+function settleMissedRead(method, result, call, hit, after, staleMaxMs, owner){
     const rpcErr = call.rpcError;
     // A -32601 (Method not found) from EVERY configured endpoint is a definitive
     // answer: no hub build in the fleet serves the method. That is a capability
@@ -130,14 +131,14 @@ function settleMissedRead(method, result, call, hit, after, staleMaxMs){
     // Only some endpoints answered -32601: an unreachable or degraded one may be the
     // upgraded hub that serves the method, so this is an outage and takes the bridge.
     if(rpcErr && Number(rpcErr.code) === -32601)
-        log.warn('HUB_OPERATIONAL_PARTIAL_CAPABILITY', { method, failures: call.failures });
+        logWindowed(owner, log, 'warn', 'HUB_OPERATIONAL_PARTIAL_CAPABILITY', { method, failures: call.failures });
     if(result && result.error)
-        log.warn('HUB_OPERATIONAL_READ_ERROR', { method, err: result.error });
+        logWindowed(owner, log, 'warn', 'HUB_OPERATIONAL_READ_ERROR', { method, err: result.error });
     // Hub unreachable or degraded: serve the last-known rows while they
     // are not unreasonably old, so a hub restart doesn't blank the pages.
     const rows = staleOrNull(hit, after, staleMaxMs);
     if(rows)
-        log.warn('HUB_OPERATIONAL_SERVING_CACHED', { method, age_s: Math.round((after - hit.at) / 1000) });
+        logWindowed(owner, log, 'warn', 'HUB_OPERATIONAL_SERVING_CACHED', { method, age_s: Math.round((after - hit.at) / 1000) });
     return rows;
 }
 
@@ -319,7 +320,7 @@ class HubOperationalCache {
         }
         // settleMissedRead throws on a capability gap, which is a definitive
         // answer and is never remembered as an outage.
-        const rows = settleMissedRead(method, result, call, hit, after, this.staleMaxMs);
+        const rows = settleMissedRead(method, result, call, hit, after, this.staleMaxMs, this);
         rememberFailure(this.failedAt, key, after);
         // No endpoint answered at all (no JSON-RPC error, no degraded body): the
         // hub itself is unreachable or hung, which no other key can read past.

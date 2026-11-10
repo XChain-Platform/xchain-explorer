@@ -26,6 +26,7 @@ const HubConfigSync = require('./hub/config_sync.js');
 // installs observability, and falls through to bare console before that.
 const { getLogger } = require('../observability');
 const log = getLogger();
+const { logWindowed } = require('../lib/log_window.js');
 
 const statusReaders = require('../db/readers/entities/status.js');
 const HUB_CONSENSUS_HASH_STATE = Symbol.for('xchain.explorer.hubConsensusHashState');
@@ -138,7 +139,10 @@ function recordUnreachable(connector, url, err, { attempt, attempts, out }, stat
     } else {
         connector.lastFailures.push(url + ' -> ' + (err.code || err.message));
         if(out) out.failures.push(url + ' -> ' + (err.code || err.message));
-        log.warn('HUB_ENDPOINT_FAILED', { url, attempt, attempts, code: err.code, err: err.message, stack: err.stack });
+        // Windowed: under load every request would otherwise log its own attempt
+        // lines, each with a stack. The failure detail stays on lastFailures / out.
+        logWindowed(connector, log, 'warn', 'HUB_ENDPOINT_FAILED',
+            { url, attempt, attempts, code: err.code, err: err.message }, { stack: err.stack });
     }
 }
 
@@ -249,7 +253,7 @@ class XChainHubConnector {
             // this was the final attempt.
             if(attempt < attempts){
                 const backoff = delayMs * Math.pow(2, attempt - 1);
-                log.warn('HUB_ENDPOINTS_UNREACHABLE', { attempt, attempts, retry_in_ms: backoff });
+                logWindowed(this, log, 'warn', 'HUB_ENDPOINTS_UNREACHABLE', { attempt, attempts, retry_in_ms: backoff });
                 await new Promise(resolve => setTimeout(resolve, backoff));
             }
         }

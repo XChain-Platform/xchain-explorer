@@ -23,6 +23,21 @@
 
 const http = require('http');
 
+// The longest a client may take to deliver one whole request (headers and
+// body). Node's own ceiling is 300 s, and the concurrency gate counts a
+// request from the moment it arrives, so a client that trickles a body
+// holds a gate slot for that whole ceiling: a few identities that never
+// finish sending can fill every slot and get everyone else a 429. Real API
+// bodies are small JSON, so 15 s is generous. EXPLORER_REQUEST_TIMEOUT_MS
+// overrides it; an unparseable or non-positive value keeps the default
+// (a typo must not restore the 300 s hold).
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
+
+function resolveRequestTimeoutMs(raw){
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_REQUEST_TIMEOUT_MS;
+}
+
 /**
  * The plain HTTP listener, the primary serving socket.
  *
@@ -34,7 +49,14 @@ const http = require('http');
  * @returns {object} the listener
  */
 function startHttpListener(app, runtime, port, host, log){
-    const httpServer = http.createServer(app);
+    const requestTimeout = resolveRequestTimeoutMs(process.env.EXPLORER_REQUEST_TIMEOUT_MS);
+    // Node enforces requestTimeout only when its connection sweep runs (30 s
+    // by default), so the sweep must tick faster than the timeout it enforces.
+    const httpServer = http.createServer({
+        requestTimeout: requestTimeout,
+        headersTimeout: Math.min(requestTimeout, 60000),
+        connectionsCheckingInterval: Math.max(50, Math.min(5000, Math.floor(requestTimeout / 3)))
+    }, app);
     // A listen() that fails (EADDRINUSE when a second instance grabs the port, EACCES
     // on a privileged port, EADDRNOTAVAIL for a host this machine does not hold)
     // surfaces as an async 'error' event, not a throw, so a try/catch can't catch it;
@@ -54,4 +76,4 @@ function startHttpListener(app, runtime, port, host, log){
     return httpServer;
 }
 
-module.exports = { startHttpListener };
+module.exports = { startHttpListener, resolveRequestTimeoutMs, DEFAULT_REQUEST_TIMEOUT_MS };

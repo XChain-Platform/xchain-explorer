@@ -100,6 +100,22 @@ describe('feequote upstream failures: transient ones are retryable', function ()
             expect(res._headers).to.not.have.property('retry-after');
         }
     });
+
+    // A stopped or restarting indexer container drops out of Docker DNS, so the
+    // name stops resolving instead of the connection being refused.
+    it('marks a host name that stopped resolving (stopped container) retryable', async function () {
+        const msg = 'getaddrinfo ENOTFOUND xchain-node-litecoin-regtest-xchain-indexer';
+        sinon.stub(axios, 'post').rejects(netFailure('ENOTFOUND', msg));
+        const res = await feequote();
+        expect(res._status).to.equal(502);
+        expect(res._json).to.deep.equal({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true });
+        expect(res._headers).to.not.have.property('retry-after');
+        const oracle = await oracleFeequote();
+        expect(oracle._json).to.deep.equal({ error: 'oracle fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true });
+        let thrown = null;
+        try { await new IndexerConnector('http://x:1').call('getfeequote', []); } catch (e) { thrown = e; }
+        expect(thrown && thrown.retryable).to.equal(true);
+    });
 });
 
 describe('feequote upstream failures: refusals and verdicts are not retryable', function () {

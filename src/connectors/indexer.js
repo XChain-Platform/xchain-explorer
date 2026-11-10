@@ -95,12 +95,12 @@ function resetEgressBudgets(){
 // indexer named one. Transient means the indexer is slow, busy or briefly out of
 // reach: a 429 or 503, a 504 or client timeout, or a connection that never got an
 // answer. A 4xx refusal, an auth rejection or a JSON-RPC error result is a verdict
-// on this request and is never marked. ENOTFOUND is left out on purpose: a host
-// name that does not resolve is a configuration fault, and EAI_AGAIN already
-// covers a resolver that failed for the moment.
+// on this request and is never marked. ENOTFOUND is transient: the indexer URLs
+// use Docker container names, which resolve only while the container runs, so a
+// stopped or restarting indexer fails with ENOTFOUND rather than ECONNREFUSED.
 const TRANSIENT_STATUSES   = new Set([429, 503, 504]);
 const TRANSIENT_NET_CODES  = new Set(['ECONNABORTED', 'ETIMEDOUT', 'ESOCKETTIMEDOUT', 'ECONNREFUSED', 'ECONNRESET',
-    'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN', 'ERR_NETWORK']);
+    'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN', 'ENOTFOUND', 'ERR_NETWORK']);
 
 // Retry-After only in the seconds form, 1 to 6 digits; anything else is dropped.
 function retryAfterSeconds(headers){

@@ -10479,6 +10479,14 @@
         "getStatus reads a coin that missed its deadline as not fresh delists the stalled coin under EXPLORER_STALE_FAIL_CLOSED and leaves the healthy coin",
         "getStatus reads a coin that missed its deadline as not fresh marks the stalled coin stale, keeps it listed by default, leaves the healthy coin fresh"
       ],
+      "cd256787d5b6e8d7": [
+        "full request pipeline on a hub outage answers 503 HUB_UNAVAILABLE, never the not-found 404",
+        "full request pipeline on a hub outage keeps a DB failure as 500 DB_ERROR",
+        "full request pipeline on a hub outage still answers 404 NOT_FOUND for a read that succeeded with no record",
+        "loadData hub outage classification answers 503 HUB_UNAVAILABLE, not DB_ERROR, when the hub cannot be read",
+        "loadData hub outage classification does not claim a stale ceiling for a key that was never cached",
+        "loadData hub outage classification keeps a generic error as 500 DB_ERROR"
+      ],
       "cd6a31d8029c0060": [
         "ATTEST batch cross-chain response read reads carried responses from the network mirror instead of the DOGE attests table",
         "ATTEST batch detail limits returns all 101 carried responses independently of the generic detail limit",
@@ -10535,11 +10543,6 @@
         "shared indexer egress budget: proxied preflight clients a refusal names a usable Retry-After and is marked retryable",
         "shared indexer egress budget: proxied preflight clients the indexer never refuses the explorer and no client gets an upstream 502",
         "shared indexer egress budget: proxied preflight clients the light client keeps every request while the heavy clients drain the budget"
-      ],
-      "cfe2cacda6df0983": [
-        "loadData hub outage classification answers 503 HUB_UNAVAILABLE, not DB_ERROR, when the hub cannot be read",
-        "loadData hub outage classification does not claim a stale ceiling for a key that was never cached",
-        "loadData hub outage classification keeps a generic error as 500 DB_ERROR"
       ],
       "d08e49017df36523": [
         "consensus-primitive conformance: activation predicate vectors @regression every group this repo runs is a non-empty list",
@@ -12565,7 +12568,7 @@
       },
       "test": {
         "fileCount": 488,
-        "titleCount": 8091,
+        "titleCount": 8094,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12890,7 +12893,7 @@
           "test/unit/explorer/request/address_shape.test.js": "4b80427ce63f03e8",
           "test/unit/explorer/request/bare_detail.test.js": "a94445f3f95eaca1",
           "test/unit/explorer/request/detail_record.test.js": "069598e437835fdd",
-          "test/unit/explorer/request/hub_outage_classification.test.js": "cfe2cacda6df0983",
+          "test/unit/explorer/request/hub_outage_classification.test.js": "cd256787d5b6e8d7",
           "test/unit/explorer/request/hub_outage_log_bounded.test.js": "a9eccc36e86617cb",
           "test/unit/explorer/request/load_data.test.js": "0fb440fe8ab93be0",
           "test/unit/explorer/request/rest_input_validation.test.js": "aa47e0dfc947e362",

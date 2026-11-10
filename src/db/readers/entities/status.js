@@ -230,38 +230,78 @@ async function measureDecoderHealth(db, data, code, parseCode){
         data.decoder_health[code] = 'unconfigured';
         return;
     }
-    try {
-        let h = await new DecoderConnector(url).health();
-        // node_height_stale is set by the decoder when its coin-node RPC
-        // has not refreshed for 2x the normal poll interval, meaning the
-        // cached tip is frozen. In that state chain_tip and chain_lag_blocks
-        // are misleading (lag reads as 0 while the chain may be advancing),
-        // so we null them out and override health to 'node-stale' to make
-        // the outage visible on the /status page.
-        let tipStale = h && h.node_height_stale === true;
-        // A decoder that has never completed getblockchaininfo reports
-        // chainTipBlock -1 and a negative blockLag (its -1 tip sentinel),
-        // and node_height_stale stays false because it never had a tip to
-        // freeze. Publish unknown as null: a -1 tip is not a height, and
-        // clamping the negative lag to 0 would read as "at the tip" for a
-        // decoder that cannot see the chain. Prefer the decoder's own
-        // null-when-unknown lag_blocks; fall back to blockLag for decoders
-        // that predate it, treating a negative value as unknown.
-        let tip = (h && !tipStale && typeof h.chainTipBlock === 'number' && h.chainTipBlock >= 0) ? h.chainTipBlock : null;
-        let lag = null;
-        if(h && !tipStale){
-            if(Object.prototype.hasOwnProperty.call(h, 'lag_blocks')){
-                lag = (typeof h.lag_blocks === 'number') ? h.lag_blocks : null;
-            } else if(typeof h.blockLag === 'number' && h.blockLag >= 0){
-                lag = h.blockLag;
-            }
-        }
-        data.chain_tip[code]        = tip;
-        data.chain_lag_blocks[code] = lag;
-        data.decoder_health[code]   = reorgHaltHealth(h) || (tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable'));
-    } catch(e){
-        data.decoder_health[code] = 'unreachable';
+    let reading = await readDecoderHealth(db, url);
+    if(reading.err){
+        data.decoder_health[code] = DecoderConnector.isRateLimited(reading.err) ? 'rate-limited' : 'unreachable';
+        return;
     }
+    applyDecoderHealth(data, code, reading.h);
+}
+
+// How long one decoder health() reading answers every /status request, and how
+// long a good reading may stand in for a throttled (429) one. The explorer is a
+// single source IP to each decoder, whose per-IP limit (100/min by default) is
+// shared by every explorer client, so /status must cost a bounded number of
+// decoder calls however often it is polled. db.decoderHealthCacheMs overrides
+// the window.
+const DECODER_HEALTH_CACHE_MS = 5000;
+const DECODER_HEALTH_LAST_GOOD_MS = 120000;
+
+function decoderHealthCacheMs(db){
+    let v = Number(db.decoderHealthCacheMs);
+    return (db.decoderHealthCacheMs != null && Number.isFinite(v) && v >= 0) ? v : DECODER_HEALTH_CACHE_MS;
+}
+
+// One health() reading per decoder URL per cache window, shared by concurrent
+// requests while it is in flight. Settles to { h } or { err }, never rejects. A
+// 429 is answered with the last good reading while it is young enough, so a
+// throttled explorer keeps reporting what it last saw rather than an outage.
+function readDecoderHealth(db, url){
+    let cache = db._decoderHealthCache || (db._decoderHealthCache = new Map());
+    let now = Date.now(), hit = cache.get(url);
+    if(hit && (hit.pending || now - hit.t < decoderHealthCacheMs(db))) return hit.outcome;
+    let entry = { t: now, pending: true, lastGood: hit ? hit.lastGood : null };
+    entry.outcome = new DecoderConnector(url).health().then(
+        (h) => { entry.lastGood = { h, at: Date.now() }; return { h }; },
+        (err) => {
+            let good = entry.lastGood;
+            if(DecoderConnector.isRateLimited(err) && good && Date.now() - good.at < DECODER_HEALTH_LAST_GOOD_MS) return { h: good.h };
+            return { err };
+        }).then((reading) => { entry.pending = false; entry.t = Date.now(); return reading; });
+    cache.set(url, entry);
+    return entry.outcome;
+}
+
+// Publish one decoder health() reply as the coin's chain_tip, chain_lag_blocks
+// and decoder_health.
+function applyDecoderHealth(data, code, h){
+    // node_height_stale is set by the decoder when its coin-node RPC
+    // has not refreshed for 2x the normal poll interval, meaning the
+    // cached tip is frozen. In that state chain_tip and chain_lag_blocks
+    // are misleading (lag reads as 0 while the chain may be advancing),
+    // so we null them out and override health to 'node-stale' to make
+    // the outage visible on the /status page.
+    let tipStale = h && h.node_height_stale === true;
+    // A decoder that has never completed getblockchaininfo reports
+    // chainTipBlock -1 and a negative blockLag (its -1 tip sentinel),
+    // and node_height_stale stays false because it never had a tip to
+    // freeze. Publish unknown as null: a -1 tip is not a height, and
+    // clamping the negative lag to 0 would read as "at the tip" for a
+    // decoder that cannot see the chain. Prefer the decoder's own
+    // null-when-unknown lag_blocks; fall back to blockLag for decoders
+    // that predate it, treating a negative value as unknown.
+    let tip = (h && !tipStale && typeof h.chainTipBlock === 'number' && h.chainTipBlock >= 0) ? h.chainTipBlock : null;
+    let lag = null;
+    if(h && !tipStale){
+        if(Object.prototype.hasOwnProperty.call(h, 'lag_blocks')){
+            lag = (typeof h.lag_blocks === 'number') ? h.lag_blocks : null;
+        } else if(typeof h.blockLag === 'number' && h.blockLag >= 0){
+            lag = h.blockLag;
+        }
+    }
+    data.chain_tip[code]        = tip;
+    data.chain_lag_blocks[code] = lag;
+    data.decoder_health[code]   = reorgHaltHealth(h) || (tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable'));
 }
 
 // The chain->decoder slice for every advertised coin, in parallel.

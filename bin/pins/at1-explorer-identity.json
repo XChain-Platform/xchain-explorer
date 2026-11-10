@@ -2,7 +2,6 @@
   "tool": "explorer-identity",
   "format": 1,
   "repo": "xchain-explorer",
-  "rev": "HEAD",
   "twins": [
     {
       "path": "src/consensus/equivocation_header.js",
@@ -5663,6 +5662,12 @@
         "migrate-hub-mirror CLI requires a schema when only a user is given",
         "migrate-hub-mirror CLI requires a user and schema when no arguments are given",
         "migrate-hub-mirror CLI requires the database password after required arguments"
+      ],
+      "52ff975112f61d08": [
+        "preflight and feequote params ceiling counts UTF-8 bytes GET feequote refuses params over 8192 bytes though under 8192 chars",
+        "preflight and feequote params ceiling counts UTF-8 bytes POST feequote refuses oversize multibyte params itself",
+        "preflight and feequote params ceiling counts UTF-8 bytes POST preflight refuses oversize multibyte params itself",
+        "preflight and feequote params ceiling counts UTF-8 bytes control: ASCII params at the exact byte ceiling still reach the connector"
       ],
       "5385e3a08f678b50": [
         "IconDownloader _discover() runs INSERT IGNORE and UPDATE queries with correct SQL fragments",
@@ -12571,8 +12576,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 489,
-        "titleCount": 8095,
+        "fileCount": 490,
+        "titleCount": 8099,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12944,6 +12949,7 @@
           "test/unit/http/openapi_coverage.test.js": "49992a3e9860e255",
           "test/unit/http/openapi_response_schemas.test.js": "aab15b91e5ebf99f",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
+          "test/unit/http/preflight_route.test/params_byte_length.test.js": "52ff975112f61d08",
           "test/unit/http/preflight_route.test/shared_indexer_egress_budget.test.js": "cfd98f78eeb5603f",
           "test/unit/http/preflight_route.test/upstream_rate_limit.test.js": "89d9558fbb94bdec",
           "test/unit/http/proof_server.test.js": "736f86a7b212dc70",

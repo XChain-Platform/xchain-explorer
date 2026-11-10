@@ -53,6 +53,13 @@ function resolveMaxBatch(rawValue, defaultMax){
 function makeRpcBatchGuard(maxBatch){
     return function rpcBatchGuard(req, res, next){
         if(Array.isArray(req.body)){
+            // JSON-RPC 2.0 section 6: an empty array is one Invalid Request, not an empty reply.
+            if(req.body.length === 0){
+                return res.status(400).json({
+                    jsonrpc: '2.0', id: null,
+                    error: { code: -32600, message: 'Invalid Request: empty batch' }
+                });
+            }
             if(req.body.length > maxBatch){
                 return res.status(400).json({
                     jsonrpc: '2.0', id: null,
@@ -75,4 +82,25 @@ function makeRpcBatchGuard(maxBatch){
     };
 }
 
-module.exports = { resolveMaxBatch, makeRpcBatchGuard };
+/**
+ * Refuse a single call object that lacks jsonrpc "2.0" with a spec envelope.
+ *
+ * The router's own wrong-version reply omits the jsonrpc member, and a
+ * non-JSON POST reaches it as the {} default. Answer here so every refusal
+ * carries jsonrpc "2.0". Arrays are left to the batch guard and router.
+ *
+ * @returns {function} Express middleware.
+ */
+function rpcVersionGuard(req, res, next){
+    const body = req.body;
+    if(body !== null && typeof body === 'object' && !Array.isArray(body) && body.jsonrpc !== '2.0'){
+        const id = (typeof body.id === 'string' || typeof body.id === 'number') ? body.id : null;
+        return res.status(200).json({
+            jsonrpc: '2.0', id,
+            error: { code: -32600, message: 'Invalid Request, wrong version - ' + (typeof body.jsonrpc === 'string' ? body.jsonrpc : 'undefined') }
+        });
+    }
+    next();
+}
+
+module.exports = { resolveMaxBatch, makeRpcBatchGuard, rpcVersionGuard };

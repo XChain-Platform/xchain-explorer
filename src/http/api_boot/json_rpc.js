@@ -25,7 +25,7 @@
 'use strict';
 
 const jsonRouter = require('express-json-rpc-router')
-const { resolveMaxBatch, makeRpcBatchGuard } = require('../rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
+const { resolveMaxBatch, makeRpcBatchGuard, rpcVersionGuard } = require('../rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
 
 /**
  * Mount the batch cap, the body default and the router, in that order.
@@ -53,6 +53,8 @@ function mountJsonRpc(app, configInfo, jsonRpcController){
     // that fall through to this root-mounted router get a normal JSON-RPC error
     // response instead of crashing the request.
     app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
+    // Missing or wrong jsonrpc version: answer with a full 2.0 envelope (the router omits the member).
+    app.use(rpcVersionGuard);
 
     // The federation reads on the controller are public like every other route: the
     // rows are the replica's, readable through the pages already, and the per-IP rate

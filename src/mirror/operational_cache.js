@@ -42,6 +42,14 @@
  * bounded to 500 rows per query hub-side), so cache keys include the
  * filter params.
  *
+ * Outage cost: one failed read costs the connector's whole retry window
+ * (two attempts plus backoff, about 2 s on an unreachable hub). A failed
+ * read is therefore remembered per key for one TTL window, and requests
+ * inside that window answer at once from the same stale-or-null rule
+ * without another hub round-trip; concurrent misses on one key share a
+ * single in-flight read. Without both, every request during an outage held
+ * its request slot for the full retry window.
+ *
  ********************************************************************/
 
 const XChainHubConnector = require('../connectors/hub');
@@ -77,6 +85,20 @@ function rememberRows(cache, key, at, rows){
     cache.set(key, { at, rows });
 }
 
+// Record when a read for `key` last failed, under the same bound as the rows map.
+function rememberFailure(failures, key, at){
+    failures.delete(key);
+    if(failures.size >= MAX_CACHE_ENTRIES)
+        failures.delete(failures.keys().next().value);
+    failures.set(key, at);
+}
+
+// The stale-or-null answer without the hub: the cached rows while they are
+// inside the stale ceiling at `at`, else null (the caller fails loud).
+function staleOrNull(hit, at, staleMaxMs){
+    return (hit && (at - hit.at) < staleMaxMs) ? hit.rows : null;
+}
+
 // The answer for a read the hub did not satisfy with rows: throw on a capability
 // gap, else the cached rows while they are inside the stale ceiling, else null.
 function settleMissedRead(method, result, call, hit, after, staleMaxMs){
@@ -98,11 +120,10 @@ function settleMissedRead(method, result, call, hit, after, staleMaxMs){
         log.warn('HUB_OPERATIONAL_READ_ERROR', { method, err: result.error });
     // Hub unreachable or degraded: serve the last-known rows while they
     // are not unreasonably old, so a hub restart doesn't blank the pages.
-    if(hit && (after - hit.at) < staleMaxMs){
+    const rows = staleOrNull(hit, after, staleMaxMs);
+    if(rows)
         log.warn('HUB_OPERATIONAL_SERVING_CACHED', { method, age_s: Math.round((after - hit.at) / 1000) });
-        return hit.rows;
-    }
-    return null;
+    return rows;
 }
 
 class HubOperationalCache {
@@ -112,6 +133,11 @@ class HubOperationalCache {
         this.ttlMs      = parseInt(configEnv().EXPLORER_HUB_CACHE_MS, 10) || 15000;
         this.staleMaxMs = parseInt(configEnv().EXPLORER_HUB_CACHE_STALE_MAX_MS, 10) || 600000;
         this._cache = new Map();
+        // key -> time the last read for it failed as an outage (never a
+        // capability gap); cleared by the next successful read.
+        this.failedAt = new Map();
+        // key -> the read in flight for it, so concurrent misses share one call.
+        this.inflight = new Map();
 
         let endpoints = null;
         if(configEnv().HUB_API_URL){
@@ -142,6 +168,26 @@ class HubOperationalCache {
         if(hit && (now - hit.at) < this.ttlMs)
             return hit.rows;
 
+        // A read for this key failed less than one TTL ago: the hub has just
+        // been shown unreachable or degraded, so answer from the same
+        // stale-or-null rule without paying the retry window again.
+        let failedAt = this.failedAt.get(key);
+        if(failedAt !== undefined && (now - failedAt) < this.ttlMs)
+            return staleOrNull(hit, now, this.staleMaxMs);
+
+        let pending = this.inflight.get(key);
+        if(pending) return pending;
+        pending = this.readFromHub(method, key, cleaned, hit, now);
+        this.inflight.set(key, pending);
+        try {
+            return await pending;
+        } finally {
+            if(this.inflight.get(key) === pending) this.inflight.delete(key);
+        }
+    }
+
+    // One hub read for `key`, shared by every concurrent getRows that missed it.
+    async readFromHub(method, key, cleaned, hit, now){
         // Call-scoped diagnostics sink. The connector is one object for the whole
         // process and its lastRpcError is last-call-wins, so reading it after this
         // await let a CONCURRENT call's -32601 decide this call's outcome: the
@@ -173,9 +219,14 @@ class HubOperationalCache {
         let after = Date.now();
         if(Array.isArray(result)){
             rememberRows(this._cache, key, now, result);
+            this.failedAt.delete(key);
             return result;
         }
-        return settleMissedRead(method, result, call, hit, after, this.staleMaxMs);
+        // settleMissedRead throws on a capability gap, which is a definitive
+        // answer and is never remembered as an outage.
+        const rows = settleMissedRead(method, result, call, hit, after, this.staleMaxMs);
+        rememberFailure(this.failedAt, key, after);
+        return rows;
     }
 
     getValidatorCapabilities({ capability, signing_pubkey } = {}){

@@ -72,7 +72,8 @@ function recordRequestCost(explorer, req, st, host){
     if(st.response.time > 400){
         host.stats.slow();
         // Windowed: a hub outage makes every request slow, one line each otherwise.
-        logWindowed(host, log, 'warn', 'SLOW_REQUEST', { path: req.path, time: st.response.time + 'ms' });
+        // The owner is the explorer instance: the host bag is rebuilt per request, so state kept on it never outlives one request.
+        logWindowed(explorer, log, 'warn', 'SLOW_REQUEST', { path: req.path, time: st.response.time + 'ms' });
     }
 
     // Debug detail, logged only when the DEBUG environment variable is set.

@@ -50,6 +50,14 @@
  * single in-flight read. Without both, every request during an outage held
  * its request slot for the full retry window.
  *
+ * Both are per key, and a HUNG hub costs about 12 s per read, so distinct-key
+ * misses each held a slot of the API's global concurrency gate that long and
+ * shed every unrelated DB-only route. Hub reads are therefore bounded
+ * process-wide (MAX_HUB_READS running, a short bounded queue); any other miss,
+ * or one arriving while the oldest read has outlived the queue wait, answers
+ * at once from the stale-or-null rule. A read no endpoint answered at all
+ * latches the hub down for one TTL window (a JSON-RPC error answer never does).
+ *
  ********************************************************************/
 
 const XChainHubConnector = require('../connectors/hub');
@@ -68,6 +76,13 @@ const configEnv = () => require('../config.js').env;
 // Cap the map so a flood of distinct filter values cannot grow it
 // without bound (same pattern as db/index.js's holders cache).
 const MAX_CACHE_ENTRIES = 500;
+
+// Hub reads running across ALL keys, misses that may queue, and the queue wait.
+// A healthy hub drains the queue in milliseconds; a hung one holds at most
+// MAX_HUB_READS requests for its retry window.
+const MAX_HUB_READS = 8;
+const MAX_HUB_READ_WAITERS = 16;
+const HUB_READ_WAIT_MS = 1000;
 
 // Drop undefined params so the cache key is stable and the hub sees
 // only the filters actually set.
@@ -139,6 +154,15 @@ class HubOperationalCache {
         // key -> the read in flight for it, so concurrent misses share one call.
         this.inflight = new Map();
 
+        // Process-wide hub read bound and down latch (see the header).
+        this.maxHubReads = MAX_HUB_READS;
+        this.maxHubReadWaiters = MAX_HUB_READ_WAITERS;
+        this.hubReadWaitMs = HUB_READ_WAIT_MS;
+        this.runningReads = new Set();
+        this.readWaiters = [];
+        this.hubDownUntil = 0;
+        this.shedLog = { windowStart: 0, suppressed: 0 };
+
         let endpoints = null;
         if(configEnv().HUB_API_URL){
             endpoints = String(configEnv().HUB_API_URL).split(',')
@@ -177,13 +201,83 @@ class HubOperationalCache {
 
         let pending = this.inflight.get(key);
         if(pending) return pending;
-        pending = this.readFromHub(method, key, cleaned, hit, now);
+
+        // The hub was just shown unreachable for some key: answer every miss at
+        // once until the latch window ends, then let one miss probe again.
+        if(now < this.hubDownUntil)
+            return staleOrNull(hit, now, this.staleMaxMs);
+
+        pending = this.readWithSlot(method, key, cleaned, hit, now);
         this.inflight.set(key, pending);
         try {
             return await pending;
         } finally {
             if(this.inflight.get(key) === pending) this.inflight.delete(key);
         }
+    }
+
+    // Run the hub read for `key` inside the process-wide read bound, or answer
+    // from the stale-or-null rule when no read slot can be had promptly.
+    async readWithSlot(method, key, cleaned, hit, now){
+        const token = await this.acquireReadSlot();
+        if(!token){
+            this.noteShed(method);
+            return staleOrNull(hit, Date.now(), this.staleMaxMs);
+        }
+        try {
+            // The latch may have been set while this miss waited for a slot.
+            if(Date.now() < this.hubDownUntil)
+                return staleOrNull(hit, Date.now(), this.staleMaxMs);
+            return await this.readFromHub(method, key, cleaned, hit, now);
+        } finally {
+            this.releaseReadSlot(token);
+        }
+    }
+
+    // A read slot token, or null when the miss must not wait for one: the
+    // queue is full, or the oldest running read has outlived the queue wait.
+    acquireReadSlot(){
+        const now = Date.now();
+        if(this.runningReads.size < this.maxHubReads){
+            const token = { at: now };
+            this.runningReads.add(token);
+            return Promise.resolve(token);
+        }
+        if(this.readWaiters.length >= this.maxHubReadWaiters) return Promise.resolve(null);
+        for(const running of this.runningReads)
+            if(now - running.at >= this.hubReadWaitMs) return Promise.resolve(null);
+        return new Promise(resolve => {
+            const waiter = { resolve, timer: null };
+            waiter.timer = setTimeout(() => {
+                const i = this.readWaiters.indexOf(waiter);
+                if(i >= 0) this.readWaiters.splice(i, 1);
+                resolve(null);
+            }, this.hubReadWaitMs);
+            if(typeof waiter.timer.unref === 'function') waiter.timer.unref();
+            this.readWaiters.push(waiter);
+        });
+    }
+
+    // Free a read slot, handing it straight to the oldest queued miss.
+    releaseReadSlot(token){
+        this.runningReads.delete(token);
+        const waiter = this.readWaiters.shift();
+        if(!waiter) return;
+        clearTimeout(waiter.timer);
+        const next = { at: Date.now() };
+        this.runningReads.add(next);
+        waiter.resolve(next);
+    }
+
+    // Warn about misses answered without a hub read, once per TTL window.
+    noteShed(method){
+        const now = Date.now();
+        if(now - this.shedLog.windowStart < this.ttlMs){
+            this.shedLog.suppressed++;
+            return;
+        }
+        log.warn('HUB_OPERATIONAL_READ_SHED', { method, running: this.runningReads.size, suppressed: this.shedLog.suppressed });
+        this.shedLog = { windowStart: now, suppressed: 0 };
     }
 
     // One hub read for `key`, shared by every concurrent getRows that missed it.
@@ -220,12 +314,17 @@ class HubOperationalCache {
         if(Array.isArray(result)){
             rememberRows(this._cache, key, now, result);
             this.failedAt.delete(key);
+            this.hubDownUntil = 0;
             return result;
         }
         // settleMissedRead throws on a capability gap, which is a definitive
         // answer and is never remembered as an outage.
         const rows = settleMissedRead(method, result, call, hit, after, this.staleMaxMs);
         rememberFailure(this.failedAt, key, after);
+        // No endpoint answered at all (no JSON-RPC error, no degraded body): the
+        // hub itself is unreachable or hung, which no other key can read past.
+        if((result === null || result === undefined) && !call.rpcError)
+            this.hubDownUntil = after + this.ttlMs;
         return rows;
     }
 

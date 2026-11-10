@@ -39,6 +39,9 @@ const ADDRESS_PATH_TYPES = new Set(['address', 'source', 'destination', 'oracle'
 // explorer with one address, so these accept any configured chain's address.
 // Methods whose rows come only from the hub mirror.
 const MIRROR_GATED_METHODS = new Set(['getCrossChainMatches', 'getOraclePrices']);
+// Methods reading hub-local tables a self-synced mirror never holds; refused outright
+// on such a coin (explorer.hubLocalGate) instead of failing in the database.
+const HUB_LOCAL_METHODS = new Set(['getPeers', 'getConsensusState', 'getConfigs', 'getTelemetryPings']);
 const MULTI_CHAIN_ADDRESS_METHODS = new Set(['getOraclePrices', 'getMessages', 'getSwapMatches', 'getXbridges']);
 
 // Path filter types that bind an integer column, with the refusal each answers.
@@ -139,6 +142,17 @@ function lookupPathRefusal(explorer, st){
     return null;
 }
 
+// The mirror verdict a method takes, or null for a method no mirror serves. The
+// hub-local pages take the stricter gate: on a self-synced coin their table cannot
+// exist, so they are refused however healthy the mirror is.
+function mirrorGateFor(explorer, cfg){
+    if(HUB_LOCAL_METHODS.has(cfg.data.method))
+        return explorer.hubLocalGate(cfg.coin);
+    if(MIRROR_GATED_METHODS.has(cfg.data.method))
+        return explorer.mirrorGate(cfg.coin);
+    return null;
+}
+
 /**
  * Settle the request without a query where its parameters say to.
  *
@@ -158,7 +172,7 @@ function validateParams(explorer, st){
     // otherwise annotate lag. Same gate as the checkpoint routes.
     // getOraclePrices reads the mirror-only oracle_prices table, so it takes the
     // same gate.
-    st.mirrorGate = MIRROR_GATED_METHODS.has(cfg.data.method) ? explorer.mirrorGate(cfg.coin) : null;
+    st.mirrorGate = mirrorGateFor(explorer, cfg);
     let mirrorGate = st.mirrorGate;
     let refusal    = integerPathRefusal(explorer, cfg) || slashFilterRefusal(cfg) || lookupPathRefusal(explorer, st);
     // /{COIN}/api/action/{QUERY} binds its path segment against the BIGINT

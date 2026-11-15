@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 325,
+    "count": 326,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2508,6 +2508,7 @@
       "getMempool",
       "getMessages",
       "getMints",
+      "getMultipartFileRaw",
       "getNetBalance18",
       "getNetBalance18AtHeight",
       "getNetwork",
@@ -7749,6 +7750,20 @@
         "BET cancel/resolve action status @regression serves a REJECTED resolve its claimed outcome, which no other surface carries",
         "BET cancel/resolve action status @regression serves the outcome a resolve declared"
       ],
+      "82ef9d84e6223635": [
+        "multipart FILE action fields enforces an explicit maximum output size",
+        "multipart FILE action fields reads version 1 gate and compression fields",
+        "multipart FILE icon source skips a manifest before the gated and legacy FILE readers",
+        "multipart FILE raw route inflates a compressed public manifest with the multipart output cap",
+        "multipart FILE raw route refusals returns FILE_PART_CORRUPT when bytes fail their digest",
+        "multipart FILE raw route refusals returns each multipart refusal with no-store",
+        "multipart FILE raw route refusals turns a multipart decoder failure into a 5xx without legacy reads",
+        "multipart FILE raw route serves a complete public manifest byte-identically and bypasses legacy readers",
+        "multipart FILE raw route serves gated multipart ciphertext without inflating it",
+        "multipart FILE reader detects part indexes and invalid manifests without querying the decoder",
+        "multipart FILE reader trips the decoder identifier guard before issuing the decoder query",
+        "multipart FILE reader uses one indexer and one decoder query at both 2 and 26 parts"
+      ],
       "833cb2c0db51fe6e": [
         "address-scoped contract slashes against the REAL indexer DDL binds exactly one placeholder on the list route",
         "address-scoped contract slashes against the REAL indexer DDL does not claim a slash on the intermediate key from before the row held it",
@@ -12646,8 +12661,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 497,
-        "titleCount": 8154,
+        "fileCount": 498,
+        "titleCount": 8166,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12990,6 +13005,7 @@
           "test/unit/explorer/routes/explorer_bridge_panel_routes.test.js": "f31587786e59373d",
           "test/unit/explorer/routes/explorer_bridge_routes.test.js": "fc44bc8438865649",
           "test/unit/explorer/routes/explorer_file_raw_and_action_miss.test.js": "84b057534c968f36",
+          "test/unit/explorer/routes/explorer_file_raw_multipart.test.js": "82ef9d84e6223635",
           "test/unit/explorer/routes/explorer_list_all_routes.test.js": "53f45d90a9a823fb",
           "test/unit/explorer/routes/explorer_routing.test.js": "c04e83d263571f66",
           "test/unit/explorer/routes/protocol_lifecycle_routes.test.js": "e469e2696bc2d982",

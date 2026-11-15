@@ -89,6 +89,76 @@ function validateMode(mode, label) {
   return census;
 }
 
+function stringList(value, label) {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) fail(`${label} must be a string array`);
+  const sorted = Array.from(new Set(value)).sort();
+  if (sorted.length !== value.length) fail(`${label} must not contain duplicates`);
+  return sorted;
+}
+function coverageGroup(id) {
+  if (/\/components\/[^/]+\/component\.css$/.test(id)) return 'components';
+  if (/\/themes\//.test(id)) return 'themes';
+  if (/\/(xchain|xchain-charts)\.css$/.test(id)) return 'pageLevel';
+  fail(`Coverage sheet ${id} is outside the admitted stylesheet groups`);
+}
+function pageCoverage(value, label) {
+  const sheets = object(object(value, label).sheets, `${label}.sheets`);
+  if (!Object.keys(sheets).length) fail(`${label}.sheets must not be empty`);
+  const out = {};
+  for (const id of Object.keys(sheets).sort()) {
+    const row = object(sheets[id], `${label}.sheets.${id}`);
+    const selectors = stringList(row.selectors, `${label}.sheets.${id}.selectors`);
+    const matched = stringList(row.matched, `${label}.sheets.${id}.matched`);
+    if (!selectors.length) fail(`${label}.sheets.${id}.selectors must not be empty`);
+    if (matched.some((selector) => !selectors.includes(selector))) fail(`${label}.sheets.${id}.matched must be a selector subset`);
+    out[id] = { selectors, matched };
+  }
+  return out;
+}
+function coverageSummary(selectorLists, matchedSets) {
+  const coverage = { sheets: {}, pageLevel: { selectors: 0, exercised: 0 },
+    components: { selectors: 0, exercised: 0 }, themes: { selectors: 0, exercised: 0 } };
+  for (const id of Object.keys(selectorLists).sort()) {
+    const selectors = selectorLists[id], matched = matchedSets[id];
+    const row = { selectors: selectors.length, exercised: matched.size,
+      neverMatched: selectors.filter((selector) => !matched.has(selector)) };
+    coverage.sheets[id] = row;
+    const group = coverageGroup(id);
+    coverage[group].selectors += row.selectors;
+    coverage[group].exercised += row.exercised;
+  }
+  return coverage;
+}
+function validateCoverageSummary(coverage) {
+  const sheets = object(object(coverage, 'Baseline coverage').sheets, 'Baseline coverage.sheets');
+  if (!Object.keys(sheets).length) fail('Baseline coverage.sheets must not be empty');
+  const totals = { pageLevel: { selectors: 0, exercised: 0 }, components: { selectors: 0, exercised: 0 }, themes: { selectors: 0, exercised: 0 } };
+  for (const id of Object.keys(sheets)) {
+    const row = object(sheets[id], `Baseline coverage.sheets.${id}`);
+    if (!Number.isInteger(row.selectors) || row.selectors < 1 || !Number.isInteger(row.exercised) || row.exercised < 0 || row.exercised > row.selectors)
+      fail(`Baseline coverage.sheets.${id} has invalid selector arithmetic`);
+    const never = stringList(row.neverMatched, `Baseline coverage.sheets.${id}.neverMatched`);
+    if (never.length !== row.selectors - row.exercised) fail(`Baseline coverage.sheets.${id}.neverMatched count is inconsistent`);
+    const group = totals[coverageGroup(id)]; group.selectors += row.selectors; group.exercised += row.exercised;
+  }
+  for (const group of Object.keys(totals)) {
+    const actual = object(coverage[group], `Baseline coverage.${group}`);
+    if (actual.selectors !== totals[group].selectors || actual.exercised !== totals[group].exercised)
+      fail(`Baseline coverage.${group} totals are inconsistent`);
+  }
+}
+
+function mergePageCoverage(value, tag, selectorLists, matchedSets) {
+  const coverage = pageCoverage(value, `Page ${tag}.coverage`);
+  for (const id of Object.keys(coverage)) {
+    if (selectorLists[id] && JSON.stringify(selectorLists[id]) !== JSON.stringify(coverage[id].selectors))
+      fail(`Page ${tag}.coverage has a different selector list for ${id}`);
+    selectorLists[id] = coverage[id].selectors;
+    const matched = matchedSets[id] || (matchedSets[id] = new Set());
+    coverage[id].matched.forEach((selector) => matched.add(selector));
+  }
+}
+
 function buildBaseline(manifest, options) {
   object(manifest, 'Capture manifest');
   compatibleSchema(manifest.probe, 'Capture manifest');
@@ -96,7 +166,7 @@ function buildBaseline(manifest, options) {
   const pages = object(manifest.pages, 'Capture manifest pages');
   if (!Object.keys(pages).length) fail('Capture manifest contains no pages');
 
-  const outputPages = {};
+  const outputPages = {}, selectorLists = {}, matchedSets = {};
   for (const tag of Object.keys(pages).sort()) {
     const page = object(pages[tag], `Page ${tag}`);
     compatibleSchema(page.probe, `Page ${tag}`);
@@ -109,6 +179,7 @@ function buildBaseline(manifest, options) {
     if (page.light.rule.keys !== page.dark.rule.keys) fail(`Page ${tag} modes have different rule key counts`);
     if (page.light.rend.keys !== page.dark.rend.keys) fail(`Page ${tag} modes have different render key counts`);
     assert.deepEqual(lightCensus, darkCensus);
+    mergePageCoverage(page.coverage, tag, selectorLists, matchedSets);
     outputPages[tag] = {
       url: page.url,
       anchors: page.light.anchors,
@@ -140,6 +211,7 @@ function buildBaseline(manifest, options) {
       rend: `A fixed census of ${probeSchema.anchors.count} selectors x ` +
         `${probeSchema.properties.count} properties, including an absence key for unmatched selectors.`,
     },
+    coverage: coverageSummary(selectorLists, matchedSets),
     pages: outputPages,
   };
 }
@@ -166,6 +238,7 @@ function validateBaseline(baseline) {
   }
   // Require the probe schema, missing or legacy string included (after the page loop, so a legacy file keeps its count message)
   compatibleSchema(baseline.probe, 'Baseline');
+  if (baseline.coverage !== undefined) validateCoverageSummary(baseline.coverage);
   return true;
 }
 
@@ -194,8 +267,43 @@ function fixture(propertyCount = probeSchema.properties.count) {
   return {
     phase: 'before', probe: schema,
     pages: { home: { url: '/RDOGE', probe: schema,
-      light: mode('22222222', 'white | black'), dark: mode('33333333', 'black | white') } },
+      light: mode('22222222', 'white | black'), dark: mode('33333333', 'black | white'),
+      coverage: { sheets: { '/css/xchain.css': { selectors: ['body', '.card'], matched: ['body'] } } } } },
   };
+}
+
+function coverageSelfTests() {
+  return [
+    () => { const capture = fixture(); delete capture.pages.home.coverage;
+      assert.throws(() => buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }), /coverage must be an object/);
+    },
+    () => { const capture = fixture();
+      capture.pages.home.coverage.sheets['/css/xchain.css'] = { selectors: [], matched: [] };
+      assert.throws(() => buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }), /selectors must not be empty/);
+    },
+    () => { const capture = fixture(); capture.pages.other = JSON.parse(JSON.stringify(capture.pages.home));
+      capture.pages.other.coverage.sheets['/css/xchain.css'].selectors.push('.footer');
+      assert.throws(() => buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }), /different selector list/);
+    },
+    () => { const capture = fixture(); capture.pages.other = JSON.parse(JSON.stringify(capture.pages.home));
+      capture.pages.other.coverage.sheets['/css/xchain.css'].matched = ['.card'];
+      const coverage = buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }).coverage;
+      assert.deepEqual(coverage.pageLevel, { selectors: 2, exercised: 2 });
+    },
+    () => { const baseline = buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' });
+      baseline.coverage.pageLevel.exercised = 2;
+      assert.throws(() => validateBaseline(baseline), /pageLevel totals are inconsistent/);
+    },
+    () => { const baseline = buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' });
+      baseline.coverage.sheets['/css/xchain.css'] = { selectors: 0, exercised: 0, neverMatched: [] };
+      baseline.coverage.pageLevel = { selectors: 0, exercised: 0 };
+      assert.throws(() => validateBaseline(baseline), /invalid selector arithmetic/);
+    },
+    () => { const baseline = buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' });
+      delete baseline.coverage;
+      assert.equal(validateBaseline(baseline), true);
+    },
+  ];
 }
 
 function selfTest() {
@@ -252,6 +360,7 @@ function selfTest() {
       assert.throws(() => validateBaseline(baseline), /properties census does not match/);
     },
   ];
+  tests.push(...coverageSelfTests());
   tests.forEach((test) => test());
   process.stdout.write(`capture-baseline self-test: ${tests.length} passed, 0 failed\n`);
 }

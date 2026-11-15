@@ -40,7 +40,7 @@ function useHostBindings(host){
     configEnv = host.configEnv;
 }
 
-// Upper bound on the pre-flight `params` string, in characters: the protocol's
+// Upper bound on the pre-flight `params` string, in UTF-8 bytes: the protocol's
 // OWN ENVELOPE_MAX_PAYLOAD ceiling (xchain-documentation/protocol/constants.js,
 // mirrored in xchain-decoder), so this proxy is never the component that refuses
 // an action the indexer would have judged.

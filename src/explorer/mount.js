@@ -45,11 +45,24 @@ const IndexerConnector = require('../connectors/indexer.js');
 // Body-parser ceiling for POST /{COIN}/api/preflight. Above
 // MAX_PREFLIGHT_PARAMS_LENGTH (explorer/fees_preflight.js, where the route that
 // enforces it lives) because JSON string escaping can inflate a payload before the
-// length check there can see it; the real refusal is the character check on the
+// length check there can see it; the real refusal is the UTF-8 byte check on the
 // decoded value, not this. Sized for the worst legal case: 390,000 control
-// characters each escape to a 6-byte \u00XX sequence (about 2.34 MB), and the
+// bytes (one byte each) escape to a 6-byte \u00XX sequence each (about 2.34 MB), and the
 // indexer's own body ceiling is the same 2.5 MB so neither hop refuses first.
 const PREFLIGHT_BODY_LIMIT = '2.5mb';
+
+// Body-parser ceiling for POST /{COIN}/api/contract/{idx}/call. The route's
+// validator (contract/vm_query.js) accepts up to 32 params of 1024 bytes each, so
+// the worst legal body is 32 x 1024 control bytes escaped to 6 bytes each (196,608)
+// plus the envelope; 256kb covers it and the tight global ceiling would not.
+const CONTRACT_CALL_BODY_LIMIT = '256kb';
+
+// True for the request the global json() parser must skip because the route parses
+// its own body: POST /{COIN}/api/contract/{idx}/call.
+function isContractCallPostRequest(req){
+    if(!req || String(req.method || '').toUpperCase() !== 'POST') return false;
+    return /^\/[^/]+\/api\/contract\/[^/]+\/call\/?$/i.test(String(req.path || ''));
+}
 
 // Guard for every route that proxies to the coin's indexer. The indexer limits per
 // connecting IP and this whole process is one IP to it, so without a share of our
@@ -288,9 +301,14 @@ class RouteMounts {
         // Read-only contract simulation (the platform's eth_call): runs a method in a
         // sandboxed xchain-vm against current state and discards all effects.
         // Default-off (EXPLORER_VM_QUERY_ENABLED) and capped far below the global
-        // limit, since every call burns real CPU in the VM subprocess.
+        // limit, since every call burns real CPU in the VM subprocess. The limiter
+        // runs before the body parser so a limited caller is refused unread.
+        const { express } = host;
         const vmQueryLimiter = buildVmQueryLimiter(host);
-        this.app.post('/:coin/api/contract/:contractIndex/call', vmQueryLimiter, (req, res) => { this.processContractCallRequest(req, res); });
+        this.app.post('/:coin/api/contract/:contractIndex/call',
+            vmQueryLimiter,
+            express.json({ limit: CONTRACT_CALL_BODY_LIMIT }),
+            (req, res) => { this.processContractCallRequest(req, res); });
     }
 
     mountCatchAllRoute(){
@@ -305,4 +323,4 @@ class RouteMounts {
     }
 }
 
-module.exports = { methods: RouteMounts.prototype, PREFLIGHT_BODY_LIMIT, guardIndexerEgress };
+module.exports = { methods: RouteMounts.prototype, PREFLIGHT_BODY_LIMIT, CONTRACT_CALL_BODY_LIMIT, isContractCallPostRequest, guardIndexerEgress };

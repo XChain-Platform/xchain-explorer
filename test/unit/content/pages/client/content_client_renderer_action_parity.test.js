@@ -234,6 +234,17 @@ describe('client: the compact LIST label reads the canonical enum', function () 
         expect(summary('LIST', { type: null, edit: 1 })).to.equal('Add to Unknown List');
     });
 
+    it('labels share, transfer and metadata formats by their actual action', function () {
+        expect(summary('LIST', { action_format: 2, type: 2, edit: null })).to.equal('Share Address List');
+        expect(summary('LIST', { action_format: 3, type: 1, edit: null })).to.equal('Transfer Token List');
+        expect(summary('LIST', { action_format: 5, type: 1, edit: null })).to.equal('Update Token List metadata');
+    });
+
+    it('keeps metadata creates and edits on their existing labels', function () {
+        expect(summary('LIST', { action_format: 4, type: 1, edit: null })).to.equal('Create Token List');
+        expect(summary('LIST', { action_format: 1, type: 2, edit: 2 })).to.equal('Remove from Address List');
+    });
+
     it('the compact label agrees with the canonical map for every declared type', function () {
         for (const type of Object.keys(LIST_TYPES))
             expect(summary('LIST', { type: Number(type), edit: 0 })).to.contain(LIST_TYPES[type]);

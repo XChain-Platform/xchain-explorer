@@ -34,8 +34,8 @@ pasted, not loaded from a string.
 5. Repeat per page, using the tags and URLs recorded in the baseline JSON.
 
 Each call snapshots BOTH light and dark, writes the full snapshots to
-localStorage, and returns per-mode fingerprints plus a `rendered` reading of
-the surface colours that capture actually measured. Compare the hashes against
+localStorage, and returns per-mode fingerprints, a `rendered` reading of
+the surface colours, and per-sheet selector coverage unioned across both modes. Compare the hashes against
 a dated baseline built by `capture-baseline.js`, one that carries a `probe`
 schema object: every hash must reproduce exactly.
 `baseline-2026-08-20.json` predates the 2026-09-05 mode-switch correction, so
@@ -69,7 +69,10 @@ node tools/theme-parity/capture-baseline.js \
   --output tools/theme-parity/baseline-2026-10-12.json
 ```
 
-The output path must not already exist. The builder checks the probe schema on
+The output path must not already exist. The builder requires selector coverage,
+unions matches across pages, records per-sheet and page-level/component/theme
+totals, and refuses captures that mix selector lists from different CSS revisions.
+It also checks the probe schema on
 the manifest and every page, verifies both modes have the expected render-key
 count, and records the rule hash per mode, as it does the render hash, because
 the rule layer can follow mode (see "What the two layers mean"). A page whose
@@ -241,13 +244,12 @@ That measurement is dated, and it is not a statement of current coverage:
 - It is a selector count, so the later render-census property change does not
   touch it, but that file's hashes are not evidence for the current probe (see
   "Mode-switch correction (2026-09-05)").
-- No later baseline records coverage, and the current tooling cannot produce
-  it. Neither `baseline-2026-10-12-classic.json` nor
-  `baseline-2026-10-20.json` has a `coverage` block, although the latter is a
-  real capture with the current probe. `capture-baseline.js` writes no coverage
-  field and `parity-probe.js` does not count instantiated selectors. Current
-  runtime coverage needs a selector-coverage count in the tooling and a new
-  capture made with it; a fresh capture alone is not enough.
+- No later baseline records coverage. Neither `baseline-2026-10-12-classic.json`
+  nor `baseline-2026-10-20.json` has a `coverage` block, although the latter is
+  a real capture with the previous probe. The current probe records per-sheet
+  selector coverage across both modes, and the builder refuses a new manifest
+  without it. The dated records remain unchanged, so a new capture is still
+  required before current runtime coverage can be claimed.
 
 A rule no page instantiates cannot be proven at runtime by any amount of
 capturing. That is why the static token-literal gate is a

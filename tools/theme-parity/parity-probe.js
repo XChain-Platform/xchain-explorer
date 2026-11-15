@@ -108,14 +108,11 @@
  *     Object.keys(a).filter(k => a[k] !== b[k]).map(k => [k, a[k], b[k]]);
  *
  * COVERAGE LIMIT, stated because a probe that hides its blind spot is worse
- * than no probe: across the six captured pages only 79 of the 120 selectors in
- * the two page-level stylesheets were exercised when measured on 2026-08-20
- * (the coverage block of baseline-2026-08-20.json; 121/77/44 was the superseded
- * pre-tokenization survey). That is a selector count, untouched by the later
- * render-census property change, but that file's hashes are not evidence for
- * the current probe. A rule no page instantiates cannot be proven at runtime by any
- * amount of capturing, which is why the static token-literal gate is a
- * separate acceptance test.
+ * than no probe: the probe records per-sheet selector coverage and unions
+ * matches across both modes, but a rule no captured page instantiates still
+ * cannot be proven at runtime. The static token-literal gate remains a separate
+ * acceptance test for that reason. The 2026-08-20 baseline measured 79 of 120
+ * page-level selectors; later dated baselines predate this coverage export.
  *
  * SHEET now also admits the per-component component.css layer, which landed
  * after the 2026-08-20 capture. That raises the reported cssRules count per
@@ -182,14 +179,18 @@ const probe = (function () {
       out += text.slice(i, at) + (cs.getPropertyValue(name).trim() || fb); i = j; }
     return out; };
   const ruleSnap = () => {
-    const snap = {}; let rules = 0, sheets = 0; const un = []; const seen = new Set();
+    const snap = {}, coverage = {}; let rules = 0, sheets = 0; const un = []; const seen = new Set();
+    const sheetId = href => { try { return new URL(href, location.href).pathname; } catch(e) { return href; } };
+    const cover = (href, sel, matched) => { const id = sheetId(href);
+      const row = coverage[id] || (coverage[id] = { selectors: new Set(), matched: new Set() });
+      row.selectors.add(sel); if (matched) row.matched.add(sel); };
     // Read one admitted sheet once; an unreadable one is recorded so health()
     // rejects the capture rather than fingerprinting a partial rule layer.
     const readSheet = sh => { if (!sh || !sh.href || !SHEET.test(sh.href) || seen.has(sh)) return;
       seen.add(sh); sheets++;
       let rs; try { rs = sh.cssRules; } catch(e) { snap['__UNREADABLE__ '+sh.href] = String(e); return; }
       for (const r of rs) walk(r, sh.href); };
-    const walk = (r, base) => {
+    const walk = (r, baseHref) => {
       // An @import rule carries its sheet in .styleSheet, the only way to reach it.
       // Chrome hands a 404 import an EMPTY sheet; a null styleSheet is recorded too.
       if (typeof r.href === 'string' && 'styleSheet' in r) {
@@ -197,7 +198,7 @@ const probe = (function () {
           let n = -1; try { n = sh.cssRules.length; } catch(e) {}
           if (n === 0 && sh.href && SHEET.test(sh.href)) snap['__UNREADABLE__ '+sh.href] = 'import loaded no rules';
           return; }
-        let url; try { url = new URL(r.href, base || location.href).href; } catch(e) { url = r.href; }
+        let url; try { url = new URL(r.href, baseHref || location.href).href; } catch(e) { url = r.href; }
         if (SHEET.test(url)) snap['__UNREADABLE__ '+url] = 'import did not load';
         return;
       }
@@ -205,8 +206,9 @@ const probe = (function () {
         const props = Array.from(r.style).filter(p => !p.startsWith('--'));
         if (props.length) for (const raw of r.selectorText.split(',')) {
           const sel = raw.trim(), pe = (sel.match(ELEM)||[])[0]||null, st = STATE.test(sel);
-          const base = sel.replace(new RegExp(STATE.source,'g'),'').replace(ELEM,'').trim() || 'body';
-          let el; try { el = document.querySelector(base); } catch(e) { un.push(sel+' [bad]'); continue; }
+          const baseSel = sel.replace(new RegExp(STATE.source,'g'),'').replace(ELEM,'').trim() || 'body';
+          let el; try { el = document.querySelector(baseSel); } catch(e) { cover(baseHref, sel, false); un.push(sel+' [bad]'); continue; }
+          cover(baseHref, sel, Boolean(el));
           if (!el) { un.push(sel); continue; }
           const cs = getComputedStyle(el, pe);
           // A state rule (:hover, :visited) cannot be matched without driving the
@@ -219,10 +221,12 @@ const probe = (function () {
             ? resolveVars(r.style.getPropertyValue(p).trim(), cs)
             : cs.getPropertyValue(p).trim();
         } }
-      if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, base);
+      if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, baseHref);
     };
     for (const sh of document.styleSheets) readSheet(sh);
-    return { rules, snap, un: un.sort(), sheets };
+    const covered = {}; for (const id of Object.keys(coverage).sort()) covered[id] = {
+      selectors: Array.from(coverage[id].selectors).sort(), matched: Array.from(coverage[id].matched).sort() };
+    return { rules, snap, un: un.sort(), sheets, coverage: covered };
   };
   // Count every layout key read as a used value because the browser has no Typed OM;
   // health() refuses such a capture, and the count stays out of `o` so hashes do not move.
@@ -299,9 +303,17 @@ const probe = (function () {
       localStorage['__xc:'+phase+':'+tag+'|'+mode+'|rend'] = JSON.stringify(held[mode+'|rend']);
     }
     localStorage['__xcUn:'+phase+':'+tag] = JSON.stringify(held.light.un);
+    const coverage = { sheets: {} };
+    for (const id of new Set(Object.keys(held.light.coverage).concat(Object.keys(held.dark.coverage)))) {
+      const light = held.light.coverage[id] || { selectors: [], matched: [] };
+      const dark = held.dark.coverage[id] || { selectors: [], matched: [] };
+      coverage.sheets[id] = { selectors: Array.from(new Set(light.selectors.concat(dark.selectors))).sort(),
+        matched: Array.from(new Set(light.matched.concat(dark.matched))).sort() };
+    }
+    res.coverage = coverage;
     res.probe = schema;
     localStorage['__xcResult:'+phase+':'+tag] = JSON.stringify({
-      url: location.pathname+location.search, probe: schema, light: res.light, dark: res.dark,
+      url: location.pathname+location.search, probe: schema, light: res.light, dark: res.dark, coverage,
     });
     return res;
   };

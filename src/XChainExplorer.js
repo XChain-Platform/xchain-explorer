@@ -45,7 +45,7 @@ const { isPreflightPostRequest, isFeeQuotePostRequest, MAX_PREFLIGHT_PARAMS_LENG
 // because the suites replace those bindings here (proxyquire) per instance and
 // a part that stored them would hand whichever explorer was built last to every
 // other one.
-const { PREFLIGHT_BODY_LIMIT } = require('./explorer/mount.js');
+const { PREFLIGHT_BODY_LIMIT, CONTRACT_CALL_BODY_LIMIT, isContractCallPostRequest } = require('./explorer/mount.js');
 const { runRequest } = require('./explorer/request/index.js');
 const { newRequestState } = require('./explorer/request/state.js');
 const { resolveRoute } = require('./explorer/request/resolve_route.js');
@@ -320,6 +320,8 @@ module.exports = Object.assign(XChainExplorer, {
     canonicalCheckpointString,
     isPreflightPostRequest,
     isFeeQuotePostRequest,
+    isContractCallPostRequest,
     MAX_PREFLIGHT_PARAMS_LENGTH,
-    PREFLIGHT_BODY_LIMIT
+    PREFLIGHT_BODY_LIMIT,
+    CONTRACT_CALL_BODY_LIMIT
 });

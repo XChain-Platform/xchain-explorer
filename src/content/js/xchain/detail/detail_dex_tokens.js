@@ -117,10 +117,12 @@ function showListDetails(data){
     let edit = (isNumeric(data.edit)) ? (data.edit + ' - ' + XC.list_edit_types[data.edit]) : '';
     $('#info-list .list-type').text(type);
     $('#info-list .list-edit-type').text(edit);
+    let format = Number(data.action_format);
+    $('#info-list .list-edit-type-row').toggleClass('d-none', [2, 3, 5].includes(format));
     $('#info-list .list-action-index').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
     $('#info-list .list-memo').text((data.memo == null) ? '' : data.memo);
     // A format 3 LIST transfers the list, so name the address it went to.
-    let isTransfer = (Number(data.action_format) === 3);
+    let isTransfer = (format === 3);
     $('#info-list .list-destination-row').toggleClass('d-none', !isTransfer);
     $('#info-list .list-destination').html(!isTransfer || isNull(data.destination) ? '-'
         : formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));

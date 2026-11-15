@@ -11,7 +11,8 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Pool exhaustion tests: verifies behavior when concurrent requests exceed the DB pool limit.
+ * Handler-only pool exhaustion tests: excludes the production ingress chain.
+ * Verifies behavior when concurrent requests exceed the DB pool limit.
  *
  * With connectionLimit=25, these tests fire 30+ simultaneous requests to verify
  * the server handles pool saturation gracefully without crashes or hangs.

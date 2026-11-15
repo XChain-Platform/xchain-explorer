@@ -16,9 +16,13 @@
  *
  * Two boot steps of src/api.js. The parser mounts after CORS, the shedding
  * guards and observability, so a bad body is charged, logged and answered
- * with the CORS headers a browser needs to read it. The refusal handler
- * mounts last and answers every body-parser failure, from this parser or a
- * route's own, with a registered code instead of the framework's HTML page.
+ * with the CORS headers a browser needs to read it. The one exception is the
+ * two JSON-RPC paths: the concurrency gate needs the method, so rate_limits.js
+ * reads those bodies first through this module's own parser instance. A body
+ * refused there is charged by the limiter but never reaches observability.
+ * The refusal handler mounts last and answers every body-parser failure, from
+ * this parser or a route's own, with a registered code instead of the
+ * framework's HTML page.
  *
  ********************************************************************/
 
@@ -33,11 +37,19 @@ const BODY_ERROR_TYPES = new Set([
     'request.size.invalid', 'stream.encoding.set', 'stream.not.readable'
 ]);
 
+// The one global ceiling, built once: applyJsonBody mounts it for every route and
+// rate_limits.js mounts the same instance ahead of the concurrency gate, so the
+// two cannot hold different limits. A body it has already read is passed through.
+const globalJsonBody = express.json({ limit: '10kb' });
+
 /**
- * Whether a path is one of the JSON-RPC dispatcher's two entry points.
+ * Whether a path is one of the JSON-RPC dispatcher's two published entry points.
  *
  * The dispatcher is root-mounted and reached at POST / and POST /{COIN}/api/
- * (the federation reads), so a refusal there is a JSON-RPC error object.
+ * (the federation reads), so a refusal there is a JSON-RPC error object. The
+ * router also answers any other POST no route claimed, but those paths are not
+ * entry points: a body refused there takes the REST shape, and a ping there
+ * gets no gate exemption.
  *
  * @param {string} reqPath the request path
  * @returns {boolean} true for / and /{COIN}/api with or without the slash
@@ -82,18 +94,19 @@ function sendBodyError(err, req, res){
  *
  * Nothing on this read-only API legitimately posts more than 10kb. The
  * exceptions are POST /{COIN}/api/preflight and POST /{COIN}/api/feequote, which
- * each carry a whole composed action (a 250-command BATCH is ~17,500 characters)
- * and mount their own parser with their own ceiling at the route. The
+ * each carry a whole composed action (a 250-command BATCH is ~17,500 characters),
+ * and POST /{COIN}/api/contract/{idx}/call, whose validator accepts 32 params of
+ * 1024 bytes. Each mounts its own parser with its own ceiling at the route. The
  * predicates live beside those routes so a predicate cannot drift from its route.
  *
  * @param {object} app the express app
- * @param {function} XChainExplorer the explorer class (isPreflightPostRequest, isFeeQuotePostRequest)
+ * @param {function} XChainExplorer the explorer class (isPreflightPostRequest, isFeeQuotePostRequest, isContractCallPostRequest)
  */
 function applyJsonBody(app, XChainExplorer){
-    const globalJson = express.json({ limit: '10kb' });
     app.use((req, res, next) => {
-        if (XChainExplorer.isPreflightPostRequest(req) || XChainExplorer.isFeeQuotePostRequest(req)) return next();
-        return globalJson(req, res, next);
+        if (XChainExplorer.isPreflightPostRequest(req) || XChainExplorer.isFeeQuotePostRequest(req) ||
+            XChainExplorer.isContractCallPostRequest(req)) return next();
+        return globalJsonBody(req, res, next);
     });
 }
 
@@ -117,4 +130,4 @@ function applyBodyErrorHandler(app){
     });
 }
 
-module.exports = { applyJsonBody, applyBodyErrorHandler, sendBodyError, isJsonRpcPath };
+module.exports = { applyJsonBody, applyBodyErrorHandler, sendBodyError, isJsonRpcPath, globalJsonBody };

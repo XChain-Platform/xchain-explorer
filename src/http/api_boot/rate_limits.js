@@ -28,9 +28,8 @@
 
 'use strict';
 
-const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { isJsonRpcPath } = require('./json_body.js');         // the dispatcher's two entry paths
+const { isJsonRpcPath, globalJsonBody } = require('./json_body.js');   // the dispatcher's two entry paths and the one global parser
 const concurrencyGate = require('../concurrency_gate.js');
 const { limitedHandler } = require('../rate_limit_log.js');  // limiter counter line, shared with XChainExplorer's per-route limiters
 const { isFileMount } = require('../static_mounts.js');     // disk-served mounts, which take the static bucket below
@@ -146,14 +145,13 @@ function applyRateLimits(app, configInfo, isStaticAsset){
     // 429 exactly while the gate was saturated, so in_flight and shed were
     // unreadable when they mattered and a full gate failed the healthcheck.
     // The skip needs the RPC method, which lives in the body, so the two
-    // dispatcher paths are parsed here, ahead of the gate, at the same 10kb
-    // ceiling the global parser applies; that parser then finds the body
-    // already read and passes it through. A lone ping skips the cap and stays
+    // dispatcher paths are parsed here, ahead of the gate, by the global
+    // parser instance itself; the later mount then finds the body already
+    // read and passes it through. A lone ping skips the cap and stays
     // bounded per IP by the limiter above.
-    const jsonRpcBody = express.json({ limit: '10kb' });
     app.use((req, res, next) => {
         if(req.method !== 'POST' || !isJsonRpcPath(req.path)) return next();
-        return jsonRpcBody(req, res, next);
+        return globalJsonBody(req, res, next);
     });
 
     const requestGate = concurrencyGate.createConcurrencyGate({

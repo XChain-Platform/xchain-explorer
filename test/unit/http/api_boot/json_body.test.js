@@ -178,6 +178,71 @@ describe('json body refusal rules', function () {
     });
 });
 
+// A JSON object whose serialized length is exactly n bytes.
+const jsonOfBytes = (n) => '{"pad":"' + 'x'.repeat(n - 10) + '"}';
+// A JSON-RPC ping whose serialized length is exactly n bytes.
+const pingOfBytes = (n) => {
+    const head = '{"jsonrpc":"2.0","id":1,"method":"ping","pad":"';
+    return head + 'x'.repeat(n - head.length - 2) + '"}';
+};
+
+describe('json body ceilings at the byte boundary', function () {
+    const TEN_KB = 10 * 1024;
+    let request;
+    before(function () {
+        request = supertest(bootApp());
+    });
+    const send = (path, body) => request.post(path).set('Content-Type', 'application/json').send(body);
+
+    it('accepts a REST body of exactly 10kb and refuses one byte more', async function () {
+        expect((await send('/RBTC/api/balances', jsonOfBytes(TEN_KB))).status).to.equal(200);
+        const over = await send('/RBTC/api/balances', jsonOfBytes(TEN_KB + 1));
+        expect(over.status).to.equal(413);
+        expect(over.body.code).to.equal('BODY_TOO_LARGE');
+    });
+
+    it('holds both dispatcher paths to the same 10kb boundary', async function () {
+        for (const p of ['/', '/RBTC/api/']) {
+            const ok = await send(p, pingOfBytes(TEN_KB));
+            expect(ok.status, p).to.equal(200);
+            expect(ok.body.result, p).to.equal('pong');
+            const over = await send(p, pingOfBytes(TEN_KB + 1));
+            expect(over.status, p).to.equal(413);
+            expect(over.body.error.code, p).to.equal(-32600);
+        }
+    });
+
+    it('pins the preflight route ceiling to 2.5mb and accepts its worst legal body', async function () {
+        expect(PREFLIGHT_BODY_LIMIT).to.equal('2.5mb');
+        const limit = 2.5 * 1024 * 1024;
+        const worst = JSON.stringify({ params: '\u0001'.repeat(XChainExplorer.MAX_PREFLIGHT_PARAMS_LENGTH) });
+        expect(Buffer.byteLength(worst)).to.be.greaterThan(2.3 * 1000 * 1000).and.to.be.lessThan(limit);
+        expect((await send('/RBTC/api/preflight', worst)).status).to.equal(200);
+        expect((await send('/RBTC/api/preflight', jsonOfBytes(limit + 1))).status).to.equal(413);
+    });
+});
+
+describe('json body: one global parser', function () {
+    const fs = require('fs');
+    const path = require('path');
+    const read = (f) => fs.readFileSync(path.join(__dirname, '../../../../src/http/api_boot', f), 'utf8');
+
+    it('builds the 10kb parser once and shares it with the pre-gate dispatcher parse', function () {
+        const files = fs.readdirSync(path.join(__dirname, '../../../../src/http/api_boot')).filter((f) => f.endsWith('.js'));
+        const builders = files.filter((f) => /express\.json\(/.test(read(f)));
+        expect(builders).to.deep.equal(['json_body.js']);
+        expect(read('json_body.js').match(/express\.json\(\{\s*limit:\s*'10kb'\s*\}\)/g)).to.have.length(1);
+        expect(read('rate_limits.js')).to.match(/globalJsonBody\(req, res, next\)/);
+    });
+
+    it('answers an oversized body on an unclaimed POST path in the REST shape', async function () {
+        const res = await supertest(bootApp()).post('/RBTC/api/tx/abc')
+            .set('Content-Type', 'application/json').send(jsonOfBytes(20 * 1024));
+        expect(res.status).to.equal(413);
+        expect(res.body).to.deep.equal({ error: 'Request body too large', code: 'BODY_TOO_LARGE' });
+    });
+});
+
 describe('json body: mount order', function () {
     it('mounts the parser after the guards and the refusal handler last', function () {
         const src = srcText('src/api.js');

@@ -11,7 +11,8 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Memory stability tests: detects heap leaks during sustained load.
+ * Handler-only memory stability tests: excludes the production ingress chain.
+ * Detects heap leaks during sustained load.
  *
  * Samples process.memoryUsage() before and after autocannon runs to detect
  * monotonically growing heap (indicative of a memory leak).

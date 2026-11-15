@@ -199,13 +199,13 @@ function actionDetail_renderMarketActions(html, action, info, coin){
         html += info.coin2 + ' action ' + formatLink('/' + networkCoin(info.coin2) + '/action/' + info.coin2_action_index, info.coin2_action_index);
     }
     if(action=='LIST'){
-        let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
+        let fmt = isNull(info.action_format) ? null : Number(info.action_format);
+        let action3 = fmt === 2 ? 'Share' : fmt === 3 ? 'Transfer'
+            : (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create';
         // Read the type off the canonical XC.list_types map, never a second inline copy:
-        // showListDetails consumes the map too, so this keeps one source of truth. An
-        // invalid edit row can carry a null type, the parent lookup having failed while
-        // the row persisted, so name that case rather than printing 'undefined'.
+        // showListDetails also uses it; name a null type when the invalid edit row persisted.
         let type2   = XC.list_types[info.type] || 'Unknown';
-        html = action3 + ' ' + type2 + ' List';
+        html = (fmt === 5) ? 'Update ' + type2 + ' List metadata' : action3 + ' ' + type2 + ' List';
     }
     // Name the BET shape from its record format, the one shape key every summary
     // surface projects; a row with no format keeps the generic name.

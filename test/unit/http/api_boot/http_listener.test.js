@@ -76,7 +76,8 @@ describe('http_listener slow request bodies', function(){
                 s.write('POST / HTTP/1.1\r\nHost: x\r\nContent-Type: application/json\r\nContent-Length: 8000\r\n\r\n{');
                 socks.push(s);
             }
-            await sleep(100);
+            const heldBy = Date.now() + 2000;
+            while(gate.getStats().in_flight < 2 && Date.now() < heldBy) await sleep(10);
             expect(gate.getStats().in_flight).to.equal(2);
             expect(await get(port)).to.equal(429);
 

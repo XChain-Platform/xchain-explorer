@@ -39,11 +39,46 @@
 const { getLogger } = require('../../../observability');
 const log = getLogger();
 const { dispenserLifecyclePass } = require('../../query_sql/data_post.js');
+const multipart = require('../../../explorer/multipart_file.js');
 
 // How long a token description read for the /relay check is reused before it is read again.
 const TOKEN_DESCRIPTION_TTL_MS = 60 * 1000;
 
 class EntityLookupReaders {
+    async getMultipartFileRaw(config, actionIndex, options = {}) {
+        const requested = Number(actionIndex);
+        const query = `SELECT fm.action_index AS manifest_action_index, ms.status AS manifest_status,
+                EXISTS(SELECT 1 FROM file_parts requested_part WHERE requested_part.action_index=?) AS part_exists, fm.file_hash, fm.total_parts,
+                fm.total_bytes, f.name, mt.type, CASE WHEN gf.action_index IS NULL THEN 0 ELSE 1 END AS gated, fc.result AS completion_result,
+                manifest_hash.hash AS manifest_tx_hash, fp.part_index AS position,
+                fp.action_index AS part_action_index, part_hash.hash AS part_tx_hash, fp.byte_length, fp.part_digest
+            FROM (SELECT ? AS requested_action_index) requested LEFT JOIN file_manifests fm ON (fm.action_index=requested.requested_action_index)
+            LEFT JOIN index_statuses ms ON (ms.id=fm.status_id) LEFT JOIN files f ON (f.action_index=fm.action_index)
+            LEFT JOIN index_mime_types mt ON (mt.id=f.type_id) LEFT JOIN gated_files gf ON (gf.action_index=fm.action_index)
+            LEFT JOIN file_completions fc ON (fc.manifest_action_index=fm.action_index) LEFT JOIN actions manifest_action ON (manifest_action.action_index=fm.action_index)
+            LEFT JOIN transactions manifest_tx ON (manifest_tx.tx_index=manifest_action.tx_index) LEFT JOIN index_transactions manifest_hash ON (manifest_hash.id=manifest_tx.tx_hash_id)
+            LEFT JOIN file_parts fp ON (fp.source_id=fm.source_id AND fp.file_hash=fm.file_hash AND fp.part_index < fm.total_parts
+                AND fp.action_index=(SELECT MIN(candidate.action_index) FROM file_parts candidate INNER JOIN index_statuses candidate_status ON (candidate_status.id=candidate.status_id)
+                    WHERE candidate.source_id=fm.source_id AND candidate.file_hash=fm.file_hash AND candidate.part_index=fp.part_index AND candidate_status.status='valid'))
+            LEFT JOIN actions part_action ON (part_action.action_index=fp.action_index) LEFT JOIN transactions part_tx ON (part_tx.tx_index=part_action.tx_index)
+            LEFT JOIN index_transactions part_hash ON (part_hash.id=part_tx.tx_hash_id) ORDER BY fp.part_index ASC`;
+        const rows = await this.doQuery(config, query, [requested, requested]);
+        const result = multipart.recordFromRows(rows, this.util);
+        if(result.kind !== 'manifest') return result;
+        if(String(result.completion_result) !== 'complete' || options.metadataOnly) return result;
+
+        const dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
+        if(this.util.isNull(dbName) || !/^[A-Za-z0-9_$]+$/.test(dbName))
+            throw new Error('Multipart FILE decoder database is unavailable');
+        const hashes = multipart.decoderHashes(result, this.util);
+        const placeholders = hashes.map(() => '?').join(',');
+        const decoderQuery = 'SELECT t2.hash, t1.raw_data, t1.data FROM `' + dbName + '`.transactions t1 ' +
+            'INNER JOIN `' + dbName + '`.index_transactions t2 ON (t2.id=t1.tx_hash_id) ' +
+            'WHERE t2.hash IN (' + placeholders + ')';
+        const decoderRows = await this.doDecoderQuery(config, decoderQuery, hashes);
+        return multipart.hydrateRecord(result, decoderRows);
+    }
+
     // Get the raw AES-256-GCM ciphertext bytes for a gated FILE by action_index.
     // Returns the result rows (0 or 1) so the caller can distinguish "no such gated
     // file" (empty) from a stored ciphertext. Keeps the gated_files table/column

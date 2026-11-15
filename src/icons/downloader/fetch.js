@@ -195,6 +195,11 @@ async function fetchActionFileBytes(dl, src, flavor){
         throw new Error('action: no pool configured for ' + poolKey + ' on this instance');
 
     const config = { coin: poolKey, data: {} };
+    if(typeof db.getMultipartFileRaw === 'function') {
+        const multipartFile = await db.getMultipartFileRaw(config, src.index, { metadataOnly: true });
+        if(multipartFile && (multipartFile.kind === 'manifest' || multipartFile.kind === 'manifest-invalid'))
+            throw new Error('action: FILE ' + poolKey + ':' + src.index + ' is a multi-part manifest');
+    }
     // Token-gated FILEs are stored as AES-GCM ciphertext and only a key holder can
     // read them, so there is no icon to render. Thrown rather than marked no-source
     // so the row lands in the normal backoff and retires as 'failed' after

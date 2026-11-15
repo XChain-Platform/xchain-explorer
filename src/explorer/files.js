@@ -27,6 +27,7 @@
 
 const path        = require('path');
 const compression = require('../http/compression.js');
+const multipart   = require('./multipart_file.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -126,38 +127,65 @@ class FileRoutes {
             return res.status(400).json({ error: 'Invalid action_index', code: 'INVALID_ACTION_INDEX' });
         if(!this.db.pools || !this.db.pools[coin])
             return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
-        let config = { coin, data: {} };
-        let raw  = null;
-        let file = null;
         try {
-            // Token-gated file first; its stored bytes are served untouched.
-            let rows = await this.db.getGatedFileRaw(config, actionIndex);
-            if(rows && rows.length > 0) raw = rows[0].raw_data;
-            // Nothing gated under that index, so fall through to the plain FILE
-            // bytes in the decoder database.
-            if(!raw)
-                file = await this.db.getFileRaw(config, actionIndex);
+            return await this.serveFileRaw({ coin, data: {} }, actionIndex, res);
         } catch (e) {
-            log.error('FILE_RAW_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
-            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+            const status = e instanceof multipart.MultipartFileError ? e.status : 500;
+            const code = e instanceof multipart.MultipartFileError ? e.code : 'SERVER_ERROR';
+            if(status >= 500)
+                log.error('FILE_RAW_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
+            const body = { error: e instanceof multipart.MultipartFileError ? e.message : 'Server error', code };
+            if(code === 'FILE_INCOMPLETE') {
+                body.parts_received = e.parts_received;
+                body.total_parts = e.total_parts;
+            }
+            res.set('Cache-Control', 'no-store');
+            return res.status(status).json(body);
         }
+    }
+
+    async serveFileRaw(config, actionIndex, res){
+        if(typeof this.db.getMultipartFileRaw === 'function') {
+            const multipartFile = await this.db.getMultipartFileRaw(config, actionIndex);
+            const refusal = multipart.refusalForMultipart(multipartFile);
+            if(refusal) throw refusal;
+            if(multipartFile.kind === 'manifest')
+                return this.sendMultipartFileBytes(res, multipartFile);
+        }
+        const rows = await this.db.getGatedFileRaw(config, actionIndex);
+        const raw = rows && rows.length > 0 ? rows[0].raw_data : null;
+        const file = raw ? null : await this.db.getFileRaw(config, actionIndex);
         if(!raw && !file)
             return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
-        // Never let the browser sniff a different content type out of the bytes
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
         if(raw){
-            // Token-gated: ALWAYS serve the stored ciphertext untouched. If the
-            // action declares COMPRESSION=1 it means inflate-AFTER-decrypt
-            // (per the file-compression spec §5.4), which only the key holder can
-            // do; inflating ciphertext here would be nonsense at best.
-            res.set('Content-Type', 'application/octet-stream');
-            res.set('X-XChain-Stored-Form', 'encrypted');
-            let disposition = await gatedFileDisposition(this.db, coin, actionIndex);
-            if(disposition) res.set('Content-Disposition', disposition);
-            return res.send(raw);
+            const disposition = await gatedFileDisposition(this.db, config.coin, actionIndex);
+            return this.sendGatedFileBytes(res, raw, disposition);
         }
         return this.sendStoredFileBytes(res, file);
+    }
+
+    sendMultipartFileBytes(res, file){
+        const assembled = multipart.assembleMultipartFile(file);
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+        if(file.gated) {
+            const disposition = file.name ? safeAttachmentFilename(file.name) : null;
+            return this.sendGatedFileBytes(res, assembled, disposition);
+        }
+        return this.sendStoredFileBytes(res, {
+            raw_data: assembled,
+            type: file.type,
+            data: file.data
+        }, { maxOutputBytes: multipart.maxInflatedBytes(assembled.length) });
+    }
+
+    sendGatedFileBytes(res, bytes, disposition){
+        res.set('Content-Type', 'application/octet-stream');
+        res.set('X-XChain-Stored-Form', 'encrypted');
+        if(disposition) res.set('Content-Disposition', disposition);
+        return res.send(bytes);
     }
 
     /**
@@ -168,7 +196,7 @@ class FileRoutes {
      * point; the headers already set there (nosniff, immutable caching) are the
      * caller's, and this adds only what the served form calls for.
      */
-    async sendStoredFileBytes(res, file){
+    async sendStoredFileBytes(res, file, options = {}){
         // Non-gated: honor the declared MIME type inline only when it is a
         // well-formed, render-safe media type; anything else (html, svg, xml,
         // scripts, unknown) is forced to download as an opaque attachment.
@@ -188,7 +216,7 @@ class FileRoutes {
         // serves the STORED bytes under a header rather than partial output (§5.5).
         let served;
         try {
-            served = await compression.resolveServedBytes(file.raw_data, file.data);
+            served = await compression.resolveServedBytes(file.raw_data, file.data, options);
         } catch (e) {
             // resolveServedBytes is contractually non-throwing; this is a
             // belt-and-braces guard so a reader bug can never 500 a file route.

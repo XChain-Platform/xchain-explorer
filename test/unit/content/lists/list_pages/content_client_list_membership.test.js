@@ -73,6 +73,9 @@ function renderListDetails(data) {
     return {
         tables,
         tabLabel:        $('#list-items-tab').text().trim(),
+        typeCell:        $('#info-list .list-type').text(),
+        itemsHead:       $('#datatable-list-items thead').text(),
+        editsHead:       $('#datatable-list-edits thead').text(),
         membershipShown: !$('#info-list .list-membership-row').hasClass('d-none'),
         membershipLink:  $('#info-list .list-membership-action-index').text().trim(),
     };
@@ -136,6 +139,22 @@ describe('client: the LIST page shows current membership', function () {
             action_index: 100, type: 2, edit: 0, list_action_index: null, list: CREATE_ROWS });
         expect(out.tables['list-items']).to.deep.equal(CREATE_ROWS);
         expect(out.membershipShown).to.equal(false);
+    });
+
+    it('names a null or unmapped list type Unknown, never undefined', function () {
+        const nullType = renderListDetails({ action_index: 7, type: null, edit: 1, list: [], edits: [] });
+        expect(nullType.itemsHead).to.contain('Unknown');
+        expect(nullType.editsHead).to.contain('Unknown');
+        expect(nullType.itemsHead + nullType.editsHead + nullType.typeCell).to.not.contain('undefined');
+        const unmapped = renderListDetails({ action_index: 8, type: 9, edit: 0, list: [], edits: [] });
+        expect(unmapped.typeCell).to.equal('9 - Unknown');
+        expect(unmapped.itemsHead).to.not.contain('undefined');
+    });
+
+    it('keeps the mapped type name in the headers', function () {
+        const out = renderListDetails({ action_index: 7, type: 2, edit: 0, list: [], edits: [] });
+        expect(out.itemsHead).to.contain('Address');
+        expect(out.typeCell).to.equal('2 - Address');
     });
 
     it('still renders the edits table', function () {

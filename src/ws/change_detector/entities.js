@@ -88,11 +88,13 @@ class EntityUpdates {
             if (ticks.length > 0) await emitTokenUpdates(this, coin, config, action, cache, ticks);
         }
 
-        // Same gate for dispensers: refresh only the ones with a subscriber, and only on
-        // the dispenser-family actions that can change one (DISPENSER_REFRESH_ACTIONS).
+        // Resolve the one dispenser this action touched before refreshing it. A failed
+        // lookup falls back to every subscriber so a transient read cannot hide a change.
         const subscribedDispensers = this.channelManager.getSubscribedDispensers(coin);
         if (subscribedDispensers.size > 0 && DISPENSER_REFRESH_ACTIONS.has(action.action)) {
-            await emitDispenserUpdates(this, coin, config, cache, subscribedDispensers);
+            const dispensers = await dispensersToRefresh(this, config, action, subscribedDispensers);
+            if (dispensers.length > 0)
+                await emitDispenserUpdates(this, coin, config, cache, dispensers);
         }
 
         // Same gate for markets, keyed by the tick pair and limited to the actions after
@@ -196,7 +198,27 @@ async function emitTokenUpdates(detector, coin, config, action, cache, subscribe
     }
 }
 
-// DISPENSER_UPDATE for every subscribed dispenser.
+async function dispensersToRefresh(detector, config, action, subscribedDispensers) {
+    try {
+        let index;
+        if (action.action === 'DISPENSER') index = action.action_index;
+        else if (action.action === 'DISPENSE')
+            index = await detector.db.getDispenseDispenserIndex(config, action.action_index);
+        else if (action.action === 'DISPENSER_CLOSE' || action.action === 'DISPENSER_EXPIRE') {
+            const table = action.action === 'DISPENSER_CLOSE' ? 'dispenser_closes' : 'dispenser_expires';
+            index = await detector.db.getDispenserLifecycleDispenserIndex(config, table, action.action_index);
+        } else {
+            index = await detector.db.getValidDispenserMutationIndex(config, action.action, action.action_index);
+        }
+        if (index === null || index === undefined) return [];
+        const matched = [...subscribedDispensers].find((key) => String(key) === String(index));
+        return matched === undefined ? [] : [matched];
+    } catch (e) {
+        return [...subscribedDispensers];
+    }
+}
+
+// DISPENSER_UPDATE for the subscribed dispenser this action changed.
 async function emitDispenserUpdates(detector, coin, config, cache, subscribedDispensers) {
     for (const dispenserIdx of subscribedDispensers) {
         try {

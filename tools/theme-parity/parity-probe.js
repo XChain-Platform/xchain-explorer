@@ -165,6 +165,22 @@ const probe = (function () {
   const schema = Object.freeze({ version: 1,
     anchors: Object.freeze({ count: A.length, hash: censusHash(A) }),
     properties: Object.freeze({ count: P.length, hash: censusHash(P) }) });
+  // Resolve every var(--name, fallback) in a declared value against an element's custom
+  // properties. The closing paren is found by depth, so a fallback such as
+  // rgba(0,0,0,.5) or a nested var() stays whole, and an unresolved name takes its
+  // resolved fallback. Text that is not a well-formed var() call is left as written.
+  const resolveVars = (text, cs) => { let out = '', i = 0;
+    while (i < text.length) {
+      const at = text.indexOf('var(', i);
+      if (at < 0) { out += text.slice(i); break; }
+      let depth = 1, j = at + 4, comma = -1;
+      for (; j < text.length && depth > 0; j++) { const c = text[j];
+        if (c === '(') depth++; else if (c === ')') depth--; else if (c === ',' && depth === 1 && comma < 0) comma = j; }
+      const name = text.slice(at + 4, comma < 0 ? j - 1 : comma).trim();
+      if (depth > 0 || !/^--[\w-]+$/.test(name)) { out += text.slice(i, at + 4); i = at + 4; continue; }
+      const fb = comma < 0 ? '' : resolveVars(text.slice(comma + 1, j - 1), cs).trim();
+      out += text.slice(i, at) + (cs.getPropertyValue(name).trim() || fb); i = j; }
+    return out; };
   const ruleSnap = () => {
     const snap = {}; let rules = 0, sheets = 0; const un = []; const seen = new Set();
     // Read one admitted sheet once; an unreadable one is recorded so health()
@@ -200,8 +216,7 @@ const probe = (function () {
           // Layout-derived properties take the same declared-value path: their
           // computed readback is the used value, which drifts with content.
           for (const p of props) snap[sel+' | '+p] = (st || LAYOUT.has(p))
-            ? r.style.getPropertyValue(p).trim().replace(/var\(\s*(--[\w-]+)\s*(?:,([^)]*))?\)/g,
-                (m,n,fb) => cs.getPropertyValue(n).trim() || (fb||'').trim())
+            ? resolveVars(r.style.getPropertyValue(p).trim(), cs)
             : cs.getPropertyValue(p).trim();
         } }
       if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, base);

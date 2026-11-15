@@ -390,8 +390,8 @@ function actionDetail_renderConsensusActions(html, action, info, coin){
     if(action=='LIST_SHARE')
         html = 'Shared list version (LIST_SHARE)';
     // Never render a blank Details cell: a type with no summary branch falls back to
-    // its humanized name. The fallback-only set is pinned by a test, so a new type
-    // must either get a branch or join that list on purpose.
+    // its humanized name. The set with no branch here or in action_system_summaries.js
+    // is pinned by a test, so a new type must get a branch or join that list on purpose.
     if(html === ''){
         let words = String(action).toLowerCase().split('_');
         html = words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');

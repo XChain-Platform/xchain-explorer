@@ -25,7 +25,7 @@ const { withIndexProbe, panelCalls }       = require('./support/index_probe.js')
 const TICK_HITS = 'SELECT t1.id FROM index_tickers t2 INNER JOIN tokens t1 ON (t1.tick_id=t2.id) WHERE t2.tick LIKE ?';
 const DESC_HITS = 'SELECT t1.id FROM tokens t1 LEFT JOIN index_tickers t2 ON (t2.id=t1.tick_id) WHERE t1.description LIKE ?';
 
-const pageHits = hits => hits.replace('SELECT t1.id FROM', 'SELECT t1.id, LEFT(t2.tick, 200) AS tick_key FROM');
+const pageHits = hits => hits.replace('SELECT t1.id FROM', 'SELECT t1.id, LEFT(t2.tick, 250) AS tick_key FROM');
 
 const tokenCfg = (limit) => makeConfig({
     coin: 'RTEST',
@@ -90,16 +90,17 @@ describe('Database#getSearch token panel with a description index', function(){
         expect(count.args[2]).to.deep.equal(['XCH%', 'XCH%']);
     });
 
-    // The members carry LEFT(tick, 200) as a VARCHAR sort key so neither the derived
-    // table nor the outer sort holds TEXT; tick(200) is UNIQUE under a binary
-    // collation, so that key orders exactly as tick does.
+    // The members carry LEFT(tick, 250) as a VARCHAR sort key so neither the derived
+    // table nor the outer sort holds TEXT; tick(250) is UNIQUE under a binary
+    // collation and a tick is at most 250 characters, so that key orders exactly as
+    // tick does. The token id breaks every remaining tie.
     it('pages the top hits of each branch in tick order, then orders the union again', async function(){
         const { stub, data } = await search({ tokenDescription: true }, 10);
         const page = tokenPage(stub);
         expect(squash(page.args[1])).to.equal(
             'SELECT t2.tick, t1.description FROM ' +
-            `((${pageHits(TICK_HITS)} ORDER BY tick_key ASC LIMIT 10) UNION (${pageHits(DESC_HITS)} ORDER BY tick_key ASC LIMIT 10)) hits ` +
-            'INNER JOIN tokens t1 ON (t1.id=hits.id) LEFT JOIN index_tickers t2 ON (t2.id=t1.tick_id) ORDER BY hits.tick_key ASC LIMIT 10');
+            `((${pageHits(TICK_HITS)} ORDER BY tick_key ASC, t1.id ASC LIMIT 10) UNION (${pageHits(DESC_HITS)} ORDER BY tick_key ASC, t1.id ASC LIMIT 10)) hits ` +
+            'INNER JOIN tokens t1 ON (t1.id=hits.id) LEFT JOIN index_tickers t2 ON (t2.id=t1.tick_id) ORDER BY hits.tick_key ASC, hits.id ASC LIMIT 10');
         expect(page.args[2]).to.deep.equal(['XCH%', 'XCH%']);
         expect(data.data).to.deep.equal([{ tick: 'XCHAIN', description: 'Gas Token' }]);
     });
@@ -162,7 +163,20 @@ describe('Database#getSearch token hit lists never carry the TEXT tick', functio
             const lists = panelCalls(stub).filter(c => /tokens t1/.test(c.args[1]))
                 .flatMap(call => [...squash(call.args[1]).matchAll(/\(SELECT (.*?) FROM /g)].map(m => m[1]));
             expect(lists).to.not.be.empty;
-            for(const list of lists) expect(['t1.id', 't1.id, LEFT(t2.tick, 200) AS tick_key']).to.include(list);
+            for(const list of lists) expect(['t1.id', 't1.id, LEFT(t2.tick, 250) AS tick_key']).to.include(list);
         });
     }
+});
+
+describe('Database#getSearch token page sorts end on the token id', function(){
+    afterEach(() => sinon.restore());
+
+    // Without the id, tokens that tie on the key (no ticker row, a shared tick_id)
+    // leave the LIMIT cut to the engine, and two requests can page different rows.
+    it('with a description index, every hit sort carries the id tie-breaker', async function(){
+        const { stub } = await search({ tokenDescription: true }, 10);
+        const sorts = [...squash(tokenPage(stub).args[1]).matchAll(/ORDER BY ([^)]*?) LIMIT/g)].map(m => m[1]);
+        expect(sorts).to.have.lengthOf(3);
+        for(const sort of sorts) expect(sort).to.match(/, (t1|hits)\.id ASC$/);
+    });
 });

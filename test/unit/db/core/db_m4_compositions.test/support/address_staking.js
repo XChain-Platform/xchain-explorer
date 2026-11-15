@@ -82,7 +82,7 @@ describe('Database#getAddressStaking (M4 address staking panel)', () => {
         // Sourcing both from one ledger over- or under-reports.
         expect(cap.query).to.include('SELECT s.signing_pubkey_id FROM stakes s');
         expect(cap.query).to.not.include('FROM contract_stakes cs');
-        expect(con.query).to.include('SELECT cs.signing_pubkey_id FROM contract_stakes cs');
+        expect(con.query).to.include('INNER JOIN contract_stakes cs ON (cs.source_id=a.id)');
         expect(con.query).to.not.include('FROM stakes s');
         expect(cap.args).to.deep.equal([ADDR]);
         expect(con.args).to.deep.equal([ADDR]);

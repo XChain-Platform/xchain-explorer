@@ -95,4 +95,4 @@ function budgetIn(budgets, url){
     return b;
 }
 
-module.exports = { EgressBudget, budgetIn, EGRESS_WINDOW_MS, INTERNAL_CLIENT };
+module.exports = { EgressBudget, budgetIn, INTERNAL_CLIENT };

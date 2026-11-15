@@ -87,4 +87,4 @@ async function idsFirstRows(db, config, page, idsSql, query, queryArgs){
     return db.doQuery(config, page.rows(ids.length), ids);
 }
 
-module.exports = { pageIdsSql, idsFirstPage, idsFirstRows };
+module.exports = { idsFirstPage, idsFirstRows };

@@ -103,8 +103,8 @@ class WebSocketServer {
         this.pingTimer  = null;
         this.idleTimer  = null;
 
-        // Valid coin prefixes derived from config
-        this.validCoins = null; // populated on first connection from explorer config
+        // Valid coin prefixes derived from the shared WebSocket coin table.
+        this.validCoins = null;
     }
 
     // Graceful shutdown

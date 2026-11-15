@@ -147,4 +147,4 @@ function parseAbi(sourceCode) {
     }
 }
 
-module.exports = { parseAbi, extractAbi, findModuleExports, propMap, literalOfType, ABI_PARAM_TYPES, CONTRACT_ECMA_VERSION };
+module.exports = { parseAbi, extractAbi, findModuleExports, ABI_PARAM_TYPES, CONTRACT_ECMA_VERSION };

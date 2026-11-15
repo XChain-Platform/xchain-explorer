@@ -110,7 +110,9 @@ function showLinkDetails(data){
 function showListDetails(data){
     if(!data.edit)
         data.edit = 0;
-    let list_type = XC.list_types[data.type];
+    // An invalid edit row can carry a null or unmapped type, so name that case
+    // rather than printing 'undefined' in the type cell and the column headers.
+    let list_type = XC.list_types[data.type] || 'Unknown';
     let type = (data.type) ? (data.type + ' - ' + list_type) : '';
     let edit = (isNumeric(data.edit)) ? (data.edit + ' - ' + XC.list_edit_types[data.edit]) : '';
     $('#info-list .list-type').text(type);

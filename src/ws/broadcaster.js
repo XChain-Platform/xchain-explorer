@@ -35,7 +35,7 @@
  *
  ********************************************************************/
 
-const { COIN_MAP } = require('./broadcaster/coin_map.js');
+const { envelopeFor } = require('./broadcaster/coin_map.js');
 const { actionChannelKeys, lifecycleChannelKeys } = require('./broadcaster/action_routes.js');
 
 // BigInt-safe JSON serializer (shared with WebSocketServer via serialize.js so the
@@ -127,7 +127,7 @@ class Broadcaster {
     // per-coin serial chain (see constructor) so its async DB read cannot reorder
     // frames during a catch-up burst.
     onBlock(coin, block) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         // A block is the only moment an address's index id can change meaning (a
@@ -201,7 +201,7 @@ class Broadcaster {
 
     // Handle new action from ChangeDetector
     onAction(coin, action) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         const event = {
@@ -254,7 +254,7 @@ class Broadcaster {
 
     // Handle lifecycle events (ORDER_MATCH, COINPAY_REQUIRED, SWAP_MATCH, etc.)
     onLifecycleEvent(coin, lifecycleEvent) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         const event = {
@@ -304,7 +304,7 @@ class Broadcaster {
 
     // Handle entity update events (ADDRESS_UPDATE, TOKEN_UPDATE, MARKET_UPDATE, DISPENSER_UPDATE)
     onEntityUpdate(coin, updateEvent) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         const event = {

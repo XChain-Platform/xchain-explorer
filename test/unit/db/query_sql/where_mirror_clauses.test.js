@@ -15,6 +15,7 @@
 'use strict';
 
 const assert = require('assert');
+const { addressSlashScope } = require('../../../../src/db/query_sql/slash_scope/address_slash_scope.js');
 
 const {
     MIRROR_CLAUSE_BUILDERS
@@ -39,10 +40,7 @@ const TYPE_CASES = {
     getSlashEvents: [
         ['block', ' AND m.block_index=?'],
         ['contract', ' AND m.target_contract_index=?'],
-        ['address', ` AND m.signing_pubkey_id IN (
-                SELECT DISTINCT signing_pubkey_id FROM contract_stakes
-                WHERE source_id = (SELECT id FROM index_addresses WHERE address=?)
-            )`]
+        ['address', ' AND ' + addressSlashScope()]
     ],
     getCapabilitySlashEvents: [
         ['block', ' AND m.block_index=?'],

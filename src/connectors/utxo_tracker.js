@@ -115,11 +115,4 @@ async function readTrackerInfo({ base, address, client, coin, env }){
     }
 }
 
-// Forget every window, pause and log count. For suites, which share this module.
-function resetTrackerEgress(){
-    egressBudgets.clear();
-    cooldownUntil.clear();
-    warnState.clear();
-}
-
-module.exports = { readTrackerInfo, resetTrackerEgress };
+module.exports = { readTrackerInfo };

@@ -15980,7 +15980,7 @@
                     "type": "string",
                     "pattern": "^[A-Z0-9_]{1,32}$",
                     "example": "ISSUE",
-                    "description": "Action name"
+                    "description": "Action name; checked after trimming and uppercasing, with canonical uppercase recommended"
                   },
                   "params": {
                     "type": "string",
@@ -16165,7 +16165,7 @@
               "pattern": "^[A-Z0-9_]{1,32}$"
             },
             "example": "SEND",
-            "description": "Action name (aliases are resolved)"
+            "description": "Action name; checked after trimming and uppercasing, with canonical uppercase recommended (aliases are resolved)"
           },
           {
             "in": "query",
@@ -16260,7 +16260,7 @@
                     "type": "string",
                     "pattern": "^[A-Z0-9_]{1,32}$",
                     "example": "BATCH",
-                    "description": "Action name (aliases are resolved)"
+                    "description": "Action name; checked after trimming and uppercasing, with canonical uppercase recommended (aliases are resolved)"
                   },
                   "params": {
                     "type": "string",
@@ -17543,6 +17543,39 @@
                     "null"
                   ],
                   "description": "Set instead of a status when the sub-command was never dispatched (a VM-reaching action is not run on this public surface); null otherwise"
+                },
+                "legs": {
+                  "type": "array",
+                  "description": "Multi-leg SEND only: each leg and its own settlement status, in wire order.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "tick": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "amount": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "destination": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "status": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
                 }
               },
               "required": [

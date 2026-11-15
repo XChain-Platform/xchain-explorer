@@ -131,7 +131,11 @@ class CheckpointProofs {
             // Canonical signing string, byte-identical to the hub engine + ANCHOR
             // verifier + SDK (canonicalCheckpointString below the class; exported so
             // the unit suite cross-checks it against the SDK builder byte-for-byte).
-            let canonical = canonicalCheckpointString(cp);
+            let canonical = null;
+            try { canonical = canonicalCheckpointString(cp); }
+            catch(e) {
+                if(!hasSupersedeFields(cp) || isCheckpointSupersedeActive(cp.snapshot_block, cp.network)) throw e;
+            }
 
             let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
             let result = this.checkpointVerifyResult(cp, canonical, validators);
@@ -213,6 +217,7 @@ class CheckpointProofs {
         if (Array.isArray(cp.validator_signatures)) sigs = cp.validator_signatures;
         else { try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ log.error('CHECKPOINT_VERIFY_SIGNATURES_PARSE_FAILED', { chain: cp.chain, block_index: cp.block_index, err: e && e.message ? e.message : e, stack: e && e.stack }); sigs = []; sigsParseFailed = true; } }
         let validSigs = 0, seen = new Set(), validSigners = [];
+        if(canonical == null) return { validSigs, validSigners, sigsParseFailed };
         for(let s of sigs){
             let pk  = String(s && s.pubkey || '').toLowerCase();
             let sig = String(s && s.sig || '');
@@ -342,8 +347,10 @@ function canonicalCheckpointString(cp){
        cp.state_root_version != null && cp.block_merkle_version != null)
         canonRaw += '|' + [String(cp.state_root).toLowerCase(), String(cp.state_root_version),
                            String(cp.block_merkle_root).toLowerCase(), String(cp.block_merkle_version)].join('|');
-    if(isCheckpointSupersedeActive(cp.snapshot_block, cp.network))
-        canonRaw += supersedeSuffix(cp);
+    const supersedeActive = isCheckpointSupersedeActive(cp.snapshot_block, cp.network);
+    if(!supersedeActive && hasSupersedeFields(cp))
+        throw new Error('checkpoint supersession fields are not active for snapshot_block ' + cp.snapshot_block);
+    if(supersedeActive) canonRaw += supersedeSuffix(cp);
     return eq.isEquivHeaderActive(cp.snapshot_block, cp.network)
         ? eq.buildEquivCanonical(eq.ENGINE_TAGS.CHECKPOINT,
             cp.chain + '|' + cp.network + '|' + cp.block_index + '|' + cp.checkpoint_seq, 0, canonRaw)

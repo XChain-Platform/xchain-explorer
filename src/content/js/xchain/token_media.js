@@ -147,8 +147,9 @@ function actionRefToRawPath(ref){
 
 // Resolve TIS `data_ref` entries across the media arrays. A data_ref of
 // "action:<index>" points at an on-chain FILE action; clients prefer it over
-// `data` when both are present (Token_Information_Standard.md, File Entry
-// Fields). Resolves to the explorer's own raw FILE endpoint. Also guarantees
+// `data` when both are present; see
+// xchain-documentation/protocol/token-information-standard.md#file-entry-fields.
+// Resolves to the explorer's own raw FILE endpoint. Also guarantees
 // every entry carries a string `data` so downstream substring/split calls are
 // safe on data_ref-only entries.
 function resolveTisDataRefs(o){

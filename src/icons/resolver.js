@@ -109,8 +109,9 @@ function resolveDescriptionToSource(description){
 // claimed.
 
 // 0. action:<index> / action:<COIN>:<index>: an on-chain TIS document, the
-// format the platform's own Token_Information_Standard promotes. The token
-// page resolves it live (actionRefToRawPath, content/js/xchain/token_media.js)
+// format the platform's Token Information Standard promotes. See
+// xchain-documentation/protocol/token-information-standard.md#on-chain-format-action-index.
+// The token page resolves it live (actionRefToRawPath, content/js/xchain/token_media.js)
 // and this file's whole contract is to pick the source that page would, so it
 // has to match the page's regex exactly: same three sibling tickers, same
 // digits-only index, and the sibling coin's network tier supplied by the caller

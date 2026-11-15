@@ -73,7 +73,9 @@ function buildNetworkState(block, blockTime, unconfirmed, unconfirmedNode){
         block : block,
         time  : blockTime,
         // Real mempool size: count of unconfirmed XChain-carrying txs for
-        // this coin (0 if neither the decoder API nor DB is reachable).
+        // this coin. null when a configured decoder endpoint cannot answer
+        // (unknown, never an empty mempool); 0 when only the decoder DB path
+        // is unreadable.
         unconfirmed: unconfirmed,
         // The coin node's TOTAL mempool tx count (XChain or not), from
         // the decoder API. null when no decoder API resolves for this

@@ -171,6 +171,18 @@ describe('Database#getNetwork', () => {
         expect(data.network.unconfirmed_node).to.equal(null);
     });
 
+    it('publishes network.unconfirmed as null when the configured decoder endpoint cannot answer', async () => {
+        setupPool(db, 'BTC', 'XChain_BTC');
+        sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 1));
+        sinon.stub(db, 'getMaxBlockIndex').resolves(800000);
+        sinon.stub(db, 'getMaxBlockTime').resolves(1700000000);
+        sinon.stub(db, 'getDecoderMempoolCount').resolves(null);
+
+        const [data] = await db.getNetwork(cfg());
+        // Unknown is not an empty mempool: the response schema and the SDK type both admit null.
+        expect(data.network.unconfirmed).to.equal(null);
+    });
+
     it('resolves coin name + symbol from the per-coin chain config', async () => {
         setupPool(db, 'BTC', 'XChain_BTC');
         sinon.stub(db, 'doQuery').callsFake(makeNetworkStub(db, 1));

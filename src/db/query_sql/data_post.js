@@ -135,4 +135,4 @@ async function applyPostPasses(db, config, data){
     return data;
 }
 
-module.exports = { dispenserLifecyclePass, dispenserPass, contractPass, validatorPass, orderPass, balancePass, applyPostPasses };
+module.exports = { dispenserLifecyclePass, dispenserPass, applyPostPasses };

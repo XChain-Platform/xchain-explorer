@@ -30,6 +30,8 @@ function mk(over) {
         getActionsSince:             sinon.stub().resolves([]),
         getOrderMatchSettlement:     sinon.stub().resolves(null),
         getDispenseDispenserIndex:   sinon.stub().resolves(null),
+        getDispenserLifecycleDispenserIndex: sinon.stub().resolves(null),
+        getValidDispenserMutationIndex: sinon.stub().resolves(null),
         getCoinpayObligation:        sinon.stub().resolves(null),
         getAddressBalances:          sinon.stub().resolves([]),
         getTokenInfo:                sinon.stub().resolves(null),

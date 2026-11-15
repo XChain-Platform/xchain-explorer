@@ -1231,7 +1231,7 @@ CREATE TABLE contract_emissions (
 CREATE INDEX execution_index ON contract_emissions (execution_index);
 CREATE INDEX action_index    ON contract_emissions (action_index);
 
--- Gated FILE v1 metadata. Every surface that lists a token's files LEFT JOINs this to
+-- Gated FILE metadata (format 0). Every surface that lists a token's files LEFT JOINs this to
 -- say whether the bytes are gated, so its absence 500s the token page and the files
 -- feed alike. Mirrors xchain-indexer/src/sql/gated_files.sql.
 DROP TABLE IF EXISTS gated_files;

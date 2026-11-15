@@ -223,7 +223,5 @@ function sendHubRequest(targetUrl, method, params, apiKey, callDeadlineMs){
 }
 
 module.exports = {
-    sendHubRequest,
-    HUB_RATE_LIMIT_RPC_CODE,
-    readRateLimitHeaders
+    sendHubRequest
 };

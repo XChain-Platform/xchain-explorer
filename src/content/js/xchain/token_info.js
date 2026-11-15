@@ -277,8 +277,8 @@ function tokenInfo_parseDescription(desc){
         arweave = /^https?:\/\/arweave\.net\//i,
         // On-chain TIS document: DESCRIPTION = "action:<index>" (same chain)
         // or "action:<COIN>:<index>" (sibling chain) pointing at a FILE
-        // action whose bytes are the TIS JSON
-        // (Token_Information_Standard.md, On-Chain Format).
+        // action whose bytes are the TIS JSON. See
+        // xchain-documentation/protocol/token-information-standard.md#on-chain-format-action-index.
         act     = /^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i;
 
     // Trim first, as the server icon resolver does, then rescue legacy arweave "/x.json" URLs,

@@ -23,12 +23,29 @@
 
 'use strict';
 
-// Map coin prefix to chain/network for event envelope
-const COIN_MAP = {};
-['BTC', 'LTC', 'DOGE'].forEach(chain => {
-    COIN_MAP[chain]       = { chain, network: 'mainnet' };
-    COIN_MAP['T' + chain] = { chain, network: 'testnet' };
-    COIN_MAP['R' + chain] = { chain, network: 'regtest' };
-});
+const { baseCoinTables } = require('../../config/resolve_coins.js');
+const { getLogger } = require('../../observability');
+const log = getLogger();
+const unmappedCoins = new Set();
 
-module.exports = { COIN_MAP };
+function buildCoinMap(tables) {
+    const map = {};
+    for (const chain of Object.keys(tables.COIN_NETWORKS || {})) {
+        for (const [network, prefix] of Object.entries(tables.COIN_PREFIXES || {}))
+            map[prefix + chain] = { chain, network };
+    }
+    return map;
+}
+
+const COIN_MAP = buildCoinMap(baseCoinTables());
+
+function envelopeFor(coin) {
+    const info = COIN_MAP[coin];
+    if (!info && !unmappedCoins.has(coin)) {
+        unmappedCoins.add(coin);
+        log.warn('WS_COIN_UNMAPPED', { coin });
+    }
+    return info;
+}
+
+module.exports = { COIN_MAP, buildCoinMap, envelopeFor };

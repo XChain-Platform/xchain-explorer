@@ -309,6 +309,7 @@ function runHandler(params, query) {
         json(body){ captured.body = body; return this; }
     };
     const self = {
+        util: new (require('../../../src/lib/utility.js'))(),
         db: { pools: { [COIN]: {} } },
         mirrorGate: () => ({ blocked: null }),
         parseCoinCode: () => ({ coin: CHAIN, network: NET }),

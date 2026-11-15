@@ -166,6 +166,5 @@ async function getarchiveanchor({ db, dbConfig, chain }, {chain: cpChain, networ
 }
 
 module.exports = {
-    ARCHIVE_CRC_RE, dedupeArchiveChunks, validateArchiveAnchorParams, selectArchiveHeadRow,
-    presentChunkIndexes, buildArchiveAnchorResponse, getarchiveanchor
+    getarchiveanchor
 };

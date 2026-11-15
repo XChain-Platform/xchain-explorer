@@ -26,7 +26,7 @@
 
 'use strict';
 
-const { COIN_MAP } = require('./coin_map.js');
+const { envelopeFor } = require('./coin_map.js');
 
 class ReorgNotice {
 
@@ -39,7 +39,7 @@ class ReorgNotice {
     // this frame silently would leave its view on the old chain, while a reconnect's
     // catch-up meets the reorg log and answers CATCH_UP_REORGED.
     onReorg(coin, info) {
-        const coinInfo = COIN_MAP[coin];
+        const coinInfo = envelopeFor(coin);
         if (!coinInfo) return;
         for (const client of this.wsServer.getClients().values()) {
             if (client.coin !== coin || !client.subscriptions || client.subscriptions.size === 0) continue;

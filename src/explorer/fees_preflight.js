@@ -55,6 +55,14 @@ const MAX_PREFLIGHT_PARAMS_LENGTH = 390000;
 // of magnitude below this and it only exists to keep the field bounded.
 const MAX_PREFLIGHT_SOURCE_LENGTH = 4096;
 
+const MAX_PROXY_ACTION_LENGTH = 256;
+
+// Validate the normalized name but retain the raw wire value: BATCH parses its literal prefix.
+function validProxyAction(action){
+    let raw = String(action);
+    return raw.length <= MAX_PROXY_ACTION_LENGTH && /^[A-Z0-9_]{1,32}$/.test(raw.trim().toUpperCase());
+}
+
 // Answer upstream failures for both fee quotes, preflight and feeschedule.
 // Mark a transient failure retryable and carry Retry-After when the indexer names one.
 // Keep a refusal or error verdict bare.
@@ -125,7 +133,7 @@ class FeesPreflight {
                     return res.status(400).json({ error: field + ' must be a string', code: 'INVALID_PARAMETER' });
             }
             action = String(action);
-            if(!/^[A-Z0-9_]{1,32}$/.test(action))
+            if(!validProxyAction(action))
                 return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
             if(!this.util.isNull(feeOutputSats) && !/^[0-9]+$/.test(String(feeOutputSats)))
                 return res.status(400).json({ error: 'invalid feeOutputSats', code: 'INVALID_PARAMETER' });
@@ -262,7 +270,7 @@ class FeesPreflight {
                     return res.status(400).json({ error: field + ' must be a string', code: 'INVALID_PARAMETER' });
             }
             action = String(action);
-            if(!/^[A-Z0-9_]{1,32}$/.test(action))
+            if(!validProxyAction(action))
                 return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
             params = this.util.isNull(params) ? undefined : String(params);
             source = this.util.isNull(source) ? undefined : String(source);

@@ -151,5 +151,5 @@ async function getanchoraction({ db, dbConfig, chain }, {chain: cpChain, network
 
 module.exports = {
     TXID_RE, normalizeVersion,
-    validateAnchorActionParams, selectAnchorRow, buildAnchorActionResponse, getanchoraction
+    getanchoraction
 };

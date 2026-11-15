@@ -42,6 +42,15 @@ const { indexPresent, setIndexAbsent, isMissingFulltextError } = require('../../
 const CONTRACT_FT_COLUMNS = ['meta_name', 'meta_description'];
 const TOKEN_DESC_COLUMNS  = ['description'];
 
+// The memo the broadcast panel matches, compared the way broadcasts.message is
+// (utf8mb4_general_ci, case-insensitive). index_memos.memo is byte-exact upstream
+// (utf8mb4_nopad_bin) because interning compares by equality, so a bare LIKE on it
+// would match case-sensitively while the message half ignores case. CONVERT first,
+// then COLLATE: a replica that has not run the memo migrations still holds memo as
+// utf8mb3, where a bare COLLATE utf8mb4_general_ci is a charset error that would
+// fail the whole search.
+const MEMO_FOLDED = 'CONVERT(m.memo USING utf8mb4) COLLATE utf8mb4_general_ci';
+
 // The token hits, for the caller to bound with its own LIMIT. The tick branch is
 // driven from index_tickers by its prefix index and joins tokens on tick_id; it is
 // an inner join because a token with no ticker row can never match a tick. The
@@ -52,8 +61,8 @@ const TOKEN_DESC_COLUMNS  = ['description'];
 // key (see searchTokenQuery). Never the TEXT tick itself: a TEXT column in a derived
 // table or a sorted join forces an on-disk temporary table.
 function tokenHitsQuery(descIndexed, limit, forPage){
-    const cols     = forPage ? 't1.id, LEFT(t2.tick, 200) AS tick_key' : 't1.id';
-    const orderBy  = forPage ? ' ORDER BY tick_key ASC' : '';
+    const cols     = forPage ? 't1.id, LEFT(t2.tick, 250) AS tick_key' : 't1.id';
+    const orderBy  = forPage ? ' ORDER BY tick_key ASC, t1.id ASC' : '';
     const tickHits = `SELECT ${cols} FROM index_tickers t2 INNER JOIN tokens t1 ON (t1.tick_id=t2.id) WHERE t2.tick LIKE ?`;
     if(!descIndexed)
         return tickHits + orderBy;
@@ -70,7 +79,7 @@ function searchCountQueries(search, ftTerm, indexes){
     let byType = {
         address:     { query: `SELECT 1 FROM index_addresses WHERE address LIKE ?`, args: [search] },
         transaction: { query: `SELECT 1 FROM transactions t1 LEFT JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id) WHERE t2.hash LIKE ?`, args: [search] },
-        broadcast:   { query: `SELECT 1 FROM broadcasts b LEFT JOIN index_memos m ON (m.id=b.memo_id) WHERE b.message LIKE ? OR m.memo LIKE ?`, args: [search, search] },
+        broadcast:   { query: `SELECT 1 FROM broadcasts b LEFT JOIN index_memos m ON (m.id=b.memo_id) WHERE b.message LIKE ? OR ${MEMO_FOLDED} LIKE ?`, args: [search, search] },
         token:       { query: tokenHitsQuery(indexes.tokenDescription, 100, false), args: tokenArgs },
         contract:    { query: `SELECT 1 FROM contracts m WHERE MATCH (m.meta_name, m.meta_description) AGAINST (? IN BOOLEAN MODE)`, args: [ftTerm] }
     };
@@ -182,7 +191,7 @@ function searchLikeQuery(dataType, searchLimit){
                             LEFT  JOIN index_statuses s ON (s.id=b.status_id)
                         WHERE
                             b.message LIKE ? OR
-                            m.memo    LIKE ?
+                            ${MEMO_FOLDED} LIKE ?
                         ORDER BY b.action_index DESC
                         LIMIT ` + searchLimit;
     return query;
@@ -191,10 +200,13 @@ function searchLikeQuery(dataType, searchLimit){
 // The token page. Tick-only, it reads straight off the tick prefix index; with the
 // description branch, the bounded hit ids are joined back to tokens and tickers for
 // the column list and ordered once more, since a UNION carries no order of its own.
-// The sort key is LEFT(tick, 200), a VARCHAR the derived table can hold in memory
-// and that sorts exactly as tick does, because index_tickers holds tick(200) UNIQUE
-// under a binary collation; sorting on the derived table alone also spares the
-// outer join a temporary table.
+// The sort key is LEFT(tick, 250), a VARCHAR the derived table can hold in memory
+// and that sorts exactly as tick does, because a tick is at most 250 characters and
+// index_tickers holds tick(250) UNIQUE under a binary collation; sorting on the
+// derived table alone also spares the outer join a temporary table. The token id
+// follows the key in every hit sort, since a token with no ticker row shares the NULL
+// key and several tokens can share one tick_id, and a LIMIT must cut the same rows
+// on every request.
 function searchTokenQuery(searchLimit, descIndexed){
     if(!descIndexed)
         return `SELECT
@@ -214,7 +226,7 @@ function searchTokenQuery(searchLimit, descIndexed){
                             (${tokenHitsQuery(true, searchLimit, true)}) hits
                             INNER JOIN tokens        t1 ON (t1.id=hits.id)
                             LEFT  JOIN index_tickers t2 ON (t2.id=t1.tick_id)
-                        ORDER BY hits.tick_key ASC
+                        ORDER BY hits.tick_key ASC, hits.id ASC
                         LIMIT ` + searchLimit;
 }
 

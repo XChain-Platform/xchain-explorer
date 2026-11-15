@@ -76,7 +76,7 @@ async function seedIndexerFixtures() {
 
     // --- FILE seeds ---------------------------------------------------------
     // Action 95 is a plain PNG and action 97 is plain HTML. Actions 96 and 98
-    // are gated but have no mappings_files row, matching FILE v1 indexing.
+    // are gated but have no mappings_files row, matching gated FILE indexing.
     await db.query(`INSERT IGNORE INTO files (action_index, name, title, type_id, memo_id, status_id) VALUES
         (95, 'pepe.png',  'Pepe Artwork', 1, NULL, 1),
         (96, 'secret.bin', 'First gated file', 1, 1, 1),

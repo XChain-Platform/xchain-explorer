@@ -260,7 +260,8 @@ class HealthDecoderReaders {
     // decoder DB's mempool_transactions table. Same access pattern + safety as
     // getDecoderTip (DB-qualified query on the indexer pool; only works when the
     // decoder DB shares the indexer's server/credentials). Returns 0 when the
-    // decoder DB isn't reachable so callers always get a usable number.
+    // decoder DB isn't reachable, and null when a configured decoder endpoint
+    // cannot answer, so callers must treat the result as number | null.
     // Cached per coin for MEMPOOL_COUNT_CACHE_MS (default 15s, same pattern as
     // getFeeEstimate's _feeCache): the count backs the unauthenticated coin
     // homepage / network stats, and an uncached COUNT(*) on a busy mempool table

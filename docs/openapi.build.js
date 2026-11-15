@@ -358,7 +358,7 @@ const SPECIAL = [
                             schema: {
                                 type: 'object',
                                 properties: {
-                                    action: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$', example: 'ISSUE', description: 'Action name' },
+                                    action: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$', example: 'ISSUE', description: 'Action name; checked after trimming and uppercasing, with canonical uppercase recommended' },
                                     params: { type: 'string', maxLength: PREFLIGHT_PARAMS_MAX_LENGTH, description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
                                     source: { type: 'string', maxLength: 4096, description: 'Source address the action would be sent from' },
                                     feeOutputSats: { type: 'string', pattern: '^[0-9]+$', description: 'Native-coin fee output size in sats, if already composed' },
@@ -407,7 +407,7 @@ const SPECIAL = [
         {
             query: [
                 { name: 'action', required: true, schema: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$' },
-                    example: 'SEND', description: 'Action name (aliases are resolved)' },
+                    example: 'SEND', description: 'Action name; checked after trimming and uppercasing, with canonical uppercase recommended (aliases are resolved)' },
                 // maxLength is the protocol's own action-payload ceiling, so the proxy never
                 // refuses on length something the indexer would have judged. In practice a GET
                 // is limited far below this by the HTTP request-line size; POST the body instead.
@@ -442,7 +442,7 @@ const SPECIAL = [
                             schema: {
                                 type: 'object',
                                 properties: {
-                                    action: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$', example: 'BATCH', description: 'Action name (aliases are resolved)' },
+                                    action: { type: 'string', pattern: '^[A-Z0-9_]{1,32}$', example: 'BATCH', description: 'Action name; checked after trimming and uppercasing, with canonical uppercase recommended (aliases are resolved)' },
                                     params: { type: 'string', maxLength: PREFLIGHT_PARAMS_MAX_LENGTH, description: 'Pipe-delimited action parameters, exactly as encoded on the wire' },
                                     source: { type: 'string', maxLength: 4096, description: 'Source address the action would be sent from' },
                                     feeMode: { type: 'string', enum: ['xchain', 'native'], description: 'How the real transaction will settle the protocol fee; omit for the chain default' },
@@ -1031,6 +1031,19 @@ const spec = {
                                 action: { type: 'string', description: 'Sub-command action name, after alias resolution' },
                                 status: { type: ['string', 'null'], description: 'This sub-command\'s own verdict status ("valid", or the rejecting status); null when the handler recorded none' },
                                 refused: { type: ['string', 'null'], description: 'Set instead of a status when the sub-command was never dispatched (a VM-reaching action is not run on this public surface); null otherwise' },
+                                legs: {
+                                    type: 'array',
+                                    description: 'Multi-leg SEND only: each leg and its own settlement status, in wire order.',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            tick: { type: ['string', 'null'] },
+                                            amount: { type: ['string', 'null'] },
+                                            destination: { type: ['string', 'null'] },
+                                            status: { type: ['string', 'null'] },
+                                        },
+                                    },
+                                },
                             },
                             required: ['position', 'action'],
                         },

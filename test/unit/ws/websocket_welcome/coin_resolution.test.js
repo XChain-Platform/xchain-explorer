@@ -17,6 +17,7 @@
 const { expect } = require('chai');
 const sinon      = require('sinon');
 const welcome    = require('../../../../src/ws/websocket_server/welcome.js');
+const { COIN_MAP } = require('../../../../src/ws/broadcaster/coin_map.js');
 
 describe('WebSocket WELCOME supported coin resolution', function () {
 
@@ -45,6 +46,15 @@ describe('WebSocket WELCOME supported coin resolution', function () {
             'LTC', 'TLTC', 'RLTC',
             'DOGE', 'TDOGE', 'RDOGE'
         ]).and.to.have.lengthOf(9);
+    });
+
+    it('loads an isolated copy of the broadcaster coin map', function () {
+        const subject = Object.create(welcome);
+        subject.loadValidCoins();
+
+        expect(subject.validCoins).to.deep.equal(COIN_MAP);
+        expect(subject.validCoins).not.to.equal(COIN_MAP);
+        expect(subject.validCoins.BTC).not.to.equal(COIN_MAP.BTC);
     });
 
 });

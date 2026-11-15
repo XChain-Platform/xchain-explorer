@@ -29,17 +29,16 @@
 'use strict';
 
 const { blockClause } = require('./where_source_lanes.js');
+const { addressSlashScope } = require('./slash_scope/address_slash_scope.js');
 
 function slashEventsClause(db, config, sql){
     let type = config.data.type;
     // slash_events has no actions/transactions chain; join directly via m.block_index
-    // and resolve type=address through the staker's pubkey (signing_pubkey_id).
+    // and resolve type=address through the staker's pubkey (signing_pubkey_id),
+    // including keys a delegation rotation replaced (see address_slash_scope.js).
     if(type=='block')    sql += ' AND m.block_index=?';
     if(type=='contract') sql += ' AND m.target_contract_index=?';
-    if(type=='address')  sql += ` AND m.signing_pubkey_id IN (
-                SELECT DISTINCT signing_pubkey_id FROM contract_stakes
-                WHERE source_id = (SELECT id FROM index_addresses WHERE address=?)
-            )`;
+    if(type=='address')  sql += ' AND ' + addressSlashScope();
     return sql;
 }
 

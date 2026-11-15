@@ -24,6 +24,7 @@
 const { expect }    = require('chai');
 const supertest     = require('supertest');
 const db            = require('./helpers/db-setup');
+const { toUnits, fromUnits } = require('./helpers/exact_decimal');
 const { createApp } = require('../integration/helpers/app-setup');
 
 let request;
@@ -55,16 +56,16 @@ describe('E2E-37: Balance equals credits minus debits', function () {
 
         const xchainBal = balRes.body.data.find(r => r.tick === 'XCHAIN');
         expect(xchainBal).to.exist;
-        const balance = parseFloat(xchainBal.amount);
+        const balance = toUnits(xchainBal.amount);
 
         // 2. Get credits
         const credRes = await request.get(`/RBTC/api/credits/${E2E_ADDR}/address`);
         expect(credRes.status).to.equal(200);
 
-        let creditSum = 0;
+        let creditSum = 0n;
         for (const row of credRes.body.data) {
             if (row.tick === 'XCHAIN') {
-                creditSum += parseFloat(row.amount);
+                creditSum += toUnits(row.amount);
             }
         }
 
@@ -72,18 +73,18 @@ describe('E2E-37: Balance equals credits minus debits', function () {
         const debRes = await request.get(`/RBTC/api/debits/${E2E_ADDR}/address`);
         expect(debRes.status).to.equal(200);
 
-        let debitSum = 0;
+        let debitSum = 0n;
         for (const row of debRes.body.data) {
             if (row.tick === 'XCHAIN') {
-                debitSum += parseFloat(row.amount);
+                debitSum += toUnits(row.amount);
             }
         }
 
         // 4. Assert: balance == credits - debits
         // Seeded: credits = 1200 + 800 = 2000, debits = 500, balance = 1500
-        expect(creditSum).to.equal(2000);
-        expect(debitSum).to.equal(500);
-        expect(balance).to.equal(creditSum - debitSum);
+        expect(fromUnits(creditSum)).to.equal(fromUnits(toUnits('2000')));
+        expect(fromUnits(debitSum)).to.equal(fromUnits(toUnits('500')));
+        expect(fromUnits(balance)).to.equal(fromUnits(creditSum - debitSum));
     });
 });
 
@@ -98,22 +99,32 @@ describe('E2E-38: Token supply equals sum of holder balances', function () {
         const tokenRes = await request.get('/RBTC/api/token/SUMTOKEN');
         expect(tokenRes.status).to.equal(200);
 
-        const supply = parseFloat(tokenRes.body.supply.current);
+        const supply = toUnits(tokenRes.body.supply.current);
 
         // 2. Get all holders
         const holdersRes = await request.get('/RBTC/api/holders/SUMTOKEN');
         expect(holdersRes.status).to.equal(200);
 
-        let holderSum = 0;
+        let holderSum = 0n;
         for (const row of holdersRes.body.data) {
-            holderSum += parseFloat(row.amount);
+            holderSum += toUnits(row.amount);
         }
 
         // 3. Assert: supply == sum(holders)
         // Seeded: supply = 3000, holders = 1000 + 1200 + 800 = 3000
         expect(Number(holdersRes.body.total)).to.equal(3);
-        expect(supply).to.equal(3000);
-        expect(holderSum).to.equal(supply);
+        expect(fromUnits(supply)).to.equal(fromUnits(toUnits('3000')));
+        expect(fromUnits(holderSum)).to.equal(fromUnits(supply));
+    });
+});
+
+describe('exact-decimal conservation oracle', function () {
+    it('distinguishes values outside JavaScript number precision', function () {
+        expect(toUnits('1.000000000000000001')).to.not.equal(toUnits('1'));
+        expect(toUnits('9007199254740993')).to.not.equal(toUnits('9007199254740992'));
+        expect(fromUnits(toUnits('0.1') + toUnits('0.2'))).to.equal(fromUnits(toUnits('0.3')));
+        expect(() => toUnits('1e3')).to.throw(/Invalid exact decimal/);
+        expect(() => toUnits('0.1234567890123456789')).to.throw(/Invalid exact decimal/);
     });
 });
 

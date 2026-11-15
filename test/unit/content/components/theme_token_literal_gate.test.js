@@ -28,19 +28,14 @@ const { stripComments } = require('./theme_token_literal_gate.test/support/helpe
 // was left behind for it to miss.
 const CSS_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'css');
 const THEME_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'themes');
-// Resolve the shared sheets against classic only, on purpose; theme tokens and theme-owned
-// sheets sit outside this file's literal check. Per-theme resolution, @imported sheets
-// included, is lintThemeTokens in tools/theme-parity/theme-lint.js, required at the bottom.
+// Shared var() references resolve against classic here. Theme-owned sheets also get
+// literal checks, while theme-lint.js owns their per-theme token resolution.
 const TOKENS_FILE = path.join(THEME_DIR, 'classic', 'tokens.css');
 const CSS_FILES = ['xchain.css', 'xchain-charts.css'];
-// Component stylesheets are held to the same rule as the page-level sheets, and
-// for a sharper reason: a component is the unit a theme replaces, so a literal
-// baked into one is a value a theme cannot reach even in principle.
+// Components are theme replacement units, so their sheets follow the same rule.
 const COMPONENT_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'components');
-// The probe itself, addressed as data. Nothing else in the repo parses this
-// file: the explorer's CSP forbids eval, so it is pasted into a devtools
-// console by hand, and a syntax error or a renamed global would surface only
-// mid-investigation on a live venue.
+// Nothing else parses this devtools probe, so syntax and global-name drift are
+// checked here before an investigation uses it.
 const PROBE_FILE = path.join(__dirname, '..', '..', '..', '..', 'tools/theme-parity/parity-probe.js');
 
 function lineAt(text, offset) {
@@ -49,8 +44,8 @@ function lineAt(text, offset) {
   return n;
 }
 
-// Flat block parser: neither stylesheet nests rules or uses @media, so
-// matching `selector { body }` at the top level is sufficient. Declaration
+// Flat block parser: matching innermost `selector { body }` blocks also reaches
+// one level of @media wrapping in theme-owned component sheets. Declaration
 // offsets are tracked with a running cursor (not body.indexOf(decl)) because
 // several declarations repeat verbatim (e.g. the border-width-none reset),
 // and indexOf would always resolve to the first occurrence.
@@ -242,15 +237,32 @@ function componentSheets() {
     .map((c) => ({ name: c.name, raw: fs.readFileSync(c.file, 'utf8') }));
 }
 
+function themeOwnedSheets() {
+  const sheets = [];
+  for (const theme of fs.readdirSync(THEME_DIR)) {
+    const root = path.join(THEME_DIR, theme);
+    if (!fs.statSync(root).isDirectory()) continue;
+    for (const relative of fs.readdirSync(root, { recursive: true })) {
+      const file = path.join(root, relative);
+      if (relative === 'tokens.css' || !relative.endsWith('.css') || !fs.statSync(file).isFile()) continue;
+      sheets.push({ name: `themes/${theme}/${relative.split(path.sep).join('/')}`, raw: fs.readFileSync(file, 'utf8') });
+    }
+  }
+  return sheets;
+}
+
 describe('theme token-literal gate (M1 A3)', () => {
   const sheets = CSS_FILES.map((name) => ({
     name,
     raw: fs.readFileSync(path.join(CSS_DIR, name), 'utf8'),
   })).concat(componentSheets());
+  const literalSheets = sheets.concat(themeOwnedSheets());
 
   it('reads no color/radius/shadow/spacing literal outside tokens.css', () => {
+    assert.ok(literalSheets.some((s) => s.name === 'themes/console/components/nav/component.css'),
+      'theme-owned sheet collection returned no console navigation override');
     const violations = [];
-    for (const sheet of sheets) {
+    for (const sheet of literalSheets) {
       for (const d of parseDeclarations(sheet.raw, sheet.name)) {
         const category = classifyViolation(d);
         if (category) {

@@ -7937,6 +7937,18 @@
         "client decimal precision keeps exact depth amounts and notionals for chart tooltips",
         "client decimal precision renders token prices without narrowing decimal strings through numeral"
       ],
+      "87a1aa1e56122d4a": [
+        "E2E-37: Balance equals credits minus debits XCHAIN balance for E2E address matches credits - debits",
+        "E2E-38: Token supply equals sum of holder balances SUMTOKEN supply matches holder total",
+        "E2E-39: Transaction and send endpoints are consistent send at action_index 9 shares tx_hash with its transaction",
+        "E2E-39: Transaction and send endpoints are consistent tx_index 9 actions include SEND at action_index 9",
+        "E2E-40: Block-scoped action counts are consistent E2E block 201 has 1 send, 1 mint, 1 broadcast, 1 issue",
+        "E2E-40: Block-scoped action counts are consistent block 2 has exactly 2 sends",
+        "E2E-40: Block-scoped action counts are consistent block 4 has exactly 3 orders",
+        "E2E-40: Block-scoped action counts are consistent block 6 has dispensers and dispenses",
+        "exact-decimal conservation oracle distinguishes values outside JavaScript number precision",
+        "prefers exported CI database settings and falls back to the venue file"
+      ],
       "87aaa500e73ed3e4": [
         "formatters module (M2.1) behaviour carried across the move escapeHtml neutralises every character that can break out of markup",
         "formatters module (M2.1) behaviour carried across the move formatAmount leaves real amounts alone and groups thousands, zero included",
@@ -9088,17 +9100,6 @@
         "channel manager type names against the action manifest keeps every NOT_ADMITTED name a manifest action the filter still refuses",
         "channel manager type names against the action manifest keeps the exemption list to names the validator really admits",
         "channel manager type names against the action manifest places every manifest category as row-producing"
-      ],
-      "9de8361e9e7bcc7e": [
-        "E2E-37: Balance equals credits minus debits XCHAIN balance for E2E address matches credits - debits",
-        "E2E-38: Token supply equals sum of holder balances SUMTOKEN supply matches holder total",
-        "E2E-39: Transaction and send endpoints are consistent send at action_index 9 shares tx_hash with its transaction",
-        "E2E-39: Transaction and send endpoints are consistent tx_index 9 actions include SEND at action_index 9",
-        "E2E-40: Block-scoped action counts are consistent E2E block 201 has 1 send, 1 mint, 1 broadcast, 1 issue",
-        "E2E-40: Block-scoped action counts are consistent block 2 has exactly 2 sends",
-        "E2E-40: Block-scoped action counts are consistent block 4 has exactly 3 orders",
-        "E2E-40: Block-scoped action counts are consistent block 6 has dispensers and dispenses",
-        "prefers exported CI database settings and falls back to the venue file"
       ],
       "9e956b60d3055c52": [
         "hub-local operational readers on a co-located hub schema getConfigs runs its direct query against the hub schema",
@@ -13247,9 +13248,9 @@
       },
       "test:e2e": {
         "fileCount": 5,
-        "titleCount": 56,
+        "titleCount": 57,
         "files": {
-          "test/e2e/cross_endpoint.test.js": "9de8361e9e7bcc7e",
+          "test/e2e/cross_endpoint.test.js": "87a1aa1e56122d4a",
           "test/e2e/data_formatting.test.js": "75f2b93fd5ced96f",
           "test/e2e/market_chart_csp.test.js": "90f28c79a79c81e7",
           "test/e2e/markets_and_errors.test.js": "11ed3e375586fb21",

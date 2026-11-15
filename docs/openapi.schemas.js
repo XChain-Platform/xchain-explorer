@@ -233,6 +233,28 @@ const ACTION_DETAIL = {
         debits: LEDGER_EFFECTS('debits'),
         escrows: LEDGER_EFFECTS('escrows'),
         fee: { oneOf: [{ type: 'null' }, ACTION_FEE], description: 'Action fee information; null when the action paid none' },
+        file_part: {
+            type: 'object',
+            description: 'Multi-part file part metadata; served only on a part\'s action index',
+            properties: {
+                file_hash: { type: 'string' },
+                manifest_action_index: NULLABLE_INTEGER,
+                part_index: { type: 'integer' },
+            },
+            required: ['file_hash', 'part_index', 'manifest_action_index'],
+        },
+        multipart: {
+            type: 'object',
+            description: 'Multi-part file assembly state; served only on a multi-part manifest\'s detail',
+            properties: {
+                file_hash: { type: 'string' },
+                parts_received: { type: 'integer' },
+                status: { type: 'string', enum: ['pending', 'complete', 'mismatch'] },
+                total_bytes: { type: 'integer' },
+                total_parts: { type: 'integer' },
+            },
+            required: ['file_hash', 'total_parts', 'parts_received', 'total_bytes', 'status'],
+        },
         runtime: RUNTIME,
         source: NULLABLE_STRING,
         status: NULLABLE_STRING,

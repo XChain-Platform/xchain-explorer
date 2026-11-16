@@ -20,6 +20,9 @@
 
 // Statement text lives under src/db/ with the rest of the explorer's SQL.
 const sql = require('../db/action_detail/misc_sql.js');
+const multipartFiles = require('../db/readers/entities/files_multipart.js');
+
+multipartFiles.installMultipartFileReaders(require('../db/readers/entities.js'));
 
 // Declare which user-encodable wire formats this handler's page renders, and why any
 // other format is left unrendered. Non-enumerable, so the declaration is not mistaken
@@ -127,7 +130,56 @@ const FILE = {
         // TODO: Add code to lookup actual file data from transactions and return an `data` item
         return { query, query2, query3 };
     },
+    async afterQueries({ db, config, action_index }, data) {
+        if(data.action_format == 2){
+            const part = await multipartFiles.readFilePartDetail(db, config, action_index);
+            if(part) Object.assign(data, buildFilePartDetail(part));
+            return;
+        }
+        if(data.action_format != 1) return;
+        const record = await db.getMultipartFileRaw(config, action_index, { metadataOnly: true });
+        const summary = buildMultipartSummary(record);
+        if(!summary) return;
+        data.multipart = summary;
+        if(summary.status === 'pending')
+            Object.defineProperty(data, 'detail_incomplete', { value: true, configurable: true });
+    },
 };
+
+function buildMultipartSummary(record) {
+    if(!record || record.kind !== 'manifest') return null;
+    const result = record.completion_result;
+    return {
+        file_hash: record.file_hash,
+        total_parts: Number(record.total_parts),
+        parts_received: Number(record.parts_received),
+        total_bytes: Number(record.total_bytes),
+        status: result === 'complete' || result === 'mismatch' ? result : 'pending'
+    };
+}
+
+function numericOrNull(value) {
+    if(value === null || value === undefined || String(value).trim() === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function buildFilePartDetail(row) {
+    return {
+        action: 'FILE',
+        action_format: 2,
+        action_index: row.action_index,
+        source: row.source,
+        tx_hash: row.tx_hash,
+        block_index: row.block_index,
+        status: row.status,
+        file_part: {
+            file_hash: row.file_hash,
+            part_index: Number(row.part_index),
+            manifest_action_index: numericOrNull(row.manifest_action_index)
+        }
+    };
+}
 
 const MESSAGE = {
     queries() {
@@ -225,10 +277,7 @@ declareFormats(ADDRESS,   [0, 1], {});
 declareFormats(BATCH,     [0], {});
 declareFormats(BROADCAST, [0, 1, 2, 3], {});
 declareFormats(CALLBACK,  [0], {});
-declareFormats(FILE,      [0], {
-    1: 'multi-part manifest state rendering ships with the multi-part detail reader',
-    2: 'multi-part part state rendering ships with the multi-part detail reader',
-});
+declareFormats(FILE,      [0, 1, 2], {});
 declareFormats(MESSAGE,   [0, 1, 2, 3], {});
 declareFormats(SLEEP,     [0, 1], {});
 declareFormats(LIST,      [0, 1, 2, 3, 5], {

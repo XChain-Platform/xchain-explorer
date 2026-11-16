@@ -21413,7 +21413,8 @@
             "description": "Multi-part file part metadata; served only on a part's action index",
             "properties": {
               "file_hash": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
               },
               "manifest_action_index": {
                 "type": [
@@ -21422,7 +21423,9 @@
                 ]
               },
               "part_index": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 31
               }
             },
             "required": [
@@ -21436,10 +21439,13 @@
             "description": "Multi-part file assembly state; served only on a multi-part manifest's detail",
             "properties": {
               "file_hash": {
-                "type": "string"
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
               },
               "parts_received": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 32
               },
               "status": {
                 "type": "string",
@@ -21450,10 +21456,14 @@
                 ]
               },
               "total_bytes": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12000000
               },
               "total_parts": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 32
               }
             },
             "required": [

@@ -33,6 +33,7 @@
 const { DbInputError } = require('../../shared.js');
 const { isMissingTableError } = require('../../schema_probe.js');
 const { pagedRowQuery } = require('../../query_sql/data_rows.js');
+const { filePartBlockCountSql, mergeFilePartCounts } = require('./file_part_block_counts.js');
 
 // The per-action-table count query for one page of blocks, as [query, args]. One
 // UNION ALL over every action table rather than a query per table, so a page costs
@@ -70,7 +71,9 @@ function blockActionCountSql(db, blockIndexes){
 }
 
 // Reads the per-action-type counts for the given blocks into blockMap: the action
-// table UNION, then the LIST renames carried as format 5 list_metas rows.
+// table UNION, then the LIST renames carried as format 5 list_metas rows, then the
+// parts of multi-part FILEs, which live in file_parts rather than files. An indexer
+// without a supplemental table counts without it rather than failing the page.
 async function readBlockActionCounts(db, config, blockMap, blockIndexes){
     let [query2, blockArgs] = blockActionCountSql(db, blockIndexes);
     let results2 = await db.doQuery(config, query2, blockArgs);
@@ -105,6 +108,14 @@ async function readBlockActionCounts(db, config, blockMap, blockIndexes){
                 blockMap[bIdx].actions.lists = Number(blockMap[bIdx].actions.lists || 0) + Number(row.count);
         }
     }
+    let partRows = [];
+    try {
+        let [partQuery, partArgs] = filePartBlockCountSql(blockIndexes);
+        partRows = await db.doQuery(config, partQuery, partArgs);
+    } catch(e){
+        if(!isMissingTableError(e)) throw e;
+    }
+    mergeFilePartCounts(blockMap, partRows || []);
 }
 
 // The height below which a block's counts may be cached, or null to cache nothing.

@@ -22,8 +22,6 @@
 const sql = require('../db/action_detail/misc_sql.js');
 const multipartFiles = require('../db/readers/entities/files_multipart.js');
 
-multipartFiles.installMultipartFileReaders(require('../db/readers/entities.js'));
-
 // Declare which user-encodable wire formats this handler's page renders, and why any
 // other format is left unrendered. Non-enumerable, so the declaration is not mistaken
 // for a getActionData hook by anything walking a handler's keys.

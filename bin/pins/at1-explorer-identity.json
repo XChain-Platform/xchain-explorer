@@ -5639,18 +5639,14 @@
         "mixinReaders installs every extracted method non-enumerably leaves Object.keys and for-in over the prototype empty",
         "mixinReaders installs every extracted method non-enumerably yields no method name from a for-in over a constructed instance"
       ],
-      "49992a3e9860e255": [
-        "openapi.json route coverage declares the checkpoint routes with their real body and params",
-        "openapi.json route coverage declares the raw-file endpoint as binary, not a JSON list",
-        "openapi.json route coverage describes the gated ciphertext layout in the order the bytes are actually written",
-        "openapi.json route coverage documents every special pre-wildcard api route",
-        "openapi.json route coverage documents every urls.api table route (and nothing extra)",
-        "openapi.json route coverage every enum in the spec is an array, as OpenAPI and JSON Schema require",
-        "openapi.json route coverage every path has operationId, tag, summary, and error responses",
-        "openapi.json route coverage every {TYPE} parameter enum matches the source table",
-        "openapi.json route coverage operationIds are unique",
-        "openapi.json route coverage the SDK producer still writes the documented byte order concatenates [iv][authTag][ciphertext]",
-        "openapi.json route coverage the contract state and balance {TYPE} segments carry no enum, since neither route filters by it"
+      "498d3dd3a31dbf3b": [
+        "theme parity baselines: every dated baseline is accounted for finds the dated baselines on disk",
+        "theme parity baselines: every dated baseline is accounted for holds a valid baseline with component coverage, or records why not",
+        "theme parity baselines: every dated baseline is accounted for holds at least one baseline the current probe accepts, or records why not",
+        "theme parity baselines: every dated baseline is accounted for keeps no table entry for a baseline that no longer exists",
+        "theme parity baselines: every dated baseline is accounted for validates each baseline or refuses it with its recorded reason",
+        "theme parity baselines: the classic record and the validator self-test fits every classic render key count to the current anchor and property census",
+        "theme parity baselines: the classic record and the validator self-test passes the capture-baseline self-test"
       ],
       "49ffb797a253373a": [
         "attestation.html detail page @regression an absent request id never becomes a path segment [has-id] a real request id still reaches the composed route unchanged",
@@ -5902,14 +5898,6 @@
         "page asset groups: every reachable global is loaded loads, on each page, every script that page can reach",
         "page asset groups: every reachable global is loaded resolves every global each page reads to some script",
         "page asset groups: every reachable global is loaded sees through the scan: dropping a needed group is caught"
-      ],
-      "50ed09289554f21e": [
-        "theme parity baselines: every dated baseline is accounted for finds the dated baselines on disk",
-        "theme parity baselines: every dated baseline is accounted for holds at least one baseline the current probe accepts, or records why not",
-        "theme parity baselines: every dated baseline is accounted for keeps no table entry for a baseline that no longer exists",
-        "theme parity baselines: every dated baseline is accounted for validates each baseline or refuses it with its recorded reason",
-        "theme parity baselines: the classic record and the validator self-test fits every classic render key count to the current anchor and property census",
-        "theme parity baselines: the classic record and the validator self-test passes the capture-baseline self-test"
       ],
       "519bea532fb2d794": [
         "@regression explorer checkpoint supersede suffix bytes detects non-null supersedes_from or rules_digest fields",
@@ -10333,6 +10321,20 @@
         "hub-mirror-migrate later hub columns is a no-op on a table that already carries every twin column",
         "hub-mirror-migrate later hub columns says nothing about a rebuild when only unstamped columns were added"
       ],
+      "c6acb9b19da28242": [
+        "openapi.json route coverage declares every multipart raw-file refusal and the incomplete body fields",
+        "openapi.json route coverage declares the checkpoint routes with their real body and params",
+        "openapi.json route coverage declares the raw-file endpoint as binary, not a JSON list",
+        "openapi.json route coverage describes the gated ciphertext layout in the order the bytes are actually written",
+        "openapi.json route coverage documents every special pre-wildcard api route",
+        "openapi.json route coverage documents every urls.api table route (and nothing extra)",
+        "openapi.json route coverage every enum in the spec is an array, as OpenAPI and JSON Schema require",
+        "openapi.json route coverage every path has operationId, tag, summary, and error responses",
+        "openapi.json route coverage every {TYPE} parameter enum matches the source table",
+        "openapi.json route coverage operationIds are unique",
+        "openapi.json route coverage the SDK producer still writes the documented byte order concatenates [iv][authTag][ciphertext]",
+        "openapi.json route coverage the contract state and balance {TYPE} segments carry no enum, since neither route filters by it"
+      ],
       "c6ec3d74c1eddb60": [
         "Security: Info Leakage: Custom headers default headers object is empty",
         "Security: Info Leakage: Custom headers does not include Access-Control-Allow-Origin in custom headers",
@@ -12721,7 +12723,7 @@
       },
       "test": {
         "fileCount": 504,
-        "titleCount": 8208,
+        "titleCount": 8210,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12801,7 +12803,7 @@
           "test/unit/content/components/component_registry.test.js": "e55afde36345b87b",
           "test/unit/content/components/content_charts.test.js": "67d00a741bbb219a",
           "test/unit/content/components/content_charts_render.test.js": "ad08471c2f023941",
-          "test/unit/content/components/theme_parity_baselines.test.js": "50ed09289554f21e",
+          "test/unit/content/components/theme_parity_baselines.test.js": "498d3dd3a31dbf3b",
           "test/unit/content/components/theme_parity_probe.test.js": "8221053e98b564df",
           "test/unit/content/components/theme_parity_probe_var_fallback.test.js": "ee749a44ac507351",
           "test/unit/content/components/theme_token_literal_gate.test.js": "7f556c7f45f6c3ec",
@@ -13102,7 +13104,7 @@
           "test/unit/http/locked_balance_proof.test.js": "82bea5d0f3a179b3",
           "test/unit/http/network_response_contract.test.js": "793e6681c7c1eb6f",
           "test/unit/http/openapi_contract_body.test.js": "654785edd4509e0c",
-          "test/unit/http/openapi_coverage.test.js": "49992a3e9860e255",
+          "test/unit/http/openapi_coverage.test.js": "c6acb9b19da28242",
           "test/unit/http/openapi_response_schemas.test.js": "aab15b91e5ebf99f",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
           "test/unit/http/preflight_route.test/params_byte_length.test.js": "52ff975112f61d08",

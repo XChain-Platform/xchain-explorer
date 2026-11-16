@@ -92,6 +92,23 @@ describe('openapi.json route coverage', () => {
     registerRouteTableTests();
 });
 
+function assertMultipartRawFileRefusals() {
+    const responses = SPEC.paths['/{COIN}/api/file/{ACTION_INDEX}/raw'].get.responses;
+    const expected = {
+        404: 'FILE_PART',
+        409: 'FILE_INCOMPLETE',
+        422: 'FILE_ASSEMBLY_MISMATCH',
+        500: 'FILE_PART_CORRUPT',
+    };
+    for (const [status, code] of Object.entries(expected)) {
+        expect(responses).to.have.property(status);
+        expect(responses[status].description).to.include(code);
+    }
+    const incomplete = responses['409'].content['application/json'].schema.allOf[1];
+    expect(incomplete.required).to.have.members(['parts_received', 'total_parts']);
+    expect(incomplete.properties).to.have.all.keys('parts_received', 'total_parts');
+}
+
 function registerSdkProducerTests() {
     it('every path has operationId, tag, summary, and error responses', () => {
         // Method-agnostic: a path documents GET, POST, or both (the contract-call
@@ -122,22 +139,8 @@ function registerSdkProducerTests() {
         expect(op.parameters.map((p) => p.name || p.$ref)).to.not.include.members(['page', 'limit', 'sortorder']);
     });
 
-    it('declares every multipart raw-file refusal and the incomplete body fields', () => {
-        const responses = SPEC.paths['/{COIN}/api/file/{ACTION_INDEX}/raw'].get.responses;
-        const expected = {
-            404: 'FILE_PART',
-            409: 'FILE_INCOMPLETE',
-            422: 'FILE_ASSEMBLY_MISMATCH',
-            500: 'FILE_PART_CORRUPT',
-        };
-        for (const [status, code] of Object.entries(expected)) {
-            expect(responses).to.have.property(status);
-            expect(responses[status].description).to.include(code);
-        }
-        const incomplete = responses['409'].content['application/json'].schema.allOf[1];
-        expect(incomplete.required).to.have.members(['parts_received', 'total_parts']);
-        expect(incomplete.properties).to.have.all.keys('parts_received', 'total_parts');
-    });
+    it('declares every multipart raw-file refusal and the incomplete body fields',
+        assertMultipartRawFileRefusals);
 
     it('describes the gated ciphertext layout in the order the bytes are actually written', () => {
         // The published spec said "12-byte nonce || AES-256-GCM ciphertext || 16-byte tag"

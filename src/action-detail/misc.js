@@ -225,7 +225,10 @@ declareFormats(ADDRESS,   [0, 1], {});
 declareFormats(BATCH,     [0], {});
 declareFormats(BROADCAST, [0, 1, 2, 3], {});
 declareFormats(CALLBACK,  [0], {});
-declareFormats(FILE,      [0], {});
+declareFormats(FILE,      [0], {
+    1: 'multi-part manifest state rendering ships with the multi-part detail reader',
+    2: 'multi-part part state rendering ships with the multi-part detail reader',
+});
 declareFormats(MESSAGE,   [0, 1, 2, 3], {});
 declareFormats(SLEEP,     [0, 1], {});
 declareFormats(LIST,      [0, 1, 2, 3, 5], {

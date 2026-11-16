@@ -70,7 +70,8 @@ describe('multipart manifest summary', function() {
 
     it('returns null for part and invalid manifest records', function() {
         assert.strictEqual(buildMultipartSummary({ kind: 'part' }), null);
-        assert.strictEqual(buildMultipartSummary({ kind: 'manifest-invalid' }), null);
+        assert.strictEqual(buildMultipartSummary({ kind: 'manifest' }), null);
+        assert.strictEqual(buildMultipartSummary({ ...manifest(null), total_parts: 'invalid' }), null);
     });
 });
 
@@ -92,7 +93,7 @@ describe('multipart file part detail', function() {
     });
 
     it('uses null when the manifest action index is absent or non-numeric', function() {
-        for(const value of [null, undefined, 'not-a-number', '  ']) {
+        for(const value of [null, undefined, 'not-a-number', '  ', false]) {
             const detail = buildFilePartDetail(part({ manifest_action_index: value }));
             assert.strictEqual(detail.file_part.manifest_action_index, null);
         }

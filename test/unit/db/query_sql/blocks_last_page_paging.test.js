@@ -40,7 +40,7 @@ const GAPS   = new Set([149703, 149704, 149711, 149730]);
 let sqlite, db;
 
 // The per-block action count reads hit tables this test does not build; they answer no rows.
-const countsQuery = (q) => !String(q).trim() || /list_metas/.test(q);
+const countsQuery = (q) => !String(q).trim() || /list_metas|file_parts/.test(q);
 
 // Heights LOWEST..LOWEST+count-1, minus the heights in `skip`.
 function seedBlocks(count, skip){

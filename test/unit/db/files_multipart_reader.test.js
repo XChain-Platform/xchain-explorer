@@ -13,10 +13,18 @@
 'use strict';
 
 const { expect } = require('chai');
+const proxyquire = require('proxyquire');
 const sinon = require('sinon');
+const Utility = require('../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
 const misc = require('../../../src/action-detail/misc.js');
 const sql = require('../../../src/db/action_detail/misc_sql.js');
+const sharedSql = require('../../../src/db/action_detail/shared_sql.js');
 const multipart = require('../../../src/db/readers/entities/files_multipart.js');
+
+const Database = proxyquire('../../../src/db/index.js', {
+    './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
+});
 
 const config = { coin: 'RBTC' };
 
@@ -43,6 +51,26 @@ function partRow(overrides = {}){
         part_index: '3',
         manifest_action_index: null
     }, overrides);
+}
+
+function productionDb(row){
+    const configInfo = createConfigInfoStub();
+    const db = new Database({ configInfo, util: new Utility(configInfo) });
+    db.getActionType = sinon.stub().resolves('FILE');
+    db.attachActionDetailSupplements = sinon.stub().resolves();
+    db.getActionFeeData = sinon.stub().resolves(null);
+    db.getTransactionData = sinon.stub().resolves({ data: null });
+    db.doQuery = sinon.stub().callsFake(async (cfg, statement) => {
+        if(statement === sql.FILE_QUERY) return [];
+        if(statement === sharedSql.ACTION_BASELINE) return [{
+            action: 'FILE', action_format: 2, action_index: 81,
+            source: 'baseline-source', tx_hash: 'baseline-hash',
+            block_index: 900, timestamp: 123
+        }];
+        if(statement === sql.FILE_PART_QUERY) return [row];
+        return [];
+    });
+    return db;
 }
 
 describe('FILE multipart format declaration', function(){
@@ -94,6 +122,26 @@ describe('FILE part action detail', function(){
             await misc.FILE.afterQueries({ db, config, action_index: 81 }, data);
             expect(data.file_part.manifest_action_index).to.equal(manifest_action_index);
         }
+    });
+});
+
+describe('FILE part production action detail fallback', function(){
+    it('resolves file_parts after FILE_QUERY returns no files row', async function(){
+        const row = partRow();
+        const db = productionDb(row);
+
+        const data = await db.getActionData(config, 81);
+
+        expect(data).to.include({
+            action: 'FILE', action_format: 2, action_index: 81,
+            source: row.source, tx_hash: row.tx_hash, block_index: 900, status: 'valid'
+        });
+        expect(data.file_part).to.deep.equal({
+            file_hash: row.file_hash, part_index: 3, manifest_action_index: null
+        });
+        sinon.assert.calledWithExactly(db.doQuery, config, sql.FILE_QUERY, [81]);
+        sinon.assert.calledWithExactly(db.doQuery, config, sharedSql.ACTION_BASELINE, [81]);
+        sinon.assert.calledWithExactly(db.doQuery, config, sql.FILE_PART_QUERY, [81]);
     });
 });
 

@@ -3316,18 +3316,6 @@
         "ATTEST validator signatures parsing keeps valid validator signatures without the unparseable flag",
         "ATTEST validator signatures parsing marks malformed validator signatures as unparseable"
       ],
-      "14f213509be0bbec": [
-        "FILE manifest multipart summary does no multipart read for format zero",
-        "FILE manifest multipart summary maps both terminal completion results",
-        "FILE manifest multipart summary uses one bulk metadata read for both 2 and 26 parts",
-        "FILE multipart format declaration declares formats 1 and 2 as rendered",
-        "FILE part action detail keeps a valid manifest index including zero",
-        "FILE part action detail resolves a part without a files row and exposes its verdict",
-        "FILE part detail read returns null when the index has no file_parts row",
-        "FILE part detail read uses one bound query and returns its row",
-        "file part block action counts merges part-only counts into the public files family",
-        "file part block action counts uses one bulk read for both 2 and 26 blocks"
-      ],
       "153997be300f8ebd": [
         "address.html staking panel @regression BTC-only sections are empty BY PROTOCOL on other chains a contract-stake section on DOGE is NOT labelled BTC-only",
         "address.html staking panel @regression BTC-only sections are empty BY PROTOCOL on other chains never dresses the BTC-only empty state as a fault",
@@ -12498,6 +12486,19 @@
         "Rocket Loader opt-out marks external, deferred and inline script tags",
         "Rocket Loader opt-out reaches every script tag on a rendered list page and a rendered detail page"
       ],
+      "fd1494a04250843e": [
+        "FILE manifest multipart summary does no multipart read for format zero",
+        "FILE manifest multipart summary maps both terminal completion results",
+        "FILE manifest multipart summary uses one bulk metadata read for both 2 and 26 parts",
+        "FILE multipart format declaration declares formats 1 and 2 as rendered",
+        "FILE part action detail keeps a valid manifest index including zero",
+        "FILE part action detail resolves a part without a files row and exposes its verdict",
+        "FILE part detail read returns null when the index has no file_parts row",
+        "FILE part detail read uses one bound query and returns its row",
+        "FILE part production action detail fallback resolves file_parts after FILE_QUERY returns no files row",
+        "file part block action counts merges part-only counts into the public files family",
+        "file part block action counts uses one bulk read for both 2 and 26 blocks"
+      ],
       "fe1d2bee2fe9022b": [
         "collectibles gallery (M5.1) classification drops a DIVISIBLE token the server should never have served",
         "collectibles gallery (M5.1) classification drops an indivisible token whose ceiling is NOT locked",
@@ -12714,7 +12715,7 @@
       },
       "test": {
         "fileCount": 503,
-        "titleCount": 8202,
+        "titleCount": 8203,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12920,7 +12921,7 @@
           "test/unit/db/core/db_reorg_real_ddl.test.js": "604a229cef54f8d7",
           "test/unit/db/core/db_result_cache.test.js": "c52649880b115c3a",
           "test/unit/db/core/db_status_coin_isolation.test.js": "ccecc38acaf586ce",
-          "test/unit/db/files_multipart_reader.test.js": "14f213509be0bbec",
+          "test/unit/db/files_multipart_reader.test.js": "fd1494a04250843e",
           "test/unit/db/guards/block_query_guard.test.js": "fa17ad3e8edcf750",
           "test/unit/db/guards/checkpoint_query_guard.test.js": "82adc841104ffb13",
           "test/unit/db/guards/ping_empty_pool_guard.test.js": "c02294c909b16034",

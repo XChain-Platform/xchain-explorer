@@ -318,17 +318,49 @@ const SPECIAL = [
     ['/{COIN}/api/file/{ACTION_INDEX}/raw', 'Files',
         'Raw FILE bytes (gated: ciphertext as octet-stream; non-gated: inline for safe media types)',
         null,
-        { response200: {
-            description: 'Raw file bytes. A gated FILE is ALWAYS application/octet-stream '
-                + '(12-byte nonce || 16-byte AES-256-GCM authentication tag || ciphertext; '
-                + 'X-XChain-Stored-Form: encrypted). '
-                + 'A non-gated FILE is served under its declared media type when that type is render-safe '
-                + '(image/*, audio/*, video/* except image/svg+xml, application/pdf, application/json) '
-                + 'and as an application/octet-stream attachment otherwise.',
-            content: {
-                'application/octet-stream': { schema: { type: 'string', format: 'binary' } },
-                '*/*':                      { schema: { type: 'string', format: 'binary' } },
-            } } }],
+        {
+            response200: {
+                description: 'Raw file bytes. A gated FILE is ALWAYS application/octet-stream '
+                    + '(12-byte nonce || 16-byte AES-256-GCM authentication tag || ciphertext; '
+                    + 'X-XChain-Stored-Form: encrypted). '
+                    + 'A non-gated FILE is served under its declared media type when that type is render-safe '
+                    + '(image/*, audio/*, video/* except image/svg+xml, application/pdf, application/json) '
+                    + 'and as an application/octet-stream attachment otherwise.',
+                content: {
+                    'application/octet-stream': { schema: { type: 'string', format: 'binary' } },
+                    '*/*':                      { schema: { type: 'string', format: 'binary' } },
+                },
+            },
+            responses: {
+                404: {
+                    description: 'Unknown action index (NOT_FOUND), unknown coin (UNKNOWN_COIN), '
+                        + 'or a multipart FILE part requested directly (FILE_PART)',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+                },
+                409: {
+                    description: 'Multipart FILE is incomplete (FILE_INCOMPLETE); retry after remaining parts arrive',
+                    content: { 'application/json': { schema: { allOf: [
+                        { $ref: '#/components/schemas/Error' },
+                        {
+                            type: 'object',
+                            required: ['parts_received', 'total_parts'],
+                            properties: {
+                                parts_received: { type: 'integer', minimum: 0 },
+                                total_parts: { type: 'integer', minimum: 0 },
+                            },
+                        },
+                    ] } } },
+                },
+                422: {
+                    description: 'Multipart FILE assembly does not match its manifest (FILE_ASSEMBLY_MISMATCH); terminal',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+                },
+                500: {
+                    description: 'Stored multipart FILE data is corrupt (FILE_PART_CORRUPT), or an unexpected read failed (SERVER_ERROR)',
+                    content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+                },
+            },
+        }],
     ['/{COIN}/api/bridge-invariant/{TICK}', 'Cross-chain',
         'Per-chain escrow, supply, in-flight amount, and policy sequence for a bridged token; ' +
         '{ available: false, reason } when this explorer has no hub to ask or the hub lacks the read',

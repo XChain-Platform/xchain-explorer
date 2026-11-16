@@ -249,7 +249,9 @@ That measurement is dated, and it is not a statement of current coverage:
   a real capture with the previous probe. The current probe records per-sheet
   selector coverage across both modes, and the builder refuses a new manifest
   without it. The dated records remain unchanged, so a new capture is still
-  required before current runtime coverage can be claimed.
+  required before current runtime coverage can be claimed. The baseline suite
+  records this as pending and requires the reason to be cleared when a valid
+  baseline with page-level and component coverage lands.
 
 A rule no page instantiates cannot be proven at runtime by any amount of
 capturing. That is why the static token-literal gate is a

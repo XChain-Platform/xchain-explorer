@@ -106,8 +106,9 @@ describe('FILE part action detail', function(){
         await misc.FILE.afterQueries({ db, config, action_index: 81 }, data);
         expect(data).to.include({
             action: 'FILE', action_format: 2, action_index: 81,
-            source: row.source, tx_hash: row.tx_hash, block_index: 900, status: 'valid'
+            source: row.source, tx_hash: row.tx_hash, block: 900, status: 'valid'
         });
+        expect(data).to.not.have.property('block_index');
         expect(data.file_part).to.deep.equal({
             file_hash: row.file_hash, part_index: 3, manifest_action_index: null
         });
@@ -134,8 +135,9 @@ describe('FILE part production action detail fallback', function(){
 
         expect(data).to.include({
             action: 'FILE', action_format: 2, action_index: 81,
-            source: row.source, tx_hash: row.tx_hash, block_index: 900, status: 'valid'
+            source: row.source, tx_hash: row.tx_hash, block: 900, status: 'valid'
         });
+        expect(data).to.not.have.property('block_index');
         expect(data.file_part).to.deep.equal({
             file_hash: row.file_hash, part_index: 3, manifest_action_index: null
         });

@@ -228,6 +228,9 @@ const ACTION_DETAIL = {
         action: { type: 'string' },
         action_format: NULLABLE_INTEGER,
         action_index: COLUMN_TYPES.D,
+        block: Object.assign({}, COLUMN_TYPES.d, {
+            description: 'Block containing a multi-part FILE part; served only on a part\'s action index'
+        }),
         block_index: COLUMN_TYPES.d,
         credits: LEDGER_EFFECTS('credits'),
         debits: LEDGER_EFFECTS('debits'),

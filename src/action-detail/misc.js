@@ -133,7 +133,10 @@ const FILE = {
     async afterQueries({ db, config, action_index }, data) {
         if(data.action_format == 2){
             const part = await multipartFiles.readFilePartDetail(db, config, action_index);
-            if(part) Object.assign(data, buildFilePartDetail(part));
+            if(part){
+                Object.assign(data, buildFilePartDetail(part));
+                delete data.block_index;
+            }
             return;
         }
         if(data.action_format != 1) return;
@@ -171,7 +174,7 @@ function buildFilePartDetail(row) {
         action_index: row.action_index,
         source: row.source,
         tx_hash: row.tx_hash,
-        block_index: row.block_index,
+        block: row.block_index,
         status: row.status,
         file_part: {
             file_hash: row.file_hash,

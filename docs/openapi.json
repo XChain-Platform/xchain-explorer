@@ -21207,6 +21207,14 @@
             "type": "string",
             "pattern": "^[0-9]+$"
           },
+          "block": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Block containing a multi-part FILE part; served only on a part's action index"
+          },
           "block_index": {
             "type": [
               "string",

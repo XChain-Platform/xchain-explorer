@@ -14,24 +14,40 @@
 
 'use strict';
 
+const MULTIPART_FILE_MAX_PARTS = 32;
+const MULTIPART_FILE_MAX_BYTES = 12000000;
+
+function numericOrNull(value) {
+    if(value === null || value === undefined) return null;
+    if(typeof value !== 'number' && typeof value !== 'string') return null;
+    if(typeof value === 'string' && value.trim() === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+}
+
+function manifestCounts(record) {
+    const totalParts = numericOrNull(record.total_parts);
+    const partsReceived = numericOrNull(record.parts_received);
+    const totalBytes = numericOrNull(record.total_bytes);
+    const valid = Number.isInteger(totalParts) && totalParts >= 2 && totalParts <= MULTIPART_FILE_MAX_PARTS &&
+        Number.isInteger(partsReceived) && partsReceived >= 0 && partsReceived <= totalParts &&
+        Number.isInteger(totalBytes) && totalBytes >= 1 && totalBytes <= MULTIPART_FILE_MAX_BYTES;
+    return valid ? { totalParts, partsReceived, totalBytes } : null;
+}
+
 function buildMultipartSummary(record) {
     if(!record || record.kind !== 'manifest') return null;
+    const counts = manifestCounts(record);
+    if(!/^[0-9a-f]{64}$/.test(record.file_hash) || counts === null) return null;
     const result = record.completion_result;
     const status = result === 'complete' || result === 'mismatch' ? result : 'pending';
     return {
         file_hash: record.file_hash,
-        total_parts: Number(record.total_parts),
-        parts_received: Number(record.parts_received),
-        total_bytes: Number(record.total_bytes),
+        total_parts: counts.totalParts,
+        parts_received: counts.partsReceived,
+        total_bytes: counts.totalBytes,
         status
     };
-}
-
-function numericOrNull(value) {
-    if(value === null || value === undefined) return null;
-    if(typeof value === 'string' && value.trim() === '') return null;
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
 }
 
 function buildFilePartDetail(row) {

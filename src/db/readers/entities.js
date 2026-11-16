@@ -46,6 +46,8 @@
  *   - entities/rich_list.js  the per-token rich list and its supply helpers
  *   - entities/lookups.js    the FILE byte readers and the single-row snapshots
  *                            the WebSocket layer reads on subscribe
+ *   - entities/files_multipart.js
+ *                            one multipart FILE part and its valid manifest
  *
  * The id resolvers sit in their own part rather than beside any one caller:
  * every other part calls them, so filing them under a caller would have picked
@@ -68,7 +70,7 @@
 
 const { composeReaderParts } = require('../reader_parts.js');
 
-// The nine method parts. composeReaderParts throws at require time if two of them
+// The ten method parts. composeReaderParts throws at require time if two of them
 // declare the same name, so a method moved between parts cannot shadow another.
 const actionMethods   = require('./entities/actions.js');
 const blockMethods    = require('./entities/blocks.js');
@@ -77,7 +79,8 @@ const resolverMethods = require('./entities/resolvers.js');
 const networkMethods  = require('./entities/network.js');
 const statusMethods   = require('./entities/status.js');
 const tokenMethods    = require('./entities/tokens.js');
-const richListMethods = require('./entities/rich_list.js');
-const lookupMethods   = require('./entities/lookups.js');
+const richListMethods  = require('./entities/rich_list.js');
+const lookupMethods    = require('./entities/lookups.js');
+const multipartMethods = require('./entities/files_multipart.js');
 
-module.exports = composeReaderParts(actionMethods, blockMethods, addressMethods, resolverMethods, networkMethods, statusMethods, tokenMethods, richListMethods, lookupMethods);
+module.exports = composeReaderParts(actionMethods, blockMethods, addressMethods, resolverMethods, networkMethods, statusMethods, tokenMethods, richListMethods, lookupMethods, multipartMethods);

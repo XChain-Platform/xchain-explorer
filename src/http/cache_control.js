@@ -71,6 +71,7 @@ const ROUTE_CLASSES = {
     '/:coin/api/oraclefeequote'                           : 'noStore',
     '/:coin/api/preflight'                                : 'noStore',
     '/:coin/api/feeschedule'                              : 'tip',
+    '/:coin/api/price_history'                            : 'tip',
     '/:coin/api/checkpoints'                              : 'tip',
     '/:coin/api/checkpoints/range'                        : 'tip',
     '/:coin/api/checkpoint/:blockIndex/verify'            : 'noStore',

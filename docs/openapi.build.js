@@ -23,6 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const { COMPONENT_SCHEMAS, KEYSET_FIELDS, responseSchema } = require('./openapi.schemas.js');
+const { WALLET_RANGE_ROUTES } = require('./openapi.wallet_routes.js');
 const { api } = require('../src/explorer/routes/api_methods.js');
 const { supportsBareApiList } = require('../src/explorer/request/resolve_route.js');
 const { KEYSET_METHODS } = require('../src/db/query_sql/keyset.js');
@@ -642,6 +643,7 @@ const SPECIAL = [
                 },
             },
         }],
+    ...WALLET_RANGE_ROUTES,
 ];
 
 const QUERY_DESC = {

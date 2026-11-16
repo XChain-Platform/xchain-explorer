@@ -14,9 +14,10 @@
  *
  * XChain Explorer - UTXO tracker read connector
  *
- * The one call the explorer makes to a coin's xchain-utxo-tracker: GET
+ * The two calls the explorer makes to a coin's xchain-utxo-tracker: GET
  * /info/<address>, the live native balance and UTXO figures an address page
- * and every balances batch entry carry.
+ * and every balances batch entry carry, and POST /history, the native coin
+ * history POST /{COIN}/api/native_history passes through.
  *
  * The tracker rate-limits per connecting IP (UTXO_TRACKER_RATE_LIMIT_RPM,
  * default 500 a minute) and this whole process is one IP to it, while a
@@ -34,6 +35,7 @@
 
 'use strict';
 
+const net = require('net');
 const { budgetIn, INTERNAL_CLIENT } = require('./egress_budget.js');
 // Resolved at require time: getLogger() reaches the real shipper once api.js
 // has installed observability and falls through to bare console.* before that.
@@ -115,4 +117,64 @@ async function readTrackerInfo({ base, address, client, coin, env }){
     }
 }
 
-module.exports = { readTrackerInfo };
+// A history page reads many addresses' confirmed transactions, so it gets more
+// time than a single /info read before the explorer gives up on it.
+const HISTORY_TIMEOUT_MS = 15000;
+
+// The tracker's own answer headers a history caller pages and judges freshness by.
+const HISTORY_HEADERS = ['x-next-cursor', 'x-tracker-height', 'x-node-height', 'x-sync-lag', 'x-synced',
+    'x-reorg-count', 'x-tracker-tip-hash', 'x-mempool-ready', 'retry-after'];
+
+// The end client as one X-Forwarded-For value: the explorer's own trust-proxy
+// resolution of it, never a header the client sent, with an IPv4-mapped IPv6
+// address written as plain IPv4 so the tracker keys one client one way.
+function forwardedFor(client){
+    const ip = String(client || '').replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, '');
+    return net.isIP(ip) ? ip : null;
+}
+
+/**
+ * POST `body` to the tracker's /history, charged to `client` against the same
+ * fair-share budget and 429 pause as /info. Exactly one upstream call, or none:
+ * { status, json, headers } for any answer the tracker gave (its refusals
+ * included), or { unavailable, retryAfter } when it was not asked or did not answer.
+ */
+async function postTrackerHistory({ base, body, client, coin, env }){
+    const now = Date.now();
+    const pausedUntil = cooldownUntil.get(base) || 0;
+    if(now < pausedUntil)
+        return { unavailable: 'shed', retryAfter: Math.ceil((pausedUntil - now) / 1000) };
+    const key    = String(client || INTERNAL_CLIENT);
+    const budget = budgetIn(egressBudgets, base);
+    if(!budget.admits(key, now, egressLimit(env))){
+        noteUnavailable(base, coin, 'shed', 'tracker egress budget (client over its fair share)');
+        return { unavailable: 'shed', retryAfter: 60 };
+    }
+    budget.record(key, now);
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        // The tracker's per-IP watch budget needs the wallet, not this process.
+        const forwarded = forwardedFor(client);
+        if(forwarded) headers['X-Forwarded-For'] = forwarded;
+        const res = await fetch(base.replace(/\/+$/, '') + '/history', {
+            method: 'POST', headers, body: JSON.stringify(body),
+            signal: AbortSignal.timeout(HISTORY_TIMEOUT_MS)
+        });
+        if(res.status === 429)
+            cooldownUntil.set(base, Date.now() + cooldownMs(res.headers && res.headers.get('retry-after')));
+        const answerHeaders = {};
+        for(const name of HISTORY_HEADERS){
+            const value = res.headers && res.headers.get(name);
+            if(value !== null && value !== undefined) answerHeaders[name] = value;
+        }
+        let json = null;
+        try { json = await res.json(); } catch(_){ json = null; }
+        if(json === null || typeof json !== 'object') throw new Error('HTTP ' + res.status + ' with no JSON body');
+        return { status: res.status, json, headers: answerHeaders };
+    } catch(e){
+        noteUnavailable(base, coin, 'failed', e && e.message ? e.message : e);
+        return { unavailable: 'failed', retryAfter: null };
+    }
+}
+
+module.exports = { readTrackerInfo, postTrackerHistory };

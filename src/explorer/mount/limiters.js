@@ -126,6 +126,28 @@ function buildBatchLimiter(host){
 }
 
 /**
+ * The wallet range-read bucket: batch history, price history and native history.
+ */
+function buildWalletReadsLimiter(host){
+    const { rateLimit, limitedHandler, configEnv } = host;
+    // Its own bucket, apart from the balance beat's: a wallet paging a long
+    // history must not spend the budget its balance polling depends on.
+    const walletReadsPolicy = {
+        limit:    parseInt(configEnv().EXPLORER_WALLET_READS_RATE_LIMIT_RPM, 10) || 60,
+        envVar:   'EXPLORER_WALLET_READS_RATE_LIMIT_RPM',
+        windowMs: 60 * 1000,
+        message:  { error: 'Too many wallet history requests', code: 'RATE_LIMITED' }
+    };
+    return rateLimit({
+        windowMs:        walletReadsPolicy.windowMs,
+        limit:           walletReadsPolicy.limit,
+        standardHeaders: true,
+        legacyHeaders:   false,
+        handler:         limitedHandler({ service: 'Explorer', name: 'wallet-reads', ...walletReadsPolicy })
+    });
+}
+
+/**
  * The two checkpoint buckets: the list scan and the heavier server-side verify.
  */
 function buildCheckpointLimiters(host){
@@ -242,4 +264,4 @@ function buildVmQueryLimiter(host){
     return vmQueryLimiter;
 }
 
-module.exports = { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter, buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter };
+module.exports = { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter, buildWalletReadsLimiter, buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter };

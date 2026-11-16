@@ -38,7 +38,7 @@
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
-const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
+const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter, buildWalletReadsLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
 const IndexerConnector = require('../connectors/indexer.js');
 
@@ -255,6 +255,19 @@ class RouteMounts {
             (req, res) => { this.processBalancesBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
         this.app.post('/:coin/api/coinpay_obligations', batchLimiter,
             (req, res) => { this.processCoinpayObligationsBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
+        // The wallet's value-over-time reads take their own bucket, so paging a long
+        // history cannot starve the balance beat above. Neither re-drives a per-address
+        // GET: each reads every address or asset in a fixed number of statements
+        // (explorer/address_history.js, explorer/price_history.js).
+        const walletReadsLimiter = buildWalletReadsLimiter(host);
+        this.app.post('/:coin/api/history', walletReadsLimiter,
+            (req, res) => { this.processAddressHistoryBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
+        this.app.get('/:coin/api/price_history', walletReadsLimiter,
+            (req, res) => { this.processPriceHistoryRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
+        // Native coin history is the tracker's: one upstream POST /history per request
+        // (explorer/native_history.js), charged to the caller's tracker budget too.
+        this.app.post('/:coin/api/native_history', walletReadsLimiter,
+            (req, res) => { this.processNativeHistoryRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
 
         this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processFeeScheduleRequest(req, res)); });
     }

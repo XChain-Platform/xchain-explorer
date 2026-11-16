@@ -41,11 +41,15 @@ const feesPreflight = require('./fees_preflight.js');
 const relayEgress   = require('./relay.js');
 const paging        = require('./paging.js');
 const routeMounts   = require('./mount.js');
+const addressHistory = require('./address_history.js');
+const priceHistory  = require('./price_history.js');
+const nativeHistory = require('./native_history.js');
 
 // Listed in the order the methods appeared in the class, which is the order they
 // install in. It has no effect beyond which family a collision is reported
 // against, because every name is distinct.
-const FAMILIES = [batchReads, fileRoutes, mirrorGate, checkpoints, stateProofs, feesPreflight, relayEgress, paging, routeMounts];
+const FAMILIES = [batchReads, fileRoutes, mirrorGate, checkpoints, stateProofs, feesPreflight, relayEgress, paging, routeMounts,
+    addressHistory, priceHistory, nativeHistory];
 
 /**
  * Copy every family's methods onto the explorer prototype.

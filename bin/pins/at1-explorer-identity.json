@@ -2305,8 +2305,8 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 326,
-    "enumerable_keys": 0,
+    "count": 332,
+    "enumerable_keys": 6,
     "names": [
       "actionDestinationSql",
       "addLegMarkers",
@@ -2315,6 +2315,7 @@
       "attachActionDestinations",
       "attachActionDetailSupplements",
       "attachContractMeta",
+      "attachFilePartBlockCounts",
       "attachListActionDetail",
       "attestationResponseSource",
       "bridgeSnapshotSource",
@@ -2339,6 +2340,7 @@
       "doQuery",
       "endPools",
       "federationCapabilityRows",
+      "filePartBlockCountSql",
       "findTokenDescription",
       "fulltextTerm",
       "getAction",
@@ -2473,6 +2475,7 @@
       "getFederationRegistry",
       "getFeeEstimate",
       "getFees",
+      "getFilePartDetail",
       "getFileRaw",
       "getFiles",
       "getFullNodeVerifications",
@@ -2599,6 +2602,7 @@
       "hubOperationalOutage",
       "hubSource",
       "init",
+      "installMultipartFileReaders",
       "isCacheableAction",
       "isCoinTipStale",
       "isListEditResolutionActiveAtTip",
@@ -2608,6 +2612,7 @@
       "matchSource",
       "mempoolRowMatchesAddress",
       "mempoolSegments",
+      "mergeFilePartCounts",
       "metaSnippet",
       "normalizeCheckpointRows",
       "normalizeHubOperationalRows",
@@ -2618,6 +2623,7 @@
       "parseSignaturesArray",
       "pingPool",
       "projectActionSummary",
+      "readFilePartDetail",
       "rebuildPoolsIfStale",
       "releaseConnection",
       "resolveAttestationExpireAction",
@@ -5448,6 +5454,18 @@
         "xcall subscription channel (M5.4) refuses a subscription with no call_id at all",
         "xcall subscription channel (M5.4) round-trips the channel key back to its call_id"
       ],
+      "4388f2e324099527": [
+        "attachMultipartSummary formats does no manifest read for format 0",
+        "attachMultipartSummary formats does no manifest read for format 2",
+        "attachMultipartSummary formats reads the manifest once for format 1",
+        "attachMultipartSummary result shaping attaches a summary without mutating the input detail",
+        "attachMultipartSummary result shaping propagates a rejected manifest reader",
+        "attachMultipartSummary result shaping returns the original detail when the summary is null",
+        "needsManifestSummary accepts only format 1 as a number or decimal string",
+        "resolveFilePartDetail propagates a rejected part reader",
+        "resolveFilePartDetail reads and builds one part detail",
+        "resolveFilePartDetail returns null without building when the part row is null"
+      ],
       "43df4aacd6f52c4b": [
         "PRICE signature detail rendering keeps the explicit batch signature count unchanged",
         "PRICE signature detail rendering marks malformed signatures and keeps the signers row visible",
@@ -8252,6 +8270,12 @@
         "shared-list explorer route returns home and mirror rows in the public shape",
         "shared-list explorer route returns the newest valid name for each local shared list"
       ],
+      "8d398aa3ee7c05b6": [
+        "getFilePartDetail for a non-part index returns null after exactly one query",
+        "getFilePartDetail query binding binds the numeric index without placing it in SQL text",
+        "getFilePartDetail row mapping returns the part detail from exactly one query",
+        "getFilePartDetail without a valid manifest keeps the part and returns a null manifest index"
+      ],
       "8e37884a9d16ffee": [
         "XBRIDGE user leg state from the hub-mirrored transfer @regression ends the in-flight state once the transfer is finalized, and names it",
         "XBRIDGE user leg state from the hub-mirrored transfer @regression reads the co-located hub DB by source ref, never the replica own copy",
@@ -9914,6 +9938,16 @@
         "toExplorerConfig reads the identity fields network-independently for every real network",
         "toExplorerConfig returns the mainnet-read identity with an empty address map for an unknown network"
       ],
+      "b88b4422a516ef87": [
+        "multipart file part detail builds the FILE format 2 detail and coerces a string part index",
+        "multipart file part detail keeps a manifest action index of zero",
+        "multipart file part detail returns null for a null row",
+        "multipart file part detail uses null when the manifest action index is absent or non-numeric",
+        "multipart manifest summary maps null and undefined completion results to pending",
+        "multipart manifest summary normalizes counts and maps an unknown result to pending",
+        "multipart manifest summary preserves complete and mismatch terminal results",
+        "multipart manifest summary returns null for part and invalid manifest records"
+      ],
       "ba3e78799ec61879": [
         "MARKET_UPDATE triggers against the indexer market refresh does not push on ORDER_EDIT, which changes no markets row",
         "MARKET_UPDATE triggers against the indexer market refresh pushes on every action the indexer order scan counts",
@@ -10315,6 +10349,12 @@
         "governance action detail carries parent option labels left joins VOTE ballot choices to the parent poll options",
         "governance feeds carry parent option labels joins each ballot to its poll options and shapes the selected label",
         "governance feeds carry parent option labels joins each wager to its market outcomes and shapes the selected label"
+      ],
+      "c829b81a27c9c3ac": [
+        "file part block count SQL keeps the statement shape and argument order for 26 indexes",
+        "file part block count SQL runs one parameterized statement for two block indexes",
+        "file part block count merge adds part-only and existing file counts while skipping absent blocks",
+        "file part block count merge changes nothing for an empty row list"
       ],
       "c86cf01c12b323bd": [
         "WebSocket WELCOME coin map loading gets resolved coin info and falls back for unknown codes",
@@ -12673,8 +12713,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 499,
-        "titleCount": 8176,
+        "fileCount": 503,
+        "titleCount": 8202,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12696,6 +12736,8 @@
           "test/unit/action_detail/list_transfer_detail.test.js": "6d0db0f987bd0e88",
           "test/unit/action_detail/lists/list_edits_order.test.js": "fbcb425c7e526089",
           "test/unit/action_detail/lists/list_meta_reads.test.js": "3f072b9064f7b674",
+          "test/unit/action_detail/multipart_detail.test.js": "b88b4422a516ef87",
+          "test/unit/action_detail/multipart_dispatch.test.js": "4388f2e324099527",
           "test/unit/action_detail/registry/db_action_detail_registry.test.js": "df70ad2a817c2af5",
           "test/unit/action_detail/registry/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",
           "test/unit/action_detail/registry/db_action_detail_supplements.test.js": "23c6716810b12da0",
@@ -12947,6 +12989,8 @@
           "test/unit/db/readers/dispenser/dispenser_price_stale/dispenser_price_stale.test.js": "ec5292d336fec81a",
           "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "92f2617a955643a0",
           "test/unit/db/readers/entities/address_tracker_egress.test.js": "09bc7cc9762f2665",
+          "test/unit/db/readers/entities/file_part_block_counts.test.js": "c829b81a27c9c3ac",
+          "test/unit/db/readers/files_multipart_part_detail.test.js": "8d398aa3ee7c05b6",
           "test/unit/db/readers/governance_parent_labels/db_governance_parent_labels.test.js": "c7f0e0c27e12078a",
           "test/unit/db/readers/list_item_gates.test.js": "9c1eac0e493a87d8",
           "test/unit/db/readers/list_share/db_list_share_mirror.test.js": "0511b140e1bed140",

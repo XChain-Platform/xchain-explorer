@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 326,
+    "count": 327,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2473,6 +2473,7 @@
       "getFederationRegistry",
       "getFeeEstimate",
       "getFees",
+      "getFilePartDetail",
       "getFileRaw",
       "getFiles",
       "getFullNodeVerifications",
@@ -8252,6 +8253,12 @@
         "shared-list explorer route returns home and mirror rows in the public shape",
         "shared-list explorer route returns the newest valid name for each local shared list"
       ],
+      "8d398aa3ee7c05b6": [
+        "getFilePartDetail for a non-part index returns null after exactly one query",
+        "getFilePartDetail query binding binds the numeric index without placing it in SQL text",
+        "getFilePartDetail row mapping returns the part detail from exactly one query",
+        "getFilePartDetail without a valid manifest keeps the part and returns a null manifest index"
+      ],
       "8e37884a9d16ffee": [
         "XBRIDGE user leg state from the hub-mirrored transfer @regression ends the in-flight state once the transfer is finalized, and names it",
         "XBRIDGE user leg state from the hub-mirrored transfer @regression reads the co-located hub DB by source ref, never the replica own copy",
@@ -12689,8 +12696,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 501,
-        "titleCount": 8188,
+        "fileCount": 502,
+        "titleCount": 8192,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12965,6 +12972,7 @@
           "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "92f2617a955643a0",
           "test/unit/db/readers/entities/address_tracker_egress.test.js": "09bc7cc9762f2665",
           "test/unit/db/readers/entities/file_part_block_counts.test.js": "c829b81a27c9c3ac",
+          "test/unit/db/readers/files_multipart_part_detail.test.js": "8d398aa3ee7c05b6",
           "test/unit/db/readers/governance_parent_labels/db_governance_parent_labels.test.js": "c7f0e0c27e12078a",
           "test/unit/db/readers/list_item_gates.test.js": "9c1eac0e493a87d8",
           "test/unit/db/readers/list_share/db_list_share_mirror.test.js": "0511b140e1bed140",

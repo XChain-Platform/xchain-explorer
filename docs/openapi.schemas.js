@@ -228,6 +228,9 @@ const ACTION_DETAIL = {
         action: { type: 'string' },
         action_format: NULLABLE_INTEGER,
         action_index: COLUMN_TYPES.D,
+        block: Object.assign({}, COLUMN_TYPES.d, {
+            description: 'Block containing a multi-part FILE part; served only on a part\'s action index'
+        }),
         block_index: COLUMN_TYPES.d,
         credits: LEDGER_EFFECTS('credits'),
         debits: LEDGER_EFFECTS('debits'),
@@ -237,9 +240,9 @@ const ACTION_DETAIL = {
             type: 'object',
             description: 'Multi-part file part metadata; served only on a part\'s action index',
             properties: {
-                file_hash: { type: 'string' },
+                file_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
                 manifest_action_index: NULLABLE_INTEGER,
-                part_index: { type: 'integer' },
+                part_index: { type: 'integer', minimum: 0, maximum: 31 },
             },
             required: ['file_hash', 'part_index', 'manifest_action_index'],
         },
@@ -247,11 +250,11 @@ const ACTION_DETAIL = {
             type: 'object',
             description: 'Multi-part file assembly state; served only on a multi-part manifest\'s detail',
             properties: {
-                file_hash: { type: 'string' },
-                parts_received: { type: 'integer' },
+                file_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+                parts_received: { type: 'integer', minimum: 0, maximum: 32 },
                 status: { type: 'string', enum: ['pending', 'complete', 'mismatch'] },
-                total_bytes: { type: 'integer' },
-                total_parts: { type: 'integer' },
+                total_bytes: { type: 'integer', minimum: 1, maximum: 12000000 },
+                total_parts: { type: 'integer', minimum: 2, maximum: 32 },
             },
             required: ['file_hash', 'total_parts', 'parts_received', 'total_bytes', 'status'],
         },

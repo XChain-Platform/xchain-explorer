@@ -122,7 +122,7 @@ const LEGACY_COLUMNS = [
 const CURRENT_COLUMNS = LEGACY_COLUMNS.concat(['source_chain', 'source_action_index', 'push_generation',
     'batch_block_time', 'admit_block_btc', 'admit_block_ltc', 'admit_block_doge']);
 const CURRENT_INDEXES = ['PRIMARY', 'idx_round_pair', 'idx_pair_block', 'idx_pair_timestamp',
-    'idx_status', 'idx_source_chain', 'idx_status_block_round'];
+    'idx_status', 'idx_source_chain', 'idx_status_block_round', 'price_snapshots_pair_status_ts'];
 
 // Same widen shape for the attestation_responses key: (network, request_id) gained
 // effective_time. The live collation answers utf8mb4 so the charset widen for this
@@ -162,7 +162,7 @@ describe('hub-mirror-migrate', function () {
         expect(sql).to.include("ADD COLUMN source_chain VARCHAR(10) NOT NULL DEFAULT 'DOGE'");
         expect(sql).to.include('ADD COLUMN source_action_index BIGINT');
         expect(sql).to.include('ADD COLUMN push_generation BIGINT NOT NULL DEFAULT 0');
-        expect(sql).to.include('ADD KEY idx_source_chain (source_chain)');
+        for (const key of ['idx_source_chain (source_chain)', 'price_snapshots_pair_status_ts (coin_pair, status, block_timestamp, price)']) expect(sql).to.include('ADD KEY ' + key);
         expect(db.executed).to.deep.equal(applied);
     });
     it('falls back to console.log when no logger is passed, and adds the bridge fence columns', async function () {

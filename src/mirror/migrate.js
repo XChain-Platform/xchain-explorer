@@ -77,7 +77,14 @@ const DATETIME_RETYPE = { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `c
 const DATETIME_NOT_NULL_RETYPE = { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' };
 const TABLE_REWRITES = {
     price_snapshots: {
-        indexes: [{ name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }],
+        indexes: [
+            { name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' },
+            // The wallet price-history read (db/readers/wallet_reads/price_history.js) pins
+            // coin_pair and status and ranges over block_timestamp; a mirror adopted before
+            // this key reads one clustered row per round in the range without it.
+            { name: 'price_snapshots_pair_status_ts',
+              ddl: 'ADD KEY price_snapshots_pair_status_ts (coin_pair, status, block_timestamp, price)' }
+        ],
         retypeColumns: [DATETIME_RETYPE]
     },
     // tick widens to the 250 PRICE v1 admits. The hub keeps its own column narrow until

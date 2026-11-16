@@ -2305,8 +2305,8 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 332,
-    "enumerable_keys": 6,
+    "count": 331,
+    "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
       "addLegMarkers",
@@ -2602,7 +2602,6 @@
       "hubOperationalOutage",
       "hubSource",
       "init",
-      "installMultipartFileReaders",
       "isCacheableAction",
       "isCoinTipStale",
       "isListEditResolutionActiveAtTip",
@@ -5870,6 +5869,23 @@
         "SEND and DESTROY whole-action paging getSends limits distinct actions and returns every selected leg",
         "SEND and DESTROY whole-action paging getSends uses cursor predicates instead of explorer starts for next pages",
         "SEND and DESTROY whole-action paging leaves single-row action boundaries unchanged"
+      ],
+      "4fb1609d8a436d83": [
+        "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY query",
+        "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY2 query",
+        "miscellaneous action-detail SQL exports a valid BATCH_QUERY query",
+        "miscellaneous action-detail SQL exports a valid BATCH_QUERY2 query",
+        "miscellaneous action-detail SQL exports a valid BROADCAST_QUERY query",
+        "miscellaneous action-detail SQL exports a valid CALLBACK_QUERY query",
+        "miscellaneous action-detail SQL exports a valid FILE_PART_QUERY query",
+        "miscellaneous action-detail SQL exports a valid FILE_QUERY query",
+        "miscellaneous action-detail SQL exports a valid LIST_QUERY query",
+        "miscellaneous action-detail SQL exports a valid LIST_QUERY2 query",
+        "miscellaneous action-detail SQL exports a valid LIST_QUERY3 query",
+        "miscellaneous action-detail SQL exports a valid MESSAGE_QUERY query",
+        "miscellaneous action-detail SQL exports a valid SLEEP_QUERY query",
+        "miscellaneous action-detail SQL exports a valid UNKNOWN_QUERY query",
+        "miscellaneous action-detail SQL exports exactly the expected queries"
       ],
       "50771260871b136d": [
         "hub mirror selector modes builds a pinned selector when only a hub URL is available",
@@ -11595,6 +11611,12 @@
         "VOTE poll options parsing marker keeps dashing a genuinely empty options list",
         "VOTE poll options parsing marker keeps rendering a normal populated options list"
       ],
+      "e15db38a5cbd7726": [
+        "blocks list file part counts merge adds parts to a block that counts files and gives a part-only block a files count",
+        "blocks list file part counts query count runs the same statements, one file_parts read, at 2 and 26 blocks",
+        "blocks list file part counts without the multipart migration keeps the counts it read when file_parts is absent",
+        "blocks list file part counts without the multipart migration rethrows any other file_parts failure"
+      ],
       "e237e3f8871288fc": [
         "Database#getSearch token description probe joins the description branch for a B-tree prefix index leading with description",
         "Database#getSearch token description probe skips the description branch for a FULLTEXT index on description",
@@ -12371,22 +12393,6 @@
         "Database \u2013 connection management setupConnectionPools() resets pools to empty object on each call",
         "Database \u2013 connection management setupConnectionPools() reuses the same pool only when host/port/user/pass AND database all match"
       ],
-      "f9199ddce914d40b": [
-        "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY query",
-        "miscellaneous action-detail SQL exports a valid ADDRESS_QUERY2 query",
-        "miscellaneous action-detail SQL exports a valid BATCH_QUERY query",
-        "miscellaneous action-detail SQL exports a valid BATCH_QUERY2 query",
-        "miscellaneous action-detail SQL exports a valid BROADCAST_QUERY query",
-        "miscellaneous action-detail SQL exports a valid CALLBACK_QUERY query",
-        "miscellaneous action-detail SQL exports a valid FILE_QUERY query",
-        "miscellaneous action-detail SQL exports a valid LIST_QUERY query",
-        "miscellaneous action-detail SQL exports a valid LIST_QUERY2 query",
-        "miscellaneous action-detail SQL exports a valid LIST_QUERY3 query",
-        "miscellaneous action-detail SQL exports a valid MESSAGE_QUERY query",
-        "miscellaneous action-detail SQL exports a valid SLEEP_QUERY query",
-        "miscellaneous action-detail SQL exports a valid UNKNOWN_QUERY query",
-        "miscellaneous action-detail SQL exports exactly the expected queries"
-      ],
       "f953b74844f8299e": [
         "pruneCountJoins: list lanes counts list-all issues over the base table and its two inner joins",
         "pruneCountJoins: list lanes counts the raw action feed over actions and blocks only",
@@ -12714,8 +12720,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 503,
-        "titleCount": 8203,
+        "fileCount": 504,
+        "titleCount": 8208,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12895,7 +12901,7 @@
           "test/unit/contract/vm_query.test.js": "ad8a262995e981db",
           "test/unit/db/action_detail/contracts_sql.test.js": "1747eb98d7356dc2",
           "test/unit/db/action_detail/crosschain_sql.test.js": "d85df9e505425c70",
-          "test/unit/db/action_detail/misc_sql.test.js": "f9199ddce914d40b",
+          "test/unit/db/action_detail/misc_sql.test.js": "4fb1609d8a436d83",
           "test/unit/db/action_detail/orders_sql.test.js": "c9e17cfa67eaf47c",
           "test/unit/db/action_detail/shared_sql.test.js": "55b980748b629a02",
           "test/unit/db/action_detail/staking_sql.test.js": "c40dac72e51909f3",
@@ -12990,6 +12996,7 @@
           "test/unit/db/readers/dispenser/dispenser_price_stale/dispenser_price_stale.test.js": "ec5292d336fec81a",
           "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "92f2617a955643a0",
           "test/unit/db/readers/entities/address_tracker_egress.test.js": "09bc7cc9762f2665",
+          "test/unit/db/readers/entities/blocks_file_part_counts.test.js": "e15db38a5cbd7726",
           "test/unit/db/readers/entities/file_part_block_counts.test.js": "c829b81a27c9c3ac",
           "test/unit/db/readers/files_multipart_part_detail.test.js": "8d398aa3ee7c05b6",
           "test/unit/db/readers/governance_parent_labels/db_governance_parent_labels.test.js": "c7f0e0c27e12078a",

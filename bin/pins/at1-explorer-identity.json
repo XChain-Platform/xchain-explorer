@@ -7887,6 +7887,11 @@
         "@p0 @security SQL injection order/limit regression offset args are kept separate from base args",
         "@p0 @security SQL injection order/limit regression rejects injection in sortorder"
       ],
+      "83bfef235585919c": [
+        "multipart manifest expanded limits does not convert a bigint above the safe integer range",
+        "multipart manifest expanded limits rejects a manifest above either expanded limit",
+        "multipart manifest expanded limits returns JSON integers for a bigint byte count and the maximum part count"
+      ],
       "847a34f234a1bf06": [
         "action detail field contract: handler output vs detail renderers ADDRESS provides every field read by showAddressDetails",
         "action detail field contract: handler output vs detail renderers AIRDROP provides every field read by showAirdropDetails",
@@ -12791,8 +12796,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 509,
-        "titleCount": 8264,
+        "fileCount": 510,
+        "titleCount": 8267,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12815,6 +12820,7 @@
           "test/unit/action_detail/lists/list_edits_order.test.js": "fbcb425c7e526089",
           "test/unit/action_detail/lists/list_meta_reads.test.js": "3f072b9064f7b674",
           "test/unit/action_detail/multipart_detail.test.js": "b88b4422a516ef87",
+          "test/unit/action_detail/multipart_detail_uncapped.test.js": "83bfef235585919c",
           "test/unit/action_detail/multipart_dispatch.test.js": "4388f2e324099527",
           "test/unit/action_detail/registry/db_action_detail_registry.test.js": "df70ad2a817c2af5",
           "test/unit/action_detail/registry/db_action_detail_slot_collision.test.js": "3c960c0bf29273dc",

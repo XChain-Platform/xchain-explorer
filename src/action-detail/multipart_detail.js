@@ -14,11 +14,16 @@
 
 'use strict';
 
-const MULTIPART_FILE_MAX_PARTS = 32;
-const MULTIPART_FILE_MAX_BYTES = 12000000;
+const MULTIPART_FILE_MAX_PARTS = 65535;
+const MULTIPART_FILE_MAX_BYTES = 262140000000;
 
 function numericOrNull(value) {
     if(value === null || value === undefined) return null;
+    if(typeof value === 'bigint') {
+        const maxSafe = BigInt(Number.MAX_SAFE_INTEGER);
+        const minSafe = BigInt(Number.MIN_SAFE_INTEGER);
+        return value <= maxSafe && value >= minSafe ? Number(value) : null;
+    }
     if(typeof value !== 'number' && typeof value !== 'string') return null;
     if(typeof value === 'string' && value.trim() === '') return null;
     const number = Number(value);

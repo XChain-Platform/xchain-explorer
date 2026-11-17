@@ -150,7 +150,7 @@ function reader(partCount, decoderDb = 'Decoder_RBTC') {
     };
 }
 
-describe('multipart FILE raw route', function () {
+describe('multipart FILE raw route stored output', function () {
     it('serves a complete public manifest byte-identically and bypasses legacy readers', async function () {
         const bytes = Buffer.from('multipart byte identity');
         const db = routeDb(completeRecord([bytes.subarray(0, 7), bytes.subarray(7)]));
@@ -196,7 +196,9 @@ describe('multipart FILE raw route', function () {
         expect(res._headers['Content-Disposition']).to.include('secret.bin');
         expect(res._headers).to.not.have.property('X-XChain-Compression');
     });
+});
 
+describe('multipart FILE raw route ranges', function () {
     it('serves one stored-form range and refuses a multi-range', async function () {
         const chunks = Array.from({ length: 40 }, (_, position) => Buffer.from(String(position).padStart(3, '0')));
         const record = completeRecord(chunks);
@@ -218,7 +220,9 @@ describe('multipart FILE raw route', function () {
         expect(refused._status).to.equal(416);
         expect(refused._headers['Content-Range']).to.equal(`bytes */${all.length}`);
     });
+});
 
+describe('multipart FILE raw route compressed recovery', function () {
     it('serves ratio bombs and corrupt deflate streams in stored form', async function () {
         const bomb = zlib.deflateRawSync(Buffer.alloc(20000));
         const cases = [

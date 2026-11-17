@@ -148,7 +148,7 @@ describe('FILE part production action detail fallback', function(){
     });
 });
 
-describe('FILE manifest multipart summary', function(){
+describe('FILE manifest metadata summary read', function(){
     it('keeps metadata-only read count constant at 4 and 4,096 parts', async function(){
         for(const partCount of [4, 4096]){
             const row = {
@@ -178,7 +178,9 @@ describe('FILE manifest multipart summary', function(){
             expect(db.doQuery.firstCall.args[1]).to.not.include('LEFT JOIN file_parts fp ON');
         }
     });
+});
 
+describe('FILE manifest multipart summary', function(){
     it('uses one bulk metadata read for both 2 and 26 parts', async function(){
         for(const partCount of [2, 26]){
             const data = { action: 'FILE', action_format: 1 };

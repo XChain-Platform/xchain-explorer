@@ -200,7 +200,6 @@ class FileRoutes {
             res.end();
             return res;
         }
-
         if(file.gated) {
             const disposition = file.name ? safeAttachmentFilename(file.name) : null;
             res.set('Content-Type', 'application/octet-stream');

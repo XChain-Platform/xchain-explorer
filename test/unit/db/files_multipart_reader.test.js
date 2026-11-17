@@ -21,6 +21,7 @@ const misc = require('../../../src/action-detail/misc.js');
 const sql = require('../../../src/db/action_detail/misc_sql.js');
 const sharedSql = require('../../../src/db/action_detail/shared_sql.js');
 const multipart = require('../../../src/db/readers/entities/files_multipart.js');
+const lookupMethods = require('../../../src/db/readers/entities/lookups.js');
 
 const Database = proxyquire('../../../src/db/index.js', {
     './connection.js': proxyquire('../../../src/db/connection.js', { mariadb: { createPool: () => ({}) } })
@@ -144,6 +145,38 @@ describe('FILE part production action detail fallback', function(){
         sinon.assert.calledWithExactly(db.doQuery, config, sql.FILE_QUERY, [81]);
         sinon.assert.calledWithExactly(db.doQuery, config, sharedSql.ACTION_BASELINE, [81]);
         sinon.assert.calledWithExactly(db.doQuery, config, sql.FILE_PART_QUERY, [81]);
+    });
+});
+
+describe('FILE manifest metadata summary read', function(){
+    it('keeps metadata-only read count constant at 4 and 4,096 parts', async function(){
+        for(const partCount of [4, 4096]){
+            const row = {
+                manifest_action_index: 50,
+                manifest_status: 'valid',
+                part_exists: 0,
+                file_hash: 'ab'.repeat(32),
+                total_parts: partCount,
+                total_bytes: partCount * 100,
+                name: 'file.bin',
+                type: 'application/octet-stream',
+                gated: 0,
+                completion_result: null,
+                manifest_tx_hash: 'cd'.repeat(32),
+                parts_received: partCount - 1,
+                position: null
+            };
+            const db = {
+                util: { isNull: value => value === null || value === undefined },
+                doQuery: sinon.stub().resolves([row])
+            };
+            const result = await lookupMethods.getMultipartFileRaw.call(db, config, 50, { metadataOnly: true });
+            expect(result.parts_received).to.equal(partCount - 1);
+            expect(result.parts).to.deep.equal([]);
+            expect(db.doQuery.callCount).to.equal(1);
+            expect(db.doQuery.firstCall.args[1]).to.include('SELECT COUNT(*) FROM file_parts counted_part');
+            expect(db.doQuery.firstCall.args[1]).to.not.include('LEFT JOIN file_parts fp ON');
+        }
     });
 });
 

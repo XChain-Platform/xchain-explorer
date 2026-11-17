@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 336,
+    "count": 337,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2628,6 +2628,7 @@
       "pingPool",
       "projectActionSummary",
       "readFilePartDetail",
+      "readPartBytes",
       "rebuildPoolsIfStale",
       "releaseConnection",
       "resolveAttestationExpireAction",
@@ -3636,6 +3637,12 @@
         "token page for a tick with no token routes the 404 to the errback with the parsed body",
         "token page for a tick with no token wires the token fetch failure to the not-found render",
         "token page for a tick with no token writes nothing to the console outside debug mode"
+      ],
+      "1ab9b761f02b30ba": [
+        "multipart FILE byte stream pins stored and compressed read counts at 40 and 600 parts",
+        "multipart FILE byte stream refuses multi-range and unsatisfiable requests with 416 plans",
+        "multipart FILE byte stream serves a 206 slice across the 16-part page boundary",
+        "multipart FILE byte stream streams 600 parts byte-identically with one decoder page buffered"
       ],
       "1b96a3df99900e6c": [
         "BET feed action detail reads the lists in force keeps the created lists when the in-force read finds no feed row",
@@ -5987,6 +5994,20 @@
         "migrate-hub-mirror CLI requires a user and schema when no arguments are given",
         "migrate-hub-mirror CLI requires the database password after required arguments"
       ],
+      "52f251498c833a3b": [
+        "FILE manifest metadata summary read keeps metadata-only read count constant at 4 and 4,096 parts",
+        "FILE manifest multipart summary does no multipart read for format zero",
+        "FILE manifest multipart summary maps both terminal completion results",
+        "FILE manifest multipart summary uses one bulk metadata read for both 2 and 26 parts",
+        "FILE multipart format declaration declares formats 1 and 2 as rendered",
+        "FILE part action detail keeps a valid manifest index including zero",
+        "FILE part action detail resolves a part without a files row and exposes its verdict",
+        "FILE part detail read returns null when the index has no file_parts row",
+        "FILE part detail read uses one bound query and returns its row",
+        "FILE part production action detail fallback resolves file_parts after FILE_QUERY returns no files row",
+        "file part block action counts merges part-only counts into the public files family",
+        "file part block action counts uses one bulk read for both 2 and 26 blocks"
+      ],
       "52ff975112f61d08": [
         "preflight and feequote params ceiling counts UTF-8 bytes GET feequote refuses params over 8192 bytes though under 8192 chars",
         "preflight and feequote params ceiling counts UTF-8 bytes POST feequote refuses oversize multibyte params itself",
@@ -7838,20 +7859,6 @@
         "BET cancel/resolve action status @regression reports a REJECTED resolve the same way, from its own leg table",
         "BET cancel/resolve action status @regression serves a REJECTED resolve its claimed outcome, which no other surface carries",
         "BET cancel/resolve action status @regression serves the outcome a resolve declared"
-      ],
-      "82ef9d84e6223635": [
-        "multipart FILE action fields enforces an explicit maximum output size",
-        "multipart FILE action fields reads version 1 gate and compression fields",
-        "multipart FILE icon source skips a manifest before the gated and legacy FILE readers",
-        "multipart FILE raw route inflates a compressed public manifest with the multipart output cap",
-        "multipart FILE raw route refusals returns FILE_PART_CORRUPT when bytes fail their digest",
-        "multipart FILE raw route refusals returns each multipart refusal with no-store",
-        "multipart FILE raw route refusals turns a multipart decoder failure into a 5xx without legacy reads",
-        "multipart FILE raw route serves a complete public manifest byte-identically and bypasses legacy readers",
-        "multipart FILE raw route serves gated multipart ciphertext without inflating it",
-        "multipart FILE reader detects part indexes and invalid manifests without querying the decoder",
-        "multipart FILE reader trips the decoder identifier guard before issuing the decoder query",
-        "multipart FILE reader uses one indexer and one decoder query at both 2 and 26 parts"
       ],
       "833cb2c0db51fe6e": [
         "address-scoped contract slashes against the REAL indexer DDL binds exactly one placeholder on the list route",
@@ -10318,6 +10325,23 @@
         "staking action-detail SQL exports a valid STAKE_DETAIL query",
         "staking action-detail SQL exports a valid UNSTAKE_DETAIL query"
       ],
+      "c45a27c3f2f8d99a": [
+        "multipart FILE action fields enforces an explicit maximum output size",
+        "multipart FILE action fields reads version 1 gate and compression fields",
+        "multipart FILE icon source skips a manifest before the gated and legacy FILE readers",
+        "multipart FILE raw route compressed recovery destroys the response when a part fails its digest in inflate pass 2",
+        "multipart FILE raw route compressed recovery serves ratio bombs and corrupt deflate streams in stored form",
+        "multipart FILE raw route ranges serves one stored-form range and refuses a multi-range",
+        "multipart FILE raw route refusals returns FILE_PART_CORRUPT when bytes fail their digest",
+        "multipart FILE raw route refusals returns each multipart refusal with no-store",
+        "multipart FILE raw route refusals turns a multipart decoder failure into a 5xx without legacy reads",
+        "multipart FILE raw route stored output inflates a compressed public manifest with the multipart output cap",
+        "multipart FILE raw route stored output serves a complete public manifest byte-identically and bypasses legacy readers",
+        "multipart FILE raw route stored output serves gated multipart ciphertext without inflating it",
+        "multipart FILE reader detects part indexes and invalid manifests without querying the decoder",
+        "multipart FILE reader separates one metadata query from paged decoder reads",
+        "multipart FILE reader trips the decoder identifier guard before issuing the decoder query"
+      ],
       "c4be9953af5078b6": [
         "Security: batch endpoints: the knob is pinnable and pinned (row 51, D69) explains in the drop-in what the pin bounds",
         "Security: batch endpoints: the knob is pinnable and pinned (row 51, D69) pins the knob in deploy/rate-limits.conf at the source default",
@@ -12568,19 +12592,6 @@
         "Rocket Loader opt-out marks external, deferred and inline script tags",
         "Rocket Loader opt-out reaches every script tag on a rendered list page and a rendered detail page"
       ],
-      "fd1494a04250843e": [
-        "FILE manifest multipart summary does no multipart read for format zero",
-        "FILE manifest multipart summary maps both terminal completion results",
-        "FILE manifest multipart summary uses one bulk metadata read for both 2 and 26 parts",
-        "FILE multipart format declaration declares formats 1 and 2 as rendered",
-        "FILE part action detail keeps a valid manifest index including zero",
-        "FILE part action detail resolves a part without a files row and exposes its verdict",
-        "FILE part detail read returns null when the index has no file_parts row",
-        "FILE part detail read uses one bound query and returns its row",
-        "FILE part production action detail fallback resolves file_parts after FILE_QUERY returns no files row",
-        "file part block action counts merges part-only counts into the public files family",
-        "file part block action counts uses one bulk read for both 2 and 26 blocks"
-      ],
       "fe1d2bee2fe9022b": [
         "collectibles gallery (M5.1) classification drops a DIVISIBLE token the server should never have served",
         "collectibles gallery (M5.1) classification drops an indivisible token whose ceiling is NOT locked",
@@ -12796,8 +12807,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 510,
-        "titleCount": 8267,
+        "fileCount": 511,
+        "titleCount": 8275,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13004,7 +13015,7 @@
           "test/unit/db/core/db_reorg_real_ddl.test.js": "604a229cef54f8d7",
           "test/unit/db/core/db_result_cache.test.js": "c52649880b115c3a",
           "test/unit/db/core/db_status_coin_isolation.test.js": "ccecc38acaf586ce",
-          "test/unit/db/files_multipart_reader.test.js": "fd1494a04250843e",
+          "test/unit/db/files_multipart_reader.test.js": "52f251498c833a3b",
           "test/unit/db/guards/block_query_guard.test.js": "fa17ad3e8edcf750",
           "test/unit/db/guards/checkpoint_query_guard.test.js": "82adc841104ffb13",
           "test/unit/db/guards/ping_empty_pool_guard.test.js": "c02294c909b16034",
@@ -13122,6 +13133,7 @@
           "test/unit/explorer/fees_preflight/fee_schedule_cache.test.js": "99f0e1cb22b10854",
           "test/unit/explorer/fees_preflight/feequote_post_predicate.test.js": "1dabb285226ea02f",
           "test/unit/explorer/mount/limiters.test.js": "1169f77f3ab3dfc8",
+          "test/unit/explorer/multipart_stream.test.js": "1ab9b761f02b30ba",
           "test/unit/explorer/paging/feed_rows.test.js": "385571ec21b4dc98",
           "test/unit/explorer/paging/list_rows.test.js": "1c638f41c50742ba",
           "test/unit/explorer/paging/window.test.js": "96428d63a79ecea6",
@@ -13147,7 +13159,7 @@
           "test/unit/explorer/routes/explorer_bridge_panel_routes.test.js": "f31587786e59373d",
           "test/unit/explorer/routes/explorer_bridge_routes.test.js": "fc44bc8438865649",
           "test/unit/explorer/routes/explorer_file_raw_and_action_miss.test.js": "84b057534c968f36",
-          "test/unit/explorer/routes/explorer_file_raw_multipart.test.js": "82ef9d84e6223635",
+          "test/unit/explorer/routes/explorer_file_raw_multipart.test.js": "c45a27c3f2f8d99a",
           "test/unit/explorer/routes/explorer_list_all_routes.test.js": "53f45d90a9a823fb",
           "test/unit/explorer/routes/explorer_routing.test.js": "c04e83d263571f66",
           "test/unit/explorer/routes/protocol_lifecycle_routes.test.js": "e469e2696bc2d982",

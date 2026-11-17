@@ -14,9 +14,7 @@
 
 'use strict';
 
-const crypto = require('crypto');
-
-const MULTIPART_FILE_MAX_BYTES = 12000000;
+const MULTIPART_FILE_MAX_BYTES = 262140000000;
 const COMPRESSION_MAX_RATIO = 150;
 
 class MultipartFileError extends Error {
@@ -44,31 +42,6 @@ function refusalForMultipart(record) {
     return null;
 }
 
-function assembleMultipartFile(record) {
-    const totalParts = Number(record.total_parts);
-    if(!Array.isArray(record.parts) || record.parts.length !== totalParts)
-        throw new MultipartFileError('SERVER_ERROR', 500, 'Multipart FILE parts are unavailable');
-    const chunks = [];
-    for(let position = 0; position < totalParts; position++) {
-        const part = record.parts[position];
-        let bytes = null;
-        if(part && Buffer.isBuffer(part.raw_data)) bytes = part.raw_data;
-        else if(part && part.raw_data instanceof Uint8Array) bytes = Buffer.from(part.raw_data);
-        if(!part || part.position !== position || bytes === null)
-            throw new MultipartFileError('SERVER_ERROR', 500, 'Multipart FILE part is unavailable');
-        const digest = crypto.createHash('sha256').update(bytes).digest('hex');
-        if(bytes.length !== Number(part.byte_length) || digest !== String(part.part_digest).toLowerCase())
-            throw new MultipartFileError('FILE_PART_CORRUPT', 500, 'Multipart FILE part is corrupt');
-        chunks.push(bytes);
-    }
-    const bytes = Buffer.concat(chunks);
-    if(bytes.length !== Number(record.total_bytes))
-        throw new MultipartFileError('FILE_PART_CORRUPT', 500, 'Multipart FILE part lengths are corrupt');
-    if(typeof record.data !== 'string')
-        throw new MultipartFileError('SERVER_ERROR', 500, 'Multipart FILE manifest data is unavailable');
-    return bytes;
-}
-
 function maxInflatedBytes(storedLength) {
     return Math.min(COMPRESSION_MAX_RATIO * Number(storedLength), MULTIPART_FILE_MAX_BYTES);
 }
@@ -91,7 +64,7 @@ function recordFromRows(rows, util) {
         file_hash: String(first.file_hash),
         total_parts: Number(first.total_parts),
         total_bytes: Number(first.total_bytes),
-        parts_received: parts.length,
+        parts_received: Number(util.isNull(first.parts_received) ? parts.length : first.parts_received) || 0,
         completion_result: first.completion_result,
         name: first.name,
         type: first.type,
@@ -102,32 +75,11 @@ function recordFromRows(rows, util) {
     };
 }
 
-function decoderHashes(record, util) {
-    const hashes = [record.manifest_tx_hash, ...record.parts.map(part => part.tx_hash)];
-    if(hashes.some(hash => util.isNull(hash)))
-        throw new Error('Multipart FILE transaction hash is unavailable');
-    return [...new Set(hashes.map(String))];
-}
-
-function hydrateRecord(record, rows) {
-    const byHash = new Map((rows || []).map(row => [String(row.hash), row]));
-    const manifestRow = byHash.get(String(record.manifest_tx_hash));
-    record.data = manifestRow ? manifestRow.data : null;
-    record.parts = record.parts.map(part => {
-        const decoded = byHash.get(String(part.tx_hash));
-        return { ...part, raw_data: decoded ? decoded.raw_data : null };
-    });
-    return record;
-}
-
 module.exports = {
     MultipartFileError,
     refusalForMultipart,
-    assembleMultipartFile,
     maxInflatedBytes,
     recordFromRows,
-    decoderHashes,
-    hydrateRecord,
     MULTIPART_FILE_MAX_BYTES,
     COMPRESSION_MAX_RATIO
 };

@@ -12,6 +12,7 @@
 
 const crypto = require('crypto');
 const zlib = require('zlib');
+const { Writable } = require('stream');
 const proxyquire = require('proxyquire');
 const sinon = require('sinon');
 const { expect } = require('chai');
@@ -33,8 +34,8 @@ function makeExplorer(db) {
     return explorer;
 }
 
-function req(index = 50) {
-    return { params: { coin: 'rbtc', actionIndex: String(index) } };
+function req(index = 50, range) {
+    return { params: { coin: 'rbtc', actionIndex: String(index) }, headers: range ? { range } : {} };
 }
 
 function digest(bytes) {
@@ -72,12 +73,47 @@ function completeRecord(chunks, options = {}) {
 }
 
 function routeDb(record) {
-    return {
+    const storedData = record && record.data;
+    if(record) record.data = null;
+    const db = {
         pools: { RBTC: {} },
         getMultipartFileRaw: sinon.stub().resolves(record),
+        readPartBytes: sinon.stub().callsFake(async (_config, current, positions) => {
+            current.data = storedData;
+            return positions.map(position => ({
+                position,
+                raw_data: current.parts[position].raw_data
+            }));
+        }),
         getGatedFileRaw: sinon.stub().resolves([]),
         getFileRaw: sinon.stub().resolves(null)
     };
+    return db;
+}
+
+function streamRes() {
+    const chunks = [];
+    const res = new Writable({
+        write(chunk, _encoding, callback) {
+            chunks.push(Buffer.from(chunk));
+            callback();
+        }
+    });
+    res._status = 200;
+    res._headers = {};
+    res._body = null;
+    res._headersSent = false;
+    Object.defineProperty(res, 'headersSent', { get: () => res._headersSent });
+    res.status = code => { res._status = code; return res; };
+    res.set = (name, value) => { res._headers[name] = value; return res; };
+    res.json = body => { res._body = body; return res; };
+    res.send = body => { res._body = body; return res; };
+    res.flushHeaders = () => { res._headersSent = true; };
+    const write = res.write.bind(res);
+    res.write = (...args) => { res._headersSent = true; return write(...args); };
+    res.on('error', () => {});
+    res.bytes = () => Buffer.concat(chunks);
+    return res;
 }
 
 function reader(partCount, decoderDb = 'Decoder_RBTC') {
@@ -118,12 +154,14 @@ describe('multipart FILE raw route', function () {
     it('serves a complete public manifest byte-identically and bypasses legacy readers', async function () {
         const bytes = Buffer.from('multipart byte identity');
         const db = routeDb(completeRecord([bytes.subarray(0, 7), bytes.subarray(7)]));
-        const res = mockRes();
+        const res = streamRes();
 
         await makeExplorer(db).processFileRawRequest(req(), res);
 
         expect(res._status).to.equal(200);
-        expect(res._body.equals(bytes)).to.equal(true);
+        expect(res.bytes().equals(bytes)).to.equal(true);
+        expect(res._headers['Content-Length']).to.equal(String(bytes.length));
+        expect(res._headers['Accept-Ranges']).to.equal('bytes');
         expect(res._headers['Cache-Control']).to.equal('public, max-age=31536000, immutable');
         expect(db.getGatedFileRaw.called).to.equal(false);
         expect(db.getFileRaw.called).to.equal(false);
@@ -133,11 +171,11 @@ describe('multipart FILE raw route', function () {
         const original = Buffer.from('compressed multipart '.repeat(200));
         const stored = zlib.deflateRawSync(original);
         const record = completeRecord([stored.subarray(0, 5), stored.subarray(5)], { compressed: true });
-        const res = mockRes();
+        const res = streamRes();
 
         await makeExplorer(routeDb(record)).processFileRawRequest(req(), res);
 
-        expect(res._body.equals(original)).to.equal(true);
+        expect(res.bytes().equals(original)).to.equal(true);
         expect(res._headers['X-XChain-Compression']).to.equal('deflate-raw');
         expect(res._headers['X-XChain-Stored-Length']).to.equal(String(stored.length));
     });
@@ -149,14 +187,75 @@ describe('multipart FILE raw route', function () {
             compressed: true,
             name: 'secret.bin'
         });
-        const res = mockRes();
+        const res = streamRes();
 
         await makeExplorer(routeDb(record)).processFileRawRequest(req(), res);
 
-        expect(res._body.equals(ciphertext)).to.equal(true);
+        expect(res.bytes().equals(ciphertext)).to.equal(true);
         expect(res._headers['X-XChain-Stored-Form']).to.equal('encrypted');
         expect(res._headers['Content-Disposition']).to.include('secret.bin');
         expect(res._headers).to.not.have.property('X-XChain-Compression');
+    });
+
+    it('serves one stored-form range and refuses a multi-range', async function () {
+        const chunks = Array.from({ length: 40 }, (_, position) => Buffer.from(String(position).padStart(3, '0')));
+        const record = completeRecord(chunks);
+        const db = routeDb(record);
+        const ranged = streamRes();
+
+        await makeExplorer(db).processFileRawRequest(req(50, 'bytes=95-97'), ranged);
+
+        const all = Buffer.concat(chunks);
+        expect(ranged._status).to.equal(206);
+        expect(ranged.bytes().equals(all.subarray(95, 98))).to.equal(true);
+        expect(ranged._headers['Content-Range']).to.equal(`bytes 95-97/${all.length}`);
+        expect(db.readPartBytes.callCount).to.equal(2);
+        expect(db.readPartBytes.firstCall.args[2][0]).to.equal(16);
+
+        const refused = streamRes();
+        await makeExplorer(routeDb(completeRecord(chunks)))
+            .processFileRawRequest(req(50, 'bytes=0-1,4-5'), refused);
+        expect(refused._status).to.equal(416);
+        expect(refused._headers['Content-Range']).to.equal(`bytes */${all.length}`);
+    });
+
+    it('serves ratio bombs and corrupt deflate streams in stored form', async function () {
+        const bomb = zlib.deflateRawSync(Buffer.alloc(20000));
+        const cases = [
+            [bomb, 'RATIO_GUARD_TRIPPED'],
+            [Buffer.from('not a deflate stream'), 'INVALID_DEFLATE_STREAM']
+        ];
+        for(const [stored, error] of cases) {
+            const record = completeRecord([stored.subarray(0, 5), stored.subarray(5)], { compressed: true });
+            const res = streamRes();
+            await makeExplorer(routeDb(record)).processFileRawRequest(req(), res);
+            expect(res.bytes().equals(stored)).to.equal(true);
+            expect(res._headers['X-XChain-Stored-Form']).to.equal('compressed');
+            expect(res._headers['X-XChain-Compression-Error']).to.equal(error);
+            expect(res._headers['Content-Type']).to.equal('application/octet-stream');
+            expect(res._headers['Content-Disposition']).to.equal('attachment');
+        }
+    });
+
+    it('destroys the response when a part fails its digest in inflate pass 2', async function () {
+        const original = Buffer.from('second pass integrity '.repeat(100));
+        const stored = zlib.deflateRawSync(original);
+        const record = completeRecord([stored.subarray(0, 5), stored.subarray(5)], { compressed: true });
+        const db = routeDb(record);
+        db.readPartBytes.callsFake(async (_config, current, positions) => {
+            current.data = manifestData({ compressed: true });
+            return positions.map(position => ({
+                position,
+                raw_data: db.readPartBytes.callCount > 1 && position === 0 ? Buffer.alloc(5) : current.parts[position].raw_data
+            }));
+        });
+        const res = streamRes();
+
+        await makeExplorer(db).processFileRawRequest(req(), res);
+
+        expect(res.destroyed).to.equal(true);
+        expect(res._headersSent).to.equal(true);
+        expect(res.bytes()).to.have.lengthOf(0);
     });
 });
 
@@ -184,8 +283,8 @@ describe('multipart FILE raw route refusals', function () {
 
     it('returns FILE_PART_CORRUPT when bytes fail their digest', async function () {
         const record = completeRecord([Buffer.from('one'), Buffer.from('two')]);
-        record.parts[1].part_digest = '0'.repeat(64);
-        const res = mockRes();
+        record.parts[0].part_digest = '0'.repeat(64);
+        const res = streamRes();
 
         await makeExplorer(routeDb(record)).processFileRawRequest(req(), res);
 
@@ -197,7 +296,7 @@ describe('multipart FILE raw route refusals', function () {
     it('turns a multipart decoder failure into a 5xx without legacy reads', async function () {
         const db = routeDb(null);
         db.getMultipartFileRaw.rejects(new Error('decoder unavailable'));
-        const res = mockRes();
+        const res = streamRes();
 
         await makeExplorer(db).processFileRawRequest(req(), res);
 
@@ -209,14 +308,18 @@ describe('multipart FILE raw route refusals', function () {
 });
 
 describe('multipart FILE reader', function () {
-    it('uses one indexer and one decoder query at both 2 and 26 parts', async function () {
+    it('separates one metadata query from paged decoder reads', async function () {
         for(const count of [2, 26]) {
             const db = reader(count);
             const result = await lookupMethods.getMultipartFileRaw.call(db, { coin: 'RBTC' }, 50);
             expect(result.parts).to.have.lengthOf(count);
             expect(db.doQuery.callCount).to.equal(1);
+            expect(db.doDecoderQuery.callCount).to.equal(0);
+            const rows = await lookupMethods.readPartBytes.call(db, { coin: 'RBTC' }, result, [0, 1]);
+            expect(rows).to.have.lengthOf(2);
             expect(db.doDecoderQuery.callCount).to.equal(1);
-            expect(db.doDecoderQuery.firstCall.args[2]).to.have.lengthOf(count + 1);
+            expect(db.doDecoderQuery.firstCall.args[2]).to.have.lengthOf(3);
+            expect(result.data).to.equal(manifestData());
         }
     });
 
@@ -224,7 +327,8 @@ describe('multipart FILE reader', function () {
         const db = reader(2, 'bad`name');
         let error = null;
         try {
-            await lookupMethods.getMultipartFileRaw.call(db, { coin: 'RBTC' }, 50);
+            const result = await lookupMethods.getMultipartFileRaw.call(db, { coin: 'RBTC' }, 50);
+            await lookupMethods.readPartBytes.call(db, { coin: 'RBTC' }, result, [0]);
         } catch(e) {
             error = e;
         }

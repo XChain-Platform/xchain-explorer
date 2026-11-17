@@ -28,6 +28,7 @@
 const path        = require('path');
 const compression = require('../http/compression.js');
 const multipart   = require('./multipart_file.js');
+const multipartStream = require('./multipart_stream.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -128,8 +129,13 @@ class FileRoutes {
         if(!this.db.pools || !this.db.pools[coin])
             return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
         try {
-            return await this.serveFileRaw({ coin, data: {} }, actionIndex, res);
+            const rangeHeader = req.headers ? req.headers.range : undefined;
+            return await this.serveFileRaw({ coin, data: {} }, actionIndex, res, rangeHeader);
         } catch (e) {
+            if(res.headersSent || res.destroyed) {
+                if(typeof res.destroy === 'function' && !res.destroyed) res.destroy(e);
+                return res;
+            }
             const status = e instanceof multipart.MultipartFileError ? e.status : 500;
             const code = e instanceof multipart.MultipartFileError ? e.code : 'SERVER_ERROR';
             if(status >= 500)
@@ -144,13 +150,13 @@ class FileRoutes {
         }
     }
 
-    async serveFileRaw(config, actionIndex, res){
+    async serveFileRaw(config, actionIndex, res, rangeHeader){
         if(typeof this.db.getMultipartFileRaw === 'function') {
             const multipartFile = await this.db.getMultipartFileRaw(config, actionIndex);
             const refusal = multipart.refusalForMultipart(multipartFile);
             if(refusal) throw refusal;
             if(multipartFile.kind === 'manifest')
-                return this.sendMultipartFileBytes(res, multipartFile);
+                return await this.sendMultipartFileBytes(res, multipartFile, config, rangeHeader);
         }
         const rows = await this.db.getGatedFileRaw(config, actionIndex);
         const raw = rows && rows.length > 0 ? rows[0].raw_data : null;
@@ -166,19 +172,81 @@ class FileRoutes {
         return this.sendStoredFileBytes(res, file);
     }
 
-    sendMultipartFileBytes(res, file){
-        const assembled = multipart.assembleMultipartFile(file);
+    setPlainFilePresentation(res, type){
+        type = String(type || '').toLowerCase();
+        const valid = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type);
+        const inline = valid && (
+            ((/^(image|audio|video)\//).test(type) && type !== 'image/svg+xml') ||
+            type === 'application/pdf' || type === 'application/json'
+        );
+        if(inline) {
+            res.set('Content-Type', type);
+        } else {
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('Content-Disposition', 'attachment');
+        }
+    }
+
+    async sendMultipartFileBytes(res, file, config, rangeHeader){
+        const preliminaryPlan = multipartStream.planServe(file, rangeHeader);
+        await multipartStream.prefetchManifest(this.db, config, file, preliminaryPlan.fromByte || 0);
+        const plan = multipartStream.planServe(file, rangeHeader);
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
+        if(plan.status === 416) {
+            res.set('Content-Range', `bytes */${plan.totalBytes}`);
+            res.set('Accept-Ranges', 'bytes');
+            res.status(416);
+            res.end();
+            return res;
+        }
+
         if(file.gated) {
             const disposition = file.name ? safeAttachmentFilename(file.name) : null;
-            return this.sendGatedFileBytes(res, assembled, disposition);
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('X-XChain-Stored-Form', 'encrypted');
+            if(disposition) res.set('Content-Disposition', disposition);
+        } else if(plan.storedForm) {
+            this.setPlainFilePresentation(res, file.type);
         }
-        return this.sendStoredFileBytes(res, {
-            raw_data: assembled,
-            type: file.type,
-            data: file.data
-        }, { maxOutputBytes: multipart.maxInflatedBytes(assembled.length) });
+
+        if(plan.storedForm) {
+            res.status(plan.status);
+            res.set('Accept-Ranges', 'bytes');
+            res.set('Content-Length', String(plan.toByte - plan.fromByte + 1));
+            if(plan.status === 206)
+                res.set('Content-Range', `bytes ${plan.fromByte}-${plan.toByte}/${plan.totalBytes}`);
+            await multipartStream.streamParts(this.db, config, file, plan.fromByte, plan.toByte, res);
+            res.end();
+            return res;
+        }
+
+        const inspected = await multipartStream.inspectInflated(this.db, config, file);
+        if(!inspected.ok) {
+            res.set('X-XChain-Stored-Form', 'compressed');
+            res.set('X-XChain-Compression-Error', inspected.error);
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('Content-Disposition', 'attachment');
+            res.set('Content-Length', String(file.total_bytes));
+            res.set('Accept-Ranges', 'none');
+            await multipartStream.streamParts(this.db, config, file, 0, Number(file.total_bytes) - 1, res);
+            res.end();
+            return res;
+        }
+
+        this.setPlainFilePresentation(res, file.type);
+        res.set('X-XChain-Compression', 'deflate-raw');
+        res.set('X-XChain-Stored-Length', String(file.total_bytes));
+        res.set('X-XChain-Original-Length', String(inspected.length));
+        res.set('Content-Length', String(inspected.length));
+        res.set('Accept-Ranges', 'none');
+        if(typeof res.flushHeaders === 'function') res.flushHeaders();
+        try {
+            await multipartStream.streamInflated(this.db, config, file, res);
+        } catch(error) {
+            if(typeof res.destroy === 'function') res.destroy(error);
+        }
+        return res;
     }
 
     sendGatedFileBytes(res, bytes, disposition){
@@ -200,16 +268,7 @@ class FileRoutes {
         // Non-gated: honor the declared MIME type inline only when it is a
         // well-formed, render-safe media type; anything else (html, svg, xml,
         // scripts, unknown) is forced to download as an opaque attachment.
-        let type   = String(file.type || '').toLowerCase();
-        let valid  = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type);
-        let inline = valid && (
-            ((/^(image|audio|video)\//).test(type) && type!='image/svg+xml') ||
-            type=='application/pdf' ||
-            // On-chain TIS documents (DESCRIPTION = action:<index>) are JSON
-            // FILEs fetched same-origin by clients. JSON is render-safe:
-            // with nosniff set it can't be coerced into a scriptable type.
-            type=='application/json'
-        );
+        let type = String(file.type || '').toLowerCase();
         // Transparent decompression (file-compression spec, Part B). COMPRESSION derives
         // from the stored ACTION STRING, never a parsed column (§5.1), and the read is
         // fail-closed: a lying field, a corrupt stream or a tripped 150:1 ratio guard
@@ -239,12 +298,7 @@ class FileRoutes {
             res.set('X-XChain-Stored-Length', String(served.storedLength));
             res.set('X-XChain-Original-Length', String(served.originalLength));
         }
-        if(inline){
-            res.set('Content-Type', type);
-        } else {
-            res.set('Content-Type', 'application/octet-stream');
-            res.set('Content-Disposition', 'attachment');
-        }
+        this.setPlainFilePresentation(res, type);
         return res.send(served.bytes);
     }
 }

@@ -5994,6 +5994,20 @@
         "migrate-hub-mirror CLI requires a user and schema when no arguments are given",
         "migrate-hub-mirror CLI requires the database password after required arguments"
       ],
+      "52f251498c833a3b": [
+        "FILE manifest metadata summary read keeps metadata-only read count constant at 4 and 4,096 parts",
+        "FILE manifest multipart summary does no multipart read for format zero",
+        "FILE manifest multipart summary maps both terminal completion results",
+        "FILE manifest multipart summary uses one bulk metadata read for both 2 and 26 parts",
+        "FILE multipart format declaration declares formats 1 and 2 as rendered",
+        "FILE part action detail keeps a valid manifest index including zero",
+        "FILE part action detail resolves a part without a files row and exposes its verdict",
+        "FILE part detail read returns null when the index has no file_parts row",
+        "FILE part detail read uses one bound query and returns its row",
+        "FILE part production action detail fallback resolves file_parts after FILE_QUERY returns no files row",
+        "file part block action counts merges part-only counts into the public files family",
+        "file part block action counts uses one bulk read for both 2 and 26 blocks"
+      ],
       "52ff975112f61d08": [
         "preflight and feequote params ceiling counts UTF-8 bytes GET feequote refuses params over 8192 bytes though under 8192 chars",
         "preflight and feequote params ceiling counts UTF-8 bytes POST feequote refuses oversize multibyte params itself",
@@ -9262,20 +9276,6 @@
         "Security: Proxy spoofing: req.ip through Cloudflare and Apache keys on the visitor when mod_remoteip resolved CF-Connecting-IP",
         "Security: Proxy spoofing: req.ip through Cloudflare and Apache never reads CF-Connecting-IP itself"
       ],
-      "9faa3ea4061639c2": [
-        "FILE manifest multipart summary does no multipart read for format zero",
-        "FILE manifest multipart summary keeps metadata-only read count constant at 4 and 4,096 parts",
-        "FILE manifest multipart summary maps both terminal completion results",
-        "FILE manifest multipart summary uses one bulk metadata read for both 2 and 26 parts",
-        "FILE multipart format declaration declares formats 1 and 2 as rendered",
-        "FILE part action detail keeps a valid manifest index including zero",
-        "FILE part action detail resolves a part without a files row and exposes its verdict",
-        "FILE part detail read returns null when the index has no file_parts row",
-        "FILE part detail read uses one bound query and returns its row",
-        "FILE part production action detail fallback resolves file_parts after FILE_QUERY returns no files row",
-        "file part block action counts merges part-only counts into the public files family",
-        "file part block action counts uses one bulk read for both 2 and 26 blocks"
-      ],
       "9faae2fa2817f069": [
         "Database#getSlashProposals (M3.6 dual-path data leg) RPC-first via HubOperationalCache maps type=pubkey to the validator_pubkey param and leaves status undefined",
         "Database#getSlashProposals (M3.6 dual-path data leg) RPC-first via HubOperationalCache maps type=status to the status param and leaves validator_pubkey undefined",
@@ -10324,6 +10324,23 @@
         "staking action-detail SQL exports a valid SLASH_DETAIL query",
         "staking action-detail SQL exports a valid STAKE_DETAIL query",
         "staking action-detail SQL exports a valid UNSTAKE_DETAIL query"
+      ],
+      "c45a27c3f2f8d99a": [
+        "multipart FILE action fields enforces an explicit maximum output size",
+        "multipart FILE action fields reads version 1 gate and compression fields",
+        "multipart FILE icon source skips a manifest before the gated and legacy FILE readers",
+        "multipart FILE raw route compressed recovery destroys the response when a part fails its digest in inflate pass 2",
+        "multipart FILE raw route compressed recovery serves ratio bombs and corrupt deflate streams in stored form",
+        "multipart FILE raw route ranges serves one stored-form range and refuses a multi-range",
+        "multipart FILE raw route refusals returns FILE_PART_CORRUPT when bytes fail their digest",
+        "multipart FILE raw route refusals returns each multipart refusal with no-store",
+        "multipart FILE raw route refusals turns a multipart decoder failure into a 5xx without legacy reads",
+        "multipart FILE raw route stored output inflates a compressed public manifest with the multipart output cap",
+        "multipart FILE raw route stored output serves a complete public manifest byte-identically and bypasses legacy readers",
+        "multipart FILE raw route stored output serves gated multipart ciphertext without inflating it",
+        "multipart FILE reader detects part indexes and invalid manifests without querying the decoder",
+        "multipart FILE reader separates one metadata query from paged decoder reads",
+        "multipart FILE reader trips the decoder identifier guard before issuing the decoder query"
       ],
       "c4be9953af5078b6": [
         "Security: batch endpoints: the knob is pinnable and pinned (row 51, D69) explains in the drop-in what the pin bounds",
@@ -11956,23 +11973,6 @@
         "HubMirrorSyncManager syncs on the config-borne hub URL alone, with no HUB_API_URL in the env",
         "HubMirrorSyncManager takes the hub URL from the checkpoint config block, over the env"
       ],
-      "ec15eb139740433d": [
-        "multipart FILE action fields enforces an explicit maximum output size",
-        "multipart FILE action fields reads version 1 gate and compression fields",
-        "multipart FILE icon source skips a manifest before the gated and legacy FILE readers",
-        "multipart FILE raw route destroys the response when a part fails its digest in inflate pass 2",
-        "multipart FILE raw route inflates a compressed public manifest with the multipart output cap",
-        "multipart FILE raw route refusals returns FILE_PART_CORRUPT when bytes fail their digest",
-        "multipart FILE raw route refusals returns each multipart refusal with no-store",
-        "multipart FILE raw route refusals turns a multipart decoder failure into a 5xx without legacy reads",
-        "multipart FILE raw route serves a complete public manifest byte-identically and bypasses legacy readers",
-        "multipart FILE raw route serves gated multipart ciphertext without inflating it",
-        "multipart FILE raw route serves one stored-form range and refuses a multi-range",
-        "multipart FILE raw route serves ratio bombs and corrupt deflate streams in stored form",
-        "multipart FILE reader detects part indexes and invalid manifests without querying the decoder",
-        "multipart FILE reader separates one metadata query from paged decoder reads",
-        "multipart FILE reader trips the decoder identifier guard before issuing the decoder query"
-      ],
       "ec5292d336fec81a": [
         "Database#getDispenserPriceStaleBatch fails safe when the current tip time is unavailable",
         "Database#getDispenserPriceStaleBatch flags fresh and stale Mode A and Mode B fixtures using the settlement windows",
@@ -13015,7 +13015,7 @@
           "test/unit/db/core/db_reorg_real_ddl.test.js": "604a229cef54f8d7",
           "test/unit/db/core/db_result_cache.test.js": "c52649880b115c3a",
           "test/unit/db/core/db_status_coin_isolation.test.js": "ccecc38acaf586ce",
-          "test/unit/db/files_multipart_reader.test.js": "9faa3ea4061639c2",
+          "test/unit/db/files_multipart_reader.test.js": "52f251498c833a3b",
           "test/unit/db/guards/block_query_guard.test.js": "fa17ad3e8edcf750",
           "test/unit/db/guards/checkpoint_query_guard.test.js": "82adc841104ffb13",
           "test/unit/db/guards/ping_empty_pool_guard.test.js": "c02294c909b16034",
@@ -13159,7 +13159,7 @@
           "test/unit/explorer/routes/explorer_bridge_panel_routes.test.js": "f31587786e59373d",
           "test/unit/explorer/routes/explorer_bridge_routes.test.js": "fc44bc8438865649",
           "test/unit/explorer/routes/explorer_file_raw_and_action_miss.test.js": "84b057534c968f36",
-          "test/unit/explorer/routes/explorer_file_raw_multipart.test.js": "ec15eb139740433d",
+          "test/unit/explorer/routes/explorer_file_raw_multipart.test.js": "c45a27c3f2f8d99a",
           "test/unit/explorer/routes/explorer_list_all_routes.test.js": "53f45d90a9a823fb",
           "test/unit/explorer/routes/explorer_routing.test.js": "c04e83d263571f66",
           "test/unit/explorer/routes/protocol_lifecycle_routes.test.js": "e469e2696bc2d982",

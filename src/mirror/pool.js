@@ -25,6 +25,9 @@
 const mariadb = require('mariadb');
 const poolSizing = require('./pool_sizing');
 
+// The statement limit for schema DDL, matching the indexer migration runner's default.
+const DDL_TIMEOUT_MS = 3600000;
+
 class HubMirrorPool {
 
     constructor({ host, port, user, pass, name }){
@@ -65,10 +68,13 @@ class HubMirrorPool {
         }
     }
 
-    async doQuery(sql, args){
+    // opts.ddl runs the statement under DDL_TIMEOUT_MS instead of the pool's read limit:
+    // a schema reconcile ALTER on a million-row mirror outlives 30 s on a loaded server,
+    // and a refused one leaves that coin's mirror unstarted until the next boot.
+    async doQuery(sql, args, opts){
         let conn = await this.pool.getConnection();
         try {
-            return await conn.query(sql, args);
+            return await conn.query((opts && opts.ddl) ? { sql, timeout: DDL_TIMEOUT_MS } : sql, args);
         } finally {
             conn.release();
         }

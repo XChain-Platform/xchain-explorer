@@ -68,6 +68,10 @@ const TWIN_DIR = path.join(__dirname, '..', 'sql', 'hub-mirror');
 // Columns whose value the hub stamps on insert: rows stored before the ALTER keep NULL (or
 // 0) in them until the table is rebuilt from the hub (most mirror writes are INSERT IGNORE),
 // and the log line names them.
+// Every ALTER below runs as DDL: HubMirrorPool lifts the 30 s read limit for it, since
+// rebuilding an index on a million-row mirror outlasts that on a loaded server.
+const DDL = Object.freeze({ ddl: true });
+
 const RESTAMPED_COLUMN = /^(?:admit_block(?:_[a-z]+)?|batch_block_time|batch_action_index)$/;
 
 // The non-additive reconciliations, per table: indexes by name, uq_* widens, charset and
@@ -208,7 +212,7 @@ async function addMissingColumnsAndIndexes(dbConn, table, spec, log, applied) {
         // One ALTER per table so MariaDB rebuilds it at most once.
         const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
         log('[hub-mirror] migrating ' + table + ': ' + clauses.join('; ') + restampNote(restamp));
-        await dbConn.doQuery(sql);
+        await dbConn.doQuery(sql, undefined, DDL);
         applied.push(sql);
     }
 }
@@ -241,7 +245,7 @@ async function widenColumnCharsets(dbConn, table, spec, log, applied) {
     if (widenClauses.length > 0) {
         const sql = 'ALTER TABLE `' + table + '` ' + widenClauses.join(', ');
         log('[hub-mirror] widening ' + table + ': ' + widenClauses.join('; '));
-        await dbConn.doQuery(sql);
+        await dbConn.doQuery(sql, undefined, DDL);
         applied.push(sql);
     }
 }
@@ -264,7 +268,7 @@ async function widenColumnLengths(dbConn, table, spec, log, applied) {
     const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
     try {
         log('[hub-mirror] widening ' + table + ': ' + clauses.join('; '));
-        await dbConn.doQuery(sql);
+        await dbConn.doQuery(sql, undefined, DDL);
         applied.push(sql);
     } catch (err) {
         logger.error('HUB_MIRROR_WIDEN_FAILED', { table, err: err && err.message ? err.message : err,
@@ -289,7 +293,7 @@ async function retypeColumnTypes(dbConn, table, spec, log, applied) {
     const sql = "SET STATEMENT time_zone = '+00:00' FOR ALTER TABLE `" + table + '` ' + clauses.join(', ');
     try {
         log('[hub-mirror] retyping ' + table + ': ' + clauses.join('; '));
-        await dbConn.doQuery(sql);
+        await dbConn.doQuery(sql, undefined, DDL);
         applied.push(sql);
     } catch (err) {
         logger.error('HUB_MIRROR_RETYPE_FAILED', {

@@ -4958,6 +4958,10 @@
         "showActionDatatable client: unwraps only a summary OBJECT, never a raw feed BET details string a row with no summary (details false) falls back to the flat row",
         "showActionDatatable client: unwraps only a summary OBJECT, never a raw feed BET details string the transaction actions table still gets its nested summary object"
       ],
+      "2d343e5d7b1f9e24": [
+        "hub-mirror DDL statement limit the pool runs a ddl statement under the migration-scale limit and a read under its own",
+        "hub-mirror DDL statement limit the reconcile flags every ALTER it runs as ddl and no SHOW probe"
+      ],
       "2d909ab5ef9dd060": [
         "startWebsockets live-feed start starts the poller with every pooled coin when pools exist",
         "startWebsockets live-feed start starts the poller with no coins when the boot has no pools",
@@ -12787,8 +12791,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 508,
-        "titleCount": 8262,
+        "fileCount": 509,
+        "titleCount": 8264,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13205,6 +13209,7 @@
           "test/unit/icons/icon_resolver.test/padded_descriptions.test.js": "57872038936ff0db",
           "test/unit/lib/observability.test.js": "ca8fa416b5e8a763",
           "test/unit/lib/utility.test.js": "94450e692a534bf7",
+          "test/unit/mirror/ddl_limit/mirror_ddl_statement_limit.test.js": "2d343e5d7b1f9e24",
           "test/unit/mirror/hub_db_sync.test.js": "634a78dff95f2041",
           "test/unit/mirror/hub_mirror_bridge_tables.test.js": "f22c4e1330eebd92",
           "test/unit/mirror/hub_mirror_charset_widen.test.js": "d531308aad6a4cd7",

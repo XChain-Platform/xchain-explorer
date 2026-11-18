@@ -41,6 +41,38 @@ function ledgerRowOrder(dir){
         .map((col) => col + ' ' + dir).join(', ');
 }
 
+// Fill the figures a usable tracker reading carries into the address payload.
+async function applyTrackerInfo(reader, config, data, info){
+    // A tracker that is behind its node, halted or serving a stale tip still answers /info
+    // with figures, but they are not a reading of the chain. Its own sync verdict decides:
+    // synced === false is answered as unavailable, as the spend path refuses the same state.
+    // A body with no sync object (an older tracker) keeps its figures.
+    const trackerSynced = !(info && info.sync && info.sync.synced === false);
+    if(info && info.balances && info.utxos && trackerSynced){
+        data.type     = info.type || null;
+        data.balances = {
+            confirmed: info.balances.confirmed,
+            pending:   info.balances.pending,
+            received:  info.balances.received
+        };
+        data.utxos = {
+            confirmed: info.utxos.confirmed,
+            pending:   info.utxos.pending
+        };
+        data.tracker_available = true;
+        if(info.mempool_ready !== undefined) data.mempool_ready = info.mempool_ready;
+        // Estimated fiat value of the confirmed balance: confirmed amount * live USD price
+        // (null on testnet/regtest or when the hub oracle has no price for this coin).
+        let price = await reader.getCoinPriceUsd(config);
+        data.estimated_value = {
+            btc: data.balances.confirmed,
+            usd: (price != null && data.balances.confirmed != null)
+                ? reader.util.bcmul(String(data.balances.confirmed), String(price), 2)
+                : null
+        };
+    }
+}
+
 class EntityAddressReaders {
     // TODO: pull balance data from the utxo-tracker API instead of placeholder values
     async getAddress(config){
@@ -58,34 +90,7 @@ class EntityAddressReaders {
             tracker_available: false
         };
         let info = await this.getAddressTrackerInfo(config, address);
-        // A tracker that is behind its node, halted or serving a stale tip still answers /info
-        // with figures, but they are not a reading of the chain. Its own sync verdict decides:
-        // synced === false is answered as unavailable, as the spend path refuses the same state.
-        // A body with no sync object (an older tracker) keeps its figures.
-        const trackerSynced = !(info && info.sync && info.sync.synced === false);
-        if(info && info.balances && info.utxos && trackerSynced){
-            data.type     = info.type || null;
-            data.balances = {
-                confirmed: info.balances.confirmed,
-                pending:   info.balances.pending,
-                received:  info.balances.received
-            };
-            data.utxos = {
-                confirmed: info.utxos.confirmed,
-                pending:   info.utxos.pending
-            };
-            data.tracker_available = true;
-            if(info.mempool_ready !== undefined) data.mempool_ready = info.mempool_ready;
-            // Estimated fiat value of the confirmed balance: confirmed amount * live USD price
-            // (null on testnet/regtest or when the hub oracle has no price for this coin).
-            let price = await this.getCoinPriceUsd(config);
-            data.estimated_value = {
-                btc: data.balances.confirmed,
-                usd: (price != null && data.balances.confirmed != null)
-                    ? this.util.bcmul(String(data.balances.confirmed), String(price), 2)
-                    : null
-            };
-        }
+        await applyTrackerInfo(this, config, data, info);
         // Controller bindings still gating this address's native actions
         // (protocol/controller-bound-tokens.md). [] when nothing gates.
         data.controllers = await this.getAddressControllerBindings(config, config.data.search);

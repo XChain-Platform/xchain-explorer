@@ -45,8 +45,8 @@ function harness() {
     return { wsServer, changeDetector, broadcaster, clients };
 }
 
-function subscribed(h, channels, params) {
-    const client = createClient(1);
+function subscribed(h, channels, params, id = 1) {
+    const client = createClient(id);
     h.clients.set(client.id, client);
     const res = h.wsServer.channelManager.subscribe(client, channels, params);
     expect(res.success, JSON.stringify(res)).to.equal(true);
@@ -59,18 +59,31 @@ function framesOf(client) {
 
 const NARROW = ['SEND', 'ORDER_MATCH'];
 
+// Emit one block, one entity update or one action from 1abc through the detector.
+function emitBlock(h) {
+    h.changeDetector.emit('block', 'BTC', { block_index: 5, tx_count: 1, action_count: 1 });
+}
+
+function emitEntity(h, type, channel, data) {
+    h.changeDetector.emit('entity_update', 'BTC', { type, channel, data });
+}
+
+function emitAction(h, index, action) {
+    h.changeDetector.emit('action', 'BTC', { action_index: index, action, source: '1abc', destinations: [] });
+}
+
 describe('types filter and state frames', function () {
     it('a blocks subscription narrowed by types still gets NEW_BLOCK', function () {
         const h = harness();
         const client = subscribed(h, ['blocks', 'actions'], { types: NARROW });
-        h.changeDetector.emit('block', 'BTC', { block_index: 5, tx_count: 1, action_count: 1 });
+        emitBlock(h);
         expect(framesOf(client)).to.deep.equal(['NEW_BLOCK']);
     });
 
     it('a network subscription narrowed by types still gets NETWORK_STATS', async function () {
         const h = harness();
         const client = subscribed(h, ['network'], { types: NARROW });
-        h.changeDetector.emit('block', 'BTC', { block_index: 5, tx_count: 1, action_count: 1 });
+        emitBlock(h);
         await new Promise((resolve) => setImmediate(resolve));
         expect(framesOf(client)).to.deep.equal(['NETWORK_STATS']);
     });
@@ -78,13 +91,9 @@ describe('types filter and state frames', function () {
     it('token and market subscriptions narrowed by types get their update frames', function () {
         const h = harness();
         const token  = subscribed(h, ['token'], { tick: 'PEPE', types: NARROW });
-        const market = createClient(2);
-        h.clients.set(2, market);
-        h.wsServer.channelManager.subscribe(market, ['market'], { tick1: 'PEPE', tick2: 'BTC', types: NARROW });
-        h.changeDetector.emit('entity_update', 'BTC', { type: 'TOKEN_UPDATE', channel: 'token', data: { tick: 'PEPE' } });
-        h.changeDetector.emit('entity_update', 'BTC', {
-            type: 'MARKET_UPDATE', channel: 'market', data: { tick1: 'PEPE', tick2: 'BTC' }
-        });
+        const market = subscribed(h, ['market'], { tick1: 'PEPE', tick2: 'BTC', types: NARROW }, 2);
+        emitEntity(h, 'TOKEN_UPDATE', 'token', { tick: 'PEPE' });
+        emitEntity(h, 'MARKET_UPDATE', 'market', { tick1: 'PEPE', tick2: 'BTC' });
         expect(framesOf(token)).to.deep.equal(['TOKEN_UPDATE']);
         expect(framesOf(market)).to.deep.equal(['MARKET_UPDATE']);
     });
@@ -92,27 +101,25 @@ describe('types filter and state frames', function () {
     it('a narrowed address subscription gets ADDRESS_UPDATE and still drops other action families', function () {
         const h = harness();
         const client = subscribed(h, ['address'], { address: '1abc', types: ['SEND'] });
-        h.changeDetector.emit('entity_update', 'BTC', { type: 'ADDRESS_UPDATE', channel: 'address', data: { address: '1abc' } });
-        h.changeDetector.emit('action', 'BTC', { action_index: 9, action: 'ORDER', source: '1abc', destinations: [] });
-        h.changeDetector.emit('action', 'BTC', { action_index: 10, action: 'SEND', source: '1abc', destinations: [] });
+        emitEntity(h, 'ADDRESS_UPDATE', 'address', { address: '1abc' });
+        emitAction(h, 9, 'ORDER');
+        emitAction(h, 10, 'SEND');
         expect(framesOf(client)).to.deep.equal(['ADDRESS_UPDATE', 'NEW_ACTION']);
     });
 
     it('a narrowed dispenser subscription gets DISPENSER_UPDATE', function () {
         const h = harness();
         const client = subscribed(h, ['dispenser'], { action_index: '7', types: ['DISPENSE'] });
-        h.changeDetector.emit('entity_update', 'BTC', {
-            type: 'DISPENSER_UPDATE', channel: 'dispenser', data: { action_index: '7' }
-        });
+        emitEntity(h, 'DISPENSER_UPDATE', 'dispenser', { action_index: '7' });
         expect(framesOf(client)).to.deep.equal(['DISPENSER_UPDATE']);
     });
 
     it('a once subscription narrowed by types is not spent by a state frame that only passed the filter', function () {
         const h = harness();
         const client = subscribed(h, ['address'], { address: '1abc', types: ['SEND'], once: true });
-        h.changeDetector.emit('entity_update', 'BTC', { type: 'ADDRESS_UPDATE', channel: 'address', data: { address: '1abc' } });
+        emitEntity(h, 'ADDRESS_UPDATE', 'address', { address: '1abc' });
         expect(client.subscriptions.size).to.equal(1);
-        h.changeDetector.emit('action', 'BTC', { action_index: 10, action: 'SEND', source: '1abc', destinations: [] });
+        emitAction(h, 10, 'SEND');
         expect(framesOf(client)).to.deep.equal(['ADDRESS_UPDATE', 'NEW_ACTION', 'UNSUBSCRIBED']);
         expect(client.subscriptions.size).to.equal(0);
     });
@@ -120,7 +127,7 @@ describe('types filter and state frames', function () {
     it('a once subscription on a state-only channel is spent by its first frame', function () {
         const h = harness();
         const client = subscribed(h, ['blocks'], { types: NARROW, once: true });
-        h.changeDetector.emit('block', 'BTC', { block_index: 5, tx_count: 1, action_count: 1 });
+        emitBlock(h);
         expect(framesOf(client)).to.deep.equal(['NEW_BLOCK', 'UNSUBSCRIBED']);
     });
 });

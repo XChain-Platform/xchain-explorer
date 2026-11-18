@@ -258,9 +258,7 @@ function formatListReference(coin, actionIndex, isEdit=false, linkLabel=null){
     return formatLink('/' + coin + '/action/' + actionIndex, label);
 }
 function formatParentActionLink(coin, actionIndex){
-    if(isNull(actionIndex) || Number(actionIndex) === 0)
-        return '-';
-    return formatLink('/' + coin + '/action/' + actionIndex, formatAmount(actionIndex));
+    return (isNull(actionIndex) || Number(actionIndex) === 0) ? '-' : formatLink('/' + coin + '/action/' + actionIndex, formatAmount(actionIndex));
 }
 // Return a truncated hex string (hash / pubkey / request_id) with the full value as
 // a hover title, keeping long 64/128-hex identifiers readable in tables.

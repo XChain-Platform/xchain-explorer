@@ -76,7 +76,8 @@ function seed() {
 
 const parties = (map, index) => [...(map.get(String(index)) || [])].sort();
 
-describe('getLifecycleParties against the REAL indexer DDL', function () {
+// Open the real-DDL tables, seed them and stub the query path before each case.
+function installHooks() {
     before(function () {
         sqlite = openIndexerTables(this, TABLES);
     });
@@ -89,6 +90,10 @@ describe('getLifecycleParties against the REAL indexer DDL', function () {
         sinon.stub(db, 'doQuery').callsFake(async (config, query, args) => sqlite.prepare(query).all(...(args || [])));
     });
     afterEach(() => sinon.restore());
+}
+
+describe('getLifecycleParties against the REAL indexer DDL', function () {
+    installHooks();
 
     it('names the placers of every system action family in one query', async function () {
         const batch = [

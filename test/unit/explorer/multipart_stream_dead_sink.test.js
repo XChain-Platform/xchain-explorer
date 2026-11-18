@@ -69,6 +69,13 @@ function deadline(promise, label) {
     return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
 }
 
+// Settle a promise within the deadline and return the error it rejected with, or null.
+async function captureFailure(promise, label) {
+    let failure = null;
+    await deadline(promise.catch(error => { failure = error; }), label);
+    return failure;
+}
+
 describe('multipart FILE byte stream when the sink dies between decoder pages', function () {
     it('settles an invalid deflate stream that errors across a 16-part page', async function () {
         const parts = Array.from({ length: 40 }, (_unused, position) =>
@@ -96,9 +103,7 @@ describe('multipart FILE byte stream when the sink dies between decoder pages', 
         const client = new Writable({ highWaterMark: 1, write() {} });
         setTimeout(() => client.destroy(), 20);
 
-        let failure = null;
-        await deadline(stream.streamParts(db, {}, record, 0, 31, client).catch(error => { failure = error; }),
-            'client close');
+        const failure = await captureFailure(stream.streamParts(db, {}, record, 0, 31, client), 'client close');
 
         expect(failure).to.be.an('error');
         expect(failure.sinkClosed).to.equal(true);
@@ -110,9 +115,7 @@ describe('multipart FILE byte stream when the sink dies between decoder pages', 
         const client = new Writable({ highWaterMark: 1, write() {} });
         setTimeout(() => client.destroy(), 30);
 
-        let failure = null;
-        await deadline(stream.streamInflated(db, {}, record, client).catch(error => { failure = error; }),
-            'inflated client close');
+        const failure = await captureFailure(stream.streamInflated(db, {}, record, client), 'inflated client close');
 
         expect(failure).to.be.an('error');
     });
@@ -123,9 +126,7 @@ describe('multipart FILE byte stream when the sink dies between decoder pages', 
         const client = new Writable({ highWaterMark: 1, write() {} });
         setTimeout(() => client.destroy(), 80);
 
-        let failure = null;
-        await deadline(stream.streamInflated(db, {}, record, client).catch(error => { failure = error; }),
-            'close after last write');
+        const failure = await captureFailure(stream.streamInflated(db, {}, record, client), 'close after last write');
 
         expect(failure).to.be.an('error');
         expect(db.readPartBytes.callCount).to.equal(1);

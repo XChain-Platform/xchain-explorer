@@ -93,6 +93,10 @@ describe('xchain_ws.js reconnect after a once subscription was spent', function 
         expect(subscribes(ws)[0].params).to.deep.equal({ once: true, fields: ['block_index'] });
     });
 
+});
+
+// The same suite continued, kept as a second block to hold each block under the length limit.
+describe('xchain_ws.js reconnect after a once subscription was spent', function () {
     it('matches market, dispenser and xcall keys the way the server spells them', function () {
         const call = 'AB'.repeat(32);
         const ws = reconnect([

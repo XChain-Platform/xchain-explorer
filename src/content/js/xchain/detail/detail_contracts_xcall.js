@@ -58,6 +58,11 @@ function showDeployDetails(data){
         $('#info-deploy .deploy-staking-row').addClass('d-none');
         return;
     }
+    detailContractsXcall_renderDeployContract(data, deployed);
+}
+
+// Render the contract cell and staking fields of an ordinary or assembling deployment.
+function detailContractsXcall_renderDeployContract(data, deployed){
     // An assembler whose group is still incomplete has no contract to point at: link its own
     // index and the reader gets a dead /contract/ page, so the cell states the assembly status
     // instead. Once the group completes, the contract lives at the piece that completed it,

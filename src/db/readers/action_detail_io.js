@@ -39,6 +39,7 @@
  *   - dispenser_prices.js the current price-source availability for dispensers
  *   - destinations.js    the live feed's destination attachment
  *   - ledger_ticks.js    the ticks each live-feed action moved
+ *   - lifecycle_parties.js the parties of each action the indexer mints itself
  *   - this file          getActionData itself
  *
  * getActionData stays in the entry because it is the pipeline every action type
@@ -78,6 +79,7 @@ const orderBatchMethods  = require('./action_detail_io/order_batches.js');
 const dispenserPrices    = require('./action_detail_io/dispenser_prices.js');
 const destinationMethods = require('./action_detail_io/destinations.js');
 const ledgerTickMethods  = require('./action_detail_io/ledger_ticks.js');
+const lifecyclePartyMethods = require('./action_detail_io/lifecycle_parties.js');
 
 // Run the handler's own queries for one action: the main row (or the de-blanked
 // baseline when it has none), then the optional second and third statements, each
@@ -225,5 +227,6 @@ module.exports = composeReaderParts(
     orderBatchMethods,
     dispenserPrices,
     destinationMethods,
-    ledgerTickMethods
+    ledgerTickMethods,
+    lifecyclePartyMethods
 );

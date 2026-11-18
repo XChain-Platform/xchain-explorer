@@ -48,6 +48,21 @@ function xcWsCheckSchema(client, msg) {
     }
 }
 
+// Entity params a subscribe request carries, and per entity channel its singular and
+// plural names (a token request names its singular first, as the server reads it).
+var XC_WS_ENTITY_PARAMS = ['address', 'addresses', 'tick', 'ticks', 'tick1', 'tick2',
+    'pairs', 'action_index', 'action_indexes', 'call_id', 'call_ids'];
+var XC_WS_ENTITY_NAMES = { address: ['address', 'addresses'], token: ['tick', 'ticks', true],
+    dispenser: ['action_index', 'action_indexes'], bet_feed: ['action_index', 'action_indexes'],
+    xcall: ['call_id', 'call_ids'] };
+
+// The key an UNSUBSCRIBED frame names (channel plus its entity, as the server spelled it).
+function xcWsFrameKey(d) {
+    var id = d.channel === 'market' ? d.tick1 + '|' + d.tick2 : [d.address, d.tick, d.action_index, d.call_id].filter(function(v) { return v !== undefined; })[0];
+    id = id === undefined ? '' : String(id);
+    return d.channel + ':' + (d.channel === 'xcall' ? id.toLowerCase() : id);
+}
+
 // Handle system messages
 function xcWsHandleSystemMessage(client, msg) {
     if (msg.type === 'WELCOME') {
@@ -76,6 +91,8 @@ function xcWsHandleSystemMessage(client, msg) {
     if (client._catchUp && (msg.type === 'CATCH_UP_COMPLETE' || msg.type === 'error')) {
         client._catchUpAnswered(msg);
     }
+
+    if (msg.type === 'UNSUBSCRIBED' && msg.data && msg.data.reason === 'once') client._noteOnceSpent(msg.data);
 
     // The answer to a plain subscribe this client sent (xchain_ws_catch_up.js).
     if (msg.id !== undefined) client._subscribeAnswered(msg);

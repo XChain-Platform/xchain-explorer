@@ -43,8 +43,16 @@ class OracleReaders {
                     GROUP BY fs.status`;
         let rows  = await this.doQuery(config, query, args) || [];
         let counts = { open: 0, closed: 0, resolved: 0, resolved_void: 0, cancelled: 0, expired: 0 };
-        let total  = 0;
+        let total    = 0;
+        let rejected = 0;
         for(const r of rows){
+            // A rejected create stores a feed row but never opened a market, so it is
+            // reported on its own and kept out of total_feeds, which must equal the
+            // lifecycle counts it headlines.
+            if(r.feed_status === 'invalid'){
+                rejected += Number(r.feeds);
+                continue;
+            }
             if(r.feed_status in counts) counts[r.feed_status] = Number(r.feeds);
             total += Number(r.feeds);
         }
@@ -53,7 +61,7 @@ class OracleReaders {
         let active = counts.open + counts.closed;
         let fees   = await this.getOracleFeesEarned(config, config.data.search);
         let price  = await this.getOraclePriceRecord(config, config.data.search);
-        return [{ address: config.data.search, total_feeds: total, active_feeds: active,
+        return [{ address: config.data.search, total_feeds: total, rejected_feeds: rejected, active_feeds: active,
                   counts, fees_earned: fees, price,
                   reputation_caveat: 'Per-address record with no bonding; addresses are free to create, so an empty history means unknown, not safe.' }];
     }

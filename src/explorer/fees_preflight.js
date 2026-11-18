@@ -217,7 +217,8 @@ class FeesPreflight {
                     return res.status(400).json({ error: 'invalid ' + f, code: 'INVALID_PARAMETER' });
             if(q.giveEscrow !== undefined && !/^[0-9]+(\.[0-9]{1,18})?$/.test(q.giveEscrow))
                 return res.status(400).json({ error: 'invalid giveEscrow', code: 'INVALID_PARAMETER' });
-            if(q.blockTime !== undefined && !/^[0-9]+$/.test(q.blockTime))
+            if(q.blockTime !== undefined &&
+                (!/^[1-9][0-9]*$/.test(q.blockTime) || !Number.isSafeInteger(Number(q.blockTime))))
                 return res.status(400).json({ error: 'invalid blockTime', code: 'INVALID_PARAMETER' });
 
             let connector = new IndexerConnector(url);

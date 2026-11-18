@@ -21,6 +21,7 @@ const { createTestConfigInfo } = require('../integration/helpers/app-setup');
 const { applyChaosBootEnv } = require('./helpers/chaos-setup');
 const XChainExplorer = require('../../src/XChainExplorer.js');
 const staticMounts   = require('../../src/http/static_mounts.js');
+const { applyJsonBody, applyBodyErrorHandler } = require('../../src/http/api_boot/json_body.js');
 const autocannon     = require('autocannon');
 
 const {
@@ -43,37 +44,42 @@ const {
 let rlServer    = null;
 let rlServerUrl = null;
 
-async function bootRateLimitedServer() {
-    if (rlServer) return rlServerUrl;
-
+// Mounts the explorer behind CORS, a per-IP limiter of `limit` requests a
+// minute, the production body ceiling and its refusal handler, in that order.
+async function startRateLimitedServer(limit) {
     const app = express();
-    app.use(express.json({ limit: '10kb' }));
     app.use(cors(testCorsOptions()));
 
     app.use(rateLimit({
         windowMs:        60 * 1000,
-        limit:           500,
+        limit,
         standardHeaders: true,
         legacyHeaders:   false,
         // Production's own predicate, so an overload run exercises the skip rule
         // the server actually ships rather than a stale inlined copy of it.
         skip: staticMounts.isStaticAsset,
     }));
+    applyJsonBody(app, XChainExplorer);
 
     const configInfo = createTestConfigInfo(DB_PORT);
     const explorer   = new XChainExplorer(app, configInfo);
+    applyBodyErrorHandler(app);
     applyChaosBootEnv();
     await explorer.init();
 
-    await new Promise((resolve, reject) => {
-        rlServer = http.createServer(app);
-        rlServer.listen(0, '127.0.0.1', (err) => {
+    const server = http.createServer(app);
+    const url = await new Promise((resolve, reject) => {
+        server.listen(0, '127.0.0.1', (err) => {
             if (err) return reject(err);
-            const { port } = rlServer.address();
-            rlServerUrl = `http://127.0.0.1:${port}`;
-            resolve();
+            resolve(`http://127.0.0.1:${server.address().port}`);
         });
     });
+    return { server, url };
+}
+
+async function bootRateLimitedServer() {
+    if (rlServer) return rlServerUrl;
+    ({ server: rlServer, url: rlServerUrl } = await startRateLimitedServer(500));
     return rlServerUrl;
 }
 
@@ -303,29 +309,56 @@ function registerLargePayloadTests() {
 describe('CE-API-04: Large Payload Rejection', function () {
     this.timeout(30000);
 
+    // The burst tests above spend the shared server's per-minute budget, which
+    // would turn every body here into a 429. These tests run on their own server
+    // whose budget is exactly the four requests below, so the fifth is throttled.
+    let payload = null;
+    before(async function () {
+        this.timeout(60000);
+        payload = await startRateLimitedServer(4);
+    });
+    after(async function () {
+        if (payload) await new Promise(resolve => payload.server.close(resolve));
+    });
+
     it('5KB body should receive a response (within limit)', async function () {
         const body = 'x'.repeat(5 * 1024);
-        const res = await httpPost('/RBTC/explorer/blocks/all', body);
+        const res = await httpPost('/RBTC/explorer/blocks/all', body, { baseUrl: payload.url });
         expect(res.statusCode, '5KB payload should not be rejected with 413')
             .to.not.equal(413);
+        expect(res.statusCode, 'a body that is not JSON is refused as a bad request').to.equal(400);
+        expect(JSON.parse(res.body).code).to.equal('INVALID_JSON_BODY');
     });
 
     it('20KB body should be rejected with 413 (exceeds 10KB limit)', async function () {
         const body = 'x'.repeat(20 * 1024);
-        const res = await httpPost('/RBTC/explorer/blocks/all', body);
+        const res = await httpPost('/RBTC/explorer/blocks/all', body, { baseUrl: payload.url });
         expect(res.statusCode, '20KB payload should be rejected with 413 Payload Too Large')
             .to.equal(413);
+        expect(JSON.parse(res.body).code).to.equal('BODY_TOO_LARGE');
+    });
+
+    it('20KB body on a JSON-RPC entry path should be refused with a JSON-RPC error', async function () {
+        const res = await httpPost('/RBTC/api', 'x'.repeat(20 * 1024), { baseUrl: payload.url });
+        expect(res.statusCode).to.equal(413);
+        const answer = JSON.parse(res.body);
+        expect(answer.jsonrpc).to.equal('2.0');
+        expect(answer.error.code).to.equal(-32600);
     });
 
     it('server should handle subsequent requests normally after a 413 rejection', async function () {
-        // After the large-payload burst tests, the rate limiter may be active.
         // We just verify the server is alive and responding (any HTTP status is fine).
         let serverAlive = false;
         try {
-            const res = await httpGetLocal('/RBTC/api/status');
+            const res = await httpGetLocal('/RBTC/api/status', { baseUrl: payload.url });
             serverAlive = typeof res.statusCode === 'number';
         } catch { serverAlive = false; }
         expect(serverAlive, 'server should still be responsive after 413 rejection').to.equal(true);
+    });
+
+    it('an over-budget caller should be answered 429 before its body is read', async function () {
+        const res = await httpPost('/RBTC/explorer/blocks/all', 'x'.repeat(20 * 1024), { baseUrl: payload.url });
+        expect(res.statusCode, 'the limiter runs ahead of the body parser, as in production').to.equal(429);
     });
 });
 }

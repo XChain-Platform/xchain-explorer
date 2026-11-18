@@ -15,7 +15,6 @@
 'use strict';
 
 const crypto = require('crypto');
-const { once } = require('events');
 const zlib = require('zlib');
 const compression = require('../http/compression.js');
 const multipart = require('./multipart_file.js');
@@ -86,10 +85,38 @@ function normalizeBytes(value) {
     return null;
 }
 
+// A destroyed Writable answers write() with false and never emits 'drain', so a
+// bare drain wait on a sink that died between pages would park forever. The
+// error carries sinkClosed so a caller can tell a dead sink from a part fault.
+function sinkClosedError(sink, cause) {
+    const error = cause || sink.errored || new Error('Stream closed before the chunk was written');
+    error.sinkClosed = true;
+    return error;
+}
+
+function waitForDrain(sink) {
+    return new Promise((resolve, reject) => {
+        const settle = (fn, value) => {
+            sink.off('drain', onDrain);
+            sink.off('close', onClose);
+            sink.off('error', onError);
+            fn(value);
+        };
+        const onDrain = () => settle(resolve);
+        const onClose = () => settle(reject, sinkClosedError(sink));
+        const onError = error => settle(reject, sinkClosedError(sink, error));
+        sink.on('drain', onDrain);
+        sink.on('close', onClose);
+        sink.on('error', onError);
+    });
+}
+
 async function writeChunk(sink, chunk) {
     if(chunk.length === 0) return;
+    if(sink.destroyed) throw sinkClosedError(sink);
     if(sink.write(chunk) !== false) return;
-    await once(sink, 'drain');
+    if(sink.destroyed) throw sinkClosedError(sink);
+    await waitForDrain(sink);
 }
 
 async function loadPage(db, config, record, positions) {
@@ -163,12 +190,14 @@ async function inspectInflated(db, config, record) {
                 error.multipartCompressionError = 'INVALID_DEFLATE_STREAM';
             resolve({ ok: false, error: error.multipartCompressionError });
         });
+        // A destroy that raised no error still ends the verdict: the stream is dead and unreadable.
+        inflater.on('close', () => resolve({ ok: false, error: 'INVALID_DEFLATE_STREAM' }));
     });
     try {
         await streamParts(db, config, record, 0, Number(record.total_bytes) - 1, inflater);
         inflater.end();
     } catch(error) {
-        if(error.multipartCompressionError) return await result;
+        if(error.multipartCompressionError || error.sinkClosed) return await result;
         inflater.destroy();
         throw error;
     }
@@ -181,7 +210,16 @@ async function streamInflated(db, config, record, sink) {
         inflater.on('end', resolve);
         inflater.on('error', reject);
         sink.on('error', reject);
+        // A client that goes away stops the pipe, so the inflater would never end or drain again.
+        // After a normal end this settles nothing: the promise has already resolved.
+        sink.on('close', () => {
+            inflater.destroy();
+            reject(sinkClosedError(sink));
+        });
     });
+    // The pending rejection is observed only when the parts loop finishes; a dead
+    // inflater is reported through the loop's own failure.
+    ended.catch(() => {});
     inflater.pipe(sink);
     try {
         await streamParts(db, config, record, 0, Number(record.total_bytes) - 1, inflater);

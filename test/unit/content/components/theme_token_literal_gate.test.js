@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { stripComments } = require('./theme_token_literal_gate.test/support/helpers.js');
+const { literalDeclarations } = require('./theme_token_literal_gate.test/support/declarations.js');
 
 // Static companion to tools/theme-parity/parity-probe.js. That probe diffs
 // computed styles on live pages, but only 79 of the 120 selectors in these
@@ -37,43 +38,6 @@ const COMPONENT_DIR = path.join(__dirname, '..', '..', '..', '..', 'src', 'conte
 // Nothing else parses this devtools probe, so syntax and global-name drift are
 // checked here before an investigation uses it.
 const PROBE_FILE = path.join(__dirname, '..', '..', '..', '..', 'tools/theme-parity/parity-probe.js');
-
-function lineAt(text, offset) {
-  let n = 1;
-  for (let i = 0; i < offset; i++) if (text.charCodeAt(i) === 10) n++;
-  return n;
-}
-
-// Flat block parser: matching innermost `selector { body }` blocks also reaches
-// one level of @media wrapping in theme-owned component sheets. Declaration
-// offsets are tracked with a running cursor (not body.indexOf(decl)) because
-// several declarations repeat verbatim (e.g. the border-width-none reset),
-// and indexOf would always resolve to the first occurrence.
-function parseDeclarations(rawCss, fileName) {
-  const css = stripComments(rawCss);
-  const decls = [];
-  const blockRe = /([^{}]+)\{([^{}]*)\}/g;
-  let m;
-  while ((m = blockRe.exec(css))) {
-    const selector = m[1].trim().replace(/\s+/g, ' ');
-    let cursor = m.index + m[1].length + 1; // offset just past the '{'
-    for (const raw of m[2].split(';')) {
-      const start = cursor;
-      cursor += raw.length + 1; // +1 for the ';' consumed by split
-      const decl = raw.trim();
-      const colon = decl.indexOf(':');
-      if (!decl || colon === -1) continue;
-      decls.push({
-        file: fileName,
-        selector,
-        property: decl.slice(0, colon).trim().toLowerCase(),
-        value: decl.slice(colon + 1).replace(/!important\s*$/i, '').trim(),
-        line: lineAt(css, start),
-      });
-    }
-  }
-  return decls;
-}
 
 // Value tokenizer: splits on whitespace/commas at paren-depth 0, so
 // `var(--xc-foo, #ced4da)` and `rgba(0, 0, 0, .18)` stay one token each.
@@ -244,8 +208,12 @@ function themeOwnedSheets() {
     if (!fs.statSync(root).isDirectory()) continue;
     for (const relative of fs.readdirSync(root, { recursive: true })) {
       const file = path.join(root, relative);
-      if (relative === 'tokens.css' || !relative.endsWith('.css') || !fs.statSync(file).isFile()) continue;
-      sheets.push({ name: `themes/${theme}/${relative.split(path.sep).join('/')}`, raw: fs.readFileSync(file, 'utf8') });
+      if (!relative.endsWith('.css') || !fs.statSync(file).isFile()) continue;
+      sheets.push({
+        name: `themes/${theme}/${relative.split(path.sep).join('/')}`,
+        raw: fs.readFileSync(file, 'utf8'),
+        tokens: relative === 'tokens.css',
+      });
     }
   }
   return sheets;
@@ -261,9 +229,11 @@ describe('theme token-literal gate (M1 A3)', () => {
   it('reads no color/radius/shadow/spacing literal outside tokens.css', () => {
     assert.ok(literalSheets.some((s) => s.name === 'themes/console/components/nav/component.css'),
       'theme-owned sheet collection returned no console navigation override');
+    assert.ok(literalSheets.some((s) => s.name === 'themes/console/tokens.css' && s.tokens),
+      'theme-owned sheet collection returned no console tokens.css, whose rules the gate must read');
     const violations = [];
     for (const sheet of literalSheets) {
-      for (const d of parseDeclarations(sheet.raw, sheet.name)) {
+      for (const d of literalDeclarations(sheet)) {
         const category = classifyViolation(d);
         if (category) {
           violations.push(`${d.file}:${d.line} [${d.selector}] ${category} literal - `
@@ -336,6 +306,32 @@ describe('token-literal classifier (function-wrapped values)', () => {
 
   it('still exempts a bare 100% full-bleed width', () => {
     assert.equal(classifyViolation(decl('width', '100%')), null);
+  });
+});
+
+// A theme's tokens.css holds ordinary rules as well as definitions (the console
+// theme's body and stats grid), so the gate reads its rules and skips only the
+// custom-property definitions, and only in that file.
+describe('token-literal gate (tokens.css rules)', () => {
+  const violationsOf = (sheet) => literalDeclarations(sheet)
+    .map((d) => [d.property, classifyViolation(d)]).filter(([, category]) => category);
+
+  it('reports a literal in an ordinary tokens.css rule and skips the definitions', () => {
+    const raw = ':root { --xc-fixture-size: 12px; --xc-fixture-color: #fff; }\n'
+      + 'body { letter-spacing: 0.01em; }\n';
+    assert.deepEqual(violationsOf({ name: 'themes/fixture/tokens.css', raw, tokens: true }),
+      [['letter-spacing', 'spacing']]);
+  });
+
+  it('still reports a literal color in a custom property outside tokens.css', () => {
+    const raw = '.x-fixture { --bs-btn-color: #fff; }\n';
+    assert.deepEqual(violationsOf({ name: 'xchain-charts.css', raw }), [['--bs-btn-color', 'color']]);
+  });
+
+  it('reads the same literal in a tokens.css rule inside an @media wrapper', () => {
+    const raw = '@media (max-width: 700px) { .x-fixture { max-width: 1320px; } }\n';
+    assert.deepEqual(violationsOf({ name: 'themes/fixture/tokens.css', raw, tokens: true }),
+      [['max-width', 'spacing']]);
   });
 });
 

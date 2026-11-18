@@ -22,6 +22,7 @@ const {
     DEPLOY_CHUNK_DETAIL,
     DEPLOY_CONTRACT_DETAIL,
     DEPLOY_CARRIER_CONTRACT,
+    DEPLOY_CONSTRUCTOR_VERDICT,
     DEPLOY_ASSEMBLER,
     EXECUTE_DETAIL,
     EXECUTE_EMISSIONS,
@@ -50,7 +51,7 @@ const DEPLOY = {
     //   v0-v3  deployed_contract_index / assembly_status, resolved in the query below
     //   v4     deployed_contract_index + the deploy card, probed in afterMain
     // deployed_contract_index is the field the SDK and the wallet poll to learn where
-    // their contract landed, so it is present (null allowed) on every DEPLOY response.
+    // their contract landed. It is absent only when neither contract nor execution data survives.
     async queries({ db, config, action_index }) {
         let query  = null;
         let query2 = null;
@@ -75,7 +76,20 @@ const DEPLOY = {
     // names the assembler is a SECOND read, deliberately reached only once a contract is
     // known to be here: a chunk that deployed nothing has no constructor to describe.
     async afterMain({ db, config, action_index }, data) {
-        if(Number(data.action_format) !== 4) return;
+        if(Number(data.action_format) !== 4){
+            if(data.action_format === null || data.action_format === undefined ||
+                Object.prototype.hasOwnProperty.call(data, 'code_hash') ||
+                Object.prototype.hasOwnProperty.call(data, 'deployed_contract_index')) return;
+            let verdicts = await db.doQuery(config, DEPLOY_CONSTRUCTOR_VERDICT, [action_index]);
+            let verdict = (verdicts && verdicts.length) ? verdicts[0] : null;
+            if(!verdict || verdict.status === null || verdict.status === undefined) return;
+            data['status'] = verdict.status;
+            data['error_message'] = verdict.error_message;
+            data['deployed_contract_index'] = null;
+            data['assembly_status'] = verdict.status;
+            data['contract_deleted'] = true;
+            return;
+        }
         let rows = await db.doQuery(config, DEPLOY_CARRIER_CONTRACT, [action_index]);
         let row = (rows && rows.length) ? rows[0] : null;
         data['deployed_contract_index'] = (row) ? row.action_index : null;

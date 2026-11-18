@@ -21993,7 +21993,7 @@
               "null"
             ],
             "pattern": "^[0-9]+$",
-            "description": "Block containing a multi-part FILE part; served only on a part's action index"
+            "description": "Alias of block_index on a multi-part FILE part's action index"
           },
           "block_index": {
             "type": [
@@ -22213,7 +22213,7 @@
               "part_index": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 31
+                "maximum": 65534
               }
             },
             "required": [
@@ -22233,7 +22233,7 @@
               "parts_received": {
                 "type": "integer",
                 "minimum": 0,
-                "maximum": 32
+                "maximum": 65535
               },
               "status": {
                 "type": "string",
@@ -22387,7 +22387,8 @@
             "description": "Amount of time to execute and return the data"
           },
           "tracker_available": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "False when no tracker is configured, it is unreachable, or it reports itself not synced (behind its node or halted); the tracker figures are then null"
           },
           "type": {
             "type": [
@@ -22828,7 +22829,7 @@
           },
           "decoder_health": {
             "type": "object",
-            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), 'unreachable' (health call failed), or 'rate-limited' (the decoder answered 429 and no earlier good reading is held, a transient condition distinct from 'unreachable'). The set can grow, so treat an unlisted value as unknown rather than failing.",
             "additionalProperties": {
               "type": "string"
             }

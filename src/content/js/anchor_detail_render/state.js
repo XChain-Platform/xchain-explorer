@@ -167,6 +167,14 @@ function anchorFoldActive(net, doge){
 // v3 passes a second gate, ANCHOR_FOLD_ACTIVATION, the indexer's foldActive check:
 // below it the indexer stores 'invalid: VERSION (unknown)' and decodes the bytes
 // under the v1 layout, so the row renders known:false and tagged preFold.
+//
+// A version byte the indexer could not read as 0 to 255 is stored as 0 under that
+// same status. A real v0 is never given that status, so the pair marks an unread
+// byte and the row renders known:false, tagged unparsedVersion, never as a v0 bundle.
+function anchorVersionUnparsed(row){
+    return (!isNull(row.version) && Number(row.version) === 0 && row.status === 'invalid: VERSION (unknown)');
+}
+
 function anchorTraits(d){
     let row = d || {};
     let v   = isNull(row.version) ? null : Number(row.version);
@@ -183,8 +191,9 @@ function anchorTraits(d){
     let activated = (typeof cutoff === 'number' && Number.isFinite(cutoff) && Number.isFinite(doge) && doge >= cutoff);
     let legacy = (pinned && doge !== null && !activated);
     let preFold = (!legacy && v === 3 && !anchorFoldActive(net, doge));
+    let unparsed = (!legacy && anchorVersionUnparsed(row));
 
-    let t = (!legacy && !preFold && v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
+    let t = (!legacy && !preFold && !unparsed && v !== null && ANCHOR_VERSION_TRAITS[v]) ? ANCHOR_VERSION_TRAITS[v] : null;
     if(t)
         return {
             known: true, version: v, label: t.label,
@@ -195,15 +204,17 @@ function anchorTraits(d){
     let sigs = Array.isArray(row.publisher_attestations) ? row.publisher_attestations : [];
     return {
         known: false,
-        version: v,
+        version: unparsed ? null : v,
         legacy: legacy,
         preFold: preFold,
+        unparsedVersion: unparsed,
         // The row's OWN stored verdict, carried through verbatim rather than
         // guessed at: the Status field renders it separately too, but the
         // legacy and preFold notes name it inline so the "why" sits next to the label.
-        reason: (legacy || preFold) ? (isNull(row.status) ? null : String(row.status)) : null,
+        reason: (legacy || preFold || unparsed) ? (isNull(row.status) ? null : String(row.status)) : null,
         label: legacy ? 'Legacy (before activation)'
-            : (preFold ? 'v3 before fold activation' : ((v === null) ? 'Anchor' : ('Unrecognized version v' + v))),
+            : (preFold ? 'v3 before fold activation'
+                : (unparsed ? 'Unrecognized version' : ((v === null) ? 'Anchor' : ('Unrecognized version v' + v)))),
         checkpoint:   !isNull(row.checkpoint_seq),
         archive:      !isNull(row.match_batch_seq),
         roots:        (!isNull(row.state_root) || !isNull(row.block_merkle_root)),
@@ -213,6 +224,31 @@ function anchorTraits(d){
         // than one section row came back for this action.
         bundle:       (anchorSectionRows(row).length > 1)
     };
+}
+
+// The explanation printed beside a known:false label.
+function anchorTraitsNote(t){
+    let why = ' Stored status: ' + (isNull(t.reason) ? 'unknown' : t.reason) + '.';
+    if(t.legacy)
+        return 'This ANCHOR was mined before the activation height for its network, so its version byte predates the current v0/v1/v2/v3 wire set and is not read against today\'s traits table.' + why;
+    if(t.preFold)
+        return 'This ANCHOR carries version 3 but was mined before the fold activation height for its network, so the indexer does not accept it as a folded bundle.' + why;
+    if(t.unparsedVersion)
+        return 'The version byte of this ANCHOR could not be read as a number from 0 to 255, so the indexer rejected it and the payload legs below were read from the row itself.' + why;
+    return 'This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.';
+}
+
+// The version cell for a row's badge: '?' when the stored version is absent or was never read.
+function anchorVersionText(row){
+    return (isNull(row.version) || anchorVersionUnparsed(row)) ? '?' : row.version;
+}
+
+// The action page's verdict on the same three gates: null for a row rendered under its
+// stored version, otherwise the text to show in place of that version.
+function anchorGateVerdict(d){
+    let t = anchorTraits(d);
+    if(t.known || !(t.legacy || t.preFold || t.unparsedVersion)) return null;
+    return { version: (isNull(t.version) ? '' : ('v' + t.version + ' - ')) + t.label };
 }
 
 /* ------------------------------------------------------------------ *

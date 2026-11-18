@@ -146,7 +146,7 @@ describe('client: anchor chunk labels are 1-based on every surface', function(){
         win.eval(extractFn(CLIENT_SRC, 'isNull'));
         win.formatLink = function(href, text){ return String(text); };
         ['anchorEsc', 'anchorNum', 'anchorEmpty', 'anchorCoin', 'anchorBlockLink',
-            'anchorStatusBadge', 'anchorChunkLabel', 'renderAnchorChunks']
+            'anchorStatusBadge', 'anchorChunkLabel', 'anchorVersionUnparsed', 'anchorVersionText', 'renderAnchorChunks']
             .forEach(function(n){ win.eval(extractFn(ANCHOR_SRC, n)); });
         win.document.body.innerHTML = win.renderAnchorChunks({ action_index: 7, chunks: [
             { action_index: 7, version: 1, chunk_index: null, total_chunks: 3 },

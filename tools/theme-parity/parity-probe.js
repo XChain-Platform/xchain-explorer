@@ -45,7 +45,8 @@
  *           differ between light and dark, so it is the layer that can
  *           actually catch a dark-mode regression.
  *
- * LAYOUT-DERIVED KEYS are the exception in both layers, and the reason is a
+ * LAYOUT-DERIVED KEYS (widths, heights, margins, offsets and the grid track
+ * templates) are the exception in both layers, and the reason is a
  * class of false movement this probe once emitted: getComputedStyle returns
  * the USED value for widths, heights, margins and offsets, which layout
  * renegotiates against page content - an auto margin comes back as slack
@@ -152,9 +153,12 @@ const probe = (function () {
   // the rule layer resolves the DECLARED text through the element's custom
   // properties (the same mechanism state rules already use), and the render
   // census reads the Typed OM computedStyleMap, where an auto margin is still
-  // "auto" and a declared width is not renegotiated by layout.
+  // "auto" and a declared width is not renegotiated by layout. The grid track
+  // templates belong here too: on a grid container the computed readback is the
+  // used track list in pixels, which follows the viewport and the cell content.
   const LAYOUT = new Set(['width','height','margin-top','margin-right','margin-bottom','margin-left',
-    'top','right','bottom','left']);
+    'top','right','bottom','left','grid-template-columns','grid-template-rows']);
+  const DECLARED_JOIN = ' || ';
   const fp = o => { const s = Object.keys(o).sort().map(k => k+'='+o[k]).join('\n');
     let h = 5381; for (let i=0;i<s.length;i++) h = ((h*33)^s.charCodeAt(i))>>>0;
     return { hash: h.toString(16).padStart(8,'0'), keys: Object.keys(o).length }; };
@@ -217,9 +221,16 @@ const probe = (function () {
           // declared text changes by design and a text comparison would false-alarm.
           // Layout-derived properties take the same declared-value path: their
           // computed readback is the used value, which drifts with content.
-          for (const p of props) snap[sel+' | '+p] = (st || LAYOUT.has(p))
-            ? resolveVars(r.style.getPropertyValue(p).trim(), cs)
-            : cs.getPropertyValue(p).trim();
+          // Whether a key is declared-path depends only on its selector and
+          // property, so two rules can collide on it, and the cascade (source
+          // order, an enclosing @media) is not modelled here. Every declaration
+          // is kept, joined in walk order, so editing either one moves the hash;
+          // a computed-path collision reads one value twice and just overwrites.
+          for (const p of props) { const key = sel+' | '+p;
+            if (st || LAYOUT.has(p)) {
+              const declared = resolveVars(r.style.getPropertyValue(p).trim(), cs);
+              snap[key] = key in snap ? snap[key]+DECLARED_JOIN+declared : declared;
+            } else snap[key] = cs.getPropertyValue(p).trim(); }
         } }
       if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, baseHref);
     };

@@ -32,6 +32,7 @@ const autocannon     = require('autocannon');
 const { createTestConfigInfo } = require('../../integration/helpers/app-setup');
 const XChainExplorer = require('../../../src/XChainExplorer.js');
 const staticMounts   = require('../../../src/http/static_mounts.js');
+const { applyJsonBody, applyBodyErrorHandler } = require('../../../src/http/api_boot/json_body.js');
 const toxiproxy      = require('./toxiproxy-client');
 const mariadb        = require('mariadb');
 const fs             = require('fs');
@@ -59,12 +60,13 @@ function applyChaosBootEnv() {
 /**
  * Boot an Express app with the explorer attached.
  * Optionally applies rate limiting to match production config.
+ * The body ceiling and its refusal handler are production's own, mounted in
+ * production's order (CORS, limiter, parser, routes, refusal handler).
  */
 async function bootServer(opts = {}) {
     if (cachedSetup) return cachedSetup;
 
     const app = express();
-    app.use(express.json({ limit: '10kb' }));
     app.use(cors(testCorsOptions()));
 
     if (opts.rateLimit === true) {
@@ -79,9 +81,11 @@ async function bootServer(opts = {}) {
             skip: staticMounts.isStaticAsset,
         }));
     }
+    applyJsonBody(app, XChainExplorer);
 
     const configInfo = createTestConfigInfo(DB_PORT);
     const explorer   = new XChainExplorer(app, configInfo);
+    applyBodyErrorHandler(app);
     applyChaosBootEnv();
     await explorer.init();
 

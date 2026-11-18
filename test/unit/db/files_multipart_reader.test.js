@@ -109,7 +109,7 @@ describe('FILE part action detail', function(){
             action: 'FILE', action_format: 2, action_index: 81,
             source: row.source, tx_hash: row.tx_hash, block: 900, status: 'valid'
         });
-        expect(data).to.not.have.property('block_index');
+        expect(data.block_index).to.equal(900);
         expect(data.file_part).to.deep.equal({
             file_hash: row.file_hash, part_index: 3, manifest_action_index: null
         });
@@ -138,7 +138,7 @@ describe('FILE part production action detail fallback', function(){
             action: 'FILE', action_format: 2, action_index: 81,
             source: row.source, tx_hash: row.tx_hash, block: 900, status: 'valid'
         });
-        expect(data).to.not.have.property('block_index');
+        expect(data.block_index).to.equal(900);
         expect(data.file_part).to.deep.equal({
             file_hash: row.file_hash, part_index: 3, manifest_action_index: null
         });

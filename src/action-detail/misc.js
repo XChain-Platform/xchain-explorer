@@ -21,6 +21,7 @@
 // Statement text lives under src/db/ with the rest of the explorer's SQL.
 const sql = require('../db/action_detail/misc_sql.js');
 const multipartFiles = require('../db/readers/entities/files_multipart.js');
+const { buildMultipartSummary, buildFilePartDetail } = require('./multipart_detail.js');
 
 // Declare which user-encodable wire formats this handler's page renders, and why any
 // other format is left unrendered. Non-enumerable, so the declaration is not mistaken
@@ -132,8 +133,12 @@ const FILE = {
         if(data.action_format == 2){
             const part = await multipartFiles.readFilePartDetail(db, config, action_index);
             if(part){
-                Object.assign(data, buildFilePartDetail(part));
-                delete data.block_index;
+                const detail = buildFilePartDetail(part);
+                if(detail){
+                    Object.assign(data, detail);
+                    data['file_part'] = detail.file_part;
+                    data.block = data.block_index;
+                }
             }
             return;
         }
@@ -146,41 +151,6 @@ const FILE = {
             Object.defineProperty(data, 'detail_incomplete', { value: true, configurable: true });
     },
 };
-
-function buildMultipartSummary(record) {
-    if(!record || record.kind !== 'manifest') return null;
-    const result = record.completion_result;
-    return {
-        file_hash: record.file_hash,
-        total_parts: Number(record.total_parts),
-        parts_received: Number(record.parts_received),
-        total_bytes: Number(record.total_bytes),
-        status: result === 'complete' || result === 'mismatch' ? result : 'pending'
-    };
-}
-
-function numericOrNull(value) {
-    if(value === null || value === undefined || String(value).trim() === '') return null;
-    const number = Number(value);
-    return Number.isFinite(number) ? number : null;
-}
-
-function buildFilePartDetail(row) {
-    return {
-        action: 'FILE',
-        action_format: 2,
-        action_index: row.action_index,
-        source: row.source,
-        tx_hash: row.tx_hash,
-        block: row.block_index,
-        status: row.status,
-        file_part: {
-            file_hash: row.file_hash,
-            part_index: Number(row.part_index),
-            manifest_action_index: numericOrNull(row.manifest_action_index)
-        }
-    };
-}
 
 const MESSAGE = {
     queries() {

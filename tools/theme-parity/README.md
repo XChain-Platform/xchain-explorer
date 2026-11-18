@@ -221,6 +221,22 @@ margin is still `auto`. The keys stay in the census: a real CSS change on
 them still flags (proven below), while content drift no longer can. Without
 Typed OM the probe refuses the capture instead of falling back to used values.
 
+The grid track templates (`grid-template-columns`, `grid-template-rows`) are
+layout-derived keys too: on a grid container the computed value is the used
+track list in pixels, which follows the viewport and the cell content.
+
+**Declared-path keys are joined** (2026-11-18) when several admitted sheets declare the same
+selector and property. State-rule keys and layout-derived keys store declared
+text under `selector | property`, so a theme restating a base selector, or the
+same selector repeated inside an `@media` group, lands on one key. The probe
+keeps every declaration, joined with ` || ` in walk order, and models neither
+the cascade nor which query matches the capture viewport, so an edit to any one
+of them moves the rule hash. A page with such a collision (the console theme's
+`.footer | width` and `.xc-console-stats | grid-template-columns`) has a rule
+hash that differs from captures taken before this probe revision, so compare it
+only with captures taken after it. The classic sheets declare no colliding key,
+so this revision does not move the rule hashes of the dated classic baselines.
+
 Both layers are needed. The rule layer sees mode only through the few rules
 whose declared values follow it, and only on pages that render them, so a
 dark-mode acceptance test riding on it would pass vacuously wherever none

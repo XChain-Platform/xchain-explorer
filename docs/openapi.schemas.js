@@ -229,7 +229,7 @@ const ACTION_DETAIL = {
         action_format: NULLABLE_INTEGER,
         action_index: COLUMN_TYPES.D,
         block: Object.assign({}, COLUMN_TYPES.d, {
-            description: 'Block containing a multi-part FILE part; served only on a part\'s action index'
+            description: 'Alias of block_index on a multi-part FILE part\'s action index'
         }),
         block_index: COLUMN_TYPES.d,
         credits: LEDGER_EFFECTS('credits'),
@@ -242,7 +242,7 @@ const ACTION_DETAIL = {
             properties: {
                 file_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
                 manifest_action_index: NULLABLE_INTEGER,
-                part_index: { type: 'integer', minimum: 0, maximum: 31 },
+                part_index: { type: 'integer', minimum: 0, maximum: 65534 },
             },
             required: ['file_hash', 'part_index', 'manifest_action_index'],
         },
@@ -251,7 +251,7 @@ const ACTION_DETAIL = {
             description: 'Multi-part file assembly state; served only on a multi-part manifest\'s detail',
             properties: {
                 file_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
-                parts_received: { type: 'integer', minimum: 0, maximum: 32 },
+                parts_received: { type: 'integer', minimum: 0, maximum: 65535 },
                 status: { type: 'string', enum: ['pending', 'complete', 'mismatch'] },
                 total_bytes: { type: 'integer', minimum: 1, maximum: 262140000000 },
                 total_parts: { type: 'integer', minimum: 2, maximum: 65535 },
@@ -320,7 +320,7 @@ const ADDRESS_INFO = {
             address_id: { type: ['integer', 'null'], description: 'The address\'s deterministic index id, for ^<id> compaction; null when not deterministic' } } },
         mempool_ready: { type: 'boolean', description: 'Present only when the tracker reports it' },
         runtime: RUNTIME,
-        tracker_available: { type: 'boolean' },
+        tracker_available: { type: 'boolean', description: 'False when no tracker is configured, it is unreachable, or it reports itself not synced (behind its node or halted); the tracker figures are then null' },
         type: { type: ['string', 'null'], description: 'Address Type (P2PKH, P2SH, Bech32, P2TR)' },
         utxos: { type: 'object', description: 'Unspent Transaction Output counts (UTXOs)',
             properties: AMOUNTS_OR_NULL(['confirmed', 'pending'], NULLABLE_INTEGER) },
@@ -603,7 +603,7 @@ const EXPLORER_STATUS = {
         },
         "decoder_health": {
             "type": "object",
-            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), 'unreachable' (health call failed), or 'rate-limited' (the decoder answered 429 and no earlier good reading is held, a transient condition distinct from 'unreachable'). The set can grow, so treat an unlisted value as unknown rather than failing.",
             "additionalProperties": {
                 "type": "string"
             }

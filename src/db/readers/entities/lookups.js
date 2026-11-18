@@ -323,10 +323,9 @@ class EntityLookupReaders {
     async getOrderMatchSettlement(config, actionIndex) {
         let query = `SELECT
                         om.action_index,
-                        s1.status as settlement_type
+                        om.settlement_type
                     FROM
                         order_matches om
-                        LEFT JOIN index_statuses s1 ON (s1.id=om.settlement_type_id)
                     WHERE
                         om.action_index=?
                     LIMIT 1`;

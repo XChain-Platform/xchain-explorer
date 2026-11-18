@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 338,
+    "count": 339,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2492,6 +2492,7 @@
       "getHolders",
       "getIndexerRules",
       "getIssues",
+      "getLifecycleParties",
       "getLinks",
       "getListCurrentMembership",
       "getListHeadIndex",
@@ -3379,6 +3380,15 @@
       ],
       "12b0ffb05d87eed8": [
         "getActionLedgerTicks against the REAL indexer DDL names the ticks each action credited, debited or escrowed"
+      ],
+      "12ea42d6852d0091": [
+        "extractAddresses reads the destinations of a lifecycle payload adds every named party beside the singular fields and skips empty entries",
+        "lifecycle frames of source-less system actions name their parties issues no read for a batch with no system action",
+        "lifecycle frames of source-less system actions name their parties puts the parties in destinations and leaves source null",
+        "lifecycle frames of source-less system actions name their parties reads parties in one statement per poll whatever the batch size",
+        "lifecycle frames of source-less system actions name their parties still emits the frame without destinations when the party read fails",
+        "system action lifecycle frames reach their parties address channels delivers live and on replay to a named party only, with no address NEW_ACTION",
+        "system action lifecycle frames reach their parties address channels reads parties once per catch-up replay whatever the replay size"
       ],
       "1350bbd1148fa068": [
         "HTTP CORS rate-limit headers exposes rate-limit headers on normal and rate-limited responses"
@@ -10652,6 +10662,12 @@
         "LIST rename count totals adds format 5 list_metas rows to each block lists count",
         "LIST rename count totals adds the all-time format 5 count to network totals"
       ],
+      "ca1ce32325182c08": [
+        "getLifecycleParties against the REAL indexer DDL keys a system action with no party row and reads nothing for a batch without one",
+        "getLifecycleParties against the REAL indexer DDL names the placers of every system action family in one query",
+        "getLifecycleParties against the REAL indexer DDL never names a royalty recipient or a settlement action standing in for an order",
+        "getLifecycleParties against the REAL indexer DDL returns each ledger address once per action however many rows paid it"
+      ],
       "ca5ee796f968a933": [
         "wallet range reads: their own rate bucket registers all three behind one limiter that is not the batch limiter",
         "wallet range reads: their own rate bucket spending the wallet bucket leaves the balance batch admitted"
@@ -10848,6 +10864,14 @@
         "UNSTAKE detail: ROLLCALL eviction label @regression does NOT read as an eviction when a format-3 UNSTAKE is invalid (a user-broadcast forgery the indexer rejected)",
         "UNSTAKE detail: ROLLCALL eviction label @regression does not badge a valid UNSTAKE v2 cooldown-completion (action_format 2)",
         "UNSTAKE detail: ROLLCALL eviction label @regression does not badge an ordinary valid capability unstake (action_format 0)"
+      ],
+      "cde5a527b50a7ba4": [
+        "chaos harness ingress chaos/api_overload.test.js mounts CORS, then the production body ceiling, then the explorer, then the refusal handler",
+        "chaos harness ingress chaos/api_overload.test.js mounts no bare express.json parser",
+        "chaos harness ingress chaos/api_overload.test.js mounts the limiter ahead of the body parser, so a throttled body is never read",
+        "chaos harness ingress chaos/helpers/chaos-setup.js mounts CORS, then the production body ceiling, then the explorer, then the refusal handler",
+        "chaos harness ingress chaos/helpers/chaos-setup.js mounts no bare express.json parser",
+        "chaos harness ingress chaos/helpers/chaos-setup.js mounts the limiter ahead of the body parser, so a throttled body is never read"
       ],
       "ce2d973c24c13ecf": [
         "PRICE action detail rounds JSON leaves absent rounds JSON and the marker undefined",
@@ -11701,14 +11725,6 @@
         "HubOperationalCache: single-flight reads and the edges of the failure memo calls the hub again once the memo window passes, and a success clears the memo",
         "HubOperationalCache: single-flight reads and the edges of the failure memo never memoes a fleet-wide -32601 capability gap as an outage",
         "HubOperationalCache: single-flight reads and the edges of the failure memo shares one in-flight read across concurrent misses on one key"
-      ],
-      "dfeaeca135050fde": [
-        "chaos and performance harness ingress chaos/api_overload.test.js mounts CORS, then the production body ceiling, then the explorer, then the refusal handler",
-        "chaos and performance harness ingress chaos/api_overload.test.js mounts no bare express.json parser",
-        "chaos and performance harness ingress chaos/helpers/chaos-setup.js mounts CORS, then the production body ceiling, then the explorer, then the refusal handler",
-        "chaos and performance harness ingress chaos/helpers/chaos-setup.js mounts no bare express.json parser",
-        "chaos and performance harness ingress performance/helpers/perf-setup.js mounts CORS, then the production body ceiling, then the explorer, then the refusal handler",
-        "chaos and performance harness ingress performance/helpers/perf-setup.js mounts no bare express.json parser"
       ],
       "e038f4a92fd91e5e": [
         "BET feed status timeline @regression adds no latch when the feed never latched closed",
@@ -12956,8 +12972,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 530,
-        "titleCount": 8385,
+        "fileCount": 532,
+        "titleCount": 8396,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13220,6 +13236,7 @@
           "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "89657e897c01a0cc",
           "test/unit/db/readers/actions/db_action_summary_system_fields.test.js": "b2ceeda7373824d4",
           "test/unit/db/readers/actions/db_actions_feed_paging_real_ddl.test.js": "9c6d4e3138d1115b",
+          "test/unit/db/readers/actions/db_lifecycle_parties_real_ddl.test.js": "ca1ce32325182c08",
           "test/unit/db/readers/actions/db_system_action_parties_real_ddl.test.js": "39af0a3ccb2f3e27",
           "test/unit/db/readers/actions/sends_destroys_whole_action_paging.test.js": "4f2a9c473f9bc95d",
           "test/unit/db/readers/bets/db_bet_feed_edit_overlay.test.js": "a19575774b26a247",
@@ -13337,7 +13354,7 @@
           "test/unit/federation/price_batches.test.js": "7b73323831ace85a",
           "test/unit/helpers/source_slice.test.js": "4b7b0941e0e9456b",
           "test/unit/http/api_boot/contract_call_body.test.js": "37b3dc4641745cce",
-          "test/unit/http/api_boot/harness_ingress_order.test.js": "dfeaeca135050fde",
+          "test/unit/http/api_boot/harness_ingress_order.test.js": "cde5a527b50a7ba4",
           "test/unit/http/api_boot/http_listener.test.js": "9d573d01a65d75ab",
           "test/unit/http/api_boot/json_body.test.js": "ac62bce372abec2f",
           "test/unit/http/api_boot/listen_host.test.js": "78cd57ab43cd9d97",
@@ -13460,6 +13477,7 @@
           "test/unit/ws/change_detector/market_refresh_conformance.test.js": "ba3e78799ec61879",
           "test/unit/ws/change_detector/pool_reconcile.test.js": "c36bc4bc4dce89a6",
           "test/unit/ws/change_detector/system_action_address_updates.test.js": "23aa6f95e088a235",
+          "test/unit/ws/change_detector/system_action_lifecycle_parties.test.js": "12ea42d6852d0091",
           "test/unit/ws/change_detector/token_ledger_refresh.test.js": "9e985f8b19a85cca",
           "test/unit/ws/change_detector_mempool_map.test.js": "9615d87f3f109bdb",
           "test/unit/ws/change_detector_methods.test.js": "8c4ba588a7c9b3ed",

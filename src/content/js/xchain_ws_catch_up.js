@@ -99,6 +99,21 @@ function xcWsBelowIndex(current, firstInvalid) {
     return (BigInt(current) > below) ? String(below) : current;
 }
 
+// The server keys of one channel in a request, each with the params naming just it.
+function xcWsKeysOf(channel, p) {
+    var names = XC_WS_ENTITY_NAMES[channel], list;
+    if (channel === 'market') list = Array.isArray(p.pairs) ? p.pairs : [[p.tick1, p.tick2]];
+    else if (!names) return [{ id: '', set: {} }];
+    else if (names[2]) list = p[names[0]] ? [p[names[0]]] : (p[names[1]] || []);
+    else list = Array.isArray(p[names[1]]) ? p[names[1]] : [p[names[0]]];
+    return list.map(function(v) {
+        var set = {};
+        if (channel === 'market') { set.tick1 = v[0]; set.tick2 = v[1]; } else set[names[0]] = v;
+        var id = channel === 'market' ? v[0] + '|' + v[1] : String(v);
+        return { id: channel === 'xcall' ? id.toLowerCase() : id, set: set };
+    });
+}
+
 Object.assign(XChainWS, {
     // Outbound pacing. The server drops a message over its per-connection rate
     // (WELCOME's limits.max_message_rate, a leaky bucket draining at that many per
@@ -136,15 +151,17 @@ Object.assign(XChainWS, {
         // gets no since_action_index.
         var cursor = (this.lastActionIndex !== null && BigInt(this.lastActionIndex) > 0n) ? this.lastActionIndex : null;
         var queue  = [];
-        for (var i = 0; i < this.subscriptions.length; i++) {
-            var sub = this.subscriptions[i];
+        var live   = [];
+        for (var j = 0; j < this.subscriptions.length; j++) live.push.apply(live, this._liveRequests(this.subscriptions[j]));
+        for (var i = 0; i < live.length; i++) {
+            var sub = live[i];
             if (cursor !== null && xcWsNeedsCatchUp(sub.channels)) {
                 queue.push(sub);
                 continue;
             }
             // Paced by _send and retried on RATE_LIMITED (xchain_ws.js), so a long
             // subscription list cannot outrun the server's message rate.
-            this._sendSubscribe(sub.channels, Object.assign({}, sub.params));
+            this._sendSubscribe(sub.channels, Object.assign({}, sub.params), 0, sub.owner);
         }
         if (queue.length > 0) {
             this._catchUp = { queue: queue, cursor: cursor, current: null, maxSeen: null, timer: null };
@@ -261,10 +278,10 @@ Object.assign(XChainWS, {
 
     // Send one plain subscribe with a request id and remember it until it is answered,
     // so a RATE_LIMITED refusal naming that id can be retried.
-    _sendSubscribe: function(channels, params, attempt) {
+    _sendSubscribe: function(channels, params, attempt, owner) {
         var msg = { action: 'subscribe', channels: channels, id: 'sub-' + (++this._subscribeSeq) };
         if (params) msg.params = params;
-        this._pendingSubscribes[msg.id] = { channels: channels, params: params, attempt: attempt || 0 };
+        this._pendingSubscribes[msg.id] = { channels: channels, params: params, attempt: attempt || 0, owner: owner };
         this._send(msg);
     },
 
@@ -274,13 +291,41 @@ Object.assign(XChainWS, {
         if (pending.attempt >= this.subscribeRetries) return;
         var tracked = false;
         for (var i = 0; i < this.subscriptions.length; i++) {
-            if (this.subscriptions[i].channels === pending.channels) tracked = true;
+            if (this.subscriptions[i].channels === pending.channels || this.subscriptions[i] === pending.owner) tracked = true;
         }
         if (!tracked) return;
         var self = this;
         setTimeout(function() {
-            self._sendSubscribe(pending.channels, pending.params, pending.attempt + 1);
+            self._sendSubscribe(pending.channels, pending.params, pending.attempt + 1, pending.owner);
         }, Math.ceil(1000 / this._messageRate()));
+    },
+
+    // Remember a once subscription the server spent (an UNSUBSCRIBED with reason once, from a
+    // live frame or a replay), so a reconnect does not arm it again.
+    _noteOnceSpent: function(data) {
+        var key = xcWsFrameKey(data);
+        for (var i = 0; i < this.subscriptions.length; i++) {
+            var sub = this.subscriptions[i];
+            if (sub.params && sub.params.once && sub.channels.indexOf(data.channel) !== -1) (sub.spent = sub.spent || {})[key] = true;
+        }
+    },
+
+    // The requests a reconnect sends for one tracked subscription: itself, or one per key
+    // it still holds once some were spent. The tracked entry stays, so a list whose
+    // subscriptions are all spent is not mistaken for a page that never subscribed.
+    _liveRequests: function(sub) {
+        if (!sub.spent) return [sub];
+        var out = [];
+        for (var c = 0; c < sub.channels.length; c++) {
+            var keys = xcWsKeysOf(sub.channels[c], sub.params);
+            for (var k = 0; k < keys.length; k++) {
+                if (sub.spent[sub.channels[c] + ':' + keys[k].id]) continue;
+                var params = {};
+                for (var name in sub.params) if (XC_WS_ENTITY_PARAMS.indexOf(name) === -1) params[name] = sub.params[name];
+                out.push({ channels: [sub.channels[c]], params: Object.assign(params, keys[k].set), owner: sub });
+            }
+        }
+        return out;
     },
 
     // The server's advertised per-connection message rate, or the default before WELCOME.

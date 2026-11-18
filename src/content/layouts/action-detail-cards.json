@@ -234,6 +234,34 @@
                     "cell": "file-memo"
                 },
                 {
+                    "label": "File Hash",
+                    "cell": "file-part-hash"
+                },
+                {
+                    "label": "Part Index",
+                    "cell": "file-part-index"
+                },
+                {
+                    "label": "Manifest",
+                    "cell": "file-part-manifest"
+                },
+                {
+                    "label": "File Hash",
+                    "cell": "file-multipart-hash"
+                },
+                {
+                    "label": "Assembly",
+                    "cell": "file-multipart-status"
+                },
+                {
+                    "label": "Parts Received",
+                    "cell": "file-multipart-parts"
+                },
+                {
+                    "label": "Total Size",
+                    "cell": "file-multipart-bytes"
+                },
+                {
                     "label": "Gate Token",
                     "cell": "file-gate-ticker"
                 },

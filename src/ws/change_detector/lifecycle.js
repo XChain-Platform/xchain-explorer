@@ -36,20 +36,27 @@
 
 'use strict';
 
+const { getLogger } = require('../../observability');
+const log = getLogger();
+
 class LifecycleEvents {
 
     // Map an indexed action's type to the lifecycle events it produces (LIFECYCLE_MAP),
     // then enrich each one with the detail its channel needs. An action type that maps
-    // to nothing is simply not a lifecycle transition and emits nothing here.
-    async emitLifecycleEvents(coin, config, action) {
+    // to nothing is simply not a lifecycle transition and emits nothing here. `batch`
+    // is the poll's (or the replay's) { actions, parties } cache, so the parties of
+    // every system action in it come from one read.
+    async emitLifecycleEvents(coin, config, action, batch) {
         const actionType = action.action;
         if (!actionType) return;
 
         const eventTypes = this.constructor.LIFECYCLE_MAP[actionType];
         if (!eventTypes) return;
 
+        const parties = await lifecyclePartiesOf(this, config, action, batch);
         for (const eventType of eventTypes) {
             const lifecycleEvent = baseLifecycleEvent(eventType, actionType, action);
+            if (parties) lifecycleEvent.data.destinations = parties.slice();
             const routed = await enrichAndRouteLifecycleEvent(
                 this, coin, config, actionType, action, lifecycleEvent);
             if (!routed) continue;
@@ -127,6 +134,26 @@ function attestEvent(type, fields, action) {
             status: action.status || null
         })
     };
+}
+
+// The parties of an action the indexer mints itself (it has no source), as an array
+// for the frame's `destinations`, which address routing and the SDK's address guard
+// both read. Null for any other action type, and null when the batch read failed, so
+// the frame still goes out on its other channels. Without a batch the action reads
+// alone.
+async function lifecyclePartiesOf(detector, config, action, batch) {
+    if (typeof detector.db.getLifecycleParties !== 'function') return null;
+    const scope = batch || { actions: [action] };
+    if (scope.parties === undefined) {
+        try {
+            scope.parties = await detector.db.getLifecycleParties(config, scope.actions);
+        } catch (e) {
+            scope.parties = null;
+            log.warn('CHANGE_DETECTOR_LIFECYCLE_PARTIES_FAILED', { coin: config.coin, err: e && e.message });
+        }
+    }
+    const parties = scope.parties ? scope.parties.get(String(action.action_index)) : null;
+    return parties ? [...parties] : null;
 }
 
 // The payload every lifecycle event starts from, before its family's enrichment.

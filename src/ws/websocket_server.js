@@ -89,6 +89,9 @@ class WebSocketServer {
         // How long a catch-up replay waits for a backed-up socket to drain below the
         // backpressure cap before it sheds the client (websocket_server/catch_up.js).
         this.catchUpDrainMs  = options.catchUpDrainMs !== undefined ? options.catchUpDrainMs : 30000;
+        // How long stop() waits for clients to finish the closing handshake before
+        // it terminates their sockets; kept well inside the shutdown drain budget.
+        this.closeGraceMs    = options.closeGraceMs !== undefined ? options.closeGraceMs : 1000;
 
         // Channel manager for subscription tracking
         this.channelManager = new ChannelManager({
@@ -118,11 +121,30 @@ class WebSocketServer {
             this.idleTimer = null;
         }
         if (this.wss) {
+            const closing = [];
             for (const [, client] of this.clients) {
                 client.ws.close(1001, 'Server shutting down');
+                closing.push(client.ws);
             }
             this.wss.close();
+            this.terminateAfterGrace(closing);
         }
+    }
+
+    // A peer that never answers the close frame would otherwise hold its socket,
+    // and with it the HTTP listener, for ws's 30 s closeTimeout, past the drain's
+    // hard-exit budget. Anything still open after the grace is torn down. The
+    // timer is unref'd so it never keeps a finished process alive.
+    terminateAfterGrace(sockets) {
+        if (sockets.length === 0) return;
+        const timer = setTimeout(() => {
+            for (const ws of sockets) {
+                if (ws.readyState !== 3) { // not yet CLOSED
+                    try { ws.terminate(); } catch (e) { /* already gone */ }
+                }
+            }
+        }, this.closeGraceMs);
+        if (typeof timer.unref === 'function') timer.unref();
     }
 
     // Get all connected clients (used by Broadcaster)

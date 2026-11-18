@@ -5,8 +5,8 @@
   "twins": [
     {
       "path": "src/consensus/equivocation_header.js",
-      "bytes": 4357,
-      "sha256": "33795d35b6133135745471fd00c93da001aef942dd1d894ff929a4ebc53fb81e"
+      "bytes": 4359,
+      "sha256": "795ccfeea29735e9cf324e1ca07c04887871b9a87e0e890c5c3bc23db1694b1e"
     },
     {
       "path": "src/consensus/gates/mirror_admission_gate.js",
@@ -25,8 +25,8 @@
     },
     {
       "path": "src/consensus/stake_weighted_quorum.js",
-      "bytes": 10899,
-      "sha256": "2546f8976b7dbc85e63e3011d2cb5ac94bac54e74c471bd4d8019c7522a3d5f7"
+      "bytes": 10901,
+      "sha256": "a54b9ddfa9496b5328e4b48e2b5db852304b9af578c80354edc5252e1c30b93e"
     }
   ],
   "routes": {
@@ -2275,8 +2275,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/action-detail-golden.json",
-      "bytes": 406247,
-      "sha256": "8024d0bc1b7ee54f2b1df46feb4b3dd47f404ca1283dd734915a5355dfa8ffff"
+      "bytes": 406244,
+      "sha256": "c6d21081b331c3b48af6091dcac4d199d04a7d7e5c0b9e528efc33776b165755"
     },
     {
       "path": "test/fixtures/list-page-baseline.json",
@@ -2305,7 +2305,7 @@
     "mirror_agrees": true
   },
   "prototype": {
-    "count": 337,
+    "count": 338,
     "enumerable_keys": 0,
     "names": [
       "actionDestinationSql",
@@ -2350,6 +2350,7 @@
       "getActionDestinationMap",
       "getActionFeeData",
       "getActionFeeDataBatch",
+      "getActionLedgerAddresses",
       "getActionLedgerTicks",
       "getActionMetaBatch",
       "getActionSummaryData",
@@ -4658,6 +4659,15 @@
         "sendResponse applies freshness headers and metadata from the request state",
         "sendResponse writes the JSON response and records its cost once"
       ],
+      "23aa6f95e088a235": [
+        "change detector ADDRESS_UPDATE for source-less system actions falls back to source and destinations when the ledger read fails",
+        "change detector ADDRESS_UPDATE for source-less system actions reads the ledger once per poll and never when no address is watched",
+        "change detector ADDRESS_UPDATE for source-less system actions refreshes a watched address the ledger rows of a source-less ORDER_MATCH touched",
+        "change detector ADDRESS_UPDATE for source-less system actions sends nothing to an address the action did not touch",
+        "change detector ADDRESS_UPDATE for source-less system actions sends one frame for an address that is source and ledger party at once",
+        "getActionLedgerAddresses groups addresses by action over credits, debits and escrows, binding every index",
+        "getActionLedgerAddresses issues no query for an empty batch"
+      ],
       "23c6716810b12da0": [
         "Action detail supplements (sibling-table wire fields) @regression DEPLOY constructor gas (v0-v3, and a carrier that completed a group) a v4 carrier that COMPLETED the group gets the constructor gas",
         "Action detail supplements (sibling-table wire fields) @regression DEPLOY constructor gas (v0-v3, and a carrier that completed a group) a v4 carrier with NO contract row of its own gets no gas supplement",
@@ -4879,6 +4889,18 @@
         "checkpoint.html verify verdict: renderCheckpointVerdict @regression [unparseable-signatures] names the malformed field as the failed verification reason",
         "checkpoint.html verify verdict: renderCheckpointVerdict @regression [valid-signers] names each counted signer and escapes its pubkey"
       ],
+      "2c085e0784b3dcc8": [
+        "ANCHOR action detail: activation gates [TRAP] labels a v3 mined below the fold gate instead of counting a chain",
+        "ANCHOR action detail: activation gates [TRAP] labels stored version 0 under the unknown-version status as an unread version",
+        "ANCHOR action detail: activation gates has numeric activation heights to test against",
+        "ANCHOR action detail: activation gates keeps a real v0 under another invalid status as a one-chain bundle",
+        "ANCHOR action detail: activation gates labels a v1 and a v0 below activation as legacy",
+        "ANCHOR action detail: activation gates lets the legacy label win over the pre-fold label for a v3 below activation",
+        "ANCHOR action detail: activation gates shows a v0 at activation as a bundle with its chain count",
+        "ANCHOR action detail: activation gates shows a v3 at the fold gate as a bundle with its chain count",
+        "ANCHOR action detail: activation gates treats a v3 on mainnet as pre-fold while the fold gate is unarmed",
+        "ANCHOR action detail: activation gates wires both activation tables and the shared traits script into action.html"
+      ],
       "2c505230efcc2b48": [
         "configs/* BTC.js provides the full address set for mainnet",
         "configs/* BTC.js provides the full address set for regtest",
@@ -5067,62 +5089,6 @@
         "order detail: the lifecycle status is rendered the card has a row for it",
         "order detail: the lifecycle status is rendered the renderer fills it from state.status"
       ],
-      "345117f3a5282aa5": [
-        "anchor.html activation injection renders the registry activation heights into the browser global",
-        "anchor.html detail render @regression ANCHOR_ACTIVATION twin parity (client literal vs. the module) the browser ANCHOR_FOLD_ACTIVATION equals the registry row the indexer gates v3 on",
-        "anchor.html detail render @regression ANCHOR_ACTIVATION twin parity (client literal vs. the module) the browser copy equals src/protocol/constants.js exactly",
-        "anchor.html detail render @regression activation gate: a threshold or height the indexer cannot compare a network the table does not list is judged on its version",
-        "anchor.html detail render @regression activation gate: a threshold or height the indexer cannot compare a non-numeric DOGE height on a listed network renders as Legacy",
-        "anchor.html detail render @regression activation gate: a threshold or height the indexer cannot compare a row with no stored DOGE height is judged on its version",
-        "anchor.html detail render @regression activation gate: a threshold or height the indexer cannot compare an unpinned (null) testnet threshold renders a testnet row as Legacy, as the indexer stores it",
-        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION [TRAP] a bundle-shaped row below testnet activation renders as Legacy, never as a v0 bundle",
-        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION [TRAP] a testnet v3 row past ANCHOR_ACTIVATION but below the UNARMED fold gate is never a folded bundle",
-        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION [TRAP] a v1-shaped row below testnet activation ALSO renders as Legacy, never as today's v1",
-        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION a row AT the activation height is judged on its version, not flagged legacy (>= is the boundary)",
-        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION keeps a v3 row below ANCHOR_ACTIVATION on the Legacy label ahead of the fold gate",
-        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION names the stored reason (the row's own status) in the legacy note",
-        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION regtest has no activation history (ANCHOR_ACTIVATION.regtest = 0), so a regtest row is never flagged legacy",
-        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION surfaces a post-reparse invalid verdict as the stored reason too, and leaves the Status badge untouched",
-        "anchor.html detail render @regression covering checkpoint [NULL CHECKPOINT] a missing mirror row names the CHECKPOINTED height it looked up",
-        "anchor.html detail render @regression covering checkpoint flags a mirror whose block_hash disagrees with the anchor payload",
-        "anchor.html detail render @regression covering checkpoint links the covering checkpoint at the CHECKPOINTED height, not the broadcast one",
-        "anchor.html detail render @regression covering checkpoint states agreement between the on-chain payload and the mirrored checkpoint",
-        "anchor.html detail render @regression page wiring (anchor.html inline script) [NOT FOUND] a 200 with an empty envelope renders the no-such-anchor branch",
-        "anchor.html detail render @regression page wiring (anchor.html inline script) [NOT FOUND] a 404 renders the endpoint error explicitly, not blank placeholders",
-        "anchor.html detail render @regression page wiring (anchor.html inline script) a failed request without a JSON body still says something concrete",
-        "anchor.html detail render @regression page wiring (anchor.html inline script) also accepts the {total, data} envelope shape",
-        "anchor.html detail render @regression page wiring (anchor.html inline script) fetches the composed anchor endpoint directly and renders a BARE object response",
-        "anchor.html detail render @regression page wiring (anchor.html inline script) leaves no panel showing its loading placeholder after a response",
-        "anchor.html detail render @regression publisher election an empty electorate renders as an absence, with no error styling",
-        "anchor.html detail render @regression publisher election names the wire attestation tail as unverified transport, not a quorum",
-        "anchor.html detail render @regression publisher election renders the electorate and marks which member the anchor elected",
-        "anchor.html detail render @regression reward attestation trail [EMPTY TRAIL] an anchor with no rewards renders an absence, never an error",
-        "anchor.html detail render @regression reward attestation trail [LINKAGE] separates a txid-PROVEN reward from one matched only by round",
-        "anchor.html detail render @regression reward attestation trail a missing reward_attestations key is treated as an empty trail, not a crash",
-        "anchor.html detail render @regression reward attestation trail renders the archive-reward row on the v6 anchor",
-        "anchor.html detail render @regression reward attestation trail renders the reward row with its exact stored columns",
-        "anchor.html detail render @regression the two block heights [TRAP] each height carries its own explanation of which one it is",
-        "anchor.html detail render @regression the two block heights [TRAP] labels the CHECKPOINTED height and the ANCHOR TRANSACTION height distinctly",
-        "anchor.html detail render @regression the two block heights [TRAP] never renders either height under a bare \"Block\" label",
-        "anchor.html detail render @regression the two block heights keeps the two heights apart on the v6 archive anchor too (2497 vs 2505)",
-        "anchor.html detail render @regression the two block heights shows a missing broadcast height as absent rather than borrowing the checkpointed one",
-        "anchor.html detail render @regression v0 bundle sections [TRAP] cross-checks the mirror against THIS coin's section, not the header chain",
-        "anchor.html detail render @regression v0 bundle sections [TRAP] lists a checkpointed height PER CHAIN instead of one height for the bundle",
-        "anchor.html detail render @regression v0 bundle sections [TRAP] marks THIS explorer's own section rather than treating section 0 as the anchor",
-        "anchor.html detail render @regression v0 bundle sections [TRAP] the checkpoint card carries only what the BUNDLE owns, never section 0's hashes",
-        "anchor.html detail render @regression v0 bundle sections a one-section bundle renders as a normal cycle, not as a fault",
-        "anchor.html detail render @regression v0 bundle sections names every chain in the bundle instead of one chain for the action",
-        "anchor.html detail render @regression v0 bundle sections names the missing mirror by THIS coin's section height",
-        "anchor.html detail render @regression v0 bundle sections renders ONE row per chain, in section_index order, with each chain's own payload",
-        "anchor.html detail render @regression v0 bundle sections renders the single anchor_bundle reward as the round-keyed trail it is",
-        "anchor.html detail render @regression v0 bundle sections reveals the sections card on a bundle and hides it on a single-checkpoint anchor",
-        "anchor.html detail render @regression version traits a retired non-bundle root-bearing version (v5) is no longer a known trait, but its payload still renders",
-        "anchor.html detail render @regression version traits a v1 with null roots shows no root rows rather than empty root rows",
-        "anchor.html detail render @regression version traits a v2 continuation chunk says it carries no checkpoint instead of showing blanks",
-        "anchor.html detail render @regression version traits falls back to the row shape for an unrecognized version instead of rendering nothing",
-        "anchor.html detail render @regression version traits renders a v0 bundle-family checkpoint: known trait, no activation note, no \"unrecognized\" fallback",
-        "anchor.html detail render @regression version traits renders a v1 as the ARCHIVE HEAD: archive card revealed with batch + chunk trail"
-      ],
       "349dd4854289106e": [
         "LIST format 5 action detail reads the rename row and resolves membership through its list index",
         "LIST format 5 block totals counts one format 4 lists row and one format 5 metadata row as two actions",
@@ -5182,6 +5148,37 @@
         "live feed since-queries stay unfiltered (WS-02 cursor guard) the catch-up form adds only its inclusive upper bound",
         "live feed since-queries stay unfiltered (WS-02 cursor guard) the guard itself sees a filter, an inner join and a merge"
       ],
+      "378fc9501b00ca51": [
+        "SPV Phase 3: ProofServer.actionProof round-trip an action inclusion proof verifies against the committed block_merkle_root",
+        "SPV Phase 3: ProofServer.actionProof round-trip proves a tx_index-NULL synthetic action (ORDER_MATCH)",
+        "SPV Phase 3: ProofServer.actionProof round-trip refuses when the committed block_merkle_root disagrees with the local block tree",
+        "SPV Phase 3: ProofServer.actionProof round-trip returns ACTION_BLOCK_NOT_CHECKPOINTED when the block was never checkpointed",
+        "SPV Phase 3: ProofServer.actionProof round-trip returns ACTION_NOT_FOUND for an unknown action",
+        "SPV Phase 3: ProofServer.balanceProof round-trip a zero balance comes back as a verifiable non-inclusion proof",
+        "SPV Phase 3: ProofServer.balanceProof round-trip answers the registered PROOF_STATE_ROOT_MISMATCH, not exception text, when a sub-root cannot be assembled",
+        "SPV Phase 3: ProofServer.balanceProof round-trip attaches advisory freshness (chain_tip / lag / stale) to the checkpoint",
+        "SPV Phase 3: ProofServer.balanceProof round-trip flags the checkpoint stale when it trails the chain tip past the bound",
+        "SPV Phase 3: ProofServer.balanceProof round-trip forwards a null height so the db binds to the latest checkpoint",
+        "SPV Phase 3: ProofServer.balanceProof round-trip membership proof verifies against the committed state_root",
+        "SPV Phase 3: ProofServer.balanceProof round-trip refuses to serve when the local state tree does not reassemble the signed state_root",
+        "SPV Phase 3: ProofServer.balanceProof round-trip reports CHECKPOINT_PRE_COMMITMENT for a pre-flag-day checkpoint (null state_root)",
+        "SPV Phase 3: balanceProof serves the checkpoint-height amount (SDK-verified) serves the checkpoint-height net (not the tip) and the xchain-sdk verifier ACCEPTS it",
+        "SPV Phase 3: balanceProof serves the checkpoint-height amount (SDK-verified) would be rejected by the SDK if the tip amount were served (guards the regression)",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip fails closed on an envelope-level truncated snapshot instead of summing a partial set",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip proves each signer (source+weight) and the source-deduped total against stakes_root",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses instead of skipping the capability on a null result",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses instead of skipping the capability on block not yet indexed",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses instead of skipping the capability on database not ready",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses instead of skipping the capability on stake lookup failed",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses rather than returning a partial capabilities map when a second capability lags",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip rejects a non-BTC chain (stakes_root is BTC-only)",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip reports SNAPSHOT_NOT_YET_CHECKPOINTED when no BTC checkpoint exists at S",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip skips only a capability the indexer reports as not configured",
+        "SPV Phase 5: ProofServer.validatorSetProof round-trip still authors the proof when the envelope reports truncated false",
+        "SPV Phase 5: validatorSetProof retry hints does not mark auth or ordinary stake lookup failures retryable",
+        "SPV Phase 5: validatorSetProof retry hints retains a retry hint when a later stake lookup has a transient failure",
+        "SPV Phase 5: validatorSetProof retry hints retains a retry hint when the first stake lookup has a transient failure"
+      ],
       "37b3dc4641745cce": [
         "contract-call body ceiling accepts the worst legal body through the route parser",
         "contract-call body ceiling control: the global parser alone refuses the same worst legal body",
@@ -5191,6 +5188,16 @@
         "contract-call route wiring registers the limiter, then the 256kb parser, then the handler",
         "isContractCallPostRequest is total over malformed input (it runs on every request)",
         "isContractCallPostRequest matches only POST /{coin}/api/contract/{idx}/call"
+      ],
+      "37cf6486c2ae46b8": [
+        "xchain_ws.js reconnect after a once subscription was spent does not count a client-requested unsubscribe as a spend",
+        "xchain_ws.js reconnect after a once subscription was spent does not mark a subscription that is not once",
+        "xchain_ws.js reconnect after a once subscription was spent matches market, dispenser and xcall keys the way the server spells them",
+        "xchain_ws.js reconnect after a once subscription was spent resends only the channels of a multi-channel request that are still live",
+        "xchain_ws.js reconnect after a once subscription was spent resends only the keys of a batch that are still live, with since_action_index for the replayed channel",
+        "xchain_ws.js reconnect after a once subscription was spent retries a narrowed request the server refused with RATE_LIMITED",
+        "xchain_ws.js reconnect after a once subscription was spent sends nothing for a spent single-entity subscription and does not fall back to the defaults",
+        "xchain_ws.js reconnect after a once subscription was spent still arms a once subscription nothing has spent"
       ],
       "381a93ad4ecc32fc": [
         "db.getHistoryData: the all-activity feed is not gated on mappings_actions [REGRESSION] the first-page boundary for a block feed is computed over `actions`",
@@ -5270,6 +5277,10 @@
         "PRICE detail render: validator batch rounds renders a round carrying no pairs without collapsing the table",
         "PRICE detail render: validator batch rounds states an anchor height as plain text when this instance does not serve that BTC network",
         "PRICE detail render: validator batch rounds summarizes the batch by round and price count"
+      ],
+      "39af0a3ccb2f3e27": [
+        "system action reads against the REAL indexer DDL getActionLedgerAddresses names the addresses each action credited, debited or escrowed",
+        "system action reads against the REAL indexer DDL getOrderMatchSettlement returns the settlement type of a coinpay match"
       ],
       "39d38d610943e3e4": [
         "config validation describeHubResponse describes a null response as an unreachable hub returning nothing",
@@ -5353,6 +5364,12 @@
       "3dce72f0beb58f94": [
         "standalone content viewer page announces that it is ready to its parent",
         "standalone content viewer page renders only the first valid HTML message from its parent"
+      ],
+      "3e122db8c612115f": [
+        "WebSocketServer#stop with a client that never answers the close frame defaults the grace well under the 8 s drain budget",
+        "WebSocketServer#stop with a client that never answers the close frame does not terminate a client that closed cleanly inside the grace",
+        "WebSocketServer#stop with a client that never answers the close frame lets the HTTP listener close within the grace period instead of the 30 s close timeout",
+        "WebSocketServer#stop with a client that never answers the close frame terminates a client still open when the grace ends"
       ],
       "3e1d8b1e0020be6d": [
         "@p2 @action Less-used action type endpoints regression escrows endpoint returns data for seeded address",
@@ -5458,6 +5475,68 @@
         "catch-up replay stops at the live-start ceiling a replay that finishes before the next poll does not repeat those rows either",
         "catch-up replay stops at the live-start ceiling a subscribe landing mid-row gets that row's lifecycle frames once, after its NEW_ACTION",
         "catch-up replay stops at the live-start ceiling the live detector reads its own feed with no upper bound"
+      ],
+      "414b6e6c883fcf8f": [
+        "anchor.html activation injection renders the registry activation heights into the browser global",
+        "anchor.html detail render @regression ANCHOR_ACTIVATION twin parity (client literal vs. the module) the browser ANCHOR_FOLD_ACTIVATION equals the registry row the indexer gates v3 on",
+        "anchor.html detail render @regression ANCHOR_ACTIVATION twin parity (client literal vs. the module) the browser copy equals src/protocol/constants.js exactly",
+        "anchor.html detail render @regression activation gate: a threshold or height the indexer cannot compare a network the table does not list is judged on its version",
+        "anchor.html detail render @regression activation gate: a threshold or height the indexer cannot compare a non-numeric DOGE height on a listed network renders as Legacy",
+        "anchor.html detail render @regression activation gate: a threshold or height the indexer cannot compare a row with no stored DOGE height is judged on its version",
+        "anchor.html detail render @regression activation gate: a threshold or height the indexer cannot compare an unpinned (null) testnet threshold renders a testnet row as Legacy, as the indexer stores it",
+        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION [TRAP] a bundle-shaped row below testnet activation renders as Legacy, never as a v0 bundle",
+        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION [TRAP] a testnet v3 row past ANCHOR_ACTIVATION but below the UNARMED fold gate is never a folded bundle",
+        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION [TRAP] a v1-shaped row below testnet activation ALSO renders as Legacy, never as today's v1",
+        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION a row AT the activation height is judged on its version, not flagged legacy (>= is the boundary)",
+        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION keeps a v3 row below ANCHOR_ACTIVATION on the Legacy label ahead of the fold gate",
+        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION names the stored reason (the row's own status) in the legacy note",
+        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION regtest has no activation history (ANCHOR_ACTIVATION.regtest = 0), so a regtest row is never flagged legacy",
+        "anchor.html detail render @regression activation gate: rows before ANCHOR_ACTIVATION surfaces a post-reparse invalid verdict as the stored reason too, and leaves the Status badge untouched",
+        "anchor.html detail render @regression covering checkpoint [NULL CHECKPOINT] a missing mirror row names the CHECKPOINTED height it looked up",
+        "anchor.html detail render @regression covering checkpoint flags a mirror whose block_hash disagrees with the anchor payload",
+        "anchor.html detail render @regression covering checkpoint links the covering checkpoint at the CHECKPOINTED height, not the broadcast one",
+        "anchor.html detail render @regression covering checkpoint states agreement between the on-chain payload and the mirrored checkpoint",
+        "anchor.html detail render @regression page wiring (anchor.html inline script) [NOT FOUND] a 200 with an empty envelope renders the no-such-anchor branch",
+        "anchor.html detail render @regression page wiring (anchor.html inline script) [NOT FOUND] a 404 renders the endpoint error explicitly, not blank placeholders",
+        "anchor.html detail render @regression page wiring (anchor.html inline script) a failed request without a JSON body still says something concrete",
+        "anchor.html detail render @regression page wiring (anchor.html inline script) also accepts the {total, data} envelope shape",
+        "anchor.html detail render @regression page wiring (anchor.html inline script) fetches the composed anchor endpoint directly and renders a BARE object response",
+        "anchor.html detail render @regression page wiring (anchor.html inline script) leaves no panel showing its loading placeholder after a response",
+        "anchor.html detail render @regression publisher election an empty electorate renders as an absence, with no error styling",
+        "anchor.html detail render @regression publisher election names the wire attestation tail as unverified transport, not a quorum",
+        "anchor.html detail render @regression publisher election renders the electorate and marks which member the anchor elected",
+        "anchor.html detail render @regression reward attestation trail [EMPTY TRAIL] an anchor with no rewards renders an absence, never an error",
+        "anchor.html detail render @regression reward attestation trail [LINKAGE] separates a txid-PROVEN reward from one matched only by round",
+        "anchor.html detail render @regression reward attestation trail a missing reward_attestations key is treated as an empty trail, not a crash",
+        "anchor.html detail render @regression reward attestation trail renders the archive-reward row on the v6 anchor",
+        "anchor.html detail render @regression reward attestation trail renders the reward row with its exact stored columns",
+        "anchor.html detail render @regression the two block heights [TRAP] each height carries its own explanation of which one it is",
+        "anchor.html detail render @regression the two block heights [TRAP] labels the CHECKPOINTED height and the ANCHOR TRANSACTION height distinctly",
+        "anchor.html detail render @regression the two block heights [TRAP] never renders either height under a bare \"Block\" label",
+        "anchor.html detail render @regression the two block heights keeps the two heights apart on the v6 archive anchor too (2497 vs 2505)",
+        "anchor.html detail render @regression the two block heights shows a missing broadcast height as absent rather than borrowing the checkpointed one",
+        "anchor.html detail render @regression v0 bundle sections [TRAP] cross-checks the mirror against THIS coin's section, not the header chain",
+        "anchor.html detail render @regression v0 bundle sections [TRAP] lists a checkpointed height PER CHAIN instead of one height for the bundle",
+        "anchor.html detail render @regression v0 bundle sections [TRAP] marks THIS explorer's own section rather than treating section 0 as the anchor",
+        "anchor.html detail render @regression v0 bundle sections [TRAP] the checkpoint card carries only what the BUNDLE owns, never section 0's hashes",
+        "anchor.html detail render @regression v0 bundle sections a one-section bundle renders as a normal cycle, not as a fault",
+        "anchor.html detail render @regression v0 bundle sections names every chain in the bundle instead of one chain for the action",
+        "anchor.html detail render @regression v0 bundle sections names the missing mirror by THIS coin's section height",
+        "anchor.html detail render @regression v0 bundle sections renders ONE row per chain, in section_index order, with each chain's own payload",
+        "anchor.html detail render @regression v0 bundle sections renders the single anchor_bundle reward as the round-keyed trail it is",
+        "anchor.html detail render @regression v0 bundle sections reveals the sections card on a bundle and hides it on a single-checkpoint anchor",
+        "anchor.html detail render @regression version traits a retired non-bundle root-bearing version (v5) is no longer a known trait, but its payload still renders",
+        "anchor.html detail render @regression version traits a v1 with null roots shows no root rows rather than empty root rows",
+        "anchor.html detail render @regression version traits a v2 continuation chunk says it carries no checkpoint instead of showing blanks",
+        "anchor.html detail render @regression version traits falls back to the row shape for an unrecognized version instead of rendering nothing",
+        "anchor.html detail render @regression version traits renders a v0 bundle-family checkpoint: known trait, no activation note, no \"unrecognized\" fallback",
+        "anchor.html detail render @regression version traits renders a v1 as the ARCHIVE HEAD: archive card revealed with batch + chunk trail",
+        "anchor.html detail render @regression version traits: an unread version byte [TRAP] stored version 0 under the unknown-version status is not a v0 checkpoint bundle",
+        "anchor.html detail render @regression version traits: an unread version byte keeps a real v0 under any other status as a checkpoint bundle",
+        "anchor.html detail render @regression version traits: an unread version byte keeps a stored byte from 4 to 255 under the same status as its own unrecognized version",
+        "anchor.html detail render @regression version traits: an unread version byte lets the legacy label win below activation",
+        "anchor.html detail render @regression version traits: an unread version byte names the stored status in the note and keeps the status badge",
+        "anchor.html detail render @regression version traits: an unread version byte prints v? for an unread version in the chunk table and v0 for a real v0 chunk"
       ],
       "41bdd9ebe9e818d9": [
         "XCALL phase cursor (M5.4) advances the cursor over an empty span so it is not re-scanned every poll",
@@ -5963,6 +6042,15 @@
         "@regression explorer checkpoint supersede suffix bytes throws when only one supersession field is present",
         "@regression explorer checkpoint supersede suffix bytes throws when rules_digest is not 64 hexadecimal characters",
         "@regression explorer checkpoint supersede suffix bytes throws when supersedes_from is not a non-negative safe integer"
+      ],
+      "525bb89b3ce779c5": [
+        "types filter and state frames a blocks subscription narrowed by types still gets NEW_BLOCK",
+        "types filter and state frames a narrowed address subscription gets ADDRESS_UPDATE and still drops other action families",
+        "types filter and state frames a narrowed dispenser subscription gets DISPENSER_UPDATE",
+        "types filter and state frames a network subscription narrowed by types still gets NETWORK_STATS",
+        "types filter and state frames a once subscription narrowed by types is not spent by a state frame that only passed the filter",
+        "types filter and state frames a once subscription on a state-only channel is spent by its first frame",
+        "types filter and state frames token and market subscriptions narrowed by types get their update frames"
       ],
       "5284c2c92b0f568a": [
         "db.getActionsSince destinations (M1.4) QUARANTINES only the missing family, so the next poll is back to one query",
@@ -6590,6 +6678,11 @@
         "shared action-detail SQL builds a single-action ledger effects query",
         "shared action-detail SQL defines the action baseline lookup"
       ],
+      "55fe255fe48c6d0f": [
+        "oraclefeequote blockTime validation continues to allow an omitted blockTime",
+        "oraclefeequote blockTime validation forwards canonical positive safe integers unchanged",
+        "oraclefeequote blockTime validation rejects non-canonical or unsafe values before calling the indexer"
+      ],
       "56b1210bf8d08dd8": [
         "protocol/constants exposes the fiat allow-list with USD present and no duplicates",
         "protocol/constants keeps XCALL gas/hop/deadline bounds internally consistent",
@@ -6632,6 +6725,11 @@
         "XChainExplorer#processRelayRequest token-referenced hosts refuses the same URL under a tick whose description names a different URL",
         "XChainExplorer#processRelayRequest token-referenced hosts relays an ordinary host when the named token description points at that exact URL",
         "XChainExplorer#processRelayRequest token-referenced hosts relays the https form a plain http description is upgraded to"
+      ],
+      "56e5fd2d2a27e8a3": [
+        "multipart_file compression ratio declares no private copy of the ratio literal",
+        "multipart_file compression ratio keeps the multipart ceiling when the ratio product exceeds it",
+        "multipart_file compression ratio uses the vendored compression ratio for the inflate cap"
       ],
       "5720fc2817a4c6bb": [
         "every explorer feed pages one named way maps multi-word action tables explicitly instead of deriving them from the method",
@@ -6764,6 +6862,13 @@
       "5be894687505a264": [
         "Database#getSearch broadcast panel memo predicate folds the memo to the message collation on the count and the page statement"
       ],
+      "5bfb868c9f855443": [
+        "order action-detail SQL defines SELECT statements with the expected bindings",
+        "order action-detail SQL exports exactly the documented statements",
+        "order action-detail SQL keeps rejected cancel and edit rows when the parent is missing",
+        "order action-detail SQL leaves list statements unlimited",
+        "order action-detail SQL limits detail statements to one row"
+      ],
       "5c020c0fd5865d97": [
         "contract permissions_error getContract flags unreadable permissions JSON",
         "contract permissions_error getContract serves a parsed array with permissions_error false",
@@ -6888,6 +6993,13 @@
         "@regression superseded checkpoint sequence rules ignores another chain, another network, and lower checkpoint sequences",
         "@regression superseded checkpoint sequence rules returns the lowest sequence of multiple qualifying superseders",
         "@regression superseded checkpoint sequence rules supersedes rows at and above its supersedes_from boundary, but not below it"
+      ],
+      "624b1c98d2dc809b": [
+        "FILE multipart action detail page leaves an ordinary FILE in its existing viewer state",
+        "FILE multipart action detail page renders a part and links manifest index zero without a raw-file link",
+        "FILE multipart action detail page renders completed media through the raw endpoint",
+        "FILE multipart action detail page renders pending and mismatched progress without media or raw links",
+        "FILE multipart action detail page states when a part has no indexed manifest"
       ],
       "6307b90aeac02140": [
         "Boundary: isInteger() Number(\"-1\") passes isInteger",
@@ -7390,6 +7502,14 @@
         "refuseForeignNetworkRow counts foreign rows and reports no more than the name limit",
         "refuseForeignNetworkRow does not refuse unscoped, same-network, or unnamed rows"
       ],
+      "70285c8a70aecd29": [
+        "cancel and edit parent joins DISPENSER_CANCEL_QUERY keeps the child row when the parent is absent",
+        "cancel and edit parent joins DISPENSER_EDIT_QUERY keeps the child row when the parent is absent",
+        "cancel and edit parent joins ORDER_CANCEL_DETAIL keeps the child row when the parent is absent",
+        "cancel and edit parent joins ORDER_EDIT_DETAIL keeps the child row when the parent is absent",
+        "cancel and edit parent joins SWAP_CANCEL_DETAIL keeps the child row when the parent is absent",
+        "cancel and edit parent joins SWAP_EDIT_DETAIL keeps the child row when the parent is absent"
+      ],
       "70378df04cfded7b": [
         "structure markers client: actionDetail_renderDisclosure falls back to a plain sentence for a payload with nothing to expand",
         "structure markers client: actionDetail_renderDisclosure lists batch members through the shared summary renderer, reading summary never details",
@@ -7415,34 +7535,6 @@
         "oracle.html PRICE v1 track record render @regression price:null (no co-located mirror) renders as unavailable, not as a clean zero history",
         "oracle.html PRICE v1 track record render @regression reads the flat record for the betting half too (the {data:...} envelope was never what the API returns)",
         "oracle.html PRICE v1 track record render @regression renders the price publishes, pairs and last-publish from the flat API record"
-      ],
-      "736f86a7b212dc70": [
-        "SPV Phase 3: ProofServer.actionProof round-trip an action inclusion proof verifies against the committed block_merkle_root",
-        "SPV Phase 3: ProofServer.actionProof round-trip proves a tx_index-NULL synthetic action (ORDER_MATCH)",
-        "SPV Phase 3: ProofServer.actionProof round-trip refuses when the committed block_merkle_root disagrees with the local block tree",
-        "SPV Phase 3: ProofServer.actionProof round-trip returns ACTION_BLOCK_NOT_CHECKPOINTED when the block was never checkpointed",
-        "SPV Phase 3: ProofServer.actionProof round-trip returns ACTION_NOT_FOUND for an unknown action",
-        "SPV Phase 3: ProofServer.balanceProof round-trip a zero balance comes back as a verifiable non-inclusion proof",
-        "SPV Phase 3: ProofServer.balanceProof round-trip answers the registered PROOF_STATE_ROOT_MISMATCH, not exception text, when a sub-root cannot be assembled",
-        "SPV Phase 3: ProofServer.balanceProof round-trip attaches advisory freshness (chain_tip / lag / stale) to the checkpoint",
-        "SPV Phase 3: ProofServer.balanceProof round-trip flags the checkpoint stale when it trails the chain tip past the bound",
-        "SPV Phase 3: ProofServer.balanceProof round-trip forwards a null height so the db binds to the latest checkpoint",
-        "SPV Phase 3: ProofServer.balanceProof round-trip membership proof verifies against the committed state_root",
-        "SPV Phase 3: ProofServer.balanceProof round-trip refuses to serve when the local state tree does not reassemble the signed state_root",
-        "SPV Phase 3: ProofServer.balanceProof round-trip reports CHECKPOINT_PRE_COMMITMENT for a pre-flag-day checkpoint (null state_root)",
-        "SPV Phase 3: balanceProof serves the checkpoint-height amount (SDK-verified) serves the checkpoint-height net (not the tip) and the xchain-sdk verifier ACCEPTS it",
-        "SPV Phase 3: balanceProof serves the checkpoint-height amount (SDK-verified) would be rejected by the SDK if the tip amount were served (guards the regression)",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip fails closed on an envelope-level truncated snapshot instead of summing a partial set",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip proves each signer (source+weight) and the source-deduped total against stakes_root",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses instead of skipping the capability on a null result",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses instead of skipping the capability on block not yet indexed",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses instead of skipping the capability on database not ready",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses instead of skipping the capability on stake lookup failed",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip refuses rather than returning a partial capabilities map when a second capability lags",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip rejects a non-BTC chain (stakes_root is BTC-only)",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip reports SNAPSHOT_NOT_YET_CHECKPOINTED when no BTC checkpoint exists at S",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip skips only a capability the indexer reports as not configured",
-        "SPV Phase 5: ProofServer.validatorSetProof round-trip still authors the proof when the envelope reports truncated false"
       ],
       "73c1eb15d626ba50": [
         "vendored-VM check mode write boundary @regression VMCHK-1: refuses a vendored tree that is present with an unreadable CONSENSUS_VERSION",
@@ -7638,40 +7730,17 @@
         "parseDeclaredColumns returns column metadata in source order",
         "parseDeclaredColumns skips table-level keys, indexes, checks, and constraints"
       ],
+      "7e37800d1e58147e": [
+        "failed DEPLOY constructor detail attaches the terminal execution verdict when the contract row is gone",
+        "failed DEPLOY constructor detail does not invent terminal fields without an execution verdict",
+        "failed DEPLOY constructor detail does not query when the main contract row was found",
+        "failed DEPLOY constructor detail keeps the legacy link when no deleted-contract verdict is present",
+        "failed DEPLOY constructor detail renders a literal failure with no contract link and hides contract-only rows"
+      ],
       "7f1852df66cbd145": [
         "client: shared-list mirror detail clears mirror provenance when a later render is local",
         "client: shared-list mirror detail keeps the mirror row hidden for a local list",
         "client: shared-list mirror detail shows the home list line and links it on the home chain"
-      ],
-      "7f556c7f45f6c3ec": [
-        "Bootstrap surface bridge (row 22a) actually MOVES the surface in the demo skin, which is what row 22a was for",
-        "Bootstrap surface bridge (row 22a) carries the -rgb triples, without which every translucent overlay stays behind",
-        "Bootstrap surface bridge (row 22a) declares the bridge on every selector that can carry the mode",
-        "Bootstrap surface bridge (row 22a) does not restate the bridge in the skin: a skin overrides values, not wiring",
-        "Bootstrap surface bridge (row 22a) gives classic exactly Bootstrap's own values, so the page renders unchanged",
-        "Bootstrap surface bridge (row 22a) gives the demo skin the same token names as classic, so it is a drop-in",
-        "Bootstrap surface bridge (row 22a) points every bridged --bs-* variable at an --xc-surface-* token",
-        "Bootstrap surface bridge (row 22a) reaches the surface a skin most needs: background, text, links and borders",
-        "theme lint rejects a schema naming an unregistered component or invalid props",
-        "theme lint rejects a token unresolved through an inherited token stylesheet",
-        "theme lint rejects an html route whose file exists but has no schema",
-        "theme lint reports the shipped repository accurately through the combined gate",
-        "theme lint resolves tokens used by sheets a theme tokens.css @imports, and reports bad imports",
-        "theme parity probe (static contract) admits every first-party stylesheet a theme @imports",
-        "theme parity probe (static contract) admits every first-party stylesheet the page template links",
-        "theme parity probe (static contract) parses as JavaScript",
-        "theme parity probe (static contract) still exposes the __XC global the run instructions paste against",
-        "theme parity probe (static contract) still recognizes both stylesheets this gate scans",
-        "theme token-literal gate (M1 A3) every var(--xc-*) the page and component stylesheets reference is defined in tokens.css",
-        "theme token-literal gate (M1 A3) reads no color/radius/shadow/spacing literal outside tokens.css",
-        "token-literal classifier (function-wrapped values) sees a color literal nested two functions deep",
-        "token-literal classifier (function-wrapped values) sees a color literal wrapped in a gradient",
-        "token-literal classifier (function-wrapped values) sees a spacing literal wrapped in calc()",
-        "token-literal classifier (function-wrapped values) sees a spacing literal wrapped in clamp()",
-        "token-literal classifier (function-wrapped values) still exempts a bare 100% full-bleed width",
-        "token-literal classifier (function-wrapped values) still honours the chart-tooltip opacity allowlist",
-        "token-literal classifier (function-wrapped values) still honours the url() asset allowlist",
-        "token-literal classifier (function-wrapped values) still reads a var() fallback as a legitimate degradation path"
       ],
       "8012d67790d6cc64": [
         "decoder mempool reply contract empty reply (rows [] with a good read) flags the cache entry malformed only for a malformed reply",
@@ -7832,6 +7901,11 @@
         "BET cancel/resolve action status @regression serves a REJECTED resolve its claimed outcome, which no other surface carries",
         "BET cancel/resolve action status @regression serves the outcome a resolve declared"
       ],
+      "82f9963d058e7746": [
+        "decoder_health values in the published specs finds the values the status reader sets, so the check below cannot pass on an empty set",
+        "decoder_health values in the published specs names every produced value in the docs/openapi.json decoder_health description",
+        "decoder_health values in the published specs names every produced value in the src/content/json/xchain-platform-api.json decoder_health description"
+      ],
       "833cb2c0db51fe6e": [
         "address-scoped contract slashes against the REAL indexer DDL binds exactly one placeholder on the list route",
         "address-scoped contract slashes against the REAL indexer DDL does not claim a slash on the intermediate key from before the row held it",
@@ -7870,6 +7944,13 @@
         "multipart manifest expanded limits does not convert a bigint above the safe integer range",
         "multipart manifest expanded limits rejects a manifest above either expanded limit",
         "multipart manifest expanded limits returns JSON integers for a bigint byte count and the maximum part count"
+      ],
+      "83e990aca1edc032": [
+        "getAddress reports a tracker that is not synced as unavailable a body from a tracker that sends no sync object keeps its figures",
+        "getAddress reports a tracker that is not synced as unavailable a halted tracker is unavailable",
+        "getAddress reports a tracker that is not synced as unavailable a synced tracker keeps its figures and mempool_ready",
+        "getAddress reports a tracker that is not synced as unavailable a synced tracker with a reconverging mempool keeps its confirmed figure",
+        "getAddress reports a tracker that is not synced as unavailable a tracker behind its node is unavailable with null figures"
       ],
       "847a34f234a1bf06": [
         "action detail field contract: handler output vs detail renderers ADDRESS provides every field read by showAddressDetails",
@@ -9732,6 +9813,18 @@
         "openapi row schemas match the reader select lists getSweeps selects exactly the Sweep properties",
         "openapi row schemas match the reader select lists getTokens selects exactly the TokenRow properties"
       ],
+      "ab861e0619b06ccc": [
+        "theme parity probe declared-path keys is unchanged for a page whose declared-path keys do not collide",
+        "theme parity probe declared-path keys keeps a single value for a computed-path key two sheets restate",
+        "theme parity probe declared-path keys keeps both declarations of a layout key two sheets restate, in walk order",
+        "theme parity probe declared-path keys keeps every declaration of a state rule restated in a second sheet",
+        "theme parity probe declared-path keys moves the rule hash when only the first declaration changes",
+        "theme parity probe declared-path keys moves the rule hash when only the last declaration changes",
+        "theme parity probe grid track templates keeps the base template and its @media variant, so an edit to either moves the hash",
+        "theme parity probe grid track templates keeps the hash across used-track drift and moves it on a declared change",
+        "theme parity probe grid track templates records the declared template, not the used track list",
+        "theme parity probe grid track templates resolves custom properties in a column and a row template"
+      ],
       "ac459281d01e49b0": [
         "an order with no MEMO is still on the book [REGRESSION] getOrderInfo LEFT JOINs index_memos too",
         "an order with no MEMO is still on the book [REGRESSION] getOrderInfoBatch LEFT JOINs index_memos",
@@ -9953,6 +10046,13 @@
         "db.js composes its extracted reader families reaches every extracted method on Database.prototype",
         "db.js composes its extracted reader families spot-checks one method from each family, since a family could be empty",
         "db.js composes its extracted reader families wires every module file into the composition"
+      ],
+      "b528de5a5700ee86": [
+        "multipart FILE byte stream when the sink dies between decoder pages rejects a stored-form write when the client closes during a drain wait",
+        "multipart FILE byte stream when the sink dies between decoder pages settles a ratio bomb whose output cap trips before the second page",
+        "multipart FILE byte stream when the sink dies between decoder pages settles an invalid deflate stream that errors across a 16-part page",
+        "multipart FILE byte stream when the sink dies between decoder pages settles when the client closes after the last part is written but before the inflater ends",
+        "multipart FILE byte stream when the sink dies between decoder pages stops the inflated stream when the client sink closes first"
       ],
       "b5e4f4287a73a292": [
         "client: dispenser detail route parameters never leaves the query null, which is what emptied the feeds",
@@ -10297,6 +10397,11 @@
         "Database#getQueryWhereSql: getFiles type=name (M1.7) is index-friendly: no leading wildcard, no function wrapping the column",
         "Database#getQueryWhereSql: getFiles type=name (M1.7) the name lane is getFiles-only: another method with type=name gets no clause"
       ],
+      "c2000b4e7bbcaf0b": [
+        "Betting oracle record rejected creates @regression always carries rejected_feeds, zero when nothing was rejected",
+        "Betting oracle record rejected creates @regression keeps rejected creates out of total_feeds and reports them separately",
+        "Betting oracle record rejected creates @regression reports a zero headline for an address whose creates were all rejected"
+      ],
       "c203dbd76d223930": [
         "consensus gate registry anchor fold rows arms both regtest entries from the shared venue variable",
         "consensus gate registry anchor fold rows carries both rows together or neither row",
@@ -10390,6 +10495,39 @@
         "source guard: a coin-built path goes through networkCoin the page loads network_coin.js ahead of formatters.js",
         "tokenUrl maps its coin through networkCoin keeps a mainnet page on mainnet",
         "tokenUrl maps its coin through networkCoin links the reported TDOGE market legs under /TDOGE/, not mainnet /DOGE/"
+      ],
+      "c58b15e4ba6edd70": [
+        "Bootstrap surface bridge (row 22a) actually MOVES the surface in the demo skin, which is what row 22a was for",
+        "Bootstrap surface bridge (row 22a) carries the -rgb triples, without which every translucent overlay stays behind",
+        "Bootstrap surface bridge (row 22a) declares the bridge on every selector that can carry the mode",
+        "Bootstrap surface bridge (row 22a) does not restate the bridge in the skin: a skin overrides values, not wiring",
+        "Bootstrap surface bridge (row 22a) gives classic exactly Bootstrap's own values, so the page renders unchanged",
+        "Bootstrap surface bridge (row 22a) gives the demo skin the same token names as classic, so it is a drop-in",
+        "Bootstrap surface bridge (row 22a) points every bridged --bs-* variable at an --xc-surface-* token",
+        "Bootstrap surface bridge (row 22a) reaches the surface a skin most needs: background, text, links and borders",
+        "theme lint rejects a schema naming an unregistered component or invalid props",
+        "theme lint rejects a token unresolved through an inherited token stylesheet",
+        "theme lint rejects an html route whose file exists but has no schema",
+        "theme lint reports the shipped repository accurately through the combined gate",
+        "theme lint resolves tokens used by sheets a theme tokens.css @imports, and reports bad imports",
+        "theme parity probe (static contract) admits every first-party stylesheet a theme @imports",
+        "theme parity probe (static contract) admits every first-party stylesheet the page template links",
+        "theme parity probe (static contract) parses as JavaScript",
+        "theme parity probe (static contract) still exposes the __XC global the run instructions paste against",
+        "theme parity probe (static contract) still recognizes both stylesheets this gate scans",
+        "theme token-literal gate (M1 A3) every var(--xc-*) the page and component stylesheets reference is defined in tokens.css",
+        "theme token-literal gate (M1 A3) reads no color/radius/shadow/spacing literal outside tokens.css",
+        "token-literal classifier (function-wrapped values) sees a color literal nested two functions deep",
+        "token-literal classifier (function-wrapped values) sees a color literal wrapped in a gradient",
+        "token-literal classifier (function-wrapped values) sees a spacing literal wrapped in calc()",
+        "token-literal classifier (function-wrapped values) sees a spacing literal wrapped in clamp()",
+        "token-literal classifier (function-wrapped values) still exempts a bare 100% full-bleed width",
+        "token-literal classifier (function-wrapped values) still honours the chart-tooltip opacity allowlist",
+        "token-literal classifier (function-wrapped values) still honours the url() asset allowlist",
+        "token-literal classifier (function-wrapped values) still reads a var() fallback as a legitimate degradation path",
+        "token-literal gate (tokens.css rules) reads the same literal in a tokens.css rule inside an @media wrapper",
+        "token-literal gate (tokens.css rules) reports a literal in an ordinary tokens.css rule and skips the definitions",
+        "token-literal gate (tokens.css rules) still reports a literal color in a custom property outside tokens.css"
       ],
       "c63d858c41a8189b": [
         "hub-mirror-migrate later hub columns adds the admission and chain identity columns to a cross_chain_matches built before them",
@@ -10513,12 +10651,6 @@
         "LIST rename count errors and SQL treats a missing list_metas table as zero for blocks and totals",
         "LIST rename count totals adds format 5 list_metas rows to each block lists count",
         "LIST rename count totals adds the all-time format 5 count to network totals"
-      ],
-      "c9e17cfa67eaf47c": [
-        "order action-detail SQL defines SELECT statements with the expected bindings",
-        "order action-detail SQL exports exactly the documented statements",
-        "order action-detail SQL leaves list statements unlimited",
-        "order action-detail SQL limits detail statements to one row"
       ],
       "ca5ee796f968a933": [
         "wallet range reads: their own rate bucket registers all three behind one limiter that is not the batch limiter",
@@ -11570,6 +11702,14 @@
         "HubOperationalCache: single-flight reads and the edges of the failure memo never memoes a fleet-wide -32601 capability gap as an outage",
         "HubOperationalCache: single-flight reads and the edges of the failure memo shares one in-flight read across concurrent misses on one key"
       ],
+      "dfeaeca135050fde": [
+        "chaos and performance harness ingress chaos/api_overload.test.js mounts CORS, then the production body ceiling, then the explorer, then the refusal handler",
+        "chaos and performance harness ingress chaos/api_overload.test.js mounts no bare express.json parser",
+        "chaos and performance harness ingress chaos/helpers/chaos-setup.js mounts CORS, then the production body ceiling, then the explorer, then the refusal handler",
+        "chaos and performance harness ingress chaos/helpers/chaos-setup.js mounts no bare express.json parser",
+        "chaos and performance harness ingress performance/helpers/perf-setup.js mounts CORS, then the production body ceiling, then the explorer, then the refusal handler",
+        "chaos and performance harness ingress performance/helpers/perf-setup.js mounts no bare express.json parser"
+      ],
       "e038f4a92fd91e5e": [
         "BET feed status timeline @regression adds no latch when the feed never latched closed",
         "BET feed status timeline @regression places the synthetic closed latch BEFORE a later terminal row",
@@ -12010,6 +12150,10 @@
         "ANCHOR v3 folded verdict render recognizes v3 and renders its checkpoint and archive payload legs",
         "ANCHOR v3 folded verdict render scopes verdicts from row attributes rather than sibling version bytes",
         "ANCHOR v3 folded verdict render shows the archive failure separately from the valid checkpoint sections"
+      ],
+      "ed75b98afec63a99": [
+        "validator-set proof retry hints keeps auth and unmapped errors free of retry hints",
+        "validator-set proof retry hints relays a transient indexer hint without changing status or code"
       ],
       "edcfed4e5189ca51": [
         "getMarkets tick slot orientation keeps a search that matches the stored tick2 in tick2, with that tick's values",
@@ -12592,6 +12736,11 @@
         "Rocket Loader opt-out marks external, deferred and inline script tags",
         "Rocket Loader opt-out reaches every script tag on a rendered list page and a rendered detail page"
       ],
+      "fd6b9ececefe2ba8": [
+        "cancel and edit parent links keeps nonzero parent links for every renderer",
+        "cancel and edit parent links keeps the rejected child memo visible",
+        "cancel and edit parent links renders every missing-parent sentinel without an anchor"
+      ],
       "fe1d2bee2fe9022b": [
         "collectibles gallery (M5.1) classification drops a DIVISIBLE token the server should never have served",
         "collectibles gallery (M5.1) classification drops an indivisible token whose ceiling is NOT locked",
@@ -12807,8 +12956,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 511,
-        "titleCount": 8275,
+        "fileCount": 530,
+        "titleCount": 8385,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -12822,7 +12971,9 @@
           "test/unit/action_detail/bridge/bridge_action_detail_schema_shapes.test.js": "f0b26372a9bde02a",
           "test/unit/action_detail/crosschain/xcall_request_lookup.test.js": "189c6500824d84b9",
           "test/unit/action_detail/db_action_summary_markers.test.js": "9010ff13dd7b7339",
+          "test/unit/action_detail/deploy_constructor_failure.test.js": "7e37800d1e58147e",
           "test/unit/action_detail/dispense/db_dispense_dispenser_pointer.test.js": "ce6fead93e1597e8",
+          "test/unit/action_detail/file_multipart_detail_page.test.js": "624b1c98d2dc809b",
           "test/unit/action_detail/history/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/history/db_history_ids_first_real_ddl.test.js": "9014c6ca4f4cdbc9",
           "test/unit/action_detail/history/db_history_unmapped_actions.test.js": "381a93ad4ecc32fc",
@@ -12891,10 +13042,12 @@
           "test/unit/content/components/content_charts_render.test.js": "ad08471c2f023941",
           "test/unit/content/components/theme_parity_baselines.test.js": "498d3dd3a31dbf3b",
           "test/unit/content/components/theme_parity_probe.test.js": "8221053e98b564df",
+          "test/unit/content/components/theme_parity_probe_declared_keys.test.js": "ab861e0619b06ccc",
           "test/unit/content/components/theme_parity_probe_var_fallback.test.js": "ee749a44ac507351",
-          "test/unit/content/components/theme_token_literal_gate.test.js": "7f556c7f45f6c3ec",
+          "test/unit/content/components/theme_token_literal_gate.test.js": "c58b15e4ba6edd70",
           "test/unit/content/detail/action/content_client_action_detail_render.test.js": "df3aaf71a908f5de",
           "test/unit/content/detail/action/content_client_action_detail_render.test/system_action_origin.test.js": "babed36c332da317",
+          "test/unit/content/detail/action/content_client_action_parent_links.test.js": "fd6b9ececefe2ba8",
           "test/unit/content/detail/action/content_client_action_proof_gating.test.js": "03b500abda6fe6ea",
           "test/unit/content/detail/action/content_client_settlement_anchor_render.test.js": "184e2c0e8c048129",
           "test/unit/content/detail/address_and_validator/content_client_address_staking.test.js": "153997be300f8ebd",
@@ -12902,7 +13055,8 @@
           "test/unit/content/detail/address_and_validator/content_client_token_info.test/token_relay_url.test.js": "ca873f112a4fe7aa",
           "test/unit/content/detail/address_and_validator/content_client_validator_detail.test.js": "81a740106ba2f03f",
           "test/unit/content/detail/anchor/archive_publish_electorate.test.js": "8372e81d200825cb",
-          "test/unit/content/detail/anchor/content_client_anchor_detail.test.js": "345117f3a5282aa5",
+          "test/unit/content/detail/anchor/content_client_anchor_action_gate.test.js": "2c085e0784b3dcc8",
+          "test/unit/content/detail/anchor/content_client_anchor_detail.test.js": "414b6e6c883fcf8f",
           "test/unit/content/detail/anchor/content_client_anchor_detail.test/anchor_v3_verdicts.test.js": "ed2b123a348433ec",
           "test/unit/content/detail/anchor/content_client_anchor_sections_row.test.js": "6ec62f07f4cf0059",
           "test/unit/content/detail/bridge_and_xcall/content_client_bridge_invariant_gate.test.js": "7999c01ddf3d9e9a",
@@ -12990,7 +13144,8 @@
           "test/unit/db/action_detail/contracts_sql.test.js": "1747eb98d7356dc2",
           "test/unit/db/action_detail/crosschain_sql.test.js": "d85df9e505425c70",
           "test/unit/db/action_detail/misc_sql.test.js": "4fb1609d8a436d83",
-          "test/unit/db/action_detail/orders_sql.test.js": "c9e17cfa67eaf47c",
+          "test/unit/db/action_detail/orders_sql.test.js": "5bfb868c9f855443",
+          "test/unit/db/action_detail/parent_joins_sql.test.js": "70285c8a70aecd29",
           "test/unit/db/action_detail/shared_sql.test.js": "55b980748b629a02",
           "test/unit/db/action_detail/staking_sql.test.js": "c40dac72e51909f3",
           "test/unit/db/action_detail/swaps_sql.test.js": "f03ba5cec7f4f595",
@@ -13065,6 +13220,7 @@
           "test/unit/db/readers/actions/db_action_summary_field_contract.test.js": "89657e897c01a0cc",
           "test/unit/db/readers/actions/db_action_summary_system_fields.test.js": "b2ceeda7373824d4",
           "test/unit/db/readers/actions/db_actions_feed_paging_real_ddl.test.js": "9c6d4e3138d1115b",
+          "test/unit/db/readers/actions/db_system_action_parties_real_ddl.test.js": "39af0a3ccb2f3e27",
           "test/unit/db/readers/actions/sends_destroys_whole_action_paging.test.js": "4f2a9c473f9bc95d",
           "test/unit/db/readers/bets/db_bet_feed_edit_overlay.test.js": "a19575774b26a247",
           "test/unit/db/readers/bets/db_bet_feed_timeline.test.js": "e038f4a92fd91e5e",
@@ -13084,6 +13240,7 @@
           "test/unit/db/readers/dispenser/dispenser_price_stale/dispenser_price_stale.test.js": "ec5292d336fec81a",
           "test/unit/db/readers/dispenser/dispenser_snapshot_lifecycle.test.js": "92f2617a955643a0",
           "test/unit/db/readers/entities/address_tracker_egress.test.js": "09bc7cc9762f2665",
+          "test/unit/db/readers/entities/address_tracker_sync.test.js": "83e990aca1edc032",
           "test/unit/db/readers/entities/blocks_file_part_counts.test.js": "e15db38a5cbd7726",
           "test/unit/db/readers/entities/file_part_block_counts.test.js": "c829b81a27c9c3ac",
           "test/unit/db/readers/files_multipart_part_detail.test.js": "8d398aa3ee7c05b6",
@@ -13098,6 +13255,7 @@
           "test/unit/db/readers/mempool_unavailable.test.js": "acad798f76f89852",
           "test/unit/db/readers/oracle/db_oracle_fees.test.js": "848ec7b4eb6a7563",
           "test/unit/db/readers/oracle/db_oracle_price_record.test.js": "54a8fb5c0bb49270",
+          "test/unit/db/readers/oracle/db_oracle_stats_rejected.test.js": "c2000b4e7bbcaf0b",
           "test/unit/db/readers/project_roster/project_roster_coin_items.test.js": "94de69b5f5aa2e24",
           "test/unit/db/readers/project_roster/project_roster_items.test.js": "c963715ecba4937c",
           "test/unit/db/readers/search/contracts_name_fulltext_missing.test.js": "9bf3b4e752d10319",
@@ -13133,7 +13291,9 @@
           "test/unit/explorer/fees_preflight/fee_schedule_cache.test.js": "99f0e1cb22b10854",
           "test/unit/explorer/fees_preflight/feequote_post_predicate.test.js": "1dabb285226ea02f",
           "test/unit/explorer/mount/limiters.test.js": "1169f77f3ab3dfc8",
+          "test/unit/explorer/multipart_file_ratio.test.js": "56e5fd2d2a27e8a3",
           "test/unit/explorer/multipart_stream.test.js": "1ab9b761f02b30ba",
+          "test/unit/explorer/multipart_stream_dead_sink.test.js": "b528de5a5700ee86",
           "test/unit/explorer/paging/feed_rows.test.js": "385571ec21b4dc98",
           "test/unit/explorer/paging/list_rows.test.js": "1c638f41c50742ba",
           "test/unit/explorer/paging/window.test.js": "96428d63a79ecea6",
@@ -13165,6 +13325,7 @@
           "test/unit/explorer/routes/protocol_lifecycle_routes.test.js": "e469e2696bc2d982",
           "test/unit/explorer/shared_lists/shared_lists_names.test.js": "c23f1c94403319c0",
           "test/unit/explorer/shared_lists/shared_lists_route.test.js": "8c99885039c10bc3",
+          "test/unit/explorer/state_proofs/validator_set_retry_hint.test.js": "ed75b98afec63a99",
           "test/unit/explorer/supersede_suffix_bytes.test.js": "519bea532fb2d794",
           "test/unit/explorer/wallet_reads/address_history_batch.test.js": "77ad685baabcc53b",
           "test/unit/explorer/wallet_reads/native_history_pass_through.test.js": "302ddf935f26213f",
@@ -13176,6 +13337,7 @@
           "test/unit/federation/price_batches.test.js": "7b73323831ace85a",
           "test/unit/helpers/source_slice.test.js": "4b7b0941e0e9456b",
           "test/unit/http/api_boot/contract_call_body.test.js": "37b3dc4641745cce",
+          "test/unit/http/api_boot/harness_ingress_order.test.js": "dfeaeca135050fde",
           "test/unit/http/api_boot/http_listener.test.js": "9d573d01a65d75ab",
           "test/unit/http/api_boot/json_body.test.js": "ac62bce372abec2f",
           "test/unit/http/api_boot/listen_host.test.js": "78cd57ab43cd9d97",
@@ -13189,6 +13351,7 @@
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
           "test/unit/http/feequote/feequote_post_route.test.js": "6891ebcf3aeba7eb",
           "test/unit/http/feequote/feequote_upstream_failures.test.js": "1dd401c09be97cb0",
+          "test/unit/http/feequote/oraclefeequote_blocktime.test.js": "55fe255fe48c6d0f",
           "test/unit/http/feequote_route.test.js": "0f17ceaef4dcb05b",
           "test/unit/http/jsonrpc_batch_cap.test.js": "9681f16e73076695",
           "test/unit/http/jsonrpc_body_guard.test.js": "58706b2a54fa0008",
@@ -13197,11 +13360,12 @@
           "test/unit/http/openapi_contract_body.test.js": "654785edd4509e0c",
           "test/unit/http/openapi_coverage.test.js": "c6acb9b19da28242",
           "test/unit/http/openapi_response_schemas.test.js": "aab15b91e5ebf99f",
+          "test/unit/http/openapi_specs/decoder_health_values.test.js": "82f9963d058e7746",
           "test/unit/http/preflight_route.test.js": "d838170ee467d7e4",
           "test/unit/http/preflight_route.test/params_byte_length.test.js": "52ff975112f61d08",
           "test/unit/http/preflight_route.test/shared_indexer_egress_budget.test.js": "cfd98f78eeb5603f",
           "test/unit/http/preflight_route.test/upstream_rate_limit.test.js": "89d9558fbb94bdec",
-          "test/unit/http/proof_server.test.js": "736f86a7b212dc70",
+          "test/unit/http/proof_server.test.js": "378fc9501b00ca51",
           "test/unit/http/proof_server_stake_total.test.js": "c88a4399d3e54590",
           "test/unit/http/rate_limit_log_span.test.js": "cbdd7ea0c7618b4b",
           "test/unit/http/shutdown.test.js": "bb6a67736df088ef",
@@ -13280,6 +13444,7 @@
           "test/unit/ws/broadcaster.test.js": "d6f16fd50d6e94de",
           "test/unit/ws/broadcaster/action_routes.test.js": "6afecb1770d12000",
           "test/unit/ws/broadcaster/coin_map.test.js": "85622d6bfa9a6bb0",
+          "test/unit/ws/broadcaster/types_filter_state_frames.test.js": "525bb89b3ce779c5",
           "test/unit/ws/broadcaster_action_destinations.test.js": "5e1c022af4360e26",
           "test/unit/ws/broadcaster_mempool_address_case.test.js": "f55618a4aebfe5a0",
           "test/unit/ws/broadcaster_mempool_fanout.test.js": "1c31b3f297b71629",
@@ -13294,6 +13459,7 @@
           "test/unit/ws/change_detector/lifecycle_edit_cancel_routing.test.js": "1ffaac579a96af26",
           "test/unit/ws/change_detector/market_refresh_conformance.test.js": "ba3e78799ec61879",
           "test/unit/ws/change_detector/pool_reconcile.test.js": "c36bc4bc4dce89a6",
+          "test/unit/ws/change_detector/system_action_address_updates.test.js": "23aa6f95e088a235",
           "test/unit/ws/change_detector/token_ledger_refresh.test.js": "9e985f8b19a85cca",
           "test/unit/ws/change_detector_mempool_map.test.js": "9615d87f3f109bdb",
           "test/unit/ws/change_detector_methods.test.js": "8c4ba588a7c9b3ed",
@@ -13315,12 +13481,14 @@
           "test/unit/ws/websocket_requests/catch_up_cursor_hostile.test.js": "b38ff8fd98115d13",
           "test/unit/ws/websocket_requests/missing_action_id_echo.test.js": "6d27a0ab01ec255b",
           "test/unit/ws/websocket_server.test.js": "ff78e9c5894e4233",
+          "test/unit/ws/websocket_shutdown/terminate_lingering_clients.test.js": "3e122db8c612115f",
           "test/unit/ws/websocket_welcome/coin_resolution.test.js": "c86cf01c12b323bd",
           "test/unit/ws/websocket_welcome/ws_block_tip_live_boundary.test.js": "beaf0d7be2f7e37f",
           "test/unit/ws/ws_catch_up_live_boundary.test.js": "4003619ee66f822c",
           "test/unit/ws/ws_catch_up_routing.test.js": "a7e51b04a478ac2b",
           "test/unit/ws/ws_tip_freshness_gate.test.js": "ff59dd4c736074dd",
-          "test/unit/ws/xchain_ws_catch_up.test.js": "999011408966972f"
+          "test/unit/ws/xchain_ws_catch_up.test.js": "999011408966972f",
+          "test/unit/ws/xchain_ws_client/once_resubscribe.test.js": "37cf6486c2ae46b8"
         }
       },
       "test:boundary": {

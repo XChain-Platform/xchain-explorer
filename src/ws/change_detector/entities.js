@@ -74,7 +74,8 @@ class EntityUpdates {
         const cache = entityCache || null;
 
         // Only addresses someone is watching, and only when this action names one of
-        // them as its source or one of its destinations.
+        // them as its source or one of its destinations, or moved its balance in the
+        // ledger (the only record of the parties to an action the indexer mints itself).
         const subscribedAddresses = this.channelManager.getSubscribedAddresses(coin);
         if (subscribedAddresses.size > 0) {
             await emitAddressUpdates(this, coin, config, action, cache, subscribedAddresses);
@@ -108,11 +109,14 @@ class EntityUpdates {
 
 // ADDRESS_UPDATE for each subscribed address the action names as its source or
 // one of its destinations (the plural field getActionsSince attaches; no producer
-// sets a singular `destination`, the parties NEW_ACTION routes on in onAction).
+// sets a singular `destination`, the parties NEW_ACTION routes on in onAction), or
+// whose credit, debit or escrow rows the action wrote. Order and swap matches and the
+// expiry passes carry no source, so their balance changes are reachable only there.
 async function emitAddressUpdates(detector, coin, config, action, cache, subscribedAddresses) {
     const involvedAddresses = new Set();
     const destinations = Array.isArray(action.destinations) ? action.destinations : [];
-    for (const party of [action.source, ...destinations]) {
+    const ledgerAddresses = await ledgerAddressesOf(detector, config, action, cache);
+    for (const party of [action.source, ...destinations, ...(ledgerAddresses || [])]) {
         if (party && subscribedAddresses.has(party)) involvedAddresses.add(party);
     }
 
@@ -167,6 +171,23 @@ async function ledgerTicksOf(detector, config, action, cache) {
         }
     }
     return ledger.ticks ? ledger.ticks.get(String(action.action_index)) || null : null;
+}
+
+// The addresses one action moved, from one ledger read per poll covering the whole
+// batch (cache.ledger, filled in emitNewActions). Null when there is no batch or the
+// read failed, which leaves the source and destinations routing as it was.
+async function ledgerAddressesOf(detector, config, action, cache) {
+    const ledger = cache && cache.ledger;
+    if (!ledger || typeof detector.db.getActionLedgerAddresses !== 'function') return null;
+    if (ledger.addresses === undefined) {
+        try {
+            ledger.addresses = await detector.db.getActionLedgerAddresses(config, ledger.actions.map((a) => a.action_index));
+        } catch (e) {
+            ledger.addresses = null;
+            log.warn('CHANGE_DETECTOR_LEDGER_ADDRESSES_FAILED', { coin: config.coin, err: e && e.message });
+        }
+    }
+    return ledger.addresses ? ledger.addresses.get(String(action.action_index)) || null : null;
 }
 
 // TOKEN_UPDATE for each of the given subscribed ticks.

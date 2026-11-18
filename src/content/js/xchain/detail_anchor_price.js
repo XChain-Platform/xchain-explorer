@@ -34,17 +34,17 @@ function showAnchorPublisherDetails(data){
         }
     }
 }
-// Display ANCHOR action information (DOGE checkpoint: v0 checkpoint, v1 +archive, v2 continuation chunk)
+// Display ANCHOR action information (v0 per-network checkpoint bundle, v1 archive head, v2 archive chunk, v3 folded bundle)
 function showAnchorDetails(data){
-    $('#info-anchor .anchor-version').text(isNull(data.version) ? '-' : ('v' + data.version));
-    // A v0 ANCHOR is a BUNDLE: one action carrying every checkpointed chain, stored as
-    // N sibling anchor_actions rows. The per-chain fields below belong to section 0
-    // alone, so say how many chains the action commits and where the full per-chain
-    // view is; presenting one section's chain, checkpoint_seq and hashes as the whole
-    // anchor elides every other chain with nothing on the page to show it happened.
-    // The section table itself lives on the anchor page (anchor_detail_render.js),
-    // which is the single renderer for it.
-    let sections = Array.isArray(data.sections) ? data.sections : [];
+    // The gate verdict is the anchor page's (anchorTraits): a row mined below activation,
+    // a v3 below the fold gate, or an unread version byte is shown by its label, not as a bundle.
+    let gate = (typeof anchorGateVerdict === 'function') ? anchorGateVerdict(data) : null;
+    $('#info-anchor .anchor-version').text(gate ? gate.version : (isNull(data.version) ? '-' : ('v' + data.version)));
+    // A bundle is one action carrying every checkpointed chain, stored as N sibling
+    // anchor_actions rows. The per-chain fields below belong to section 0 alone, so say how
+    // many chains the action commits and where the full per-chain view is. The section
+    // table itself lives on the anchor page (anchor_detail_render.js).
+    let sections = (!gate && Array.isArray(data.sections)) ? data.sections : [];
     if(sections.length > 1){
         let chains = sections.map(s => escapeHtml(isNull(s.chain) ? '-' : String(s.chain))).join(', ');
         $('#info-anchor .anchor-sections').html(
@@ -73,7 +73,7 @@ function showAnchorDetails(data){
     $('#info-anchor .anchor-chunk').text(isNull(data.chunk_index) ? '-'
         : ((Number(data.chunk_index) + 1) + ' of ' + (isNull(data.total_chunks) ? '?' : data.total_chunks)));
     $('#info-anchor .anchor-doge-block').text(isNull(data.block_index_doge) ? '-' : numeral(data.block_index_doge).format('0,0'));
-    // SPV commitment roots (NULL pre-CHECKPOINT_COMMITMENT flag-day; populated for v3).
+    // SPV commitment roots (NULL pre-CHECKPOINT_COMMITMENT flag-day; carried by v0 and v3).
     let hasRoots = !isNull(data.state_root) || !isNull(data.block_merkle_root);
     $('#info-anchor .anchor-roots-row').toggleClass('d-none', !hasRoots);
     if(hasRoots){

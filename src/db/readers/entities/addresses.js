@@ -58,7 +58,12 @@ class EntityAddressReaders {
             tracker_available: false
         };
         let info = await this.getAddressTrackerInfo(config, address);
-        if(info && info.balances && info.utxos){
+        // A tracker that is behind its node, halted or serving a stale tip still answers /info
+        // with figures, but they are not a reading of the chain. Its own sync verdict decides:
+        // synced === false is answered as unavailable, as the spend path refuses the same state.
+        // A body with no sync object (an older tracker) keeps its figures.
+        const trackerSynced = !(info && info.sync && info.sync.synced === false);
+        if(info && info.balances && info.utxos && trackerSynced){
             data.type     = info.type || null;
             data.balances = {
                 confirmed: info.balances.confirmed,

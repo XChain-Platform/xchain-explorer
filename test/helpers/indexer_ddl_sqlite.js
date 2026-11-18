@@ -35,6 +35,7 @@ function toSqlite(ddl) {
     return ddl
         .replace(/BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY/g, 'INTEGER PRIMARY KEY AUTOINCREMENT')
         .replace(/ UNSIGNED/g, '')
+        .replace(/ENUM\([^)]*\)/g, 'TEXT')
         .replace(/CHARACTER SET \w+ COLLATE \w+/g, '')
         .replace(/\) ENGINE=\w+[^;]*;/g, ');')
         .replace(/^\s*KEY\s+[^\n]*\n/gm, '')

@@ -295,6 +295,7 @@ module.exports = { expect, renderPage, domWithPage, loadPage, V5, V1, BUNDLE, BU
 require('./content_client_anchor_detail.test/support/heights.js');
 require('./content_client_anchor_detail.test/support/version_traits_known.js');
 require('./content_client_anchor_detail.test/support/version_traits_fallback.js');
+require('./content_client_anchor_detail.test/support/version_traits_unparsed.js');
 require('./content_client_anchor_detail.test/support/activation_parity.js');
 require('./content_client_anchor_detail.test/support/activation_legacy_labels.js');
 require('./content_client_anchor_detail.test/support/activation_legacy_boundary.js');

@@ -127,7 +127,8 @@ class StateProofs {
                 // maps to its registered row and the client sees only the bare code, never the suffix
                 // or exception text; every other code here has no suffix and maps unchanged.
                 let code = String(result.error).split(':')[0];
-                return sendProofError(res, map, code, result.error);
+                let hint = code === 'INDEXER_UNAVAILABLE' ? result : null;
+                return sendProofError(res, map, code, result.error, hint);
             }
             return res.json(result);
         } catch(e){

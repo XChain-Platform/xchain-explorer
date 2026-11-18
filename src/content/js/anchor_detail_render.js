@@ -76,14 +76,9 @@ function renderAnchorIdentity(d){
         ? '-'
         : formatLink('/' + anchorCoin() + '/action/' + row.action_index, anchorNum(row.action_index)));
     html += anchorFieldRow('Version', '<span class="badge text-bg-primary anchor-version-badge">v'
-        + anchorEsc(isNull(row.version) ? '?' : row.version) + '</span> <span class="anchor-kind">'
+        + anchorEsc((t.unparsedVersion || isNull(row.version)) ? '?' : row.version) + '</span> <span class="anchor-kind">'
         + anchorEsc(t.label) + '</span>'
-        + (t.known ? '' : anchorNote(t.legacy
-            ? ('This ANCHOR was mined before the activation height for its network, so its version byte predates the current v0/v1/v2/v3 wire set and is not read against today\'s traits table. Stored status: '
-                + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
-            : t.preFold ? ('This ANCHOR carries version 3 but was mined before the fold activation height for its network, so the indexer does not accept it as a folded bundle. Stored status: '
-                + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
-            : 'This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.')));
+        + (t.known ? '' : anchorNote(anchorTraitsNote(t))));
     if(verdicts){
         html += anchorFieldRow('Checkpoint Sections Status', anchorFamilyVerdict(verdicts.checkpoints, 'anchor-checkpoint-verdict'), 'anchor-checkpoint-status-row');
         html += anchorFieldRow('Archive Status', anchorFamilyVerdict([verdicts.archive], 'anchor-archive-verdict'), 'anchor-archive-status-row');
@@ -225,7 +220,7 @@ function renderAnchorChunks(d){
         html += '<tr class="anchor-chunk-row' + (self ? ' anchor-chunk-self table-active' : '') + '">'
             + '<td>' + anchorChunkLabel(c) + '</td>'
             + '<td>' + (isNull(c.action_index) ? '-' : formatLink('/' + anchorCoin() + '/anchor/' + c.action_index, anchorNum(c.action_index))) + '</td>'
-            + '<td>v' + anchorEsc(isNull(c.version) ? '?' : c.version) + '</td>'
+            + '<td>v' + anchorEsc(anchorVersionText(c)) + '</td>'
             + '<td>' + anchorBlockLink(c.block_index_doge, 'DOGE') + '</td>'
             + '<td>' + (isNull(c.archive_b64_length) ? '-' : anchorNum(c.archive_b64_length)) + '</td>'
             + '<td>' + anchorStatusBadge(c.status) + '</td>'

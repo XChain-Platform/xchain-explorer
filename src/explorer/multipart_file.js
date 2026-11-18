@@ -14,8 +14,9 @@
 
 'use strict';
 
+const { COMPRESSION_MAX_RATIO } = require('../http/compression.js');
+
 const MULTIPART_FILE_MAX_BYTES = 262140000000;
-const COMPRESSION_MAX_RATIO = 150;
 
 class MultipartFileError extends Error {
     constructor(code, status, message) {

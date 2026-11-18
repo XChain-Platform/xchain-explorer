@@ -133,7 +133,7 @@ function showDispenserDetails(data){
 
 // Display DISPENSER_CANCEL action information
 function showDispenserCancelDetails(data){
-    $('#info-dispenser-cancel .dispenser-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
+    $('#info-dispenser-cancel .dispenser-cancel-action-index').html(formatParentActionLink(XC.coin, data.dispenser_action_index));
     $('#info-dispenser-cancel .dispenser-cancel-memo').text(nullToBlank(data.memo));
 }
 
@@ -144,7 +144,7 @@ function showDispenserCloseDetails(data){
 
 // Display DISPENSER_EDIT action information
 function showDispenserEditDetails(data){
-    $('#info-dispenser-edit .dispenser-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.dispenser_action_index, formatAmount(data.dispenser_action_index)));
+    $('#info-dispenser-edit .dispenser-edit-action-index').html(formatParentActionLink(XC.coin, data.dispenser_action_index));
     $('#info-dispenser-edit .dispenser-edit-give-escrow').html(formatAmount(data.give_escrow));
     if(!isNull(data.expiration))
         $('#info-dispenser-edit .dispenser-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
@@ -175,52 +175,68 @@ function showDispenseDetails(data){
     $('#info-dispense .dispense-destination').html(formatLink('/' + networkCoin(data.get_coin) + '/address/' + data.destination, data.destination));
 }
 
-// Display FILE action information
-function showFileDetails(data){
-    $('#info-file .file-name').text(data.name);
-    $('#info-file .file-title').text(data.title);
-    $('#info-file .file-type').text(data.type);
-    $('#info-file .file-memo').text(nullToBlank(data.memo));
-    // Token-gated FILE: show the gate token, encryption method and key hash, plus
-    // a link to the raw (still-encrypted) ciphertext endpoint. Holders decrypt
-    // client-side after receiving the key via an ECIES MESSAGE.
-    if(!isNull(data.gate_ticker)){
-        let method = (data.encryption_method == 1) ? 'AES-256-GCM' : data.encryption_method;
-        $('#info-file .file-gate-ticker').html(formatLink(tokenUrl(XC.coin, data.gate_ticker), data.gate_ticker, data.gate_ticker));
-        $('#info-file .file-encryption').text(method);
-        $('#info-file .file-key-hash').html(formatHash(data.key_hash, 24));
-        $('#info-file .file-raw').html(formatLink('/' + XC.coin + '/api/file/' + data.action_index + '/raw', 'download ciphertext'));
-        $('#info-file .file-gated-row').removeClass('d-none');
-        // GATE_MIN_AMOUNT (PC-29): the minimum balance of the gate token at which a
-        // recipient must be handed the unlock key. Absent means the gate is
-        // unconditional (any holder), which is what every FILE published before the
-        // field existed carries, so the row is hidden rather than shown as "none" -
-        // an empty threshold row would read as a balance requirement of zero.
-        if(!isNull(data.gate_min_amount) && data.gate_min_amount !== ''){
-            $('#info-file .file-gate-min-amount').html(
-                formatAmount(data.gate_min_amount) + ' ' +
-                formatLink(tokenUrl(XC.coin, data.gate_ticker), data.gate_ticker, data.gate_ticker));
-            $('#info-file .file-threshold-row').removeClass('d-none');
-        } else {
-            $('#info-file .file-threshold-row').addClass('d-none');
-        }
-    } else {
-        $('#info-file .file-gated-row').addClass('d-none');
-        $('#info-file .file-threshold-row').addClass('d-none');
+function renderFilePartDetails(data){
+    let part = data.file_part, manifest = part.manifest_action_index;
+    $('#info-file .file-meta-row, #info-file .file-gated-row, #info-file .file-threshold-row, #info-file .file-multipart-row').addClass('d-none');
+    $('#info-file .file-part-row').removeClass('d-none');
+    $('#info-file .file-part-hash').text(part.file_hash);
+    $('#info-file .file-part-index').text(formatAmount(part.part_index));
+    $('#info-file .file-part-manifest').html(isNull(manifest)
+        ? 'No valid manifest indexed yet'
+        : formatLink('/' + XC.coin + '/action/' + manifest, String(manifest)));
+    $('#info-file .file-raw').empty();
+    $('#info-file .file-viewer').text('This is one part of a multi-part file. The assembled file is available from its manifest.');
+}
+
+function renderMultipartProgress(data){
+    let multipart = data.multipart;
+    let labels = {
+        pending: 'Pending',
+        complete: 'Complete',
+        mismatch: 'Mismatch: assembled file does not match the manifest'
+    };
+    $('#info-file .file-multipart-row').removeClass('d-none');
+    $('#info-file .file-multipart-hash').text(multipart.file_hash);
+    $('#info-file .file-multipart-status').text(labels[multipart.status] || multipart.status);
+    $('#info-file .file-multipart-parts').text(formatAmount(multipart.parts_received) + ' of ' + formatAmount(multipart.total_parts));
+    $('#info-file .file-multipart-bytes').text(formatAmount(multipart.total_bytes) + ' bytes');
+    return multipart.status === 'complete';
+}
+
+function renderFileGate(data, rawReady){
+    if(isNull(data.gate_ticker)){
+        $('#info-file .file-gated-row, #info-file .file-threshold-row').addClass('d-none');
+        $('#info-file .file-raw').empty();
+        return;
     }
-    // File viewer: non-gated media renders inline from the raw FILE endpoint
-    // (the server only serves whitelisted media MIME types inline; everything
-    // else is offered as a download). Gated files show a locked notice. The
-    // rawUrl is built from XC.coin + the numeric action_index, not user input;
-    // the declared MIME type is escaped where interpolated.
-    let viewer = $('#info-file .file-viewer'),
-        rawUrl = '/' + XC.coin + '/api/file/' + data.action_index + '/raw',
-        type   = String(data.type || '').toLowerCase(),
-        html   = '';
+    let method = (data.encryption_method == 1) ? 'AES-256-GCM' : data.encryption_method;
+    $('#info-file .file-gate-ticker').html(formatLink(tokenUrl(XC.coin, data.gate_ticker), data.gate_ticker, data.gate_ticker));
+    $('#info-file .file-encryption').text(method);
+    $('#info-file .file-key-hash').html(formatHash(data.key_hash, 24));
+    $('#info-file .file-raw').html(rawReady
+        ? formatLink('/' + XC.coin + '/api/file/' + data.action_index + '/raw', 'download ciphertext')
+        : 'Ciphertext is unavailable until assembly completes');
+    $('#info-file .file-gated-row').removeClass('d-none');
+    let threshold = !isNull(data.gate_min_amount) && data.gate_min_amount !== '';
+    $('#info-file .file-threshold-row').toggleClass('d-none', !threshold);
+    if(threshold)
+        $('#info-file .file-gate-min-amount').html(formatAmount(data.gate_min_amount) + ' ' +
+            formatLink(tokenUrl(XC.coin, data.gate_ticker), data.gate_ticker, data.gate_ticker));
+}
+
+function renderFileViewer(data, rawReady){
+    let viewer = $('#info-file .file-viewer');
+    if(!rawReady){
+        let message = data.multipart.status === 'mismatch'
+            ? 'The assembled file does not match the manifest.'
+            : 'The file is still being assembled.';
+        viewer.text(message);
+        return;
+    }
+    let rawUrl = '/' + XC.coin + '/api/file/' + data.action_index + '/raw';
+    let type = String(data.type || '').toLowerCase(), html = '';
     if(!isNull(data.gate_ticker)){
         html = '<i class="fa fa-lock pe-1"></i> Token-gated content &mdash; holders decrypt client-side with their unlock key';
-        // With a threshold (PC-29) the key is only owed to recipients whose balance
-        // reaches it, so say so here rather than implying every holder gets one.
         if(!isNull(data.gate_min_amount) && data.gate_min_amount !== '')
             html += ', delivered to holders of at least ' + escapeHtml(String(data.gate_min_amount)) +
                     ' ' + escapeHtml(String(data.gate_ticker));
@@ -234,4 +250,22 @@ function showFileDetails(data){
         html = formatLink(rawUrl, 'download file');
     }
     viewer.html(html);
+}
+
+// Display FILE action information
+function showFileDetails(data){
+    if(data.file_part){
+        renderFilePartDetails(data);
+        return;
+    }
+    $('#info-file .file-part-row').addClass('d-none');
+    $('#info-file .file-meta-row').removeClass('d-none');
+    $('#info-file .file-name').text(data.name);
+    $('#info-file .file-title').text(data.title);
+    $('#info-file .file-type').text(data.type);
+    $('#info-file .file-memo').text(nullToBlank(data.memo));
+    let rawReady = data.multipart ? renderMultipartProgress(data) : true;
+    if(!data.multipart) $('#info-file .file-multipart-row').addClass('d-none');
+    renderFileGate(data, rawReady);
+    renderFileViewer(data, rawReady);
 }

@@ -51,6 +51,13 @@ function showDeployDetails(data){
         detailContractsXcall_renderDeployChunk(data, deployed);
         return;
     }
+    if(data.contract_deleted === true){
+        let failure = isNull(data.error_message) ? data.status : data.error_message;
+        $('#info-deploy .deploy-contract').text('Not deployed: ' + failure);
+        $('#info-deploy .deploy-code-hash, #info-deploy .deploy-api-version, #info-deploy .deploy-stakeable').closest('tr').addClass('d-none');
+        $('#info-deploy .deploy-staking-row').addClass('d-none');
+        return;
+    }
     // An assembler whose group is still incomplete has no contract to point at: link its own
     // index and the reader gets a dead /contract/ page, so the cell states the assembly status
     // instead. Once the group completes, the contract lives at the piece that completed it,

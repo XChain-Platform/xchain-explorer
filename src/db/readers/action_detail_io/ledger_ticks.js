@@ -18,6 +18,9 @@
  * indexer's credit, debit and escrow rows, so the token channel can refresh the
  * ticks an action actually touched whatever the action's type.
  *
+ * It also names the addresses those rows moved, so the address channel can refresh
+ * the balance of every address a source-less system action touched.
+ *
  * One part of src/db/readers/action_detail_io.js (the entry composes it through
  * composeReaderParts). Authored as a class body whose prototype is exported,
  * like every other family under src/db/: `this` is the Database instance at
@@ -66,6 +69,44 @@ class ActionLedgerTickReaders {
                 map.set(key, ticks);
             }
             ticks.add(String(row.tick));
+        }
+        return map;
+    }
+
+    // action_index (as a decimal string) -> Set of the addresses that action credited,
+    // debited or escrowed. One UNION round trip for the batch, deduplicated in SQL so a
+    // dividend or airdrop paying many rows to one address returns that pair once; no
+    // query for an empty input, and a failed read throws for the caller to degrade. A
+    // ledger row with no address is skipped.
+    async getActionLedgerAddresses(config, indexes){
+        let map = new Map();
+        let list = (indexes || []).filter(index => !this.util.isNull(index));
+        if(!list.length) return map;
+
+        let holes = list.map(() => '?').join(',');
+        let parts = [];
+        let args  = [];
+        for(let table of LEDGER_TABLES){
+            parts.push(`SELECT
+                            m.action_index as action_index,
+                            a1.address as address
+                        FROM
+                            ${table} m
+                            INNER JOIN index_addresses a1 ON (a1.id=m.address_id)
+                        WHERE
+                            m.action_index IN (${holes})`);
+            args.push(...list);
+        }
+        let rows = await this.doQuery(config, parts.join(' UNION '), args);
+        for(let row of (rows || [])){
+            if(!row || this.util.isNull(row.action_index) || this.util.isNull(row.address)) continue;
+            let key = String(row.action_index);
+            let addresses = map.get(key);
+            if(!addresses){
+                addresses = new Set();
+                map.set(key, addresses);
+            }
+            addresses.add(String(row.address));
         }
         return map;
     }

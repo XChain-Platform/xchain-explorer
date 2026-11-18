@@ -9,6 +9,9 @@
     --xc-console-sidebar-width: 16rem;
     --xc-console-sidebar-width-collapsed: 4.25rem;
     --xc-console-grid-gap: 0.75rem;
+    --xc-console-stats-max-width: 1320px;
+    --xc-console-body-letter-spacing: 0.01em;
+    --xc-console-heading-letter-spacing: 0.055em;
     --xc-console-control-border-width: 1px;
     --xc-console-data-table-font-size: 0.82rem;
     --xc-console-data-table-heading-font-size: 0.72rem;
@@ -96,7 +99,7 @@
 }
 
 body {
-    letter-spacing: 0.01em;
+    letter-spacing: var(--xc-console-body-letter-spacing);
 }
 
 .card,
@@ -110,7 +113,7 @@ body {
 .card-title,
 .dropdown-header,
 table thead th {
-    letter-spacing: 0.055em;
+    letter-spacing: var(--xc-console-heading-letter-spacing);
     text-transform: uppercase;
 }
 
@@ -126,7 +129,7 @@ table thead th {
     gap: var(--xc-console-grid-gap);
     grid-template-columns: repeat(4, minmax(0, 1fr));
     margin: var(--xc-console-grid-gap) auto;
-    max-width: 1320px;
+    max-width: var(--xc-console-stats-max-width);
     padding-inline: var(--xc-console-grid-gap);
     width: 100%;
 }

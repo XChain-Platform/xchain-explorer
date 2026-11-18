@@ -361,8 +361,8 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
             token:     new Map(),
             dispenser: new Map(),
             market:    new Map(),
-            // The batch's ledger ticks, read on first need (entities.js ledgerTicksOf).
-            ledger:    { actions: newActions, ticks: undefined }
+            // The batch's ledger ticks, addresses and system-action parties, each read once.
+            ledger:    { actions: newActions, ticks: undefined, addresses: undefined, parties: undefined }
         };
         // Each new action fans out four ways: the raw indexed row on `actions`,
         // the typed lifecycle events its type maps to, entity updates for whatever
@@ -374,7 +374,7 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
             detector.emit('action_row_start', coin, action);
             try {
                 detector.emit('action', coin, action);
-                await detector.emitLifecycleEvents(coin, config, action);
+                await detector.emitLifecycleEvents(coin, config, action, entityCache.ledger);
                 await detector.emitEntityUpdates(coin, config, action, entityCache);
                 await detector.emitAttestationEvents(coin, config, action);
             } finally {

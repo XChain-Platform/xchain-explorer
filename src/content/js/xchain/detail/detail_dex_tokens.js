@@ -233,13 +233,13 @@ function showOrderDetails(data){
 
 // Display ORDER_CANCEL action information
 function showOrderCancelDetails(data){
-    $('#info-order-cancel .order-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    $('#info-order-cancel .order-cancel-action-index').html(formatParentActionLink(XC.coin, data.order_action_index));
     $('#info-order-cancel .order-cancel-memo').text(nullToBlank(data.memo));
 }
 
 // Display ORDER_EDIT action information
 function showOrderEditDetails(data){
-    $('#info-order-edit .order-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    $('#info-order-edit .order-edit-action-index').html(formatParentActionLink(XC.coin, data.order_action_index));
     if(!isNull(data.expiration))
         $('#info-order-edit .order-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-order-edit .order-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
@@ -313,13 +313,13 @@ function showSwapDetails(data){
 
 // Display SWAP_CANCEL action information
 function showSwapCancelDetails(data){
-    $('#info-swap-cancel .swap-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+    $('#info-swap-cancel .swap-cancel-action-index').html(formatParentActionLink(XC.coin, data.swap_action_index));
     $('#info-swap-cancel .swap-cancel-memo').text(nullToBlank(data.memo));
 }
 
 // Display SWAP_EDIT action information
 function showSwapEditDetails(data){
-    $('#info-swap-edit .swap-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+    $('#info-swap-edit .swap-edit-action-index').html(formatParentActionLink(XC.coin, data.swap_action_index));
     if(!isNull(data.expiration))
         $('#info-swap-edit .swap-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-swap-edit .swap-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));

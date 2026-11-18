@@ -351,3 +351,38 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
         assert.deepStrictEqual(Object.keys(r.proof.capabilities), [CAP]);
     });
 });
+
+describe('SPV Phase 5: validatorSetProof retry hints', function () {
+    it('retains a retry hint when the first stake lookup has a transient failure', async function () {
+        const { server } = makeValidatorSetServer();
+        const failure = Object.assign(new Error('rate limited'),
+            { code: 'INDEXER_RATE_LIMITED', retryable: true, retryAfter: 7 });
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            { async stakeWeights() { throw failure; } }, [CAP]);
+        assert.deepStrictEqual(r, { error: 'INDEXER_UNAVAILABLE', retryable: true, retryAfter: 7 });
+    });
+
+    it('retains a retry hint when a later stake lookup has a transient failure', async function () {
+        const { server, indexerConn } = makeValidatorSetServer();
+        let calls = 0;
+        const conn = {};
+        conn.stakeWeights = async (cap) => {
+            if(calls++ === 0) return indexerConn.stakeWeights(cap);
+            throw Object.assign(new Error('temporarily unavailable'), { retryable: true });
+        };
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            conn, [CAP, 'cross_chain']);
+        assert.deepStrictEqual(r, { error: 'INDEXER_UNAVAILABLE', retryable: true });
+    });
+
+    it('does not mark auth or ordinary stake lookup failures retryable', async function () {
+        const { server } = makeValidatorSetServer();
+        const auth = Object.assign(new Error('auth'), { code: 'INDEXER_AUTH_REQUIRED', retryable: true });
+        const authResult = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            { async stakeWeights() { throw auth; } }, [CAP]);
+        assert.deepStrictEqual(authResult, { error: 'INDEXER_AUTH_REQUIRED' });
+        const plainResult = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            { async stakeWeights() { throw new Error('offline'); } }, [CAP]);
+        assert.deepStrictEqual(plainResult, { error: 'INDEXER_UNAVAILABLE' });
+    });
+});

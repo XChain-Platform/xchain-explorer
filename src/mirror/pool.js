@@ -24,6 +24,7 @@
 
 const mariadb = require('mariadb');
 const poolSizing = require('./pool_sizing');
+const { getSqlTiming } = require('../observability');
 
 // The statement limit for schema DDL, matching the indexer migration runner's default.
 const DDL_TIMEOUT_MS = 3600000;
@@ -34,7 +35,7 @@ class HubMirrorPool {
         if(!/^[A-Za-z0-9_$]+$/.test(String(name)))
             throw new Error('hub-mirror schema name is not a safe identifier: ' + name);
         this.cfg = { host, port, user, pass, name };
-        this.pool = mariadb.createPool({
+        this.pool = getSqlTiming().wrapPool(mariadb.createPool({
             host, port, user,
             password:         pass,
             database:         name,
@@ -46,7 +47,7 @@ class HubMirrorPool {
             queryTimeout:     poolSizing.resolveQueryTimeout('hub-mirror'),
             // Session at +00:00 like the hub, so CURRENT_TIMESTAMP defaults land UTC-literal
             timezone:         'Z'
-        });
+        }));
     }
 
     // Create the mirror schema itself when absent. ensureTables() creates tables

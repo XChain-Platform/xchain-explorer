@@ -37,7 +37,6 @@ var networkCoin = (typeof networkCoin === 'function') ? networkCoin
     : ((typeof require === 'function') ? require('./network_coin.js').networkCoin : null);
 var parseNetworkCoin = (typeof parseNetworkCoin === 'function') ? parseNetworkCoin
     : ((typeof require === 'function') ? require('./network_coin.js').parseNetworkCoin : null);
-
 // Escape without jQuery so the module is drivable in isolation. The page also
 // ships escapeHtml() in formatters.js; this is deliberately the same mapping.
 function xbEsc(s){

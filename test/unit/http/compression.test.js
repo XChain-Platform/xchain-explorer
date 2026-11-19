@@ -38,71 +38,71 @@ const GATED_COMPRESSED = 'FILE|0|s.enc|application/octet-stream|S||MYTOKEN|1|' +
 const ORIGINAL = Buffer.from('explorer serve path payload. '.repeat(300), 'utf8');
 const DEFLATED = zlib.deflateRawSync(ORIGINAL);
 
+function registerActionStringDerivation1() {
+    it('reads the marker from the action string', function () {
+        assert.strictEqual(compression.isCompressedAction(PUBLIC_COMPRESSED), true);
+        assert.strictEqual(compression.isCompressedAction(PUBLIC_RAW), false);
+    });
+
+    it('a historical FILE with no COMPRESSION field reads as raw', function () {
+        for (const a of ['FILE|0|a.txt|text/plain', 'FILE|0|a.txt|text/plain|T|M', 'FILE|0'])
+            assert.strictEqual(compression.isCompressedAction(a), false, a);
+    });
+
+    it('an unknown code degrades to raw rather than erroring', function () {
+        for (const code of ['2', '99', 'zstd', 'TRUE', ' 1'])
+            assert.strictEqual(compression.isCompressedAction('FILE|0|a|b|c|d|||||' + code), false, code);
+    });
+
+    it('trims the gate field the same way as the indexer', function () {
+        for (const gate of [' ', '   ', '\t']) {
+            const action = 'FILE|0|doc.txt|text/plain|Doc|memo|' + gate + '||||1';
+            assert.strictEqual(compression.isGatedAction(action), false, JSON.stringify(gate));
+            assert.strictEqual(compression.isGatedAction('BATCH|0|' + action), false, JSON.stringify(gate));
+        }
+        assert.strictEqual(compression.isGatedAction(
+            'FILE|0|doc.txt|text/plain|Doc|memo| MYTOKEN ||||1'), true);
+    });
+
+    it('ignores non-FILE actions and other versions', function () {
+        assert.strictEqual(compression.isCompressedAction('SEND|0|X|1|a|b|c|d|e|f|1'), false);
+        assert.strictEqual(compression.isCompressedAction('FILE|1|a|b|c|d|||||1'), false);
+    });
+
+    it('never throws on junk', function () {
+        for (const junk of [null, undefined, '', 42, {}, []]) {
+            assert.strictEqual(compression.isCompressedAction(junk), false);
+            assert.strictEqual(compression.isGatedAction(junk), false);
+        }
+    });
+}
+
+function registerActionStringDerivation2() {
+    it('detects gating', function () {
+        assert.strictEqual(compression.isGatedAction(GATED_COMPRESSED), true);
+        assert.strictEqual(compression.isGatedAction(PUBLIC_COMPRESSED), false);
+    });
+
+    it('normalizes FILE versions the same way as the indexer', function () {
+        for (const value of ['', undefined, '0', '00', ' 0', '0.0', '"0"', "'0'"])
+            assert.strictEqual(compression.fileFormatVersion(value), 0, String(value));
+        for (const value of ['1', '01', '"1"', ' 1 '])
+            assert.strictEqual(compression.fileFormatVersion(value), 1, String(value));
+        for (const value of ['0.5', 'abc', '256', '1x'])
+            assert.strictEqual(compression.fileFormatVersion(value), null, String(value));
+    });
+
+    it('reads compression and gating through normalized FILE versions', function () {
+        assert.strictEqual(compression.isCompressedAction('FILE||doc.txt|text/plain|Doc|memo|||||1'), true);
+        assert.strictEqual(compression.isCompressedAction('FILE|00|doc.txt|text/plain|Doc|memo|||||1'), true);
+        const manifest = ['FILE', '01', 'a', 'b', 'c', 'd', '', '', '', '', '', '', '', '1'].join('|');
+        assert.strictEqual(compression.isCompressedAction(manifest), true);
+        assert.strictEqual(compression.isCompressedAction('FILE|0.5|a|b|c|d|||||1'), false);
+        assert.strictEqual(compression.isGatedAction('FILE||s.enc|application/octet-stream|S||MYTOKEN|1|hash||1'), true);
+    });
+}
+
 describe('explorer FILE decompression', function () {
-
-    function registerActionStringDerivation1() {
-        it('reads the marker from the action string', function () {
-            assert.strictEqual(compression.isCompressedAction(PUBLIC_COMPRESSED), true);
-            assert.strictEqual(compression.isCompressedAction(PUBLIC_RAW), false);
-        });
-
-        it('a historical FILE with no COMPRESSION field reads as raw', function () {
-            for (const a of ['FILE|0|a.txt|text/plain', 'FILE|0|a.txt|text/plain|T|M', 'FILE|0'])
-                assert.strictEqual(compression.isCompressedAction(a), false, a);
-        });
-
-        it('an unknown code degrades to raw rather than erroring', function () {
-            for (const code of ['2', '99', 'zstd', 'TRUE', ' 1'])
-                assert.strictEqual(compression.isCompressedAction('FILE|0|a|b|c|d|||||' + code), false, code);
-        });
-
-        it('trims the gate field the same way as the indexer', function () {
-            for (const gate of [' ', '   ', '\t']) {
-                const action = 'FILE|0|doc.txt|text/plain|Doc|memo|' + gate + '||||1';
-                assert.strictEqual(compression.isGatedAction(action), false, JSON.stringify(gate));
-                assert.strictEqual(compression.isGatedAction('BATCH|0|' + action), false, JSON.stringify(gate));
-            }
-            assert.strictEqual(compression.isGatedAction(
-                'FILE|0|doc.txt|text/plain|Doc|memo| MYTOKEN ||||1'), true);
-        });
-
-        it('ignores non-FILE actions and other versions', function () {
-            assert.strictEqual(compression.isCompressedAction('SEND|0|X|1|a|b|c|d|e|f|1'), false);
-            assert.strictEqual(compression.isCompressedAction('FILE|1|a|b|c|d|||||1'), false);
-        });
-
-        it('never throws on junk', function () {
-            for (const junk of [null, undefined, '', 42, {}, []]) {
-                assert.strictEqual(compression.isCompressedAction(junk), false);
-                assert.strictEqual(compression.isGatedAction(junk), false);
-            }
-        });
-    }
-
-    function registerActionStringDerivation2() {
-        it('detects gating', function () {
-            assert.strictEqual(compression.isGatedAction(GATED_COMPRESSED), true);
-            assert.strictEqual(compression.isGatedAction(PUBLIC_COMPRESSED), false);
-        });
-
-        it('normalizes FILE versions the same way as the indexer', function () {
-            for (const value of ['', undefined, '0', '00', ' 0', '0.0', '"0"', "'0'"])
-                assert.strictEqual(compression.fileFormatVersion(value), 0, String(value));
-            for (const value of ['1', '01', '"1"', ' 1 '])
-                assert.strictEqual(compression.fileFormatVersion(value), 1, String(value));
-            for (const value of ['0.5', 'abc', '256', '1x'])
-                assert.strictEqual(compression.fileFormatVersion(value), null, String(value));
-        });
-
-        it('reads compression and gating through normalized FILE versions', function () {
-            assert.strictEqual(compression.isCompressedAction('FILE||doc.txt|text/plain|Doc|memo|||||1'), true);
-            assert.strictEqual(compression.isCompressedAction('FILE|00|doc.txt|text/plain|Doc|memo|||||1'), true);
-            const manifest = ['FILE', '01', 'a', 'b', 'c', 'd', '', '', '', '', '', '', '', '1'].join('|');
-            assert.strictEqual(compression.isCompressedAction(manifest), true);
-            assert.strictEqual(compression.isCompressedAction('FILE|0.5|a|b|c|d|||||1'), false);
-            assert.strictEqual(compression.isGatedAction('FILE||s.enc|application/octet-stream|S||MYTOKEN|1|hash||1'), true);
-        });
-    }
 
     describe('action-string derivation', function () {
         registerActionStringDerivation1();
@@ -171,70 +171,70 @@ describe('explorer FILE decompression', function () {
 
 });
 
+function registerResolveServedBytes1() {
+    it('inflates a compressed public FILE and reports both sizes', async function () {
+        const r = await compression.resolveServedBytes(DEFLATED, PUBLIC_COMPRESSED);
+        assert.strictEqual(r.inflated, true);
+        assert.strictEqual(r.storedForm, false);
+        assert.ok(r.bytes.equals(ORIGINAL));
+        assert.strictEqual(r.storedLength, DEFLATED.length);
+        assert.strictEqual(r.originalLength, ORIGINAL.length);
+    });
+
+    it('inflates a compressed FILE whose gate field is whitespace only', async function () {
+        const action = 'FILE|0|doc.txt|text/plain|Doc|memo| ||||1';
+        const r = await compression.resolveServedBytes(DEFLATED, action);
+        assert.strictEqual(r.inflated, true);
+        assert.strictEqual(r.storedForm, false);
+        assert.ok(r.bytes.equals(ORIGINAL));
+    });
+
+    it('fails closed for invalid deflate under a whitespace-only gate', async function () {
+        const plain = Buffer.from('not a deflate stream');
+        const action = 'FILE|0|doc.txt|text/plain|Doc|memo| ||||1';
+        const r = await compression.resolveServedBytes(plain, action);
+        assert.strictEqual(r.inflated, false);
+        assert.strictEqual(r.storedForm, true);
+        assert.strictEqual(r.error, 'INVALID_DEFLATE_STREAM');
+        assert.ok(r.bytes.equals(plain));
+    });
+
+    it('serves an unmarked FILE untouched (every historical payload)', async function () {
+        const r = await compression.resolveServedBytes(ORIGINAL, PUBLIC_RAW);
+        assert.strictEqual(r.inflated, false);
+        assert.strictEqual(r.storedForm, false);
+        assert.ok(r.bytes.equals(ORIGINAL));
+    });
+}
+
+function registerResolveServedBytes2() {
+    it('NEVER inflates gated ciphertext, even when the action declares compression', async function () {
+        // The stored bytes here happen to BE a valid deflate stream, so a
+        // careless implementation would inflate them. It must not: on a
+        // gated FILE the field describes the plaintext, and only the key
+        // holder can act on it.
+        const r = await compression.resolveServedBytes(DEFLATED, GATED_COMPRESSED);
+        assert.strictEqual(r.inflated, false);
+        assert.strictEqual(r.storedForm, false);
+        assert.ok(r.bytes.equals(DEFLATED), 'gated bytes are served exactly as stored');
+    });
+
+    it('honours an explicit gated flag from the caller', async function () {
+        const r = await compression.resolveServedBytes(DEFLATED, PUBLIC_COMPRESSED, { gated: true });
+        assert.strictEqual(r.inflated, false);
+        assert.ok(r.bytes.equals(DEFLATED));
+    });
+
+    it('a MISSING action string degrades to serve-raw', async function () {
+        // e.g. the decoder row is unavailable. Serving the stored bytes is
+        // the safe outcome; guessing is not.
+        const r = await compression.resolveServedBytes(DEFLATED, null);
+        assert.strictEqual(r.inflated, false);
+        assert.ok(r.bytes.equals(DEFLATED));
+    });
+}
+
 describe('explorer FILE decompression', function () {
-
-    function registerResolveServedBytes1() {
-        it('inflates a compressed public FILE and reports both sizes', async function () {
-            const r = await compression.resolveServedBytes(DEFLATED, PUBLIC_COMPRESSED);
-            assert.strictEqual(r.inflated, true);
-            assert.strictEqual(r.storedForm, false);
-            assert.ok(r.bytes.equals(ORIGINAL));
-            assert.strictEqual(r.storedLength, DEFLATED.length);
-            assert.strictEqual(r.originalLength, ORIGINAL.length);
-        });
-
-        it('inflates a compressed FILE whose gate field is whitespace only', async function () {
-            const action = 'FILE|0|doc.txt|text/plain|Doc|memo| ||||1';
-            const r = await compression.resolveServedBytes(DEFLATED, action);
-            assert.strictEqual(r.inflated, true);
-            assert.strictEqual(r.storedForm, false);
-            assert.ok(r.bytes.equals(ORIGINAL));
-        });
-
-        it('fails closed for invalid deflate under a whitespace-only gate', async function () {
-            const plain = Buffer.from('not a deflate stream');
-            const action = 'FILE|0|doc.txt|text/plain|Doc|memo| ||||1';
-            const r = await compression.resolveServedBytes(plain, action);
-            assert.strictEqual(r.inflated, false);
-            assert.strictEqual(r.storedForm, true);
-            assert.strictEqual(r.error, 'INVALID_DEFLATE_STREAM');
-            assert.ok(r.bytes.equals(plain));
-        });
-
-        it('serves an unmarked FILE untouched (every historical payload)', async function () {
-            const r = await compression.resolveServedBytes(ORIGINAL, PUBLIC_RAW);
-            assert.strictEqual(r.inflated, false);
-            assert.strictEqual(r.storedForm, false);
-            assert.ok(r.bytes.equals(ORIGINAL));
-        });
-    }
-
-    function registerResolveServedBytes2() {
-        it('NEVER inflates gated ciphertext, even when the action declares compression', async function () {
-            // The stored bytes here happen to BE a valid deflate stream, so a
-            // careless implementation would inflate them. It must not: on a
-            // gated FILE the field describes the plaintext, and only the key
-            // holder can act on it.
-            const r = await compression.resolveServedBytes(DEFLATED, GATED_COMPRESSED);
-            assert.strictEqual(r.inflated, false);
-            assert.strictEqual(r.storedForm, false);
-            assert.ok(r.bytes.equals(DEFLATED), 'gated bytes are served exactly as stored');
-        });
-
-        it('honours an explicit gated flag from the caller', async function () {
-            const r = await compression.resolveServedBytes(DEFLATED, PUBLIC_COMPRESSED, { gated: true });
-            assert.strictEqual(r.inflated, false);
-            assert.ok(r.bytes.equals(DEFLATED));
-        });
-
-        it('a MISSING action string degrades to serve-raw', async function () {
-            // e.g. the decoder row is unavailable. Serving the stored bytes is
-            // the safe outcome; guessing is not.
-            const r = await compression.resolveServedBytes(DEFLATED, null);
-            assert.strictEqual(r.inflated, false);
-            assert.ok(r.bytes.equals(DEFLATED));
-        });
-    }
 
     describe('resolveServedBytes', function () {
         registerResolveServedBytes1();

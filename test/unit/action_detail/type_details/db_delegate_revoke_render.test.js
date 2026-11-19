@@ -105,7 +105,7 @@ function v3RevokeMainRow(wire, actionIndex = 501) {
     };
 }
 
-describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression', function() {
+function registerRevokeRendering1() {
     it('v2 capability-revoke: resolves signing_pubkey from wire + parent activation window', async function() {
         const db = makeDb();
         const calls = [];
@@ -155,7 +155,9 @@ describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REIN
         expect(data.signing_pubkey).to.equal(PUBKEY);
         expect(Number(data.deactivation_block)).to.equal(150);
     });
+}
 
+function registerRevokeRendering2() {
     it('v2 revoke renders pubkey even when the parent row is not found (reorg-dropped)', async function() {
         const db = makeDb();
         db.doQuery = makeDoQuery({
@@ -200,6 +202,11 @@ describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REIN
         expect(missing.signing_pubkey).to.equal(null);
         expect(calls.some((call) => call.sql.includes('FROM delegations d'))).to.equal(false);
     });
+}
+
+describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression', function() {
+    registerRevokeRendering1();
+    registerRevokeRendering2();
 });
 
 describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression', function() {

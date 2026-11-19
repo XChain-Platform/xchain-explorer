@@ -54,7 +54,7 @@ function text(win, selector){
     return win.jQuery(selector).text().trim();
 }
 
-describe('action page: null system-action origin fields', function(){
+function registerOriginFields1() {
     it('classifies the raw page response before normalizing display values', function(){
         const win = bootSystemAction();
         win.setActionInfo(systemAction());
@@ -111,7 +111,9 @@ describe('action page: null system-action origin fields', function(){
         expect(text(win, '#tx-hash')).to.equal('-');
         expect(text(win, '#tx-data')).to.equal('-');
     });
+}
 
+function registerOriginFields2() {
     it('requires every origin field to be explicitly null', function(){
         const falseyNonNull = [undefined, '', 0, false];
         for(const field of ['status', 'source', 'tx_hash', 'tx_data']){
@@ -145,4 +147,9 @@ describe('action page: null system-action origin fields', function(){
         win.showTransactionDetails();
         expect(text(win, '#source')).to.equal('-');
     });
+}
+
+describe('action page: null system-action origin fields', function(){
+    registerOriginFields1();
+    registerOriginFields2();
 });

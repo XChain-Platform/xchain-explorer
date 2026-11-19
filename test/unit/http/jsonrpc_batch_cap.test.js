@@ -130,9 +130,7 @@ describe('JSON-RPC batch cap', function () {
 
 });
 
-describe('JSON-RPC envelope conformance', function () {
-    this.timeout(10000);
-
+function registerEnvelopeConformance1() {
     it('answers an empty batch with 400 and one -32600 envelope', async () => {
         const counter = { calls: 0 };
         const r = await post(buildApp(true, counter), []);
@@ -183,7 +181,9 @@ describe('JSON-RPC envelope conformance', function () {
         assert.strictEqual(b.find((reply) => reply.id === 2).error.code, -32600);
         assert.strictEqual(b.find((reply) => reply.id === 3).error.code, -32600);
     });
+}
 
+function registerEnvelopeConformance2() {
     it('returns only the invalid reply when the valid batch item is a notification', async () => {
         const counter = { calls: 0 };
         const calls = [{ jsonrpc: '2.0', method: 'ping' }, { id: 9, method: 'ping' }];
@@ -209,6 +209,12 @@ describe('JSON-RPC envelope conformance', function () {
         const many = JSON.parse((await post(buildApp(true, c), batch(2))).text);
         assert.strictEqual(many.length, 2);
     });
+}
+
+describe('JSON-RPC envelope conformance', function () {
+    this.timeout(10000);
+    registerEnvelopeConformance1();
+    registerEnvelopeConformance2();
 });
 
 describe('JSON-RPC batch cap', function () {

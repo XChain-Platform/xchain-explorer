@@ -40,7 +40,7 @@ const DEFLATED = zlib.deflateRawSync(ORIGINAL);
 
 describe('explorer FILE decompression', function () {
 
-    describe('action-string derivation', function () {
+    function registerActionStringDerivation1() {
         it('reads the marker from the action string', function () {
             assert.strictEqual(compression.isCompressedAction(PUBLIC_COMPRESSED), true);
             assert.strictEqual(compression.isCompressedAction(PUBLIC_RAW), false);
@@ -77,7 +77,9 @@ describe('explorer FILE decompression', function () {
                 assert.strictEqual(compression.isGatedAction(junk), false);
             }
         });
+    }
 
+    function registerActionStringDerivation2() {
         it('detects gating', function () {
             assert.strictEqual(compression.isGatedAction(GATED_COMPRESSED), true);
             assert.strictEqual(compression.isGatedAction(PUBLIC_COMPRESSED), false);
@@ -100,6 +102,11 @@ describe('explorer FILE decompression', function () {
             assert.strictEqual(compression.isCompressedAction('FILE|0.5|a|b|c|d|||||1'), false);
             assert.strictEqual(compression.isGatedAction('FILE||s.enc|application/octet-stream|S||MYTOKEN|1|hash||1'), true);
         });
+    }
+
+    describe('action-string derivation', function () {
+        registerActionStringDerivation1();
+        registerActionStringDerivation2();
     });
 
 });
@@ -166,7 +173,7 @@ describe('explorer FILE decompression', function () {
 
 describe('explorer FILE decompression', function () {
 
-    describe('resolveServedBytes', function () {
+    function registerResolveServedBytes1() {
         it('inflates a compressed public FILE and reports both sizes', async function () {
             const r = await compression.resolveServedBytes(DEFLATED, PUBLIC_COMPRESSED);
             assert.strictEqual(r.inflated, true);
@@ -200,7 +207,9 @@ describe('explorer FILE decompression', function () {
             assert.strictEqual(r.storedForm, false);
             assert.ok(r.bytes.equals(ORIGINAL));
         });
+    }
 
+    function registerResolveServedBytes2() {
         it('NEVER inflates gated ciphertext, even when the action declares compression', async function () {
             // The stored bytes here happen to BE a valid deflate stream, so a
             // careless implementation would inflate them. It must not: on a
@@ -225,6 +234,11 @@ describe('explorer FILE decompression', function () {
             assert.strictEqual(r.inflated, false);
             assert.ok(r.bytes.equals(DEFLATED));
         });
+    }
+
+    describe('resolveServedBytes', function () {
+        registerResolveServedBytes1();
+        registerResolveServedBytes2();
     });
 
 });

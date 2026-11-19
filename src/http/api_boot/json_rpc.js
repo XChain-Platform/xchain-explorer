@@ -26,7 +26,6 @@
 
 const jsonRouter = require('express-json-rpc-router')
 const { resolveMaxBatch, makeRpcBatchGuard, rpcVersionGuard } = require('../rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
-const { getSqlTiming } = require('../../observability');
 
 /**
  * Mount the batch cap, the body default and the router, in that order.
@@ -65,7 +64,7 @@ function mountJsonRpc(app, configInfo, jsonRpcController){
     // (constructor, toString, valueOf, __proto__ ...) passes as a method. A
     // null-prototype copy holds only the real methods, so any other name answers
     // -32601 Method not found before a hook or method is looked up.
-    const methods = Object.assign(Object.create(null), getSqlTiming().wrapRpcMethods(jsonRpcController));
+    const methods = Object.assign(Object.create(null), jsonRpcController);
     app.use(jsonRouter({methods}))
 }
 

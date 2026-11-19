@@ -4295,6 +4295,9 @@
         "PRICE detail rounds parse failure renders populated rounds unchanged when the parse flag is absent",
         "PRICE detail rounds parse failure shows an error marker and clears a prior rounds summary"
       ],
+      "232a3764ce2ee135": [
+        "SQL timing explorer wiring emits one RPC line counting indexer, decoder, and mirror queries"
+      ],
       "2338933dbd3b78ef": [
         "channel manager hostile toString input non-callable toString answers an unsubscribe with a refusal, not a throw",
         "channel manager hostile toString input non-callable toString refuses a channel name",
@@ -13083,8 +13086,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 540,
-        "titleCount": 8484,
+        "fileCount": 541,
+        "titleCount": 8485,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13548,6 +13551,7 @@
           "test/unit/mirror/operational_cache/hub_hang_gate.test.js": "d0d1f9cac07e1213",
           "test/unit/mirror/pool_sizing/query_timeout.test.js": "3afc43217b5456a4",
           "test/unit/mirror/validators_hub_registry.test.js": "6ba3113e0aba826f",
+          "test/unit/observability/sql_timing_wiring.test.js": "232a3764ce2ee135",
           "test/unit/precision/client_decimal_precision.test.js": "8741b491d3481283",
           "test/unit/precision/decimal_tails.test.js": "f827b9a4c38a0806",
           "test/unit/protocol/anchor_fold_registry_rows.test.js": "c203dbd76d223930",

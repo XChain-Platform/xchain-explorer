@@ -28,7 +28,7 @@
 'use strict';
 
 const { TERMINAL_OFFER_STATUSES } = require('../../action-detail/shared.js');
-const { attachOwnerWithdraw, resolveContractNetwork } = require('../../contract/owner_withdraw.js');
+const { attachOwnerWithdrawRows, resolveContractNetwork } = require('../../contract/owner_withdraw.js');
 
 // A dispenser list lane with no escrow leaves a client listing
 // dispensers unable to say how full any of them is, so give_escrow
@@ -74,10 +74,9 @@ async function dispenserPass(db, config, data){
 // Done here rather than in getContracts because that method returns SQL, not rows.
 async function contractPass(db, config, data){
     let network = await resolveContractNetwork(db, config);
-    for(let row of data){
-        attachOwnerWithdraw(row, network);
+    await attachOwnerWithdrawRows(db, config, data, network);
+    for(let row of data)
         db.attachContractMeta(row);
-    }
 }
 
 // /validators stays the ONE validator table (no second federation-registry

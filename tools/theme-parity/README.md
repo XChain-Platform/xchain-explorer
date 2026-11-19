@@ -47,9 +47,12 @@ all. That is not a failed comparison, it is a refusal to mint evidence: the
 probe rejects a run where no stylesheet matched `SHEET`, where a sheet was
 unreadable, where the rule snapshot came back empty, where the render census
 matched no anchor, where the browser had no Typed OM `computedStyleMap` for the
-layout-derived keys, or where the two modes rendered identically. A rejected
-capture writes nothing to localStorage, so it cannot overwrite a good stored
-snapshot, and it must never be compared against a baseline.
+layout-derived keys, where a declared-path longhand is empty with no readable
+owning shorthand, or where the Bootstrap mode witness on `body` does not change.
+A mode-flat theme may render identical surfaces and still produce valid
+evidence. A rejected capture writes nothing to localStorage, so it cannot
+overwrite a good stored snapshot, and it must never be compared against a
+baseline.
 
 Every accepted capture also stores a compact result for baseline export. Use
 one phase name for all pages in the run. After capturing the final page, copy
@@ -237,6 +240,14 @@ hash that differs from captures taken before this probe revision, so compare it
 only with captures taken after it. The classic sheets declare no colliding key,
 so this revision does not move the rule hashes of the dated classic baselines.
 
+**Declared shorthand recovery** (2026-11-18) keeps layout and state keys visible
+when CSSOM expands a `var()` shorthand into longhands that serialize as empty.
+The probe resolves the owning shorthand text and prefixes it with the shorthand
+name. If neither the longhand nor a candidate shorthand has text, the capture is
+refused. Rule hashes move on pages matching the affected margin and state rules,
+including console navigation and data-table states, so captures from before and
+after this revision are not comparable on those pages.
+
 Both layers are needed. The rule layer sees mode only through the few rules
 whose declared values follow it, and only on pages that render them, so a
 dark-mode acceptance test riding on it would pass vacuously wherever none
@@ -338,3 +349,13 @@ Two consequences for anyone reading older evidence:
   mode it arrived in, and a degenerate capture must return `invalid` and write
   nothing. Every one of those assertions fails against the pre-correction
   probe, which is the point of them.
+
+The mode witness was refined on 2026-11-18 to read
+`--bs-primary-text-emphasis` from `body`. The vendor stylesheet declares a
+different value on both mode selectors, and first-party sheets do not override
+it, so the signal proves the attribute changed on the same element the
+application marks. Surface colours remain in the saved `rendered` field, but
+they no longer decide whether the switch took. This accepts intentionally
+mode-flat themes such as console while still rejecting a probe that changes
+the root element. `color-scheme` was not used because its light value can be
+inherited from the root and would let that wrong-element change pass.

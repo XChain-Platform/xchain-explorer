@@ -155,9 +155,10 @@ class EntityLookupReaders {
                         INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
                         INNER JOIN index_addresses a1 ON (a1.id=m.address_id)
                     WHERE
-                        a1.address=?
+                        a1.address=? AND a1.address COLLATE utf8_bin = ?
                     ORDER BY t1.tick ASC`;
-        let results = await this.doQuery(config, query, [address]);
+        // Keep the indexed seek and add the byte-exact gate used by address routing.
+        let results = await this.doQuery(config, query, [address, address]);
         return results || [];
     }
 

@@ -38,8 +38,8 @@ const PROBE_SRC = fs.readFileSync(PROBE_FILE, 'utf8');
 const BASE = 'http://localhost:18080/css/xchain.css';
 const THEME = 'http://localhost:18080/themes/console/components/nav/component.css';
 const MODE_CSS = `
-  [data-bs-theme="light"] { background-color: rgb(255, 255, 255); }
-  [data-bs-theme="dark"]  { background-color: rgb(0, 0, 0); }
+  [data-bs-theme="light"] { --bs-primary-text-emphasis: #052c65; background-color: rgb(255, 255, 255); }
+  [data-bs-theme="dark"]  { --bs-primary-text-emphasis: #6ea8fe; background-color: rgb(0, 0, 0); }
 `;
 const TAG = 'coin_home';
 

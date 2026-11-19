@@ -266,19 +266,6 @@ function showRollcallDetails(data){
     $('#info-rollcall .rollcall-signers tbody').html(rows || '<tr><td colspan="2">-</td></tr>');
 }
 
-// Display FEE details
-function showActionFeeDetails(data){
-    if(data){
-        let method = (data.method) ? (' - ' + XC.fee_preferences[data.method]) : '';
-        let tick   = (data.tick!='') ? data.tick : false;
-        $('#info-fee .fee-tick').html(formatLink(tokenUrl(XC.coin, tick), tick, tick));
-        $('#info-fee .fee-amount').html(formatAmount(data.amount));
-        // data.method is an on-chain fee-preference field reaching an .html() sink; escape it.
-        $('#info-fee .fee-method').html(escapeHtml(String(data.method)) + method);
-        $('#info-fee .fee-destination').html(formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
-    }
-}
-
 // Display action datatables
 function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
     var id   = 'datatable-' + type,

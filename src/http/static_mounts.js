@@ -60,6 +60,7 @@ const STATIC_DIRECTORIES = [
 const EXEMPT_MOUNTS = ['images', 'icon'];
 
 const EXEMPT_MOUNT_SET = new Set(EXEMPT_MOUNTS);
+const DISK_METHODS = new Set(['GET', 'HEAD']);
 
 // Every mount answered from disk with no DB work: the static directories plus the
 // self-hosted Font Awesome tree. A cold page load pulls about a hundred of these,
@@ -90,16 +91,15 @@ function firstSegmentIn(pathname, mountSet){
     return true;
 }
 
-// Express-shaped wrapper: req.path is the pathname with the query string already
-// stripped, and is NOT percent-decoded, so an encoded first segment fails the
-// match and is limited like any other request (fail closed).
+// Express-shaped wrapper: only GET and HEAD are served from disk. Other methods
+// fall through the mounts and must stay inside the request guards.
 function isStaticAsset(req){
-    return isStaticAssetPath(req && req.path);
+    return !!req && DISK_METHODS.has(req.method) && isStaticAssetPath(req.path);
 }
 
-// Express-shaped wrapper for the file-mount test, with the same not-decoded rule.
+// Express-shaped wrapper for file mounts, with the same method restriction.
 function isFileMount(req){
-    return isFileMountPath(req && req.path);
+    return !!req && DISK_METHODS.has(req.method) && isFileMountPath(req.path);
 }
 
 module.exports = { STATIC_DIRECTORIES, EXEMPT_MOUNTS, isStaticAssetPath, isStaticAsset, isFileMountPath, isFileMount };

@@ -293,8 +293,12 @@ const XBRIDGE = {
         const settle = await readBridgeTable(ctx, bridgeSql.BRIDGE_SETTLEMENTS_TABLE, bridgeSql.XBRIDGE_SETTLEMENT);
         if(settle === null) return;
         attachXbridgeSettlement(data, settle);
-        if(!data['bridge_settlement'] && !XBRIDGE_INJECTED_FORMATS.includes(Number(data.action_format)))
+        const injectedFormat = XBRIDGE_INJECTED_FORMATS.includes(Number(data.action_format));
+        if(!data['bridge_settlement'] && !injectedFormat)
             attachUserLegTransfer(data, await readUserLegTransfer(ctx));
+        // A refused broadcast of a system-injected format moved nothing and never settles.
+        if(!data['bridge_settlement'] && injectedFormat && /^invalid/i.test(String(data['status'] || '')))
+            data['bridge_pending'] = false;
     },
 };
 

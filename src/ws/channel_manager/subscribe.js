@@ -139,7 +139,7 @@ function resolveEntries(manager, client, channels, params) {
             continue;
         }
         // Entity channel: resolve entity key(s) from params
-        const entityKeys = manager.resolveEntityKeys(channel, params);
+        const entityKeys = manager.resolveEntityKeys(channel, params, client.coin);
         if (entityKeys.error) return { error: entityKeys.error };
         for (const entityKey of entityKeys.keys) add(channel, entityKey);
     }
@@ -211,7 +211,7 @@ class ChannelSubscriptions {
                 const was_subscribed = this.removeSubscription(client, channel, null);
                 unsubscribed.push({ channel, was_subscribed });
             } else {
-                const entityKeys = this.resolveEntityKeys(channel, params);
+                const entityKeys = this.resolveEntityKeys(channel, params, client.coin);
                 if (entityKeys.error) {
                     refused.push(entityKeys.error);
                     continue;

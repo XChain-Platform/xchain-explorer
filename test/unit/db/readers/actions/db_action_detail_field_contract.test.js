@@ -337,6 +337,7 @@ describe('action detail field contract: handler output vs detail renderers', fun
             .sort();
         assert.deepStrictEqual(unmapped, [
             'showActionDetails',
+            'showActionFeeDetails',
             'showCustodyDetails',
             'showTransactionDetails'
         ]);

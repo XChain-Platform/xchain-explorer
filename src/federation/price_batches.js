@@ -167,5 +167,5 @@ async function getpricebatches({ db, dbConfig, chain }, {first_round, last_round
 
 module.exports = {
     PRICE_BATCHES_DEFAULT_LIMIT, PRICE_BATCHES_MAX_LIMIT,
-    validatePriceBatchParams, buildPriceBatchesResponse, getpricebatches
+    validatePriceBatchParams, buildPriceBatchesResponse, getpricebatches, landingBlockTimes
 };

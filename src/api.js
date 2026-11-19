@@ -82,10 +82,10 @@ const runtime = {
     explorer:       null
 };
 
-// Static assets (icons, images) are served from disk, cost no DB work, and
-// every page pulls a burst of them at once, so they are exempt from both
-// the per-IP rate limit and the global concurrency gate in api_boot/rate_limits.js.
-// Counting them would shed real queries to make room for favicons.
+// GET and HEAD static assets (icons, images) are served from disk, cost no DB
+// work, and every page pulls a burst of them at once, so they are exempt from
+// both guards in api_boot/rate_limits.js.
+// Other methods fall through static mounts and remain counted by both guards.
 //
 // Exempt by FIRST PATH SEGMENT, from the one mount list in
 // src/http/static_mounts.js, never by file extension: a suffix is a claim about

@@ -292,7 +292,7 @@ function xcDatatableRenderPollRow(context){
     let binding       = data[8];
     let winner_index  = data[9];
     let winner_label  = data[10];
-    let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
+    let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : (poll_status=='refused') ? 'secondary' : 'warning text-dark';
     $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(question) ? '-' : question);
     $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + escapeHtml(String(poll_status || '-')) + '</span>');

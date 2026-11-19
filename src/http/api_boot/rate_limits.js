@@ -122,7 +122,7 @@ function applyRateLimits(app, configInfo, isStaticAsset){
 
     // File mounts leave the app-wide bucket for their own: counting them there
     // refused a page's scripts after two page views. The image exemption still
-    // applies first, so /images and /icon stay unlimited as before.
+    // applies first, so GET and HEAD on /images and /icon stay unlimited.
     const staticPolicy = staticPolicyFor(configInfo);
     app.use(rateLimit({
         windowMs:        staticPolicy.windowMs,
@@ -157,7 +157,7 @@ function applyRateLimits(app, configInfo, isStaticAsset){
     const requestGate = concurrencyGate.createConcurrencyGate({
         limit:      concurrencyGate.resolveLimit(configInfo.env.EXPLORER_MAX_CONCURRENT_REQUESTS, 200),
         retryAfter: 1,
-        // A disk read holds no pool connection, so file mounts skip the cap too.
+        // A GET or HEAD disk read holds no pool connection, so file mounts skip the cap too.
         skip:       (req) => isStaticAsset(req) || isFileMount(req),
         probe:      isPingRequest,
         body:       { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' },

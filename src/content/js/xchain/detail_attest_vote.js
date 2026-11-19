@@ -192,7 +192,11 @@ function detailAttestVote_renderVoteFinalize(data, kind){
         $('#info-vote .vote-finalize-poll').html(isNull(data.poll_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.poll_ref, data.poll_ref));
         let fst = data.poll_status;
         let fcls = (fst=='finalized') ? 'success' : (fst=='failed_quorum') ? 'danger' : 'secondary';
-        $('#info-vote .vote-finalize-status').html(isNull(fst) ? '-' : '<span class="badge text-bg-' + fcls + '">' + fst + '</span>');
+        // A real finalization always resolves the poll it closed, so none found means the
+        // action was a refused user broadcast rather than a system finalization.
+        $('#info-vote .vote-finalize-status').html(isNull(fst)
+            ? (isNull(data.poll_ref) ? 'No finalized poll recorded (action refused or not applied)' : '-')
+            : '<span class="badge text-bg-' + fcls + '">' + fst + '</span>');
         let fopts = Array.isArray(data.options) ? data.options : [];
         let wo = data.winning_option;
         $('#info-vote .vote-finalize-winning').text(isNull(wo) ? '-' : (wo + (fopts[wo] != null ? ': ' + fopts[wo] : '')));
@@ -201,7 +205,7 @@ function detailAttestVote_renderVoteFinalize(data, kind){
 
 function detailAttestVote_renderPollSummary(data){
     // Render the poll definition and gate parameters.
-        let pcls = (data.poll_status=='finalized') ? 'success' : (data.poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
+        let pcls = (data.poll_status=='finalized') ? 'success' : (data.poll_status=='failed_quorum') ? 'danger' : (data.poll_status=='refused') ? 'secondary' : 'warning text-dark';
         $('#info-vote .vote-token').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
         $('#info-vote .vote-question').text(isNull(data.question) ? '-' : data.question);
         let opts = Array.isArray(data.options) ? data.options : [];
@@ -304,7 +308,8 @@ function detailAttestVote_renderPollResults(data, opts){
                 html += '</tbody></table>';
                 $('#info-vote .vote-results').html(html);
             } else {
-                $('#info-vote .vote-results').text(data.poll_status=='open' ? 'Voting open (not yet finalized)' : 'No results');
+                $('#info-vote .vote-results').text(data.poll_status=='open' ? 'Voting open (not yet finalized)'
+                    : data.poll_status=='refused' ? 'Poll not created (action refused)' : 'No results');
             }
         });
 }
@@ -317,7 +322,7 @@ function detailAttestVote_renderVoteChoice(data, kind){
         $('#info-vote .vote-choices').html(ballot.length ? ballot.map(function(b){
             let choice = $('<div>').text(formatIndexedLabel(b.choice, b.label)).html();
             return choice + (isNull(b.share) ? '' : ' (share ' + $('<div>').text(b.share).html() + ')');
-        }).join('<br>') : '-');
+        }).join('<br>') : 'No ballot recorded (action refused or not applied)');
         $('#info-vote .vote-memo').text(isNull(data.memo) ? '-' : data.memo);
     }
     if(kind=='delegation'){

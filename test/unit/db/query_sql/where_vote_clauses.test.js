@@ -24,7 +24,7 @@ const TYPE_CASES = {
     getPolls: [
         ['block', ' AND b1.block_index=?'],
         ['tick', ' AND pt.tick=?'],
-        ['status', ' AND m.poll_status=?'],
+        ['status', " AND m.poll_status=? AND COALESCE(s1.status, 'valid')='valid'"],
         ['source', ' AND a2.address=?']
     ],
     getVotes: [

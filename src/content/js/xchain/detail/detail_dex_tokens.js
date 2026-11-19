@@ -83,7 +83,8 @@ function showIssueFieldGroups(actionFormat){
     let format = Number(actionFormat);
     let groups = [
         [['.issue-description'], [0,1]],
-        [['.issue-decimals','.issue-max-supply','.issue-mint-supply','.issue-transfer-supply','.issue-transfer'], [0]],
+        [['.issue-decimals','.issue-max-supply','.issue-transfer'], [0]],
+        [['.issue-mint-supply','.issue-transfer-supply'], [0,2]],
         [['.issue-allow-list','.issue-block-list'], [0,5]],
         [['.issue-max-mint','.issue-mint-address-max','.issue-mint-start-block','.issue-mint-stop-block'], [0,2]],
         [['.issue-callback-block','.issue-callback-tick','.issue-callback-amount'], [0,4]],

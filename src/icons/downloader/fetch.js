@@ -84,20 +84,22 @@ async function fetchActionSource(dl, src, depth, flavor, deps){
     if(json && typeof json === 'object'){
         const picked = selectIconUrlFromCip25Json(json);
         if(!picked) throw new Error('action: JSON has no usable image');
-        // A TIS entry's image is normally inline base64 rather than a URL,
-        // so decode it here. The ord branch does the same for the same
-        // reason; the generic URL lanes cannot fetch a data: URL at all.
-        const inline = /^data:[^;,]*;base64,(.*)$/i.exec(picked);
-        if(inline){
-            const buf = Buffer.from(inline[1], 'base64');
-            if(!buf.length) throw new Error('action: empty after base64 decode');
-            return buf;
-        }
+        const inline = decodeInlineDataUrl(picked, 'action');
+        if(inline) return inline;
         let next = resolveDescriptionToSource(picked);
         if(!next) next = { scheme: 'image_url', url: picked };
         return await dl.fetchSourceBytes(next, depth - 1, flavor);
     }
     return bytes;
+}
+
+function decodeInlineDataUrl(picked, label){
+    if(!/^data:/i.test(picked)) return null;
+    const inline = /^data:[^;,]*;base64,(.*)$/i.exec(picked);
+    if(!inline) throw new Error(`${label}: data URL not base64`);
+    const buf = Buffer.from(inline[1], 'base64');
+    if(!buf.length) throw new Error(`${label}: empty after base64 decode`);
+    return buf;
 }
 
 // stamp: the image bytes are inline in the description.
@@ -137,6 +139,8 @@ async function fetchDocumentSource(dl, src, depth, flavor, deps){
     if(json && typeof json === 'object'){
         const picked = selectIconUrlFromCip25Json(json);
         if(!picked) throw new Error(`${src.scheme}: JSON has no usable image`);
+        const inline = decodeInlineDataUrl(picked, src.scheme);
+        if(inline) return inline;
         let next = resolveDescriptionToSource(picked);
         if(!next) next = { scheme: 'image_url', url: picked };
         return await dl.fetchSourceBytes(next, depth - 1, flavor);
@@ -150,10 +154,13 @@ async function fetchDocumentSource(dl, src, depth, flavor, deps){
 
 // imgur / image_url / anything else: a direct image URL.
 async function fetchImageSource(dl, src){
+    if(/^data:/i.test(src.url))
+        throw new Error(`${src.scheme}: data URL reached a network lane`);
     const resp = await dl.httpFetch(src.url);
     const mime = (resp.mime || '').toLowerCase();
     if(!mime.startsWith('image/'))
-        throw new Error(`${src.scheme}: not an image (got '${mime}')`);
+        throw new Error(mime ? `${src.scheme}: not an image (got '${mime}')`
+            : `${src.scheme}: not an image (no content-type)`);
     return resp.body;
 }
 

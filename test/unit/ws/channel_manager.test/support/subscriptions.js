@@ -78,6 +78,20 @@ describe('ChannelManager', function () {
             expect(result.subscribed[0].address).to.equal('1abc');
         });
 
+        it('uses one lowercase bech32 key for subscribe and unsubscribe', function () {
+            const lower = 'bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p';
+            const upper = lower.toUpperCase();
+            const client = createClient(1, 'RBTC');
+            const result = cm.subscribe(client, ['address'], { address: upper, snapshot: true });
+            expect(result.success).to.be.true;
+            expect(result.subscribed).to.deep.equal([{ channel: 'address', address: lower }]);
+            expect(client.subscriptions.has('RBTC:address:' + lower)).to.equal(true);
+            const removed = cm.unsubscribe(client, ['address'], { address: upper });
+            expect(removed.unsubscribed).to.deep.equal([
+                { channel: 'address', address: lower, was_subscribed: true }
+            ]);
+        });
+
         it('subscribes to token channel', function () {
             const client = createClient(1);
             const result = cm.subscribe(client, ['token'], { tick: 'PEPE' });

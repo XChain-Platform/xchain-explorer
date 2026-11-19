@@ -101,6 +101,29 @@ function showTransactionDetails(){
     showActionDatatable('actions',pendingTransactionActions(o));
 }
 
+// Display FEE details
+function showActionFeeDetails(data){
+    if(data){
+        let method = (data.method) ? (' - ' + XC.fee_preferences[data.method]) : '';
+        let tick   = (data.tick!='') ? data.tick : false;
+        $('#info-fee .fee-tick').html(formatLink(tokenUrl(XC.coin, tick), tick, tick));
+        // Payment mode 1 settles in the native coin: no XCHAIN moves, and `amount` is only
+        // the XCHAIN-denominated quote the native output was priced from.
+        let isNative = (Number(data.payment_mode) === 1);
+        $('#info-fee .fee-amount-label').text(isNative ? 'XCHAIN Quote' : 'Amount');
+        $('#info-fee .fee-amount').html(formatAmount(data.amount));
+        $('#info-fee .fee-native-row, #info-fee .fee-oracle-row').toggleClass('d-none', !isNative);
+        $('#info-fee .fee-native').text(isNative && !isNull(data.native_coin_amount)
+            ? data.native_coin_amount + ' ' + nullToBlank(data.native_coin) : '-');
+        $('#info-fee .fee-oracle').text(isNative && !isNull(data.oracle_round) ? String(data.oracle_round) : '-');
+        // data.method is an on-chain fee-preference field reaching an .html() sink; escape it.
+        $('#info-fee .fee-method').html(escapeHtml(String(data.method)) + method);
+        $('#info-fee .fee-destination-row').toggleClass('d-none', isNative);
+        $('#info-fee .fee-destination').html(isNull(data.destination) ? '' :
+            formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    }
+}
+
 // Handle displaying action details
 function showActionDetails(){
     // Setup short alias to action info object

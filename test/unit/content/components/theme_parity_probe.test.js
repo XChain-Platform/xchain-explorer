@@ -54,8 +54,8 @@ const VENDOR = 'http://localhost:18080/css/bootstrap.min.css';
 // element whose declarations win. This fixture reproduces exactly that much:
 // two mode-dependent declarations that move only when the marked element does.
 const MODE_CSS = `
-  [data-bs-theme="light"] { background-color: rgb(255, 255, 255); color: rgb(17, 17, 17); }
-  [data-bs-theme="dark"]  { background-color: rgb(0, 0, 0); color: rgb(238, 238, 238); }
+  [data-bs-theme="light"] { --bs-primary-text-emphasis: #052c65; background-color: rgb(255, 255, 255); color: rgb(17, 17, 17); }
+  [data-bs-theme="dark"]  { --bs-primary-text-emphasis: #6ea8fe; background-color: rgb(0, 0, 0); color: rgb(238, 238, 238); }
 `;
 
 // A CSSStyleDeclaration is array-like over its declared property names, which

@@ -84,6 +84,9 @@ function renderPollOutcome(poll){
              + ' <span class="small">No outcome exists yet; the tally below is provisional.</span>'
              + '</div>';
     }
+    if(String(poll.poll_status) === 'refused')
+        return '<div class="alert alert-secondary py-2 mb-0 poll-outcome-refused" id="poll-outcome-state">'
+             + '<span class="fw-bold">Refused</span> - this create action was refused, so no poll exists.</div>';
     // Terminal state. winning_option is an index into the poll's options.
     let html = '<div class="alert alert-secondary py-2 mb-0 poll-outcome-closed" id="poll-outcome-state">';
     if(isNull(poll.winning_option)){

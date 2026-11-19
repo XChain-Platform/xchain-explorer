@@ -245,6 +245,8 @@ class IconDownloader {
         // (c) One-shot re-stale for tokens the resolver's ACTION_REF_PATTERN
         // grammar can resolve but this pass has not reached yet (#5290).
         await iconsDb.restaleActionReferencedIcons(conn, ACTION_REF_PATTERN);
+        // (d) One-shot retry for terminal rows carrying the exact re-admission error.
+        await iconsDb.restaleInlineDataIconFailures(conn);
     }
 
     /******************************************************************

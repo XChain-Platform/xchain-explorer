@@ -239,7 +239,8 @@ function renderBridgePolicy(applied){
 
 // The six XBRIDGE formats, by the version each action_format carries. v2 and v5
 // are mirror-injected and carry no user format at all, which is why they are
-// labelled as settlements and never offered a "broadcast" reading.
+// labelled as settlements. A v2/v5 row with a refused status and no settlement is
+// a user broadcast the indexer refused, and renderXbridgeAction reads it as one.
 var XBRIDGE_VERSIONS = {
     0: { label: 'Lock (v0)',         leg: 'lock',   injected: false, asset: 'gas'   },
     1: { label: 'Burn (v1)',         leg: 'burn',   injected: false, asset: 'gas'   },
@@ -303,12 +304,13 @@ function renderXbridgeAction(d){
     if(!info)
         return '<div class="small text-muted xc-bridge-unknown-version">Unknown XBRIDGE version.</div>';
     var s    = (d && d.bridge_settlement) ? d.bridge_settlement : null;
+    var injected = info.injected && !(d && !s && /^invalid/i.test(String(d.status || ''))); // an injected leg is always minted valid, so any refusal is a user broadcast
     var html = '<table class="table table-sm table-striped table-bordered mb-0 no-outer-borders xc-bridge-action" '
-             + 'data-leg="' + xbEsc(info.leg) + '" data-injected="' + (info.injected ? '1' : '0') + '"><tbody>';
+             + 'data-leg="' + xbEsc(info.leg) + '" data-injected="' + (injected ? '1' : '0') + '"><tbody>';
     html += row('Format', xbEsc(info.label));
-    html += row('Origin', info.injected
+    html += row('Origin', injected
         ? 'Mirror-injected from a finalized bridge transfer'
-        : 'Broadcast by the source address');
+        : 'Broadcast by the source address' + (info.injected ? ' (refused)' : ''));
     html += row('Asset', (info.asset === 'gas') ? 'XCHAIN (gas)' : 'Bridged token');
     html += row('Token', xbEsc(xbDash(d ? d.tick : null)));
     html += row('Transfer', xbEsc(xbDash(d ? d.transfer_id : null)));
@@ -316,7 +318,7 @@ function renderXbridgeAction(d){
         html += row('Source leg', xbEsc(xbDash(s.src_chain)) + ' #' + xbEsc(xbDash(s.src_action_index)));
         html += row('Destination', xbEsc(xbDash(s.dest_chain)) + ' ' + xbEsc(xbDash(s.dest_address)));
         html += row('Settled in block', xbEsc(xbDash(s.block_index)));
-    } else if(d && !info.injected){
+    } else if(d && !injected){
         html += xbridgeRecordRows(d, row);
         html += xbridgeUserLegSettlement(d, row);
     }

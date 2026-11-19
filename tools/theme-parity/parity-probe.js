@@ -65,8 +65,8 @@
  *     element carries the attribute. On a page initialised in dark, body kept
  *     its own dark declaration through both iterations, so the capture labelled
  *     light measured dark surfaces and the render layer compared a mode against
- *     itself. The switch happens on body now, and the probe reads the rendered
- *     mode back off body: two identical readings are rejected, not recorded.
+ *     itself. The switch happens on body now, and a Bootstrap custom property
+ *     declared on that same element proves that each requested mode took.
  *
  *   - It fingerprinted whatever it found, including nothing. A page where no
  *     href matched SHEET, or where the sheet was unreadable, or where no
@@ -182,8 +182,24 @@ const probe = (function () {
       const fb = comma < 0 ? '' : resolveVars(text.slice(comma + 1, j - 1), cs).trim();
       out += text.slice(i, at) + (cs.getPropertyValue(name).trim() || fb); i = j; }
     return out; };
+  // CSSOM serializes a longhand expanded from a var()-bearing shorthand as an
+  // empty string. Recover the owning shorthand text so declared-path hashes can
+  // still observe token changes without reading layout-dependent used values.
+  const shorthandCandidates = p => { const out = [];
+    const border = /^border-(top|right|bottom|left)-(color|style|width)$/.exec(p);
+    if (border) out.push('border-'+border[1], 'border-'+border[2], 'border');
+    if (/^(top|right|bottom|left)$/.test(p)) out.push('inset');
+    if (/^(row|column)-gap$/.test(p)) out.push('gap');
+    if (/^grid-template-(columns|rows)$/.test(p)) out.push('grid-template', 'grid');
+    const parts = p.split('-'); while (parts.length > 1) { parts.pop(); out.push(parts.join('-')); }
+    return Array.from(new Set(out)); };
+  const declaredRead = (style, p, cs) => { const raw = style.getPropertyValue(p).trim();
+    if (raw) return { value: resolveVars(raw, cs), missing: false };
+    for (const shorthand of shorthandCandidates(p)) { const text = style.getPropertyValue(shorthand).trim();
+      if (text) return { value: shorthand+': '+resolveVars(text, cs), missing: false }; }
+    return { value: '', missing: true }; };
   const ruleSnap = () => {
-    const snap = {}, coverage = {}; let rules = 0, sheets = 0; const un = []; const seen = new Set();
+    const snap = {}, coverage = {}; let rules = 0, sheets = 0; const un = [], emptyDeclared = []; const seen = new Set();
     const sheetId = href => { try { return new URL(href, location.href).pathname; } catch(e) { return href; } };
     const cover = (href, sel, matched) => { const id = sheetId(href);
       const row = coverage[id] || (coverage[id] = { selectors: new Set(), matched: new Set() });
@@ -228,8 +244,9 @@ const probe = (function () {
           // a computed-path collision reads one value twice and just overwrites.
           for (const p of props) { const key = sel+' | '+p;
             if (st || LAYOUT.has(p)) {
-              const declared = resolveVars(r.style.getPropertyValue(p).trim(), cs);
-              snap[key] = key in snap ? snap[key]+DECLARED_JOIN+declared : declared;
+              const declared = declaredRead(r.style, p, cs);
+              if (declared.missing) emptyDeclared.push(key);
+              snap[key] = key in snap ? snap[key]+DECLARED_JOIN+declared.value : declared.value;
             } else snap[key] = cs.getPropertyValue(p).trim(); }
         } }
       if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, baseHref);
@@ -237,7 +254,7 @@ const probe = (function () {
     for (const sh of document.styleSheets) readSheet(sh);
     const covered = {}; for (const id of Object.keys(coverage).sort()) covered[id] = {
       selectors: Array.from(coverage[id].selectors).sort(), matched: Array.from(coverage[id].matched).sort() };
-    return { rules, snap, un: un.sort(), sheets, coverage: covered };
+    return { rules, snap, un: un.sort(), sheets, coverage: covered, emptyDeclared };
   };
   // Count every layout key read as a used value because the browser has no Typed OM;
   // health() refuses such a capture, and the count stays out of `o` so hashes do not move.
@@ -262,18 +279,21 @@ const probe = (function () {
     if (!Object.keys(R.snap).length) bad.push(mode+': the rule snapshot is empty');
     for (const k of Object.keys(R.snap)) if (k.indexOf('__UNREADABLE__ ') === 0)
       bad.push(mode+': unreadable stylesheet '+k.slice(15));
+    if (R.emptyDeclared.length) bad.push(mode+': declared-path keys read empty with no shorthand text: '
+      +R.emptyDeclared.join(', '));
     if (!D.n) bad.push(mode+': the render census matched none of its '+D.total+' anchors');
     // Refuse used-value layout keys: they drift with page content and read as a CSS change.
     if (D.untyped) bad.push(mode+': the render census read '+D.untyped+' layout-derived keys through '
       +'getComputedStyle because this browser has no CSS Typed OM computedStyleMap; use one that has it');
     return bad;
   };
-  // The mode a capture actually rendered in, read off the element the census
-  // reads. Two identical witnesses mean the requested mode never took, whatever
-  // the probe wrote where.
+  // Keep the surface reading in the result for baseline comparison. Prove the
+  // body-side switch separately with a Bootstrap variable declared in both modes.
   const witness = () => { const cs = getComputedStyle(document.body);
     return ['background-color','color','border-top-color']
       .map(p => cs.getPropertyValue(p).trim()).join(' | '); };
+  const modeWitness = () => getComputedStyle(document.body)
+    .getPropertyValue('--bs-primary-text-emphasis').trim();
   const capture = function (tag, phase) {
     if (!document.body) return { invalid: ['the page has no body element to capture'] };
     // The application marks the mode on BODY (updateTheme() in
@@ -285,12 +305,13 @@ const probe = (function () {
     // captures and the light/dark comparison compared a mode against itself.
     const had = document.body.hasAttribute('data-bs-theme');
     const orig = document.body.getAttribute('data-bs-theme');
-    const res = {}, held = {}, saw = {}, invalid = [];
+    const res = {}, held = {}, saw = {}, modeSaw = {}, invalid = [];
     try {
       for (const mode of ['light','dark']) {
         document.body.setAttribute('data-bs-theme', mode);
         const R = ruleSnap(), D = rendSnap();
         saw[mode] = witness();
+        modeSaw[mode] = modeWitness();
         for (const why of health(mode, R, D)) invalid.push(why);
         held[mode] = R;
         held[mode+'|rend'] = D.o;
@@ -303,8 +324,8 @@ const probe = (function () {
       if (had) document.body.setAttribute('data-bs-theme', orig);
       else document.body.removeAttribute('data-bs-theme');
     }
-    if (saw.light === saw.dark)
-      invalid.push('the theme switch did not take: body rendered identically in both modes ('+saw.light+')');
+    if (modeSaw.light === modeSaw.dark)
+      invalid.push('the theme switch did not take: body mode witness stayed '+modeSaw.light);
     // Persist nothing from a rejected capture: a degenerate "after" must not be
     // able to overwrite a good stored "before".
     if (invalid.length) { console.error('[theme-parity] capture rejected:\n  '+invalid.join('\n  '));

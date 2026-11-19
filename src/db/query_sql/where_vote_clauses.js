@@ -37,7 +37,9 @@ function pollsClause(db, config, sql){
     // creator (a2 via the action source); status filters the poll lifecycle enum directly.
     if(type=='block')  sql += blockClause(config);
     if(type=='tick')   sql += ' AND pt.tick=?';
-    if(type=='status') sql += ' AND m.poll_status=?';
+    // A refused create keeps the column default, so the lifecycle filter counts only creates
+    // that were accepted; 'refused' itself is matched on the create's status instead.
+    if(type=='status') sql += " AND m.poll_status=? AND COALESCE(s1.status, 'valid')='valid'";
     if(type=='source') sql += sourceAddressClause(config);
     return sql;
 }

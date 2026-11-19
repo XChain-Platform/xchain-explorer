@@ -22,7 +22,8 @@
  * or changes what a caller does with the result.
  *
  * SANCTIONED SHARED-WRITE EXCEPTION (#3752): insertMissingIconRows,
- * markDescriptionChangedIcons, restaleActionReferencedIcons, updateIconOk,
+ * markDescriptionChangedIcons, restaleActionReferencedIcons,
+ * restaleInlineDataIconFailures, updateIconOk,
  * updateIconFailedTerminal and updateIconFailedRetry write the
  * indexer-owned `icons` table. See the class doc at the top of
  * src/icons/downloader.js for the full boundary rationale; this file is
@@ -183,6 +184,21 @@ async function restaleActionReferencedIcons(conn, ACTION_REF_PATTERN){
     );
 }
 
+// One-shot invariant: no fetch path writes this exact error. A matching row can
+// therefore be admitted only once. A direct image server that omitted
+// Content-Type gets one bounded retry and then retires under distinct text.
+// SHARED-WRITE EXCEPTION: UPDATE on the indexer-owned `icons` table.
+async function restaleInlineDataIconFailures(conn){
+    return conn.query(
+        `UPDATE icons
+             SET status = 'stale', attempts = 0, next_retry_at = NULL
+             WHERE status = 'failed'
+               AND next_retry_at IS NULL
+               AND last_error = ?`,
+        ["image_url: not an image (got '')"]
+    );
+}
+
 // SHARED-WRITE EXCEPTION (#3752): UPDATE on the indexer-owned `icons` table.
 // Sanctioned write outside the explorer read-only boundary; needs an UPDATE
 // grant on the indexer DB. Icon-state ownership relocation is a post-launch follow-up.
@@ -227,6 +243,7 @@ module.exports = {
     insertMissingIconRows,
     markDescriptionChangedIcons,
     restaleActionReferencedIcons,
+    restaleInlineDataIconFailures,
     updateIconOk,
     updateIconFailedTerminal,
     updateIconFailedRetry,

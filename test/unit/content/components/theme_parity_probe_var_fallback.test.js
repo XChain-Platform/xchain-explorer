@@ -23,8 +23,8 @@ const PROBE_FILE = path.join(__dirname, '..', '..', '..', '..', 'tools/theme-par
 const PROBE_SRC = fs.readFileSync(PROBE_FILE, 'utf8');
 const FIRST_PARTY = 'http://localhost:18080/css/xchain.css';
 const MODE_CSS = `
-  [data-bs-theme="light"] { background-color: rgb(255, 255, 255); }
-  [data-bs-theme="dark"]  { background-color: rgb(0, 0, 0); }
+  [data-bs-theme="light"] { --bs-primary-text-emphasis: #052c65; background-color: rgb(255, 255, 255); }
+  [data-bs-theme="dark"]  { --bs-primary-text-emphasis: #6ea8fe; background-color: rgb(0, 0, 0); }
 `;
 const KEY = '.card | margin-top';
 

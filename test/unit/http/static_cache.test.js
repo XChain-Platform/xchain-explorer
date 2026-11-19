@@ -25,7 +25,9 @@ const assert = require('assert');
 const http = require('http');
 const express = require('express');
 const { STATIC_OPTIONS, VERSIONED, UNVERSIONED } = require('../../../src/http/static_cache.js');
-const { isFileMountPath, isStaticAssetPath, STATIC_DIRECTORIES } = require('../../../src/http/static_mounts.js');
+const {
+    isFileMount, isFileMountPath, isStaticAsset, isStaticAssetPath, STATIC_DIRECTORIES,
+} = require('../../../src/http/static_mounts.js');
 const { applyRateLimits } = require('../../../src/http/api_boot/rate_limits.js');
 const staticMounts = require('../../../src/http/static_mounts.js');
 
@@ -41,6 +43,17 @@ function get(server, path){
             res.resume();
             res.on('end', () => resolve(res));
         }).on('error', reject);
+    });
+}
+
+function request(server, method, path){
+    return new Promise((resolve, reject) => {
+        const req = http.request({ host: '127.0.0.1', port: server.address().port, path, method }, (res) => {
+            res.resume();
+            res.on('end', () => resolve(res));
+        });
+        req.on('error', reject);
+        req.end();
     });
 }
 
@@ -86,6 +99,56 @@ describe('file mount predicate', function(){
     it('leaves the unlimited image exemption exactly as it was', function(){
         assert.ok(!isStaticAssetPath('/js/xchain.js'));
         assert.ok(isStaticAssetPath('/images/a.png'));
+    });
+
+    it('exempts only methods that the disk mounts serve', function(){
+        assert.equal(isStaticAsset({ method: 'GET', path: '/images/a.png' }), true);
+        assert.equal(isStaticAsset({ method: 'HEAD', path: '/icon/BTC/XCP.png' }), true);
+        assert.equal(isStaticAsset({ method: 'POST', path: '/images/a.png' }), false);
+        assert.equal(isFileMount({ method: 'GET', path: '/css/x.css' }), true);
+        assert.equal(isFileMount({ method: 'POST', path: '/css/x.css' }), false);
+    });
+});
+
+describe('non-disk methods on static paths use the app-wide bucket', function(){
+    let server;
+    before(async function(){
+        const app = express();
+        const configInfo = { env: { EXPLORER_RATE_LIMIT_RPM: '3', EXPLORER_STATIC_RATE_LIMIT_RPM: '5', EXPLORER_MAX_CONCURRENT_REQUESTS: '0' } };
+        applyRateLimits(app, configInfo, staticMounts.isStaticAsset);
+        app.use((req, res) => res.status(200).send('ok'));
+        server = await listen(app);
+    });
+    after(function(){ server.close(); });
+
+    it('limits POST requests that would fall through an image mount', async function(){
+        const codes = [];
+        for(let i = 0; i < 4; i++) codes.push((await request(server, 'POST', '/images/x')).statusCode);
+        assert.deepStrictEqual(codes, [200, 200, 200, 429]);
+    });
+});
+
+describe('non-disk methods on static paths use the concurrency gate', function(){
+    it('sheds a second POST while the first request holds the gate', async function(){
+        const app = express();
+        const configInfo = { env: { EXPLORER_RATE_LIMIT_RPM: '100', EXPLORER_STATIC_RATE_LIMIT_RPM: '100', EXPLORER_MAX_CONCURRENT_REQUESTS: '1' } };
+        applyRateLimits(app, configInfo, staticMounts.isStaticAsset);
+        let heldResponse;
+        let announceEntry;
+        const entered = new Promise((resolve) => { announceEntry = resolve; });
+        app.use((req, res) => {
+            if(!heldResponse){ heldResponse = res; announceEntry(); return; }
+            res.status(201).send('bypassed');
+        });
+        const server = await listen(app);
+        try {
+            const first = request(server, 'POST', '/images/x');
+            await entered;
+            const second = await request(server, 'POST', '/images/x');
+            assert.equal(second.statusCode, 429);
+            heldResponse.status(200).send('released');
+            assert.equal((await first).statusCode, 200);
+        } finally { server.close(); }
     });
 });
 

@@ -172,10 +172,10 @@ const {
             const explorer = makeExplorer();
             const d = new IconDownloader(explorer);
 
-            const conn = makeMockConn([[], [], []]);
+            const conn = makeMockConn([[], [], [], []]);
             await d.discover(conn);
 
-            expect(conn.query.callCount).to.equal(3);
+            expect(conn.query.callCount).to.equal(4);
             const firstSql  = conn.query.firstCall.args[0];
             const secondSql = conn.query.secondCall.args[0];
             const thirdSql  = conn.query.thirdCall.args[0];
@@ -207,6 +207,11 @@ const {
             expect(thirdSql).to.include('CONVERT(TRIM(t.description) USING binary)');
             expect(thirdSql, 'no case folding may sit between the column and the grammar')
                 .to.not.match(/LOWER\s*\(/i);
+
+            const [fourthSql, fourthArgs] = conn.query.getCall(3).args;
+            expect(fourthSql).to.include("status = 'failed'");
+            expect(fourthSql).to.include('next_retry_at IS NULL');
+            expect(fourthArgs).to.deep.equal(["image_url: not an image (got '')"]);
         });
     });
 }

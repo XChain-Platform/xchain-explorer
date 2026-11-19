@@ -33,7 +33,6 @@
 'use strict';
 
 const poolSizing = require('../../mirror/pool_sizing');
-const { getSqlTiming } = require('../../observability');
 
 // The driver's timezone option only issues SET time_zone for the session; it
 // still builds DATE and DATETIME values with the host's local zone. Columns
@@ -188,7 +187,7 @@ function setIndexerPool(db, mariadb, cfg, key){
     db.pools[key] = { "config": indexerPoolConfig(cfg) };
     let pool = existingIndexerPool(db, cfg);
     if(!pool)
-        pool = getSqlTiming().wrapPool(mariadb.createPool(db.pools[key].config));
+        pool = mariadb.createPool(db.pools[key].config);
 
     db.pools[key].pool = pool;
 }
@@ -208,7 +207,7 @@ function setDecoderPool(db, mariadb, dcfg, cfg, key){
             db.decoderDb[key] = dcfg.name;
             if(!(dHost==cfg.db_host && dPort==cfg.db_port && dcfg.user==cfg.user && dcfg.pass==cfg.pass)){
                 let queryTimeout = poolSizing.resolveQueryTimeout('decoder');
-                db.decoderPools[key] = getSqlTiming().wrapPool(mariadb.createPool({
+                db.decoderPools[key] = mariadb.createPool({
                     host:             dHost,
                     port:             dPort,
                     user:             dcfg.user,
@@ -228,7 +227,7 @@ function setDecoderPool(db, mariadb, dcfg, cfg, key){
                     // Session at +00:00: mempool first_seen is a UTC-literal DATETIME
                     timezone:         'Z',
                     typeCast:         utcTypeCast
-                }));
+                });
             }
         }
     }

@@ -37,8 +37,6 @@ const TIMING_ENV = {
     SQL_TIMING_INTERVAL_MS: '60000'
 };
 const TIMING_KEYS = Object.keys(TIMING_ENV);
-const savedEnv = {};
-let timing;
 
 function makePool() {
     const connection = {
@@ -82,83 +80,80 @@ function makeNetworkInfo() {
     };
 }
 
-function setUpTimingEnvironment() {
-    for (const key of TIMING_KEYS) {
-        savedEnv[key] = process.env[key];
-        process.env[key] = TIMING_ENV[key];
-    }
-    observability._resetObservability();
-}
+describe('SQL timing explorer wiring', function () {
+    const savedEnv = {};
+    let timing;
 
-async function tearDownTimingEnvironment() {
-    if (timing) await timing.stop();
-    timing = null;
-    for (const key of TIMING_KEYS) {
-        if (savedEnv[key] === undefined) delete process.env[key];
-        else process.env[key] = savedEnv[key];
-    }
-    observability._resetObservability();
-}
-
-async function verifyRpcQueryCounting() {
-    const createdPools = [];
-    const mariadb = {
-        createPool: () => {
-            const pool = makePool();
-            createdPools.push(pool);
-            return pool;
+    beforeEach(function () {
+        for (const key of TIMING_KEYS) {
+            savedEnv[key] = process.env[key];
+            process.env[key] = TIMING_ENV[key];
         }
-    };
-    const db = makeDatabase();
-    setNetworkPools(db, mariadb, makeNetworkInfo(), 'BTC', 'regtest');
-
-    const mirrorPool = makePool();
-    const HubMirrorPool = proxyquire.noCallThru()('../../../src/mirror/pool.js', {
-        mariadb: { createPool: () => mirrorPool }
-    });
-    const mirror = new HubMirrorPool({
-        host: 'mirror-db', port: 3306, user: 'mirror', pass: 'mirror-pass', name: 'hub_mirror'
+        observability._resetObservability();
     });
 
-    const shipped = [];
-    const app = express();
-    app.use(express.json());
-    timing = observability.installSqlTiming(app, {
-        service: 'xchain-explorer',
-        env: TIMING_ENV,
-        transport: async (outbound) => {
-            shipped.push(outbound);
-            return { status: 200 };
+    afterEach(async function () {
+        if (timing) await timing.stop();
+        timing = null;
+        for (const key of TIMING_KEYS) {
+            if (savedEnv[key] === undefined) delete process.env[key];
+            else process.env[key] = savedEnv[key];
         }
-    });
-    mountJsonRpc(app, { env: {} }, {
-        probe: async () => {
-            await db.pools.RBTC.pool.query('SELECT 1');
-            await db.decoderPools.RBTC.query('SELECT 2');
-            await mirror.doQuery('SELECT 3');
-            return 'ok';
-        }
+        observability._resetObservability();
     });
 
-    const response = await request(app).post('/').send({
-        jsonrpc: '2.0', id: 1, method: 'probe', params: []
+    it('emits one RPC line counting indexer, decoder, and mirror queries', async function () {
+        const createdPools = [];
+        const mariadb = {
+            createPool: () => {
+                const pool = makePool();
+                createdPools.push(pool);
+                return pool;
+            }
+        };
+        const db = makeDatabase();
+        setNetworkPools(db, mariadb, makeNetworkInfo(), 'BTC', 'regtest');
+
+        const mirrorPool = makePool();
+        const HubMirrorPool = proxyquire.noCallThru()('../../../src/mirror/pool.js', {
+            mariadb: { createPool: () => mirrorPool }
+        });
+        const mirror = new HubMirrorPool({
+            host: 'mirror-db', port: 3306, user: 'mirror', pass: 'mirror-pass', name: 'hub_mirror'
+        });
+
+        const shipped = [];
+        const app = express();
+        app.use(express.json());
+        timing = observability.installSqlTiming(app, {
+            service: 'xchain-explorer',
+            env: TIMING_ENV,
+            transport: async (outbound) => {
+                shipped.push(outbound);
+                return { status: 200 };
+            }
+        });
+        mountJsonRpc(app, { env: {} }, {
+            probe: async () => {
+                await db.pools.RBTC.pool.query('SELECT 1');
+                await db.decoderPools.RBTC.query('SELECT 2');
+                await mirror.doQuery('SELECT 3');
+                return 'ok';
+            }
+        });
+
+        const response = await request(app).post('/').send({
+            jsonrpc: '2.0', id: 1, method: 'probe', params: []
+        });
+        expect(response.status).to.equal(200);
+        expect(response.body.result).to.equal('ok');
+        await timing.flush();
+
+        expect(createdPools).to.have.lengthOf(2);
+        expect(shipped).to.have.lengthOf(1);
+        const lines = shipped[0].body.trim().split('\n').map((line) => JSON.parse(line));
+        expect(lines).to.have.lengthOf(1);
+        expect(lines[0].route).to.equal('POST /xchain-explorer/rpc/probe');
+        expect(lines[0].query_count).to.equal(3);
     });
-    expect(response.status).to.equal(200);
-    expect(response.body.result).to.equal('ok');
-    await timing.flush();
-
-    expect(createdPools).to.have.lengthOf(2);
-    expect(shipped).to.have.lengthOf(1);
-    const lines = shipped[0].body.trim().split('\n').map((line) => JSON.parse(line));
-    expect(lines).to.have.lengthOf(1);
-    expect(lines[0].route).to.equal('POST /xchain-explorer/rpc/probe');
-    expect(lines[0].query_count).to.equal(3);
-}
-
-function registerSqlTimingExplorerWiringSuite() {
-    beforeEach(setUpTimingEnvironment);
-    afterEach(tearDownTimingEnvironment);
-    it('emits one RPC line counting indexer, decoder, and mirror queries', verifyRpcQueryCounting);
-}
-
-describe('SQL timing explorer wiring', registerSqlTimingExplorerWiringSuite);
+});

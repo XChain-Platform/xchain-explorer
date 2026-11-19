@@ -70,8 +70,10 @@ const SNAPSHOTS = new Map([
             ({ channel: 'network', block_height: String(maxBlock || 0), total_actions: String(maxAction || 0) })
     }],
     ['address', {
-        reads: [(db, config, sub) => db.getAddressBalances(config, sub.address), (db, config) => db.getMaxActionIndex(config)],
-        shape: (sub, [balances, maxAction]) =>
+        // Cursor first makes it a lower bound on the balances read after it.
+        reads: [(db, config) => db.getMaxActionIndex(config),
+            (db, config, sub) => db.getAddressBalances(config, sub.address)],
+        shape: (sub, [maxAction, balances]) =>
             ({ channel: 'address', address: sub.address, balances: balances || [], last_action_index: String(maxAction || 0) })
     }],
     // The subscribed tick spelling is set after the row, which carries the
@@ -177,6 +179,7 @@ class WebSocketSnapshots {
         }
 
         for (const sub of subscribed) {
+            let key = null;
             try {
                 let snapshotData = null;
 
@@ -186,9 +189,22 @@ class WebSocketSnapshots {
                 // snapshot that seeds state must not seed it with the other type.
                 const snapshot = SNAPSHOTS.get(sub.channel);
                 if (snapshot) {
-                    const values = [];
-                    for (const read of snapshot.reads) values.push(await read(db, config, sub, this));
-                    snapshotData = snapshot.shape(sub, values);
+                    key = this.channelManager.channelKeyForSub(client.coin, sub);
+                    if (!(client.snapshotLiveSeq instanceof Map)) client.snapshotLiveSeq = new Map();
+                    client.snapshotLiveSeq.set(key, 0);
+                    for (let attempt = 0; attempt < 3; attempt++) {
+                        const before = client.snapshotLiveSeq.get(key);
+                        const values = [];
+                        for (const read of snapshot.reads) values.push(await read(db, config, sub, this));
+                        if (client.snapshotLiveSeq.get(key) !== before) continue;
+                        snapshotData = snapshot.shape(sub, values);
+                        break;
+                    }
+                    if (!snapshotData) {
+                        this.sendError(client, 'SNAPSHOT_OVERTAKEN',
+                            'Live updates for this entity kept arriving while its snapshot was read; ' +
+                            'the delivered live frames already describe its current state.');
+                    }
                 }
 
                 if (snapshotData) {
@@ -204,6 +220,8 @@ class WebSocketSnapshots {
             } catch (e) {
                 // Non-fatal: skip this snapshot
                 log.error('WS_SNAPSHOT_FAILED', { channel: sub.channel, err: e.message, stack: e.stack });
+            } finally {
+                if (key && client.snapshotLiveSeq instanceof Map) client.snapshotLiveSeq.delete(key);
             }
         }
     }

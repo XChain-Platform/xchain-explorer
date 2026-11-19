@@ -169,8 +169,7 @@ class Broadcaster {
     // per-block action count, or a subscriber that seeds a counter from the
     // snapshot sees it collapse on the next live frame. Runs only on the
     // per-coin serial chain; a block superseded by one queued after it is
-    // skipped (its frame would be stale on arrival, and skipping collapses a
-    // burst into one DB read).
+    // skipped around the awaited read (a stale arrival; also collapses a burst).
     async emitNetworkStats(coin, info, block) {
         if (this._queuedBlock.get(coin) !== block) return;
         let totalActions;
@@ -181,6 +180,8 @@ class Broadcaster {
             // cumulative total, and the next block whose read succeeds sends a correct one
             return;
         }
+        // onReorg or a newer block can invalidate an in-flight read.
+        if (this._queuedBlock.get(coin) !== block) return;
         const stats = {
             type:      'NETWORK_STATS',
             chain:     info.chain,

@@ -2185,6 +2185,7 @@ $(document).ready(function(){
 
     function renderActionNotFound(){
         XC.actionInfo = null;
+        XC.actionNoSourceTx = false;
         $('#transaction-info tbody').html('<tr><td colspan="2" class="text-muted" id="action-not-found">No action exists at this index.</td></tr>');
         $('#action-info tbody').html('<tr><td colspan="2" class="text-muted">-</td></tr>');
         $('#data-panels').html('<div class="p-5 text-center text-muted">No action details to show.</div>');
@@ -2212,7 +2213,7 @@ $(document).ready(function(){
                 renderActionNotFound();
                 return;
             }
-            XC.actionInfo = null2string(o);
+            setActionInfo(o);
             showActionDetails();
             if(o.action === 'LIST'){
                 $('#info-list .list-name').text(isNull(o.name) ? '' : String(o.name));

@@ -204,12 +204,16 @@ function coinCodeParser(coinConfigs){
     };
 }
 
-// Map the decoder's durable REORG_HALT marker to a decoder_health value, or null. The
-// decoder keeps it out of `status` (only an operator clear releases it), so read the halt
-// fields; it outranks node-stale, and strict true leaves older decoders on their status.
+// Map the decoder's durable REORG_HALT state to a decoder_health value, or null.
+// Parked outranks halted, and both outrank an unverified marker read. Older
+// decoders that omit the checked-at field keep their own status.
 function reorgHaltHealth(h){
     if(h && h.reorg_halt_parked === true) return 'reorg-halt-parked';
     if(h && h.reorg_halted === true) return 'reorg-halted';
+    if(h && h.status === 'healthy' &&
+        Object.prototype.hasOwnProperty.call(h, 'reorg_halt_checked_at') &&
+        (h.reorg_halt_checked_at === null || h.reorg_halt_checked_at === undefined))
+        return 'reorg-halt-unverified';
     return null;
 }
 

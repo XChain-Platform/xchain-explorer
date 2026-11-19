@@ -54,7 +54,7 @@ describe('decoder_health values in the published specs', function () {
     it('finds the values the status reader sets, so the check below cannot pass on an empty set', function () {
         const values = producedValues();
         expect(values).to.include.members(['unconfigured', 'unreachable', 'rate-limited', 'node-stale',
-            'reorg-halt-parked', 'reorg-halted']);
+            'reorg-halt-parked', 'reorg-halted', 'reorg-halt-unverified']);
     });
 
     for(const [name, spec] of Object.entries(SPECS)) {

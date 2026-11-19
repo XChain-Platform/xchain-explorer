@@ -25,10 +25,13 @@
  *   rule  - for every rule in the sheets SHEET admits (xchain.css,
  *           xchain-charts.css, themes/, components/<name>/component.css), read back each
  *           property that rule DECLARES, as the computed value on the first
- *           element matching its selector. This proves the stylesheet's own
+ *           element matching its selector. A non-theme rule that declares
+ *           only custom properties records the rendered census properties
+ *           those variables control. This proves the stylesheet's own
  *           contribution is unchanged. It is deliberately derived from the
  *           stylesheet at runtime rather than from a hand-written list, so it
- *           cannot fall behind the CSS.
+ *           cannot fall behind the CSS. Theme token-only rules contribute
+ *           selector coverage but no duplicate snapshot keys.
  *
  *           Because it reads computed values, this layer follows mode wherever
  *           a declared value resolves through a mode-following token (a theme
@@ -111,8 +114,9 @@
  * COVERAGE LIMIT, stated because a probe that hides its blind spot is worse
  * than no probe: the probe records per-sheet selector coverage and unions
  * matches across both modes, but a rule no captured page instantiates still
- * cannot be proven at runtime. The static token-literal gate remains a separate
- * acceptance test for that reason. The 2026-08-20 baseline measured 79 of 120
+ * cannot be proven at runtime. Custom-property-only rules are covered, and
+ * non-theme matches record rendered census values. The static token-literal
+ * gate remains a separate acceptance test for unmatched rules. The 2026-08-20 baseline measured 79 of 120
  * page-level selectors; later dated baselines predate this coverage export.
  *
  * SHEET now also admits the per-component component.css layer, which landed
@@ -163,7 +167,7 @@ const probe = (function () {
     let h = 5381; for (let i=0;i<s.length;i++) h = ((h*33)^s.charCodeAt(i))>>>0;
     return { hash: h.toString(16).padStart(8,'0'), keys: Object.keys(o).length }; };
   const censusHash = values => fp(values.reduce((o, value) => { o[value] = '1'; return o; }, {})).hash;
-  const schema = Object.freeze({ version: 1,
+  const schema = Object.freeze({ version: 2,
     anchors: Object.freeze({ count: A.length, hash: censusHash(A) }),
     properties: Object.freeze({ count: P.length, hash: censusHash(P) }) });
   // Resolve every var(--name, fallback) in a declared value against an element's custom
@@ -211,9 +215,20 @@ const probe = (function () {
     }
     return '@supports '+text;
   };
+  const sheetId = href => { try { return new URL(href, location.href).pathname; } catch(e) { return href; } };
+  const sortedCoverage = coverage => { const covered = {};
+    for (const id of Object.keys(coverage).sort()) covered[id] = {
+      selectors: Array.from(coverage[id].selectors).sort(), matched: Array.from(coverage[id].matched).sort() };
+    return covered; };
+  // Write every census property as rendered on el under prefix+property. Layout keys
+  // need Typed OM; the returned count of reads without it lets health() refuse.
+  const censusRead = (out, prefix, el, cs) => { let untyped = 0;
+    const cm = el.computedStyleMap && el.computedStyleMap();
+    for (const p of P) { if (LAYOUT.has(p) && !cm) untyped++;
+      out[prefix+p] = (LAYOUT.has(p) && cm) ? String(cm.get(p)).trim() : cs.getPropertyValue(p).trim(); }
+    return untyped; };
   const ruleSnap = () => {
-    const snap = {}, coverage = {}; let rules = 0, sheets = 0; const un = [], emptyDeclared = []; const seen = new Map();
-    const sheetId = href => { try { return new URL(href, location.href).pathname; } catch(e) { return href; } };
+    const snap = {}, coverage = {}, un = [], emptyDeclared = [], seen = new Map(); let rules = 0, sheets = 0, untyped = 0;
     const cover = (href, sel, matched) => { const id = sheetId(href);
       const row = coverage[id] || (coverage[id] = { selectors: new Set(), matched: new Set() });
       row.selectors.add(sel); if (matched) row.matched.add(sel); };
@@ -239,14 +254,17 @@ const probe = (function () {
         return;
       }
       if (r.selectorText && r.style) { rules++;
-        const props = Array.from(r.style).filter(p => !p.startsWith('--'));
-        if (props.length) for (const raw of r.selectorText.split(',')) {
+        const declaredProps = Array.from(r.style), props = declaredProps.filter(p => !p.startsWith('--'));
+        const customOnly = declaredProps.length > 0 && props.length === 0;
+        if (props.length || customOnly) for (const raw of r.selectorText.split(',')) {
           const sel = raw.trim(), pe = (sel.match(ELEM)||[])[0]||null, st = STATE.test(sel);
           const baseSel = sel.replace(new RegExp(STATE.source,'g'),'').replace(ELEM,'').trim() || 'body';
           let el; try { el = document.querySelector(baseSel); } catch(e) { cover(baseHref, sel, false); un.push(sel+' [bad]'); continue; }
           cover(baseHref, sel, Boolean(el));
           if (!el) { un.push(sel); continue; }
           const cs = getComputedStyle(el, pe);
+          if (customOnly) { if (!/\/themes\//.test(baseHref))
+            untyped += censusRead(snap, (cond ? cond+' :: ' : '')+sel+' | ~', el, cs); continue; }
           // A state rule (:hover, :visited) cannot be matched without driving the
           // interaction, so resolve its DECLARED value through the element's own
           // custom properties instead. That survives tokenization, where the
@@ -267,20 +285,14 @@ const probe = (function () {
       if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, baseHref, childCondition);
     };
     for (const sh of document.styleSheets) readSheet(sh);
-    const covered = {}; for (const id of Object.keys(coverage).sort()) covered[id] = {
-      selectors: Array.from(coverage[id].selectors).sort(), matched: Array.from(coverage[id].matched).sort() };
-    return { rules, snap, un: un.sort(), sheets, coverage: covered, emptyDeclared };
+    return { rules, snap, un: un.sort(), sheets, coverage: sortedCoverage(coverage), emptyDeclared, untyped };
   };
   // Count every layout key read as a used value because the browser has no Typed OM;
   // health() refuses such a capture, and the count stays out of `o` so hashes do not move.
   const rendSnap = () => { const o = {}; let n = 0, untyped = 0;
     for (const sel of A) { let el; try { el = document.querySelector(sel); } catch(e) {}
       if (!el) { o[sel+' | __absent'] = '1'; continue; }
-      n++; const cs = getComputedStyle(el);
-      const cm = el.computedStyleMap && el.computedStyleMap();
-      for (const p of P) { if (LAYOUT.has(p) && !cm) untyped++;
-        o[sel+' | '+p] = (LAYOUT.has(p) && cm)
-          ? String(cm.get(p)).trim() : cs.getPropertyValue(p).trim(); } }
+      n++; untyped += censusRead(o, sel+' | ', el, getComputedStyle(el)); }
     return { o, n, total: A.length, untyped }; };
   // Everything a capture can be wrong ABOUT, asked of the capture itself. A
   // fingerprint of nothing is stable, so an empty snapshot and a healthy one
@@ -296,6 +308,8 @@ const probe = (function () {
       bad.push(mode+': unreadable stylesheet '+k.slice(15));
     if (R.emptyDeclared.length) bad.push(mode+': declared-path keys read empty with no shorthand text: '
       +R.emptyDeclared.join(', '));
+    if (R.untyped) bad.push(mode+': custom-property-only rules read '+R.untyped+' layout-derived keys through '
+      +'getComputedStyle because this browser has no CSS Typed OM computedStyleMap; use one that has it');
     if (!D.n) bad.push(mode+': the render census matched none of its '+D.total+' anchors');
     // Refuse used-value layout keys: they drift with page content and read as a CSS change.
     if (D.untyped) bad.push(mode+': the render census read '+D.untyped+' layout-derived keys through '

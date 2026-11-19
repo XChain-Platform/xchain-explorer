@@ -200,8 +200,8 @@ function buildBaseline(manifest, options) {
     phase: manifest.phase,
     probe: probeSchema,
     layers: {
-      rule: 'Properties declared by admitted first-party stylesheets, read on the first matching element, ' +
-        'hashed per mode because a declared value that resolves through a mode-following token differs by mode.',
+      rule: 'Properties declared by admitted first-party stylesheets (rendered census values for non-theme custom-only ' +
+        'rules), read on the first matching element, hashed per mode because a token-resolved value differs by mode.',
       rend: `A fixed census of ${probeSchema.anchors.count} selectors x ` +
         `${probeSchema.properties.count} properties, including an absence key for unmatched selectors.`,
     },

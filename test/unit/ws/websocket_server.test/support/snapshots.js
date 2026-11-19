@@ -18,10 +18,12 @@
 
 'use strict';
 
+const EventEmitter = require('events');
 const { expect, sinon } = require('../../websocket_server.test.js');
 
 const ChannelManager  = require('../../../../../src/ws/channel_manager.js');
 const WebSocketServer = require('../../../../../src/ws/websocket_server.js');
+const Broadcaster     = require('../../../../../src/ws/broadcaster.js');
 
 // One subscription entry per entity channel, carrying whatever key
 // ChannelManager.subscribe puts on it (canonical decimal STRING for the
@@ -65,6 +67,23 @@ function spyClient() {
 
 function framesOf(client, type) {
     return client.ws.send.getCalls().map((c) => JSON.parse(c.args[0])).filter((m) => m.type === type);
+}
+
+function liveAddressHarness() {
+    const server = serverWithEntityDb();
+    const client = spyClient();
+    const changeDetector = new EventEmitter();
+    server.clients.set(client.id, client);
+    server.channelManager.subscribe(client, ['address'], { address: '1abc' });
+    const broadcaster = new Broadcaster({ wsServer: server, changeDetector, maxBackpressure: 65536 });
+    return { server, client, changeDetector, broadcaster };
+}
+
+function emitAddressUpdate(h, amount) {
+    h.changeDetector.emit('entity_update', 'BTC', {
+        type: 'ADDRESS_UPDATE', channel: 'address',
+        data: { address: '1abc', balances: [{ tick: 'XCP', amount }], last_action_index: '2' }
+    });
 }
 
 describe('WS SNAPSHOT: every entity channel answers snapshot:true with a frame', function () {
@@ -191,5 +210,53 @@ describe('WS SNAPSHOT: a key repeated inside one subscribe batch is snapshotted 
         await new Promise((r) => setImmediate(r));
         expect(fanout.callCount).to.equal(1);
         expect(s.explorer.db.getAddressBalances.callCount).to.equal(1);
+    });
+});
+
+describe('WS SNAPSHOT: live delivery cannot overtake an older address snapshot', function () {
+    afterEach(() => sinon.restore());
+
+    it('reads the address cursor before its balances', async function () {
+        const s = serverWithEntityDb();
+        await s.sendSnapshots(spyClient(), [ENTITY_SUB.address]);
+        expect(s.explorer.db.getMaxActionIndex.calledBefore(s.explorer.db.getAddressBalances)).to.equal(true);
+    });
+
+    it('re-reads when a live address update arrives during the balance read', async function () {
+        const h = liveAddressHarness();
+        let release;
+        h.server.explorer.db.getMaxActionIndex.onFirstCall().resolves(1).onSecondCall().resolves(2);
+        h.server.explorer.db.getAddressBalances.onFirstCall()
+            .returns(new Promise(resolve => { release = resolve; }));
+        h.server.explorer.db.getAddressBalances.onSecondCall()
+            .resolves([{ tick: 'XCP', amount: '2' }]);
+
+        const pending = h.server.sendSnapshots(h.client, [ENTITY_SUB.address]);
+        await new Promise(resolve => setImmediate(resolve));
+        emitAddressUpdate(h, '2');
+        release([{ tick: 'XCP', amount: '1' }]);
+        await pending;
+
+        const sent = h.client.ws.send.getCalls().map(c => JSON.parse(c.args[0]));
+        expect(sent.map(m => m.type)).to.deep.equal(['ADDRESS_UPDATE', 'SNAPSHOT']);
+        expect(sent[1].data.balances[0].amount).to.equal('2');
+        expect(sent[1].data.last_action_index).to.equal('2');
+    });
+
+    it('sends an explicit error after three overtaken reads', async function () {
+        const h = liveAddressHarness();
+        h.server.explorer.db.getMaxActionIndex.resolves(2);
+        h.server.explorer.db.getAddressBalances.callsFake(async () => {
+            emitAddressUpdate(h, '2');
+            return [{ tick: 'XCP', amount: '1' }];
+        });
+
+        await h.server.sendSnapshots(h.client, [ENTITY_SUB.address]);
+
+        expect(framesOf(h.client, 'SNAPSHOT')).to.deep.equal([]);
+        const errors = framesOf(h.client, 'error');
+        expect(errors).to.have.lengthOf(1);
+        expect(errors[0].data.code).to.equal('SNAPSHOT_OVERTAKEN');
+        expect(h.server.explorer.db.getAddressBalances.callCount).to.equal(3);
     });
 });

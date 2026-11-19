@@ -72,5 +72,41 @@ describe('Broadcaster', function () {
             await block(h, 150);
             expect(statsFrames(h).map(m => m.data.block_height)).to.deep.equal(['150', '150']);
         });
+
+        it('a stats read in flight across a rollback with no replacement sends no stats', async function () {
+            const h = networkHarness(7);
+            let release;
+            h.getMax.onFirstCall().returns(new Promise(resolve => { release = resolve; }));
+            h.changeDetector.emit('block', 'BTC', { block_index: 150, action_count: 1 });
+            await new Promise(resolve => setImmediate(resolve));
+
+            h.changeDetector.emit('reorg', 'BTC', {
+                fork_block_index: '100', first_invalid_action_index: '100'
+            });
+            release(100);
+            await h.broadcaster._statsTails.get('BTC');
+
+            expect(statsFrames(h)).to.deep.equal([]);
+            expect(h.client.ws.send.getCalls().map(c => JSON.parse(c.args[0]).type)).to.include('REORG');
+        });
+
+        it('a rollback with a replacement sends stats only for the replacement', async function () {
+            const h = networkHarness(7);
+            let release;
+            h.getMax.onFirstCall().returns(new Promise(resolve => { release = resolve; }));
+            h.changeDetector.emit('block', 'BTC', { block_index: 150, action_count: 1 });
+            await new Promise(resolve => setImmediate(resolve));
+
+            h.changeDetector.emit('reorg', 'BTC', {
+                fork_block_index: '100', first_invalid_action_index: '100'
+            });
+            h.changeDetector.emit('block', 'BTC', { block_index: 101, action_count: 1 });
+            release(100);
+            await h.broadcaster._statsTails.get('BTC');
+
+            expect(statsFrames(h).map(m => m.data.block_height)).to.deep.equal(['101']);
+            const types = h.client.ws.send.getCalls().map(c => JSON.parse(c.args[0]).type);
+            expect(types.indexOf('REORG')).to.be.lessThan(types.indexOf('NETWORK_STATS'));
+        });
     });
 });

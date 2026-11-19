@@ -38,24 +38,24 @@ class ActionListMembershipReaders {
     /******************************************************************
      * Commonly used functions 
      *****************************************************************/
-
-    // Extract the revoke target of a DELEGATE v2/v3 from the transaction's decoded
-    // action string. Returns { pubkey } for v2 (capability revoke) and
-    // { pubkey, target, tick } for v3 (contract-targeted revoke), or null when the
-    // wire is absent/unparseable. Locates the `DELEGATE|<fmt>|...` segment so it works
-    // for a standalone DELEGATE and one nested in a BATCH (`VERSION|CMD;CMD`); the
-    // 64-hex signing pubkey is a fixed-width token, so the match is unambiguous.
-    parseDelegateRevokeWire(wire, fmt){
+    // Extract a same-format DELEGATE by its indexed ordinal from standalone or BATCH wire.
+    parseDelegateRevokeWire(wire, fmt, ordinal = 0){
         if(this.util.isNull(wire)) return null;
-        let str = String(wire);
+        let commands = String(wire).split(';');
+        commands[0] = commands[0].replace(/^BATCH\|[^|]+\|/i, '');
+        commands = commands.filter((command) => {
+            let parts = String(command).split('|');
+            return String(parts[0]).trim().toUpperCase()==='DELEGATE' && Number(parts[1])===Number(fmt);
+        });
+        let str = commands[Number(ordinal)];
+        if(str===undefined) return null;
         if(Number(fmt)===3){
-            let m = str.match(/DELEGATE\|3\|([0-9a-fA-F]{64})\|([0-9]+)\|([^;|]+)/);
+            let m = str.match(/^DELEGATE\|3\|([0-9a-fA-F]{64})\|([0-9]+)\|([^;|]+)/i);
             return m ? { pubkey: m[1], target: m[2], tick: m[3] } : null;
         }
-        let m = str.match(/DELEGATE\|2\|([0-9a-fA-F]{64})/);
+        let m = str.match(/^DELEGATE\|2\|([0-9a-fA-F]{64})(?:\||$)/i);
         return m ? { pubkey: m[1] } : null;
     }
-
     // Split a route code ('BTC' / 'TBTC' / 'RDOGE') into its base coin and
     // network. Prefixed networks are tested first so 'TBTC' is not read as a
     // mainnet coin literally named 'TBTC'. Returns null when the code names no

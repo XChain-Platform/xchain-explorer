@@ -45,15 +45,23 @@ function pendingTransactionActions(tx){
     });
 }
 
+// This check must see the raw API row before null2string makes null ambiguous.
+function isProtocolGeneratedAction(o){
+    return Boolean(o) && o.status === null && o.source === null
+        && o.tx_hash === null && o.tx_data === null;
+}
+
+function setActionInfo(raw){
+    XC.actionNoSourceTx = isProtocolGeneratedAction(raw);
+    XC.actionInfo = null2string(raw);
+}
+
 // Handle displaying transaction details
 function showTransactionDetails(){
     // Setup short alias to action info object
     let o = (XC.actionInfo) ? XC.actionInfo : XC.transactionInfo;
     let noSourceTx      = Boolean(XC.actionInfo)
-        && o.status === null
-        && o.source === null
-        && o.tx_hash === null
-        && o.tx_data === null;
+        && (XC.actionNoSourceTx === true || isProtocolGeneratedAction(o));
     let SYSTEM_ACTION   = 'Protocol-generated action';
     let NOT_APPLICABLE  = 'Not applicable, no source transaction';
     // Update page with basic transaction details

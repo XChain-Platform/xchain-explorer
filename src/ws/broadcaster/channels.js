@@ -95,7 +95,7 @@ class ChannelFanout {
             if (!client) continue;
             if (replayed && actionRow && actionRow.joined && actionRow.joined.has(clientId + '|' + channelKey)) continue;
 
-            if (!deliverToSubscriber(this, client, filter, event, actionData, actionRow)) continue;
+            if (!deliverToSubscriber(this, client, filter, event, actionData, actionRow, channelKey)) continue;
 
             // Track once subscriptions for removal
             if (spendsOnce(filter, event, channelKey)) {
@@ -219,7 +219,7 @@ function shedBackedUpClient(broadcaster, client) {
 // filtered out, skipped, or its send threw, which is what keeps a once subscription
 // that was never delivered from being removed; true otherwise, including a socket
 // that is not open (no send, but the once subscription still counts as spent).
-function deliverToSubscriber(broadcaster, client, filter, event, actionData, actionRow) {
+function deliverToSubscriber(broadcaster, client, filter, event, actionData, actionRow, channelKey) {
     // Filter pipeline (AND logic): all non-null filters must pass
     if (!broadcaster.passesFilter(filter, event, actionData)) return false;
 
@@ -261,6 +261,10 @@ function deliverToSubscriber(broadcaster, client, filter, event, actionData, act
                 broadcaster.changeDetector.staleCoins.has(client.coin))
                 msg.stale = true;
             client.ws.send(safeStringify(msg));
+            // Snapshot reads arm only their active entity key. A successful live
+            // send during that window forces the snapshot to re-read before send.
+            if (client.snapshotLiveSeq instanceof Map && client.snapshotLiveSeq.has(channelKey))
+                client.snapshotLiveSeq.set(channelKey, client.snapshotLiveSeq.get(channelKey) + 1);
         } catch (e) {
             // Connection error
             return false;

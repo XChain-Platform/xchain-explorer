@@ -11,10 +11,28 @@
 // contact legal@dankest.llc.
 
 const { expect } = require('chai');
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
+const SOURCE = require('../../helpers/content-source.js');
 const {
     resolveDescriptionToSource,
     selectIconUrlFromCip25Json,
 } = require('../../../src/icons/resolver');
+
+function pageWindow(){
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+        runScripts: 'outside-only', url: 'https://xchain.test/BTC/token/XCHAIN'
+    });
+    const win = dom.window;
+    win.eval(fs.readFileSync(path.join(SOURCE.JS_DIR, 'jquery.min.js'), 'utf8'));
+    win.jQuery.fn.ready = function(){ return this; };
+    win.eval(SOURCE.clientSource());
+    win.XC.coin = 'BTC';
+    win.XC.network = 'mainnet';
+    win.XC.status = { available: { BTC: {}, LTC: {}, DOGE: {} } };
+    return win;
+}
 
 // Keep the resolver aligned with the token page's on-chain action reference grammar.
 describe('IconResolver.resolveDescriptionToSource: action scheme', function(){
@@ -103,5 +121,22 @@ describe('IconResolver.selectIconUrlFromCip25Json: TIS data_ref', function(){
     it('trims a padded action ref instead of substituting the whitespace', function(){
         expect(selectIconUrlFromCip25Json({ images: [{ type: 'icon', data: 'https://x/a.png', data_ref: '  action:9  ' }] }))
             .to.equal('action:9');
+    });
+
+    it('keeps browser and worker selection aligned for normalized data refs', function(){
+        const win = pageWindow();
+        const refs = ['action:9', '  action:9  ', '\taction:BTC:12\n', ' ACTION:Doge:7 ',
+            '\u00a0action:9\u00a0', 'not-a-ref', 'https://other/y.png', '   ', 'action:'];
+        for(const ref of refs){
+            const source = { images: [{ type: 'icon', size: '64x64', data: 'https://x/a.png', data_ref: ref }] };
+            const page = JSON.parse(JSON.stringify(source));
+            win.resolveTisDataRefs(page);
+            const worker = selectIconUrlFromCip25Json(source);
+            const workerUsesRef = typeof worker === 'string' && /^action:/i.test(worker);
+            const pageUsesRef = page.images[0].data !== source.images[0].data;
+            expect(pageUsesRef, JSON.stringify(ref)).to.equal(workerUsesRef);
+            if(workerUsesRef) expect(page.images[0].data).to.equal(win.actionRefToRawPath(worker));
+        }
+        win.close();
     });
 });

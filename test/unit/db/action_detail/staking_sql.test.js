@@ -20,8 +20,9 @@ const stakingSql = require('../../../../src/db/action_detail/staking_sql.js');
 const EXPECTED_BINDINGS = {
     COLLECT_DETAIL: 1,
     DELEGATE_DETAIL: 1,
-    DELEGATE_CONTRACT_REVOKE_PARENT: 4,
-    DELEGATE_CAPABILITY_REVOKE_PARENT: 2,
+    DELEGATE_REVOKE_ORDINAL: 1,
+    DELEGATE_CONTRACT_REVOKE_PARENT: 5,
+    DELEGATE_CAPABILITY_REVOKE_PARENT: 3,
     SLASH_DETAIL: 1,
     STAKE_DETAIL: 1,
     UNSTAKE_DETAIL: 1
@@ -58,5 +59,22 @@ describe('SLASH detail status', function() {
         // The indexer writes capability_slash_events for a valid proof and only for one.
         expect(flat).to.include("CASE WHEN m.slash_action_index IS NULL THEN 'invalid' ELSE 'valid' END as status");
         expect(flat).to.include('LEFT JOIN capability_slash_events m ON (m.slash_action_index=a1.action_index)');
+    });
+});
+
+describe('DELEGATE revoke selection', function() {
+    it('counts only older same-format wire-backed DELEGATE actions', function() {
+        const flat = stakingSql.DELEGATE_REVOKE_ORDINAL.replace(/\s+/g, ' ');
+        expect(flat).to.include('prior.tx_index=self.tx_index');
+        expect(flat).to.include('prior.tx_vout <=> self.tx_vout');
+        expect(flat).to.include('prior.action_format=self.action_format');
+        expect(flat).to.include('prior.action_index<self.action_index');
+        expect(flat).to.include("ia.action='DELEGATE'");
+        expect(flat).to.include('ce.action_index IS NULL');
+    });
+
+    it('bounds each parent lookup below the revoke action index', function() {
+        expect(stakingSql.DELEGATE_CONTRACT_REVOKE_PARENT).to.include('cd.action_index<?');
+        expect(stakingSql.DELEGATE_CAPABILITY_REVOKE_PARENT).to.include('d.action_index<?');
     });
 });

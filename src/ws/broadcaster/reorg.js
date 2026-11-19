@@ -39,6 +39,9 @@ class ReorgNotice {
     // this frame silently would leave its view on the old chain, while a reconnect's
     // catch-up meets the reorg log and answers CATCH_UP_REORGED.
     onReorg(coin, info) {
+        // Stats work queued before this event describes the abandoned chain.
+        // Clearing the mark makes both queued and in-flight emissions drop it.
+        this._queuedBlock.delete(coin);
         const coinInfo = envelopeFor(coin);
         if (!coinInfo) return;
         for (const client of this.wsServer.getClients().values()) {

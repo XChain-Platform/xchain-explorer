@@ -47,21 +47,26 @@ function makeDb() { return new Database(mockExplorer); }
 function cfg() { return makeConfig({ coin: 'BTC' }); }
 
 const PUBKEY = 'a'.repeat(64); // 64-hex Ed25519 signing pubkey
+const PUBKEY_B = 'b'.repeat(64);
 
 // Route doQuery on SQL substrings. `opts`:
 //   mainRows   -> the DELEGATE detail branch row(s)
 //   v2Parent   -> parent delegations lookup row (v2 capability revoke)
 //   v3Parent   -> parent contract_delegations lookup row (v3 contract revoke)
+//   ordinal    -> position among same-format DELEGATE commands
 function makeDoQuery(opts) {
-    const o = Object.assign({ mainRows: [], v2Parent: null, v3Parent: null }, opts);
+    const o = Object.assign({ mainRows: [], v2Parent: null, v3Parent: null, ordinal: 0 }, opts);
     return async function(config, sql, args) {
         const q = String(sql);
+        if(Array.isArray(o.calls)) o.calls.push({ sql: q, args });
         // getActionType: a2.action from actions, no block_index column
         if(q.includes('a2.action') && q.includes('actions a1') && !q.includes('block_index'))
             return [{ action: 'DELEGATE' }];
         // DELEGATE detail branch (drives from actions, joins stake_key_revocations)
         if(q.includes('stake_key_revocations skr'))
             return o.mainRows;
+        if(q.includes('COUNT(*) AS ordinal'))
+            return [{ ordinal: o.ordinal }];
         // v3 parent contract_delegations resolution
         if(q.includes('contract_delegations cd') && q.includes('cd.target_contract_index=?'))
             return o.v3Parent ? [o.v3Parent] : [];
@@ -80,9 +85,9 @@ function makeDoQuery(opts) {
 
 // A v2 capability-revoke row as it comes back AFTER the flag-day: the action row
 // resolves (source/block/tx) but the delegations join produced no signing_pubkey.
-function v2RevokeMainRow(wire) {
+function v2RevokeMainRow(wire, actionIndex = 500) {
     return {
-        action: 'DELEGATE', action_format: 2, action_index: 500, source: 'bc1qsource',
+        action: 'DELEGATE', action_format: 2, action_index: actionIndex, source: 'bc1qsource',
         signing_pubkey: null, target_contract_index: null, tick: null,
         activation_block: null, deactivation_block: null,
         block_index: 969600, timestamp: 1790820000, tx_hash: 'deadbeef', tx_index: 88,
@@ -90,9 +95,9 @@ function v2RevokeMainRow(wire) {
     };
 }
 
-function v3RevokeMainRow(wire) {
+function v3RevokeMainRow(wire, actionIndex = 501) {
     return {
-        action: 'DELEGATE', action_format: 3, action_index: 501, source: 'bc1qsource',
+        action: 'DELEGATE', action_format: 3, action_index: actionIndex, source: 'bc1qsource',
         signing_pubkey: null, target_contract_index: null, tick: null,
         activation_block: null, deactivation_block: null,
         block_index: 969600, timestamp: 1790820000, tx_hash: 'cafebabe', tx_index: 89,
@@ -103,24 +108,30 @@ function v3RevokeMainRow(wire) {
 describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REINSERT @regression', function() {
     it('v2 capability-revoke: resolves signing_pubkey from wire + parent activation window', async function() {
         const db = makeDb();
+        const calls = [];
         db.doQuery = makeDoQuery({
             mainRows: [ v2RevokeMainRow('DELEGATE|2|' + PUBKEY) ],
-            v2Parent: { activation_block: 969000, deactivation_block: 969700, status: 'valid' }
+            v2Parent: { activation_block: 969000, deactivation_block: 969700, status: 'valid' },
+            calls
         });
         const data = await db.getActionData(cfg(), 500);
         expect(data.action).to.equal('DELEGATE');
         expect(data.signing_pubkey).to.equal(PUBKEY);
         expect(Number(data.activation_block)).to.equal(969000);
         expect(Number(data.deactivation_block)).to.equal(969700);
-        expect(data.status).to.equal('valid');
+        expect(data.status).to.equal(null);
+        const parent = calls.find((call) => call.sql.includes('FROM delegations d'));
+        expect(parent.args).to.deep.equal(['bc1qsource', PUBKEY, 500]);
         expect(data).to.not.have.property('wire_data');
     });
 
     it('v3 contract-revoke: resolves pubkey + target_contract_index + tick from wire and parent row', async function() {
         const db = makeDb();
+        const calls = [];
         db.doQuery = makeDoQuery({
             mainRows: [ v3RevokeMainRow('DELEGATE|3|' + PUBKEY + '|7|PEPE') ],
-            v3Parent: { activation_block: 3160000, deactivation_block: 3160500, status: 'valid' }
+            v3Parent: { activation_block: 3160000, deactivation_block: 3160500, status: 'valid' },
+            calls
         });
         const data = await db.getActionData(cfg(), 501);
         expect(data.signing_pubkey).to.equal(PUBKEY);
@@ -128,7 +139,9 @@ describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REIN
         expect(data.tick).to.equal('PEPE');
         expect(Number(data.activation_block)).to.equal(3160000);
         expect(Number(data.deactivation_block)).to.equal(3160500);
-        expect(data.status).to.equal('valid');
+        expect(data.status).to.equal(null);
+        const parent = calls.find((call) => call.sql.includes('cd.target_contract_index=?'));
+        expect(parent.args).to.deep.equal(['bc1qsource', PUBKEY, 7, 'PEPE', 501]);
         expect(data).to.not.have.property('wire_data');
     });
 
@@ -152,6 +165,40 @@ describe('getActionData: DELEGATE revoke rendering after DELEGATE_REVOKE_NO_REIN
         const data = await db.getActionData(cfg(), 500);
         expect(data.signing_pubkey).to.equal(PUBKEY); // not blank
         expect(data.activation_block).to.be.oneOf([null, undefined]);
+    });
+
+    it('selects the second v3 revoke from a mixed BATCH by its indexed ordinal', async function() {
+        const db = makeDb();
+        const wire = 'BATCH|0|SEND|0|dest|XCHAIN|1;DELEGATE|2|' + PUBKEY
+            + ';DELEGATE|3|' + PUBKEY + '|7|TOKENA;DELEGATE|3|' + PUBKEY_B + '|8|TOKENB';
+        const calls = [];
+        db.doQuery = makeDoQuery({
+            mainRows: [ v3RevokeMainRow(wire, 503) ], ordinal: 1,
+            v3Parent: { activation_block: 200, deactivation_block: 250, status: 'valid' }, calls
+        });
+        const data = await db.getActionData(cfg(), 503);
+        expect(data.signing_pubkey).to.equal(PUBKEY_B);
+        expect(String(data.target_contract_index)).to.equal('8');
+        expect(data.tick).to.equal('TOKENB');
+        const parent = calls.find((call) => call.sql.includes('cd.target_contract_index=?'));
+        expect(parent.args).to.deep.equal(['bc1qsource', PUBKEY_B, 8, 'TOKENB', 503]);
+    });
+
+    it('selects the second v2 revoke and returns no target for an out-of-range ordinal', async function() {
+        const wire = 'BATCH|0|DELEGATE|2|' + PUBKEY + ';DELEGATE|2|' + PUBKEY_B;
+        const db = makeDb();
+        db.doQuery = makeDoQuery({ mainRows: [ v2RevokeMainRow(wire, 502) ], ordinal: 1 });
+        expect((await db.getActionData(cfg(), 502)).signing_pubkey).to.equal(PUBKEY_B);
+
+        const missingDb = makeDb();
+        const calls = [];
+        missingDb.doQuery = makeDoQuery({
+            mainRows: [ v2RevokeMainRow(wire, 504) ], ordinal: 2, calls,
+            v2Parent: { activation_block: 100, deactivation_block: 150, status: 'valid' }
+        });
+        const missing = await missingDb.getActionData(cfg(), 504);
+        expect(missing.signing_pubkey).to.equal(null);
+        expect(calls.some((call) => call.sql.includes('FROM delegations d'))).to.equal(false);
     });
 });
 

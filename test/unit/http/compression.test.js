@@ -56,6 +56,16 @@ describe('explorer FILE decompression', function () {
                 assert.strictEqual(compression.isCompressedAction('FILE|0|a|b|c|d|||||' + code), false, code);
         });
 
+        it('trims the gate field the same way as the indexer', function () {
+            for (const gate of [' ', '   ', '\t']) {
+                const action = 'FILE|0|doc.txt|text/plain|Doc|memo|' + gate + '||||1';
+                assert.strictEqual(compression.isGatedAction(action), false, JSON.stringify(gate));
+                assert.strictEqual(compression.isGatedAction('BATCH|0|' + action), false, JSON.stringify(gate));
+            }
+            assert.strictEqual(compression.isGatedAction(
+                'FILE|0|doc.txt|text/plain|Doc|memo| MYTOKEN ||||1'), true);
+        });
+
         it('ignores non-FILE actions and other versions', function () {
             assert.strictEqual(compression.isCompressedAction('SEND|0|X|1|a|b|c|d|e|f|1'), false);
             assert.strictEqual(compression.isCompressedAction('FILE|1|a|b|c|d|||||1'), false);
@@ -164,6 +174,24 @@ describe('explorer FILE decompression', function () {
             assert.ok(r.bytes.equals(ORIGINAL));
             assert.strictEqual(r.storedLength, DEFLATED.length);
             assert.strictEqual(r.originalLength, ORIGINAL.length);
+        });
+
+        it('inflates a compressed FILE whose gate field is whitespace only', async function () {
+            const action = 'FILE|0|doc.txt|text/plain|Doc|memo| ||||1';
+            const r = await compression.resolveServedBytes(DEFLATED, action);
+            assert.strictEqual(r.inflated, true);
+            assert.strictEqual(r.storedForm, false);
+            assert.ok(r.bytes.equals(ORIGINAL));
+        });
+
+        it('fails closed for invalid deflate under a whitespace-only gate', async function () {
+            const plain = Buffer.from('not a deflate stream');
+            const action = 'FILE|0|doc.txt|text/plain|Doc|memo| ||||1';
+            const r = await compression.resolveServedBytes(plain, action);
+            assert.strictEqual(r.inflated, false);
+            assert.strictEqual(r.storedForm, true);
+            assert.strictEqual(r.error, 'INVALID_DEFLATE_STREAM');
+            assert.ok(r.bytes.equals(plain));
         });
 
         it('serves an unmarked FILE untouched (every historical payload)', async function () {

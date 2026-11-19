@@ -42,11 +42,13 @@ const KNOWN_INCOMPATIBLE = {
     'baseline-2026-08-20.json': /Render census property count \(23\) incompatible with current probe \(29\)/,
     // Headless capture in a per-mode shape the builder never writes: no anchors, no probe schema
     'baseline-2026-10-12-classic.json': /Page coin_home\.anchors must have matched\/total form$/,
+    // Probe schema v2 records rendered values for custom-property-only rules
+    'baseline-2026-10-20.json': /Baseline schema version \(1\) incompatible with current probe \(2\)/,
 };
 
-// Why no baseline is usable evidence today; null since baseline-2026-10-20.json, a builder-made
-// testnet capture, validates against the current probe
-const AWAITING_VALID_BASELINE = null;
+// Why no baseline is usable evidence today: baseline-2026-10-20.json, the only builder-made
+// testnet capture, is probe schema v1, and no schema v2 capture has landed yet
+const AWAITING_VALID_BASELINE = 'probe schema v2 awaits a fresh custom-property-rule capture';
 const AWAITING_COVERED_BASELINE = 'no current-probe capture includes component selector coverage';
 
 // List the dated baseline files in the tool directory

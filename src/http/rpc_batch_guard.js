@@ -83,24 +83,42 @@ function makeRpcBatchGuard(maxBatch){
 }
 
 /**
- * Refuse a single call object that lacks jsonrpc "2.0" with a spec envelope.
+ * Refuse call objects that lack jsonrpc "2.0" with a spec envelope.
  *
  * The router's own wrong-version reply omits the jsonrpc member, and a
  * non-JSON POST reaches it as the {} default. Answer here so every refusal
- * carries jsonrpc "2.0". Arrays are left to the batch guard and router.
+ * carries jsonrpc "2.0". In a mixed batch, only valid calls reach the router.
  *
  * @returns {function} Express middleware.
  */
+function versionErrorReply(call){
+    const id = (typeof call.id === 'string' || typeof call.id === 'number') ? call.id : null;
+    return {
+        jsonrpc: '2.0', id,
+        error: { code: -32600, message: 'Invalid Request, wrong version - ' + (typeof call.jsonrpc === 'string' ? call.jsonrpc : 'undefined') }
+    };
+}
+
 function rpcVersionGuard(req, res, next){
     const body = req.body;
-    if(body !== null && typeof body === 'object' && !Array.isArray(body) && body.jsonrpc !== '2.0'){
-        const id = (typeof body.id === 'string' || typeof body.id === 'number') ? body.id : null;
-        return res.status(200).json({
-            jsonrpc: '2.0', id,
-            error: { code: -32600, message: 'Invalid Request, wrong version - ' + (typeof body.jsonrpc === 'string' ? body.jsonrpc : 'undefined') }
-        });
+    if(body !== null && typeof body === 'object' && !Array.isArray(body)){
+        if(body.jsonrpc !== '2.0') return res.status(200).json(versionErrorReply(body));
+        return next();
     }
+    if(!Array.isArray(body)) return next();
+
+    const valid = body.filter((call) => call.jsonrpc === '2.0');
+    if(valid.length === body.length) return next();
+    const invalidReplies = body.filter((call) => call.jsonrpc !== '2.0').map(versionErrorReply);
+    if(valid.length === 0) return res.status(200).json(invalidReplies);
+
+    req.body = valid;
+    const send = res.send.bind(res);
+    res.send = function mergeVersionErrors(reply){
+        res.send = send;
+        return send(Array.isArray(reply) ? reply.concat(invalidReplies) : invalidReplies);
+    };
     next();
 }
 
-module.exports = { resolveMaxBatch, makeRpcBatchGuard, rpcVersionGuard };
+module.exports = { resolveMaxBatch, makeRpcBatchGuard, rpcVersionGuard, versionErrorReply };

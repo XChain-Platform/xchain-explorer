@@ -159,7 +159,9 @@ function resolveTisDataRefs(o){
         o[key].forEach(function(item){
             if(!item)
                 return;
-            var path = (typeof item.data_ref === 'string') ? actionRefToRawPath(item.data_ref) : false;
+            // Match the icon worker and the token-description path: normalize
+            // surrounding whitespace before applying the action-ref grammar.
+            var path = (typeof item.data_ref === 'string') ? actionRefToRawPath(item.data_ref.trim()) : false;
             if(path)
                 item.data = path;
             if(isNull(item.data))

@@ -54,7 +54,8 @@ function mountJsonRpc(app, configInfo, jsonRpcController){
     // that fall through to this root-mounted router get a normal JSON-RPC error
     // response instead of crashing the request.
     app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
-    // Missing or wrong jsonrpc version: answer with a full 2.0 envelope (the router omits the member).
+    // Missing or wrong jsonrpc version: answer each call with a full 2.0 envelope
+    // while valid calls in a mixed batch continue to the router.
     app.use(rpcVersionGuard);
 
     // The federation reads on the controller are public like every other route: the

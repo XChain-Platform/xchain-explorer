@@ -20,6 +20,7 @@ const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
 const content = path.resolve(__dirname, '..', '..', '..', '..', '../../src/content');
+const actionPage = path.join(content, 'html', 'action.html');
 
 function bootSystemAction(){
     const markup = fs.readFileSync(path.join(content, 'html', 'action.html'), 'utf8');
@@ -54,6 +55,39 @@ function text(win, selector){
 }
 
 describe('action page: null system-action origin fields', function(){
+    it('classifies the raw page response before normalizing display values', function(){
+        const win = bootSystemAction();
+        win.setActionInfo(systemAction());
+        win.showTransactionDetails();
+        expect(win.XC.actionInfo.source).to.equal('');
+        expect(text(win, '#action-status')).to.equal('Protocol-generated action');
+        expect(text(win, '#source')).to.equal('Protocol-generated');
+        expect(text(win, '#tx-hash')).to.equal('Not applicable, no source transaction');
+        expect(text(win, '#tx-index')).to.equal('Not applicable, no source transaction');
+        expect(text(win, '#tx-data')).to.equal('Not applicable, no source transaction');
+    });
+
+    it('wires the page loader through the raw-response classifier', function(){
+        const source = fs.readFileSync(actionPage, 'utf8');
+        expect(source).to.include('setActionInfo(o);');
+        expect(source).to.not.include('XC.actionInfo = null2string(o);');
+        expect(source).to.include('XC.actionNoSourceTx = false;');
+    });
+
+    it('clears the raw classification when an ordinary action is loaded next', function(){
+        const win = bootSystemAction();
+        win.setActionInfo(systemAction());
+        const ordinary = Object.assign(systemAction(), {
+            source: 'bc1qsource', status: 'valid', tx_index: '1121',
+            tx_hash: 'abc123', tx_data: 'SEND|0|dest|XCHAIN|1'
+        });
+        win.setActionInfo(ordinary);
+        win.showTransactionDetails();
+        expect(win.XC.actionNoSourceTx).to.equal(false);
+        expect(text(win, '#action-status')).to.equal('valid');
+        expect(text(win, '#tx-data')).to.equal('SEND|0|dest|XCHAIN|1');
+    });
+
     it('replaces all four ambiguous dashes with origin information', function(){
         const win = bootSystemAction();
         win.XC.actionInfo = systemAction();

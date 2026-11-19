@@ -109,8 +109,11 @@ a baseline fails the suite.
 
 Every dated baseline is a record and stays as it is.
 
-- `baseline-2026-10-20.json` is the first builder-made baseline the current
-  probe accepts (`--check` passes), so it arms the baseline guard in
+- `baseline-2026-10-20.json` is a probe schema version 1 record, which the
+  current schema version 2 probe refuses (`Baseline schema version (1)
+  incompatible with current probe (2)`), so no dated baseline is valid
+  evidence until a schema version 2 capture lands and clears
+  `AWAITING_VALID_BASELINE` in
   `test/unit/content/components/theme_parity_baselines.test.js`. It is a real
   capture, not a conversion of an older file: `parity-probe.js` ran in headless
   Playwright Chromium (1280 by 900 viewport, each page given 8 s to settle
@@ -161,8 +164,11 @@ Object.keys(a).filter(k => a[k] !== b[k]).map(k => [k, a[k], b[k]]);
 
 **rule** - every property a rule in `xchain.css` / `xchain-charts.css`, a
 theme's `tokens.css`, or a component's `component.css` declares, read back as
-the computed value on the first element that rule matches. Derived from the
-stylesheet at runtime, so it cannot fall behind the CSS.
+the computed value on the first element that rule matches. A matched non-theme
+rule that declares only custom properties records the rendered census values
+on that element. Theme token-only rules contribute selector coverage but no
+duplicate snapshot keys. Derived from the stylesheet at runtime, so it cannot
+fall behind the CSS.
 
 Because it reads computed values, the rule layer follows mode wherever one of
 those values does: a declared value that resolves through a token the theme's
@@ -265,6 +271,11 @@ When measured on 2026-08-20, across the six pages captured then, only
 whole `.xc-chart*` family, the external-explorer glyphs, the `#transaction`
 detail table, and the row colours `xchain.js` applies only to non-valid or
 negative rows.
+
+Rules that declare only custom properties are included in selector coverage.
+When such a non-theme rule matches, the rule layer also records its rendered
+census properties. This keeps component variable bindings visible even when a
+generic render anchor matches an earlier element.
 
 That measurement is dated, and it is not a statement of current coverage:
 

@@ -273,6 +273,32 @@ describe('Database#getStatus decoder REORG_HALT reporting', () => {
         for (const row of rows) expect(row).to.deep.equal({ health: 'reorg-halt-parked', tip: 900500, lag: 40 });
     });
 
+    it('reports an unverified halt state until the first marker read succeeds', async () => {
+        const rows = await statusFor({ status: 'healthy', chainTipBlock: 900500, blockLag: 7,
+            reorg_halted: false, reorg_halt_parked: false, reorg_halt_checked_at: null });
+        for (const row of rows)
+            expect(row).to.deep.equal({ health: 'reorg-halt-unverified', tip: 900500, lag: 7 });
+    });
+
+    it('keeps healthy after a successful marker read', async () => {
+        const rows = await statusFor({ status: 'healthy', chainTipBlock: 900500, blockLag: 7,
+            reorg_halted: false, reorg_halt_parked: false, reorg_halt_checked_at: 1763580000000 });
+        for (const row of rows) expect(row.health).to.equal('healthy');
+    });
+
+    it('keeps a non-healthy status when the marker read is unverified', async () => {
+        const rows = await statusFor({ status: 'unhealthy', chainTipBlock: 900500, blockLag: 7,
+            reorg_halted: false, reorg_halt_parked: false, reorg_halt_checked_at: null });
+        for (const row of rows) expect(row.health).to.equal('unhealthy');
+    });
+
+    it('ranks a parked halt above an unverified marker read', async () => {
+        const rows = await statusFor({ status: 'healthy', chainTipBlock: 900500, blockLag: 40,
+            reorg_halted: true, reorg_halt_parked: true, reorg_halt_checked_at: null });
+        for (const row of rows)
+            expect(row).to.deep.equal({ health: 'reorg-halt-parked', tip: 900500, lag: 40 });
+    });
+
     it('ranks the halt above node-stale and still nulls the frozen tip fields', async () => {
         const rows = await statusFor({ status: 'healthy', chainTipBlock: 900500, blockLag: 0,
             node_height_stale: true, reorg_halted: true, reorg_halt_parked: false });

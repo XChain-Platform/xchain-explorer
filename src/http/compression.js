@@ -114,13 +114,14 @@ function isCompressedAction(actionString) {
 }
 
 // Is this FILE token-gated? Gated bytes are ciphertext and are never inflated
-// here (the client inflates after decrypting).
+// here (the client inflates after decrypting). Trim the field to match the
+// indexer's action-field normalization before deciding whether it is populated.
 function isGatedAction(actionString) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
     const parts = extractFileSubcommand(actionString).split('|');
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
     const index = fileFieldIndex(parts[1], GATE_TICKER_FIELD_INDEX, MANIFEST_GATE_TICKER_FIELD_INDEX);
-    return index >= 0 && parts.length > index && String(parts[index]).length > 0;
+    return index >= 0 && parts.length > index && String(parts[index]).trim().length > 0;
 }
 
 // The stored-form answer: the input served exactly as stored, with the reason

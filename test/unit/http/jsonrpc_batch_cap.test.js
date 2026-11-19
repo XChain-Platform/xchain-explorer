@@ -151,6 +151,49 @@ describe('JSON-RPC envelope conformance', function () {
         assert.strictEqual(b.id, 5);
     });
 
+    it('rejects missing and wrong versions inside batches without dispatching them', async () => {
+        for (const call of [{ id: 5, method: 'ping' }, { jsonrpc: '1.0', id: 'a', method: 'ping' }]) {
+            const counter = { calls: 0 };
+            const b = JSON.parse((await post(buildApp(true, counter), [call])).text);
+            assert.strictEqual(b.length, 1);
+            assert.strictEqual(b[0].jsonrpc, '2.0');
+            assert.strictEqual(b[0].error.code, -32600);
+            assert.strictEqual(b[0].id, call.id);
+            assert.strictEqual(counter.calls, 0);
+        }
+    });
+
+    it('keeps id zero on an invalid-version batch element', async () => {
+        const b = JSON.parse((await post(buildApp(true, { calls: 0 }), [{ id: 0, method: 'ping' }])).text);
+        assert.strictEqual(b[0].id, 0);
+    });
+
+    it('dispatches only valid calls in a mixed-version batch', async () => {
+        const counter = { calls: 0 };
+        const calls = [
+            { jsonrpc: '2.0', id: 1, method: 'ping' },
+            { id: 2, method: 'ping' },
+            { jsonrpc: '1.0', id: 3, method: 'ping' }
+        ];
+        const b = JSON.parse((await post(buildApp(true, counter), calls)).text);
+        assert.strictEqual(counter.calls, 1);
+        assert.strictEqual(b.length, 3);
+        assert.ok(b.every((reply) => reply.jsonrpc === '2.0'));
+        assert.strictEqual(b.find((reply) => reply.id === 1).result, 'pong');
+        assert.strictEqual(b.find((reply) => reply.id === 2).error.code, -32600);
+        assert.strictEqual(b.find((reply) => reply.id === 3).error.code, -32600);
+    });
+
+    it('returns only the invalid reply when the valid batch item is a notification', async () => {
+        const counter = { calls: 0 };
+        const calls = [{ jsonrpc: '2.0', method: 'ping' }, { id: 9, method: 'ping' }];
+        const b = JSON.parse((await post(buildApp(true, counter), calls)).text);
+        assert.strictEqual(counter.calls, 1);
+        assert.strictEqual(b.length, 1);
+        assert.strictEqual(b[0].id, 9);
+        assert.strictEqual(b[0].error.code, -32600);
+    });
+
     it('carries jsonrpc 2.0 on a text/plain POST', async () => {
         const r = await post(buildApp(true, { calls: 0 }), '{"id":1}', 'text/plain');
         const b = JSON.parse(r.text);

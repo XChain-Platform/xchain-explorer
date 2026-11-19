@@ -85,6 +85,21 @@ describe('WebSocketServer#_handleSubscribe (ws-2: snapshot amplification)', func
         expect(snap.secondCall.args[1][0].address).to.equal('addr3');
     });
 
+    it('rejects a string snapshot flag without subscribing or starting a snapshot', function () {
+        const s = makeServer();
+        const snap = sinon.stub(s, 'sendSnapshots').resolves();
+        const client = { ...makeClient('BTC'), ws: { readyState: 1, send: sinon.spy() } };
+
+        s.handleSubscribe(client, { channels: ['blocks'], params: { snapshot: 'false' }, id: 'bad-snapshot' });
+
+        const frames = client.ws.send.getCalls().map((c) => JSON.parse(c.args[0]));
+        const error = frames.find((frame) => frame.type === 'error');
+        expect(error).to.include({ type: 'error', id: 'bad-snapshot' });
+        expect(error.data).to.deep.equal({ code: 'INVALID_PARAMS', message: 'snapshot must be a boolean' });
+        expect(client.subscriptions.size).to.equal(0);
+        expect(snap.callCount).to.equal(0);
+    });
+
     it('SUBSCRIBED active_filters does not echo a statuses filter (honesty contract)', function () {
         // api-contracts finding: the actions feed cannot honor a status filter,
         // so confirming one back in SUBSCRIBED would let a client rely on a no-op.

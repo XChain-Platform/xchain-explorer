@@ -100,7 +100,8 @@ historical record, but it cannot be supplied as evidence for the current
 baseline's pages pass, a missing `probe`, or the bare script path the
 2026-08-20 file carries in its place, is refused with `Baseline probe schema
 must be an object`, and a schema whose census hashes differ from the current
-probe is refused too. `test/unit/content/components/theme_parity_baselines.test.js`
+probe is refused too. Every page's per-mode rule and render hashes must be 8
+digit lowercase hex strings. `test/unit/content/components/theme_parity_baselines.test.js`
 runs this check on every `baseline-*.json` here, so a probe change that strands
 a baseline fails the suite.
 
@@ -228,17 +229,11 @@ The grid track templates (`grid-template-columns`, `grid-template-rows`) are
 layout-derived keys too: on a grid container the computed value is the used
 track list in pixels, which follows the viewport and the cell content.
 
-**Declared-path keys are joined** (2026-11-18) when several admitted sheets declare the same
-selector and property. State-rule keys and layout-derived keys store declared
-text under `selector | property`, so a theme restating a base selector, or the
-same selector repeated inside an `@media` group, lands on one key. The probe
-keeps every declaration, joined with ` || ` in walk order, and models neither
-the cascade nor which query matches the capture viewport, so an edit to any one
-of them moves the rule hash. A page with such a collision (the console theme's
-`.footer | width` and `.xc-console-stats | grid-template-columns`) has a rule
-hash that differs from captures taken before this probe revision, so compare it
-only with captures taken after it. The classic sheets declare no colliding key,
-so this revision does not move the rule hashes of the dated classic baselines.
+**Declared-path keys are joined** (2026-11-18) when several admitted sheets
+declare the same selector and property in the same condition scope. State-rule
+keys and layout-derived keys store declared text under `selector | property`.
+The probe keeps every declaration, joined with ` || ` in walk order, so an edit
+to any declaration moves the rule hash.
 
 **Declared shorthand recovery** (2026-11-18) keeps layout and state keys visible
 when CSSOM expands a `var()` shorthand into longhands that serialize as empty.
@@ -247,6 +242,14 @@ name. If neither the longhand nor a candidate shorthand has text, the capture is
 refused. Rule hashes move on pages matching the affected margin and state rules,
 including console navigation and data-table states, so captures from before and
 after this revision are not comparable on those pages.
+
+**Conditional rule keys** (2026-11-19) carry the enclosing `@media`,
+`@supports`, and `@container` conditions. A breakpoint-only edit therefore
+moves the rule hash, and base declarations no longer share a key with their
+conditional overrides. The probe still does not model the cascade or which
+condition matches the capture viewport. Among the admitted sheets, conditional
+groups occur in the console theme, so compare its rule hashes only with captures
+taken after this revision. The classic theme sheets have no conditional groups.
 
 Both layers are needed. The rule layer sees mode only through the few rules
 whose declared values follow it, and only on pages that render them, so a

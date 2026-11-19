@@ -64,6 +64,13 @@ Keep it that way: the API trusts one proxy hop, so a port reachable from
 anywhere else would let a caller forge `X-Forwarded-For` past the per-IP
 limits.
 
+Icon fetching and `/relay` connect to their targets directly and ignore
+`HTTP_PROXY` and `HTTPS_PROXY` (the SSRF guard checks the address the socket
+connects to, which a forward proxy would hide). A host that can only reach the
+internet through a proxy sees those fetches fail, and the log carries one
+`[ssrf_guard] ... ignored` line naming the variable; check each host's
+`systemctl show <unit> -p Environment` and drop-ins for one before rolling.
+
 A deployment will also have drop-ins of its own under the unit's
 `.service.d/` directory holding per-coin upstream endpoints. That wiring is
 specific to wherever those services run, so it is not reproduced here, and

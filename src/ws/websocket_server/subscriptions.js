@@ -261,7 +261,7 @@ class WebSocketSubscriptions {
 
         this.log('subscribe', client.id, { channels: channels.join(','), count: result.subscribed.length });
 
-        if (params.snapshot) requestSnapshots(this, client, result, prevKeys, msg);
+        if (result.filter.snapshot) requestSnapshots(this, client, result, prevKeys, msg);
 
         // Handle catch-up requests
         if (params.since_action_index !== undefined && params.since_action_index !== null) {

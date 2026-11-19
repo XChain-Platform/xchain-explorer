@@ -43,6 +43,17 @@ const CROSS_SETTLE = {
     },
 };
 
+async function attachXcallLifecycle(db, config, data) {
+    try { data['params'] = db.util.isNull(data['params_json']) ? null : JSON.parse(data['params_json']); }
+    catch(_) { data['params'] = data['params_json']; }
+    try { data['callback_params'] = db.util.isNull(data['callback_params_json']) ? null : JSON.parse(data['callback_params_json']); }
+    catch(_) { data['callback_params'] = data['callback_params_json']; }
+    let exec = await db.doQuery(config, XCALL_EXECUTION, [data['call_id']]);
+    data['execution'] = (exec && exec.length) ? exec[0] : null;
+    let cb = await db.doQuery(config, XCALL_CALLBACK, [data['call_id']]);
+    data['callback_delivery'] = (cb && cb.length) ? cb[0] : null;
+}
+
 const XCALL = {
     effects: { credits: false, debits: false, escrows: false },
     // XCALL action (cross-chain call request v0 / expire v2). VM-emitted; the
@@ -59,18 +70,11 @@ const XCALL = {
     // call is relayed/executed/delivered). Mirrors getXcall's lifecycle assembly.
     async afterMain({ db, config, action_index }, data) {
         if(data['call_id']) {
-            try { data['params'] = db.util.isNull(data['params_json']) ? null : JSON.parse(data['params_json']); }
-            catch(_) { data['params'] = data['params_json']; }
-            try { data['callback_params'] = db.util.isNull(data['callback_params_json']) ? null : JSON.parse(data['callback_params_json']); }
-            catch(_) { data['callback_params'] = data['callback_params_json']; }
-            let exec = await db.doQuery(config, XCALL_EXECUTION, [data['call_id']]);
-            data['execution'] = (exec && exec.length) ? exec[0] : null;
-            let cb = await db.doQuery(config, XCALL_CALLBACK, [data['call_id']]);
-            data['callback_delivery'] = (cb && cb.length) ? cb[0] : null;
+            await attachXcallLifecycle(db, config, data);
         }
         // XCALL v1 (result-delivery marker): the indexer mints this action with
-        // NO xcalls row (versions 0=request/2=expire live in xcalls; v1's data
-        // lives only in cross_chain_call_callbacks), so the XCALL branch returned
+        // NO xcalls row (v2 also has no row; v1's data lives only in
+        // cross_chain_call_callbacks), so the XCALL branch returned
         // nothing and the de-blank fallback populated baseline fields with a NULL
         // call_id. Resolve the delivered result by this action's own action_index
         // and tag it version 1 so the client renders a 'Result delivery (v1)'
@@ -88,6 +92,17 @@ const XCALL = {
                 // Link the callback EXECUTE this delivery injected; null when none was injected.
                 let req = await db.doQuery(config, XCALL_CALLBACK_ACTION, [cbv1[0].call_id]);
                 data['callback_action_index'] = (req && req.length) ? req[0].callback_action_index : null;
+            }
+        }
+        if(db.util.isNull(data['call_id']) && Number(data['action_format']) === 2) {
+            data['version'] = 2;
+            let request = await db.resolveXcallExpireRequest(config, action_index, data['block_index']);
+            if(request){
+                const requestIndex = request.action_index;
+                for(const [key, value] of Object.entries(request)) if(key !== 'action_index') data[key] = value;
+                data['version'] = 2;
+                data['request_action_index'] = requestIndex;
+                await attachXcallLifecycle(db, config, data);
             }
         }
     },

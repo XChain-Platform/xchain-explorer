@@ -256,6 +256,21 @@ describe('ChannelManager', function () {
             expect(subs[0].filters.once).to.be.true;
         });
 
+        it('rejects non-boolean once and snapshot flags', function () {
+            for (const name of ['once', 'snapshot']) {
+                for (const bad of ['false', 'true', 0, 1, {}, []]) {
+                    const client = createClient(1);
+                    const result = cm.subscribe(client, ['blocks'], { [name]: bad });
+                    expect(result.success, name + '=' + JSON.stringify(bad) + ' must be rejected').to.be.false;
+                    expect(result.error.code).to.equal('INVALID_PARAMS');
+                    expect(cm.listSubscriptions(client)).to.deep.equal([]);
+                }
+            }
+            expect(cm.subscribe(createClient(1), ['blocks'], { once: false }).filter.once).to.equal(false);
+            expect(cm.subscribe(createClient(1), ['blocks'], { snapshot: true }).filter.snapshot).to.equal(true);
+            expect(cm.subscribe(createClient(1), ['blocks'], { once: null }).filter.once).to.equal(false);
+        });
+
         it('rejects invalid types', function () {
             const client = createClient(1);
             const result = cm.subscribe(client, ['actions'], { types: ['INVALID_TYPE'] });

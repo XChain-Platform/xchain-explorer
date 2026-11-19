@@ -928,6 +928,10 @@
                     "cell": "xcall-call-id"
                 },
                 {
+                    "label": "Request Action",
+                    "cell": "xcall-request-action"
+                },
+                {
                     "label": "Version",
                     "cell": "xcall-version"
                 },

@@ -21,15 +21,13 @@
  * from where it stopped; one refused with RATE_LIMITED is sent again; one
  * refused otherwise or unanswered dispatches `resync_required` so the page can
  * reload over REST. A completed replay whose CATCH_UP_COMPLETE lists
- * `not_replayed` types dispatches `not_replayed` with them. A blocks
- * subscription goes through the same queue, so its COMPLETE names NEW_BLOCK,
- * which no replay carries.
+ * `not_replayed` types dispatches `not_replayed` with them; a blocks
+ * subscription shares the queue, so its COMPLETE names NEW_BLOCK.
  *
- * It also holds what that resubscribe leans on: the cursor tracking every
- * frame passes through (a REORG frame moves the cursor back below the
- * rollback), and the outbound pacing that keeps every send, a long
- * resubscribe included, under the server's per-connection message rate, with
- * a plain subscribe the server drops with RATE_LIMITED sent again.
+ * It also holds the cursor tracking every frame passes through (a REORG frame
+ * moves the cursor back below the rollback) and the outbound pacing that keeps
+ * every send under the server's per-connection message rate, with a plain
+ * subscribe the server drops with RATE_LIMITED sent again.
  *
  ********************************************************************/
 
@@ -43,15 +41,13 @@ function xcWsTrackCursor(client, msg) {
         return;
     }
     // A rollback voids every row at or above first_invalid_action_index: the cursor
-    // drops below it, so the replacement rows that follow move it forward again and a
-    // reconnect before they arrive replays them.
+    // drops below it, so a reconnect before the replacements arrive replays them.
     if (msg.type === 'REORG') {
         client._rewindCursor(msg.data.first_invalid_action_index);
         return;
     }
-    // Only NEW_ACTION and CATCH_UP_COMPLETE report a delivered action row. Other frames
-    // reuse action_index for an entity id (a dispenser, a bet feed), and moving the
-    // cursor to one would make the next reconnect skip rows this client never received.
+    // Only NEW_ACTION and CATCH_UP_COMPLETE report a delivered action row; other frames
+    // reuse action_index for an entity id, and moving the cursor to one skips rows.
     var raw;
     if (msg.type === 'NEW_ACTION') raw = msg.data.action_index;
     else if (msg.type === 'CATCH_UP_COMPLETE') raw = msg.data.latest_action_index;
@@ -63,8 +59,8 @@ function xcWsTrackCursor(client, msg) {
     client._advanceCursor(raw);
 }
 
-// The larger of two action indexes, compared as BigInt and kept as the wire's decimal
-// string. A value that is not a non-negative integer literal is ignored (null included).
+// The larger of two action indexes, compared as BigInt and kept as a decimal string;
+// a value that is not a non-negative integer literal is ignored.
 function xcWsMaxIndex(current, raw) {
     if (raw === null || raw === undefined) return current;
     var val = String(raw);
@@ -72,8 +68,7 @@ function xcWsMaxIndex(current, raw) {
     return (current === null || BigInt(val) > BigInt(current)) ? val : current;
 }
 
-// Only the actions and address channels ever carry NEW_ACTION, so only a subscription
-// naming one of them has anything for a catch-up to replay.
+// Only a subscription naming the actions or address channel has NEW_ACTION to replay.
 function xcWsCarriesActions(channels) {
     if (!Array.isArray(channels)) return false;
     for (var i = 0; i < channels.length; i++) {
@@ -83,14 +78,13 @@ function xcWsCarriesActions(channels) {
 }
 
 // A subscription the reconnect sends with since_action_index: one that can carry
-// NEW_ACTION (replayed), or one naming blocks, whose COMPLETE tells the page that the
-// NEW_BLOCK frames it missed are not replayed.
+// NEW_ACTION, or one naming blocks, whose COMPLETE reports NEW_BLOCK as not replayed.
 function xcWsNeedsCatchUp(channels) {
     return xcWsCarriesActions(channels) || (Array.isArray(channels) && channels.indexOf('blocks') !== -1);
 }
 
 // The cursor just below a rollback's first invalidated index, or `current` when that
-// is already lower (or either side is not an index). Kept as the wire's decimal string.
+// is already lower or either side is not an index.
 function xcWsBelowIndex(current, firstInvalid) {
     if (current === null || firstInvalid === null || firstInvalid === undefined) return current;
     var val = String(firstInvalid);
@@ -99,18 +93,27 @@ function xcWsBelowIndex(current, firstInvalid) {
     return (BigInt(current) > below) ? String(below) : current;
 }
 
+// The id an address is compared by: the server keys a recognized bech32 address in
+// lowercase, and bech32 allows one case per address.
+function xcWsAddressId(address) {
+    var s = String(address);
+    return /^[a-z0-9]+1[ac-hj-np-z02-9]{6,}$/i.test(s) && (s === s.toLowerCase() || s === s.toUpperCase()) ? s.toLowerCase() : s;
+}
+
 // The server keys of one channel in a request, each with the params naming just it.
 function xcWsKeysOf(channel, p) {
     var names = XC_WS_ENTITY_NAMES[channel], list;
-    if (channel === 'market') list = Array.isArray(p.pairs) ? p.pairs : [[p.tick1, p.tick2]];
+    if (channel === 'market') list = Array.isArray(p.pairs) ? p.pairs :
+        (p.tick1 !== undefined && p.tick2 !== undefined ? [[p.tick1, p.tick2]] : []);
     else if (!names) return [{ id: '', set: {} }];
-    else if (names[2]) list = p[names[0]] ? [p[names[0]]] : (p[names[1]] || []);
-    else list = Array.isArray(p[names[1]]) ? p[names[1]] : [p[names[0]]];
+    else if (names[2]) list = p[names[0]] !== undefined ? [p[names[0]]] : (p[names[1]] || []);
+    else list = Array.isArray(p[names[1]]) ? p[names[1]] : (p[names[0]] !== undefined ? [p[names[0]]] : []);
     return list.map(function(v) {
         var set = {};
         if (channel === 'market') { set.tick1 = v[0]; set.tick2 = v[1]; } else set[names[0]] = v;
         var id = channel === 'market' ? v[0] + '|' + v[1] : String(v);
-        return { id: channel === 'xcall' ? id.toLowerCase() : id, set: set };
+        if (channel === 'xcall') id = id.toLowerCase(); else if (channel === 'address') id = xcWsAddressId(id);
+        return { id: id, set: set };
     });
 }
 
@@ -135,21 +138,17 @@ Object.assign(XChainWS, {
     _catchUpSeq:      0,
     catchUpTimeoutMs: 30000,
     catchUpMaxRounds: 20,
-    // How many times one catch-up request refused with RATE_LIMITED or
-    // CATCH_UP_NOT_READY is sent again.
+    // Resends of one catch-up request refused with RATE_LIMITED or CATCH_UP_NOT_READY.
     catchUpRateRetries: 5,
 
-    // Resubscribe to all tracked subscriptions (after reconnect). With a cursor to resume
-    // from, each subscription that can carry NEW_ACTION replays from it ONE AT A TIME,
-    // since the server runs one catch-up per client and refuses an overlapping one.
+    // Resubscribe from the saved cursor, one replay at a time.
     _resubscribe: function() {
         if (this.subscriptions.length === 0) {
             this._autoSubscribe();
             return;
         }
-        // Same gate as before the cursor became a string: a chain still at index 0
-        // gets no since_action_index.
-        var cursor = (this.lastActionIndex !== null && BigInt(this.lastActionIndex) > 0n) ? this.lastActionIndex : null;
+        // Zero is a real position; only a never-seeded null cursor omits replay.
+        var cursor = this.lastActionIndex !== null ? this.lastActionIndex : null;
         var queue  = [];
         var live   = [];
         for (var j = 0; j < this.subscriptions.length; j++) live.push.apply(live, this._liveRequests(this.subscriptions[j]));
@@ -159,8 +158,7 @@ Object.assign(XChainWS, {
                 queue.push(sub);
                 continue;
             }
-            // Paced by _send and retried on RATE_LIMITED (xchain_ws.js), so a long
-            // subscription list cannot outrun the server's message rate.
+            // Paced by _send and retried on RATE_LIMITED.
             this._sendSubscribe(sub.channels, Object.assign({}, sub.params), 0, sub.owner);
         }
         if (queue.length > 0) {
@@ -285,23 +283,26 @@ Object.assign(XChainWS, {
         this._send(msg);
     },
 
-    // Send a rate-limited subscribe again under a fresh id, after one drain interval.
-    // A subscription untracked meanwhile is not revived.
+    // Retry only the keys the owning tracked subscription still holds.
     _retrySubscribe: function(pending) {
         if (pending.attempt >= this.subscribeRetries) return;
-        var tracked = false;
+        var owner = null;
         for (var i = 0; i < this.subscriptions.length; i++) {
-            if (this.subscriptions[i].channels === pending.channels || this.subscriptions[i] === pending.owner) tracked = true;
+            if (this.subscriptions[i].channels === pending.channels || this.subscriptions[i] === pending.owner)
+                owner = this.subscriptions[i];
         }
-        if (!tracked) return;
+        if (!owner) return;
         var self = this;
         setTimeout(function() {
-            self._sendSubscribe(pending.channels, pending.params, pending.attempt + 1, pending.owner);
+            if (self.subscriptions.indexOf(owner) === -1) return;
+            var request = { channels: pending.channels, params: pending.params, spent: owner.spent, removed: owner.removed };
+            var live = self._liveRequests(request);
+            for (var i = 0; i < live.length; i++)
+                self._sendSubscribe(live[i].channels, live[i].params, pending.attempt + 1, owner);
         }, Math.ceil(1000 / this._messageRate()));
     },
 
-    // Remember a once subscription the server spent (an UNSUBSCRIBED with reason once, from a
-    // live frame or a replay), so a reconnect does not arm it again.
+    // Remember a once subscription the server spent, so a reconnect does not arm it again.
     _noteOnceSpent: function(data) {
         var key = xcWsFrameKey(data);
         for (var i = 0; i < this.subscriptions.length; i++) {
@@ -310,16 +311,15 @@ Object.assign(XChainWS, {
         }
     },
 
-    // The requests a reconnect sends for one tracked subscription: itself, or one per key
-    // it still holds once some were spent. The tracked entry stays, so a list whose
-    // subscriptions are all spent is not mistaken for a page that never subscribed.
+    // Return one request per key after any once-spent or removed keys are excluded.
     _liveRequests: function(sub) {
-        if (!sub.spent) return [sub];
+        if (!sub.spent && !sub.removed) return [sub];
         var out = [];
         for (var c = 0; c < sub.channels.length; c++) {
             var keys = xcWsKeysOf(sub.channels[c], sub.params);
             for (var k = 0; k < keys.length; k++) {
-                if (sub.spent[sub.channels[c] + ':' + keys[k].id]) continue;
+                var key = sub.channels[c] + ':' + keys[k].id;
+                if ((sub.spent && sub.spent[key]) || (sub.removed && sub.removed[key])) continue;
                 var params = {};
                 for (var name in sub.params) if (XC_WS_ENTITY_PARAMS.indexOf(name) === -1) params[name] = sub.params[name];
                 out.push({ channels: [sub.channels[c]], params: Object.assign(params, keys[k].set), owner: sub });

@@ -151,6 +151,9 @@ describe('Security: SSRF: IconDownloader fetch guard', function () {
         await dl.httpFetch('https://example.com/icon.png');
         const opts = axiosStub.get.firstCall.args[1];
         expect(opts.lookup, 'IconDownloader fetch must set a lookup guard').to.be.a('function');
+        expect(opts.proxy).to.equal(false);
+        expect(opts.httpAgent).to.not.equal(require('http').globalAgent);
+        expect(opts.httpsAgent).to.not.equal(require('https').globalAgent);
     });
 
     it('the wired lookup rejects a private resolution (RELAY_DENIED)', function (done) {

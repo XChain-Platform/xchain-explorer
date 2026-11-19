@@ -206,7 +206,8 @@ class RelayEgress {
         // DNS record points at a private address (or rebinds) would sail past it.
         // ssrfSafeLookup validates the address axios actually connects to, closing
         // the TOCTOU window between a separate re-resolution check and the connection.
-        const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
+        const opts = { ...ssrfGuard.directEgressOptions(),
+                       timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
                        lookup: this.ssrfSafeLookup.bind(this) };
 
         // JSON files and the exact extensionless gateway forms the token page emits.

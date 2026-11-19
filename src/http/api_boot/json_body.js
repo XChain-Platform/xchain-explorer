@@ -30,12 +30,21 @@
 
 const express = require('express');
 
-// The failure types body-parser stamps on its errors; any other error keeps the default handler.
+// The failure types body-parser stamps on its errors; decompressor stream
+// failures are untyped and are recognized separately below.
 const BODY_ERROR_TYPES = new Set([
     'entity.parse.failed', 'entity.too.large', 'entity.verify.failed',
     'encoding.unsupported', 'charset.unsupported', 'request.aborted',
     'request.size.invalid', 'stream.encoding.set', 'stream.not.readable'
 ]);
+
+function isBodyDecodeError(err){
+    const status = Number(err && (err.status || err.statusCode));
+    const code = String(err && err.code || '');
+    return status === 400 && err.type === undefined &&
+        typeof err.errno === 'number' &&
+        (/^Z_[A-Z_]+$/.test(code) || /^ERR__ERROR_FORMAT_[A-Z0-9_]+$/.test(code));
+}
 
 // The one global ceiling, built once: applyJsonBody mounts it for every route and
 // rate_limits.js mounts the same instance ahead of the concurrency gate, so the
@@ -59,7 +68,8 @@ function isJsonRpcPath(reqPath){
 }
 
 /**
- * Answer a body-parser failure, or a malformed-path URIError, in the registered shape.
+ * Answer a body-parser or body-decompression failure, or a malformed-path
+ * URIError, in the registered shape.
  *
  * @param {object} err the error body-parser passed to next()
  * @param {object} req the request
@@ -74,7 +84,8 @@ function sendBodyError(err, req, res){
         return true;
     }
     const status = Number(err && (err.status || err.statusCode));
-    if(!(status >= 400 && status < 500) || !BODY_ERROR_TYPES.has(err.type)) return false;
+    if(!(status >= 400 && status < 500) ||
+        (!BODY_ERROR_TYPES.has(err.type) && !isBodyDecodeError(err))) return false;
 
     const tooLarge = err.type === 'entity.too.large';
     if(isJsonRpcPath(req.path)){
@@ -130,4 +141,5 @@ function applyBodyErrorHandler(app){
     });
 }
 
-module.exports = { applyJsonBody, applyBodyErrorHandler, sendBodyError, isJsonRpcPath, globalJsonBody };
+module.exports = { applyJsonBody, applyBodyErrorHandler, sendBodyError, isJsonRpcPath,
+    isBodyDecodeError, globalJsonBody };

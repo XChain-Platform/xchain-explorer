@@ -28,6 +28,14 @@ function action(actionIndex, blockIndex) {
     return { action_index: actionIndex, block_index: blockIndex };
 }
 
+function blocksWithFirstActions(blocks, rows) {
+    return blocks.map((b) => {
+        const indexes = rows.filter((a) => Number(a.block_index) === Number(b.block_index)).map((a) => BigInt(a.action_index));
+        const first = indexes.length ? indexes.reduce((low, index) => index < low ? index : low) : null;
+        return Object.assign({}, b, { first_action_index: first });
+    });
+}
+
 function makeDetector(chain, actions) {
     const detector = Object.create(coinPass);
     detector.fetchLimit = 100;
@@ -45,8 +53,8 @@ function makeDetector(chain, actions) {
         checkReorgAndInvalidate: async () => detector.reorged,
         getMaxBlockIndex: async () => chain.blocks[chain.blocks.length - 1].block_index,
         getMaxActionIndex: async () => BigInt(actions.rows[actions.rows.length - 1].action_index),
-        getBlocksSince: async (config, since, limit) =>
-            chain.blocks.filter((b) => b.block_index > since).slice(0, limit),
+        getBlocksSince: async (config, since, limit) => blocksWithFirstActions(
+            chain.blocks.filter((b) => b.block_index > since).slice(0, limit), actions.rows),
         getActionsSince: async (config, since, limit) =>
             actions.rows.filter((a) => BigInt(a.action_index) > BigInt(since)).slice(0, limit)
     };
@@ -183,5 +191,76 @@ describe('change detector reorg retry after a failed read', function () {
         expect(state.closedBlock).to.be.at.most(10);
         expect(state.xcallBlock).to.be.at.most(10);
         expect(state.pendingReorg).to.equal(false);
+    });
+});
+
+describe('change detector startup history integrity', function () {
+    it('rewinds seeded actions when the chain grows during the history read', async function () {
+        const chain = { blocks: [block(10, 'a', 1)] };
+        const actions = { rows: [action(10n, 10)] };
+        const detector = makeDetector(chain, actions);
+        const readBlocks = detector.db.getBlocksSince;
+        let grew = false;
+        detector.db.getBlocksSince = async (...args) => {
+            if (!grew) {
+                grew = true;
+                chain.blocks.push(block(11, 'b', 1));
+                actions.rows.push(action(11n, 11));
+            }
+            return readBlocks(...args);
+        };
+
+        await detector.checkCoin('BTC');
+        await detector.checkCoin('BTC');
+        detector.emit.resetHistory();
+        chain.blocks = [block(10, 'a2', 1), block(11, 'b2', 1)];
+        detector.reorged = true;
+        await detector.checkCoin('BTC');
+
+        const rollback = detector.emit.getCalls().find((c) => c.args[0] === 'reorg');
+        expect(rollback.args[2].first_invalid_action_index).to.equal('10');
+        expect(emitted(detector).actions).to.deep.equal([10n, 11n]);
+    });
+
+    it('retries a history seed that failed before recording first actions', async function () {
+        const chain = { blocks: [block(10, 'a', 1)] };
+        const actions = { rows: [action(10n, 10)] };
+        const detector = makeDetector(chain, actions);
+        failOnce(detector.db, 'getBlocksSince');
+
+        await detector.checkCoin('BTC').then(() => { throw new Error('expected a rejection'); }, () => {});
+        expect(detector.state.BTC.initialized).to.not.equal(true);
+        await detector.checkCoin('BTC');
+        expect(detector.state.BTC.initialized).to.equal(true);
+        expect(detector.state.BTC.history.get(10).firstAction).to.equal(10n);
+
+        detector.emit.resetHistory();
+        chain.blocks = [block(10, 'a2', 1)];
+        detector.reorged = true;
+        await detector.checkCoin('BTC');
+        expect(emitted(detector).actions).to.deep.equal([10n]);
+    });
+
+    it('seeds on the replacement chain when a reorg lands between a failed seed and its retry', async function () {
+        const chain = { blocks: [block(10, 'a', 1)] };
+        const actions = { rows: [action(10n, 10)] };
+        const detector = makeDetector(chain, actions);
+        failOnce(detector.db, 'getBlocksSince');
+
+        await detector.checkCoin('BTC').then(() => { throw new Error('expected a rejection'); }, () => {});
+        chain.blocks = [block(10, 'a2', 1)];
+        detector.reorged = true;
+        await detector.checkCoin('BTC');
+
+        const state = detector.state.BTC;
+        expect(state.initialized).to.equal(true);
+        expect(state.pendingReorg).to.equal(false);
+        expect(state.history.get(10)).to.deep.equal({ hash: 'a2', firstAction: 10n });
+        expect(emitted(detector)).to.deep.equal({ blocks: [], actions: [] });
+
+        detector.emit.resetHistory();
+        chain.blocks = [block(10, 'a3', 1)];
+        await detector.checkCoin('BTC');
+        expect(emitted(detector).actions).to.deep.equal([10n]);
     });
 });

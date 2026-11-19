@@ -72,6 +72,24 @@ describe('explorer FILE decompression', function () {
             assert.strictEqual(compression.isGatedAction(GATED_COMPRESSED), true);
             assert.strictEqual(compression.isGatedAction(PUBLIC_COMPRESSED), false);
         });
+
+        it('normalizes FILE versions the same way as the indexer', function () {
+            for (const value of ['', undefined, '0', '00', ' 0', '0.0', '"0"', "'0'"])
+                assert.strictEqual(compression.fileFormatVersion(value), 0, String(value));
+            for (const value of ['1', '01', '"1"', ' 1 '])
+                assert.strictEqual(compression.fileFormatVersion(value), 1, String(value));
+            for (const value of ['0.5', 'abc', '256', '1x'])
+                assert.strictEqual(compression.fileFormatVersion(value), null, String(value));
+        });
+
+        it('reads compression and gating through normalized FILE versions', function () {
+            assert.strictEqual(compression.isCompressedAction('FILE||doc.txt|text/plain|Doc|memo|||||1'), true);
+            assert.strictEqual(compression.isCompressedAction('FILE|00|doc.txt|text/plain|Doc|memo|||||1'), true);
+            const manifest = ['FILE', '01', 'a', 'b', 'c', 'd', '', '', '', '', '', '', '', '1'].join('|');
+            assert.strictEqual(compression.isCompressedAction(manifest), true);
+            assert.strictEqual(compression.isCompressedAction('FILE|0.5|a|b|c|d|||||1'), false);
+            assert.strictEqual(compression.isGatedAction('FILE||s.enc|application/octet-stream|S||MYTOKEN|1|hash||1'), true);
+        });
     });
 
 });
@@ -116,6 +134,13 @@ describe('explorer FILE decompression', function () {
             const r = await compression.resolveServedBytes(DEFLATED, 'BATCH|0|' + PUBLIC_COMPRESSED + ';MESSAGE|0|hi');
             assert.strictEqual(r.inflated, true);
             assert.strictEqual(r.storedForm, false);
+            assert.ok(r.bytes.equals(ORIGINAL));
+        });
+
+        it('inflates an empty-version FILE published inside a BATCH', async function () {
+            const action = 'BATCH|0|FILE||doc.txt|text/plain|Doc|memo|||||1';
+            const r = await compression.resolveServedBytes(DEFLATED, action);
+            assert.strictEqual(r.inflated, true);
             assert.ok(r.bytes.equals(ORIGINAL));
         });
 

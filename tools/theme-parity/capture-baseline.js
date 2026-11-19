@@ -20,27 +20,24 @@ const path = require('node:path');
 
 const probeSchema = require('./parity-probe.js');
 
-function fail(message) {
-  throw new Error(message);
-}
+function fail(message) { throw new Error(message); }
 
-function object(value, label) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) fail(`${label} must be an object`);
-  return value;
-}
+function object(value, label) { if (!value || typeof value !== 'object' || Array.isArray(value))
+  fail(`${label} must be an object`); return value; }
+
+function hexHash(value, label) { if (typeof value !== 'string' || !/^[0-9a-f]{8}$/.test(value))
+  fail(`${label} must be an 8 digit lowercase hex hash`); }
 
 function compatibleSchema(candidate, label = 'Capture') {
   object(candidate, `${label} probe schema`);
   object(candidate.anchors, `${label} anchor census`);
   object(candidate.properties, `${label} property census`);
-  if (candidate.properties.count !== probeSchema.properties.count) {
+  if (candidate.properties.count !== probeSchema.properties.count)
     fail(`Render census property count (${candidate.properties.count}) incompatible with current probe ` +
       `(${probeSchema.properties.count})`);
-  }
-  if (candidate.anchors.count !== probeSchema.anchors.count) {
+  if (candidate.anchors.count !== probeSchema.anchors.count)
     fail(`Render census anchor count (${candidate.anchors.count}) incompatible with current probe ` +
       `(${probeSchema.anchors.count})`);
-  }
   for (const part of ['anchors', 'properties']) {
     if (candidate[part].hash !== probeSchema[part].hash)
       fail(`${label} ${part} census does not match the current probe`);
@@ -50,11 +47,8 @@ function compatibleSchema(candidate, label = 'Capture') {
       `(${probeSchema.version})`);
 }
 
-function hashRecord(value, label) {
-  object(value, label);
-  if (!/^[0-9a-f]{8}$/.test(value.hash)) fail(`${label}.hash must be an 8 digit lowercase hex hash`);
-  if (!Number.isInteger(value.keys) || value.keys < 1) fail(`${label}.keys must be a positive integer`);
-}
+function hashRecord(value, label) { object(value, label); hexHash(value.hash, `${label}.hash`);
+  if (!Number.isInteger(value.keys) || value.keys < 1) fail(`${label}.keys must be a positive integer`); }
 
 function anchors(value, label) {
   const match = /^(\d+)\/(\d+)$/.exec(value);
@@ -230,10 +224,10 @@ function validateBaseline(baseline) {
       fail(`Render census property count (${count}) incompatible with current probe ` +
         `(${probeSchema.properties.count}) at Page ${tag}`);
     }
-    // Check the per-mode rule hashes (after the census checks, so a legacy file keeps its count message)
+    for (const mode of ['light', 'dark']) hexHash(rend[mode], `Page ${tag}.rend.${mode}`);
+    // Check per-mode hashes after census checks, so a legacy file keeps its count message
     const rule = object(page.rule, `Page ${tag}.rule`);
-    for (const mode of ['light', 'dark'])
-      if (!/^[0-9a-f]{8}$/.test(rule[mode])) fail(`Page ${tag}.rule.${mode} must be an 8 digit lowercase hex hash`);
+    for (const mode of ['light', 'dark']) hexHash(rule[mode], `Page ${tag}.rule.${mode}`);
     if (!Number.isInteger(rule.keys) || rule.keys < 1) fail(`Page ${tag}.rule.keys must be a positive integer`);
   }
   // Require the probe schema, missing or legacy string included (after the page loop, so a legacy file keeps its count message)
@@ -270,6 +264,24 @@ function fixture(propertyCount = probeSchema.properties.count) {
       light: mode('22222222', 'white | black'), dark: mode('33333333', 'black | white'),
       coverage: { sheets: { '/css/xchain.css': { selectors: ['body', '.card'], matched: ['body'] } } } } },
   };
+}
+
+function baselineFixture() { return JSON.parse(JSON.stringify(
+  buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' }))); }
+
+function hashSelfTests() {
+  return [
+    () => { const baseline = baselineFixture(); delete baseline.pages.home.rend.light;
+      delete baseline.pages.home.rend.dark;
+      assert.throws(() => validateBaseline(baseline), /Page home\.rend\.light must be an 8 digit/); },
+    () => { const baseline = baselineFixture(); delete baseline.pages.home.rend.dark; assert.throws(
+      () => validateBaseline(baseline), /Page home\.rend\.dark must be an 8 digit/); },
+    () => { for (const value of ['ABCDEF12', '2222222', 22222222]) { const baseline = baselineFixture();
+      baseline.pages.home.rend.light = value; assert.throws(
+        () => validateBaseline(baseline), /Page home\.rend\.light must be an 8 digit/); } },
+    () => { const baseline = baselineFixture(); baseline.pages.home.rule.light = 11111111; assert.throws(
+      () => validateBaseline(baseline), /Page home\.rule\.light must be an 8 digit/); },
+  ];
 }
 
 function coverageSelfTests() {
@@ -313,29 +325,23 @@ function selfTest() {
       .pages.home.rend.keys, 87),
     () => assert.throws(() => buildBaseline(fixture(23), { date: '2026-10-12', venue: 'self-test' }),
       /Render census property count \(23\) incompatible with current probe \(29\)/),
-    () => {
-      const capture = fixture(); capture.probe.properties.hash = '00000000';
+    () => { const capture = fixture(); capture.probe.properties.hash = '00000000';
       assert.throws(() => buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }),
         /properties census does not match/);
     },
-    () => {
-      const capture = fixture(); capture.pages.home.light.rend.keys = 75;
+    () => { const capture = fixture(); capture.pages.home.light.rend.keys = 75;
       assert.throws(() => buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }),
         /Render census property count \(23\) incompatible with current probe \(29\)/);
     },
-    // A mode-dependent rule hash is recorded per mode, not refused
-    () => {
-      const capture = fixture(); capture.pages.home.dark.rule.hash = '99999999';
+    () => { const capture = fixture(); capture.pages.home.dark.rule.hash = '99999999';
       const rule = buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }).pages.home.rule;
       assert.deepEqual(rule, { light: '11111111', dark: '99999999', keys: 3 });
     },
-    () => {
-      const capture = fixture(); capture.pages.home.dark.rule.keys = 4;
+    () => { const capture = fixture(); capture.pages.home.dark.rule.keys = 4;
       assert.throws(() => buildBaseline(capture, { date: '2026-10-12', venue: 'self-test' }),
         /different rule key counts/);
     },
-    () => {
-      const baseline = JSON.parse(JSON.stringify(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })));
+    () => { const baseline = baselineFixture();
       baseline.pages.home.rule = { hash: '11111111', keys: 3 };
       assert.throws(() => validateBaseline(baseline), /Page home\.rule\.light must be an 8 digit/);
     },
@@ -343,31 +349,25 @@ function selfTest() {
     () => assert.throws(() => validateBaseline({ pages: {
       home: { anchors: '2/31', rend: { keys: 75 } },
     } }), /Render census property count \(23\) incompatible with current probe \(29\)/),
-    // A baseline must carry its probe schema; a deep copy keeps the shared probe module intact
-    () => {
-      const baseline = JSON.parse(JSON.stringify(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })));
+    () => { const baseline = baselineFixture();
       delete baseline.probe;
       assert.throws(() => validateBaseline(baseline), /Baseline probe schema must be an object/);
     },
-    () => {
-      const baseline = JSON.parse(JSON.stringify(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })));
+    () => { const baseline = baselineFixture();
       baseline.probe = 'tools/theme-parity/parity-probe.js';
       assert.throws(() => validateBaseline(baseline), /Baseline probe schema must be an object/);
     },
-    () => {
-      const baseline = JSON.parse(JSON.stringify(buildBaseline(fixture(), { date: '2026-10-12', venue: 'self-test' })));
+    () => { const baseline = baselineFixture();
       baseline.probe.properties.hash = '00000000';
       assert.throws(() => validateBaseline(baseline), /properties census does not match/);
     },
   ];
-  tests.push(...coverageSelfTests());
+  tests.push(...hashSelfTests(), ...coverageSelfTests());
   tests.forEach((test) => test());
   process.stdout.write(`capture-baseline self-test: ${tests.length} passed, 0 failed\n`);
 }
 
-function readJson(file) {
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
-}
+function readJson(file) { return JSON.parse(fs.readFileSync(file, 'utf8')); }
 
 function main() {
   const options = parseArgs(process.argv.slice(2));

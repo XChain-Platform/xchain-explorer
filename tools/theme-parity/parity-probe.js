@@ -198,23 +198,39 @@ const probe = (function () {
     for (const shorthand of shorthandCandidates(p)) { const text = style.getPropertyValue(shorthand).trim();
       if (text) return { value: shorthand+': '+resolveVars(text, cs), missing: false }; }
     return { value: '', missing: true }; };
+  const joinCondition = (outer, inner) => outer && inner ? outer+' > '+inner : outer || inner;
+  const ruleCondition = r => {
+    const media = r.media && typeof r.media.mediaText === 'string' ? r.media.mediaText.trim() : '';
+    if (media) return '@media '+media;
+    const text = typeof r.conditionText === 'string' ? r.conditionText.trim() : '';
+    if (!text) return '';
+    const css = typeof r.cssText === 'string' ? r.cssText.trim() : '';
+    if ('containerName' in r || /^@container\b/.test(css)) {
+      const name = typeof r.containerName === 'string' ? r.containerName.trim() : '';
+      return '@container '+(name ? name+' ' : '')+text;
+    }
+    return '@supports '+text;
+  };
   const ruleSnap = () => {
-    const snap = {}, coverage = {}; let rules = 0, sheets = 0; const un = [], emptyDeclared = []; const seen = new Set();
+    const snap = {}, coverage = {}; let rules = 0, sheets = 0; const un = [], emptyDeclared = []; const seen = new Map();
     const sheetId = href => { try { return new URL(href, location.href).pathname; } catch(e) { return href; } };
     const cover = (href, sel, matched) => { const id = sheetId(href);
       const row = coverage[id] || (coverage[id] = { selectors: new Set(), matched: new Set() });
       row.selectors.add(sel); if (matched) row.matched.add(sel); };
     // Read one admitted sheet once; an unreadable one is recorded so health()
     // rejects the capture rather than fingerprinting a partial rule layer.
-    const readSheet = sh => { if (!sh || !sh.href || !SHEET.test(sh.href) || seen.has(sh)) return;
-      seen.add(sh); sheets++;
+    const readSheet = (sh, cond = '') => { if (!sh || !sh.href || !SHEET.test(sh.href)) return;
+      const conditions = seen.get(sh) || new Set();
+      if (conditions.has(cond)) return;
+      if (!seen.has(sh)) { seen.set(sh, conditions); sheets++; }
+      conditions.add(cond);
       let rs; try { rs = sh.cssRules; } catch(e) { snap['__UNREADABLE__ '+sh.href] = String(e); return; }
-      for (const r of rs) walk(r, sh.href); };
-    const walk = (r, baseHref) => {
+      for (const r of rs) walk(r, sh.href, cond); };
+    const walk = (r, baseHref, cond = '') => {
       // An @import rule carries its sheet in .styleSheet, the only way to reach it.
       // Chrome hands a 404 import an EMPTY sheet; a null styleSheet is recorded too.
       if (typeof r.href === 'string' && 'styleSheet' in r) {
-        if (r.styleSheet) { const sh = r.styleSheet; readSheet(sh);
+        if (r.styleSheet) { const sh = r.styleSheet; readSheet(sh, joinCondition(cond, ruleCondition(r)));
           let n = -1; try { n = sh.cssRules.length; } catch(e) {}
           if (n === 0 && sh.href && SHEET.test(sh.href)) snap['__UNREADABLE__ '+sh.href] = 'import loaded no rules';
           return; }
@@ -237,19 +253,18 @@ const probe = (function () {
           // declared text changes by design and a text comparison would false-alarm.
           // Layout-derived properties take the same declared-value path: their
           // computed readback is the used value, which drifts with content.
-          // Whether a key is declared-path depends only on its selector and
-          // property, so two rules can collide on it, and the cascade (source
-          // order, an enclosing @media) is not modelled here. Every declaration
-          // is kept, joined in walk order, so editing either one moves the hash;
-          // a computed-path collision reads one value twice and just overwrites.
-          for (const p of props) { const key = sel+' | '+p;
+          // The enclosing condition is part of every key. The cascade and which
+          // condition matches the viewport are not modelled, but editing a
+          // condition moves the hash and separates scoped declarations.
+          for (const p of props) { const key = (cond ? cond+' :: ' : '')+sel+' | '+p;
             if (st || LAYOUT.has(p)) {
               const declared = declaredRead(r.style, p, cs);
               if (declared.missing) emptyDeclared.push(key);
               snap[key] = key in snap ? snap[key]+DECLARED_JOIN+declared.value : declared.value;
             } else snap[key] = cs.getPropertyValue(p).trim(); }
         } }
-      if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, baseHref);
+      const childCondition = joinCondition(cond, ruleCondition(r));
+      if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, baseHref, childCondition);
     };
     for (const sh of document.styleSheets) readSheet(sh);
     const covered = {}; for (const id of Object.keys(coverage).sort()) covered[id] = {

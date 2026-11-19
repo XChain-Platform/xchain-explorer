@@ -172,6 +172,8 @@ function showXcallDetails(data){
         return '<span class="badge text-bg-' + cls + '">' + (s || '-') + '</span>';
     };
     $('#info-xcall .xcall-call-id').html(formatHash(data.call_id, 32));
+    $('#info-xcall .xcall-request-action').html(isNull(data.request_action_index) ? '-' :
+        formatLink('/' + XC.coin + '/action/' + data.request_action_index, data.request_action_index));
     // Version badge: v0 is the cross-chain call request, v1 the result-delivery marker
     // (its data living in cross_chain_call_callbacks, surfaced as callback_delivery
     // below), v2 the expire. All three need a branch; v1 has no request row of its own.

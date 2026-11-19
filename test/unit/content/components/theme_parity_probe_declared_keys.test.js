@@ -52,6 +52,15 @@ function rule(selectorText, props, children = []) {
 
 // A grouping rule such as an @media block: no selector, children only.
 const group = (...children) => rule('', {}, children);
+const mediaGroup = (conditionText, ...cssRules) => ({
+  conditionText, media: { mediaText: conditionText }, cssText: `@media ${conditionText} {}`, cssRules,
+});
+const supportsGroup = (conditionText, ...cssRules) => ({
+  conditionText, cssText: `@supports ${conditionText} {}`, cssRules,
+});
+const importRule = (href, styleSheet, mediaText = '') => ({
+  href, styleSheet, media: { mediaText }, cssRules: [],
+});
 const sheet = (href, rules) => ({ href, cssRules: rules });
 
 // Capture one page over the given stub sheets. usedValues stands in for what a
@@ -149,13 +158,43 @@ describe('theme parity probe grid track templates', () => {
   it('keeps the base template and its @media variant, so an edit to either moves the hash', () => {
     const sheets = (base) => [sheet(BASE, [
       rule('.xc-console-stats', { 'grid-template-columns': base }),
-      group(rule('.xc-console-stats', { 'grid-template-columns': 'repeat(2, minmax(0, 1fr))' })),
+      mediaGroup('(max-width: 767.98px)',
+        rule('.xc-console-stats', { 'grid-template-columns': 'repeat(2, minmax(0, 1fr))' })),
     ])];
     const a = capture(sheets('repeat(4, minmax(0, 1fr))'), { markup: GRID });
-    assert.equal(a.snap['.xc-console-stats | grid-template-columns'],
-      'repeat(4, minmax(0, 1fr)) || repeat(2, minmax(0, 1fr))');
+    assert.equal(a.snap['.xc-console-stats | grid-template-columns'], 'repeat(4, minmax(0, 1fr))');
+    assert.equal(a.snap['@media (max-width: 767.98px) :: .xc-console-stats | grid-template-columns'],
+      'repeat(2, minmax(0, 1fr))');
     assert.notEqual(a.res.light.rule.hash,
       capture(sheets('repeat(5, minmax(0, 1fr))'), { markup: GRID }).res.light.rule.hash);
+
+    const conditionSheets = (query) => [sheet(BASE, [
+      rule('.xc-console-stats', { 'grid-template-columns': 'repeat(4, minmax(0, 1fr))' }),
+      mediaGroup(query, rule('.xc-console-stats', { 'grid-template-columns': 'repeat(2, minmax(0, 1fr))' })),
+    ])];
+    const beforeBreakpoint = capture(conditionSheets('(max-width: 767.98px)'), { markup: GRID }).res;
+    const afterBreakpoint = capture(conditionSheets('(max-width: 0px)'), { markup: GRID }).res;
+    assert.notEqual(beforeBreakpoint.light.rule.hash, afterBreakpoint.light.rule.hash);
+    assert.notEqual(beforeBreakpoint.dark.rule.hash, afterBreakpoint.dark.rule.hash);
+
+    const computedSheets = (query) => [sheet(BASE, [mediaGroup(query, rule('.footer', { color: 'red' }))])];
+    const moreContrast = capture(computedSheets('(prefers-contrast: more)')).res;
+    const lessContrast = capture(computedSheets('(prefers-contrast: less)')).res;
+    assert.notEqual(moreContrast.light.rule.hash, lessContrast.light.rule.hash);
+
+    const nested = supportsGroup('(display: grid)',
+      mediaGroup('(max-width: 767.98px)', rule('.footer', { width: '80%' })));
+    const { snap } = capture([sheet(BASE, [nested])]);
+    assert.equal(snap[
+      '@supports (display: grid) > @media (max-width: 767.98px) :: .footer | width'
+    ], '80%');
+    const changed = capture([sheet(BASE, [supportsGroup('(display: flex)',
+      mediaGroup('(max-width: 767.98px)', rule('.footer', { width: '80%' })))])]).res;
+    assert.notEqual(capture([sheet(BASE, [nested])]).res.light.rule.hash, changed.light.rule.hash);
+
+    const imported = sheet(THEME, [rule('.footer', { width: '80%' })]);
+    const importedCapture = capture([sheet(BASE, [importRule(THEME, imported, 'print')])]);
+    assert.equal(importedCapture.snap['@media print :: .footer | width'], '80%');
   });
 
   it('resolves custom properties in a column and a row template', () => {

@@ -144,7 +144,8 @@ class SyncFeedReaders {
                         t3.hash as contract_hash,
                         t4.hash as state_hash,
                         (SELECT COUNT(*) FROM transactions t WHERE t.block_index=b1.block_index) as tx_count,
-                        (SELECT COUNT(*) FROM actions a WHERE a.block_index=b1.block_index) as action_count
+                        (SELECT COUNT(*) FROM actions a WHERE a.block_index=b1.block_index) as action_count,
+                        (SELECT MIN(a.action_index) FROM actions a WHERE a.block_index=b1.block_index) as first_action_index
                     FROM
                         blocks b1
                         LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)

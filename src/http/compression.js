@@ -55,6 +55,28 @@ const COMPRESSION_FIELD_INDEX = 10;
 const MANIFEST_GATE_TICKER_FIELD_INDEX = 9;
 const MANIFEST_COMPRESSION_FIELD_INDEX = 13;
 
+// Mirrors xchain-indexer/src/utility/action_format.js getFormatVersion after
+// transaction parameters are trimmed. The services ship independently, so the
+// reader keeps this small normalizer local and uses it only to select fields.
+function fileFormatVersion(raw) {
+    if (typeof raw === 'object' && raw !== null) return null;
+    if (typeof raw === 'number' && Number.isInteger(raw) && raw <= 255) return raw;
+    if (typeof raw === 'undefined') return 0;
+    let format = (typeof raw === 'string') ? raw.trim() : raw;
+    if (format === '') return 0;
+    if (typeof format === 'string') format = format.replace(/"|'/g, '');
+    const parsed = parseFloat(format);
+    const numeric = !isNaN(parsed) && isFinite(format);
+    const fractionalOnWire = parsed === +parsed && parsed !== (parsed | 0);
+    if (numeric && !fractionalOnWire && format <= 255) return parseInt(format);
+    return null;
+}
+
+function fileFieldIndex(version, legacyIndex, manifestIndex) {
+    const normalized = fileFormatVersion(version);
+    return normalized === 0 ? legacyIndex : (normalized === 1 ? manifestIndex : -1);
+}
+
 // Unwrap a BATCH-wrapped FILE to its own sub-command, or hand the string back
 // unchanged. A FILE may legally ride inside a BATCH (protocol actions/file.md),
 // and what the serve path reads is the DECODER's tx-level `data` column, so the
@@ -86,9 +108,7 @@ function isCompressedAction(actionString) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
     const parts = extractFileSubcommand(actionString).split('|');
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
-    const version = String(parts[1]);
-    const index = version === '0' ? COMPRESSION_FIELD_INDEX :
-        (version === '1' ? MANIFEST_COMPRESSION_FIELD_INDEX : -1);
+    const index = fileFieldIndex(parts[1], COMPRESSION_FIELD_INDEX, MANIFEST_COMPRESSION_FIELD_INDEX);
     return index >= 0 && parts.length > index &&
         String(parts[index]) === COMPRESSION_CODE_DEFLATE_RAW;
 }
@@ -99,9 +119,7 @@ function isGatedAction(actionString) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
     const parts = extractFileSubcommand(actionString).split('|');
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
-    const version = String(parts[1]);
-    const index = version === '0' ? GATE_TICKER_FIELD_INDEX :
-        (version === '1' ? MANIFEST_GATE_TICKER_FIELD_INDEX : -1);
+    const index = fileFieldIndex(parts[1], GATE_TICKER_FIELD_INDEX, MANIFEST_GATE_TICKER_FIELD_INDEX);
     return index >= 0 && parts.length > index && String(parts[index]).length > 0;
 }
 
@@ -236,6 +254,7 @@ module.exports = {
     inflateStoredBytes,
     isCompressedAction,
     isGatedAction,
+    fileFormatVersion,
     extractFileSubcommand,
     COMPRESSION_CODE_DEFLATE_RAW,
     COMPRESSION_MAX_RATIO,

@@ -78,7 +78,10 @@ function renderXcallDetails(data) {
         recordedPayload: cell('xcall-recorded-payload'),
         resolvedBlock:   cell('xcall-resolved-block'),
         executionShown:  !$('#info-xcall .xcall-execution-row').first().hasClass('d-none'),
-        execStatus:      cell('xcall-result-status')
+        execStatus:      cell('xcall-result-status'),
+        version:         cell('xcall-version'),
+        callId:          cell('xcall-call-id'),
+        requestHref:     $('#info-xcall .xcall-request-action a').attr('href') || null
     };
 }
 
@@ -133,5 +136,15 @@ describe('XCALL detail render: the recorded result reaches the page', function (
         });
         expect(out.recordedStatus).to.equal('ok');
         expect(out.execStatus).to.equal('reverted');
+    });
+
+    it('renders a linked expiry as v2 with its call id and request action', function () {
+        const out = renderXcallDetails({
+            ...BASE, version: 2, call_id: 'expired-call', request_action_index: 456,
+            request_status: 'expired', result_status: 'expired', resolved_block: 900000
+        });
+        expect(out.version).to.equal('Expire (v2)');
+        expect(out.callId).to.equal('expired-call');
+        expect(out.requestHref).to.equal('/BTC/action/456');
     });
 });

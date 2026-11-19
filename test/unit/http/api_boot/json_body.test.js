@@ -25,6 +25,7 @@
 const { expect } = require('chai');
 const express    = require('express');
 const supertest  = require('supertest');
+const zlib       = require('zlib');
 const { srcText } = require('../../../helpers/source_text');
 const XChainExplorer = require('../../../../src/XChainExplorer.js');
 const { PREFLIGHT_BODY_LIMIT } = require('../../../../src/explorer/mount.js');
@@ -101,6 +102,32 @@ describe('json body refusals on the boot steps', function () {
         expect(res.body.error.code).to.equal(-32600);
     });
 
+    it('answers malformed compressed bodies in each published refusal shape', async function () {
+        for (const encoding of ['gzip', 'deflate', 'br']) {
+            for (const path of ['/RBTC/api/balances', '/RBTC/api/preflight', '/', '/RBTC/api/']) {
+                const res = await request.post(path).set('Content-Type', 'application/json')
+                    .set('Content-Encoding', encoding).serialize((body) => body)
+                    .send(Buffer.from('not a compressed stream'));
+                expect(res.status, encoding + ' ' + path).to.equal(400);
+                if (path === '/' || path === '/RBTC/api/')
+                    expect(res.body.error.code, encoding + ' ' + path).to.equal(-32700);
+                else expect(res.body.code, encoding + ' ' + path).to.equal('INVALID_JSON_BODY');
+            }
+        }
+    });
+
+    it('continues accepting well-formed gzip JSON', async function () {
+        const body = zlib.gzipSync(Buffer.from('{"addresses":[]}'));
+        const rest = await request.post('/RBTC/api/balances').set('Content-Type', 'application/json')
+            .set('Content-Encoding', 'gzip').serialize((value) => value).send(body);
+        expect(rest.status).to.equal(200);
+        const rpcBody = zlib.gzipSync(Buffer.from('{"jsonrpc":"2.0","id":1,"method":"ping"}'));
+        const rpc = await request.post('/').set('Content-Type', 'application/json')
+            .set('Content-Encoding', 'gzip').serialize((value) => value).send(rpcBody);
+        expect(rpc.status).to.equal(200);
+        expect(rpc.body.result).to.equal('pong');
+    });
+
 });
 
 describe('json body: thrown errors on the boot steps', function () {
@@ -161,6 +188,15 @@ describe('json body refusal rules', function () {
         const serverSide = Object.assign(new Error('x'), { type: 'entity.parse.failed', status: 500 });
         expect(sendBodyError(serverSide, { path: '/' }, res)).to.equal(false);
         expect(res.sent).to.equal(null);
+    });
+
+    it('answers untyped decompressor errors but leaves other untyped 400s alone', function () {
+        const decode = Object.assign(new Error('decode'), { status: 400, errno: -3, code: 'Z_DATA_ERROR' });
+        const rpc = fakeRes();
+        expect(sendBodyError(decode, { path: '/' }, rpc)).to.equal(true);
+        expect(rpc.sent.error.code).to.equal(-32700);
+        const plain = Object.assign(new Error('plain'), { status: 400 });
+        expect(sendBodyError(plain, { path: '/RBTC/api/balances' }, fakeRes())).to.equal(false);
     });
 
     it('answers a synthetic URIError with status 400 and leaves a status-less one alone', function () {

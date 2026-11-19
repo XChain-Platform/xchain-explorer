@@ -162,6 +162,24 @@ describe('live feed readers against the REAL indexer DDL', function () {
 
 });
 
+describe('live block history against the REAL indexer DDL', function () {
+    before(loadRealSchema);
+    beforeEach(resetFixture);
+    afterEach(() => sinon.restore());
+
+    it('returns each block first action index and null for a block without actions', async function () {
+        sqlite.prepare('INSERT INTO blocks (block_index, block_time) VALUES (?, ?), (?, ?)')
+            .run(210, 1700000210, 211, 1700000211);
+        addAction(24, 210, null, 'XBRIDGE');
+        addAction(23, 210, null, 'XPOLICY');
+
+        const rows = await db.getBlocksSince(cfg, 209, 10);
+
+        expect(rows.map((row) => row.first_action_index === null ? null : Number(row.first_action_index)))
+            .to.deep.equal([23, null]);
+    });
+});
+
 // Second block keeps each describe callback under the function-length limit.
 describe('live feed readers against the REAL indexer DDL (sends union)', function () {
     before(loadRealSchema);

@@ -29,7 +29,7 @@
  ********************************************************************/
 
 const netmod  = require('net');
-const { isPrivateAddress } = require('../../http/ssrf_guard');
+const { isPrivateAddress, directEgressOptions } = require('../../http/ssrf_guard');
 // The same decompression the live /{COIN}/api/file/{index}/raw route applies
 // (XChainExplorer.processFileRawRequest), so an `action:` FILE resolves to the
 // identical bytes the token page renders from. Contractually non-throwing: it
@@ -274,6 +274,7 @@ async function httpFetch(dl, url, deps){
     let resp;
     try {
         resp = await axios.get(url, {
+            ...directEgressOptions(),
             responseType:     'arraybuffer',
             timeout:          dl.cfg.fetchTimeoutMs,
             maxContentLength: dl.cfg.maxBytes,

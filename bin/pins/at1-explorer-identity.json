@@ -4155,9 +4155,6 @@
         "Security: CSP inline-script allowance matches its documentation components.js does not claim the policy forbids inline script",
         "Security: CSP inline-script allowance matches its documentation the served policy allows inline script in script-src"
       ],
-      "1fda98ca598d9c7a": [
-        "Security: SSRF: proxy bypass keeps environment proxies outside guarded requests"
-      ],
       "1ffaac579a96af26": [
         "edit and cancel lifecycle routing does not route BET_EDIT when no valid protocol row exists",
         "edit and cancel lifecycle routing does not route DISPENSER_CANCEL when no valid protocol row exists",
@@ -7809,6 +7806,11 @@
         "vendored-VM check mode write boundary @regression allows a present unverified copy only through the explicit opt-out",
         "vendored-VM check mode write boundary @regression keeps strict mode stronger than the unverified opt-out",
         "vendored-VM check mode write boundary @regression rejects a present copy when canonical source is missing"
+      ],
+      "731e19765ea759bd": [
+        "Security: SSRF: proxy bypass ignored proxy notice names each configured proxy variable once and still pins direct egress",
+        "Security: SSRF: proxy bypass ignored proxy notice stays silent when no proxy variable is configured",
+        "Security: SSRF: proxy bypass keeps environment proxies outside guarded requests"
       ],
       "75443ba46b66e7c8": [
         "search destination by query class (continued) keeps a number on the block page when the tip is unknown",
@@ -13885,7 +13887,7 @@
       },
       "test:security": {
         "fileCount": 16,
-        "titleCount": 242,
+        "titleCount": 244,
         "files": {
           "test/security/batch_abort_stops_reads.test.js": "0c1f2e3a9a415ed4",
           "test/security/batch_rate_limit.test.js": "c4be9953af5078b6",
@@ -13902,7 +13904,7 @@
           "test/security/rate_limiting.test.js": "93d927780b91e5db",
           "test/security/sql_injection.test.js": "e862967f0218c9b9",
           "test/security/ssrf_protection.test.js": "2cddc605027d7848",
-          "test/security/ssrf_proxy_bypass.test.js": "1fda98ca598d9c7a"
+          "test/security/ssrf_proxy_bypass.test.js": "731e19765ea759bd"
         }
       },
       "test:smoke": {

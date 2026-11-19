@@ -75,12 +75,11 @@ function runCheck(fixture, overrides = {}) {
     });
 }
 
+after(function () {
+    for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
+});
+
 describe('vendored-VM check mode write boundary @regression', function () {
-
-    after(function () {
-        for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
-    });
-
     it('VMCHK-1: refuses a vendored tree that is present with an unreadable CONSENSUS_VERSION', function () {
         if (!haveRsync()) return this.skip();
         const fixture = stageRoot();
@@ -131,7 +130,9 @@ describe('vendored-VM check mode write boundary @regression', function () {
         assert.notStrictEqual(run.status, 0, `check accepted a version mismatch:\n${out}`);
         assert.match(out, /DRIFT/, out);
     });
+});
 
+describe('vendored-VM check mode write boundary @regression', function () {
     it('rejects a present copy when canonical source is missing', function () {
         const fixture = stageRoot();
         fs.mkdirSync(path.join(fixture.dest, 'src'), { recursive: true });

@@ -28,6 +28,7 @@ const DIRECT_HTTP_AGENT = new http.Agent();
 const DIRECT_HTTPS_AGENT = new https.Agent();
 
 const PROXY_ENV_KEYS = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'];
+const configEnv = () => require('../config.js').env;
 let proxyEnvWarned = false;
 
 // A proxy resolves the destination host itself, so the lookup guard never sees
@@ -36,7 +37,7 @@ let proxyEnvWarned = false;
 // that depends on one finds out from the log instead of from failed fetches.
 function warnIgnoredProxyEnv(log) {
     if (proxyEnvWarned) return false;
-    const set = PROXY_ENV_KEYS.filter((key) => process.env[key]);
+    const set = PROXY_ENV_KEYS.filter((key) => configEnv()[key]);
     if (!set.length) return false;
     proxyEnvWarned = true;
     log('[ssrf_guard] ' + set.join(', ') + ' ignored: guarded fetches connect directly');

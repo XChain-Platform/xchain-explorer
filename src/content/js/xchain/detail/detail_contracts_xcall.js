@@ -174,9 +174,8 @@ function showXcallDetails(data){
     $('#info-xcall .xcall-call-id').html(formatHash(data.call_id, 32));
     $('#info-xcall .xcall-request-action').html(isNull(data.request_action_index) ? '-' :
         formatLink('/' + XC.coin + '/action/' + data.request_action_index, data.request_action_index));
-    // Version badge: v0 is the cross-chain call request, v1 the result-delivery marker
-    // (its data living in cross_chain_call_callbacks, surfaced as callback_delivery
-    // below), v2 the expire. All three need a branch; v1 has no request row of its own.
+    // Label v0 requests, v1 result-delivery markers, and v2 expiries; v1 has no
+    // request row because its data lives in callback_delivery.
     let xcallV = Number(data.version);
     $('#info-xcall .xcall-version').html(
         xcallV === 2 ? '<span class="badge text-bg-secondary">Expire (v2)</span>' :
@@ -192,11 +191,8 @@ function showXcallDetails(data){
     $('#info-xcall .xcall-callback-method').text(isNull(data.callback_method) ? '-' : data.callback_method);
     $('#info-xcall .xcall-deadline').html(isNull(data.deadline_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deadline_block, numeral(data.deadline_block).format('0,0')));
     $('#info-xcall .xcall-request-status').html(statusBadge(data.request_status));
-    // The outcome as RECORDED ON THIS CHAIN (xcalls.result_status / result_payload /
-    // resolved_block), not a duplicate of the execution block below: the indexer writes
-    // these three when it flips the request terminal, and they are what the VM's
-    // xchain.crossChain.getCallResult reads, so this is the value a contract sees.
-    // Hidden as a group while the call is pending, none of the three being set then.
+    // Show the result recorded on this chain for contract reads, not the execution below.
+    // Hide all three fields while the request is pending.
     let resolved = !isNull(data.result_status) || !isNull(data.resolved_block);
     $('#info-xcall .xcall-resolved-row').toggleClass('d-none', !resolved);
     if(resolved){

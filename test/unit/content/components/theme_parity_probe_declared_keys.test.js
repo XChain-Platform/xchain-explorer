@@ -154,6 +154,12 @@ describe('theme parity probe grid track templates', () => {
     assert.equal(a.light.rule.hash, drift.light.rule.hash);
     assert.notEqual(a.light.rule.hash, edit.light.rule.hash);
   });
+});
+
+describe('theme parity probe grid track templates', () => {
+  const GRID = '<div class="xc-console-stats"></div>';
+  const USED = { 'grid-template-columns': '312px 312px 312px 312px' };
+  const gridSheets = (cols) => [sheet(BASE, [rule('.xc-console-stats', { 'grid-template-columns': cols })])];
 
   it('keeps the base template and its @media variant, so an edit to either moves the hash', () => {
     const sheets = (base) => [sheet(BASE, [

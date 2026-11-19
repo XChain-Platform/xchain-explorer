@@ -87,7 +87,9 @@ describe('XCALL result delivery request lookup', function() {
         assert.equal(link.getAttribute('href'), '/BTC/action/502');
         assert.equal(link.textContent, '502');
     });
+});
 
+describe('XCALL result delivery request lookup', function() {
     it('resolves a rowless v2 expiry to its original request', async function() {
         const db = {
             util: { isNull: value => value === null || value === undefined },

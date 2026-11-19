@@ -55,6 +55,9 @@ describe('Security: SSRF: proxy bypass', function () {
         }
     });
 
+});
+
+describe('Security: SSRF: proxy bypass', function () {
     describe('ignored proxy notice', function () {
         const keys = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'];
         const modulePath = require.resolve('../../src/http/ssrf_guard.js');

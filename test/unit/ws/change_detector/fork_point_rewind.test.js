@@ -221,7 +221,9 @@ describe('change detector startup history integrity', function () {
         expect(rollback.args[2].first_invalid_action_index).to.equal('10');
         expect(emitted(detector).actions).to.deep.equal([10n, 11n]);
     });
+});
 
+describe('change detector startup history integrity', function () {
     it('retries a history seed that failed before recording first actions', async function () {
         const chain = { blocks: [block(10, 'a', 1)] };
         const actions = { rows: [action(10n, 10)] };

@@ -101,6 +101,13 @@ describe('json body refusals on the boot steps', function () {
         expect(res.status).to.equal(413);
         expect(res.body.error.code).to.equal(-32600);
     });
+});
+
+describe('json body refusals on the boot steps', function () {
+    let request;
+    before(function () {
+        request = supertest(bootApp());
+    });
 
     it('answers malformed compressed bodies in each published refusal shape', async function () {
         for (const encoding of ['gzip', 'deflate', 'br']) {
@@ -127,7 +134,6 @@ describe('json body refusals on the boot steps', function () {
         expect(rpc.status).to.equal(200);
         expect(rpc.body.result).to.equal('pong');
     });
-
 });
 
 describe('json body: thrown errors on the boot steps', function () {

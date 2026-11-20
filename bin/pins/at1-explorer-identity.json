@@ -2275,8 +2275,8 @@
   "fixtures": [
     {
       "path": "test/fixtures/action-detail-golden.json",
-      "bytes": 406268,
-      "sha256": "666c13a7a87089dc2e8783ccb547e12f316e2ecd68657c7269dbcdddcb097a09"
+      "bytes": 408788,
+      "sha256": "065cb8ee89e49d842eb67515053c7466250315c9a808587dd7900cc7e18cb4ce"
     },
     {
       "path": "test/fixtures/list-page-baseline.json",
@@ -9556,6 +9556,15 @@
         "API keyset paging: the next cursor in the response an empty page carries no cursor",
         "API keyset paging: the next cursor in the response commitments read the cursor from block_index"
       ],
+      "9beefa74ebeeebf7": [
+        "shared gate row exports exports the core sentinels and REGTEST_ARMING rules",
+        "shared gate row exports names UNARMED instead of spelling its numeric sentinel in shared gate rows",
+        "shared gate row registration registers every shared row once and rejects a second registration",
+        "shared gate row registration rejects a malformed row queued with addGate",
+        "shared gate row regtest arming arms every lists market height and time row from its matching environment",
+        "shared gate row regtest arming arms execute native metered gas on regtest through its named environment reader",
+        "shared gate row regtest arming arms only the listed regtest entry from the rule environment"
+      ],
       "9bf3b4e752d10319": [
         "Database#getContracts name lane without the meta_search FULLTEXT index answers the empty page and runs no MATCH on the api route",
         "Database#getContracts name lane without the meta_search FULLTEXT index answers the empty page and runs no MATCH on the explorer route",
@@ -9984,14 +9993,6 @@
         "bare singular detail paths with no list page of that type /BTC/oracle answers the 404 page with status 404",
         "bare singular detail paths with no list page of that type /BTC/transaction answers the 404 page with status 404",
         "bare singular detail paths with no list page of that type answers 404 for the trailing-slash form too"
-      ],
-      "a94ef3515c893710": [
-        "shared gate row exports exports the core sentinels and REGTEST_ARMING rules",
-        "shared gate row exports names UNARMED instead of spelling its numeric sentinel in shared gate rows",
-        "shared gate row registration registers every shared row once and rejects a second registration",
-        "shared gate row registration rejects a malformed row queued with addGate",
-        "shared gate row regtest arming arms every lists market height and time row from its matching environment",
-        "shared gate row regtest arming arms only the listed regtest entry from the rule environment"
       ],
       "a9eccc36e86617cb": [
         "hub outage log volume carries a stack on at most one line and none on request-level lines",
@@ -13199,7 +13200,7 @@
       },
       "test": {
         "fileCount": 551,
-        "titleCount": 8576,
+        "titleCount": 8577,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13274,7 +13275,7 @@
           "test/unit/connectors/x_chain_indexer_connector.test.js": "92aeb23d16a697b8",
           "test/unit/consensus/consensus_bound_rows.test.js": "692c8a94cc34ec57",
           "test/unit/consensus/gate_registry/local_rows.test.js": "a76ec0bdf3924d67",
-          "test/unit/consensus/gate_registry/shared_rows.test.js": "a94ef3515c893710",
+          "test/unit/consensus/gate_registry/shared_rows.test.js": "9beefa74ebeeebf7",
           "test/unit/consensus/regtest_env_twin.test.js": "cbad35bf1daff99f",
           "test/unit/content/attest_v5_batch_head_render.test.js": "71e51d6b88fd1922",
           "test/unit/content/components/component_data_table.test.js": "31b4e41f89cb9ae0",

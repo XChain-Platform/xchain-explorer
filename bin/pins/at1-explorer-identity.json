@@ -4965,6 +4965,12 @@
         "live feed since-queries stay unfiltered (WS-02 cursor guard) the catch-up form adds only its inclusive upper bound",
         "live feed since-queries stay unfiltered (WS-02 cursor guard) the guard itself sees a filter, an inner join and a merge"
       ],
+      "37566366472e09e3": [
+        "DISPENSE action detail dispenser pointer returns dispenser 479 for DISPENSE action 480",
+        "DISPENSE action detail status reason explains only the exact zero-fill DISPENSE status",
+        "DISPENSE action list status reason shapes zero-fill, other-status, and non-DISPENSE rows without a query",
+        "DISPENSE action summary status reason preserves the derived reason on history and transaction action rows"
+      ],
       "37b3dc4641745cce": [
         "contract-call body ceiling accepts the worst legal body through the route parser",
         "contract-call body ceiling control: the global parser alone refuses the same worst legal body",
@@ -11005,9 +11011,6 @@
         "PRICE action detail rounds JSON leaves valid round bodies unmarked",
         "PRICE action detail rounds JSON marks malformed rounds JSON as unparseable"
       ],
-      "ce6fead93e1597e8": [
-        "DISPENSE action detail dispenser pointer returns dispenser 479 for DISPENSE action 480"
-      ],
       "ce9118c1e218eb44": [
         "page asset groups: deferred scripts run in a safe order catches a page that reads a deferred global while the parser runs it",
         "page asset groups: deferred scripts run in a safe order never reads a global before its script has run, on any page",
@@ -13196,7 +13199,7 @@
       },
       "test": {
         "fileCount": 551,
-        "titleCount": 8573,
+        "titleCount": 8576,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13212,7 +13215,7 @@
           "test/unit/action_detail/crosschain/xcall_request_lookup.test.js": "294a0efa2cb6de99",
           "test/unit/action_detail/db_action_summary_markers.test.js": "9010ff13dd7b7339",
           "test/unit/action_detail/deploy_constructor_failure.test.js": "7e37800d1e58147e",
-          "test/unit/action_detail/dispense/db_dispense_dispenser_pointer.test.js": "ce6fead93e1597e8",
+          "test/unit/action_detail/dispense/db_dispense_dispenser_pointer.test.js": "37566366472e09e3",
           "test/unit/action_detail/file_multipart_detail_page.test.js": "624b1c98d2dc809b",
           "test/unit/action_detail/history/db_history_batch_parent.test.js": "1943a08ef9875b52",
           "test/unit/action_detail/history/db_history_ids_first_real_ddl.test.js": "9014c6ca4f4cdbc9",

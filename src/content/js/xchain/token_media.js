@@ -174,7 +174,7 @@ function resolveTisDataRefs(o){
 // Lock marker for token-gated TIS entries (`locked: true`). Lets media lists
 // render a locked state without fetching the FILE action first.
 function lockedContentIcon(item){
-    return (item && item.locked) ? '<i class="fa fa-lock pe-1" title="Token-gated content: holders decrypt with their unlock key"></i>' : '';
+    return (item && item.locked) ? '<i class="fa-solid fa-lock pe-1" title="Token-gated content: holders decrypt with their unlock key"></i>' : '';
 }
 
 // Pick the entry whose media should display from a TIS media array: prefer the

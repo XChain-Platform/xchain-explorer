@@ -44,7 +44,7 @@ function actionDetail_renderStructureMarkers(html, action, info, coin){
 
 function actionDetail_disclosureToggle(action_index, label){
     return '<a href="#" class="badge text-bg-secondary xc-legs-toggle" data-action-index="' + escapeHtml(action_index) + '" title="Show each one">'
-        + escapeHtml(label) + ' <i class="fa fa-caret-down"></i></a>';
+        + escapeHtml(label) + ' <i class="fa-solid fa-caret-down"></i></a>';
 }
 
 // Open or close the legs/members under a list row. The list feed carries only

@@ -354,7 +354,7 @@ function renderXcallTimelinePhaseRows(h){
         // Layout comes from Bootstrap utilities; xcall.html's style block owns only
         // the rail and the marker, and reads both from --xc-* tokens.
         html += '<li class="xcall-phase d-flex gap-3 pb-3" data-phase="' + esc(p.key) + '" data-state="' + esc(p.state) + '">';
-        html += '<span class="xcall-marker badge ' + st.badge + '"><i class="fa ' + st.icon + '"></i></span>';
+        html += '<span class="xcall-marker badge ' + st.badge + '"><i class="fa-solid ' + st.icon + '"></i></span>';
         html += '<div class="xcall-phase-body">';
         html += '<div class="d-flex flex-wrap align-items-center gap-2">';
         html += '<span class="fw-bold xcall-phase-label">' + esc(p.label) + '</span>';

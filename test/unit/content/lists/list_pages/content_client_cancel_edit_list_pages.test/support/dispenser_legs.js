@@ -67,12 +67,13 @@ describe('dispenser/dispense legs are values, not shared scratch state', functio
             const { win, html } = renderRow(action, data, 7);
             const getCoin   = data[7];
             const getAmount = data[9];
-            // The expression both branches carried before the refactor, verbatim.
-            const legacy = ' <i class="fa ' + win.getNetworkIcon() + '"></i> '
+            // The expression both branches carried before the refactor, with
+            // the style prefix migrated to Font Awesome 7.
+            const legacy = ' <i class="fa-solid ' + win.getNetworkIcon() + '"></i> '
                          + win.escapeHtml(getAmount) + ' ' + win.escapeHtml(getCoin);
             expect(html[5], `${action} native get leg changed`).to.equal(throughDom(win, legacy));
             // And it is really the native rendering: an icon, no token link.
-            expect(html[5], `${action} native leg must carry the network icon`).to.include('<i class="fa ');
+            expect(html[5], `${action} native leg must carry the network icon`).to.include('<i class="fa-solid ');
             expect(html[5], `${action} native leg must not link a token`).to.not.include('/token/');
         }
     });

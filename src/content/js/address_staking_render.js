@@ -105,7 +105,7 @@ function asTable(headers, rowsHtml){
 //                chain. Plain muted chrome, not a warning: no fault occurred.
 function asEmpty(kind, text){
     return '<div class="small text-muted addr-staking-empty" data-empty="' + asEsc(kind) + '">'
-         + (kind === 'btc-only' ? '<i class="fa fa-circle-info me-1"></i>' : '')
+         + (kind === 'btc-only' ? '<i class="fa-solid fa-circle-info me-1"></i>' : '')
          + asEsc(text) + '</div>';
 }
 

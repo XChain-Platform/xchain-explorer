@@ -236,7 +236,7 @@ function renderFileViewer(data, rawReady){
     let rawUrl = '/' + XC.coin + '/api/file/' + data.action_index + '/raw';
     let type = String(data.type || '').toLowerCase(), html = '';
     if(!isNull(data.gate_ticker)){
-        html = '<i class="fa fa-lock pe-1"></i> Token-gated content &mdash; holders decrypt client-side with their unlock key';
+        html = '<i class="fa-solid fa-lock pe-1"></i> Token-gated content &mdash; holders decrypt client-side with their unlock key';
         if(!isNull(data.gate_min_amount) && data.gate_min_amount !== '')
             html += ', delivered to holders of at least ' + escapeHtml(String(data.gate_min_amount)) +
                     ' ' + escapeHtml(String(data.gate_ticker));

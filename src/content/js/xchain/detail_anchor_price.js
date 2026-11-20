@@ -386,6 +386,6 @@ function detailAnchorPrice_transferRow(type, info, idx, cls){
 function showLockStatus(locked){
     var icon = (locked) ? 'fa-lock' : 'fa-lock-open',
         text = (locked) ? 'Locked' : 'Unlocked',
-        html = '<i class="fa pe-1 ' + icon + '"></i>' + text;
+        html = '<i class="fa-solid pe-1 ' + icon + '"></i>' + text;
     return html;
 }

@@ -340,7 +340,7 @@ function xcDatatableRenderBetFeedRow(context){
     $('td', row).eq(6).html('<span class="badge text-bg-' + fcls + '">' + escapeHtml(String(feed_status || '-')) + '</span>');
     $('td', row).eq(7).html(isNull(deadline) ? '-' : formatLivestamp(deadline));
     // The view button targets the MARKET page, not the raw action page.
-    $('td', row).eq(8).html(formatLinkHtml('/' + coin + '/bet_feed/' + data[9], '<i class="fa fa-eye"></i>', 'View market'));
+    $('td', row).eq(8).html(formatLinkHtml('/' + coin + '/bet_feed/' + data[9], '<i class="fa-solid fa-eye"></i>', 'View market'));
 
 }
 xcDatatableRowHandlers.bet_feed = xcDatatableRenderBetFeedRow;

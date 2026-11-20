@@ -147,8 +147,12 @@ function page(mode, payload, coin, chain, query) {
         const handle = { fail: function (f) { if (mode === 'fail') f(payload); return handle; } };
         return handle;
     };
+    // jsdom 31 no longer makes jQuery's ready queue observably complete after
+    // one timer turn. Run this already-loaded document's callback synchronously
+    // so every assertion sees the shipped render rather than a scheduling race.
+    w.jQuery.fn.ready = function (fn) { fn(w.jQuery); return this; };
     w.eval(stakingInlineScript());
-    return new Promise(resolve => setTimeout(() => resolve(w), 0));
+    return Promise.resolve(w);
 }
 
 /* ------------------------------------------------------------------------- *

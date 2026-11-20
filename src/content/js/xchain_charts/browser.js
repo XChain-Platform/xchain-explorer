@@ -113,7 +113,7 @@ var xcChartsRanges = api.RANGES,
             bar.appendChild(group);
         }
 
-        var save = xcChartsButton('<i class="fa fa-download"></i>', 'Download PNG');
+        var save = xcChartsButton('<i class="fa-solid fa-download"></i>', 'Download PNG');
         save.className += ' xc-chart-export';
         save.addEventListener('click', function(){ xcChartsDownloadPng(chart, opts.name); });
         bar.appendChild(save);

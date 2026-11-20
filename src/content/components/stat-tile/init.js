@@ -29,7 +29,7 @@
             el.classList.add('xc-stat-tile');
             if(props.icon){
                 var icon = el.ownerDocument.createElement('i');
-                icon.className = 'xc-stat-tile-icon fa ' + props.icon;
+                icon.className = 'xc-stat-tile-icon fa-solid ' + props.icon;
                 icon.setAttribute('aria-hidden', 'true');
                 el.appendChild(icon);
             }

@@ -261,7 +261,7 @@ function setupActionListeners(){
             if(['action','tx_hash','tx_index'].includes(XC.type)){
                 load = false;
                 if(action=='info'){
-                    icon = 'fa fa-info-circle';
+                    icon = 'fa-solid fa-circle-info';
                     text = 'Action Details';
                 }
             }

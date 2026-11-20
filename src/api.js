@@ -47,7 +47,7 @@ const { startWebsockets }    = require('./http/api_boot/websocket.js');
 const { createBridgePanelHandlers, mountBridgePanelRoutes, bridgeHubEndpoints } = require('./http/bridge_panel_routes.js');
 
 // Read the .env file before anything below reads an environment variable.
-dotenv.config();
+dotenv.config({ quiet: true });
 
 // Before anything else logs. installObservability does not run until
 // ~150 lines further down, inside startApi(), and this covers every line

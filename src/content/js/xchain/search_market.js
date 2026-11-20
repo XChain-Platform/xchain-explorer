@@ -105,7 +105,7 @@ function populateSearchNetworks(type='supported'){
         let chain   = String(info[0]).trim();
         let network = String(info[1]).toLowerCase();
         let iconCls = getNetworkIcon(chain, network);
-        let item    = '<li><a class="dropdown-item" data-coin="' + coin + '" title="' + chain + '" ><span class="wrapicon-25"><i class="fa ' + iconCls + '" ></i></span>' + chain + '</a></li>';
+        let item    = '<li><a class="dropdown-item" data-coin="' + coin + '" title="' + chain + '" ><span class="wrapicon-25"><i class="fa-solid ' + iconCls + '" ></i></span>' + chain + '</a></li>';
         if(network=='mainnet') mainnet += item;
         if(network=='testnet') testnet += item;
         if(network=='regtest') regtest += item;

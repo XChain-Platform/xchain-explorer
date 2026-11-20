@@ -112,10 +112,12 @@ function page(mode, payload) {
         const handle = { fail: function (f) { if (mode === 'fail') f(payload); return handle; } };
         return handle;
     };
-    // The fragment wraps its work in $(document).ready; the document is already
-    // loaded here, so the callback runs on the next microtask.
+    // jsdom 31 no longer makes jQuery's ready queue observably complete after
+    // one timer turn. Run this already-loaded document's callback synchronously
+    // so every assertion sees the shipped render rather than a scheduling race.
+    w.jQuery.fn.ready = function (fn) { fn(w.jQuery); return this; };
     w.eval(inlineScript());
-    return new Promise(resolve => setTimeout(() => resolve(w), 0));
+    return Promise.resolve(w);
 }
 
 // Field names taken from getValidator (src/db.js:11014) and its two helpers

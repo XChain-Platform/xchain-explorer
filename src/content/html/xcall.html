@@ -40,7 +40,7 @@
         <div class="col-12">
             <div class="card mb-3">
                 <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-lg fa-link"></i> Cross-Chain Call
+                    <i class="fa-solid fa-lg fa-link"></i> Cross-Chain Call
                     <span class="font-monospace fw-normal small" id="xcall-call-id"></span>
                     <span id="xcall-summary"></span>
                 </div>
@@ -57,7 +57,7 @@
         <div class="col-12">
             <div class="card mb-3">
                 <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-lg fa-timeline"></i> Lifecycle
+                    <i class="fa-solid fa-lg fa-timeline"></i> Lifecycle
                 </div>
                 <div class="card-body p-2">
                     <div id="xcall-lifecycle-overview" class="mb-3"></div>
@@ -139,7 +139,7 @@ $(document).ready(function() {
         html += fieldRow('Block',        isNull(d.block_index) ? '-' : formatLink('/' + XC.coin + '/block/' + d.block_index, numeral(d.block_index).format('0,0')));
         html += fieldRow('Time',         isNull(d.timestamp) ? '-' : formatLivestamp(d.timestamp));
         html += fieldRow('Transaction',  isNull(d.tx_hash) ? '-' : formatLinkHtml('/' + XC.coin + '/transaction/' + d.tx_hash, formatHash(d.tx_hash, 32)));
-        html += fieldRow('Route',        esc(XC.coin) + ' <i class="fa fa-arrow-right-long"></i> ' + (isNull(d.target_chain) ? '-' : esc(d.target_chain)));
+        html += fieldRow('Route',        esc(XC.coin) + ' <i class="fa-solid fa-arrow-right-long"></i> ' + (isNull(d.target_chain) ? '-' : esc(d.target_chain)));
         html += fieldRow('Method',       isNull(d.method) ? '-' : esc(d.method));
         $('#xcall-header').html(html);
 

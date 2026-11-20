@@ -108,7 +108,7 @@ function tokenInfo_renderProjectBanners(o){
         o.projects.forEach(function(p){
             let name = escapeHtml(p.project);
             projectBanners += '<div class="alert alert-success mb-1" role="alert">'
-                 +  '<i class="fa fa-certificate pe-1"></i>This token is an official token in the '
+                 +  '<i class="fa-solid fa-certificate pe-1"></i>This token is an official token in the '
                  +  formatLinkHtml(tokenUrl(XC.coin, p.project), '<b>' + name + '</b>', p.project)
                  +  ' project.'
                  +  '<a href="/' + XC.coin + '/action/' + Number(p.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
@@ -120,7 +120,7 @@ function tokenInfo_renderProjectBanners(o){
     // Official Tokens tab
     if(o.registry){
         projectBanners += '<div class="alert alert-success mb-1" role="alert">'
-             +  '<i class="fa fa-certificate pe-1"></i>This token is the owner of the <b>' + escapeHtml(o.info.tick) + '</b> project. '
+             +  '<i class="fa-solid fa-certificate pe-1"></i>This token is the owner of the <b>' + escapeHtml(o.info.tick) + '</b> project. '
              +  '<a href="#" id="registry-link">View its ' + numeral(o.registry.total).format('0,0') + ' official token' + (o.registry.total==1?'':'s') + '</a>.'
              +  '<a href="/' + XC.coin + '/action/' + Number(o.registry.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
              +  '</div>';

@@ -97,7 +97,7 @@ function renderGovernanceProposals(rows){
               + '<td class="font-monospace small gov-proposal-id">' + govEsc(r.proposal_id) + '</td>'
               + '<td class="gov-proposal-parameter">' + govEsc(r.parameter) + '</td>'
               + '<td class="gov-proposal-change">' + govEsc(isNull(r.current_value) ? '-' : r.current_value)
-              + ' <i class="fa fa-arrow-right-long"></i> ' + govEsc(isNull(r.proposed_value) ? '-' : r.proposed_value) + '</td>'
+              + ' <i class="fa-solid fa-arrow-right-long"></i> ' + govEsc(isNull(r.proposed_value) ? '-' : r.proposed_value) + '</td>'
               + '<td class="gov-proposal-status">' + govEsc(isNull(r.status) ? '-' : r.status) + '</td>'
               + '<td class="text-end gov-proposal-end">' + (isNull(r.voting_end)
                   ? '<span class="text-muted">-</span>'

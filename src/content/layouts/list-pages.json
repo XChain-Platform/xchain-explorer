@@ -2963,7 +2963,7 @@
     },
     "sends.html": {
         "comment": "Sends",
-        "icon": "fa-send",
+        "icon": "fa-paper-plane",
         "heading": "Sends",
         "action": "send",
         "tableClass": "table table-striped cell-border view-button table-hover table-condensed",

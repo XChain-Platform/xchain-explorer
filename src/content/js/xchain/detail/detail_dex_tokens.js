@@ -154,7 +154,7 @@ function showListDetails(data){
             + ', version ' + $('<span>').text(mirror.version).html());
     else
         mirrorInfo.empty();
-    $('#list-items-tab').html('<i class="fa fa-lg fa-list"></i> ' + (current ? 'Current List' : 'Full List'));
+    $('#list-items-tab').html('<i class="fa-solid fa-lg fa-list"></i> ' + (current ? 'Current List' : 'Full List'));
     showActionDatatable('list-items', current || data.list, list_type, false);
 
 }

@@ -187,19 +187,21 @@ class FileRoutes {
         }
     }
 
+    sendMultipartRangeError(res, plan){
+        res.set('Content-Range', `bytes */${plan.totalBytes}`);
+        res.set('Accept-Ranges', 'bytes');
+        res.status(416);
+        res.end();
+        return res;
+    }
+
     async sendMultipartFileBytes(res, file, config, rangeHeader){
         const preliminaryPlan = multipartStream.planServe(file, rangeHeader);
         await multipartStream.prefetchManifest(this.db, config, file, preliminaryPlan.fromByte || 0);
         const plan = multipartStream.planServe(file, rangeHeader);
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
-        if(plan.status === 416) {
-            res.set('Content-Range', `bytes */${plan.totalBytes}`);
-            res.set('Accept-Ranges', 'bytes');
-            res.status(416);
-            res.end();
-            return res;
-        }
+        if(plan.status === 416) return this.sendMultipartRangeError(res, plan);
         if(file.gated) {
             const disposition = file.name ? safeAttachmentFilename(file.name) : null;
             res.set('Content-Type', 'application/octet-stream');

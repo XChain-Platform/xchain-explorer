@@ -108,6 +108,9 @@ describe('multipart FILE byte stream when the sink dies between decoder pages', 
         expect(failure).to.be.an('error');
         expect(failure.sinkClosed).to.equal(true);
     });
+});
+
+describe('multipart FILE byte stream when the sink dies between decoder pages', function () {
 
     it('stops the inflated stream when the client sink closes first', async function () {
         const raw = noisyBytes(40 * 64);

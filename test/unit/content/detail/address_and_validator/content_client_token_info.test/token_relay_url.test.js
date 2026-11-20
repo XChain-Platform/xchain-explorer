@@ -80,30 +80,30 @@ function installPinnedFetch(win, body){
     } });
 }
 
+// Cover forms that can name a non-gateway host for both page and relay parsing.
+const METADATA_DESCRIPTIONS = [
+    FAIRYWINK_URL,
+    STARE_URL,
+    'http://example.org/meta.json',
+    'https://example.org/meta.json;see the site',
+    'example.org/meta.json',
+    'https://example.org/page',
+    'ipfs://QmMetadataHash',
+    'ar:abc123',
+    'https://arweave.net/abc123/x.json',
+    'ord:' + 'ab'.repeat(32),
+    'just a sentence',
+    'https://api.example.com/token/json',
+    'https://host.example/meta.json/icon.png',
+    'a jsonish coin',
+    'The first JSON token;XChain',
+    'https://example.org/meta.json?v=2',
+    'https://example.org/meta.JSON',
+    null
+];
+
 describe('client: token metadata URL rule shared with the relay', function () {
-    // action: and short ord: forms derive through page-only helpers and never name a
-    // non-gateway host, so the relay does not need them and they are left out here.
-    const descriptions = [
-        FAIRYWINK_URL,
-        STARE_URL,
-        'http://example.org/meta.json',
-        'https://example.org/meta.json;see the site',
-        'example.org/meta.json',
-        'https://example.org/page',
-        'ipfs://QmMetadataHash',
-        'ar:abc123',
-        'https://arweave.net/abc123/x.json',
-        'ord:' + 'ab'.repeat(32),
-        'just a sentence',
-        'https://api.example.com/token/json',
-        'https://host.example/meta.json/icon.png',
-        'a jsonish coin',
-        'The first JSON token;XChain',
-        'https://example.org/meta.json?v=2',
-        'https://example.org/meta.JSON',
-        null
-    ];
-    for (const desc of descriptions) {
+    for (const desc of METADATA_DESCRIPTIONS) {
         it(`derives the same URL on the page and in Node for ${JSON.stringify(desc)}`, function () {
             const win = boot();
             const pageUrl = win.tokenInfo_getJsonUrl(win.tokenInfo_prepareDescription(desc));

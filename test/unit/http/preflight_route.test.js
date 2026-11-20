@@ -155,6 +155,10 @@ describe('processPreflightRequest', function () {
         await call(fakeThis(), { action: 'ISSUE', params: '0|NEWTICK', source: 'me', feeMode: 'NATIVE' });
         expect(stub.firstCall.args[0].feeMode).to.equal('native');
     });
+});
+
+describe('processPreflightRequest', function () {
+    afterEach(() => sinon.restore());
 
     it('omits feeMode when the caller did not send one (the indexer picks the chain default)', async function () {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');

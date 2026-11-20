@@ -178,6 +178,10 @@ describe('catch-up replay stops at the live-start ceiling', function () {
         const completed = frames(client, 'CATCH_UP_COMPLETE');
         expect(completed[completed.length - 1].data.latest_action_index).to.equal('7');
     });
+});
+
+describe('catch-up replay stops at the live-start ceiling', function () {
+    afterEach(() => sinon.restore());
 
     it('caps null ceilings without raising lower ceilings or touching another coin', async function () {
         const db = fakeDb([row(1), row(2), row(3)]);

@@ -187,7 +187,8 @@ describe('multipart FILE raw route stored output', function () {
         expect(res._headers['X-XChain-Compression']).to.equal('deflate-raw');
         expect(res._headers['X-XChain-Stored-Length']).to.equal(String(stored.length));
     });
-
+});
+describe('multipart FILE raw route stored output', function () {
     it('settles when the response closes during the compressed inspection pass', async function () {
         const original = Buffer.from('compressed multipart '.repeat(200));
         const stored = zlib.deflateRawSync(original);
@@ -204,7 +205,6 @@ describe('multipart FILE raw route stored output', function () {
         });
 
         await deadline(makeExplorer(db).processFileRawRequest(req(), res), 'closed response after inspect');
-
         expect(res.destroyed).to.equal(true);
         expect(db.readPartBytes.callCount).to.equal(1);
         expect(res._headersSent).to.equal(false);

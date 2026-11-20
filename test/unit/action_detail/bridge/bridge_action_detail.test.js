@@ -102,6 +102,9 @@ describe('XBRIDGE action detail handler @regression', function () {
             'a lock settles on the OTHER chain; a null settlement here is in-flight, not missing');
         assert.equal(data.transfer_id, null);
     });
+});
+
+describe('XBRIDGE action detail handler @regression', function () {
 
     it('keeps a tick the baseline already carried when no settlement row names one', async function () {
         const h = ctx([]);

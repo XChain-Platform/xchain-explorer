@@ -85,11 +85,11 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
             'non-inclusion proof must verify against balances_root');
         assert.ok(M.verifyFixedMerkleProof(stateRoot, M.toBuf(p.balances_root), p.sub_root_path.index, p.sub_root_path.siblings));
     });
-
+});
+describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
     it('uses the spelling stored by the indexer for the proof key and amount', async function () {
         const { server } = makeServer('5');
         server.db.getStoredAddressSpelling = async () => ADDR_A;
-
         const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A.toLowerCase(), TICK, 100);
 
         assert.ok(!r.error);

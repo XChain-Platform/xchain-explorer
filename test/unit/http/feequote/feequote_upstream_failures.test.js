@@ -144,6 +144,14 @@ describe('feequote upstream failures: refusals and verdicts are not retryable', 
             }
         });
     }
+});
+
+describe('feequote upstream failures: refusals and verdicts are not retryable', function () {
+    beforeEach(() => {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
+        IndexerConnector.resetEgressBudgets();
+    });
+    afterEach(() => sinon.restore());
 
     it('a JSON-RPC error result is a bare 502 with no retryable flag', async function () {
         sinon.stub(axios, 'post').resolves({ data: { jsonrpc: '2.0', id: 1, error: { code: -32602, message: 'invalid params' } } });

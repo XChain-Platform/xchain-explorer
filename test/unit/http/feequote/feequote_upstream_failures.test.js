@@ -151,4 +151,37 @@ describe('feequote upstream failures: refusals and verdicts are not retryable', 
         expect(res._status).to.equal(502);
         expect(res._json).to.deep.equal({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR' });
     });
+
+    it('maps a coded not-ready result to the retryable transport contract', async function () {
+        sinon.stub(axios, 'post').resolves({ data: { jsonrpc: '2.0', id: 1, result: {
+            error: 'indexer not ready', code: 'INDEXER_NOT_READY', retryable: true
+        } } });
+        const res = await feequote();
+        expect(res._status).to.equal(502);
+        expect(res._json).to.deep.equal({
+            error: 'fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true
+        });
+        const oracle = await oracleFeequote();
+        expect(oracle._status).to.equal(502);
+        expect(oracle._json).to.deep.equal({
+            error: 'oracle fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true
+        });
+    });
+
+    it('maps a coded internal result without claiming it is retryable', async function () {
+        sinon.stub(axios, 'post').resolves({ data: { jsonrpc: '2.0', id: 1, result: {
+            error: 'failed to compute fee quote', code: 'INDEXER_INTERNAL'
+        } } });
+        const res = await feequote();
+        expect(res._status).to.equal(502);
+        expect(res._json).to.deep.equal({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR' });
+    });
+
+    it('keeps an uncoded input verdict as an HTTP 200 result', async function () {
+        sinon.stub(axios, 'post').resolves({ data: { jsonrpc: '2.0', id: 1,
+            result: { error: 'action is required' } } });
+        const res = await feequote();
+        expect(res._status).to.equal(200);
+        expect(res._json).to.deep.equal({ error: 'action is required' });
+    });
 });

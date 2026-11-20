@@ -88,7 +88,11 @@
         },
         "token-info": {
             "requires": ["math"],
-            "assets": ["/js/xchain/token_media.js", "/js/xchain/token_info.js"]
+            "assets": [
+                "/js/xchain/token_media.js",
+                "/js/xchain/token_info_integrity.js",
+                "/js/xchain/token_info.js"
+            ]
         },
         "token": {
             "requires": ["token-info", "anchor-price"],

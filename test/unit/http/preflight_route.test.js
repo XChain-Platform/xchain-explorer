@@ -184,6 +184,18 @@ describe('processPreflightRequest', function () {
         expect(res._status).to.equal(502);
         expect(res._json.code).to.equal('UPSTREAM_ERROR');
     });
+
+    it('502 with retryable when the indexer returns a coded not-ready result', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
+        sinon.stub(IndexerConnector.prototype, 'preflight').resolves({
+            error: 'indexer not ready', code: 'INDEXER_NOT_READY', retryable: true
+        });
+        const res = await call(fakeThis(), { action: 'SEND' });
+        expect(res._status).to.equal(502);
+        expect(res._json).to.deep.equal({
+            error: 'pre-flight upstream error', code: 'UPSTREAM_ERROR', retryable: true
+        });
+    });
 });
 
 // The regression this cap change exists for: the endpoint used to refuse, on LENGTH,

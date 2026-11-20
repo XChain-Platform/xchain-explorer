@@ -116,6 +116,14 @@ function streamRes() {
     return res;
 }
 
+function deadline(promise, label) {
+    let timer;
+    const limit = new Promise((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('hung: ' + label)), 2000);
+    });
+    return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
+}
+
 function reader(partCount, decoderDb = 'Decoder_RBTC') {
     const chunks = Array.from({ length: partCount }, (_, position) => Buffer.from('part-' + position));
     const manifestHash = 'manifest-hash';
@@ -178,6 +186,28 @@ describe('multipart FILE raw route stored output', function () {
         expect(res.bytes().equals(original)).to.equal(true);
         expect(res._headers['X-XChain-Compression']).to.equal('deflate-raw');
         expect(res._headers['X-XChain-Stored-Length']).to.equal(String(stored.length));
+    });
+
+    it('settles when the response closes during the compressed inspection pass', async function () {
+        const original = Buffer.from('compressed multipart '.repeat(200));
+        const stored = zlib.deflateRawSync(original);
+        const record = completeRecord([stored.subarray(0, 5), stored.subarray(5)], { compressed: true });
+        const db = routeDb(record);
+        const res = streamRes();
+        db.readPartBytes.callsFake(async (_config, current, positions) => {
+            current.data = manifestData({ compressed: true });
+            if(db.readPartBytes.callCount === 1) {
+                res.destroy();
+                await new Promise(resolve => setImmediate(resolve));
+            }
+            return positions.map(position => ({ position, raw_data: current.parts[position].raw_data }));
+        });
+
+        await deadline(makeExplorer(db).processFileRawRequest(req(), res), 'closed response after inspect');
+
+        expect(res.destroyed).to.equal(true);
+        expect(db.readPartBytes.callCount).to.equal(1);
+        expect(res._headersSent).to.equal(false);
     });
 
     it('serves gated multipart ciphertext without inflating it', async function () {

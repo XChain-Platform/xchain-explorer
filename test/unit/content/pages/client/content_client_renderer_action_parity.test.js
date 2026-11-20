@@ -220,12 +220,20 @@ describe('client: the compact LIST label reads the canonical enum', function () 
         expect(LIST_TYPES[2]).to.equal('Address');
     });
 
+    it('the shipped enum declares 3=Union', function () {
+        expect(LIST_TYPES[3]).to.equal('Union');
+    });
+
     it('a type-1 list summarizes as a Token list', function () {
         expect(summary('LIST', { type: 1, edit: 0 })).to.equal('Create Token List');
     });
 
     it('a type-2 list summarizes as an Address list', function () {
         expect(summary('LIST', { type: 2, edit: 1 })).to.equal('Add to Address List');
+    });
+
+    it('a type-3 list summarizes as a Union list', function () {
+        expect(summary('LIST', { type: 3, edit: 0 })).to.equal('Create Union List');
     });
 
     it('an undeclared type names itself rather than printing undefined', function () {

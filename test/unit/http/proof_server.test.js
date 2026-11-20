@@ -86,6 +86,18 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
         assert.ok(M.verifyFixedMerkleProof(stateRoot, M.toBuf(p.balances_root), p.sub_root_path.index, p.sub_root_path.siblings));
     });
 
+    it('uses the spelling stored by the indexer for the proof key and amount', async function () {
+        const { server } = makeServer('5');
+        server.db.getStoredAddressSpelling = async () => ADDR_A;
+
+        const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A.toLowerCase(), TICK, 100);
+
+        assert.ok(!r.error);
+        assert.strictEqual(r.proof.address, ADDR_A);
+        assert.strictEqual(r.proof.amount, M.canonicalAmount('5'));
+        assert.strictEqual(r.proof.smt_proof.leaf_value, M.toHex(M.amountLeaf('5')));
+    });
+
     it('refuses to serve when the local state tree does not reassemble the signed state_root', async function () {
         const { server } = makeServer('5');
         server.db.getStateTreeRow = async () => ({ balances_root: 'de'.repeat(32), stakes_root: EMPTY_ROOT,

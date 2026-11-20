@@ -323,6 +323,8 @@ function detailAnchorPrice_actionRow(type, info, idx, dataType, cls){
             html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info, info) + '</td>';
         if(dataType=='Token')
             html += '    <td>' + formatLink(tokenUrl(XC.coin, info), info) + '</td>';
+        if(dataType=='Union')
+            html += '    <td>' + (isNull(info) ? '-' : formatLink('/' + XC.coin + '/action/' + info, formatAmount(info))) + '</td>';
         html += '</tr>';
     } else if(type=='list-edits'){
         html += '<tr class="' + cls + '">'
@@ -331,6 +333,9 @@ function detailAnchorPrice_actionRow(type, info, idx, dataType, cls){
             html += '    <td>' + formatLink('/' + XC.coin + '/address/' + info.address, info.address) + '</td>';
         if(dataType=='Token')
             html += '    <td>' + formatLink(tokenUrl(XC.coin, info.tick), info.tick, info.tick) + '</td>';
+        if(dataType=='Union')
+            html += '    <td>' + (isNull(info.list_action_index) ? '-'
+                : formatLink('/' + XC.coin + '/action/' + info.list_action_index, formatAmount(info.list_action_index))) + '</td>';
         html += '    <td>' + info.status + '</td>';
         html += '</tr>';
     } else if(['send','airdrop','destroy'].includes(type)){

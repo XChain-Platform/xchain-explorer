@@ -127,6 +127,8 @@ class ProofBuilders {
         let stateRoot;
         try { stateRoot = this.bindRoots(cp, tr); }
         catch (e) { return rootBindFailure(e); }
+        if (typeof this.db.getStoredAddressSpelling === 'function')
+            address = await this.db.getStoredAddressSpelling(config, address) || address;
         const keyBuf = M.balanceKey(chain, network, address, tick);
         const smt    = await this.prove(config, tr.balances_root, keyBuf);
         const sub    = M.stateRootProof(this.subRoots(tr), 'balances_root');
@@ -183,6 +185,8 @@ class ProofBuilders {
         let stateRoot;
         try { stateRoot = this.bindRoots(cp, tr); }
         catch (e) { return rootBindFailure(e); }
+        if (typeof this.db.getStoredAddressSpelling === 'function')
+            address = await this.db.getStoredAddressSpelling(config, address) || address;
         const keyBuf = M.escrowKey(chain, network, address, tick);
         const smt    = await this.prove(config, tr.balances_root, keyBuf);
         const sub    = M.stateRootProof(this.subRoots(tr), 'balances_root');

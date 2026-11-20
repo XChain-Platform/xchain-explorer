@@ -78,6 +78,16 @@ function sendUpstreamError(res, e, message){
     return res.status(502).json(body);
 }
 
+const INDEXER_OUTAGE_CODES = new Set(['INDEXER_NOT_READY', 'INDEXER_INTERNAL']);
+
+function indexerOutage(result){
+    if(!result || typeof result !== 'object' || !INDEXER_OUTAGE_CODES.has(result.code)) return null;
+    return Object.assign(new Error(String(result.error || 'indexer error')), {
+        code: result.code,
+        retryable: result.retryable === true
+    });
+}
+
 class FeesPreflight {
 
     // Resolve an explorer coin code (e.g. 'BTC', 'TBTC', 'RDOGE') to its base coin + network
@@ -148,6 +158,8 @@ class FeesPreflight {
                 source:        source,
                 feeOutputSats: this.util.isNull(feeOutputSats) ? undefined : String(feeOutputSats)
             });
+            let outage = indexerOutage(result);
+            if(outage) return sendUpstreamError(res, outage, 'fee quote upstream error');
             return res.json(result);
         } catch(e){
             log.error('FEE_QUOTE_REQUEST_FAILED', { err: e.message || e });
@@ -223,6 +235,8 @@ class FeesPreflight {
 
             let connector = new IndexerConnector(url);
             let result = await connector.oraclefeequote(q);
+            let outage = indexerOutage(result);
+            if(outage) return sendUpstreamError(res, outage, 'oracle fee quote upstream error');
             return res.json(result);
         } catch(e){
             log.error('ORACLE_FEE_QUOTE_REQUEST_FAILED', { err: e.message || e });
@@ -286,6 +300,8 @@ class FeesPreflight {
             }
             let connector = new IndexerConnector(url);
             let result = await connector.preflight({ action, params, source, feeMode });
+            let outage = indexerOutage(result);
+            if(outage) return sendUpstreamError(res, outage, 'pre-flight upstream error');
             return res.json(result);
         } catch(e){
             log.error('PREFLIGHT_REQUEST_FAILED', { err: e.message || e });
@@ -306,7 +322,10 @@ class FeesPreflight {
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
                 return res.status(501).json({ error: 'fee schedule unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
-            return res.json(await feeScheduleCache.get(url, () => new IndexerConnector(url).feeschedule()));
+            let result = await feeScheduleCache.get(url, () => new IndexerConnector(url).feeschedule());
+            let outage = indexerOutage(result);
+            if(outage) return sendUpstreamError(res, outage, 'fee schedule upstream error');
+            return res.json(result);
         } catch(e){
             log.error('FEE_SCHEDULE_REQUEST_FAILED', { err: e.message || e });
             return sendUpstreamError(res, e, 'fee schedule upstream error');

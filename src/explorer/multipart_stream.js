@@ -205,13 +205,14 @@ async function inspectInflated(db, config, record) {
 }
 
 async function streamInflated(db, config, record, sink) {
+    if(sink.destroyed || sink.writableEnded) throw sinkClosedError(sink);
     const inflater = zlib.createInflateRaw();
     const ended = new Promise((resolve, reject) => {
         inflater.on('end', resolve);
         inflater.on('error', reject);
         sink.on('error', reject);
-        // A client that goes away stops the pipe, so the inflater would never end or drain again.
-        // After a normal end this settles nothing: the promise has already resolved.
+        // The entry guard covers a sink already closed; this covers one that dies
+        // after the pipe starts. After a normal end the promise is already resolved.
         sink.on('close', () => {
             inflater.destroy();
             reject(sinkClosedError(sink));

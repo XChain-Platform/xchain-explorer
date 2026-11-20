@@ -308,9 +308,9 @@ function actionDetail_renderContractActions(html, action, info, coin){
             html += ', cooldown until block ' + formatAmount(info.cooldown_end_block);
     }
     if(action=='DELEGATE'){
-        html = isNull(info.target_contract_index)
-            ? 'Capability delegation'
-            : 'Delegate to contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index);
+        let format = Number(info.action_format); html = format === 2 ? 'Revoke capability signing key'
+            : format === 3 ? 'Revoke delegation on contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index)
+            : isNull(info.target_contract_index) ? 'Capability delegation' : 'Delegate to contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index);
     }
     if(action=='COLLECT')
         html = 'Claim ' + formatAmount(info.amount) + ' validator reward';

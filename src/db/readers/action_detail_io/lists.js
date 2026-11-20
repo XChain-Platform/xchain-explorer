@@ -365,7 +365,7 @@ class ActionListMembershipReaders {
     // rows and the explorer must not advertise a rule the chain is not applying
     // yet. An unresolvable coin/network is treated as inactive (the safe side).
     // @param {action_index}  integer  ACTION_INDEX of the LIST action being viewed
-    // @param {type}          integer  list type (1 = tick, 2 = address)
+    // @param {type}          integer  list type (1 = tick, 2 = address, 3 = member list index)
     async getListCurrentMembership(config, action_index, type){
         let active = await this.isListEditResolutionActiveAtTip(config);
         let owners = await this.getListOwnerAddresses(config, [action_index]);
@@ -375,8 +375,7 @@ class ActionListMembershipReaders {
         let head = await this.getListHeadIndex(config, action_index);
         state.membership_action_index = Number(head);
         let rows = await this.doQuery(config, `SELECT
-                        a1.address,
-                        t1.tick
+                        l1.item_id, a1.address, t1.tick
                     FROM
                         list_items l1
                         LEFT JOIN index_addresses a1 ON (a1.id=l1.item_id)
@@ -387,8 +386,9 @@ class ActionListMembershipReaders {
         for(let row of (rows || [])){
             if(Number(type) == 1) items.push(row.tick);
             if(Number(type) == 2) items.push(row.address);
+            if(Number(type) == 3 && row.item_id != null) items.push(Number(row.item_id));
         }
-        state.current_list = items.sort();
+        state.current_list = Number(type) == 3 ? items.sort((a, b) => a - b) : items.sort();
         return state;
     }
 }

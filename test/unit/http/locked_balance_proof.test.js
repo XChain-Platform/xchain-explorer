@@ -164,6 +164,19 @@ describe('SPV Stage B: lockedBalanceProof @regression', function () {
                                            p.sub_root_path.index, p.sub_root_path.siblings));
     });
 
+    it('uses the indexer-stored spelling for the locked leaf key', async function () {
+        armExplorer();
+        const { server } = makeVenue();
+        server.db.getStoredAddressSpelling = async () => ADDR;
+
+        const r = await server.lockedBalanceProof(
+            { coin: COIN }, CHAIN, NET, ADDR.toLowerCase(), TICK, HEIGHT);
+
+        assert.ok(!r.error);
+        assert.strictEqual(r.proof.address, ADDR);
+        assert.strictEqual(r.proof.amount, M.canonicalAmount(LOCKED));
+    });
+
     it('nothing locked at an armed height is a verifiable non-inclusion with amount "0"', async function () {
         armExplorer();
         const { server, balancesRoot } = makeVenue();

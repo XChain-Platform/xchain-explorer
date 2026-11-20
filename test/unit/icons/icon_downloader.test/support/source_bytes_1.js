@@ -10,6 +10,8 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
+const { createHash } = require('crypto');
+
 const {
     ACTION_REF_PATTERN, expect, execCmdText, iconSuite, loadIconDownloader,
     makeExecStub, makeExplorer, makeMockConn, makeMockPool, makeStubs, path,
@@ -211,6 +213,31 @@ const {
                 { scheme: 'image_url', url: 'data:image/png;base64,aGVsbG8=' }, 2));
             expect(error.message).to.include('data URL reached a network lane');
             expect(stubs.axiosStub.get.callCount).to.equal(0);
+        });
+
+        it('refuses a pinned document whose exact response bytes do not match', async function () {
+            const body = Buffer.from('{"image":"data:image/png;base64,aGVsbG8="}');
+            const stubs = makeStubs({ axiosResponse: { status: 200, headers: {}, data: body } });
+            const d = makeDownloader(stubs);
+            const error = await errorFrom(d.fetchSourceBytes({
+                scheme: 'json_url', url: 'https://example.com/meta', expectedHash: '00'.repeat(32),
+            }, 2));
+            expect(error.message).to.include('metadata integrity mismatch');
+            expect(createHash('sha256').update(body).digest('hex')).not.to.equal('00'.repeat(32));
+        });
+
+        it('accepts a pinned document whose exact response bytes match', async function () {
+            const body = Buffer.from('{"image":"data:image/png;base64,aGVsbG8="}');
+            const stubs = makeStubs({
+                axiosResponse: { status: 200, headers: {}, data: body },
+                selectIconUrlFromCip25Json: sinon.stub().returns('data:image/png;base64,aGVsbG8='),
+            });
+            const d = makeDownloader(stubs);
+            const result = await d.fetchSourceBytes({
+                scheme: 'json_url', url: 'pinned',
+                expectedHash: createHash('sha256').update(body).digest('hex'),
+            }, 2);
+            expect(result.toString()).to.equal('hello');
         });
 
         it('gives a missing image content type a distinct terminal message', async function () {

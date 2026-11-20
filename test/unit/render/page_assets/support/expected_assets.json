@@ -73,6 +73,7 @@
             "/js/xchain/action_markers.js",
             "/js/xchain/action_system_summaries.js",
             "/js/xchain/token_media.js",
+            "/js/xchain/token_info_integrity.js",
             "/js/xchain/token_info.js",
             "/js/math.min.js",
             "/js/jquery.qrcode.min.js"
@@ -392,6 +393,7 @@
             "/js/xchain/detail_anchor_price.js",
             "/js/xchain/token_media.js",
             "/js/xchain/token_content.js",
+            "/js/xchain/token_info_integrity.js",
             "/js/xchain/token_info.js",
             "/js/xchain/token_legacy.js",
             "/js/math.min.js"

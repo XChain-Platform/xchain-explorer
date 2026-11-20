@@ -309,6 +309,7 @@ const LIST_QUERY = `SELECT
 
 // List
 const LIST_QUERY2 = `SELECT
+                    l1.item_id,
                     a1.address,
                     t1.tick
                 FROM
@@ -320,6 +321,7 @@ const LIST_QUERY2 = `SELECT
 
 // List edits: each item this action changed on the list, with its own status
 const LIST_QUERY3 = `SELECT
+                    l1.item_id,
                     a1.address,
                     t1.tick,
                     s1.status

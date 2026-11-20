@@ -29,6 +29,7 @@
 const IndexerConnector = require('../connectors/indexer.js');
 const vmQuery          = require('../contract/vm_query.js');
 const { sendProofError } = require('./proof_errors.js');
+const { canonicalCoinAddress } = require('./request/address_shape.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -222,13 +223,18 @@ class StateProofs {
             let gate = this.mirrorGate(coin);
             if(gate.blocked)
                 return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
-            let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
+            let explorerConfig = await this.configInfo.getConfig();
+            let parsed = this.parseCoinCode(coin, explorerConfig);
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
             let address = String(req.params.address || '');
             let tick    = String(req.params.tick || '');
             if(!address || !tick)
                 return res.status(400).json({ error: 'address and tick are required', code: 'MISSING_PARAMETER' });
+            let canonical = canonicalCoinAddress(explorerConfig, coin, address);
+            if(canonical === false)
+                return res.status(400).json({ error: 'Invalid address', code: 'INVALID_ADDRESS' });
+            if(canonical !== null) address = canonical;
             let height = (req.query.height !== undefined && req.query.height !== '') ? req.query.height : null;
             if(height !== null && !this.util.isSafeIntegerParam(height))
                 return res.status(400).json({ error: 'Invalid height', code: 'INVALID_HEIGHT' });

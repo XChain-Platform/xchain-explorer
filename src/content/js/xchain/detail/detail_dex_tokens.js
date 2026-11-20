@@ -114,6 +114,7 @@ function showListDetails(data){
     // An invalid edit row can carry a null or unmapped type, so name that case
     // rather than printing 'undefined' in the type cell and the column headers.
     let list_type = XC.list_types[data.type] || 'Unknown';
+    let item_header = Number(data.type) === 3 ? 'List' : list_type;
     let type = (data.type) ? (data.type + ' - ' + list_type) : '';
     let edit = (isNumeric(data.edit)) ? (data.edit + ' - ' + XC.list_edit_types[data.edit]) : '';
     $('#info-list .list-type').text(type);
@@ -128,8 +129,8 @@ function showListDetails(data){
     $('#info-list .list-destination').html(!isTransfer || isNull(data.destination) ? '-'
         : formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
     // Add header columns
-    $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th></tr>');
-    $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th><th>Status</th></tr>');
+    $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + item_header + '</th></tr>');
+    $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + item_header + '</th><th>Status</th></tr>');
     showActionDatatable('list-edits', data.edits, list_type, false);
     // `list` is what THIS action wrote; edits land under their own action
     // index, so on a create with later edits it is a create-time snapshot. Show

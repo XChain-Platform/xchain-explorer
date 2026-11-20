@@ -216,4 +216,16 @@ describe('GET /{COIN}/api/feeschedule reads through the fee schedule cache', fun
         expect(res._status).to.equal(502);
         expect(res._json.code).to.equal('UPSTREAM_ERROR');
     });
+
+    it('answers retryable 502 for a coded not-ready result with no cached schedule', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns(URL_A);
+        sinon.stub(IndexerConnector.prototype, 'feeschedule').resolves({
+            error: 'indexer not ready', code: 'INDEXER_NOT_READY', retryable: true
+        });
+        const res = await callRoute();
+        expect(res._status).to.equal(502);
+        expect(res._json).to.deep.equal({
+            error: 'fee schedule upstream error', code: 'UPSTREAM_ERROR', retryable: true
+        });
+    });
 });

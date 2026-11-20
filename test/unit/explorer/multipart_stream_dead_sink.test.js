@@ -120,6 +120,33 @@ describe('multipart FILE byte stream when the sink dies between decoder pages', 
         expect(failure).to.be.an('error');
     });
 
+    it('rejects before reading parts when the inflated sink is already destroyed', async function () {
+        const raw = noisyBytes(40 * 64);
+        const { record, db } = slowFixture(split(zlib.deflateRawSync(raw), 40));
+        const client = new Writable({ highWaterMark: 1, write() {} });
+        client.destroy();
+        await new Promise(resolve => setImmediate(resolve));
+
+        const failure = await captureFailure(stream.streamInflated(db, {}, record, client), 'preclosed sink');
+
+        expect(failure).to.be.an('error');
+        expect(failure.sinkClosed).to.equal(true);
+        expect(db.readPartBytes.called).to.equal(false);
+    });
+
+    it('rejects before reading parts when the inflated sink already ended', async function () {
+        const raw = noisyBytes(40 * 64);
+        const { record, db } = slowFixture(split(zlib.deflateRawSync(raw), 40));
+        const client = new Writable({ write(_chunk, _encoding, done) { done(); } });
+        client.end();
+
+        const failure = await captureFailure(stream.streamInflated(db, {}, record, client), 'ended sink');
+
+        expect(failure).to.be.an('error');
+        expect(failure.sinkClosed).to.equal(true);
+        expect(db.readPartBytes.called).to.equal(false);
+    });
+
     it('settles when the client closes after the last part is written but before the inflater ends', async function () {
         const raw = Buffer.alloc(2 * 1024 * 1024);
         const { record, db } = slowFixture(split(zlib.deflateRawSync(raw), 4));

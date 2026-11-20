@@ -88,6 +88,8 @@ describe('XBRIDGE action detail handler @regression', function () {
         assert.equal(data.transfer_id, 'e'.repeat(64));
         assert.equal(data.bridge_kind, 'transfer');
         assert.equal(data.tick, 'BTC.FUFU');
+        assert.equal(data.dest_chain, 'DOGE');
+        assert.equal(data.dest_address, 'Ddest');
         assert.equal(data.bridge_pending, false);
     });
 
@@ -115,5 +117,17 @@ describe('XBRIDGE action detail handler @regression', function () {
         const data = { action_format: 5 };
         await REGISTRY.XBRIDGE.afterMain(h.ctx, data);
         assert.equal(data.bridge_kind, 'policy');
+        assert.equal(Object.hasOwn(data, 'dest_chain'), false);
+        assert.equal(Object.hasOwn(data, 'dest_address'), false);
+    });
+
+    it('does not overwrite a destination already resolved from the user leg record', async function () {
+        const row = { transfer_id: 'e'.repeat(64), kind: 'transfer', dest_chain: 'DOGE',
+                      dest_address: 'Ddest', tick: 'BTC.FUFU' };
+        const h = ctx([row]);
+        const data = { action_format: 5, dest_chain: 'BTC', dest_address: 'Bdest' };
+        await REGISTRY.XBRIDGE.afterMain(h.ctx, data);
+        assert.equal(data.dest_chain, 'BTC');
+        assert.equal(data.dest_address, 'Bdest');
     });
 });

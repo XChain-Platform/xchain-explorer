@@ -29,6 +29,7 @@
  ********************************************************************/
 
 const netmod  = require('net');
+const crypto  = require('crypto');
 const { isPrivateAddress, directEgressOptions } = require('../../http/ssrf_guard');
 // The same decompression the live /{COIN}/api/file/{index}/raw route applies
 // (XChainExplorer.processFileRawRequest), so an `action:` FILE resolves to the
@@ -132,6 +133,10 @@ async function fetchDocumentSource(dl, src, depth, flavor, deps){
     // the Content-Type header (IPFS gateways routinely serve
     // content as text/plain regardless of the actual bytes).
     const resp = await dl.httpFetch(src.url);
+    if(src.expectedHash){
+        const digest = crypto.createHash('sha256').update(resp.body).digest('hex');
+        if(digest !== src.expectedHash) throw new Error(`${src.scheme}: metadata integrity mismatch`);
+    }
 
     // Try JSON parse first
     let json = null;

@@ -221,6 +221,7 @@ class FileRoutes {
         }
 
         const inspected = await multipartStream.inspectInflated(this.db, config, file);
+        if(res.destroyed) return res;
         if(!inspected.ok) {
             res.set('X-XChain-Stored-Form', 'compressed');
             res.set('X-XChain-Compression-Error', inspected.error);

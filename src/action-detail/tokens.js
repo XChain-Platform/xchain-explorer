@@ -235,8 +235,8 @@ function attachXbridgeRecord(data, rows){
     data['tick'] = data['tick'] || row.tick || null;
 }
 
-// Lift the settle row's identifying fields so the card reads one shape whether the
-// leg was injected or broadcast; no row on a read table is the in-flight state.
+// Lift the settle row's identifying fields and destination so the card and summary
+// read one shape whether the leg was injected or broadcast. Keep record values when present.
 function attachXbridgeSettlement(data, settle){
     let row = (settle && settle.length) ? settle[0] : null;
     data['bridge_settlement'] = row;
@@ -244,6 +244,10 @@ function attachXbridgeSettlement(data, settle){
     data['bridge_kind']   = (row) ? row.kind        : null;
     data['tick']          = (row) ? row.tick        : (data['tick'] || null);
     data['bridge_pending'] = (row) ? false : true;
+    if(row){
+        for(const key of ['dest_chain', 'dest_address'])
+            if(data[key] == null && row[key] != null) data[key] = row[key];
+    }
 }
 
 // The mirror-injected formats (v2/v5): their source ref names a leg on another chain.

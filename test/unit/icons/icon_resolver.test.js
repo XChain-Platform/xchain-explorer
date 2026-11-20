@@ -120,6 +120,19 @@ describe('IconResolver json_url lane uses the token page JSON-link rule', functi
     });
 });
 
+describe('IconResolver URL hash pins', function(){
+    const hash = 'ab'.repeat(32);
+
+    it('carries a valid pin into JSON and bare arweave document sources', function(){
+        expect(resolveDescriptionToSource(`https://example.org/meta.json;${hash}`).expectedHash).to.equal(hash);
+        expect(resolveDescriptionToSource(`https://arweave.net/txid;${hash}`).expectedHash).to.equal(hash);
+    });
+
+    it('does not treat a legacy title suffix as a hash', function(){
+        expect(resolveDescriptionToSource('https://example.org/meta.json;title')).not.to.have.property('expectedHash');
+    });
+});
+
 // A description can match two lanes at once. The page takes its JSON-link lane
 // before it ever reads stamp:, imgur or youtube/soundcloud forms, so the listing
 // icon has to follow that same order or the two fetch different documents.

@@ -54,7 +54,7 @@ function renderListDetails(data) {
         { runScripts: 'outside-only' });
     dom.window.eval(fs.readFileSync(path.resolve(__dirname, '..', '..', '..', '../../src/content/js/jquery.min.js'), 'utf8'));
 
-    dom.window.XC = { coin: 'BTC', list_types: { 1: 'Token', 2: 'Address' }, list_edit_types: { 0: 'None', 1: 'Add', 2: 'Remove' } };
+    dom.window.XC = { coin: 'BTC', list_types: { 1: 'Token', 2: 'Address', 3: 'Union' }, list_edit_types: { 0: 'None', 1: 'Add', 2: 'Remove' } };
     // Helpers showListDetails leans on, kept naive so anything the assertions
     // observe is showListDetails' own doing. showActionDatatable is recorded
     // rather than executed: DataTables is not under test, but WHICH array it is
@@ -155,6 +155,13 @@ describe('client: the LIST page shows current membership', function () {
         const out = renderListDetails({ action_index: 7, type: 2, edit: 0, list: [], edits: [] });
         expect(out.itemsHead).to.contain('Address');
         expect(out.typeCell).to.equal('2 - Address');
+    });
+
+    it('names a union type while labelling its member column List', function () {
+        const out = renderListDetails({ action_index: 7, type: 3, edit: 0, list: [9], edits: [] });
+        expect(out.typeCell).to.equal('3 - Union');
+        expect(out.itemsHead).to.contain('List');
+        expect(out.itemsHead).to.not.contain('Union');
     });
 
     it('still renders the edits table', function () {

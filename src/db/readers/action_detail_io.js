@@ -201,6 +201,7 @@ class ActionDetailReaders {
                 built = optionalTransactionQueries(built);
             data = await runHandlerQueries(this, config, handler, ctx, built, action_index, data);
             await attachActionTail(this, config, handler, ctx, type, action_index, data, pre);
+            actionDetail.applyActionStatusReason(data);
         }
         // Store in LRU cache for future lookups (coin + reorg-generation key, see getActionData entry).
         // Skip anything carrying a live `state` block: DISPENSER, ORDER and SWAP responses

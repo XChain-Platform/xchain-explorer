@@ -27,7 +27,7 @@
 
 'use strict';
 
-const { TERMINAL_OFFER_STATUSES } = require('../../action-detail/shared.js');
+const { TERMINAL_OFFER_STATUSES, applyActionStatusReason } = require('../../action-detail/shared.js');
 const { attachOwnerWithdrawRows, resolveContractNetwork } = require('../../contract/owner_withdraw.js');
 
 // A dispenser list lane with no escrow leaves a client listing
@@ -66,6 +66,11 @@ async function dispenserPass(db, config, data){
     let priceStale = await db.getDispenserPriceStaleBatch(config, data);
     for(let row of data)
         row.price_stale = priceStale[String(row.action_index)] === true;
+}
+
+function dispensePass(data){
+    for(let row of data)
+        applyActionStatusReason(row);
 }
 
 // Contract list rows carry the same identity shape the single-contract route
@@ -123,6 +128,8 @@ async function applyPostPasses(db, config, data){
     let method = config.data.method;
     if(method=='getDispensers')
         await dispenserPass(db, config, data);
+    if(method=='getDispenses')
+        dispensePass(data);
     if(method=='getContracts')
         await contractPass(db, config, data);
     if(method=='getValidators')

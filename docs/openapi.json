@@ -19496,6 +19496,14 @@
               "null"
             ]
           },
+          "status_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true,
+            "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
+          },
           "timestamp": {
             "type": "string",
             "pattern": "^[0-9]+$"
@@ -22278,6 +22286,14 @@
               "null"
             ]
           },
+          "status_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true,
+            "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
+          },
           "timestamp": {
             "type": [
               "string",
@@ -22976,6 +22992,14 @@
               "null"
             ]
           },
+          "status_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true,
+            "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
+          },
           "timestamp": {
             "type": "string",
             "pattern": "^[0-9]+$"
@@ -23601,6 +23625,14 @@
                     "string",
                     "null"
                   ]
+                },
+                "status_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "readOnly": true,
+                  "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
                 }
               }
             }

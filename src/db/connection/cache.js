@@ -174,6 +174,9 @@ class DatabaseCache {
         if(data['action'] === 'ANCHOR' && ANCHOR_RESTAMPED_VERSIONS.includes(Number(data['version']))) return false;
         for(let field of MUTABLE_ACTION_FIELDS)
             if(Object.prototype.hasOwnProperty.call(data, field)) return false;
+        // Embedded action payloads are immutable only when every member is immutable.
+        if(Array.isArray(data['actions']) && !data['actions'].every((member) =>
+            member && typeof member === 'object' && this.isCacheableAction(member))) return false;
         return true;
     }
     // Build an id/action cache key scoped to the coin AND its current reorg

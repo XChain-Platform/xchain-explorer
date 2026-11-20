@@ -48,6 +48,12 @@ function feedLabel(action){
     return dom.window.getActionDetails(action, {});
 }
 
+function normalized(row){
+    const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
+    dom.window.eval(fs.readFileSync(path.join(content, 'js', 'xchain', 'api_proof.js'), 'utf8'));
+    return dom.window.null2string(row);
+}
+
 // Name a fully populated XPOLICY snapshot row with no block list.
 const XPOLICY_ROW = {
     tick: 'PEPE', origin_chain: 'BTC', policy_seq: 3, snapshot_block: 900, origin_block: 880,
@@ -77,6 +83,28 @@ describe('settlement anchor panels', function(){
         expect(html).to.match(/xc-anchor-allow-list">0 addresses/);
         expect(html).to.match(/xc-anchor-block-list">5 addresses/);
         expect(html).to.match(/xc-anchor-sleeping">no/);
+    });
+
+    it('renders XPOLICY shared-list references instead of scalar counts', function(){
+        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(POLICY_SNAPSHOT,{
+            allow_count: null, allow_ref: 'BTC:12', block_count: null, block_ref: '<blocked>'
+        })});
+        expect(html).to.match(/xc-anchor-allow-list">shared list BTC:12</);
+        expect(html).to.match(/xc-anchor-block-list">shared list &lt;blocked&gt;</);
+        expect(html).to.not.contain('1 addresses');
+    });
+
+    it('preserves absent-value fallbacks after page normalization', function(){
+        const policy = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(POLICY_SNAPSHOT,
+            normalized({ allow_count: null, block_count: null, sleeping: null })) });
+        expect(policy).to.match(/xc-anchor-allow-list">none</);
+        expect(policy).to.match(/xc-anchor-block-list">none</);
+        expect(policy).to.match(/xc-anchor-sleeping">-</);
+        expect(policy).to.not.contain('> addresses');
+        const list = panels.renderListShareAction({ list_snapshot: snapshotRow(LIST_SNAPSHOT,
+            normalized({ added_count: null, removed_count: null })) });
+        expect(list).to.match(/xc-anchor-added">-</);
+        expect(list).to.match(/xc-anchor-removed">-</);
     });
 
     it('renders a LIST_SHARE version and escapes the name', function(){

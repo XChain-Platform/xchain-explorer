@@ -22,6 +22,7 @@
  ********************************************************************/
 
 const coins = require('../../coins');
+const { isErrorEnvelope } = require('./result_shape.js');
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
 const { getLogger } = require('../../observability');
@@ -93,11 +94,6 @@ function isDegraded(r){
     return r && typeof r === 'object' && r.status === 'degraded';
 }
 
-// The hub's config-DB read failure envelope: a bare `error` string, no `configs`.
-function isErrorEnvelope(r){
-    return r && typeof r === 'object' && typeof r.error === 'string' && !r.configs;
-}
-
 // False, with the accurate cause logged, for a result that carries no config
 // tree; getAllConfig then answers null so config.js keeps its cached config.
 function isUsableConfigResult(result){
@@ -117,8 +113,7 @@ function isUsableConfigResult(result){
     // AND refreshes its staleness timestamp on a failed fetch. Treat it like an
     // unreachable/degraded hub (mirrors the indexer's unwrapHubConfigResponse ok:false
     // path): return null so config.js keeps last-known-good config with an honest
-    // staleness signal. Scoped to the exact envelope shape (a bare `error` string, no
-    // `configs`) so a legitimate config tree can never match.
+    // staleness signal. Config results never carry a top-level error string on success.
     if(isErrorEnvelope(result)){
         log.warn('HUB_CONFIG_READ_ERROR', { detail: 'hub reachable but reported a config-DB read error; cannot fetch config, falling back to cached config' });
         return false;

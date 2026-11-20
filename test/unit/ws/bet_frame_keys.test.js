@@ -61,6 +61,11 @@ describe('BET websocket frame keys', () => {
     it('keeps all seven keys when the parent lookup fails and the format is absent', async () => {
         const db = { getBetActionFeedIndex: sinon.stub().rejects(new Error('x')) };
         const bare = { action: 'BET_EXPIRE', action_index: 91 };
+        let failure;
+        try { await collect(db, bare); } catch (err) { failure = err; }
+        expect(failure).to.have.property('message', 'x');
+
+        db.getBetActionFeedIndex.resolves(null);
         const frames = await collect(db, bare);
         expect(frames).to.have.length.greaterThan(0);
         for (const f of frames) {

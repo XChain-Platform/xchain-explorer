@@ -85,14 +85,12 @@ const BOOTSTRAP_SIZE_RE = /^--bs-(?:[a-z0-9]+-)*(?:padding(?:-[xy])?|margin(?:-[
 
 const ALLOWLIST = [
   {
-    match: (d) => d.property === 'background-image' && /^url\(/i.test(d.value),
-  },
-  {
     match: (d) => d.file === 'xchain-charts.css' && d.selector === '.xc-chart-tooltip'
       && d.property === 'opacity' && d.value === '0',
   },
 ];
 
+// url() stays opaque so asset text is ignored while sibling layers are inspected.
 const OPAQUE_FUNC_RE = /^(?:var|url|rgba?|hsla?)\(/i;
 const CALL_RE = /^([a-zA-Z][\w-]*)\((.*)\)$/s;
 

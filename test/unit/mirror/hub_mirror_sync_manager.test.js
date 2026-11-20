@@ -78,6 +78,64 @@ const TARGET = (over = {}) => ({
 describe('HubMirrorSyncManager', function () {
     afterEach(function () { sinon.restore(); });
 
+    it('retries a failed database initialization and exposes recovery state', async function () {
+        const clock = sinon.useFakeTimers(1000);
+        sinon.stub(Math, 'random').returns(0.5);
+        const harness = load({ env: { HUB_API_URL: 'http://hub:10000' } });
+        const err = Object.assign(new Error('not ready'), { code: 'ECONNREFUSED' });
+        harness.ensureDatabase.onFirstCall().rejects(err);
+        sinon.stub(console, 'error');
+        try {
+            const mgr = new harness.HubMirrorSyncManager(makeExplorer({ RBTC: TARGET() }));
+            await mgr.start();
+            const failed = mgr.statusForCoin('RBTC');
+            expect(failed).to.include({ configured: true, bootstrapDrained: false,
+                initFailed: true, initAttempts: 1, lastInitErrorCode: 'ECONNREFUSED' });
+            expect(harness.poolEnd.calledOnce).to.equal(true);
+            expect(harness.syncStart.called).to.equal(false);
+
+            await clock.tickAsync(2000);
+            expect(harness.ensureDatabase.calledTwice).to.equal(true);
+            expect(harness.syncStart.calledOnce).to.equal(true);
+            expect(mgr.statusForCoin('RBTC')).not.to.have.property('initFailed');
+            await mgr.stop();
+        } finally { clock.restore(); harness.restoreEnv(); }
+    });
+
+    it('cancels a pending initialization retry on stop', async function () {
+        const clock = sinon.useFakeTimers(1000);
+        sinon.stub(Math, 'random').returns(0.5);
+        const harness = load({ env: { HUB_API_URL: 'http://hub:10000' } });
+        harness.ensureDatabase.rejects(Object.assign(new Error('not ready'), { code: 'ECONNREFUSED' }));
+        sinon.stub(console, 'error');
+        try {
+            const mgr = new harness.HubMirrorSyncManager(makeExplorer({ RBTC: TARGET() }));
+            await mgr.start();
+            await mgr.stop();
+            await clock.tickAsync(60 * 60 * 1000);
+            expect(harness.ensureDatabase.calledOnce).to.equal(true);
+            expect(harness.syncStart.called).to.equal(false);
+        } finally { clock.restore(); harness.restoreEnv(); }
+    });
+
+    it('does not retry an unsafe schema name', async function () {
+        const clock = sinon.useFakeTimers(1000);
+        const harness = load({ env: { HUB_API_URL: 'http://hub:10000' } });
+        sinon.stub(console, 'error');
+        try {
+            const mgr = new harness.HubMirrorSyncManager(makeExplorer({
+                RBTC: TARGET({ name: 'bad-name;' })
+            }));
+            await mgr.start();
+            expect(mgr.statusForCoin('RBTC')).to.include({
+                initFailed: true, lastInitErrorCode: 'UNSAFE_SCHEMA_NAME'
+            });
+            await clock.tickAsync(60 * 60 * 1000);
+            expect(harness.ensureDatabase.called).to.equal(false);
+            await mgr.stop();
+        } finally { clock.restore(); harness.restoreEnv(); }
+    });
+
     it('is a no-op when no checkpoint entry sets self_sync', async function () {
         const { HubMirrorSyncManager, syncStart, restoreEnv } = load({ env: { HUB_API_URL: 'http://hub:10000' } });
         try {

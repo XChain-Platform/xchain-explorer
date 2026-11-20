@@ -41,6 +41,23 @@ const log = getLogger();
 
 class LifecycleEvents {
 
+    // Resolve every BET-family parent before a row in the batch is emitted. A read
+    // failure aborts the batch while its action cursor is still unchanged.
+    async prefetchBetParents(config, batch) {
+        if (!batch || batch.betParents !== undefined) return;
+        const parents = new Map();
+        for (const action of batch.actions || []) {
+            let parent;
+            if (action.action === 'BET' || action.action === 'BET_EXPIRE')
+                parent = await this.db.getBetActionFeedIndex(config, action.action_index);
+            else if (action.action === 'BET_EDIT')
+                parent = await this.db.getValidBetEditFeedIndex(config, action.action_index);
+            else continue;
+            parents.set(String(action.action_index), parent);
+        }
+        batch.betParents = parents;
+    }
+
     // Map an indexed action's type to the lifecycle events it produces (LIFECYCLE_MAP),
     // then enrich each one with the detail its channel needs. An action type that maps
     // to nothing is simply not a lifecycle transition and emits nothing here. `batch`
@@ -58,7 +75,7 @@ class LifecycleEvents {
             const lifecycleEvent = baseLifecycleEvent(eventType, actionType, action);
             if (parties) lifecycleEvent.data.destinations = parties.slice();
             const routed = await enrichAndRouteLifecycleEvent(
-                this, coin, config, actionType, action, lifecycleEvent);
+                this, coin, config, actionType, action, lifecycleEvent, batch);
             if (!routed) continue;
             this.emit('lifecycle_event', coin, lifecycleEvent);
         }
@@ -172,7 +189,7 @@ function baseLifecycleEvent(eventType, actionType, action) {
 }
 
 async function enrichAndRouteLifecycleEvent(
-    detector, coin, config, actionType, action, lifecycleEvent
+    detector, coin, config, actionType, action, lifecycleEvent, batch
 ) {
     if (actionType === 'ORDER_MATCH') {
         await enrichOrderMatch(detector, coin, config, action, lifecycleEvent);
@@ -185,10 +202,10 @@ async function enrichAndRouteLifecycleEvent(
     }
 
     if (actionType === 'BET' || actionType === 'BET_EXPIRE') {
-        await routeBetEvent(detector, config, action, lifecycleEvent);
+        await routeBetEvent(detector, config, action, lifecycleEvent, batch);
     }
     if (actionType === 'BET_EDIT') {
-        return routeValidBetEdit(detector, config, action, lifecycleEvent);
+        return routeValidBetEdit(detector, config, action, lifecycleEvent, batch);
     }
     return true;
 }
@@ -272,14 +289,10 @@ async function routeValidDispenserMutation(detector, config, actionType, action,
 
 // The BET family: the parent feed's action_index, the format discriminator, and
 // the `bet_feed` channel.
-async function routeBetEvent(detector, config, action, lifecycleEvent) {
-    try {
-        lifecycleEvent.data.feed_action_index =
-            await detector.db.getBetActionFeedIndex(config, action.action_index);
-    } catch (e) {
-        // Non-fatal: emit the base event with a null parent index
-        lifecycleEvent.data.feed_action_index = null;
-    }
+async function routeBetEvent(detector, config, action, lifecycleEvent, batch) {
+    lifecycleEvent.data.feed_action_index = batch && batch.betParents
+        ? batch.betParents.get(String(action.action_index))
+        : await detector.db.getBetActionFeedIndex(config, action.action_index);
     // The discriminator the single BET event type is useless without:
     // 0 create, 1 cancel, 2 place a bet, 3 resolve. A market page has to
     // tell "someone staked" from "the market just paid out", and those
@@ -292,20 +305,18 @@ async function routeBetEvent(detector, config, action, lifecycleEvent) {
     lifecycleEvent.channel = 'bet_feed';
 }
 
-async function routeValidBetEdit(detector, config, action, lifecycleEvent) {
-    try {
-        const feedIndex = await detector.db.getValidBetEditFeedIndex(config, action.action_index);
-        if (feedIndex === null || feedIndex === undefined) return false;
-        lifecycleEvent.data.feed_action_index = feedIndex;
-        lifecycleEvent.data.action_format =
-            (action.action_format === undefined || action.action_format === null)
-                ? null
-                : Number(action.action_format);
-        lifecycleEvent.channel = 'bet_feed';
-        return true;
-    } catch (e) {
-        return false;
-    }
+async function routeValidBetEdit(detector, config, action, lifecycleEvent, batch) {
+    const feedIndex = batch && batch.betParents
+        ? batch.betParents.get(String(action.action_index))
+        : await detector.db.getValidBetEditFeedIndex(config, action.action_index);
+    if (feedIndex === null || feedIndex === undefined) return false;
+    lifecycleEvent.data.feed_action_index = feedIndex;
+    lifecycleEvent.data.action_format =
+        (action.action_format === undefined || action.action_format === null)
+            ? null
+            : Number(action.action_format);
+    lifecycleEvent.channel = 'bet_feed';
+    return true;
 }
 
 module.exports = LifecycleEvents.prototype;

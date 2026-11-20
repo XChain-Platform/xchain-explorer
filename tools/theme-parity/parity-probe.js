@@ -72,7 +72,7 @@
  *     declared on that same element proves that each requested mode took.
  *
  *   - It fingerprinted whatever it found, including nothing. A page where no
- *     href matched SHEET, or where the sheet was unreadable, or where no
+ *     href matched SHEET, where a linked sheet did not load, or where no
  *     selector matched an element, still returned stable hashes over an empty
  *     snapshot and 31 absence markers.
  *
@@ -285,6 +285,14 @@ const probe = (function () {
       if (r.cssRules && r.cssRules.length) for (const c of r.cssRules) walk(c, baseHref, childCondition);
     };
     for (const sh of document.styleSheets) readSheet(sh);
+    for (const link of document.querySelectorAll('link[href]')) {
+      if (!link.relList.contains('stylesheet') || link.relList.contains('alternate') || link.disabled || !SHEET.test(link.href)) continue;
+      const sh = link.sheet;
+      if (!sh) snap['__UNREADABLE__ '+link.href] = 'linked stylesheet did not load';
+      else if (!seen.has(sh)) snap['__UNREADABLE__ '+link.href] = 'linked stylesheet is missing from document.styleSheets';
+      else { let n = -1; try { n = sh.cssRules.length; } catch(e) {}
+        if (n === 0) snap['__UNREADABLE__ '+link.href] = 'linked stylesheet loaded no rules'; }
+    }
     return { rules, snap, un: un.sort(), sheets, coverage: sortedCoverage(coverage), emptyDeclared, untyped };
   };
   // Count every layout key read as a used value because the browser has no Typed OM;

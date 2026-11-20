@@ -12,9 +12,10 @@
 
 const core = require('./hub_connector.test/support/core.js');
 const retryEndpoints = require('./hub_connector.test/support/retry_endpoints.js');
+const resultErrors = require('./hub_connector.test/support/result_errors.js');
 const configResults = require('./hub_connector.test/support/config_results.js');
 const credentials = require('./hub_connector.test/support/credentials.js');
 
 describe('XChainHubConnector', function () {
-    for (const register of [...core, ...retryEndpoints, ...configResults, ...credentials]) register();
+    for (const register of [...core, ...retryEndpoints, ...resultErrors, ...configResults, ...credentials]) register();
 });

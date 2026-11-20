@@ -45,7 +45,8 @@ correction (2026-09-05)" below.
 A capture can also come back as `{ invalid: [reasons] }` with no hashes at
 all. That is not a failed comparison, it is a refusal to mint evidence: the
 probe rejects a run where no stylesheet matched `SHEET`, where a sheet was
-unreadable, where the rule snapshot came back empty, where the render census
+unreadable, where a first-party linked sheet did not load, was absent from
+`document.styleSheets`, or loaded no rules, where the rule snapshot came back empty, where the render census
 matched no anchor, where the browser had no Typed OM `computedStyleMap` for the
 layout-derived keys, where a declared-path longhand is empty with no readable
 owning shorthand, or where the Bootstrap mode witness on `body` does not change.
@@ -205,7 +206,9 @@ imported sheet never appears in `document.styleSheets`: the probe follows each
 import rule's own `styleSheet` under the same `SHEET` test, refuses a capture
 whose first-party import came back empty or missing (Chrome hands a 404 import
 an empty sheet, not a null one), and the gate checks the pattern against
-every `themes/*/tokens.css` import target too. The `baseline-2026-08-20.json` capture
+every `themes/*/tokens.css` import target too. Top-level first-party links are
+also reconciled with `document.styleSheets`, so partial page loads are refused.
+The `baseline-2026-08-20.json` capture
 predates the component layer: its per-page `cssRules` counts are one revision
 behind, and so is its rule hash on any page that now mounts a component
 (`coin_home` has mounted stat tiles since 2026-09-26).

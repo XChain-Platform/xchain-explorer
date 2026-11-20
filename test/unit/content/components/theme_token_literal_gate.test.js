@@ -150,6 +150,27 @@ describe('token-literal classifier (function-wrapped values)', () => {
     assert.equal(classifyViolation(decl('background-image', 'url(/img/glyph-16.png)')), null);
   });
 
+  it('checks a gradient after a url() layer', () => {
+    assert.equal(classifyViolation(decl(
+      'background-image', 'url(/img/glyph-16.png), linear-gradient(red, blue)',
+    )), 'color');
+  });
+
+  it('checks a gradient before a url() layer', () => {
+    assert.equal(classifyViolation(decl(
+      'background-image', 'linear-gradient(#fff, #000), url(/img/glyph-16.png)',
+    )), 'color');
+  });
+
+  it('ignores several url() layers and token-only gradient layers', () => {
+    assert.equal(classifyViolation(decl(
+      'background-image', "url('../images/a.png'), url('../images/b.png')",
+    )), null);
+    assert.equal(classifyViolation(decl(
+      'background-image', 'url(/img/glyph-16.png), linear-gradient(var(--xc-a), var(--xc-b))',
+    )), null);
+  });
+
   it('still honours the chart-tooltip opacity allowlist', () => {
     assert.equal(classifyViolation({
       file: 'xchain-charts.css', selector: '.xc-chart-tooltip',

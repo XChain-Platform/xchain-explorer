@@ -58,14 +58,16 @@ const XBRIDGE_RECORD = `SELECT
 
 // The hub-mirrored snapshots a settlement anchor points at, read by its snapshot id from
 // the table bridgeSnapshotSource names, scoped to its network. The cards show only the
-// member-list sizes, counted here (NULL for no list or invalid JSON), never the lists.
+// member-list sizes or shared-list references, never the membership arrays.
 const POLICY_SNAPSHOTS_TABLE = 'policy_snapshots';
 
 function policySnapshotSql(table){
     return `SELECT snapshot_id, snapshot_block, origin_chain, tick, policy_seq, origin_block, policy_hash,
                     sleeping, effective_time, network, finalizing_view, status,
-                    CASE WHEN JSON_VALID(allow_list) THEN JSON_LENGTH(allow_list) END AS allow_count,
-                    CASE WHEN JSON_VALID(block_list) THEN JSON_LENGTH(block_list) END AS block_count
+                    CASE WHEN JSON_VALID(allow_list) THEN CASE WHEN JSON_TYPE(allow_list)='ARRAY' THEN JSON_LENGTH(allow_list) END END AS allow_count,
+                    CASE WHEN JSON_VALID(block_list) THEN CASE WHEN JSON_TYPE(block_list)='ARRAY' THEN JSON_LENGTH(block_list) END END AS block_count,
+                    CASE WHEN JSON_VALID(allow_list) THEN CASE WHEN JSON_TYPE(allow_list)='STRING' THEN JSON_UNQUOTE(allow_list) END END AS allow_ref,
+                    CASE WHEN JSON_VALID(block_list) THEN CASE WHEN JSON_TYPE(block_list)='STRING' THEN JSON_UNQUOTE(block_list) END END AS block_ref
              FROM ${table} WHERE snapshot_id=? AND network=? LIMIT 1`;
 }
 

@@ -68,7 +68,7 @@ function productionDb(row){
             source: 'baseline-source', tx_hash: 'baseline-hash',
             block_index: 900, timestamp: 123
         }];
-        if(statement === sql.FILE_PART_QUERY) return [row];
+        if(statement === sql.FILE_PART_QUERY) return [typeof row === 'function' ? row() : row];
         return [];
     });
     return db;
@@ -113,6 +113,8 @@ describe('FILE part action detail', function(){
         expect(data.file_part).to.deep.equal({
             file_hash: row.file_hash, part_index: 3, manifest_action_index: null
         });
+        expect(data.detail_incomplete).to.equal(true);
+        expect(Object.keys(data)).to.not.include('detail_incomplete');
         expect(data.timestamp).to.equal(123);
         sinon.assert.calledOnceWithExactly(db.doQuery, config, sql.FILE_PART_QUERY, [81]);
     });
@@ -123,6 +125,7 @@ describe('FILE part action detail', function(){
             const db = { doQuery: sinon.stub().resolves([partRow({ manifest_action_index })]) };
             await misc.FILE.afterQueries({ db, config, action_index: 81 }, data);
             expect(data.file_part.manifest_action_index).to.equal(manifest_action_index);
+            expect(data).to.not.have.property('detail_incomplete');
         }
     });
 });
@@ -145,6 +148,23 @@ describe('FILE part production action detail fallback', function(){
         sinon.assert.calledWithExactly(db.doQuery, config, sql.FILE_QUERY, [81]);
         sinon.assert.calledWithExactly(db.doQuery, config, sharedSql.ACTION_BASELINE, [81]);
         sinon.assert.calledWithExactly(db.doQuery, config, sql.FILE_PART_QUERY, [81]);
+    });
+
+    it('retries an unresolved manifest link, then caches the resolved part', async function(){
+        let manifest_action_index = null;
+        const db = productionDb(() => partRow({ manifest_action_index }));
+
+        const first = await db.getActionData(config, 81);
+        manifest_action_index = 300;
+        const second = await db.getActionData(config, 81);
+        const third = await db.getActionData(config, 81);
+        const partQueries = db.doQuery.getCalls()
+            .filter(call => call.args[1] === sql.FILE_PART_QUERY);
+
+        expect(first.file_part.manifest_action_index).to.equal(null);
+        expect(second.file_part.manifest_action_index).to.equal(300);
+        expect(third.file_part.manifest_action_index).to.equal(300);
+        expect(partQueries).to.have.length(2);
     });
 });
 

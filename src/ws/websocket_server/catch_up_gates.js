@@ -38,6 +38,9 @@ const log = getLogger();
 // The detector's rollback numbering, read over its per-coin state.
 const rollback = require('../change_detector/rollback.js');
 
+// The live detector's BET-family parent read, shared so a replay routes BET frames as live does.
+const { prefetchBetParents } = require('../change_detector/lifecycle.js');
+
 // The live detector behind this server, or null (a direct caller or a unit double).
 function liveDetector(server) {
     const detector = server.broadcaster && server.broadcaster.changeDetector;
@@ -64,6 +67,23 @@ async function seedGate(server, client, requestId) {
         'The live feed for this coin has not recorded its first position yet; retry the catch-up shortly.',
         requestId);
     return false;
+}
+
+// The replay-wide batch with every BET-family parent read before the first frame, or null
+// once the retryable CATCH_UP_NOT_READY has been sent. Replaying a BET whose parent read
+// failed would route it off the client's bet_feed key, and a COMPLETE would then close the
+// gap over a frame the client never got; nothing has been sent when this refuses.
+async function replayBatch(server, client, actions, requestId) {
+    const batch = { actions, parties: undefined };
+    try {
+        await prefetchBetParents.call({ db: server.explorer.db }, { coin: client.coin }, batch);
+    } catch (e) {
+        log.warn('WS_CATCH_UP_PARENT_READ_FAILED', { client: client.id, coin: client.coin, err: e.message });
+        server.sendError(client, 'CATCH_UP_NOT_READY',
+            'A bet parent lookup for this replay failed; retry the catch-up shortly.', requestId);
+        return null;
+    }
+    return batch;
 }
 
 // Refuses a replay from a cursor a logged rollback may have invalidated, and answers
@@ -154,4 +174,4 @@ async function replayDrained(server, client) {
     return true;
 }
 
-module.exports = { liveDetector, seedGate, reorgGate, replayStartSeq, midReplayReorg, replayBackedUp, replayDrained };
+module.exports = { liveDetector, seedGate, reorgGate, replayStartSeq, midReplayReorg, replayBackedUp, replayDrained, replayBatch };

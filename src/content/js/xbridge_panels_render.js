@@ -340,10 +340,10 @@ function anchorRowBuilder(){
 }
 
 // Show a member count the snapshot query computed in SQL (xbridge_sql.js): undefined
-// means no snapshot was read, so the value is unknown; null means the row holds no list.
+// means no snapshot was read; null and its normalized empty form mean no list.
 function anchorCountCell(n, none, unit){
     if(n === undefined) return '-';
-    if(n === null) return none;
+    if(n === null || n === '') return none;
     return xbEsc(n) + unit;
 }
 
@@ -358,10 +358,10 @@ function renderXpolicyAction(d){
     html += row('Policy sequence', xbEsc(xbDash(s.policy_seq)));
     html += row('Snapshot block', xbEsc(xbDash(s.snapshot_block)));
     html += row('Origin block', xbEsc(xbDash(s.origin_block)));
-    html += row('Allow list', anchorCountCell(s.allow_count, 'none', ' addresses'));
-    html += row('Block list', anchorCountCell(s.block_count, 'none', ' addresses'));
+    html += row('Allow list', s.allow_ref ? 'shared list ' + xbEsc(s.allow_ref) : anchorCountCell(s.allow_count, 'none', ' addresses'));
+    html += row('Block list', s.block_ref ? 'shared list ' + xbEsc(s.block_ref) : anchorCountCell(s.block_count, 'none', ' addresses'));
     // An unmirrored snapshot carries no sleeping flag, so it reads unknown, not 'no'.
-    html += row('Sleeping', (s.sleeping === null || s.sleeping === undefined)
+    html += row('Sleeping', (s.sleeping === null || s.sleeping === undefined || s.sleeping === '')
         ? '-' : (Number(s.sleeping) === 1 ? 'yes' : 'no'));
     html += row('Policy hash', xbEsc(xbDash(s.policy_hash)));
     html += '</tbody></table>';

@@ -39,6 +39,7 @@ function pollWith(actions, fail) {
     const det = mk();
     det.db.util = { isNull: (v) => v === null || v === undefined };
     det.db.getLifecycleParties = partyReaders.getLifecycleParties;
+    det.db.getBetActionFeedIndex = sinon.stub().resolves(null);
     det.db.doQuery = fail ? sinon.stub().rejects(fail)
         : sinon.stub().callsFake(async (config, sql, args) => args.map((i) => ({ action_index: i, address: 'p' + i })));
     det.state.BTC = { blockIndex: 0, actionIndex: 0n, initialized: true };

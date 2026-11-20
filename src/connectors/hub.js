@@ -22,6 +22,7 @@
 const axios = require('axios');
 // The getallconfigs half of the connector, installed onto the class below.
 const HubConfigSync = require('./hub/config_sync.js');
+const { isErrorEnvelope } = require('./hub/result_shape.js');
 // One logger for the whole service: getLogger() resolves to the shipper once api.js
 // installs observability, and falls through to bare console before that.
 const { getLogger } = require('../observability');
@@ -85,13 +86,14 @@ function hubRequestHeaders(){
 
 // One pass over every endpoint, starting at the last one that answered. Answers
 // { answered: true, result } on the first healthy result, and otherwise
-// { answered: false, rpcAnswered } with this pass's failures recorded on the
+// { answered: false, rpcAnswered, resultErrored } with failures recorded on the
 // connector and on `out`, and any degraded body remembered on `state`.
 async function endpointPass(connector, data, { timeout, attempt, attempts, out }, state){
     // Endpoints this pass that answered with a JSON-RPC error body
     // rather than a result: the hub was up and refused the request at
     // the protocol layer, which is not the same signal as unreachable.
     let rpcAnswered = 0;
+    let resultErrored = 0;
     let headers = hubRequestHeaders();
     for(let i = 0; i < connector.urls.length; i++){
         let idx = (connector._lastGoodIdx + i) % connector.urls.length;
@@ -99,6 +101,11 @@ async function endpointPass(connector, data, { timeout, attempt, attempts, out }
         try {
             let response = await axios.post(url, data, { timeout, headers });
             if(response.data && response.data.result !== undefined){
+                if(isErrorEnvelope(response.data.result)){
+                    recordResultError(connector, url, response.data.result, out, state);
+                    resultErrored++;
+                    continue;
+                }
                 connector._lastGoodIdx = idx;
                 return { answered: true, result: response.data.result };
             }
@@ -110,7 +117,14 @@ async function endpointPass(connector, data, { timeout, attempt, attempts, out }
             recordUnreachable(connector, url, err, { attempt, attempts, out }, state);
         }
     }
-    return { answered: false, rpcAnswered };
+    return { answered: false, rpcAnswered, resultErrored };
+}
+
+function recordResultError(connector, url, result, out, state){
+    if(state.resultError === null) state.resultError = result;
+    const detail = url + ' -> result error ' + result.error;
+    connector.lastFailures.push(detail);
+    if(out) out.failures.push(detail);
 }
 
 // Record an endpoint's JSON-RPC error answer on the connector and on `out`.
@@ -229,7 +243,7 @@ class XChainHubConnector {
         // unreachable endpoint. Remember such a body as a fallback but keep
         // retrying (a degraded DB may recover within the backoff window), and
         // only surface it if no endpoint comes back healthy.
-        const state = { degraded: null };
+        const state = { degraded: null, resultError: null };
         this.lastRpcError = null;
         if(out){ out.rpcError = null; out.failures = []; out.allEndpointsAnswered = false; }
         for(let attempt = 1; attempt <= attempts; attempt++){
@@ -241,12 +255,12 @@ class XChainHubConnector {
             if(out) out.failures = [];
             const pass = await endpointPass(this, data, { timeout, attempt, attempts, out }, state);
             if(pass.answered) return pass.result;
-            // Every endpoint answered at the protocol layer (no endpoint was
-            // unreachable): the outcome is deterministic for this request, so
+            // Every endpoint answered at the protocol or application layer: the
+            // outcome is deterministic for this request, so
             // backoff cannot change it and the unreachable warning below would
             // misname a live hub as down. Give up without retrying.
-            if(pass.rpcAnswered === this.urls.length){
-                if(out) out.allEndpointsAnswered = true;
+            if(pass.rpcAnswered + pass.resultErrored === this.urls.length){
+                if(out && pass.rpcAnswered === this.urls.length) out.allEndpointsAnswered = true;
                 break;
             }
             // All endpoints failed this pass. Back off before the next unless
@@ -260,7 +274,7 @@ class XChainHubConnector {
         // No endpoint returned a healthy result after all retries. Surface a
         // reachable-but-degraded response (if any) so the caller can distinguish
         // "up but DB down" from "unreachable"; otherwise null.
-        return state.degraded;
+        return state.resultError !== null ? state.resultError : state.degraded;
     }
 
     async ping(){

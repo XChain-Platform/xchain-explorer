@@ -138,6 +138,9 @@ const FILE = {
                     Object.assign(data, detail);
                     data['file_part'] = detail.file_part;
                     data.block = data.block_index;
+                    // An unlinked part can acquire its manifest on a later indexed action.
+                    if(detail.file_part.manifest_action_index == null)
+                        Object.defineProperty(data, 'detail_incomplete', { value: true, configurable: true });
                 }
             }
             return;

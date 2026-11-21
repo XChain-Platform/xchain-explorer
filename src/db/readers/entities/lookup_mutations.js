@@ -16,14 +16,16 @@
 
 'use strict';
 
-async function getValidDispenserMutationIndex(config, actionType, actionIndex) {
-    const tables = {
-        DISPENSER_CANCEL: 'dispenser_cancels',
-        DISPENSER_EDIT:   'dispenser_edits'
-    };
-    const table = tables[actionType];
-    if (!table) return null;
-    let query = `SELECT
+// Keep the method in a class body so the Database surface count still sees it.
+class DispenserMutationReaders {
+    async getValidDispenserMutationIndex(config, actionType, actionIndex) {
+        const tables = {
+            DISPENSER_CANCEL: 'dispenser_cancels',
+            DISPENSER_EDIT:   'dispenser_edits'
+        };
+        const table = tables[actionType];
+        if (!table) return null;
+        let query = `SELECT
                     m.dispenser_action_index
                 FROM
                     ${table} m
@@ -32,10 +34,13 @@ async function getValidDispenserMutationIndex(config, actionType, actionIndex) {
                     m.action_index=? AND
                     s.status='valid'
                 LIMIT 1`;
-    let results = await this.doQuery(config, query, [actionIndex]);
-    if (results && results.length && results[0].dispenser_action_index != null)
-        return results[0].dispenser_action_index;
-    return null;
+        let results = await this.doQuery(config, query, [actionIndex]);
+        if (results && results.length && results[0].dispenser_action_index != null)
+            return results[0].dispenser_action_index;
+        return null;
+    }
 }
 
-module.exports = { getValidDispenserMutationIndex };
+module.exports = {
+    getValidDispenserMutationIndex: DispenserMutationReaders.prototype.getValidDispenserMutationIndex
+};

@@ -117,6 +117,10 @@ describe('HubMirrorSyncManager', function () {
             expect(harness.syncStart.called).to.equal(false);
         } finally { clock.restore(); harness.restoreEnv(); }
     });
+});
+
+describe('HubMirrorSyncManager', function () {
+    afterEach(function () { sinon.restore(); });
 
     it('does not retry an unsafe schema name', async function () {
         const clock = sinon.useFakeTimers(1000);
@@ -145,6 +149,10 @@ describe('HubMirrorSyncManager', function () {
             expect(syncStart.called).to.equal(false);
         } finally { restoreEnv(); }
     });
+});
+
+describe('HubMirrorSyncManager', function () {
+    afterEach(function () { sinon.restore(); });
 
     it('registers an UNCONFIGURED instance (not a skip) when self_sync has no hub URL', async function () {
         // The defect: skipping left managesCoin() false, so the staleness gate

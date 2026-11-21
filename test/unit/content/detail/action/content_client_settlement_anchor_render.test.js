@@ -116,7 +116,9 @@ describe('settlement anchor panels', function(){
         expect(html).to.contain('&lt;b&gt;n&lt;/b&gt;');
         expect(html).to.not.contain('<b>n</b>');
     });
+});
 
+describe('settlement anchor panels', function(){
     it('shows dashes when the snapshot is not mirrored', function(){
         const policy = panels.renderXpolicyAction({});
         expect(policy).to.match(/xc-anchor-token">-/);

@@ -155,6 +155,12 @@ describe('token-literal classifier (function-wrapped values)', () => {
       'background-image', 'url(/img/glyph-16.png), linear-gradient(red, blue)',
     )), 'color');
   });
+});
+
+describe('token-literal classifier (function-wrapped values)', () => {
+  const decl = (property, value, extra = {}) => ({
+    file: 'xchain.css', selector: '.xc-fixture', property, value, line: 1, ...extra,
+  });
 
   it('checks a gradient before a url() layer', () => {
     assert.equal(classifyViolation(decl(

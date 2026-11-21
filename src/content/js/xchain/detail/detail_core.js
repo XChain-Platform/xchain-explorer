@@ -56,6 +56,12 @@ function setActionInfo(raw){
     XC.actionInfo = null2string(raw);
 }
 
+function renderActionStatus(status, reason){
+    let note = isNull(reason) ? '' : String(reason);
+    $('#action-status-value').text(status);
+    $('#action-status-reason').text(note).toggleClass('d-none', note === '');
+}
+
 // Handle displaying transaction details
 function showTransactionDetails(){
     // Setup short alias to action info object
@@ -78,7 +84,7 @@ function showTransactionDetails(){
     $('#action-command').text(action);
     $('#action-format').text(action_format);
     $('#action-index').html(action_index);
-    $('#action-status').text(status);    
+    renderActionStatus(status, o.status_reason);
     $('#source').html(source);
     $('#tx-data').text(tx_data);
     // A VM-emitted action never had a wire string of its own, so `tx_data` here is the

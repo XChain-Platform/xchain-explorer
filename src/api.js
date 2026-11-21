@@ -273,7 +273,13 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
 
 module.exports = { createApp, createBridgePanelHandlers, mountBridgePanelRoutes };
 
-if(!require.main || require.main === module || module.parent === require.main){
+// Start when this is the entry script, when the entry script requires it (a
+// process manager's wrapper), or when node -e or stdin requires it. An ESM
+// entry also leaves require.main undefined, and test runners such as mocha 12
+// are ESM entries, so an undefined require.main alone must never start it.
+const launcher = module.parent;
+const evalLaunch = !!launcher && (launcher.id === '[eval]' || launcher.id === '[stdin]');
+if(require.main === module || (!!require.main && launcher === require.main) || evalLaunch){
     startApi().catch(err => {
         log.error('FATAL_STARTUP_ERROR', { err: err && err.message ? err.message : err, stack: err && err.stack });
         process.exit(1);

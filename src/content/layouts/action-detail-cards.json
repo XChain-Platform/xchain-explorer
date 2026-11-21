@@ -1379,6 +1379,10 @@
                     "cell": "anchor-version"
                 },
                 {
+                    "label": "Payload",
+                    "cell": null
+                },
+                {
                     "label": "Sections",
                     "cell": "anchor-sections"
                 },

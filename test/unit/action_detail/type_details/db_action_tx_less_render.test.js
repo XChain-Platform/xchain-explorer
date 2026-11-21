@@ -54,12 +54,12 @@ function cfg() { return makeConfig({ coin: 'BTC' }); }
 //   credits         -> credits rows (default [])
 //   callbackByIndex -> row for cross_chain_call_callbacks WHERE action_index=?
 function makeDoQuery(opts) {
-    const o = Object.assign({ mainRows: [], credits: [], callbackByIndex: null }, opts);
+    const o = Object.assign({ mainRows: [], credits: [], callbackByIndex: null, tx_index: null, emitted: null }, opts);
     return async function(config, sql, args) {
         const q = String(sql);
         // getActionType: selects a2.action from actions with no block_index column
         if(q.includes('a2.action') && q.includes('actions a1') && !q.includes('block_index'))
-            return [{ action: o.type }];
+            return [{ action: o.type, tx_index: o.tx_index }];
         // de-blank generic fallback
         if(q.includes('b1.block_index=a1.block_index') && q.includes('LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)')
            && !q.includes('unstakes') && !q.includes('attests') && !q.includes('xcalls') && !q.includes('contract_executions'))
@@ -78,6 +78,9 @@ function makeDoQuery(opts) {
         if(q.includes('escrows e1')) return [];
         if(q.includes('fees f1'))    return [];
         if(q.includes('transactions t1') && q.includes('t2.hash=?')) return []; // getTransactionData
+        if(q.includes('contract_emissions e')) return o.emitted ? [o.emitted] : [];
+        if(q.includes('FROM\n                contract_executions m'))
+            return o.emitted ? [{ action_index: o.emitted.execution_index, contract_index: 9, caller: 'caller' }] : [];
         // dedicated branch queries (attests/xcalls/unstakes/contract_executions/...)
         return o.mainRows;
     };
@@ -96,6 +99,7 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         expect(data.action).to.equal('XEXEC');
         expect(data.block_index).to.equal(700);
         expect(data.timestamp).to.equal(1700000000);
+        expect(data.protocol_generated).to.equal(true);
         // Ledger effects still attach by action_index for the branchless type.
         expect(data.credits).to.be.an('array').with.lengthOf(1);
     });
@@ -218,5 +222,52 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         expect(data.amount).to.equal('5.0');
         expect(data.tick).to.equal('XCHAIN');
         expect(data.block_index).to.equal(1000);
+    });
+
+    it('does not flag an action that has a source transaction', async function() {
+        const db = makeDb();
+        db.doQuery = makeDoQuery({
+            type: 'XEXEC', tx_index: 7,
+            fallbackRow: { action: 'XEXEC', action_index: 78, tx_index: 7, tx_hash: 'hash' }
+        });
+        const data = await db.getActionData(cfg(), 78);
+        expect(data).to.not.have.property('protocol_generated');
+    });
+
+    it('does not flag a VM-emitted action with no source transaction', async function() {
+        const db = makeDb();
+        db.doQuery = makeDoQuery({
+            type: 'XEXEC',
+            fallbackRow: { action: 'XEXEC', action_index: 79, tx_index: null, tx_hash: null },
+            emitted: { action_index: 79, execution_index: 70, position: 0 }
+        });
+        const data = await db.getActionData(cfg(), 79);
+        expect(data.emitted_by.execution_index).to.equal(70);
+        expect(data).to.not.have.property('protocol_generated');
+    });
+
+    it('flags only the transaction-less action on the page preload path', async function() {
+        const db = makeDb();
+        const statements = [];
+        const base = makeDoQuery({
+            type: 'XEXEC',
+            fallbackRow: { action: 'XEXEC', action_format: 0, block_index: 700, timestamp: 1700000000 }
+        });
+        db.doQuery = async function(config, sql, args) {
+            const q = String(sql);
+            statements.push(q);
+            if(q.includes('a1.action_index IN (') && q.includes('a2.action')) return [
+                { action_index: 80, action: 'XEXEC', tx_index: null, tx_hash: null },
+                { action_index: 81, action: 'XEXEC', tx_index: 7, tx_hash: 'hash' }
+            ];
+            return base(config, sql, args);
+        };
+        const out = await db.getActionDataBatch(cfg(), [80, 81]);
+        expect(out.get(80).protocol_generated).to.equal(true);
+        expect(out.get(80).source).to.equal(null);
+        expect(out.get(80).tx_hash).to.equal(null);
+        expect(out.get(81)).to.not.have.property('protocol_generated');
+        const perIndexOrigin = statements.filter((q) => /SELECT\s+(a2\.action\s*,\s*)?a1\.tx_index\s+FROM\s+actions a1\s+(LEFT|WHERE)/.test(q));
+        expect(perIndexOrigin).to.have.lengthOf(0);
     });
 });

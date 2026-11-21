@@ -34,7 +34,7 @@ function databaseWith(query){
 }
 
 function isTypeQuery(statement){
-    return /SELECT\s+a2\.action\s+FROM\s+actions/i.test(statement);
+    return /SELECT\s+a2\.action(?:\s*,\s*a1\.tx_index)?\s+FROM\s+actions/i.test(statement);
 }
 
 async function returnsPreEditShapes(){

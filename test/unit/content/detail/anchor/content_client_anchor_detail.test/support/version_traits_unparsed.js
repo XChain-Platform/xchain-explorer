@@ -52,9 +52,19 @@ describe('anchor.html detail render @regression', function () {
         });
 
         it('keeps a stored byte from 4 to 255 under the same status as its own unrecognized version', function () {
-            const $ = renderPage(Object.assign({}, V1, { version: 9, status: UNPARSED_STATUS }));
+            const $ = renderPage(Object.assign({}, V1, {
+                version: 9, status: UNPARSED_STATUS,
+                checkpoint: Object.assign({}, V1.checkpoint, { block_hash: 'ff'.repeat(32) })
+            }));
             expect($('.anchor-version-badge').text()).to.equal('v9');
             expect($('.anchor-kind').text()).to.equal('Unrecognized version v9');
+            expect($('#anchor-identity').text()).to.contain('PayloadNot decoded for this version');
+            expect($('#anchor-identity').text()).to.not.contain(V1.chain);
+            expect($('#anchor-heights .anchor-height-checkpointed').length).to.equal(0);
+            expect($('#anchor-checkpoint-payload').text()).to.contain('payload fields are not shown');
+            expect($('#anchor-covering-checkpoint .anchor-mirror-agreement').length).to.equal(0);
+            expect($('#anchor-election .anchor-publisher').length).to.equal(0);
+            expect($('.anchor-field-value .anchor-note').first().text()).to.contain('v1 archive-head layout');
         });
 
         it('lets the legacy label win below activation', function () {

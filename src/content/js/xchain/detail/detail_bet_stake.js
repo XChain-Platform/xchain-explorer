@@ -195,10 +195,11 @@ function showUnstakeDetails(data){
     let isContract = !isNull(data.target_contract_index);
     // ROLLCALL eviction (action_format 3): the protocol removed this validator for
     // missing liveness, the holder never broadcast anything. A user CAN broadcast a
-    // format-3 UNSTAKE, but the indexer rejects it as invalid, so requiring status
-    // 'valid' alongside the format keeps a rejected broadcast from reading as an
-    // eviction that never happened.
-    let isEviction = (Number(data.action_format) === 3 && data.status === 'valid');
+    // format-3 UNSTAKE, but the indexer rejects it as invalid. Accepted lifecycle
+    // values include completed after cooldown maturity, while rejected broadcasts
+    // still cannot read as an eviction that never happened.
+    let isEviction = Number(data.action_format) === 3
+        && actionDetail_isAcceptedStatus('UNSTAKE', data.status);
     $('#info-unstake .unstake-pubkey').html(formatHash(data.signing_pubkey, 24));
     $('#info-unstake .unstake-amount').html(
         (isEviction ? '<span class="badge text-bg-danger me-2">Evicted</span>' : '') + formatAmount(data.amount));

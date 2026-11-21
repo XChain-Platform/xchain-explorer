@@ -108,3 +108,16 @@ describe('transaction page: a pending BROADCAST action row', function () {
         expect(cells[4].textContent).to.equal('valid');
     });
 });
+
+describe('transaction page: a pending UNSTAKE action row', function () {
+    it('keeps an unconfirmed unstake neutral until the indexer accepts it', function () {
+        const row = render({
+            pending: true,
+            tx_data: 'UNSTAKE|0|1',
+            actions: [{ action_index: null, action: 'UNSTAKE' }]
+        });
+        expect(row.querySelectorAll('td')[4].textContent).to.equal('pending');
+        expect(row.className).to.not.contain('bg-green');
+        expect(row.className).to.not.contain('bg-red');
+    });
+});

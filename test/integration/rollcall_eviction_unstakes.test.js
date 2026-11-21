@@ -163,6 +163,16 @@ describe('ROLLCALL eviction: /api/unstakes surfaces a synthetic UNSTAKE with no 
         expect(Number(res.body.action_format)).to.equal(3);
         expect(res.body.amount).to.equal('5000.00000000');
         expect(res.body.status).to.equal('valid');
+        expect(res.body.source).to.equal(VALIDATOR_ADDR);
+        expect(res.body.protocol_generated).to.equal(true);
+    });
+
+    it('keeps the ordinary action detail source unchanged', async function () {
+        const res = await request.get('/RBTC/api/action/300');
+
+        expect(res.status).to.equal(200);
+        expect(res.body.source).to.equal(USER_ADDR);
+        expect(res.body.protocol_generated).to.equal(undefined);
     });
 
 });

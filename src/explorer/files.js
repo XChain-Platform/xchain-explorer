@@ -74,12 +74,14 @@ class FileRoutes {
 
     // ICON request handler: serves token icons from a fixed directory and refuses
     // any resolved path that escapes it, because the request path reaches here
-    // unvalidated; a miss redirects to the default so a page never renders a 404
-    // image.
+    // unvalidated. A miss redirects to the default request, which serves the
+    // fixed unknown-coin image without re-entering the redirect path.
     async processIconRequest(req, res){
         // '..' because this part sits one directory below the class file the route
         // was written in: the icons still live at src/content/icons.
         const dirPath  = path.resolve(path.join(__dirname, '..', 'content/icons'));
+        const fallbackPath = path.resolve(path.join(dirPath, 'default.png'));
+        const fallbackImage = path.resolve(path.join(dirPath, '..', 'images', 'coin-unknown-64.png'));
         // req.path is the raw, still-encoded path. The client percent-encodes
         // the tick segment (getTokenIcon), and the downloader names the file
         // after the raw tick, so the segment is decoded before the disk lookup
@@ -98,6 +100,9 @@ class FileRoutes {
             return res.status(403).json({ error: 'Access denied', code: 'PATH_DENIED' });
         if(fs.existsSync(filePath)){
             res.sendFile(filePath);
+        } else if(filePath === fallbackPath) {
+            if(fs.existsSync(fallbackImage)) return res.sendFile(fallbackImage);
+            return res.status(404).json({ error: 'Icon not found', code: 'ICON_NOT_FOUND' });
         } else {
             res.redirect(302, '/icon/default.png');
         }

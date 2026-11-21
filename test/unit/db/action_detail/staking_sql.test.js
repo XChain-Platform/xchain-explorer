@@ -62,6 +62,20 @@ describe('SLASH detail status', function() {
     });
 });
 
+describe('UNSTAKE detail source', function() {
+    it('falls back to the capability or contract unstake source after both joins', function() {
+        const flat = stakingSql.UNSTAKE_DETAIL.replace(/\s+/g, ' ');
+        const capabilityJoin = flat.indexOf('LEFT JOIN unstakes u ');
+        const contractJoin = flat.indexOf('LEFT JOIN contract_unstakes cu ');
+        const addressJoin = flat.indexOf('LEFT JOIN index_addresses a3 ');
+
+        expect(capabilityJoin).to.be.greaterThan(-1);
+        expect(contractJoin).to.be.greaterThan(capabilityJoin);
+        expect(addressJoin).to.be.greaterThan(contractJoin);
+        expect(flat).to.include('COALESCE(a1.source_id, t1.source_id, u.source_id, cu.source_id)');
+    });
+});
+
 describe('DELEGATE revoke selection', function() {
     it('counts only older same-format wire-backed DELEGATE actions', function() {
         const flat = stakingSql.DELEGATE_REVOKE_ORDINAL.replace(/\s+/g, ' ');

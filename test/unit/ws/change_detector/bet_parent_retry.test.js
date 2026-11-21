@@ -60,8 +60,50 @@ describe('BET parent lookup retry', function () {
     });
 });
 
+describe('lifecycle enrichment lookup retry', function () {
+    for (const action of ['DISPENSER_CANCEL', 'DISPENSER_EDIT', 'ORDER_MATCH', 'ATTEST']) {
+        it(`holds ${action} until its lifecycle lookup succeeds`, async function () {
+            await expectLifecycleRetry(action);
+        });
+    }
+});
+
+async function expectLifecycleRetry(action) {
+    const lookup = sinon.stub();
+    lookup.onFirstCall().rejects(new Error('temporary'));
+    const row = { action, action_index: 501n, block_index: 10, source: 'P' };
+    const readers = {};
+    let expected = action;
+    if (action === 'ORDER_MATCH') {
+        readers.getOrderMatchSettlement = sinon.stub().resolves({ settlement_type: 'coinpay' });
+        readers.getCoinpayObligation = lookup;
+        lookup.onSecondCall().resolves({ obligation_action_index: 501n, order_match_action_index: 501n,
+            payer_address: 'P', payee_address: 'Q', coin_amount: '1', expiration: '20' });
+        expected = 'COINPAY_REQUIRED';
+    } else if (action === 'ATTEST') {
+        readers.getAttestationByActionIndex = lookup;
+        lookup.onSecondCall().resolves({ version: 0, action_index: 501n, request_id: 'r', provider_id: 'p' });
+        expected = 'ATTESTATION_REQUEST';
+    } else {
+        readers.getValidDispenserMutationIndex = lookup;
+        lookup.onSecondCall().resolves(41);
+    }
+    const detector = pollingDetector(row, readers, true);
+    let failure;
+    try { await detector.checkCoin('BTC'); } catch (err) { failure = err; }
+    expect(failure).to.have.property('message', 'temporary');
+    expect(detector.state.BTC.actionIndex).to.equal(500n);
+    expect(detector.emit.called).to.equal(false);
+
+    await detector.checkCoin('BTC');
+    expect(detector.state.BTC.actionIndex).to.equal(501n);
+    const events = detector.emit.getCalls().filter((call) => call.args[0] === 'lifecycle_event');
+    expect(events.map((call) => call.args[2].type)).to.include(expected);
+    expect(lookup.calledTwice).to.equal(true);
+}
+
 // A BTC detector one row behind its tip, with that row and the given parent readers.
-function pollingDetector(row, readers) {
+function pollingDetector(row, readers, keepAttestationEmitter) {
     const detector = new ChangeDetector({ db: null, fetchLimit: 100 });
     detector.fetchLimit = 100;
     detector.state = { BTC: {
@@ -77,7 +119,7 @@ function pollingDetector(row, readers) {
     };
     sinon.spy(detector, 'emit');
     detector.emitEntityUpdates = sinon.stub().resolves();
-    detector.emitAttestationEvents = sinon.stub().resolves();
+    if (!keepAttestationEmitter) detector.emitAttestationEvents = sinon.stub().resolves();
     detector.checkBetLatches = sinon.stub().resolves();
     detector.checkXcallPhases = sinon.stub().resolves();
     return detector;

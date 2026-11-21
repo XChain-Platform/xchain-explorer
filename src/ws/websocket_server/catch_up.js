@@ -190,7 +190,7 @@ async function rowLifecycleEvents(db, coin, action, batch) {
         emit: (name, eventCoin, event) => { if (name === 'lifecycle_event') events.push(event); }
     };
     await ChangeDetector.prototype.emitLifecycleEvents.call(receiver, coin, { coin }, action, batch);
-    await ChangeDetector.prototype.emitAttestationEvents.call(receiver, coin, { coin }, action);
+    await ChangeDetector.prototype.emitAttestationEvents.call(receiver, coin, { coin }, action, batch);
     return events;
 }
 

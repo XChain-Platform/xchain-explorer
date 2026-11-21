@@ -208,7 +208,6 @@ const UNSTAKE_DETAIL = `SELECT
                     INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                     LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     LEFT  JOIN unstakes           u  ON (u.action_index=a1.action_index)
                     LEFT  JOIN index_pubkeys      pk1 ON (pk1.id=u.signing_pubkey_id)
@@ -217,6 +216,7 @@ const UNSTAKE_DETAIL = `SELECT
                     LEFT  JOIN index_pubkeys      pk2 ON (pk2.id=cu.signing_pubkey_id)
                     LEFT  JOIN index_tickers      tk ON (tk.id=cu.tick_id)
                     LEFT  JOIN index_statuses     cus ON (cus.id=cu.status_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id, u.source_id, cu.source_id))
                 WHERE
                     a1.action_index=?
                 LIMIT 1`;

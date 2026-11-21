@@ -34,16 +34,20 @@ function showAnchorPublisherDetails(data){
         }
     }
 }
+function showUndecodedAnchorPayload(data){
+    let cells = '.anchor-chain,.anchor-network,.anchor-checkpoint-seq,.anchor-snapshot-block,'
+        + '.anchor-block-hash,.anchor-ledger-hash,.anchor-actions-hash,.anchor-contract-hash,'
+        + '.anchor-match-batch,.anchor-match-count,.anchor-chunk';
+    $('#info-anchor ' + cells).text('-');
+    $('#info-anchor .anchor-roots-row, #info-anchor .anchor-publisher-row').addClass('d-none');
+    $('#info-anchor .anchor-doge-block').text(isNull(data.block_index_doge) ? '-' : numeral(data.block_index_doge).format('0,0'));
+}
 // Display ANCHOR action information (v0 per-network checkpoint bundle, v1 archive head, v2 archive chunk, v3 folded bundle)
 function showAnchorDetails(data){
-    // The gate verdict is the anchor page's (anchorTraits): a row mined below activation,
-    // a v3 below the fold gate, or an unread version byte is shown by its label, not as a bundle.
     let gate = (typeof anchorGateVerdict === 'function') ? anchorGateVerdict(data) : null;
+    let undecoded = (typeof anchorPayloadUndecoded === 'function') && anchorPayloadUndecoded(data);
     $('#info-anchor .anchor-version').text(gate ? gate.version : (isNull(data.version) ? '-' : ('v' + data.version)));
-    // A bundle is one action carrying every checkpointed chain, stored as N sibling
-    // anchor_actions rows. The per-chain fields below belong to section 0 alone, so say how
-    // many chains the action commits and where the full per-chain view is. The section
-    // table itself lives on the anchor page (anchor_detail_render.js).
+    $('#info-anchor .anchor-undecoded-row').toggleClass('d-none', !undecoded);
     let sections = (!gate && Array.isArray(data.sections)) ? data.sections : [];
     if(sections.length > 1){
         let chains = sections.map(s => escapeHtml(isNull(s.chain) ? '-' : String(s.chain))).join(', ');
@@ -53,15 +57,10 @@ function showAnchorDetails(data){
     } else {
         $('#info-anchor .anchor-sections').text(sections.length === 1 ? '1 chain' : '-');
     }
+    if(undecoded){ showUndecodedAnchorPayload(data); return; }
     $('#info-anchor .anchor-chain').text(isNull(data.chain) ? '-' : data.chain);
     $('#info-anchor .anchor-network').text(isNull(data.network) ? '-' : data.network);
     $('#info-anchor .anchor-checkpoint-seq').text(isNull(data.checkpoint_seq) ? '-' : numeral(data.checkpoint_seq).format('0,0'));
-    // SNAPSHOT_BLOCK is a BITCOIN height carried on the wire (xchain-indexer
-    // actions/anchor/index.js: the oracle_publish capability snapshot it names is BTC-keyed),
-    // while ANCHOR is only valid on DOGE. Linking it into the page coin therefore
-    // resolved a DOGE block of the same number, an unrelated block. Route it through
-    // the shared BTC-height renderer, which links the tier-matched BTC chain when this
-    // instance serves it and otherwise prints the bare height.
     $('#info-anchor .anchor-snapshot-block').html(formatPriceAnchorHeight(data.snapshot_block));
     $('#info-anchor .anchor-block-hash').html(isNull(data.block_hash) ? '-' : formatHash(data.block_hash, 32));
     $('#info-anchor .anchor-ledger-hash').html(isNull(data.ledger_hash) ? '-' : formatHash(data.ledger_hash, 32));
@@ -69,11 +68,9 @@ function showAnchorDetails(data){
     $('#info-anchor .anchor-contract-hash').html(isNull(data.contract_hash) ? '-' : formatHash(data.contract_hash, 32));
     $('#info-anchor .anchor-match-batch').text(isNull(data.match_batch_seq) ? '-' : numeral(data.match_batch_seq).format('0,0'));
     $('#info-anchor .anchor-match-count').text(isNull(data.match_count) ? '-' : numeral(data.match_count).format('0,0'));
-    // The stored index is 0 on the head and 1-based on each continuation; show it 1-based like the feed.
     $('#info-anchor .anchor-chunk').text(isNull(data.chunk_index) ? '-'
         : ((Number(data.chunk_index) + 1) + ' of ' + (isNull(data.total_chunks) ? '?' : data.total_chunks)));
     $('#info-anchor .anchor-doge-block').text(isNull(data.block_index_doge) ? '-' : numeral(data.block_index_doge).format('0,0'));
-    // SPV commitment roots (NULL pre-CHECKPOINT_COMMITMENT flag-day; carried by v0 and v3).
     let hasRoots = !isNull(data.state_root) || !isNull(data.block_merkle_root);
     $('#info-anchor .anchor-roots-row').toggleClass('d-none', !hasRoots);
     if(hasRoots){
@@ -274,7 +271,10 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
     if(data && data.length>=1){
         // Loop through data and add to the datatables before initialization
         data.forEach(function(info, idx){
-            var cls = (info.status=='valid') ? 'bg-green' : (info.status=='pending') ? '' : 'bg-red';
+            let lifecycleAccepted = info.action=='UNSTAKE'
+                && String(info.status)=='completed';
+            var cls = (info.status=='valid' || lifecycleAccepted) ? 'bg-green'
+                    : (info.status==null || info.status==='' || info.status=='pending') ? '' : 'bg-red';
             if(['actions','batch'].includes(type)){
                 // The transaction actions table nests its summary under `.details`
                 // (getActionSummaryData) and a BATCH member carries the same projection
@@ -291,7 +291,7 @@ function showActionDatatable(type, data, dataType=null, autoWidth=true, ){
                 html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, formatAmount(info.action_index)) + '</td>';
                 html += '    <td>' + info.action + '</td>';
                 html += '    <td>' + getActionDetails(info.action, details) + '</td>';
-                html += '    <td>' + info.status + '</td>';
+                html += '    <td>' + ((info.status==null || info.status==='') ? '-' : info.status) + '</td>';
                 html += '    <td>' + formatLink('/' + XC.coin + '/action/' + info.action_index, 'view', null, true) + '</td>';
                 html += '</tr>';
             } else {

@@ -59,12 +59,16 @@ function render(data, network) {
         ${extractFn(XCHAIN_SRC, 'escapeHtml', 'xchain.js')}
     `);
     dom.window.eval(extractFn(XCHAIN_SRC, 'formatPriceAnchorHeight', 'xchain.js'));
+    dom.window.eval(extractFn(XCHAIN_SRC, 'showUndecodedAnchorPayload', 'xchain.js'));
     dom.window.eval(extractFn(XCHAIN_SRC, 'showAnchorDetails', 'xchain.js'));
     dom.window.showAnchorDetails(data);
     const $ = dom.window.$;
     return {
         version: $('#info-anchor .anchor-version').text().trim(),
         sections: $('#info-anchor .anchor-sections').text().trim(),
+        chain: $('#info-anchor .anchor-chain').text().trim(),
+        blockHash: $('#info-anchor .anchor-block-hash').text().trim(),
+        undecodedVisible: !$('#info-anchor .anchor-undecoded-row').hasClass('d-none'),
         globals: dom.window
     };
 }
@@ -74,6 +78,8 @@ const A = TABLES.activation.testnet;
 const F = TABLES.fold['DOGE:testnet'];
 const bundleRow = (version, height, chains, status) => ({
     action_index: 7, version, chain: 'TESTNET', network: 'testnet', block_index_doge: height,
+    block_hash: 'aa'.repeat(32), ledger_hash: 'bb'.repeat(32),
+    actions_hash: 'cc'.repeat(32), contract_hash: 'dd'.repeat(32),
     status: status || 'valid',
     sections: chains.map((chain, index) => ({ section_index: index, chain }))
 });
@@ -88,12 +94,25 @@ describe('ANCHOR action detail: activation gates', function () {
         const r = render(bundleRow(3, F - 1, ['TESTNET'], UNPARSED_STATUS));
         expect(r.version).to.equal('v3 - v3 before fold activation');
         expect(r.sections).to.equal('-');
+        expect(r.chain).to.equal('-');
+        expect(r.blockHash).to.equal('-');
+        expect(r.undecodedVisible).to.equal(true);
+    });
+
+    it('hides positional payload fields for an unknown stored version', function () {
+        const r = render(bundleRow(4, F, ['TESTNET'], UNPARSED_STATUS));
+        expect(r.version).to.equal('v4 - Unrecognized version v4');
+        expect(r.chain).to.equal('-');
+        expect(r.blockHash).to.equal('-');
+        expect(r.undecodedVisible).to.equal(true);
     });
 
     it('shows a v3 at the fold gate as a bundle with its chain count', function () {
         const r = render(bundleRow(3, F, ['BTC', 'LTC']));
         expect(r.version).to.equal('v3');
         expect(r.sections).to.contain('2 chains');
+        expect(r.chain).to.equal('TESTNET');
+        expect(r.undecodedVisible).to.equal(false);
     });
 
     it('labels a v1 and a v0 below activation as legacy', function () {
@@ -128,6 +147,8 @@ describe('ANCHOR action detail: activation gates', function () {
         const r = render(bundleRow(0, A, ['BTC'], 'invalid: SIGNATURE'));
         expect(r.version).to.equal('v0');
         expect(r.sections).to.equal('1 chain');
+        expect(r.chain).to.equal('TESTNET');
+        expect(r.undecodedVisible).to.equal(false);
     });
 
     it('wires both activation tables and the shared traits script into action.html', function () {

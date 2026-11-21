@@ -15,7 +15,7 @@
  * XChain Explorer - single-action supplements, fee and type
  *
  * The per-index legs getActionData (in the entry) runs after its handler:
- * the sibling-table supplements, the fee row, and the action type lookup.
+ * the sibling-table supplements, the fee row, and the action metadata lookup.
  *
  * One part of src/db/readers/action_detail_io.js (the entry composes it through
  * composeReaderParts). Authored as a class body whose prototype is exported,
@@ -230,20 +230,23 @@ class ActionDataReaders {
         return fee;
     }
 
-    async getActionType(config, action_index){
-        let type = null;
+    async getActionType(config, action_index, include_origin=false){
+        let metadata = { type: null, tx_index: undefined };
         let args = [action_index];
-        let sql  = `SELECT 
-                        a2.action
+        let sql  = `SELECT
+                        a2.action,
+                        a1.tx_index
                     FROM
                         actions a1
                         LEFT  JOIN index_actions a2 ON (a2.id=a1.action_id)
                     WHERE
                         a1.action_index=?`;
         let results = await this.doQuery(config, sql, args);
-        if(results && results.length)
-            type = results[0].action;
-        return type;
+        if(results && results.length){
+            metadata.type = results[0].action;
+            metadata.tx_index = results[0].tx_index;
+        }
+        return include_origin ? metadata : metadata.type;
     }
 }
 

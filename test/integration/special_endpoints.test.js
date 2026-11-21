@@ -57,12 +57,10 @@ after(async function () {
 describe('Special Endpoints', function () {
 
     it('GET /icon/default.png: icon endpoint serves files', async function () {
-        // A nonexistent icon file should redirect (302) to /icon/default.png.
-        // The handler calls fs.existsSync; the file does not exist in test env.
-        const res = await request.get('/icon/nonexistent.png');
+        const res = await request.get('/icon/default.png');
 
-        expect(res.status).to.equal(302);
-        expect(res.headers.location).to.equal('/icon/default.png');
+        expect(res.status).to.equal(200);
+        expect(res.headers['content-type']).to.match(/image\/png/);
     });
 
     it('icon path traversal is blocked', async function () {

@@ -363,7 +363,7 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
             // The batch's ledger ticks, addresses and system-action parties, each read once.
             ledger:    { actions: newActions, ticks: undefined, addresses: undefined, parties: undefined }
         };
-        if (typeof detector.prefetchBetParents === 'function') await detector.prefetchBetParents(config, entityCache.ledger);
+        if (typeof detector.prefetchLifecycleReads === 'function') await detector.prefetchLifecycleReads(config, entityCache.ledger);
         // Each new action fans out four ways: the raw indexed row on `actions`,
         // the typed lifecycle events its type maps to, entity updates for whatever
         // has a subscriber, and, for ATTEST only, the `attestation` channel.
@@ -376,7 +376,7 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
                 detector.emit('action', coin, action);
                 await detector.emitLifecycleEvents(coin, config, action, entityCache.ledger);
                 await detector.emitEntityUpdates(coin, config, action, entityCache);
-                await detector.emitAttestationEvents(coin, config, action);
+                await detector.emitAttestationEvents(coin, config, action, entityCache.ledger);
             } finally {
                 detector.emit('action_row_end', coin, action);
             }

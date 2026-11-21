@@ -94,9 +94,11 @@ function cleanParams(params){
     return cleaned;
 }
 
-// Store a fresh read under `key`, evicting the oldest entry when the map is full.
+// A refresh moves its key to the newest end, so a full map evicts the
+// least-recently-refreshed entry rather than the first key ever inserted.
 function rememberRows(cache, key, at, rows){
-    if(cache.size >= MAX_CACHE_ENTRIES && !cache.has(key))
+    cache.delete(key);
+    if(cache.size >= MAX_CACHE_ENTRIES)
         cache.delete(cache.keys().next().value);
     cache.set(key, { at, rows });
 }

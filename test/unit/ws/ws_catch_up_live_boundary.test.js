@@ -215,8 +215,8 @@ describe('catch-up replay stops at the live-start ceiling', function () {
     afterEach(() => sinon.restore());
 
     it('a subscribe landing mid-row gets that row\'s lifecycle frames once, after its NEW_ACTION', async function () {
-        // The row's ORDER_MATCH waits on a settlement read; the subscribe lands inside
-        // that wait, so its ceiling freezes at the row and the replay owns the row whole.
+        // Lifecycle reads finish before the row starts. A subscribe during that wait
+        // therefore owns the whole row live, with NEW_ACTION still first.
         const db = fakeDb([row(1)]);
         let settle2;
         const settlement = new Promise((resolve) => { settle2 = resolve; });
@@ -237,6 +237,6 @@ describe('catch-up replay stops at the live-start ceiling', function () {
         const sent = client.ws.send.getCalls().map(c => JSON.parse(c.args[0]))
             .filter(m => m.type === 'NEW_ACTION' || m.type === 'ORDER_MATCH');
         expect(sent.map(m => m.type + (m.catch_up ? ' replay' : ' live')))
-            .to.deep.equal(['NEW_ACTION replay', 'ORDER_MATCH replay']);
+            .to.deep.equal(['NEW_ACTION live', 'ORDER_MATCH live']);
     });
 });

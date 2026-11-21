@@ -35,7 +35,7 @@ const Database = proxyquire('../../../../../src/db/index.js', {
 
 const TABLES = ['actions', 'index_addresses', 'credits', 'debits', 'escrows', 'orders', 'swaps', 'dispensers', 'bet_feeds',
     'order_matches', 'swap_matches', 'order_expires', 'swap_expires', 'dispenser_expires',
-    'dispenser_closes', 'coinpay_expires', 'coinpay_obligations', 'bet_feed_statuses'];
+    'dispenser_closes', 'coinpay_expires', 'coinpay_obligations', 'bet_feed_statuses', 'cross_chain_settlements'];
 
 let sqlite, db, cfg;
 
@@ -72,6 +72,10 @@ function seed() {
     run('INSERT INTO coinpay_obligations (action_index, payer_address_id, payee_address_id, coin_id, coin_amount, expiration, block_index) VALUES (30, ?, ?, 1, \'0.1\', 9, 1)', payer, payee);
     run('INSERT INTO coinpay_expires (action_index, obligation_action_index) VALUES (26, 30)');
     run('INSERT INTO bet_feed_statuses (action_index, feed_action_index) VALUES (27, 6)');
+    run("INSERT INTO cross_chain_settlements VALUES (28, 'order-settle', 1, 1, 'BTC', 1, 'LTC', 9)");
+    run("INSERT INTO cross_chain_settlements VALUES (29, 'swap-settle', 3, 1, 'BTC', 3, 'DOGE', 9)");
+    run("INSERT INTO cross_chain_settlements VALUES (30, 'order-noop', 2, 1, 'BTC', 2, 'LTC', 10)");
+    run("INSERT INTO cross_chain_settlements VALUES (31, 'retired', 4, 1, NULL, NULL, NULL, NULL)");
 }
 
 const parties = (map, index) => [...(map.get(String(index)) || [])].sort();
@@ -101,6 +105,8 @@ describe('getLifecycleParties against the REAL indexer DDL', function () {
             { action: 'ORDER_EXPIRE', action_index: 22n }, { action: 'SWAP_EXPIRE', action_index: 23n },
             { action: 'DISPENSER_EXPIRE', action_index: 24n }, { action: 'DISPENSER_CLOSE', action_index: 25n },
             { action: 'COINPAY_EXPIRE', action_index: 26n }, { action: 'BET_EXPIRE', action_index: 27n },
+            { action: 'CROSS_SETTLE', action_index: 28n }, { action: 'CROSS_SETTLE', action_index: 29n },
+            { action: 'CROSS_SETTLE', action_index: 30n }, { action: 'CROSS_SETTLE', action_index: 31n },
             { action: 'SEND', action_index: 1n }
         ];
         const map = await db.getLifecycleParties(cfg, batch);
@@ -114,8 +120,17 @@ describe('getLifecycleParties against the REAL indexer DDL', function () {
         expect(parties(map, 25)).to.deep.equal(['1vendor']);
         expect(parties(map, 26)).to.deep.equal(['1payee', '1payer']);
         expect(parties(map, 27)).to.deep.equal(['1oracle']);
+        expect(parties(map, 28)).to.deep.equal(['1maker']);
+        expect(parties(map, 29)).to.deep.equal(['1swapA']);
+        expect(parties(map, 30)).to.deep.equal(['1taker']);
+        expect(parties(map, 31)).to.deep.equal([]);
         expect(map.has('1')).to.equal(false);
     });
+
+});
+
+describe('getLifecycleParties against the REAL indexer DDL', function () {
+    installHooks();
 
     it('never names a royalty recipient or a settlement action standing in for an order', async function () {
         const map = await db.getLifecycleParties(cfg, [

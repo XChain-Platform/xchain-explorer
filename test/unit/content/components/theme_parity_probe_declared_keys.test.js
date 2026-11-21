@@ -85,7 +85,8 @@ function capture(sheets, { markup = '<footer class="footer"><a href="#">x</a></f
   vm.runInContext(PROBE_SRC, dom.getInternalVMContext(), { filename: PROBE_FILE });
   const res = win.__XC(TAG, 'before');
   assert.ok(!res.invalid, `capture rejected: ${JSON.stringify(res.invalid)}`);
-  return { res, snap: JSON.parse(win.localStorage[`__xc:before:${TAG}|light|rule`]) };
+  return { res, snap: JSON.parse(win.localStorage[`__xc:before:${TAG}|light|rule`]),
+    un: JSON.parse(win.localStorage[`__xcUn:before:${TAG}`]) };
 }
 
 describe('theme parity probe declared-path keys', () => {
@@ -120,6 +121,14 @@ describe('theme parity probe declared-path keys', () => {
     const a = capture(sheets('red'));
     assert.equal(a.snap['.footer a:hover | color'], 'red || rgb(1, 2, 3)');
     assert.notEqual(a.res.light.rule.hash, capture(sheets('blue')).res.light.rule.hash);
+    for (const state of ['focus-visible', 'focus-within', 'focus']) {
+      const selector = `.footer a:${state}`;
+      const red = capture([sheet(THEME, [rule(selector, { color: 'red' })])]);
+      const blue = capture([sheet(THEME, [rule(selector, { color: 'blue' })])]);
+      assert.equal(red.snap[`${selector} | color`], 'red');
+      assert.ok(!red.un.includes(selector));
+      assert.notEqual(red.res.light.rule.hash, blue.res.light.rule.hash);
+    }
   });
 
   it('keeps a single value for a computed-path key two sheets restate', () => {

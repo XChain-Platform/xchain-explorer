@@ -55,6 +55,7 @@ const NETWORK_COIN_SRC = require('../../../../helpers/content-source.js').networ
 const SRC_DIR    = path.resolve(__dirname, '..', '..', '..', '../../src/content');
 const XCHAIN_SRC = srcText('src/content/js/xchain.js')
     + '\n' + fs.readFileSync(path.join(SRC_DIR, 'js/formatters.js'), 'utf8');
+const SETTLEMENT_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/xbridge_panels_render/settlement.js'), 'utf8');
 const RENDER_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/xbridge_panels_render.js'), 'utf8');
 const PAGE_HTML  = fs.readFileSync(path.join(SRC_DIR, 'html/token.html'), 'utf8');
 const JQUERY_SRC = fs.readFileSync(path.join(SRC_DIR, 'js/jquery.min.js'), 'utf8');
@@ -74,6 +75,7 @@ function makeWindow() {
     dom.window.eval(JQUERY_SRC);
     dom.window.eval(extractFn(XCHAIN_SRC, 'isNull'));
     dom.window.eval(NETWORK_COIN_SRC);
+    dom.window.eval(SETTLEMENT_SRC);
     dom.window.eval(RENDER_SRC);
     dom.window.XC = { coin: 'DOGE', name: 'Dogecoin', network: 'regtest', query: 'BTC.FUFU',
                       status: { available: { BTC: {}, DOGE: {}, LTC: {} } } };

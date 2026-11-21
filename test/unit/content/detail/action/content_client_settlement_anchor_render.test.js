@@ -41,11 +41,11 @@ function snapshotRow(sql, row){
     return row;
 }
 
-function feedLabel(action){
+function feedLabel(action, info = {}){
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
     dom.window.XC = { coin: 'DOGE' };
     dom.window.eval(fs.readFileSync(path.join(content, 'js', 'xchain', 'action_detail.js'), 'utf8'));
-    return dom.window.getActionDetails(action, {});
+    return dom.window.getActionDetails(action, info);
 }
 
 function normalized(row){
@@ -68,12 +68,31 @@ const LIST_SHARE_ROW = {
 
 describe('settlement anchor panels', function(){
     it('renders an XPOLICY snapshot', function(){
-        const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(POLICY_SNAPSHOT,XPOLICY_ROW) });
+        const html = panels.renderXpolicyAction({
+            snapshot_outcome: 'applied', policy_snapshot: snapshotRow(POLICY_SNAPSHOT,XPOLICY_ROW)
+        });
         expect(html).to.contain('data-anchor="xpolicy"');
+        expect(html).to.match(/xc-anchor-outcome">Applied on this chain/);
         expect(html).to.contain('PEPE');
         expect(html).to.match(/xc-anchor-allow-list">2 addresses/);
         expect(html).to.match(/xc-anchor-sleeping">yes/);
         expect(html).to.match(/xc-anchor-block-list">none/);
+    });
+
+    it('labels refused values as proposals that did not take effect', function(){
+        const html = panels.renderXpolicyAction({
+            snapshot_outcome: 'refused', policy_snapshot: snapshotRow(POLICY_SNAPSHOT,XPOLICY_ROW)
+        });
+        expect(html).to.match(/xc-anchor-outcome">Refused on this chain/);
+        expect(html).to.match(/xc-anchor-proposed-allow-list">2 addresses/);
+        expect(html).to.match(/xc-anchor-proposed-block-list">none/);
+        expect(html).to.match(/xc-anchor-proposed-sleeping">yes/);
+        expect(html).to.not.match(/xc-anchor-allow-list">/);
+    });
+
+    it('derives outcome from the settlement row for older cached payloads', function(){
+        const html = panels.renderXpolicyAction({ bridge_settlement: { kind: 'refused' } });
+        expect(html).to.match(/xc-anchor-outcome">Refused on this chain/);
     });
 
     it('tells an empty XPOLICY list from no list', function(){
@@ -84,6 +103,10 @@ describe('settlement anchor panels', function(){
         expect(html).to.match(/xc-anchor-block-list">5 addresses/);
         expect(html).to.match(/xc-anchor-sleeping">no/);
     });
+
+});
+
+describe('settlement anchor panels', function(){
 
     it('renders XPOLICY shared-list references instead of scalar counts', function(){
         const html = panels.renderXpolicyAction({ policy_snapshot: snapshotRow(POLICY_SNAPSHOT,{
@@ -121,6 +144,7 @@ describe('settlement anchor panels', function(){
 describe('settlement anchor panels', function(){
     it('shows dashes when the snapshot is not mirrored', function(){
         const policy = panels.renderXpolicyAction({});
+        expect(policy).to.match(/xc-anchor-outcome">-/);
         expect(policy).to.match(/xc-anchor-token">-/);
         expect(policy).to.match(/xc-anchor-allow-list">-/);
         expect(policy).to.match(/xc-anchor-block-list">-/);
@@ -132,6 +156,8 @@ describe('settlement anchor panels', function(){
 
     it('labels XPOLICY and LIST_SHARE rows in compact action feeds', function(){
         expect(feedLabel('XPOLICY')).to.equal('Policy snapshot (XPOLICY)');
+        expect(feedLabel('XPOLICY', { bridge_kind: 'refused' }))
+            .to.equal('Policy snapshot (XPOLICY), refused, not applied');
         expect(feedLabel('LIST_SHARE')).to.equal('Shared list version (LIST_SHARE)');
     });
 

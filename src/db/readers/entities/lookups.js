@@ -28,6 +28,8 @@ const { getLogger } = require('../../../observability');
 const log = getLogger();
 const { dispenserLifecyclePass } = require('../../query_sql/data_post.js');
 const multipart = require('../../../explorer/multipart_file.js');
+const { setTablesAbsent, isMissingTableError } = require('../../schema_probe.js');
+const { getValidDispenserMutationIndex } = require('./lookup_mutations.js');
 
 const TOKEN_DESCRIPTION_TTL_MS = 60 * 1000;
 
@@ -55,7 +57,15 @@ class EntityLookupReaders {
             LEFT JOIN file_completions fc ON (fc.manifest_action_index=fm.action_index) LEFT JOIN actions manifest_action ON (manifest_action.action_index=fm.action_index)
             LEFT JOIN transactions manifest_tx ON (manifest_tx.tx_index=manifest_action.tx_index) LEFT JOIN index_transactions manifest_hash ON (manifest_hash.id=manifest_tx.tx_hash_id)
             ${partJoins} ORDER BY position ASC`;
-        const rows = await this.doQuery(config, query, [requested, requested]);
+        let rows;
+        try {
+            rows = await this.doQuery(config, query, [requested, requested]);
+        } catch(e) {
+            if(!isMissingTableError(e)) throw e;
+            // A replica without the multipart migration can still serve legacy FILEs.
+            setTablesAbsent(this, config, ['file_manifests', 'file_parts', 'file_completions']);
+            return { kind: 'none' };
+        }
         return multipart.recordFromRows(rows, this.util);
     }
 
@@ -374,27 +384,11 @@ class EntityLookupReaders {
         return null;
     }
 
-    async getValidDispenserMutationIndex(config, actionType, actionIndex) {
-        const tables = {
-            DISPENSER_CANCEL: 'dispenser_cancels',
-            DISPENSER_EDIT:   'dispenser_edits'
-        };
-        const table = tables[actionType];
-        if (!table) return null;
-        let query = `SELECT
-                        m.dispenser_action_index
-                    FROM
-                        ${table} m
-                        INNER JOIN index_statuses s ON (s.id=m.status_id)
-                    WHERE
-                        m.action_index=? AND
-                        s.status='valid'
-                    LIMIT 1`;
-        let results = await this.doQuery(config, query, [actionIndex]);
-        if (results && results.length && results[0].dispenser_action_index != null)
-            return results[0].dispenser_action_index;
-        return null;
-    }
 }
 
+Object.defineProperty(EntityLookupReaders.prototype, 'getValidDispenserMutationIndex', {
+    value: getValidDispenserMutationIndex,
+    configurable: true,
+    writable: true
+});
 module.exports = EntityLookupReaders.prototype;

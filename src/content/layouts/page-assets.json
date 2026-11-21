@@ -57,6 +57,7 @@
                 "/js/xchain/datatable/rows_protocol_c.js",
                 "/js/xchain/datatable/request.js",
                 "/js/xchain/datatable.js",
+                "/js/xchain/action_detail/attest_list_summary.js",
                 "/js/xchain/action_detail.js",
                 "/js/xchain/action_markers.js",
                 "/js/xchain/action_system_summaries.js"

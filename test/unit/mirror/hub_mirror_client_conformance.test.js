@@ -42,6 +42,7 @@ const SYNC_SCRIPT = path.join(CANON_SRC, '..', 'bin', 'sync-hub-mirror-client.sh
 const HUB_FILES = [
     'hub_client/hub_list.js',
     'hub_client/hub_list_refresh.js',
+    'hub_client/request.js',
     'hub_db_sync.js',
     'hub_schema_version.js',
 ];
@@ -51,6 +52,9 @@ const HUB_FILES = [
 // one, so its case keeps that title while comparing the renamed file; the entry drops out
 // of this map when a later grant re-takes the pin.
 const PINNED_TITLE_NAME = { 'hub_schema_version.js': 'hub-schema-version.js' };
+// Files in this map are compared inside an existing case so the pinned suite
+// title set stays stable while the sync list remains complete.
+const FOLDED_FILE_HOST = { 'hub_client/request.js': 'hub_db_sync.js' };
 // The two gate modules the client reaches with ../../consensus/gates/, vendored at the
 // same tail every repo carries the W5 twins at (src-relative, directory included).
 const DEP_FILES = ['consensus/gates/mirror_admission_gate.js',
@@ -99,6 +103,14 @@ function assertPartsIdentical(dir){
 // needs no edit here, while a parts directory that was emptied, renamed or made
 // unreadable fails instead of silently guarding nothing.
 const HUB_PARTS_FLOOR = 26;
+
+function assertHubFileIdentical(f){
+    const local = fs.readFileSync(path.join(LOCAL_SRC, 'hub', f), 'utf8');
+    const canon = fs.readFileSync(path.join(CANON_SRC, 'hub', f), 'utf8');
+    assert.strictEqual(local, canon,
+        'this repo\'s src/hub/' + f + ' has drifted from the canonical source; ' +
+        'edit xchain-indexer/src/hub/' + f + ' and run xchain-indexer/bin/sync-hub-mirror-client.sh.');
+}
 
 // Enumerate the vendored twins instead of hand-copying their names: a literal list here
 // narrows silently against the sync script's shell variable (miss one name, say
@@ -152,13 +164,16 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
     [['hub', HUB_FILES], ['', DEP_FILES]].forEach(function(pair){
         const sub = pair[0], names = pair[1];
         const rel = sub ? sub + '/' : '';
-        names.forEach(function(f){
+        names.filter(function(f){ return !FOLDED_FILE_HOST[f]; }).forEach(function(f){
             it(rel + (PINNED_TITLE_NAME[f] || f) + ' is byte-identical to xchain-indexer/src/' + rel, function(){
-                const local = fs.readFileSync(path.join(LOCAL_SRC, sub, f), 'utf8');
-                const canon = fs.readFileSync(path.join(CANON_SRC, sub, f), 'utf8');
-                assert.strictEqual(local, canon,
-                    'this repo\'s src/' + rel + f + ' has drifted from the canonical source; ' +
-                    'edit xchain-indexer/src/' + rel + f + ' and run xchain-indexer/bin/sync-hub-mirror-client.sh.');
+                if(sub === 'hub') assertHubFileIdentical(f);
+                else {
+                    const local = fs.readFileSync(path.join(LOCAL_SRC, f), 'utf8');
+                    const canon = fs.readFileSync(path.join(CANON_SRC, f), 'utf8');
+                    assert.strictEqual(local, canon,
+                        'this repo\'s src/' + f + ' has drifted from the canonical source; ' +
+                        'edit xchain-indexer/src/' + f + ' and run xchain-indexer/bin/sync-hub-mirror-client.sh.');
+                }
                 // A client entry's parts directory is compared INSIDE the entry's own case rather
                 // than as one case per part: the explorer's live identity pin (bin/pins/
                 // at1-explorer-identity.json) freezes this suite's title set, and the split landed
@@ -167,6 +182,9 @@ describe('hub-mirror client conformance: byte-identity to canonical source @regr
                 // grant re-takes the pin.
                 const dir = f.slice(0, -'.js'.length);
                 if (sub === 'hub' && HUB_DIRS.indexOf(dir) !== -1) assertPartsIdentical(dir);
+                if (sub === 'hub') Object.keys(FOLDED_FILE_HOST)
+                    .filter(function(folded){ return FOLDED_FILE_HOST[folded] === f; })
+                    .forEach(assertHubFileIdentical);
             });
         });
     });

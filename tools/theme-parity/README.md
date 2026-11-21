@@ -50,6 +50,8 @@ unreadable, where a first-party linked sheet did not load, was absent from
 matched no anchor, where the browser had no Typed OM `computedStyleMap` for the
 layout-derived keys, where a declared-path longhand is empty with no readable
 owning shorthand, or where the Bootstrap mode witness on `body` does not change.
+A comment-only component sheet on the probe's empty-by-design list may load with zero rules; a disk-backed unit test
+pins that list exactly so new or newly populated sheets cannot drift through the exemption.
 A mode-flat theme may render identical surfaces and still produce valid
 evidence. A rejected capture writes nothing to localStorage, so it cannot
 overwrite a good stored snapshot, and it must never be compared against a

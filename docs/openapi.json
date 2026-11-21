@@ -16736,6 +16736,7 @@
           "Checkpoints"
         ],
         "summary": "Verify a checkpoint: 2f+1 signatures, canonical string, validator set",
+        "description": "The checkpoint and validator set both come from the hub mirror. The validator_source and anchored fields describe that trust source; verified=true means the served signatures meet quorum over the served set and must not be used as a source for pinned trust roots.",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"

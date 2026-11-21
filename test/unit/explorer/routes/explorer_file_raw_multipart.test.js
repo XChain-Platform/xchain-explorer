@@ -10,7 +10,6 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
-const crypto = require('crypto');
 const zlib = require('zlib');
 const { Writable } = require('stream');
 const proxyquire = require('proxyquire');
@@ -21,6 +20,7 @@ const { mockRes } = require('../../../fixtures/mock-query-args.js');
 const lookupMethods = require('../../../../src/db/readers/entities/lookups.js');
 const compression = require('../../../../src/http/compression.js');
 const iconFetch = require('../../../../src/icons/downloader/fetch.js');
+const { completeRecord, manifestData, reader } = require('./explorer_file_raw_multipart.test/support/fixtures.js');
 
 function makeExplorer(db) {
     const XChainExplorer = proxyquire('../../../../src/XChainExplorer.js', {
@@ -36,40 +36,6 @@ function makeExplorer(db) {
 
 function req(index = 50, range) {
     return { params: { coin: 'rbtc', actionIndex: String(index) }, headers: range ? { range } : {} };
-}
-
-function digest(bytes) {
-    return crypto.createHash('sha256').update(bytes).digest('hex');
-}
-
-function manifestData({ gated = false, compressed = false } = {}) {
-    return ['FILE', '1', 'a'.repeat(64), '2', '4', 'file.bin', 'application/octet-stream',
-        '', '', gated ? 'TOKEN' : '', gated ? '1' : '', gated ? 'b'.repeat(64) : '', '',
-        compressed ? '1' : '0'].join('|');
-}
-
-function completeRecord(chunks, options = {}) {
-    return {
-        kind: 'manifest',
-        action_index: 50,
-        file_hash: 'a'.repeat(64),
-        total_parts: chunks.length,
-        total_bytes: chunks.reduce((sum, bytes) => sum + bytes.length, 0),
-        parts_received: chunks.length,
-        completion_result: 'complete',
-        name: options.name || 'file.bin',
-        type: options.type || 'application/octet-stream',
-        gated: Boolean(options.gated),
-        data: manifestData(options),
-        parts: chunks.map((bytes, position) => ({
-            position,
-            action_index: 60 + position,
-            tx_hash: 'part-' + position,
-            byte_length: bytes.length,
-            part_digest: digest(bytes),
-            raw_data: bytes
-        }))
-    };
 }
 
 function routeDb(record) {
@@ -122,40 +88,6 @@ function deadline(promise, label) {
         timer = setTimeout(() => reject(new Error('hung: ' + label)), 2000);
     });
     return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
-}
-
-function reader(partCount, decoderDb = 'Decoder_RBTC') {
-    const chunks = Array.from({ length: partCount }, (_, position) => Buffer.from('part-' + position));
-    const manifestHash = 'manifest-hash';
-    const totalBytes = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-    const indexRows = chunks.map((bytes, position) => ({
-        manifest_action_index: 50,
-        manifest_status: 'valid',
-        part_exists: 0,
-        file_hash: 'a'.repeat(64),
-        total_parts: partCount,
-        total_bytes: totalBytes,
-        name: 'file.bin',
-        type: 'application/octet-stream',
-        gated: 0,
-        completion_result: 'complete',
-        manifest_tx_hash: manifestHash,
-        position,
-        part_action_index: 60 + position,
-        part_tx_hash: 'part-hash-' + position,
-        byte_length: bytes.length,
-        part_digest: digest(bytes)
-    }));
-    const decoderRows = [
-        { hash: manifestHash, raw_data: null, data: manifestData() },
-        ...chunks.map((bytes, position) => ({ hash: 'part-hash-' + position, raw_data: bytes, data: 'FILE|2' }))
-    ];
-    return {
-        util: { isNull: value => value === null || value === undefined },
-        decoderDb: { RBTC: decoderDb },
-        doQuery: sinon.stub().resolves(indexRows),
-        doDecoderQuery: sinon.stub().resolves(decoderRows)
-    };
 }
 
 describe('multipart FILE raw route stored output', function () {

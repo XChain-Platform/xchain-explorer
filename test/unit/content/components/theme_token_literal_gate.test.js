@@ -245,6 +245,11 @@ describe('theme parity probe (static contract)', () => {
       `the probe's SHEET pattern skips: ${unseen.join(', ')}`);
   });
 
+});
+
+describe('theme parity probe (static contract)', () => {
+  const probe = fs.readFileSync(PROBE_FILE, 'utf8');
+
   it('admits every first-party stylesheet the page template links', () => {
     // Pin the hand-written SHEET allowlist to the template's own link list, which
     // moves without it (the component sheets landed 2026-09-02 and fell through).
@@ -265,6 +270,18 @@ describe('theme parity probe (static contract)', () => {
     const skipped = firstParty.filter((h) => !sheetRe.test(h));
     assert.deepEqual(skipped, [],
       `template.html links these first-party sheets and the probe reads none of them:\n${skipped.join('\n')}`);
+    const list = probe.match(/const\s+EMPTY_BY_DESIGN\s*=\s*new Set\((\[[\s\S]*?\])\);/);
+    assert.ok(list, 'the probe no longer declares EMPTY_BY_DESIGN as an array-backed Set');
+    const expected = JSON.parse(list[1].replace(/'/g, '"'));
+    const componentRoot = path.join(__dirname, '..', '..', '..', '..', 'src', 'content', 'components');
+    const actual = fs.readdirSync(componentRoot).flatMap((name) => {
+      const file = path.join(componentRoot, name, 'component.css');
+      if (!fs.existsSync(file)) return [];
+      const body = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+      return body ? [] : [`/components/${name}/component.css`];
+    }).sort();
+    assert.deepEqual(expected.slice().sort(), actual);
+    for (const href of expected) assert.ok(template.includes(`href="${href}"`), `${href} is not linked by template.html`);
   });
 
 });

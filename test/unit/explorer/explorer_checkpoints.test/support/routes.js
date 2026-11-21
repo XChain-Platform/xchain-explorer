@@ -273,6 +273,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body.quorum).to.equal(3);
         expect(res._body.valid_sigs).to.equal(1);
         expect(res._body.verified).to.equal(false);
+        expect(res._body).to.include({ validator_source: 'hub-mirror', anchored: false });
     });
 });
 
@@ -302,6 +303,7 @@ describe('XChainExplorer.processCheckpointVerifyRequest', function () {
         expect(res._body.valid_sigs).to.equal(2);              // b counted once, not dropped
         expect(res._body.valid_signers).to.deep.equal([PK('a'), PK('b')]);
         expect(res._body.verified).to.equal(true);
+        expect(res._body).to.include({ validator_source: 'hub-mirror', anchored: false });
     });
 
     it('reports snapshot_available=false (and unverified) when the oracle_publish set is not mirrored here', async function () {

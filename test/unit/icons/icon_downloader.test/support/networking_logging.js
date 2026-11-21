@@ -35,6 +35,9 @@ const {
             expect(url).to.equal('https://example.com/img.png');
             expect(opts.responseType).to.equal('arraybuffer');
             expect(opts.timeout).to.equal(d.cfg.fetchTimeoutMs);
+            expect(d.cfg.fetchDeadlineMs).to.equal(30000);
+            expect(opts.signal).to.be.instanceOf(AbortSignal);
+            expect(opts.signal.aborted).to.equal(false);
             expect(opts.maxContentLength).to.equal(d.cfg.maxBytes);
             expect(opts.maxRedirects).to.equal(3);
             expect(opts.headers['User-Agent']).to.include('xchain-icon-downloader');
@@ -70,6 +73,20 @@ const {
 
             const result = await d.httpFetch('https://example.com/x');
             expect(result.mime).to.equal('');
+        });
+
+        it('reports a wall-clock deadline cancellation as a fetch failure', async function () {
+            const canceled = Object.assign(new Error('canceled'), { code: 'ERR_CANCELED' });
+            const stubs = makeStubs({ axiosReject: canceled });
+            const IconDownloader = loadIconDownloader(stubs);
+            const d = new IconDownloader(makeExplorer());
+
+            let error;
+            try { await d.httpFetch('https://example.com/img.png'); }
+            catch (e) { error = e; }
+
+            expect(error).to.be.an('error');
+            expect(error.message).to.equal('fetch deadline exceeded');
         });
     });
 }

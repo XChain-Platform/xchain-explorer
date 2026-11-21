@@ -196,6 +196,9 @@ class CheckpointProofs {
             valid_sigs:    counted.validSigs,
             valid_signers: counted.validSigners,
             verified:      verified,
+            // Both inputs are hub-mirrored, so this verdict is not a trust anchor.
+            validator_source: 'hub-mirror',
+            anchored:         false,
             // Tells a client the verdict is STRUCTURAL, not a signature shortfall.
             commitment_missing:      commitmentMissing,
             // qualified.size === 0 → the oracle_publish snapshot isn't mirrored

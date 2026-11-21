@@ -37,6 +37,8 @@ var networkCoin = (typeof networkCoin === 'function') ? networkCoin
     : ((typeof require === 'function') ? require('./network_coin.js').networkCoin : null);
 var parseNetworkCoin = (typeof parseNetworkCoin === 'function') ? parseNetworkCoin
     : ((typeof require === 'function') ? require('./network_coin.js').parseNetworkCoin : null);
+var xbridgeUserLegSettlement = (typeof xbridgeUserLegSettlement === 'function') ? xbridgeUserLegSettlement
+    : ((typeof require === 'function') ? require('./xbridge_panels_render/settlement.js').xbridgeUserLegSettlement : null);
 // Escape without jQuery so the module is drivable in isolation. The page also
 // ships escapeHtml() in formatters.js; this is deliberately the same mapping.
 function xbEsc(s){
@@ -273,28 +275,6 @@ function xbridgeRecordRows(d, row){
     return html;
 }
 
-// Format a protocol-time instant (unix seconds) as UTC, or a dash when it is not one.
-function xbUtc(seconds){
-    var n = Number(seconds);
-    return (isFinite(n) && n > 0) ? new Date(n * 1000).toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC') : '-';
-}
-
-// The Settlement row of a user leg, from the hub-mirrored transfer the handler read.
-// Hub finality is not the destination credit, so a finalized row says when it applies;
-// in flight means the mirror was read and holds no transfer for this leg yet.
-function xbridgeUserLegSettlement(d, row){
-    var state = String(d.bridge_transfer_status || '').toLowerCase(), dest = d.dest_chain || (d.bridge_transfer || {}).dest_chain;
-    var badge = function(cls, text, note){
-        return row('Settlement', '<span class="badge xc-bridge-state ' + cls + '">' + text + '</span> <span class="small text-muted">' + note + '</span>');
-    };
-    // A refused leg moved nothing, so nothing will ever settle for it.
-    if(/^invalid/i.test(String(d.status || ''))) return row('Settlement', '<span class="small text-muted">none: the action was refused</span>');
-    if(state === 'finalized')
-        return badge('xc-bridge-state-ok', 'finalized', 'applies on ' + xbEsc(xbDash(dest)) + ' at ' + xbEsc(xbUtc(d.bridge_effective_time)));
-    if(state === 'retracted') return badge('xc-bridge-state-deficit', 'retracted', 'the federation withdrew this transfer');
-    return d.bridge_pending ? badge('xc-bridge-state-unknown', 'in flight', 'settles on the destination chain') : '';
-}
-
 // The XBRIDGE detail card. `d` is the getActionData row: action_format is the
 // version, and the xbridges record fields, bridge_settlement and bridge_pending
 // come from the explorer's XBRIDGE handler (src/action-detail/tokens.js).
@@ -319,7 +299,7 @@ function renderXbridgeAction(d){
         html += row('Settled in block', xbEsc(xbDash(s.block_index)));
     } else if(d && !injected){
         html += xbridgeRecordRows(d, row);
-        html += xbridgeUserLegSettlement(d, row);
+        html += xbridgeUserLegSettlement(d, row, xbEsc, xbDash);
     }
     html += '</tbody></table>';
     return html;
@@ -347,21 +327,25 @@ function anchorCountCell(n, none, unit){
     return xbEsc(n) + unit;
 }
 
-// XPOLICY: a finalized bridged-token policy snapshot.
+// XPOLICY: an applied or terminally refused bridged-token policy snapshot.
 function renderXpolicyAction(d){
     var s    = (d && (d.policy_snapshot || d.snapshot)) || d || {};
+    var kind = d && d.bridge_settlement ? d.bridge_settlement.kind : null;
+    var outcome = d && d.snapshot_outcome ? d.snapshot_outcome : (kind === 'policy' ? 'applied' : kind);
+    var refused = outcome === 'refused';
     var row  = anchorRowBuilder();
     var html = '<table class="table table-sm table-striped table-bordered mb-0 no-outer-borders xc-anchor-action" data-anchor="xpolicy"><tbody>';
     html += row('Format', 'Policy snapshot (XPOLICY)');
+    html += row('Outcome', outcome === 'applied' ? 'Applied on this chain' : refused ? 'Refused on this chain' : '-');
     html += row('Token', xbEsc(xbDash(s.tick)));
     html += row('Origin chain', xbEsc(xbDash(s.origin_chain)));
     html += row('Policy sequence', xbEsc(xbDash(s.policy_seq)));
     html += row('Snapshot block', xbEsc(xbDash(s.snapshot_block)));
     html += row('Origin block', xbEsc(xbDash(s.origin_block)));
-    html += row('Allow list', s.allow_ref ? 'shared list ' + xbEsc(s.allow_ref) : anchorCountCell(s.allow_count, 'none', ' addresses'));
-    html += row('Block list', s.block_ref ? 'shared list ' + xbEsc(s.block_ref) : anchorCountCell(s.block_count, 'none', ' addresses'));
+    html += row(refused ? 'Proposed allow list' : 'Allow list', s.allow_ref ? 'shared list ' + xbEsc(s.allow_ref) : anchorCountCell(s.allow_count, 'none', ' addresses'));
+    html += row(refused ? 'Proposed block list' : 'Block list', s.block_ref ? 'shared list ' + xbEsc(s.block_ref) : anchorCountCell(s.block_count, 'none', ' addresses'));
     // An unmirrored snapshot carries no sleeping flag, so it reads unknown, not 'no'.
-    html += row('Sleeping', (s.sleeping === null || s.sleeping === undefined || s.sleeping === '')
+    html += row(refused ? 'Proposed sleeping' : 'Sleeping', (s.sleeping === null || s.sleeping === undefined || s.sleeping === '')
         ? '-' : (Number(s.sleeping) === 1 ? 'yes' : 'no'));
     html += row('Policy hash', xbEsc(xbDash(s.policy_hash)));
     html += '</tbody></table>';

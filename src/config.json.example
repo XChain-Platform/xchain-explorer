@@ -160,6 +160,7 @@
         "intervalMinutes": 15,
         "batchSize":       50,
         "fetchTimeoutMs":  5000,
+        "fetchDeadlineMs": 30000,
         "maxBytes":        5242880,
         "iconSize":        64
     }

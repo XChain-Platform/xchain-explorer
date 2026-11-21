@@ -599,26 +599,30 @@
                             <tr><th width="175">Type</th><td class="attest-type"></td></tr>
                             <tr><th class="attest-id-label">Request ID</th><td class="attest-request-id"></td></tr>
                             <tr><th>Provider</th><td class="attest-provider"></td></tr>
-                            <tr><th>Contract</th><td class="attest-contract"></td></tr>
+                            <tr class="attest-contract-row"><th>Contract</th><td class="attest-contract"></td></tr>
+                            <tr class="attest-relay-fields d-none"><th>Origin Chain</th><td class="attest-origin-chain"></td></tr>
+                            <tr class="attest-relay-fields d-none"><th>Origin Action</th><td class="attest-origin-action"></td></tr>
+                            <tr class="attest-relay-note-row d-none"><th>Relay</th><td class="attest-relay-note"></td></tr>
                             </tbody>
                             <tbody class="attest-request-fields">
-                            <tr><th>Fee Payer</th><td class="attest-fee-payer"></td></tr>
+                            <tr class="attest-fee-payer-row"><th>Fee Payer</th><td class="attest-fee-payer"></td></tr>
                             <tr><th>Fee</th><td class="attest-fee"></td></tr>
                             <tr><th>Gas Escrow</th><td class="attest-gas-escrow"></td></tr>
-                            <tr><th>Callback Method</th><td class="attest-callback"></td></tr>
+                            <tr class="attest-callback-row"><th>Callback Method</th><td class="attest-callback"></td></tr>
                             <tr><th>Redundancy</th><td class="attest-redundancy"></td></tr>
                             <tr><th>Deadline Block</th><td class="attest-deadline"></td></tr>
                             <tr><th>Request Status</th><td class="attest-request-status"></td></tr>
                             <tr><th>Payload</th><td class="attest-payload text-break"></td></tr>
-                            <tr><th>Callback Params</th><td class="attest-callback-params text-break"></td></tr>
+                            <tr class="attest-callback-params-row"><th>Callback Params</th><td class="attest-callback-params text-break"></td></tr>
                             </tbody>
                             <tbody class="attest-response-fields">
                             <tr><th>Response Status</th><td class="attest-response-status"></td></tr>
                             <tr><th>Response Hash</th><td class="attest-response-hash"></td></tr>
                             <tr><th>Response Payload</th><td class="attest-response-payload text-break"></td></tr>
                             <tr><th>Meta</th><td class="attest-meta"></td></tr>
-                            <tr><th>Validator Sigs</th><td class="attest-sig-count"></td></tr>
-                            <tr><th>Signing Pubkeys</th><td class="attest-signatures"></td></tr>
+                            <tr class="attest-signature-row"><th>Validator Sigs</th><td class="attest-sig-count"></td></tr>
+                            <tr class="attest-signature-row"><th>Signing Pubkeys</th><td class="attest-signatures"></td></tr>
+                            <tr class="attest-relay-quorum-row d-none"><th>Attestation Quorum</th><td class="attest-relay-quorum"></td></tr>
                             <tr><th>Callback Execute</th><td class="attest-callback-execute"></td></tr>
                             </tbody>
                             <tbody class="attest-batch-fields">
@@ -2126,6 +2130,7 @@
      showActionDetails() needs them before it can mount anything and a second
      round trip would block the render on the busiest detail page here. -->
 <script type="application/json" id="xc-action-detail-cards">{DATA:action-detail-cards}</script>
+<script type="text/javascript" src="/js/xbridge_panels_render/settlement.js"></script>
 <script type="text/javascript" src="/js/xbridge_panels_render.js"></script>
 <script type="text/javascript">
 var ANCHOR_ACTIVATION = {ANCHOR_ACTIVATION};

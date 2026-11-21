@@ -125,6 +125,7 @@ function attestDetail(data) {
         ${extractFn('formatIndexedLabel')}
     `);
     dom.window.eval(extractFn('detailAttestVote_renderAttestIdentity'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestRelay'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestBatch'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestRequest'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestResponse'));

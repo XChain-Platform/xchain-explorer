@@ -30,7 +30,7 @@
 
 const netmod  = require('net');
 const crypto  = require('crypto');
-const { isPrivateAddress, directEgressOptions } = require('../../http/ssrf_guard');
+const { isPrivateAddress, directEgressOptions, egressSignal } = require('../../http/ssrf_guard');
 // The same decompression the live /{COIN}/api/file/{index}/raw route applies
 // (XChainExplorer.processFileRawRequest), so an `action:` FILE resolves to the
 // identical bytes the token page renders from. Contractually non-throwing: it
@@ -282,6 +282,7 @@ async function httpFetch(dl, url, deps){
             ...directEgressOptions(),
             responseType:     'arraybuffer',
             timeout:          dl.cfg.fetchTimeoutMs,
+            signal:           egressSignal(dl.cfg.fetchDeadlineMs),
             maxContentLength: dl.cfg.maxBytes,
             maxRedirects:     3,
             // SSRF guard: icon source URLs come from on-chain token
@@ -298,6 +299,8 @@ async function httpFetch(dl, url, deps){
             validateStatus: s => s >= 200 && s < 300,
         });
     } catch (e){
+        if(e.code === 'ERR_CANCELED' || ['CanceledError', 'AbortError', 'TimeoutError'].includes(e.name))
+            throw new Error('fetch deadline exceeded');
         if(e.response){
             throw new Error(`HTTP ${e.response.status}`);
         }

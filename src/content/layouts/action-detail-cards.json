@@ -302,6 +302,18 @@
                     "cell": "attest-contract"
                 },
                 {
+                    "label": "Origin Chain",
+                    "cell": "attest-origin-chain"
+                },
+                {
+                    "label": "Origin Action",
+                    "cell": "attest-origin-action"
+                },
+                {
+                    "label": "Relay",
+                    "cell": "attest-relay-note"
+                },
+                {
                     "label": "Fee Payer",
                     "cell": "attest-fee-payer"
                 },
@@ -360,6 +372,10 @@
                 {
                     "label": "Signing Pubkeys",
                     "cell": "attest-signatures"
+                },
+                {
+                    "label": "Attestation Quorum",
+                    "cell": "attest-relay-quorum"
                 },
                 {
                     "label": "Callback Execute",

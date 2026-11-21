@@ -36,7 +36,7 @@ function renderCheckpointVerdict(v){
 
     let html = '';
     if(v.verified){
-        html += '<div class="alert alert-success py-2 mb-2">Verified: a qualifying quorum signed this checkpoint.</div>';
+        html += '<div class="alert alert-success py-2 mb-2">Signatures meet quorum against the hub-mirrored validator set. The set is not independently pinned, so this does not prove it is genuine.</div>';
     } else {
         // Why it failed is the useful part. A young or unstaked chain fails for a
         // structural reason, not because someone forged a signature, and the three

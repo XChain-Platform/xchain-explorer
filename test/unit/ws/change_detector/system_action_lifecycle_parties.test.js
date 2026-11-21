@@ -54,10 +54,11 @@ describe('lifecycle frames of source-less system actions name their parties', fu
     afterEach(() => sinon.restore());
 
     it('puts the parties in destinations and leaves source null', async function () {
-        const { det, frames } = pollWith([systemRow(1n, 'ORDER_MATCH'), systemRow(2n, 'DISPENSER_EXPIRE')]);
+        const { det, frames } = pollWith([systemRow(1n, 'ORDER_MATCH'), systemRow(2n, 'DISPENSER_EXPIRE'),
+            systemRow(3n, 'CROSS_SETTLE')]);
         await det.checkCoin('BTC');
         expect(frames.map((f) => [f.type, f.data.source, f.data.destinations])).to.deep.equal([
-            ['ORDER_MATCH', null, ['p1']], ['DISPENSER_EXPIRED', null, ['p2']]
+            ['ORDER_MATCH', null, ['p1']], ['DISPENSER_EXPIRED', null, ['p2']], ['CROSS_SETTLE', null, ['p3']]
         ]);
     });
 
@@ -101,12 +102,13 @@ describe('extractAddresses reads the destinations of a lifecycle payload', funct
     });
 });
 
-const ROWS = [systemRow(5, 'ORDER_MATCH'), systemRow(6, 'ORDER_EXPIRE')];
-const PARTIES = new Map([['5', new Set(['1maker', '1taker'])], ['6', new Set(['1maker'])]]);
+const ROWS = [systemRow(5, 'ORDER_MATCH'), systemRow(6, 'ORDER_EXPIRE'), systemRow(7, 'CROSS_SETTLE')];
+const PARTIES = new Map([['5', new Set(['1maker', '1taker'])], ['6', new Set(['1maker'])],
+    ['7', new Set(['1maker'])]]);
 
 function setup() {
     const db = {
-        getMaxActionIndex:       sinon.stub().resolves(6),
+        getMaxActionIndex:       sinon.stub().resolves(7),
         getActionsSince:         sinon.stub().resolves(ROWS),
         getOrderMatchSettlement: sinon.stub().resolves(null),
         getLifecycleParties:     sinon.stub().resolves(PARTIES)
@@ -141,8 +143,11 @@ describe('system action lifecycle frames reach their parties address channels', 
         const party = addClient(s, 1);
         const bystander = addClient(s, 2);
         const replayed = addClient(s, 3);
+        const filtered = addClient(s, 4);
         s.handleSubscribe(party, { action: 'subscribe', channels: ['address'], params: { address: '1maker' }, id: 'a' });
         s.handleSubscribe(bystander, { action: 'subscribe', channels: ['address'], params: { address: '1other' }, id: 'b' });
+        s.handleSubscribe(filtered, { action: 'subscribe', channels: ['address'],
+            params: { address: '1maker', types: ['CROSS_SETTLE'] }, id: 'f' });
         const batch = { actions: ROWS, parties: undefined };
         for (const row of ROWS) {
             detector.emit('action', 'BTC', row);
@@ -154,10 +159,12 @@ describe('system action lifecycle frames reach their parties address channels', 
             params: { address: '1maker', since_action_index: '0' }, id: 'r' });
         await settle();
 
-        const expected = [['ORDER_MATCH', 5, ['1maker', '1taker']], ['ORDER_EXPIRED', 6, ['1maker']]];
+        const expected = [['ORDER_MATCH', 5, ['1maker', '1taker']], ['ORDER_EXPIRED', 6, ['1maker']],
+            ['CROSS_SETTLE', 7, ['1maker']]];
         expect(sent(party)).to.deep.equal(expected);
         expect(sent(replayed)).to.deep.equal(expected);
         expect(sent(bystander)).to.deep.equal([]);
+        expect(sent(filtered)).to.deep.equal([['CROSS_SETTLE', 7, ['1maker']]]);
         expect(db.getLifecycleParties.callCount).to.equal(2);
     });
 

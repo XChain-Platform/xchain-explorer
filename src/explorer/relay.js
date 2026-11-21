@@ -47,6 +47,17 @@ const RELAY_HOSTS = new Set([
     'inscription-decoder.vercel.app',
     'ipfsc.crystalsuite.com'
 ]);
+const RELAY_DEADLINE_MS = 10000;
+
+function relayClientSignal(res){
+    if(res && res.abortSignal) return res.abortSignal;
+    if(!res || typeof res.once !== 'function') return undefined;
+    const controller = new AbortController();
+    res.once('close', () => {
+        if(!res.writableEnded && !controller.signal.aborted) controller.abort();
+    });
+    return controller.signal;
+}
 
 function useHostBindings(host){
     // Refuse a missing dns binding before touching either binding: makeSafeLookup would
@@ -104,6 +115,7 @@ class RelayEgress {
                 if(await this.relayContent(parsed, res, reference.expectedHash))
                     return;
             } catch(e) {
+                if(res.headersSent || res.destroyed || res.writableEnded) return;
                 return res.status(400).json({ error: 'Invalid or unreachable URL', code: 'RELAY_FETCH_FAILED' });
             }
         }
@@ -208,50 +220,56 @@ class RelayEgress {
      */
     async relayContent(parsed, res, expectedHash = null){
         const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
+        const release = (res && typeof res.holdSlot === 'function') ? res.holdSlot() : () => {};
         // The literal-hostname blocklist only catches IPs in the URL; a domain whose
         // DNS record points at a private address (or rebinds) would sail past it.
         // ssrfSafeLookup validates the address axios actually connects to, closing
         // the TOCTOU window between a separate re-resolution check and the connection.
         const opts = { ...ssrfGuard.directEgressOptions(),
                        timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
+                       signal: ssrfGuard.egressSignal(RELAY_DEADLINE_MS, relayClientSignal(res)),
                        lookup: this.ssrfSafeLookup.bind(this) };
 
-        // JSON files and the exact extensionless gateway forms the token page emits.
-        const hostname      = parsed.hostname.toLowerCase();
-        const isArweave     = hostname === 'arweave.net';
-        const isIpfs        = hostname === 'ipfsc.crystalsuite.com' && ext === '';
-        const isInscription = hostname === 'inscription-decoder.vercel.app' &&
-            parsed.pathname === '/api/image' && parsed.searchParams.get('type') === 'json' &&
-            /^[0-9a-f]{64}$/i.test(String(parsed.searchParams.get('tx') || ''));
-        if(ext=='json' || isArweave || isIpfs || isInscription){
-            const requestOpts = expectedHash ? { ...opts, responseType: 'arraybuffer' } : opts;
-            let response = await axios.get(parsed.href, requestOpts);
-            if(!this.util.isNull(response.data)){
-                let data = response.data;
-                if(expectedHash){
-                    const body = Buffer.isBuffer(data) ? data : Buffer.from(data);
-                    const digest = crypto.createHash('sha256').update(body).digest('hex');
-                    if(digest !== expectedHash){
-                        res.status(502).json({ error: 'Token metadata integrity mismatch', code: 'RELAY_HASH_MISMATCH' });
-                        return true;
+        try {
+            // JSON files and the exact extensionless gateway forms the token page emits.
+            const hostname      = parsed.hostname.toLowerCase();
+            const isArweave     = hostname === 'arweave.net';
+            const isIpfs        = hostname === 'ipfsc.crystalsuite.com' && ext === '';
+            const isInscription = hostname === 'inscription-decoder.vercel.app' &&
+                parsed.pathname === '/api/image' && parsed.searchParams.get('type') === 'json' &&
+                /^[0-9a-f]{64}$/i.test(String(parsed.searchParams.get('tx') || ''));
+            if(ext=='json' || isArweave || isIpfs || isInscription){
+                const requestOpts = expectedHash ? { ...opts, responseType: 'arraybuffer' } : opts;
+                let response = await axios.get(parsed.href, requestOpts);
+                if(!this.util.isNull(response.data)){
+                    let data = response.data;
+                    if(expectedHash){
+                        const body = Buffer.isBuffer(data) ? data : Buffer.from(data);
+                        const digest = crypto.createHash('sha256').update(body).digest('hex');
+                        if(digest !== expectedHash){
+                            res.status(502).json({ error: 'Token metadata integrity mismatch', code: 'RELAY_HASH_MISMATCH' });
+                            return true;
+                        }
+                        data = JSON.parse(body.toString('utf8'));
                     }
-                    data = JSON.parse(body.toString('utf8'));
+                    res.type('json').send(this.util.jsonStringify(data));
+                    return true;
                 }
-                res.type('json').send(this.util.jsonStringify(data));
+            }
+
+            // PNG images, handed back base64-encoded for the page to embed.
+            if(ext=='png'){
+                let response    = await axios.get(parsed.href, { ...opts, responseType: 'arraybuffer' });
+                let base64Image = btoa(new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+                res.send(base64Image);
                 return true;
             }
-        }
 
-        // PNG images, handed back base64-encoded for the page to embed.
-        if(ext=='png'){
-            let response    = await axios.get(parsed.href, { ...opts, responseType: 'arraybuffer' });
-            let base64Image = btoa(new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), ''));
-            res.send(base64Image);
-            return true;
+            // No kind this endpoint relays.
+            return false;
+        } finally {
+            release();
         }
-
-        // No kind this endpoint relays.
-        return false;
     }
 }
 

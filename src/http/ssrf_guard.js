@@ -55,6 +55,13 @@ function directEgressOptions(log = console.warn) {
     };
 }
 
+// Axios timeout becomes an idle timer after response headers arrive. Pair it
+// with this signal when a guarded request also needs a total wall-clock bound.
+function egressSignal(deadlineMs, clientSignal) {
+    const deadline = AbortSignal.timeout(deadlineMs);
+    return clientSignal ? AbortSignal.any([deadline, clientSignal]) : deadline;
+}
+
 // Expand an IPv6 literal to its eight 16-bit groups, so every spelling of one
 // address classifies alike. Returns null when the text cannot be read as IPv6,
 // which the caller treats as a refusal rather than a pass.
@@ -178,4 +185,4 @@ function makeSafeLookup(dnsModule) {
     };
 }
 
-module.exports = { isPrivateAddress, makeSafeLookup, directEgressOptions, warnIgnoredProxyEnv };
+module.exports = { isPrivateAddress, makeSafeLookup, directEgressOptions, egressSignal, warnIgnoredProxyEnv };

@@ -353,16 +353,16 @@ describe('action detail cards (M2.5): multi-section cards', function () {
         const rows = JSON.parse(JSON.stringify(cards.attest.rows));
         const before = sections(win.document.querySelector('#info-attest tbody').parentNode);
         const counts = before.map((b) => b.labels.length);
-        // Config index 6 sits in the second section (the request fields).
-        assert.ok(counts.length > 1 && counts[0] <= 6 && 6 < counts[0] + counts[1],
-            'attest no longer has index 6 in its second section: ' + counts.join('+'));
-        rows[6].order = 0;
+        const target = counts[0] + Math.min(2, counts[1] - 1);
+        assert.ok(counts.length > 1 && counts[1] > 1 && target < counts[0] + counts[1],
+            'attest no longer has a movable row in its second section: ' + counts.join('+'));
+        rows[target].order = 0;
         const { table, res } = mountAttest(win, rows);
         assert.equal(res.ok, true, res.errors.join('; '));
         const after = sections(table);
         assert.deepEqual(after.map((b) => b.cls), before.map((b) => b.cls));
         assert.deepEqual(after[0], before[0]);
-        assert.equal(after[1].labels[0], before[1].labels[6 - counts[0]]);
+        assert.equal(after[1].labels[0], before[1].labels[target - counts[0]]);
         assert.deepEqual([...after[1].labels].sort(), [...before[1].labels].sort());
         for(let i = 2; i < before.length; i++) assert.deepEqual(after[i], before[i]);
         assert.deepEqual(mismatches, []);

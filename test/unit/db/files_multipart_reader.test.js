@@ -200,6 +200,41 @@ describe('FILE manifest metadata summary read', function(){
     });
 });
 
+describe('FILE multipart schema fallback', function(){
+    function missingTable(wrapped){
+        const cause = Object.assign(new Error('missing multipart table'), {
+            errno: 1146, code: 'ER_NO_SUCH_TABLE'
+        });
+        return wrapped ? Object.assign(new Error('query failed'), { cause }) : cause;
+    }
+
+    for(const [label, wrapped] of [['direct', false], ['wrapped', true]]){
+        it('falls through when the missing-table error is ' + label, async function(){
+            const db = {
+                util: { isNull: value => value === null || value === undefined },
+                doQuery: sinon.stub().rejects(missingTable(wrapped))
+            };
+            const result = await lookupMethods.getMultipartFileRaw.call(
+                db, config, 50, wrapped ? { metadataOnly: true } : {});
+            expect(result).to.deep.equal({ kind: 'none' });
+            const memo = db.schemaTableMemo.RBTC['file_completions,file_manifests,file_parts'];
+            expect(memo.present).to.equal(false);
+        });
+    }
+
+    it('rethrows a query failure that is not a missing table', async function(){
+        const failure = Object.assign(new Error('bad column'), { errno: 1054 });
+        const db = {
+            util: { isNull: value => value === null || value === undefined },
+            doQuery: sinon.stub().rejects(failure)
+        };
+        let thrown;
+        try { await lookupMethods.getMultipartFileRaw.call(db, config, 50); }
+        catch(e) { thrown = e; }
+        expect(thrown).to.equal(failure);
+    });
+});
+
 describe('FILE manifest multipart summary', function(){
     it('uses one bulk metadata read for both 2 and 26 parts', async function(){
         for(const partCount of [2, 26]){

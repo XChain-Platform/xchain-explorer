@@ -140,13 +140,13 @@ const probe = (function () {
     'border-right-width','border-radius','box-shadow','font-family','font-size','font-weight','line-height',
     'letter-spacing','padding-top','padding-right','padding-left','padding-bottom','margin-top','margin-right',
     'margin-bottom','margin-left','opacity','text-decoration-line','text-transform'];
-  // Admit every FIRST-PARTY sheet and no vendor one. The component alternative is
-  // here because that layer landed later and fell straight through the pattern.
-  // Checked by theme-token-literal-gate against template.html's own link list and
-  // against every themes/*/tokens.css @import target; walk() follows those imports,
-  // which document.styleSheets never lists.
+  // Tests pin the first-party pattern and empty-by-design list to files on disk.
   const SHEET = /\/(xchain|xchain-charts)\.css|\/themes\/|\/components\/[^\/]+\/component\.css/;
-  const STATE = /:{1,2}(hover|visited|active|focus|focus-visible|focus-within|target)\b/;
+  const EMPTY_BY_DESIGN = new Set(['/components/chart/component.css', '/components/detail-card/component.css',
+    '/components/footer/component.css', '/components/nav/component.css', '/components/qr-card/component.css',
+    '/components/search-box/component.css', '/components/stat-card/component.css', '/components/tab-panel/component.css',
+    '/components/theme-toggle/component.css']);
+  const STATE = /:{1,2}(hover|visited|active|focus-visible|focus-within|focus|target)(?![\w-])/;
   const ELEM  = /::(before|after|placeholder|marker|selection|first-line|first-letter)\b/;
   // Properties whose getComputedStyle readback is the USED value, resolved by
   // layout against page content: an auto margin comes back as slack pixels,
@@ -247,7 +247,7 @@ const probe = (function () {
       if (typeof r.href === 'string' && 'styleSheet' in r) {
         if (r.styleSheet) { const sh = r.styleSheet; readSheet(sh, joinCondition(cond, ruleCondition(r)));
           let n = -1; try { n = sh.cssRules.length; } catch(e) {}
-          if (n === 0 && sh.href && SHEET.test(sh.href)) snap['__UNREADABLE__ '+sh.href] = 'import loaded no rules';
+          if (n === 0 && sh.href && SHEET.test(sh.href) && !EMPTY_BY_DESIGN.has(sheetId(sh.href))) snap['__UNREADABLE__ '+sh.href] = 'import loaded no rules';
           return; }
         let url; try { url = new URL(r.href, baseHref || location.href).href; } catch(e) { url = r.href; }
         if (SHEET.test(url)) snap['__UNREADABLE__ '+url] = 'import did not load';
@@ -291,7 +291,7 @@ const probe = (function () {
       if (!sh) snap['__UNREADABLE__ '+link.href] = 'linked stylesheet did not load';
       else if (!seen.has(sh)) snap['__UNREADABLE__ '+link.href] = 'linked stylesheet is missing from document.styleSheets';
       else { let n = -1; try { n = sh.cssRules.length; } catch(e) {}
-        if (n === 0) snap['__UNREADABLE__ '+link.href] = 'linked stylesheet loaded no rules'; }
+        if (n === 0 && !EMPTY_BY_DESIGN.has(sheetId(link.href))) snap['__UNREADABLE__ '+link.href] = 'linked stylesheet loaded no rules'; }
     }
     return { rules, snap, un: un.sort(), sheets, coverage: sortedCoverage(coverage), emptyDeclared, untyped };
   };

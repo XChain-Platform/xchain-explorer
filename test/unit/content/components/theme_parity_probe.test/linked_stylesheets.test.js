@@ -21,6 +21,7 @@ const PROBE_FILE = path.resolve(__dirname, '..', '..', '..', '..', '..',
 const PROBE_SRC = fs.readFileSync(PROBE_FILE, 'utf8');
 const CSS = 'http://localhost:18080/css/xchain.css';
 const TOKENS = 'http://localhost:18080/themes/classic/tokens.css';
+const ROOT = path.resolve(__dirname, '..', '..', '..', '..', '..', 'src', 'content');
 
 function declaration(props) {
   const names = Object.keys(props);
@@ -80,5 +81,15 @@ describe('theme parity probe linked stylesheet health', () => {
     const page = capture({ links, sheets: [healthy] });
     assert.equal(page.result.invalid, undefined);
     assert.ok(page.keys.length > 0);
+    const template = fs.readFileSync(path.join(ROOT, 'html', 'template.html'), 'utf8');
+    const hrefs = [...template.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)]
+      .map((match) => match[1]).filter((href) => /^\/(css\/(xchain|xchain-charts)\.css|themes\/|components\/)/.test(href));
+    const entries = hrefs.map((href) => {
+      const body = fs.readFileSync(path.join(ROOT, href.replace(/^\//, '')), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '').trim();
+      return sheet('http://localhost:18080' + href, body ? [rule('body', { color: 'red' })] : []);
+    });
+    const realPage = capture({ links: entries.map((entry) => ({ href: entry.href, sheet: entry })), sheets: entries });
+    assert.equal(realPage.result.invalid, undefined);
   });
 });

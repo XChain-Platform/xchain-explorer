@@ -16,6 +16,9 @@
  * Custom javascript for xchain explorer
  */
 
+var actionDetailAttestListSummary = (typeof actionDetailAttestListSummary === 'function') ? actionDetailAttestListSummary
+    : ((typeof require === 'function') ? require('./action_detail/attest_list_summary.js').actionDetailAttestListSummary : null);
+
 // Handle getting a quick summary of action details
 function getActionDetails(action, info){
     let html = '';
@@ -92,21 +95,7 @@ function attestBatchLabel(info){
 }
 
 function attestListSummary(data){
-    let version = Number(data[4]);
-    let batch = [5, 6].includes(version);
-    let type = version === 5
-        ? '<span class="badge text-bg-info text-dark">Batch head</span>'
-        : version === 6
-            ? '<span class="badge text-bg-info text-dark">Batch continuation</span>'
-            : version === 0
-                ? '<span class="badge text-bg-secondary">Request</span>'
-                : '<span class="badge text-bg-primary">Response</span>';
-    let label = attestBatchLabel({
-        version: version,
-        batch_window_start: data[15], batch_window_end: data[16], batch_row_count: data[17],
-        batch_chunk_index: data[19], batch_total_chunks: data[20]
-    });
-    return { batch: batch, key: data[14], label: label, type: type };
+    return actionDetailAttestListSummary(data, attestBatchLabel);
 }
 
 // Lead text for a multi-leg SEND, DESTROY or AIRDROP summary: the declared total of one token,
@@ -386,7 +375,9 @@ function actionDetail_renderConsensusActions(html, action, info, coin){
             html = escapeHtml(batchLabel);
     }
     if(action=='XPOLICY')
-        html = 'Policy snapshot (XPOLICY)';
+        html = info.bridge_kind === 'refused'
+            ? 'Policy snapshot (XPOLICY), refused, not applied'
+            : 'Policy snapshot (XPOLICY)';
     if(action=='LIST_SHARE')
         html = 'Shared list version (LIST_SHARE)';
     // Never render a blank Details cell: a type with no summary branch falls back to

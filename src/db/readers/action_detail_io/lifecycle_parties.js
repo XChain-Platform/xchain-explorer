@@ -14,9 +14,9 @@
  *
  * XChain Explorer - lifecycle parties for the live feed
  *
- * Names the parties of the actions the indexer mints itself (matches and expiry
- * passes), which carry no source and no destination rows. A party is the address
- * that placed the order, swap, dispenser or bet feed the action settled, read
+ * Names the parties of the actions the indexer mints itself (matches, cross-chain
+ * settlements and expiry passes), which carry no source and no destination rows.
+ * A party is the address that placed the order, swap, dispenser or bet feed the action settled, read
  * through that parent row, or the payer and payee of an expired coin payment.
  * Ledger rows are deliberately not used: a royalty or fee leg is credited without
  * being a party, and a coin-pay match or a parked expiry writes none.
@@ -33,9 +33,10 @@
 // action type -> the joins that reach its parties. Each join starts from the
 // action's own lifecycle row `m` (keyed by m.action_index) and must end on an
 // index_addresses row aliased `a2`. Compile-time literals only; every value is bound.
-function parentPlacer(table, column, parent) {
+function parentPlacer(table, column, parent, settledOnly = false) {
+    const guard = settledOnly ? ' AND m.a_action_index IS NOT NULL' : '';
     return `${table} m
-                INNER JOIN ${parent} p ON (p.action_index=m.${column})
+                INNER JOIN ${parent} p ON (p.action_index=m.${column}${guard})
                 INNER JOIN actions a1 ON (a1.action_index=p.action_index)
                 INNER JOIN index_addresses a2 ON (a2.id=a1.source_id)`;
 }
@@ -51,6 +52,8 @@ const PARTY_JOINS = {
                        parentPlacer('order_matches', 'get_action_index', 'orders')],
     SWAP_MATCH:       [parentPlacer('swap_matches', 'give_action_index', 'swaps'),
                        parentPlacer('swap_matches', 'get_action_index', 'swaps')],
+    CROSS_SETTLE:     [parentPlacer('cross_chain_settlements', 'local_action_index', 'orders', true),
+                       parentPlacer('cross_chain_settlements', 'local_action_index', 'swaps', true)],
     ORDER_EXPIRE:     [parentPlacer('order_expires', 'order_action_index', 'orders')],
     SWAP_EXPIRE:      [parentPlacer('swap_expires', 'swap_action_index', 'swaps')],
     DISPENSER_EXPIRE: [parentPlacer('dispenser_expires', 'dispenser_action_index', 'dispensers')],

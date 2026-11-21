@@ -2666,15 +2666,6 @@
         "pruned list COUNT against the REAL indexer DDL answers every list lane with the same total before and after pruning",
         "pruned list COUNT against the REAL indexer DDL finds every pruned join key unique in the indexer DDL"
       ],
-      "025f1c31ebfb79d7": [
-        "transaction page: a pending BROADCAST action row [REGRESSION] shows the message text of a version 0 broadcast",
-        "transaction page: a pending BROADCAST action row escapes the message",
-        "transaction page: a pending BROADCAST action row falls back to the action name for a wire string it cannot read",
-        "transaction page: a pending BROADCAST action row leaves a confirmed transaction untouched",
-        "transaction page: a pending BROADCAST action row reads the oracle and feed versions from their own positions",
-        "transaction page: a pending BROADCAST action row showTransactionDetails passes the transaction through the pending preparation",
-        "transaction page: a pending BROADCAST action row shows no undefined in the status cell and does not mark the row as failed"
-      ],
       "02da01994399dab2": [
         "markup labels still render as markup through formatLinkHtml keeps a badge label as an element",
         "markup labels still render as markup through formatLinkHtml keeps the search highlight on a token hit while escaping the tick",
@@ -3346,21 +3337,6 @@
         "explorer checkpoints explorer canonicalCheckpointString == SDK canonicalCheckpoint @regression index typing is consensus-neutral (string == number) for a legacy mainnet row (pre flag-days, no roots)",
         "explorer checkpoints explorer canonicalCheckpointString == SDK canonicalCheckpoint @regression index typing is consensus-neutral (string == number) for a regtest row with SPV roots (post CHECKPOINT_COMMITMENT shape)",
         "explorer checkpoints explorer canonicalCheckpointString == SDK canonicalCheckpoint @regression index typing is consensus-neutral (string == number) for a regtest row without roots (rootless canonical)"
-      ],
-      "1923d859a467102b": [
-        "structure markers client: actionDetail_renderDisclosure colours completed UNSTAKE members green and leaves missing status neutral",
-        "structure markers client: actionDetail_renderDisclosure falls back to a plain sentence for a payload with nothing to expand",
-        "structure markers client: actionDetail_renderDisclosure keeps pending red for every action other than UNSTAKE",
-        "structure markers client: actionDetail_renderDisclosure lists batch members through the shared summary renderer, reading summary never details",
-        "structure markers client: actionDetail_renderDisclosure lists every leg of a multi-leg airdrop, linking the list as an action, memo escaped",
-        "structure markers client: actionDetail_renderDisclosure lists every leg of a multi-send with the memo escaped",
-        "structure markers client: getActionDetails a BATCH parent shows its member count as a toggle",
-        "structure markers client: getActionDetails a details value of false renders the summary without throwing",
-        "structure markers client: getActionDetails a member row links its parent batch",
-        "structure markers client: getActionDetails a multi-destroy row says legs, not recipients",
-        "structure markers client: getActionDetails a multi-leg airdrop row gets a legs toggle after its one-leg summary",
-        "structure markers client: getActionDetails a multi-send row gets a recipients toggle after its leg-0 summary",
-        "structure markers client: getActionDetails a plain send row carries no marker at all"
       ],
       "1943a08ef9875b52": [
         "db.getHistoryData: parent_batch_action_index (M1.6) a BATCH child row carries the parent action_index; the parent BATCH row itself carries null",
@@ -5733,6 +5709,22 @@
         "Database#getValidator (M4 composed validator detail) scopes the active-stake aggregate to ONE pubkey and to live rows, with no GROUP BY",
         "Database#getValidator (M4 composed validator detail) serves capabilities over hub JSON-RPC when a hub is configured, and never touches the co-located schema",
         "Database#getValidator (M4 composed validator detail) treats an unreachable federation registry as UNKNOWN, not as unregistered"
+      ],
+      "4b0fcfde925ca917": [
+        "structure markers client: actionDetail_renderDisclosure colours completed UNSTAKE members green and leaves missing status neutral",
+        "structure markers client: actionDetail_renderDisclosure falls back to a plain sentence for a payload with nothing to expand",
+        "structure markers client: actionDetail_renderDisclosure keeps pending UNSTAKE members red until they are indexed",
+        "structure markers client: actionDetail_renderDisclosure keeps pending red for every action other than UNSTAKE",
+        "structure markers client: actionDetail_renderDisclosure lists batch members through the shared summary renderer, reading summary never details",
+        "structure markers client: actionDetail_renderDisclosure lists every leg of a multi-leg airdrop, linking the list as an action, memo escaped",
+        "structure markers client: actionDetail_renderDisclosure lists every leg of a multi-send with the memo escaped",
+        "structure markers client: getActionDetails a BATCH parent shows its member count as a toggle",
+        "structure markers client: getActionDetails a details value of false renders the summary without throwing",
+        "structure markers client: getActionDetails a member row links its parent batch",
+        "structure markers client: getActionDetails a multi-destroy row says legs, not recipients",
+        "structure markers client: getActionDetails a multi-leg airdrop row gets a legs toggle after its one-leg summary",
+        "structure markers client: getActionDetails a multi-send row gets a recipients toggle after its leg-0 summary",
+        "structure markers client: getActionDetails a plain send row carries no marker at all"
       ],
       "4b7b0941e0e9456b": [
         "shared source slicer is the only slicer of its name under test/, so suites share one walker",
@@ -11222,6 +11214,16 @@
         "ChangeDetector start / stop start initializes state for provided coins",
         "ChangeDetector start / stop stop clears timer"
       ],
+      "d12b9cc81b7bc8f9": [
+        "transaction page: a pending BROADCAST action row [REGRESSION] shows the message text of a version 0 broadcast",
+        "transaction page: a pending BROADCAST action row escapes the message",
+        "transaction page: a pending BROADCAST action row falls back to the action name for a wire string it cannot read",
+        "transaction page: a pending BROADCAST action row leaves a confirmed transaction untouched",
+        "transaction page: a pending BROADCAST action row reads the oracle and feed versions from their own positions",
+        "transaction page: a pending BROADCAST action row showTransactionDetails passes the transaction through the pending preparation",
+        "transaction page: a pending BROADCAST action row shows no undefined in the status cell and does not mark the row as failed",
+        "transaction page: a pending UNSTAKE action row keeps an unconfirmed unstake neutral until the indexer accepts it"
+      ],
       "d34efda462f032b1": [
         "@p1 @action Broadcasts API regression GET /RBTC/api/broadcasts/{block}/block: returns broadcasts in block",
         "@p1 @action Destroys API regression GET /RBTC/api/destroys/{block}/block: returns destroys in block",
@@ -13272,7 +13274,7 @@
       },
       "test": {
         "fileCount": 559,
-        "titleCount": 8633,
+        "titleCount": 8635,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13415,7 +13417,7 @@
           "test/unit/content/lists/content_client_multileg_render.test.js": "cb10f8b778ea70cd",
           "test/unit/content/lists/content_client_null_cell_render.test.js": "0b4078b9c7064f8e",
           "test/unit/content/lists/content_client_null_link_guard.test.js": "39167009f1ed0842",
-          "test/unit/content/lists/content_client_pending_broadcast_details.test.js": "025f1c31ebfb79d7",
+          "test/unit/content/lists/content_client_pending_broadcast_details.test.js": "d12b9cc81b7bc8f9",
           "test/unit/content/lists/content_client_price_list_row.test.js": "266000ecc0feeffe",
           "test/unit/content/lists/content_client_rich_list.test.js": "a1ccbb8b747aa17a",
           "test/unit/content/lists/content_client_send_summary_shape.test.js": "6e757d5406a33b25",
@@ -13424,7 +13426,7 @@
           "test/unit/content/lists/content_client_token_linked_files.test.js": "15f7cbb223a61c3b",
           "test/unit/content/lists/content_client_transaction_empty_and_hash.test.js": "612f83af8994b9ac",
           "test/unit/content/lists/datatable/content_client_action_datatable.test.js": "f4ea9747e36708e1",
-          "test/unit/content/lists/datatable/content_client_action_markers.test.js": "1923d859a467102b",
+          "test/unit/content/lists/datatable/content_client_action_markers.test.js": "4b0fcfde925ca917",
           "test/unit/content/lists/datatable/content_client_datatable_endpoints.test.js": "ea85d7fc9231fd35",
           "test/unit/content/lists/list_pages/content_client_cancel_edit_list_pages.test.js": "0581987f35af229d",
           "test/unit/content/lists/list_pages/content_client_expire_list_pages.test.js": "e816b968524840f6",
@@ -13747,11 +13749,11 @@
           "test/unit/mirror/hub_mirror_url_seeds.test.js": "b091c031874627c9",
           "test/unit/mirror/hub_operational_cache.test.js": "3f4281c653fea27e",
           "test/unit/mirror/hub_operational_cache_concurrency.test.js": "2da46dea864bcc52",
-          "test/unit/mirror/hub_operational_cache_eviction.test.js": "e22ec8314947af64",
           "test/unit/mirror/hub_operational_cache_failure_memo.test.js": "df8ae79945322cee",
           "test/unit/mirror/hub_operational_cache_mixed_fleet.test.js": "22610ee584aed462",
           "test/unit/mirror/hub_schema_version.test.js": "2414be2fcc6a6bbd",
           "test/unit/mirror/operational_cache/hub_hang_gate.test.js": "d0d1f9cac07e1213",
+          "test/unit/mirror/operational_cache/hub_operational_cache_eviction.test.js": "e22ec8314947af64",
           "test/unit/mirror/pool_sizing/query_timeout.test.js": "3afc43217b5456a4",
           "test/unit/mirror/validators_hub_registry.test.js": "6ba3113e0aba826f",
           "test/unit/precision/client_decimal_precision.test.js": "8741b491d3481283",

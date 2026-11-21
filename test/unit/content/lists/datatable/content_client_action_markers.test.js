@@ -139,7 +139,9 @@ describe('structure markers client: actionDetail_renderDisclosure', function () 
         expect(html).to.include('bg-green');
         expect(html).to.include('bg-red');
     });
+});
 
+describe('structure markers client: actionDetail_renderDisclosure', function () {
     it('lists every leg of a multi-leg airdrop, linking the list as an action, memo escaped', function () {
         const w = makeWindow();
         const html = w.actionDetail_renderDisclosure({

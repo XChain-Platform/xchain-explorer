@@ -94,7 +94,9 @@ describe('UNSTAKE detail: ROLLCALL eviction label @regression', function(){
         });
         expect(html(win, '#info-unstake .unstake-amount')).to.contain('Evicted');
     });
+});
 
+describe('UNSTAKE detail: ROLLCALL eviction label @regression', function(){
     it('rejects an invalid status with a reason from the Evicted badge', function(){
         const win = bootPage();
         win.showUnstakeDetails({

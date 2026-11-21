@@ -7,9 +7,9 @@
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const proxyquire = require('proxyquire').noCallThru();
-const Utility    = require('../../../src/lib/utility.js');
-const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
-const quietObservability = require('../../helpers/quiet-observability.js');
+const Utility    = require('../../../../src/lib/utility.js');
+const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
+const quietObservability = require('../../../helpers/quiet-observability.js');
 
 const TTL_MS = 15000;
 
@@ -32,7 +32,7 @@ function loadCache(){
     };
     process.env.EXPLORER_HUB_CACHE_MS = String(TTL_MS);
     process.env.EXPLORER_HUB_CACHE_STALE_MAX_MS = '600000';
-    const HubOperationalCache = proxyquire('../../../src/mirror/operational_cache.js', {
+    const HubOperationalCache = proxyquire('../../../../src/mirror/operational_cache.js', {
         '../connectors/hub': FakeConnector,
         '../observability': quietObservability
     });

@@ -245,7 +245,9 @@ describe('getActionData: transaction-less / row-less action rendering @regressio
         expect(data.emitted_by.execution_index).to.equal(70);
         expect(data).to.not.have.property('protocol_generated');
     });
+});
 
+describe('getActionData: transaction-less / row-less action rendering @regression', function() {
     it('flags only the transaction-less action on the page preload path', async function() {
         const db = makeDb();
         const statements = [];

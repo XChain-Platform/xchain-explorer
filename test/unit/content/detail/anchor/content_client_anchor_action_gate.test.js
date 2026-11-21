@@ -121,7 +121,9 @@ describe('ANCHOR action detail: activation gates', function () {
         expect(v0.version).to.equal('v0 - Legacy (before activation)');
         expect(v0.sections).to.equal('-');
     });
+});
 
+describe('ANCHOR action detail: activation gates', function () {
     it('lets the legacy label win over the pre-fold label for a v3 below activation', function () {
         expect(render(bundleRow(3, A - 1, ['BTC'])).version).to.equal('v3 - Legacy (before activation)');
     });

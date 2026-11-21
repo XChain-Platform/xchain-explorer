@@ -57,6 +57,8 @@ after(async function () {
 describe('Special Endpoints', function () {
 
     it('GET /icon/default.png: icon endpoint serves files', async function () {
+        // Verify the default icon request returns a successful response from the icon handler.
+        // Confirm the response advertises PNG content so clients can render the served file.
         const res = await request.get('/icon/default.png');
 
         expect(res.status).to.equal(200);

@@ -76,7 +76,7 @@ describe('edit and cancel lifecycle routing', function () {
     });
 });
 
-describe('BET_EDIT lifecycle routing', function () {
+describe('edit and cancel lifecycle routing', function () {
     afterEach(() => sinon.restore());
 
     const testCase = { action: 'BET_EDIT', method: 'getValidBetEditFeedIndex' };

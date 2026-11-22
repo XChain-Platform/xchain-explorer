@@ -63,5 +63,6 @@ const { composeReaderParts } = require('../reader_parts.js');
 const tipMethods     = require('./health/tip.js');
 const decoderMethods = require('./health/decoder.js');
 const priceMethods   = require('./health/prices.js');
+const protocolTimeMethods = require('./health/protocol_time.js');
 
-module.exports = composeReaderParts(tipMethods, decoderMethods, priceMethods);
+module.exports = composeReaderParts(tipMethods, decoderMethods, priceMethods, protocolTimeMethods);

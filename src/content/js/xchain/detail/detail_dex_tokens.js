@@ -256,14 +256,16 @@ function showOrderExpireDetails(data){
 
 // Display ORDER_MATCH action information
 function showOrderMatchDetails(data){
+    let isOwnershipGive = (Number(data.give_ownership || 0) == 1);
+    let isOwnershipGet  = (Number(data.get_ownership || 0) == 1);
     $('#info-order-match .order-match-give-action-index').html(formatLink('/' + networkCoin(data.give_coin) + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
     $('#info-order-match .order-match-get-action-index').html(formatLink('/' + networkCoin(data.get_coin) + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
     $('#info-order-match .order-match-give-coin').text(data.give_coin);
-    $('#info-order-match .order-match-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
-    $('#info-order-match .order-match-give-amount').text(data.give_amount);
+    $('#info-order-match .order-match-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick) + (isOwnershipGive ? ' ' + ownershipBadge() : ''));
+    $('#info-order-match .order-match-give-amount').html(isOwnershipGive ? ownershipBadge() : data.give_amount);
     $('#info-order-match .order-match-get-coin').text(data.get_coin);
-    $('#info-order-match .order-match-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
-    $('#info-order-match .order-match-get-amount').text(data.get_amount);
+    $('#info-order-match .order-match-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick) + (isOwnershipGet ? ' ' + ownershipBadge() : ''));
+    $('#info-order-match .order-match-get-amount').html(isOwnershipGet ? ownershipBadge() : data.get_amount);
     $('#info-order-match .order-match-settlement-type').text(isNull(data.settlement_type) ? '-' : data.settlement_type);
 }
 
@@ -337,14 +339,16 @@ function showSwapExpireDetails(data){
 
 // Display SWAP_MATCH action information
 function showSwapMatchDetails(data){
+    let isOwnershipGive = (Number(data.give_ownership || 0) == 1);
+    let isOwnershipGet  = (Number(data.get_ownership || 0) == 1);
     $('#info-swap-match .swap-match-give-action-index').html(formatLink('/' + networkCoin(data.give_coin) + '/action/' + data.give_action_index, formatAmount(data.give_action_index)));
     $('#info-swap-match .swap-match-get-action-index').html(formatLink('/' + networkCoin(data.get_coin) + '/action/'  + data.get_action_index,  formatAmount(data.get_action_index)));
     $('#info-swap-match .swap-match-give-coin').text(data.give_coin);
-    $('#info-swap-match .swap-match-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
-    $('#info-swap-match .swap-match-give-amount').text(data.give_amount);
+    $('#info-swap-match .swap-match-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick) + (isOwnershipGive ? ' ' + ownershipBadge() : ''));
+    $('#info-swap-match .swap-match-give-amount').html(isOwnershipGive ? ownershipBadge() : data.give_amount);
     $('#info-swap-match .swap-match-get-coin').text(data.get_coin);
-    $('#info-swap-match .swap-match-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
-    $('#info-swap-match .swap-match-get-amount').text(data.get_amount);
+    $('#info-swap-match .swap-match-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick) + (isOwnershipGet ? ' ' + ownershipBadge() : ''));
+    $('#info-swap-match .swap-match-get-amount').html(isOwnershipGet ? ownershipBadge() : data.get_amount);
 }
 
 // Display SWEEP action information

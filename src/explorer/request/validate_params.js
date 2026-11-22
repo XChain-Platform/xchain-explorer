@@ -52,6 +52,7 @@ const INTEGER_PATH_TYPES = {
     tx_index:  ['Invalid tx_index', 'INVALID_TX_INDEX'],
     poll:      ['Invalid poll_index', 'INVALID_POLL_INDEX'],
     feed:      ['Invalid feed_action_index', 'INVALID_FEED_INDEX'],
+    bet_feed:  ['Invalid feed_action_index', 'INVALID_FEED_INDEX'],
     round:     ['Invalid round_number', 'INVALID_ROUND_NUMBER'],
     epoch:     ['Invalid epoch_height', 'INVALID_EPOCH_HEIGHT'],
     execution: ['Invalid execution_index', 'INVALID_EXECUTION_INDEX'],

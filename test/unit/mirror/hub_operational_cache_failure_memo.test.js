@@ -41,6 +41,7 @@ function loadCache({ env = {} } = {}) {
             if (opts && opts.out) {
                 opts.out.rpcError = rpc.error;
                 opts.out.allEndpointsAnswered = !!rpc.error;
+                opts.out.allEndpointsMethodNotFound = !!(rpc.error && Number(rpc.error.code) === -32601);
                 opts.out.failures = [];
             }
             return callStub(data, opts);

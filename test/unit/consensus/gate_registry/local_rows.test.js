@@ -25,6 +25,18 @@ const EXPECTED_ROWS = [
         unit: 'time',
         value: { mainnet: UNARMED, testnet: 1790492400, regtest: 0 },
     },
+    {
+        key: 'dispenser_delay_protocol_time_activation.DISPENSER_DELAY_PROTOCOL_TIME_ACTIVATION',
+        unit: 'height',
+        value: {
+            mainnet: UNARMED,
+            'BTC:testnet': 156230,
+            'LTC:testnet': 4912984,
+            'DOGE:testnet': 67989993,
+            testnet: UNARMED,
+            regtest: 0,
+        },
+    },
 ];
 
 function createStubRegistry() {
@@ -49,7 +61,8 @@ describe('local gate registry rows', function () {
 
         assert.deepStrictEqual(registry.rows, EXPECTED_ROWS);
         for (const row of registry.rows) {
-            assert.deepStrictEqual(Object.keys(row.value).sort(), ['mainnet', 'regtest', 'testnet']);
+            for (const network of ['mainnet', 'regtest', 'testnet'])
+                assert.ok(Object.prototype.hasOwnProperty.call(row.value, network));
         }
     });
 

@@ -126,7 +126,7 @@ function settleMissedRead(method, result, call, hit, after, staleMaxMs, owner){
     // gap, not an outage, so neither the stale-cache bridge below nor db/index.js's
     // unreachable-past-ceiling diagnosis applies; both would misname a
     // version mismatch as downtime.
-    if(rpcErr && Number(rpcErr.code) === -32601 && call.allEndpointsAnswered === true)
+    if(call.allEndpointsMethodNotFound === true)
         throw new Error("Hub JSON-RPC method '" + method + "' is not supported by the " +
             'configured hub (JSON-RPC -32601 Method not found). The hub is reachable; ' +
             'upgrade it to a build that serves ' + method + '.');

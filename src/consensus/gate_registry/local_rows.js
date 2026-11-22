@@ -39,6 +39,14 @@ function registerLocalRows(registry) {
         testnet: 1790492400,
         regtest: 0,
     });
+    registry.addGate('dispenser_delay_protocol_time_activation.DISPENSER_DELAY_PROTOCOL_TIME_ACTIVATION', 'height', {
+        mainnet: UNARMED,
+        'BTC:testnet': 156230,
+        'LTC:testnet': 4912984,
+        'DOGE:testnet': 67989993,
+        testnet: UNARMED,
+        regtest: 0,
+    });
 }
 
 module.exports = { registerLocalRows };

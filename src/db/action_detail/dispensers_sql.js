@@ -132,12 +132,13 @@ const DISPENSER_QUERY = `SELECT
 // came back undefined, bcadd() coerced it to 0 and every list edit read
 // as already active, so DISPENSER_LIST_DELAY was ignored on the read
 // path. The join mirrors the indexer's getDispenserEdits() so both sides
-// gate on the same value. ORDER BY is qualified because `actions` also
-// has an action_index column.
+// resolve the same delay start. ORDER BY is qualified because `actions`
+// also has an action_index column.
 const DISPENSER_QUERY2 = `SELECT
                     m.expiration,
                     m.allow_list,
                     m.block_list,
+                    b.block_index,
                     b.block_time
                 FROM
                     dispenser_edits m
@@ -327,6 +328,7 @@ const DISPENSE_QUERY = `SELECT
                 c1.coin as give_coin,
                 t3.tick as give_tick,
                 m.give_amount,
+                d1.give_ownership,
                 c2.coin as get_coin,
                 t4.tick as get_tick,
                 m.get_amount,

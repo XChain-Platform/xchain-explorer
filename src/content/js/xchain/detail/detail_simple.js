@@ -165,9 +165,11 @@ function showDispenserExpireDetails(data){
 // stays as-is since it is still an accurate name for "coin received for this
 // event" either way - see protocol/actions/dispenser.md.
 function showDispenseDetails(data){
+    let isOwnershipGive = (Number(data.give_ownership || 0) == 1);
     $('#info-dispense .dispense-give-coin').text(data.give_coin);
-    $('#info-dispense .dispense-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick));
-    $('#info-dispense .dispense-give-amount').html(formatAmount(data.give_amount));
+    $('#info-dispense .dispense-give-tick').html(formatCoinLegTicker(XC.coin, data.give_coin, data.give_tick)
+        + (isOwnershipGive ? ' ' + ownershipBadge() : ''));
+    $('#info-dispense .dispense-give-amount').html(isOwnershipGive ? ownershipBadge() : formatAmount(data.give_amount));
     $('#info-dispense .dispense-get-coin').text(data.get_coin);
     $('#info-dispense .dispense-get-tick').html(formatCoinLegTicker(XC.coin, data.get_coin, data.get_tick));
     $('#info-dispense .dispense-get-amount').html(formatAmount(data.get_amount));

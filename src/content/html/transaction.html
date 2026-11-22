@@ -111,7 +111,7 @@ $(document).ready(function(){
                 renderTransactionNotFound();
                 return;
             }
-            XC.transactionInfo = null2string(o);
+            XC.transactionInfo = normalizeActionInfo(o);
             showTransactionDetails();
 
             // Update the page with SEO friendly info

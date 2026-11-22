@@ -45,7 +45,10 @@ function loadCache({ callResult, rpcError, env = {} } = {}) {
                 // call-scoped sink as well; getRows now reads only that.
                 if (opts && opts.out) opts.out.rpcError = rpc.error;
                 // One endpoint, so an error answer is every endpoint answering.
-                if (opts && opts.out) opts.out.allEndpointsAnswered = !!rpc.error;
+                if (opts && opts.out) {
+                    opts.out.allEndpointsAnswered = !!rpc.error;
+                    opts.out.allEndpointsMethodNotFound = !!(rpc.error && Number(rpc.error.code) === -32601);
+                }
                 return callStub(data, opts);
             };
         }

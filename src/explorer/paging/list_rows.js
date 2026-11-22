@@ -59,7 +59,7 @@ function chainAndBalanceRows(info, c){
         // stays LAST and status second-to-last for paging and row coloring.
         info = [count_reverse, info.block_index, info.timestamp, info.source, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, info.give_ownership, info.price_stale === true, status, info.action_index];
     if(method=='getDispenses')
-        info = [count_reverse, info.block_index, info.timestamp, info.destination, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, status, info.action_index];
+        info = [count_reverse, info.block_index, info.timestamp, info.destination, info.give_coin, info.give_tick, info.give_amount, info.get_coin, info.get_tick, info.get_amount, info.give_ownership, status, info.action_index];
     if(method=='getDividends')
         info = [count_reverse, info.block_index, info.timestamp, info.source, info.tick, info.dividend_tick, info.amount, status, info.action_index];
     if(method=='getFees')
@@ -133,7 +133,7 @@ function tokenAndTradeRows(info, c){
     // the legs render as action links, not token links. status and
     // action_index stay LAST (row color + paging cursor).
     if(method=='getOrderMatches')
-        info = [count_reverse, info.block_index, info.timestamp, info.give_coin, info.give_action_index, info.give_amount, info.get_coin, info.get_action_index, info.get_amount, info.settlement_type, status, info.action_index];
+        info = [count_reverse, info.block_index, info.timestamp, info.give_coin, info.give_action_index, info.give_amount, info.get_coin, info.get_action_index, info.get_amount, info.settlement_type, info.give_ownership, info.get_ownership, status, info.action_index];
     return info;
 }
 
@@ -142,7 +142,7 @@ function contractAndStakeRows(info, c){
     // Matched swap pairs: the same two-leg shape minus the amount and
     // settlement-type columns, which a swap match does not carry.
     if(method=='getSwapMatches')
-        info = [count_reverse, info.block_index, info.timestamp, info.give_coin, info.give_action_index, info.get_coin, info.get_action_index, status, info.action_index];
+        info = [count_reverse, info.block_index, info.timestamp, info.give_coin, info.give_action_index, info.get_coin, info.get_action_index, info.give_ownership, info.get_ownership, status, info.action_index];
     if(method=='getSweeps')
         info = [count_reverse, info.block_index, info.timestamp, info.source, info.destination, info.balances, info.ownerships, info.orders, info.swaps, info.dispensers, status, info.action_index];
     // NOTE: decimals sits BEFORE the trailing id; the datatables client

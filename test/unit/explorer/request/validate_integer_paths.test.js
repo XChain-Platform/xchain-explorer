@@ -41,6 +41,7 @@ describe('validateParams integer path segments', function () {
         ['getTransaction', 'tx_index', 'INVALID_TX_INDEX'],
         ['getPollResults', 'poll', 'INVALID_POLL_INDEX'],
         ['getBets', 'feed', 'INVALID_FEED_INDEX'],
+        ['getBetFeed', 'bet_feed', 'INVALID_FEED_INDEX'],
         ['getPriceSnapshots', 'round', 'INVALID_ROUND_NUMBER'],
         ['getFullNodeVerifications', 'epoch', 'INVALID_EPOCH_HEIGHT'],
         ['getEmissions', 'execution', 'INVALID_EXECUTION_INDEX'],

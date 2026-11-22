@@ -253,8 +253,10 @@ class SwapReaders {
                         a1.action_format, 
                         c1.coin as give_coin,
                         m.give_action_index,
+                        s2.give_ownership,
                         c2.coin as get_coin,
                         m.get_action_index,
+                        s2.get_ownership,
                         b1.block_index,
                         b1.block_time as timestamp,
                         s1.status
@@ -263,6 +265,7 @@ class SwapReaders {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN swaps              s2 ON (s2.action_index=m.give_action_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)

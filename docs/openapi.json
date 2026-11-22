@@ -16736,7 +16736,6 @@
           "Checkpoints"
         ],
         "summary": "Verify a checkpoint: 2f+1 signatures, canonical string, validator set",
-        "description": "The checkpoint and validator set both come from the hub mirror. The validator_source and anchored fields describe that trust source; verified=true means the served signatures meet quorum over the served set and must not be used as a source for pinned trust roots.",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -19479,6 +19478,12 @@
               "null"
             ]
           },
+          "give_ownership": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "give_tick": {
             "type": [
               "string",
@@ -20767,6 +20772,12 @@
               "null"
             ]
           },
+          "get_ownership": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "give_action_index": {
             "type": [
               "string",
@@ -20783,6 +20794,12 @@
           "give_coin": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "give_ownership": {
+            "type": [
+              "integer",
               "null"
             ]
           },
@@ -21334,6 +21351,12 @@
               "null"
             ]
           },
+          "get_ownership": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "give_action_index": {
             "type": [
               "string",
@@ -21344,6 +21367,12 @@
           "give_coin": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "give_ownership": {
+            "type": [
+              "integer",
               "null"
             ]
           },

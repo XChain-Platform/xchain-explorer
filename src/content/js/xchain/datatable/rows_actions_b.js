@@ -342,10 +342,12 @@ function xcDatatableRenderOrderMatchRow(context){
     let get_coin   = data[6];
     let get_index  = data[7];
     let settlement = data[9];
-    $('td', row).eq(3).html(formatLink('/' + networkCoin(give_coin) + '/action/' + give_index, give_coin + '-' + give_index));
-    $('td', row).eq(4).html(formatAmount(data[5]));
-    $('td', row).eq(5).html(formatLink('/' + networkCoin(get_coin) + '/action/' + get_index, get_coin + '-' + get_index));
-    $('td', row).eq(6).html(formatAmount(data[8]));
+    let give_ownership = data[10];
+    let get_ownership  = data[11];
+    $('td', row).eq(3).html(formatLink('/' + networkCoin(give_coin) + '/action/' + give_index, give_coin + '-' + give_index) + (give_ownership == 1 ? ' ' + ownershipBadge() : ''));
+    $('td', row).eq(4).html(give_ownership == 1 ? ownershipBadge() : formatAmount(data[5]));
+    $('td', row).eq(5).html(formatLink('/' + networkCoin(get_coin) + '/action/' + get_index, get_coin + '-' + get_index) + (get_ownership == 1 ? ' ' + ownershipBadge() : ''));
+    $('td', row).eq(6).html(get_ownership == 1 ? ownershipBadge() : formatAmount(data[8]));
     $('td', row).eq(7).text(isNull(settlement) ? '-' : settlement);
     $('td', row).eq(8).html(action_link);
 
@@ -361,8 +363,10 @@ function xcDatatableRenderSwapMatchRow(context){
     let give_index = data[4];
     let get_coin   = data[5];
     let get_index  = data[6];
-    $('td', row).eq(3).html(formatLink('/' + networkCoin(give_coin) + '/action/' + give_index, give_coin + '-' + give_index));
-    $('td', row).eq(4).html(formatLink('/' + networkCoin(get_coin) + '/action/' + get_index, get_coin + '-' + get_index));
+    let give_ownership = data[7];
+    let get_ownership  = data[8];
+    $('td', row).eq(3).html(formatLink('/' + networkCoin(give_coin) + '/action/' + give_index, give_coin + '-' + give_index) + (give_ownership == 1 ? ' ' + ownershipBadge() : ''));
+    $('td', row).eq(4).html(formatLink('/' + networkCoin(get_coin) + '/action/' + get_index, get_coin + '-' + get_index) + (get_ownership == 1 ? ' ' + ownershipBadge() : ''));
     $('td', row).eq(5).html(action_link);
 
 }

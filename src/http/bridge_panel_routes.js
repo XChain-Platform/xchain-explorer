@@ -77,8 +77,7 @@ function bridgeInvariantHandler(hubConnector, tickParam, error, nativeTickFor){
                 jsonrpc: '2.0', method: 'getbridgeinvariant', params: { tick: nativeTick }, id: 1
             }, { attempts: 1, out });
             // Every hub endpoint answered "method not found": its build predates the read.
-            if((result === null || result === undefined) && out.allEndpointsAnswered &&
-               out.rpcError && out.rpcError.code === -32601)
+            if((result === null || result === undefined) && out.allEndpointsMethodNotFound === true)
                 return notAvailable(res, 'HUB_METHOD_MISSING');
             // Unreachable, refused, or a degraded health body (DB down) in place of a result.
             if(result === null || result === undefined || typeof result !== 'object' ||

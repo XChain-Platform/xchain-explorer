@@ -271,9 +271,11 @@ class OrderReaders {
                         c1.coin as give_coin,
                         m.give_action_index,
                         m.give_amount,
+                        o1.give_ownership,
                         c2.coin as get_coin,
                         m.get_action_index,
                         m.get_amount,
+                        o1.get_ownership,
                         m.settlement_type,
                         b1.block_index,
                         b1.block_time as timestamp,
@@ -283,6 +285,7 @@ class OrderReaders {
                         INNER JOIN actions            a1 ON (a1.action_index=m.action_index)
                         INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                         LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                        LEFT  JOIN orders             o1 ON (o1.action_index=m.get_action_index)
                         LEFT  JOIN index_statuses     s1 ON (s1.id=m.status_id)
                         LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                         LEFT  JOIN index_coins        c1 ON (c1.id=m.give_coin_id)

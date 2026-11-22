@@ -161,3 +161,30 @@ function null2string(obj){
         return obj.map(item => null2string(item));
     return obj;
 }
+
+// These values carry structure or use null as a meaningful state. Keep them
+// intact while ordinary display cells retain the empty-string normalization.
+const ACTION_INFO_PRESERVED_FIELDS = Object.freeze({
+    params: true,
+    callback_params: true,
+    controller: true,
+    action_class: true
+});
+
+function normalizeActionInfo(obj){
+    if(obj === null)
+        return '';
+    if(Array.isArray(obj))
+        return obj.map((item) => normalizeActionInfo(item));
+    if(typeof obj === 'object'){
+        const normalized = {};
+        for(const key in obj){
+            if(!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+            normalized[key] = Object.prototype.hasOwnProperty.call(ACTION_INFO_PRESERVED_FIELDS, key) || /_json$/.test(key)
+                ? obj[key]
+                : normalizeActionInfo(obj[key]);
+        }
+        return normalized;
+    }
+    return obj;
+}

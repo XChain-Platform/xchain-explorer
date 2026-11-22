@@ -92,7 +92,7 @@ const ROWS = [
     ['DispenserExpire', 'getDispenserExpires', 'DISPENSER_EXPIRE action data (system-injected, so no transaction fields)',
         ACTION_HEAD + ' dispenser_action_index:d block_index:D timestamp:D status:s'],
     ['Dispense', 'getDispenses', 'DISPENSE action data',
-        ACTION_HEAD + ' dispenser_action_index:d destination:s give_coin:s give_tick:s give_amount:s get_coin:s'
+        ACTION_HEAD + ' dispenser_action_index:d destination:s give_coin:s give_tick:s give_amount:s give_ownership:i get_coin:s'
             + ' get_tick:s get_amount:s status:s ' + TX_TAIL,
         { get_amount: 'Coin attributed to this dispense. When one payment fills several dispenses in the same transaction, this is that dispense\'s share, not the payment\'s full amount' },
         { status_reason: STATUS_REASON }],
@@ -139,8 +139,8 @@ const ROWS = [
     ['OrderExpire', 'getOrderExpires', 'ORDER_EXPIRE action data (system-injected, so no transaction fields)',
         ACTION_HEAD + ' order_action_index:d block_index:D timestamp:D status:s'],
     ['OrderMatch', 'getOrderMatches', 'ORDER_MATCH action data (system-injected, so no transaction fields)',
-        'action:S action_index:D action_format:i give_coin:s give_action_index:d give_amount:s get_coin:s'
-            + ' get_action_index:d get_amount:s settlement_type:s block_index:D timestamp:D status:s'],
+        'action:S action_index:D action_format:i give_coin:s give_action_index:d give_amount:s give_ownership:i get_coin:s'
+            + ' get_action_index:d get_amount:s get_ownership:i settlement_type:s block_index:D timestamp:D status:s'],
     ['Send', 'getSends', 'SEND action data',
         ACTION_HEAD + ' destination:s tick:s amount:s memo:s status:s ' + TX_TAIL],
     ['Sleep', 'getSleeps', 'SLEEP action data',
@@ -157,7 +157,7 @@ const ROWS = [
     ['SwapExpire', 'getSwapExpires', 'SWAP_EXPIRE action data (system-injected, so no transaction fields)',
         ACTION_HEAD + ' swap_action_index:d block_index:D timestamp:D status:s'],
     ['SwapMatch', 'getSwapMatches', 'SWAP_MATCH action data (system-injected, so no transaction fields)',
-        'action:S action_index:D action_format:i give_coin:s give_action_index:d get_coin:s get_action_index:d'
+        'action:S action_index:D action_format:i give_coin:s give_action_index:d give_ownership:i get_coin:s get_action_index:d get_ownership:i'
             + ' block_index:D timestamp:D status:s'],
     ['Sweep', 'getSweeps', 'SWEEP action data',
         ACTION_HEAD + ' destination:s balances:d ownerships:d orders:d swaps:d dispensers:d memo:s status:s ' + TX_TAIL,

@@ -13,10 +13,10 @@
  **********************************************************************
  * Security tests: Rate limit drop-in pins
  *
- * deploy/rate-limits.conf pins all eight limiter env vars so a deployment's
+ * deploy/rate-limits.conf pins every limiter env var so a deployment's
  * behaviour never depends on which explorer build happens to be installed
  * (see the file's own header). That guarantee only holds while the pinned
- * set and the source's read set are the same eight names with the same
+ * set and the source's read set are the same names with the same
  * values: a knob added to the source without a pin would run at whatever
  * default ships next, and a default that moves without the drop-in
  * following would change behaviour on a restart nobody associates with a
@@ -121,9 +121,9 @@ describe('Security: Rate Limiting: pinned drop-in matches source defaults (rows 
 
     const { unpinned, orphaned, drifted } = comparePinsToSource(pins, sourceDefaults);
 
-    it('sees twelve limiter env vars on each side today (sanity: the parsers matched something)', function () {
-        expect(pins.size).to.equal(12);
-        expect(sourceDefaults.size).to.equal(12);
+    it('sees thirteen limiter env vars on each side today (sanity: the parsers matched something)', function () {
+        expect(pins.size).to.equal(13);
+        expect(sourceDefaults.size).to.equal(13);
     });
 
     it('pins every knob the source reads (row 33: no unpinned variable)', function () {

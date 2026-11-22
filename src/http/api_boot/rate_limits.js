@@ -12,7 +12,7 @@
  *
  **********************************************************************
  *
- * XChain Explorer - the two app-wide shedding guards
+ * XChain Explorer - application and route shedding guards
  *
  * One boot step of src/api.js: the per-IP rate limiter and the global in-flight
  * concurrency cap, mounted in that order. They are the same concern read two
@@ -87,6 +87,37 @@ function staticPolicyFor(configInfo){
 }
 
 /**
+ * The public connect demo receiver's request ceiling per client IP.
+ *
+ * @param {object} configInfo src/config.js, for its live env view
+ * @returns {object} the policy the limiter and its handler share
+ */
+function connectDemoPolicyFor(configInfo){
+    return {
+        limit:    parseInt(configInfo.env.EXPLORER_CONNECT_DEMO_RATE_LIMIT_RPM, 10) || 120,
+        envVar:   'EXPLORER_CONNECT_DEMO_RATE_LIMIT_RPM',
+        windowMs: 60 * 1000,
+        message:  { error: 'Too many callback receiver requests', code: 'RATE_LIMITED' }
+    };
+}
+
+function isConnectDemoPath(req){
+    return /^\/connect-demo(?:\/|$)/.test(String(req.path || ''));
+}
+
+function applyConnectDemoRateLimit(app, configInfo){
+    const policy = connectDemoPolicyFor(configInfo);
+    app.use(rateLimit({
+        windowMs:        policy.windowMs,
+        limit:           policy.limit,
+        standardHeaders: true,
+        legacyHeaders:   false,
+        handler:         limitedHandler({ service: 'Explorer', name: 'connect-demo', ...policy }),
+        skip:            (req) => !isConnectDemoPath(req),
+    }));
+}
+
+/**
  * Whether a request is a single JSON-RPC ping, the call that reports the
  * gate's own stats and that the container healthcheck sends. A batch is never
  * one: the dispatcher runs every element, so a batch of pings draws one pool
@@ -119,6 +150,8 @@ function applyRateLimits(app, configInfo, isStaticAsset){
         handler:         limitedHandler({ service: 'Explorer', name: 'app-wide', ...appWidePolicy }),
         skip: (req) => isStaticAsset(req) || isFileMount(req),
     }));
+
+    applyConnectDemoRateLimit(app, configInfo);
 
     // File mounts leave the app-wide bucket for their own: counting them there
     // refused a page's scripts after two page views. The image exemption still
@@ -168,4 +201,4 @@ function applyRateLimits(app, configInfo, isStaticAsset){
     return requestGate;
 }
 
-module.exports = { applyRateLimits, isPingRequest };
+module.exports = { applyRateLimits, isPingRequest, connectDemoPolicyFor, isConnectDemoPath };

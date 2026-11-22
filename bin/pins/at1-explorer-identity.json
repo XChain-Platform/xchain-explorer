@@ -4415,6 +4415,19 @@
         "PRICE action detail pairs parsing leaves pairs undefined when pairs JSON is absent",
         "PRICE action detail pairs parsing marks malformed pairs JSON as unparseable"
       ],
+      "319a296209054e13": [
+        "connect demo callback capacity answers 503 when the live-entry cap is reached",
+        "connect demo callback capacity caps live entries globally and separately for each client IP",
+        "connect demo callback limiter and mount defines a dedicated per-IP limiter with a pinnable default and override",
+        "connect demo callback limiter and mount enforces the dedicated limiter only on connect demo paths",
+        "connect demo callback limiter and mount pins the limiter and mounts the receiver before the explorer wildcard routes",
+        "connect demo callback receiver refuses a reused id and does not replace its callbacks",
+        "connect demo callback receiver refuses callbacks and polls for ids that were never expected",
+        "connect demo callback receiver registers an id, reports pending, accepts a callback, and returns it",
+        "connect demo callback store expires entries ten minutes after expect and permits the id again",
+        "connect demo callback store keeps only the three newest callbacks so the first sender cannot lock the result",
+        "connect demo callback store validates the closed 22-character base64url id form"
+      ],
       "31b4e41f89cb9ae0": [
         "data-table: config-driven columns (M2.2) a theme resequencing or dropping a column does not permute a row twice when the table is redrawn",
         "data-table: config-driven columns (M2.2) a theme resequencing or dropping a column knows when no permutation is needed, so the classic theme pays nothing",
@@ -5458,23 +5471,6 @@
         "SEND and DESTROY whole-action paging getSends limits distinct actions and returns every selected leg",
         "SEND and DESTROY whole-action paging getSends uses cursor predicates instead of explorer starts for next pages",
         "SEND and DESTROY whole-action paging leaves single-row action boundaries unchanged"
-      ],
-      "4f475816afa4fe19": [
-        "Security: Rate limit counter line: driven through express-rate-limit 8 (row 18) keeps Retry-After and the RateLimit-* headers on the 429 it sends",
-        "Security: Rate limit counter line: every explorer limiter carries it (row 18) finds the twelve limiter declarations (sanity: the parser matched something)",
-        "Security: Rate limit counter line: every explorer limiter carries it (row 18) gives every limiter a counter-line handler",
-        "Security: Rate limit counter line: every explorer limiter carries it (row 18) leaves no limiter answering through a bare message option",
-        "Security: Rate limit counter line: every explorer limiter carries it (row 18) logs the same ceiling it enforces, resolved once per limiter",
-        "Security: Rate limit counter line: every explorer limiter carries it (row 18) names each of the twelve limiters distinctly, so a line points at one knob",
-        "Security: Rate limit counter line: the refusal itself (row 18) answers 429 with the exact JSON body the limiter would have sent",
-        "Security: Rate limit counter line: the refusal itself (row 18) answers every refusal, including the ones it deliberately does not log",
-        "Security: Rate limit counter line: the refusal itself (row 18) sends the per-route body, not a shared one, when a route limiter refuses",
-        "Security: Rate limit counter line: the window (row 18) holds no timer, so an idle process is never kept alive by a limiter",
-        "Security: Rate limit counter line: the window (row 18) logs again at the first refusal past the window, then resets the count it reports",
-        "Security: Rate limit counter line: the window (row 18) stays silent for every further refusal inside the same window",
-        "Security: Rate limit counter line: what it prints (row 18) carries the route limiter own name, ceiling and knob",
-        "Security: Rate limit counter line: what it prints (row 18) logs one line at the first refusal, naming the count, the ceiling and the knob",
-        "Security: Rate limit counter line: what it prints (row 18) pluralises the count, so a multi-refusal line does not read as one request"
       ],
       "500b94ade5951791": [
         "theme token-literal gate logical and Bootstrap spacing classifies logical spacing and narrow Bootstrap sizing properties",
@@ -7314,6 +7310,21 @@
         "price batch response mapping maps absent latest block indexes to null",
         "price batch response mapping maps non-array rows to an untruncated empty list",
         "price batch response mapping maps numeric fields and reports a full page as truncated"
+      ],
+      "7c25da5890938210": [
+        "Security: Rate Limiting: operator template and README quote the source default .env.example states and assigns the source app-wide default",
+        "Security: Rate Limiting: operator template and README quote the source default README rate-limiting bullet quotes the source default when it quotes one",
+        "Security: Rate Limiting: operator template and README quote the source default parses a stale template and README figure, so a drift cannot read as absent",
+        "Security: Rate Limiting: operator template and README quote the source default reads an app-wide default from the source (sanity: the parser matched)",
+        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names a drifted default when the source default no longer equals the pin",
+        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names an orphaned pin when the conf keeps one the source no longer reads",
+        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names an unpinned variable when the source reads one the conf lacks",
+        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) reports a missing pin and a value drift together, not just the first one found",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) keeps every source default equal to its pinned value, naming any drift (row 32)",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) keeps the app-wide fallback equal to the derived 180 (row 32)",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) pins every knob the source reads (row 33: no unpinned variable)",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) reads back every pinned name in the source (row 33: no orphaned pin)",
+        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) sees thirteen limiter env vars on each side today (sanity: the parsers matched something)"
       ],
       "7cec30338161fbc6": [
         "XChainExplorer#ssrfSafeLookup shared guard delegates to ssrf_guard.makeSafeLookup built from the host dns binding",
@@ -10076,6 +10087,23 @@
         "SM-05: Server binding and JSON-RPC ping JSON-RPC ping returns { status: \"success\" }",
         "SM-05: Server binding and JSON-RPC ping JSON-RPC with unknown method returns an error response"
       ],
+      "a8d754d91203b3af": [
+        "Security: Rate limit counter line: driven through express-rate-limit 8 (row 18) keeps Retry-After and the RateLimit-* headers on the 429 it sends",
+        "Security: Rate limit counter line: every explorer limiter carries it (row 18) finds the thirteen limiter declarations (sanity: the parser matched something)",
+        "Security: Rate limit counter line: every explorer limiter carries it (row 18) gives every limiter a counter-line handler",
+        "Security: Rate limit counter line: every explorer limiter carries it (row 18) leaves no limiter answering through a bare message option",
+        "Security: Rate limit counter line: every explorer limiter carries it (row 18) logs the same ceiling it enforces, resolved once per limiter",
+        "Security: Rate limit counter line: every explorer limiter carries it (row 18) names each of the thirteen limiters distinctly, so a line points at one knob",
+        "Security: Rate limit counter line: the refusal itself (row 18) answers 429 with the exact JSON body the limiter would have sent",
+        "Security: Rate limit counter line: the refusal itself (row 18) answers every refusal, including the ones it deliberately does not log",
+        "Security: Rate limit counter line: the refusal itself (row 18) sends the per-route body, not a shared one, when a route limiter refuses",
+        "Security: Rate limit counter line: the window (row 18) holds no timer, so an idle process is never kept alive by a limiter",
+        "Security: Rate limit counter line: the window (row 18) logs again at the first refusal past the window, then resets the count it reports",
+        "Security: Rate limit counter line: the window (row 18) stays silent for every further refusal inside the same window",
+        "Security: Rate limit counter line: what it prints (row 18) carries the route limiter own name, ceiling and knob",
+        "Security: Rate limit counter line: what it prints (row 18) logs one line at the first refusal, naming the count, the ceiling and the knob",
+        "Security: Rate limit counter line: what it prints (row 18) pluralises the count, so a multi-refusal line does not read as one request"
+      ],
       "a94445f3f95eaca1": [
         "bare singular detail paths left untouched does not redirect a coin prefix that is not supported",
         "bare singular detail paths left untouched does not touch an api path",
@@ -12584,21 +12612,6 @@
         "Batch read endpoints: registration (rows 51, C53, C54) registers both batch routes as POST beside the other hand-registered routes",
         "Batch read endpoints: registration (rows 51, C53, C54) registers both before the GET catch-all"
       ],
-      "ef4f5cc8c9f06748": [
-        "Security: Rate Limiting: operator template and README quote the source default .env.example states and assigns the source app-wide default",
-        "Security: Rate Limiting: operator template and README quote the source default README rate-limiting bullet quotes the source default when it quotes one",
-        "Security: Rate Limiting: operator template and README quote the source default parses a stale template and README figure, so a drift cannot read as absent",
-        "Security: Rate Limiting: operator template and README quote the source default reads an app-wide default from the source (sanity: the parser matched)",
-        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names a drifted default when the source default no longer equals the pin",
-        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names an orphaned pin when the conf keeps one the source no longer reads",
-        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) names an unpinned variable when the source reads one the conf lacks",
-        "Security: Rate Limiting: pin-vs-source comparison helper (falsification fixtures) reports a missing pin and a value drift together, not just the first one found",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) keeps every source default equal to its pinned value, naming any drift (row 32)",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) keeps the app-wide fallback equal to the derived 180 (row 32)",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) pins every knob the source reads (row 33: no unpinned variable)",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) reads back every pinned name in the source (row 33: no orphaned pin)",
-        "Security: Rate Limiting: pinned drop-in matches source defaults (rows 32, 33) sees twelve limiter env vars on each side today (sanity: the parsers matched something)"
-      ],
       "efb6386b1dad80df": [
         "dashboard manifest conformance support builds an RBTC reader config with required and conformance probe arguments",
         "dashboard manifest conformance support collects projected keys from rows and MariaDB metadata",
@@ -13331,8 +13344,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 563,
-        "titleCount": 8680,
+        "fileCount": 564,
+        "titleCount": 8691,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13746,6 +13759,7 @@
           "test/unit/http/cache_control/cache_control_routes.test.js": "250861b21b9e6338",
           "test/unit/http/cache_control/cache_control_stamp.test.js": "cf937012411274f7",
           "test/unit/http/compression.test.js": "e194567638044bfe",
+          "test/unit/http/connect_demo/connect_demo_routes.test.js": "319a296209054e13",
           "test/unit/http/contract_state_proof.test.js": "09a5bd038de2012d",
           "test/unit/http/cors_rate_limit_headers.test.js": "1350bbd1148fa068",
           "test/unit/http/docs_openapi_build.test.js": "a6012609b615f0df",
@@ -14171,8 +14185,8 @@
           "test/security/npmrc_hygiene.test.js": "a1f62ebd773c03f5",
           "test/security/path_traversal.test.js": "d4ac69945c87d14c",
           "test/security/proxy_spoof.test.js": "9ef701de120af9c6",
-          "test/security/rate_limit_log.test.js": "4f475816afa4fe19",
-          "test/security/rate_limit_pins.test.js": "ef4f5cc8c9f06748",
+          "test/security/rate_limit_log.test.js": "a8d754d91203b3af",
+          "test/security/rate_limit_pins.test.js": "7c25da5890938210",
           "test/security/rate_limiting.test.js": "93d927780b91e5db",
           "test/security/sql_injection.test.js": "e862967f0218c9b9",
           "test/security/ssrf_protection.test.js": "2cddc605027d7848",

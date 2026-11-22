@@ -55,9 +55,10 @@ describe('Platform switcher', function () {
         it('omits the internal dashboard, and includes every live host', function () {
             const keys = LINKS.links.map((p) => p.key);
             expect(keys, 'dashboard.xchain.io is internal and is never listed').to.not.include('dashboard');
-            // Liveness rule: a host joins the list only once it serves 200 over
-            // HTTPS. mcp.xchain.io met that on 2026-07-29, so it is expected here.
-            expect(keys, 'mcp.xchain.io is live').to.include('mcp');
+            // Operator ruling 2026-11-22: the switcher lists the user-facing sites,
+            // Downloads among them; hub.xchain.io and mcp.xchain.io left it.
+            expect(keys, 'downloads.xchain.io is listed').to.include('downloads');
+            expect(keys, 'mcp.xchain.io left the switcher').to.not.include('mcp');
         });
 
         it('is byte-identical to the file the renderer reads', function () {

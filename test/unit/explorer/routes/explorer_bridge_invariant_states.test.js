@@ -56,6 +56,18 @@ function rpcServer(body){
     });
 }
 
+function registerPartialMethodFailureTest(){
+    it('keeps 503 when every endpoint answers but only the last lacks the method', async function(){
+        const hub = hubAnswering(null, {
+            allEndpointsAnswered: true, allEndpointsMethodNotFound: false,
+            rpcError: { code: -32601, message: 'Method not found' }
+        });
+        const res = await request(buildApp(hub)).get('/BTC/api/bridge-invariant/XCHAIN');
+        expect(res.status).to.equal(503);
+        expect(res.body.code).to.equal('BRIDGE_INVARIANT_UNAVAILABLE');
+    });
+}
+
 describe('explorer bridge-invariant route: hub states', function(){
     it('answers 200 available:false when no hub is configured', async function(){
         const res = await request(buildApp(null)).get('/BTC/api/bridge-invariant/XCHAIN');
@@ -80,15 +92,7 @@ describe('explorer bridge-invariant route: hub states', function(){
         expect(res.body.code).to.equal('BRIDGE_INVARIANT_UNAVAILABLE');
     });
 
-    it('keeps 503 when every endpoint answers but only the last lacks the method', async function(){
-        const hub = hubAnswering(null, {
-            allEndpointsAnswered: true, allEndpointsMethodNotFound: false,
-            rpcError: { code: -32601, message: 'Method not found' }
-        });
-        const res = await request(buildApp(hub)).get('/BTC/api/bridge-invariant/XCHAIN');
-        expect(res.status).to.equal(503);
-        expect(res.body.code).to.equal('BRIDGE_INVARIANT_UNAVAILABLE');
-    });
+    registerPartialMethodFailureTest();
 
     it('keeps 503 for a configured hub that is unreachable', async function(){
         const hub = hubAnswering(null, { failures: ['http://hub -> ECONNREFUSED'] });

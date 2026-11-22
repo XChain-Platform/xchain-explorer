@@ -83,6 +83,31 @@ function mixedRpcFleet(oldCode, newCode) {
     return state;
 }
 
+function registerConnectorDiagnosticsTest() {
+    it('the connector flags allEndpointsAnswered only when every endpoint gave a protocol answer', async function () {
+        const { XChainHubConnector } = loadFleetCache(() => Promise.resolve(RPC_ERROR));
+        const all = {};
+        await new XChainHubConnector([OLD, NEW]).call({ jsonrpc: '2.0', method: 'm', id: 1 }, { attempts: 2, delayMs: 0, out: all });
+        expect(all.allEndpointsAnswered).to.equal(true);
+        expect(all.allEndpointsMethodNotFound).to.equal(true);
+
+        const mixedCodes = {};
+        const mixedPost = (url) => Promise.resolve(rpcError(url === OLD ? -32603 : -32601));
+        const { XChainHubConnector: MixedCodes } = loadFleetCache(mixedPost);
+        await new MixedCodes([OLD, NEW]).call({ jsonrpc: '2.0', method: 'm', id: 1 }, { attempts: 2, delayMs: 0, out: mixedCodes });
+        expect(mixedCodes.allEndpointsAnswered).to.equal(true);
+        expect(mixedCodes.allEndpointsMethodNotFound).to.equal(false);
+
+        const mixed = fleet(REFUSED);
+        mixed.mode = 'live';
+        const { XChainHubConnector: Mixed } = loadFleetCache(mixed.post);
+        const part = {};
+        await new Mixed([OLD, NEW]).call({ jsonrpc: '2.0', method: 'm', id: 1 }, { attempts: 2, delayMs: 0, out: part });
+        expect(part.rpcError).to.deep.equal({ code: -32601, message: 'Method not found' });
+        expect(part.allEndpointsAnswered).to.equal(false);
+    });
+}
+
 describe('HubOperationalCache: mixed-version fleet with the upgraded hub down', function () {
     afterEach(function () { sinon.restore(); });
 
@@ -138,26 +163,5 @@ describe('HubOperationalCache: mixed-version fleet with the upgraded hub down', 
         expect(await cache.getRows('getvotes', {})).to.equal(null);
     });
 
-    it('the connector flags allEndpointsAnswered only when every endpoint gave a protocol answer', async function () {
-        const { XChainHubConnector } = loadFleetCache(() => Promise.resolve(RPC_ERROR));
-        const all = {};
-        await new XChainHubConnector([OLD, NEW]).call({ jsonrpc: '2.0', method: 'm', id: 1 }, { attempts: 2, delayMs: 0, out: all });
-        expect(all.allEndpointsAnswered).to.equal(true);
-        expect(all.allEndpointsMethodNotFound).to.equal(true);
-
-        const mixedCodes = {};
-        const mixedPost = (url) => Promise.resolve(rpcError(url === OLD ? -32603 : -32601));
-        const { XChainHubConnector: MixedCodes } = loadFleetCache(mixedPost);
-        await new MixedCodes([OLD, NEW]).call({ jsonrpc: '2.0', method: 'm', id: 1 }, { attempts: 2, delayMs: 0, out: mixedCodes });
-        expect(mixedCodes.allEndpointsAnswered).to.equal(true);
-        expect(mixedCodes.allEndpointsMethodNotFound).to.equal(false);
-
-        const mixed = fleet(REFUSED);
-        mixed.mode = 'live';
-        const { XChainHubConnector: Mixed } = loadFleetCache(mixed.post);
-        const part = {};
-        await new Mixed([OLD, NEW]).call({ jsonrpc: '2.0', method: 'm', id: 1 }, { attempts: 2, delayMs: 0, out: part });
-        expect(part.rpcError).to.deep.equal({ code: -32601, message: 'Method not found' });
-        expect(part.allEndpointsAnswered).to.equal(false);
-    });
+    registerConnectorDiagnosticsTest();
 });

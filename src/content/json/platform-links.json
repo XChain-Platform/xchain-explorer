@@ -14,6 +14,12 @@
       "href": "https://wallet.xchain.io/"
     },
     {
+      "key": "downloads",
+      "label": "Downloads",
+      "icon": "fa-solid fa-download",
+      "href": "https://downloads.xchain.io/"
+    },
+    {
       "key": "explorer",
       "label": "Explorer",
       "icon": "fa-solid fa-magnifying-glass",
@@ -36,18 +42,6 @@
       "label": "Bootstraps & sync",
       "icon": "fa-solid fa-cloud-arrow-down",
       "href": "https://sync.xchain.io/"
-    },
-    {
-      "key": "hub",
-      "label": "Validator hub",
-      "icon": "fa-solid fa-circle-nodes",
-      "href": "https://hub.xchain.io/"
-    },
-    {
-      "key": "mcp",
-      "label": "MCP for agents",
-      "icon": "fa-solid fa-robot",
-      "href": "https://mcp.xchain.io/"
     }
   ]
 }

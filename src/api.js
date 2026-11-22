@@ -45,6 +45,7 @@ const { resolveBindHost }    = require('./http/api_boot/bind_host.js');
 const { mountJsonRpc }       = require('./http/api_boot/json_rpc.js');
 const { startWebsockets }    = require('./http/api_boot/websocket.js');
 const { createBridgePanelHandlers, mountBridgePanelRoutes, bridgeHubEndpoints } = require('./http/bridge_panel_routes.js');
+const { mountConnectDemoRoutes } = require('./http/connect_demo_routes.js');
 
 // Read the .env file before anything below reads an environment variable.
 dotenv.config({ quiet: true });
@@ -169,6 +170,7 @@ function createApp(options = {}){
     const bridgeHub = bridgeHubEndpoints(hubEndpoints, appConfigInfo.env);
     mountBridgePanelRoutes(app, () => explorer,
         bridgeHub ? new xchainHubConnector(bridgeHub) : null);
+    mountConnectDemoRoutes(app);
 
     explorer = new XChainExplorer(app, appConfigInfo);
     mountJsonRpc(app, appConfigInfo, jsonRpcController);

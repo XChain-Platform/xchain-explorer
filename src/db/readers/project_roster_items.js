@@ -175,7 +175,6 @@ async function rosterTickIds(db, config, membershipIndex, chain){
 }
 
 module.exports = {
-    LIST_TICK_COIN_SEPARATOR,
     rosterTickIds,
     rostersByDirectMembership,
     rostersByResolvedListHead

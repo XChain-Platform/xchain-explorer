@@ -31,6 +31,7 @@
 const proxyquire = require('proxyquire');
 const { expect } = require('chai');
 const Utility    = require('../../../../../src/lib/utility.js');
+const { actionStatusReason } = require('../../../../../src/action-detail/shared.js');
 const { createConfigInfoStub } = require('../../../../fixtures/mock-config.js');
 
 const configInfo   = createConfigInfoStub();
@@ -73,6 +74,7 @@ function oldPath(actions, getActionData) {
                 details[name] = detail;
             }
         }
+        data.status_reason = actionStatusReason({ action: info.action, status: data.status });
         data.details = details;
     }
     return actions;

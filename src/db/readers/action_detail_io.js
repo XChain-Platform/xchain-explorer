@@ -39,6 +39,7 @@
  *   - dispenser_prices.js the current price-source availability for dispensers
  *   - destinations.js    the live feed's destination attachment
  *   - ledger_ticks.js    the ticks each live-feed action moved
+ *   - lifecycle_parties.js the parties of each action the indexer mints itself
  *   - this file          getActionData itself
  *
  * getActionData stays in the entry because it is the pipeline every action type
@@ -78,6 +79,7 @@ const orderBatchMethods  = require('./action_detail_io/order_batches.js');
 const dispenserPrices    = require('./action_detail_io/dispenser_prices.js');
 const destinationMethods = require('./action_detail_io/destinations.js');
 const ledgerTickMethods  = require('./action_detail_io/ledger_ticks.js');
+const lifecyclePartyMethods = require('./action_detail_io/lifecycle_parties.js');
 
 // Run the handler's own queries for one action: the main row (or the de-blanked
 // baseline when it has none), then the optional second and third statements, each
@@ -151,6 +153,25 @@ async function attachActionTail(db, config, handler, ctx, type, action_index, da
     data.tx_data = (!db.util.isNull(txData)) ? txData.data : null;
 }
 
+// The flag comes only from actions.tx_index read with the type; an unknown origin
+// leaves the payload unflagged rather than guessing from handler columns.
+function attachProtocolGeneratedOrigin(data, tx_index){
+    if(tx_index !== null || data.emitted_by != null) return;
+    data.protocol_generated = true;
+    for(let field of ['source', 'tx_hash', 'tx_index'])
+        if(data[field] === undefined) data[field] = null;
+}
+
+async function readActionIdentity(db, config, action_index, pre, key){
+    if(pre && pre.types.has(key)) return {
+        type: pre.types.get(key),
+        tx_index: pre.txIndexes && pre.txIndexes.has(key) ? pre.txIndexes.get(key) : undefined
+    };
+    let identity = await db.getActionType(config, action_index, true);
+    return (identity && typeof identity === 'object')
+        ? identity : { type: identity, tx_index: undefined };
+}
+
 class ActionDetailReaders {
     // @param {object} preload  optional page-level prefetch from buildActionPreload.
     //                          Every leg it carries is OPTIONAL: an
@@ -181,9 +202,10 @@ class ActionDetailReaders {
         // Use the page preload only for the indexes it actually prefetched; anything
         // else runs the per-index queries exactly as before.
         let pre  = (preload && preload.indexes && preload.indexes.has(Number(action_index))) ? preload : null;
-        let type = (pre && pre.types.has(Number(action_index)))
-            ? pre.types.get(Number(action_index))
-            : await this.getActionType(config, action_index);
+        let key = Number(action_index);
+        let identity = await readActionIdentity(this, config, action_index, pre, key);
+        let type = identity.type;
+        let originTxIndex = identity.tx_index;
         if(type){
             // Per-action detail is a registry (src/action-detail/), not an
             // if-chain: one handler per action type owns its SQL and its result
@@ -199,6 +221,8 @@ class ActionDetailReaders {
                 built = optionalTransactionQueries(built);
             data = await runHandlerQueries(this, config, handler, ctx, built, action_index, data);
             await attachActionTail(this, config, handler, ctx, type, action_index, data, pre);
+            attachProtocolGeneratedOrigin(data, originTxIndex);
+            actionDetail.applyActionStatusReason(data);
         }
         // Store in LRU cache for future lookups (coin + reorg-generation key, see getActionData entry).
         // Skip anything carrying a live `state` block: DISPENSER, ORDER and SWAP responses
@@ -225,5 +249,6 @@ module.exports = composeReaderParts(
     orderBatchMethods,
     dispenserPrices,
     destinationMethods,
-    ledgerTickMethods
+    ledgerTickMethods,
+    lifecyclePartyMethods
 );

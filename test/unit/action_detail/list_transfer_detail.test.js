@@ -106,6 +106,7 @@ function renderList(data){
     win.showListDetails(data);
     return {
         hidden: () => win.jQuery('#info-list .list-destination-row').hasClass('d-none'),
+        editHidden: () => win.jQuery('#info-list .list-edit-type-row').hasClass('d-none'),
         href: () => win.jQuery('#info-list .list-destination a').attr('href'),
         text: () => win.jQuery('#info-list .list-destination').text()
     };
@@ -127,5 +128,11 @@ describe('client: the LIST card names a transfer destination', function(){
 
     it('hides the row on every other format', function(){
         assert.strictEqual(renderList({ action_format: 0, type: 2, list: [], edits: [] }).hidden(), true);
+    });
+
+    it('hides the edit classification on non-edit share, transfer and metadata actions', function(){
+        for(const action_format of [2, 3, 5])
+            assert.strictEqual(renderList({ action_format, type: 2, list: [], edits: [] }).editHidden(), true);
+        assert.strictEqual(renderList({ action_format: 4, type: 2, list: [], edits: [] }).editHidden(), false);
     });
 });

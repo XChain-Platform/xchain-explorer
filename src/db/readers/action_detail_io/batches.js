@@ -28,6 +28,7 @@
 'use strict';
 
 const { ACTION_SUMMARY_FIELDS } = require('../../shared.js');
+const { actionStatusReason } = require('../../../action-detail/shared.js');
 
 // Structured logging. Cached at require time: getLogger() resolves lazily on
 // every call, so this reaches the real shipper once api.js has run
@@ -180,7 +181,8 @@ class ActionSummaryReaders {
             if(!details) details = {};
             details.batch_key = info.request_id;
         }
-        return { details, status };
+        let status_reason = actionStatusReason({ action: info.action, status });
+        return { details, status, status_reason };
     }
 
     // Multi-leg markers for SEND (sends[]), DESTROY (destroys[]) and AIRDROP (airdrops[]):
@@ -214,7 +216,7 @@ class ActionSummaryReaders {
         let actionData = await this.getActionDataBatch(config, actions.map((a) => a.action_index));
         for(let data of actions){
             let info = actionData.get(Number(data.action_index));
-            let { details, status } = this.projectActionSummary(info);
+            let { details, status, status_reason } = this.projectActionSummary(info);
             // The history feed derives BATCH membership per row (getHistoryData's
             // correlated subquery) but the positional row shape has no slot for it,
             // so it rides inside details, where the client marks the member row.
@@ -223,6 +225,7 @@ class ActionSummaryReaders {
                 details.parent_batch_action_index = Number(data.parent_batch_action_index);
             }
             data.status  = status;
+            data.status_reason = status_reason;
             data.details = details;
         }
         // Slow-page observability (Fix B): warn when first-load latency is still high after

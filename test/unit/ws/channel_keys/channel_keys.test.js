@@ -86,6 +86,19 @@ describe('channel key parsing', function () {
 
 describe('address and token entity-key resolution', function () {
 
+    it('normalizes recognized uppercase bech32 addresses for their coin', function () {
+        const lower = 'bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p';
+        expect(channelKeys.resolveEntityKeys('address', { address: lower.toUpperCase() }, 'RBTC'))
+            .to.deep.equal({ keys: [{ address: lower }] });
+    });
+
+    it('keeps unrecognized and base58 spellings byte-exact', function () {
+        expect(channelKeys.resolveEntityKeys('address', { address: 'NotAnAddress' }, 'RBTC'))
+            .to.deep.equal({ keys: [{ address: 'NotAnAddress' }] });
+        expect(channelKeys.resolveEntityKeys('address', { address: '1BoatSLRHtKNngkdXEeobR76b53LETtpyT' }, 'BTC'))
+            .to.deep.equal({ keys: [{ address: '1BoatSLRHtKNngkdXEeobR76b53LETtpyT' }] });
+    });
+
     it('resolves address arrays and singular addresses', function () {
         expect(channelKeys.resolveEntityKeys('address', { addresses: ['a', 'b'] }))
             .to.deep.equal({ keys: [{ address: 'a' }, { address: 'b' }] });

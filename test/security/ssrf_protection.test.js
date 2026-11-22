@@ -283,6 +283,9 @@ describe('Security: SSRF: DNS resolution bypass', function () {
         await explorer.processRelayRequest(makeRelayReq('https://ipfsc.crystalsuite.com/data.json'), res);
         const opts = axiosStub.get.firstCall.args[1];
         expect(opts.lookup).to.be.a('function');
+        expect(opts.proxy).to.equal(false);
+        expect(opts.httpAgent).to.not.equal(require('http').globalAgent);
+        expect(opts.httpsAgent).to.not.equal(require('https').globalAgent);
     });
 
 });

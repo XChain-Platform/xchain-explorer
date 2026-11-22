@@ -29,7 +29,8 @@
  ********************************************************************/
 
 const netmod  = require('net');
-const { isPrivateAddress } = require('../../http/ssrf_guard');
+const crypto  = require('crypto');
+const { isPrivateAddress, directEgressOptions, egressSignal } = require('../../http/ssrf_guard');
 // The same decompression the live /{COIN}/api/file/{index}/raw route applies
 // (XChainExplorer.processFileRawRequest), so an `action:` FILE resolves to the
 // identical bytes the token page renders from. Contractually non-throwing: it
@@ -84,20 +85,22 @@ async function fetchActionSource(dl, src, depth, flavor, deps){
     if(json && typeof json === 'object'){
         const picked = selectIconUrlFromCip25Json(json);
         if(!picked) throw new Error('action: JSON has no usable image');
-        // A TIS entry's image is normally inline base64 rather than a URL,
-        // so decode it here. The ord branch does the same for the same
-        // reason; the generic URL lanes cannot fetch a data: URL at all.
-        const inline = /^data:[^;,]*;base64,(.*)$/i.exec(picked);
-        if(inline){
-            const buf = Buffer.from(inline[1], 'base64');
-            if(!buf.length) throw new Error('action: empty after base64 decode');
-            return buf;
-        }
+        const inline = decodeInlineDataUrl(picked, 'action');
+        if(inline) return inline;
         let next = resolveDescriptionToSource(picked);
         if(!next) next = { scheme: 'image_url', url: picked };
         return await dl.fetchSourceBytes(next, depth - 1, flavor);
     }
     return bytes;
+}
+
+function decodeInlineDataUrl(picked, label){
+    if(!/^data:/i.test(picked)) return null;
+    const inline = /^data:[^;,]*;base64,(.*)$/i.exec(picked);
+    if(!inline) throw new Error(`${label}: data URL not base64`);
+    const buf = Buffer.from(inline[1], 'base64');
+    if(!buf.length) throw new Error(`${label}: empty after base64 decode`);
+    return buf;
 }
 
 // stamp: the image bytes are inline in the description.
@@ -130,6 +133,10 @@ async function fetchDocumentSource(dl, src, depth, flavor, deps){
     // the Content-Type header (IPFS gateways routinely serve
     // content as text/plain regardless of the actual bytes).
     const resp = await dl.httpFetch(src.url);
+    if(src.expectedHash){
+        const digest = crypto.createHash('sha256').update(resp.body).digest('hex');
+        if(digest !== src.expectedHash) throw new Error(`${src.scheme}: metadata integrity mismatch`);
+    }
 
     // Try JSON parse first
     let json = null;
@@ -137,6 +144,8 @@ async function fetchDocumentSource(dl, src, depth, flavor, deps){
     if(json && typeof json === 'object'){
         const picked = selectIconUrlFromCip25Json(json);
         if(!picked) throw new Error(`${src.scheme}: JSON has no usable image`);
+        const inline = decodeInlineDataUrl(picked, src.scheme);
+        if(inline) return inline;
         let next = resolveDescriptionToSource(picked);
         if(!next) next = { scheme: 'image_url', url: picked };
         return await dl.fetchSourceBytes(next, depth - 1, flavor);
@@ -150,10 +159,13 @@ async function fetchDocumentSource(dl, src, depth, flavor, deps){
 
 // imgur / image_url / anything else: a direct image URL.
 async function fetchImageSource(dl, src){
+    if(/^data:/i.test(src.url))
+        throw new Error(`${src.scheme}: data URL reached a network lane`);
     const resp = await dl.httpFetch(src.url);
     const mime = (resp.mime || '').toLowerCase();
     if(!mime.startsWith('image/'))
-        throw new Error(`${src.scheme}: not an image (got '${mime}')`);
+        throw new Error(mime ? `${src.scheme}: not an image (got '${mime}')`
+            : `${src.scheme}: not an image (no content-type)`);
     return resp.body;
 }
 
@@ -195,6 +207,11 @@ async function fetchActionFileBytes(dl, src, flavor){
         throw new Error('action: no pool configured for ' + poolKey + ' on this instance');
 
     const config = { coin: poolKey, data: {} };
+    if(typeof db.getMultipartFileRaw === 'function') {
+        const multipartFile = await db.getMultipartFileRaw(config, src.index, { metadataOnly: true });
+        if(multipartFile && (multipartFile.kind === 'manifest' || multipartFile.kind === 'manifest-invalid'))
+            throw new Error('action: FILE ' + poolKey + ':' + src.index + ' is a multi-part manifest');
+    }
     // Token-gated FILEs are stored as AES-GCM ciphertext and only a key holder can
     // read them, so there is no icon to render. Thrown rather than marked no-source
     // so the row lands in the normal backoff and retires as 'failed' after
@@ -262,8 +279,10 @@ async function httpFetch(dl, url, deps){
     let resp;
     try {
         resp = await axios.get(url, {
+            ...directEgressOptions(),
             responseType:     'arraybuffer',
             timeout:          dl.cfg.fetchTimeoutMs,
+            signal:           egressSignal(dl.cfg.fetchDeadlineMs),
             maxContentLength: dl.cfg.maxBytes,
             maxRedirects:     3,
             // SSRF guard: icon source URLs come from on-chain token
@@ -280,6 +299,8 @@ async function httpFetch(dl, url, deps){
             validateStatus: s => s >= 200 && s < 300,
         });
     } catch (e){
+        if(e.code === 'ERR_CANCELED' || ['CanceledError', 'AbortError', 'TimeoutError'].includes(e.name))
+            throw new Error('fetch deadline exceeded');
         if(e.response){
             throw new Error(`HTTP ${e.response.status}`);
         }

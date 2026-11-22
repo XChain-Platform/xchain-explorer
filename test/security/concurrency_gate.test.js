@@ -36,6 +36,15 @@ const { createConcurrencyGate, resolveLimit } = require('../../src/http/concurre
 // Servers opened by a test, torn down in afterEach.
 let openServers = [];
 
+// '/held' takes a gate hold and never answers: the shape of a batch whose
+// reads are still running after the caller hung up.
+function mountHeldRoute(app, captured, holdDrops){
+    app.get('/held', (req, res) => {
+        captured.push(res);
+        holdDrops.push(res.holdSlot());
+    });
+}
+
 /**
  * Stand up a miniature explorer: the production per-IP limiter, then the gate,
  * then a handler that parks until the test releases it. Parking is what makes
@@ -77,17 +86,25 @@ function buildServer(options){
     // observable to poll.
     let parkedArrivals = 0;
 
+    // Every admitted response, so a test can read the abort signal the gate
+    // hung on it; and the hold releases '/held' took, so a test can play the
+    // handler whose backend work outlives its client.
+    const captured = [];
+    const holdDrops = [];
+
     app.get('/expensive', async (req, res) => {
         parkedArrivals++;
+        captured.push(res);
         await held;
         res.json({ ok: true, ip: req.ip });
     });
+    mountHeldRoute(app, captured, holdDrops);
     app.get('/status', (req, res) => res.json({ status: 'ok' }));
 
     const server = http.createServer(app);
     openServers.push(server);
 
-    return { app, gate, server, release: () => releaseHeld(), parkedArrivals: () => parkedArrivals };
+    return { app, gate, server, captured, holdDrops, release: () => releaseHeld(), parkedArrivals: () => parkedArrivals };
 }
 
 function listen(server){
@@ -235,6 +252,83 @@ describe('Security: global in-flight concurrency cap', function () {
         for(const response of await Promise.all(parked)) expect(response.status).to.equal(200);
     });
 
+});
+
+describe('Security: concurrency cap counts work an aborted client left running', function () {
+
+    afterEach(function () {
+        closeOpenServers();
+    });
+
+    it('signals abort on a client hang-up, and not on a normal response', async function () {
+        const { server, gate, captured, release } = buildServer({ limit: 2 });
+        await listen(server);
+
+        const controller = new AbortController();
+        const aborted = get(server, '/expensive', 1, { signal: controller.signal });
+        await waitFor(() => captured.length === 1, 'first request to park');
+        const normal = get(server, '/expensive', 2);
+        await waitFor(() => captured.length === 2, 'second request to park');
+
+        controller.abort();
+        await aborted.catch(() => {});
+        await waitFor(() => captured[0].abortSignal.aborted, 'abort signal on the hung-up request');
+
+        release();
+        expect((await normal).status).to.equal(200);
+        await waitFor(() => gate.getStats().in_flight === 0, 'both slots to be released');
+        // 'close' also fires after 'finish' on a normal response; that must
+        // not read as an abort to a handler still looking at the signal.
+        expect(captured[1].abortSignal.aborted).to.equal(false);
+    });
+
+    it('keeps an aborted request counted while its handler holds the slot', async function () {
+        const { server, gate, captured, holdDrops } = buildServer({ limit: 1 });
+        await listen(server);
+
+        const controller = new AbortController();
+        const aborted = get(server, '/held', 1, { signal: controller.signal });
+        await waitFor(() => holdDrops.length === 1, 'handler to take its hold');
+
+        controller.abort();
+        await aborted.catch(() => {});
+        await waitFor(() => captured[0].abortSignal.aborted, 'abort signal on the hung-up request');
+
+        // The client is gone but its backend work is not: the next caller is
+        // refused at the cap instead of being admitted on top of that work.
+        expect(gate.getStats().in_flight).to.equal(1);
+        const refused = await get(server, '/expensive', 2);
+        expect(refused.status).to.equal(429);
+        expect((await refused.json()).code).to.equal('SERVER_BUSY');
+
+        holdDrops[0]();
+        expect(gate.getStats().in_flight).to.equal(0);
+        // Idempotent: a second drop never drives the count negative.
+        holdDrops[0]();
+        expect(gate.getStats().in_flight).to.equal(0);
+    });
+});
+
+describe('Security: concurrency cap hold on a completed response', function () {
+
+    afterEach(function () {
+        closeOpenServers();
+    });
+
+    it('frees a held slot on a normal response without waiting for the hold', async function () {
+        const { app, server, gate } = buildServer({ limit: 1 });
+        let drop = null;
+        app.get('/answers-while-held', (req, res) => {
+            drop = res.holdSlot();
+            res.json({ ok: true });
+        });
+        await listen(server);
+
+        expect((await get(server, '/answers-while-held', 1)).status).to.equal(200);
+        await waitFor(() => gate.getStats().in_flight === 0, 'slot to be released on finish');
+        drop();
+        expect(gate.getStats().in_flight).to.equal(0);
+    });
 });
 
 describe('Security: global in-flight concurrency cap', function () {

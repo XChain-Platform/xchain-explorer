@@ -35,7 +35,7 @@
  *
  ********************************************************************/
 
-const { COIN_MAP } = require('./broadcaster/coin_map.js');
+const { envelopeFor } = require('./broadcaster/coin_map.js');
 const { actionChannelKeys, lifecycleChannelKeys } = require('./broadcaster/action_routes.js');
 
 // BigInt-safe JSON serializer (shared with WebSocketServer via serialize.js so the
@@ -127,7 +127,7 @@ class Broadcaster {
     // per-coin serial chain (see constructor) so its async DB read cannot reorder
     // frames during a catch-up burst.
     onBlock(coin, block) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         // A block is the only moment an address's index id can change meaning (a
@@ -169,8 +169,7 @@ class Broadcaster {
     // per-block action count, or a subscriber that seeds a counter from the
     // snapshot sees it collapse on the next live frame. Runs only on the
     // per-coin serial chain; a block superseded by one queued after it is
-    // skipped (its frame would be stale on arrival, and skipping collapses a
-    // burst into one DB read).
+    // skipped around the awaited read (a stale arrival; also collapses a burst).
     async emitNetworkStats(coin, info, block) {
         if (this._queuedBlock.get(coin) !== block) return;
         let totalActions;
@@ -181,6 +180,8 @@ class Broadcaster {
             // cumulative total, and the next block whose read succeeds sends a correct one
             return;
         }
+        // onReorg or a newer block can invalidate an in-flight read.
+        if (this._queuedBlock.get(coin) !== block) return;
         const stats = {
             type:      'NETWORK_STATS',
             chain:     info.chain,
@@ -201,7 +202,7 @@ class Broadcaster {
 
     // Handle new action from ChangeDetector
     onAction(coin, action) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         const event = {
@@ -254,7 +255,7 @@ class Broadcaster {
 
     // Handle lifecycle events (ORDER_MATCH, COINPAY_REQUIRED, SWAP_MATCH, etc.)
     onLifecycleEvent(coin, lifecycleEvent) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         const event = {
@@ -304,7 +305,7 @@ class Broadcaster {
 
     // Handle entity update events (ADDRESS_UPDATE, TOKEN_UPDATE, MARKET_UPDATE, DISPENSER_UPDATE)
     onEntityUpdate(coin, updateEvent) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         const event = {

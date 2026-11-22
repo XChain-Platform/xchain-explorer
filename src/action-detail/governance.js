@@ -235,6 +235,11 @@ const VOTE = {
     async afterMain({ db, config, action_index }, data) {
         if(!db.util.isNull(data['poll_status'])){
             data['vote_kind'] = 'poll';
+            // A refused create still owns an inert polls row whose lifecycle column holds
+            // its default, so a create that never became a poll is reported as refused
+            // rather than as one accepting ballots.
+            if(!db.util.isNull(data['status']) && data['status'] !== 'valid')
+                data['poll_status'] = 'refused';
             // options is a JSON array of labels; callback_params a JSON array of dev params.
             data['options'] = parseVoteOptions(data['options'], 'options', action_index, data);
             if(data['callback_params']){

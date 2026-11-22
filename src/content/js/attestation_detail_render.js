@@ -50,7 +50,7 @@ function renderAttestationLifecycle(d){
         let icon = s.reached ? 'fa-circle-check text-success' : 'fa-circle text-muted';
         html += '<div class="border rounded p-2 attestation-stage ' + cls + '" data-stage="' + attEsc(s.key) + '"'
              + ' data-reached="' + (s.reached ? 'true' : 'false') + '">'
-             + '<i class="fa ' + icon + ' me-1"></i>'
+             + '<i class="fa-solid ' + icon + ' me-1"></i>'
              + '<span class="fw-bold attestation-stage-label">' + attEsc(s.label) + '</span>'
              + '<div class="small text-muted attestation-stage-note">' + attEsc(s.note) + '</div>'
              + '</div>';

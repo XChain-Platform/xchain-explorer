@@ -35,6 +35,7 @@
 
 const gateRegistry = require('../consensus/gate_registry.js');
 const { env } = require('../config.js');
+const { landingBlockTimes } = require('../federation/price_batches.js');
 
 const OWNER_WITHDRAW_OPT_IN_KEY = 'owner_withdraw_opt_in.OWNER_WITHDRAW_OPT_IN';
 
@@ -98,22 +99,80 @@ function ownerWithdrawState({ metaJson, blockTime, network }){
 }
 
 /**
+ * Whether a row's answer depends on the DEPLOY block's protocol time rather than
+ * its stored stamp. The indexer judges the gate on the median-time-past of the
+ * deploy block on testnet, which never exceeds the raw stamp: so an opted-in
+ * contract, or one stamped before the activation, is decided by the raw stamp
+ * alone, and only an undeclared contract stamped at or after it can still read
+ * as enabled once the median is applied.
+ *
+ * @param   {object}  row
+ * @param   {?string} network
+ * @returns {boolean}
+ */
+function needsProtocolTime(row, network){
+    if(network !== 'testnet' || declaresOwnerWithdraw(row.meta_json))
+        return false;
+    const threshold = activationTime(network);
+    const stamp  = (row.timestamp === null || row.timestamp === undefined) ? NaN : parseInt(String(row.timestamp), 10);
+    const height = (row.block_index === null || row.block_index === undefined) ? NaN : Number(row.block_index);
+    return threshold !== null && Number.isFinite(stamp) && stamp >= threshold &&
+           Number.isSafeInteger(height) && height >= 0;
+}
+
+/**
  * Set `owner_withdraw` on a contract row that still carries its raw meta_json
  * and its DEPLOY block time as `timestamp` (the contract readers' alias for
  * b1.block_time). Must run before attachContractMeta, which drops meta_json.
  *
+ * `times` is the map from DEPLOY height to protocol time that
+ * attachOwnerWithdrawRows resolves. Given one, a row whose answer depends on
+ * protocol time and whose height is absent from it is served as unknown (null),
+ * never judged on the raw stamp. Without one the stored stamp is used as is.
+ *
  * @param   {object}  row
  * @param   {?string} network
+ * @param   {Map<number, number>} [times]
  * @returns {object}  the same row
  */
-function attachOwnerWithdraw(row, network){
+function attachOwnerWithdraw(row, network, times){
     if(!row || typeof row !== 'object') return row;
+    let blockTime = row.timestamp;
+    if(times instanceof Map && needsProtocolTime(row, network)){
+        const height = Number(row.block_index);
+        blockTime = times.has(height) ? times.get(height) : null;
+    }
     row.owner_withdraw = ownerWithdrawState({
         metaJson:  row.meta_json,
-        blockTime: row.timestamp,
+        blockTime: blockTime,
         network:   network || null
     });
     return row;
+}
+
+/**
+ * attachOwnerWithdraw over every row of a response, resolving the DEPLOY blocks'
+ * protocol time for the rows that need it with one decoder read however many
+ * rows there are. A failed or empty read leaves those rows unresolved, which
+ * serves them as unknown.
+ *
+ * @param   {object}  db       the Database instance
+ * @param   {object}  config   the request config carrying the route code
+ * @param   {object|object[]} rows
+ * @param   {?string} network
+ * @returns {Promise<object|object[]>} the rows passed in
+ */
+async function attachOwnerWithdrawRows(db, config, rows, network){
+    const list = Array.isArray(rows) ? rows : [rows];
+    const needy = list.filter((row) => row && typeof row === 'object' && needsProtocolTime(row, network));
+    let times = new Map();
+    if(needy.length){
+        try { times = await landingBlockTimes(db, config, network, needy); }
+        catch(e){ times = new Map(); }
+    }
+    for(const row of list)
+        attachOwnerWithdraw(row, network, times);
+    return rows;
 }
 
 /**
@@ -141,5 +200,6 @@ module.exports = {
     activationTime,
     ownerWithdrawState,
     attachOwnerWithdraw,
+    attachOwnerWithdrawRows,
     resolveContractNetwork
 };

@@ -54,6 +54,43 @@ async function attachXcallLifecycle(db, config, row){
 }
 
 class XcallDetailReaders {
+    // XCALL v2 expiry actions have no xcalls row. Pair their in-block action
+    // order with the expired v0 requests in the exact order the indexer sweep
+    // uses. Unequal lists yield no link because a wrong link is worse than none.
+    async correlateXcallExpiries(config, blockIndex){
+        if(this.util.isNull(blockIndex)) return [];
+        const cap = 100;
+        const actions = await this.doQuery(config,
+            `SELECT a1.action_index
+             FROM actions a1
+             INNER JOIN index_actions a2 ON (a2.id=a1.action_id)
+             WHERE a1.block_index=? AND a2.action='XCALL' AND a1.action_format=2
+             ORDER BY a1.action_index ASC LIMIT ` + cap, [blockIndex]);
+        if(!actions || !actions.length) return [];
+        const requests = await this.doQuery(config,
+            `SELECT m.action_index, m.version, m.call_id, m.contract_index,
+                    m.target_chain, m.target_contract_index, m.method, m.params_json,
+                    m.gas_limit, m.cross_hops, m.callback_method, m.callback_params_json,
+                    m.deadline_block, m.request_status, m.result_status, m.result_payload,
+                    m.resolved_block, m.callback_action_index
+             FROM xcalls m
+             INNER JOIN index_statuses s1 ON (s1.id=m.status_id)
+             WHERE m.version=0 AND m.request_status='expired' AND m.resolved_block=?
+               AND s1.status='valid'
+             ORDER BY m.deadline_block ASC, m.action_index ASC LIMIT ` + cap, [blockIndex]);
+        if(!requests || requests.length !== actions.length) return [];
+        return actions.map((action, i) => ({
+            expire_action_index: action.action_index,
+            request: requests[i]
+        }));
+    }
+
+    async resolveXcallExpireRequest(config, expireActionIndex, blockIndex){
+        const pairs = await this.correlateXcallExpiries(config, blockIndex);
+        const hit = pairs.find(p => Number(p.expire_action_index) === Number(expireActionIndex));
+        return hit ? hit.request : null;
+    }
+
     // Full XCALL lifecycle by call_id: the source request (xcalls) + the target-chain
     // execution outcome (cross_chain_call_executions) + the source-chain callback
     // delivery (cross_chain_call_callbacks). The latter two are null until the call is
@@ -161,12 +198,9 @@ class XcallDetailReaders {
     // own for the ChangeDetector's actions cursor to find. `resolved_block` is the height
     // at which that write happened, so it is the cursor column.
     //
-    // Expired calls are included even though XCALL v2 does mint an action row: the v2
-    // action is a SEPARATE xcalls row (version 2) whose action name is XCALL, so a
-    // subscriber filtering on the phase events would otherwise see completions but not
-    // expiries, which is the asymmetry that makes a live timeline wrong rather than
-    // merely incomplete. The event carries `synthetic` so a consumer can tell which of
-    // the two had a causing action.
+    // Expired calls are included even though XCALL v2 mints an action row: that action
+    // has no xcalls row and only updates the v0 request's status and resolved_block.
+    // Phase subscribers therefore still read the v0 row for the expiry transition.
     // (resolved_block, action_index) is a total order (action_index is unique per row),
     // and `bounds` resumes and caps it exactly as getBetFeedsClosedSince's does.
     async getXcallPhasesSince(config, sinceBlockIndex, limit, bounds){

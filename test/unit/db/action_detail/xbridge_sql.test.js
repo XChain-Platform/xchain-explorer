@@ -55,13 +55,28 @@ describe('XBRIDGE SQL constants', function() {
     it('counts each snapshot member list in SQL and never ships the list itself', function() {
         for(const [sql, counts] of SNAPSHOT_COUNTS) {
             for(const [column, alias] of Object.entries(counts)) {
-                const guarded = `CASE WHEN JSON_VALID(${column}) THEN JSON_LENGTH(${column}) END AS ${alias}`;
+                const guarded = sql === POLICY_SNAPSHOT
+                    ? `CASE WHEN JSON_VALID(${column}) THEN CASE WHEN JSON_TYPE(${column})='ARRAY' THEN JSON_LENGTH(${column}) END END AS ${alias}`
+                    : `CASE WHEN JSON_VALID(${column}) THEN JSON_LENGTH(${column}) END AS ${alias}`;
                 expect(sql).to.contain(guarded);
-                const rest = sql.split(guarded).join('');
+                let rest = sql.split(guarded).join('');
+                if(sql === POLICY_SNAPSHOT){
+                    const refAlias = column.replace('_list', '_ref');
+                    const refGuard = `CASE WHEN JSON_VALID(${column}) THEN CASE WHEN JSON_TYPE(${column})='STRING' THEN JSON_UNQUOTE(${column}) END END AS ${refAlias}`;
+                    rest = rest.split(refGuard).join('');
+                }
                 expect(rest).to.not.match(new RegExp(`\\b${column}\\b`), `${column} is selected raw`);
             }
         }
         expect(POLICY_SNAPSHOT).to.match(/\bsleeping\b/);
+    });
+
+    it('selects policy string references without exposing membership arrays', function() {
+        for(const [column, alias] of [['allow_list', 'allow_ref'], ['block_list', 'block_ref']]) {
+            expect(POLICY_SNAPSHOT).to.contain(
+                `CASE WHEN JSON_VALID(${column}) THEN CASE WHEN JSON_TYPE(${column})='STRING' THEN JSON_UNQUOTE(${column}) END END AS ${alias}`
+            );
+        }
     });
 
     it('keeps each query tied to its table and uses only question-mark binding', function() {

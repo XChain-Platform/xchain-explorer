@@ -45,32 +45,45 @@ function pendingTransactionActions(tx){
     });
 }
 
+// This check must see the raw API row before null2string makes null ambiguous.
+function isProtocolGeneratedAction(o){
+    return Boolean(o) && o.protocol_generated === true;
+}
+
+function setActionInfo(raw){
+    XC.actionNoSourceTx = isProtocolGeneratedAction(raw);
+    XC.actionInfo = null2string(raw);
+}
+
+function renderActionStatus(status, reason){
+    let note = isNull(reason) ? '' : String(reason);
+    $('#action-status-value').text(status);
+    $('#action-status-reason').text(note).toggleClass('d-none', note === '');
+}
+
 // Handle displaying transaction details
 function showTransactionDetails(){
     // Setup short alias to action info object
     let o = (XC.actionInfo) ? XC.actionInfo : XC.transactionInfo;
     let noSourceTx      = Boolean(XC.actionInfo)
-        && o.status === null
-        && o.source === null
-        && o.tx_hash === null
-        && o.tx_data === null;
+        && (XC.actionNoSourceTx === true || isProtocolGeneratedAction(o));
     let SYSTEM_ACTION   = 'Protocol-generated action';
     let NOT_APPLICABLE  = 'Not applicable, no source transaction';
     // Update page with basic transaction details
-    let source        = noSourceTx ? 'Protocol-generated' : (o.source) ? formatLink('/' + XC.coin + '/address/' + o.source, o.source) : '-';
-    let tx_index      = noSourceTx ? NOT_APPLICABLE : (o.tx_index) ? formatLink('/' + XC.coin + '/transaction/' + o.tx_index, formatAmount(o.tx_index)) : '-';
+    let source        = (o.source) ? formatLink('/' + XC.coin + '/address/' + o.source, o.source) : noSourceTx ? 'Protocol-generated' : '-';
+    let tx_index      = (o.tx_index) ? formatLink('/' + XC.coin + '/transaction/' + o.tx_index, formatAmount(o.tx_index)) : noSourceTx ? NOT_APPLICABLE : '-';
     let block_index   = o.pending ? 'Pending (unconfirmed)' : (o.block_index) ? formatLink('/' + XC.coin + '/block/' + o.block_index, formatAmount(o.block_index)) : '-';
     let action_index  = (o.action_index) ? formatLink('/' + XC.coin + '/action/' + o.action_index, formatAmount(o.action_index)) : '-';
     let action_format = (isNumeric(o.action_format)) ? o.action_format : '-';
     let action        = (o.action) ? o.action : '-';
     let status        = (o.status) ? o.status : (noSourceTx ? SYSTEM_ACTION : '-');
-    let tx_data       = noSourceTx ? NOT_APPLICABLE : (o.tx_data) ? o.tx_data : '-';
+    let tx_data       = (o.tx_data) ? o.tx_data : noSourceTx ? NOT_APPLICABLE : '-';
     $('#tx-index').html(tx_index);
     $('#block').html(block_index);
     $('#action-command').text(action);
     $('#action-format').text(action_format);
     $('#action-index').html(action_index);
-    $('#action-status').text(status);    
+    renderActionStatus(status, o.status_reason);
     $('#source').html(source);
     $('#tx-data').text(tx_data);
     // A VM-emitted action never had a wire string of its own, so `tx_data` here is the
@@ -99,6 +112,29 @@ function showTransactionDetails(){
     }
     // Load the actions table data
     showActionDatatable('actions',pendingTransactionActions(o));
+}
+
+// Display FEE details
+function showActionFeeDetails(data){
+    if(data){
+        let method = (data.method) ? (' - ' + XC.fee_preferences[data.method]) : '';
+        let tick   = (data.tick!='') ? data.tick : false;
+        $('#info-fee .fee-tick').html(formatLink(tokenUrl(XC.coin, tick), tick, tick));
+        // Payment mode 1 settles in the native coin: no XCHAIN moves, and `amount` is only
+        // the XCHAIN-denominated quote the native output was priced from.
+        let isNative = (Number(data.payment_mode) === 1);
+        $('#info-fee .fee-amount-label').text(isNative ? 'XCHAIN Quote' : 'Amount');
+        $('#info-fee .fee-amount').html(formatAmount(data.amount));
+        $('#info-fee .fee-native-row, #info-fee .fee-oracle-row').toggleClass('d-none', !isNative);
+        $('#info-fee .fee-native').text(isNative && !isNull(data.native_coin_amount)
+            ? data.native_coin_amount + ' ' + nullToBlank(data.native_coin) : '-');
+        $('#info-fee .fee-oracle').text(isNative && !isNull(data.oracle_round) ? String(data.oracle_round) : '-');
+        // data.method is an on-chain fee-preference field reaching an .html() sink; escape it.
+        $('#info-fee .fee-method').html(escapeHtml(String(data.method)) + method);
+        $('#info-fee .fee-destination-row').toggleClass('d-none', isNative);
+        $('#info-fee .fee-destination').html(isNull(data.destination) ? '' :
+            formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
+    }
 }
 
 // Handle displaying action details

@@ -15635,7 +15635,276 @@
             "$ref": "#/components/responses/CoinUnavailable"
           }
         }
-      }
+      },
+      "post": {
+        "operationId": "post_history",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Merged confirmed action history with per-address balance effects for up to 20 addresses in one request",
+        "description": "One newest-first page across every requested address, complete over the action_index span it covers. Runs a fixed number of statements however many addresses or rows it serves. `since`/`until` resolve to whole blocks: every block after the last block stamped before `since`, through the last block stamped at or before `until`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "description": "Addresses to read (duplicates collapsed, order kept); more than 20 answers 400 TOO_MANY_ADDRESSES"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 50,
+                    "description": "Actions per page; outside 1..100 answers 400 INVALID_LIMIT"
+                  },
+                  "before": {
+                    "type": [
+                      "integer",
+                      "string"
+                    ],
+                    "pattern": "^[0-9]+$",
+                    "description": "Cursor: the previous page's next_cursor (exclusive)"
+                  },
+                  "since": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Window start, unix seconds"
+                  },
+                  "until": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Window end, unix seconds"
+                  }
+                },
+                "required": [
+                  "addresses"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "amount_unit": {
+                      "type": "string",
+                      "enum": [
+                        "base"
+                      ],
+                      "description": "Unit of every *_base field"
+                    },
+                    "addresses": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "The requested addresses, canonical spelling, request order"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "before": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "since": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "until": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "next_cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^[0-9]+$",
+                      "description": "Pass as `before` for the next page; null on the last page"
+                    },
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "description": "One confirmed action, with the GET /history/{address}/address feed columns. Per-action details and status are served by GET /action/{ACTION_INDEX}",
+                        "properties": {
+                          "action_index": {
+                            "type": "string",
+                            "pattern": "^[0-9]+$"
+                          },
+                          "action": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Action name, including the transaction-less ledger actions (DISPENSE, ORDER_MATCH, DIVIDEND, SWEEP, ...)"
+                          },
+                          "block_index": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^[0-9]+$"
+                          },
+                          "timestamp": {
+                            "description": "Block time, unix seconds",
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^[0-9]+$"
+                          },
+                          "tx_hash": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "null for a transaction-less action"
+                          },
+                          "tx_index": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^[0-9]+$"
+                          },
+                          "parent_batch_action_index": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "pattern": "^[0-9]+$"
+                          },
+                          "addresses": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "The requested addresses this action is mapped to"
+                          },
+                          "effects": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "description": "What one action did to one requested address's balance of one token (credits minus debits; escrowed amounts are already debited)",
+                              "properties": {
+                                "address": {
+                                  "type": "string"
+                                },
+                                "tick": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "decimals": {
+                                  "type": [
+                                    "integer",
+                                    "null"
+                                  ],
+                                  "description": "The token's decimal places: base = whole x 10^decimals"
+                                },
+                                "credit_base": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Credited, in base units, an exact decimal string; null when the token has no decimals on record"
+                                },
+                                "debit_base": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "Debited, in base units, an exact decimal string; null when the token has no decimals on record"
+                                },
+                                "net_base": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ],
+                                  "description": "credit_base minus debit_base. An integer except where the ledger holds a fee finer than the token (a half-unit fee on a 0-decimal gas token reads -0.5). Summed exactly over an address's whole history it equals the stored balance x 10^decimals: the ledger and the balance both hold exact amounts, with no rounding to the token's decimals, an exact decimal string; null when the token has no decimals on record"
+                                },
+                                "net_whole": {
+                                  "type": "string",
+                                  "description": "The same net in whole token units"
+                                }
+                              },
+                              "required": [
+                                "address",
+                                "tick",
+                                "decimals",
+                                "credit_base",
+                                "debit_base",
+                                "net_base",
+                                "net_whole"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "description": "Newest first; one entry per action however many requested addresses it touched"
+                    }
+                  },
+                  "required": [
+                    "amount_unit",
+                    "addresses",
+                    "limit",
+                    "next_cursor",
+                    "actions"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "Too many batch requests from this client; retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        }
+      },
+      "x-registered": "table+express"
     },
     "/{COIN}/api/tokens": {
       "get": {
@@ -15743,7 +16012,65 @@
             "$ref": "#/components/responses/BadRequest"
           },
           "404": {
-            "$ref": "#/components/responses/NotFound"
+            "description": "Unknown action index (NOT_FOUND), unknown coin (UNKNOWN_COIN), or a multipart FILE part requested directly (FILE_PART)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Multipart FILE is incomplete (FILE_INCOMPLETE); retry after remaining parts arrive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "parts_received",
+                        "total_parts"
+                      ],
+                      "properties": {
+                        "parts_received": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "total_parts": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Multipart FILE assembly does not match its manifest (FILE_ASSEMBLY_MISMATCH); terminal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Stored multipart FILE data is corrupt (FILE_PART_CORRUPT), or an unexpected read failed (SERVER_ERROR)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "503": {
             "$ref": "#/components/responses/CoinUnavailable"
@@ -15980,7 +16307,7 @@
                     "type": "string",
                     "pattern": "^[A-Z0-9_]{1,32}$",
                     "example": "ISSUE",
-                    "description": "Action name"
+                    "description": "Action name; checked after trimming and uppercasing, with canonical uppercase recommended"
                   },
                   "params": {
                     "type": "string",
@@ -16165,7 +16492,7 @@
               "pattern": "^[A-Z0-9_]{1,32}$"
             },
             "example": "SEND",
-            "description": "Action name (aliases are resolved)"
+            "description": "Action name; checked after trimming and uppercasing, with canonical uppercase recommended (aliases are resolved)"
           },
           {
             "in": "query",
@@ -16260,7 +16587,7 @@
                     "type": "string",
                     "pattern": "^[A-Z0-9_]{1,32}$",
                     "example": "BATCH",
-                    "description": "Action name (aliases are resolved)"
+                    "description": "Action name; checked after trimming and uppercasing, with canonical uppercase recommended (aliases are resolved)"
                   },
                   "params": {
                     "type": "string",
@@ -16409,6 +16736,7 @@
           "Checkpoints"
         ],
         "summary": "Verify a checkpoint: 2f+1 signatures, canonical string, validator set",
+        "description": "The checkpoint and validator set both come from the hub mirror. The validator_source and anchored fields describe that trust source; verified=true means the served signatures meet quorum over the served set and must not be used as a source for pinned trust roots.",
         "parameters": [
           {
             "$ref": "#/components/parameters/coin"
@@ -17021,6 +17349,459 @@
         }
       },
       "x-registered": "express"
+    },
+    "/{COIN}/api/price_history": {
+      "get": {
+        "operationId": "price_history",
+        "tags": [
+          "Prices"
+        ],
+        "summary": "Downsampled price series for up to 50 assets: oracle rounds in fiat and DEX fills in the quote coin, each series naming its source",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          },
+          {
+            "in": "query",
+            "name": "assets",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated tickers, at most 50. Repeat the parameter instead (assets=A&assets=B) to name a ticker containing a comma; repeated values are not split"
+          },
+          {
+            "in": "query",
+            "name": "interval",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "hour",
+                "day"
+              ],
+              "default": "day"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Unix seconds; default 7 days (hour) or 365 days (day) before `to`"
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Unix seconds; default now"
+          },
+          {
+            "in": "query",
+            "name": "fiat",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "USD"
+            },
+            "description": "Fiat code for the oracle pair ASSET/FIAT"
+          },
+          {
+            "in": "query",
+            "name": "quote",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "DEX quote side; default this chain's native coin (BTC, LTC, DOGE)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "interval": {
+                      "type": "string",
+                      "enum": [
+                        "hour",
+                        "day"
+                      ]
+                    },
+                    "interval_seconds": {
+                      "type": "integer"
+                    },
+                    "from": {
+                      "type": "integer",
+                      "description": "First bucket start (from, rounded down to the interval)"
+                    },
+                    "to": {
+                      "type": "integer",
+                      "description": "Last second of the last bucket"
+                    },
+                    "fiat": {
+                      "type": "string"
+                    },
+                    "quote": {
+                      "type": "string"
+                    },
+                    "price_unit": {
+                      "type": "string"
+                    },
+                    "sources": {
+                      "type": "object",
+                      "properties": {
+                        "oracle": {
+                          "type": "object",
+                          "properties": {
+                            "available": {
+                              "type": "boolean"
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "Why the source is unavailable (hub-mirror gate code or ORACLE_SOURCE_NOT_CONFIGURED)"
+                            }
+                          },
+                          "required": [
+                            "available"
+                          ]
+                        },
+                        "dex": {
+                          "type": "object",
+                          "properties": {
+                            "available": {
+                              "type": "boolean"
+                            },
+                            "code": {
+                              "type": "string",
+                              "description": "Why the source is unavailable (hub-mirror gate code or ORACLE_SOURCE_NOT_CONFIGURED)"
+                            }
+                          },
+                          "required": [
+                            "available"
+                          ]
+                        }
+                      }
+                    },
+                    "series": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "asset": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "oracle",
+                              "dex"
+                            ],
+                            "description": "oracle: finalized price_snapshots rounds (hub mirror). dex: valid order_matches fills"
+                          },
+                          "pair": {
+                            "type": "string",
+                            "description": "ASSET/FIAT for oracle, ASSET/QUOTE for dex"
+                          },
+                          "quote": {
+                            "type": "string",
+                            "description": "What the price is counted in"
+                          },
+                          "points": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "t": {
+                                  "type": "integer",
+                                  "description": "Bucket start, unix seconds, on a UTC interval boundary"
+                                },
+                                "price": {
+                                  "type": "string",
+                                  "description": "The last price inside the bucket, quote units per 1 whole unit of the asset"
+                                },
+                                "at": {
+                                  "type": "integer",
+                                  "description": "When that price was set: the oracle round's block_timestamp, or the bucket's latest fill block time"
+                                },
+                                "fills": {
+                                  "type": "integer",
+                                  "description": "DEX series only: valid fills inside the bucket"
+                                }
+                              },
+                              "required": [
+                                "t",
+                                "price",
+                                "at"
+                              ]
+                            },
+                            "description": "Ascending by t; a bucket with no price has no point (no carry-forward, no zero fill)"
+                          }
+                        },
+                        "required": [
+                          "asset",
+                          "source",
+                          "pair",
+                          "quote",
+                          "points"
+                        ]
+                      },
+                      "description": "Request order; an asset can have one series per source"
+                    },
+                    "missing": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Requested assets with no data in any source"
+                    }
+                  },
+                  "required": [
+                    "interval",
+                    "interval_seconds",
+                    "from",
+                    "to",
+                    "fiat",
+                    "quote",
+                    "price_unit",
+                    "sources",
+                    "series",
+                    "missing"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "Too many batch requests from this client; retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/CoinUnavailable"
+          }
+        },
+        "description": "One statement per source however many assets. A point is the last price inside its UTC-aligned bucket; empty buckets have no point, and an asset with no data is listed in `missing` with no series. A range over 1000 buckets answers 400 RANGE_TOO_LARGE."
+      },
+      "x-registered": "express"
+    },
+    "/{COIN}/api/native_history": {
+      "post": {
+        "operationId": "post_native_history",
+        "tags": [
+          "Core"
+        ],
+        "summary": "Confirmed native coin history for up to 20 addresses, passed through to this coin's UTXO tracker POST /history",
+        "description": "One upstream call per request. The address list is checked here (at most 20, canonical spelling); every other field is judged by the tracker, and its answer, refusals included (503 NOT_READY before the tracker has indexed a block), is returned with its status, body and the X-Next-Cursor / X-Tracker-Height / X-Synced family of headers. The caller's address, as this explorer resolves it, goes to the tracker in X-Forwarded-For so its per-IP watch budget is per wallet; a client's own X-Forwarded-For is never forwarded.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 20
+                  },
+                  "from_height": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "to_height": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "from_time": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Unix seconds"
+                  },
+                  "to_time": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Unix seconds"
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "description": "The previous page's cursor"
+                  }
+                },
+                "required": [
+                  "addresses"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/coin"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "The tracker's answer, unchanged. Amounts are base-unit decimal strings",
+                  "properties": {
+                    "transactions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "txid": {
+                            "type": "string"
+                          },
+                          "height": {
+                            "type": "integer"
+                          },
+                          "time": {
+                            "type": "integer"
+                          },
+                          "net": {
+                            "type": "string"
+                          },
+                          "addresses": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "object",
+                              "properties": {
+                                "received": {
+                                  "type": "string"
+                                },
+                                "sent": {
+                                  "type": "string"
+                                },
+                                "net": {
+                                  "type": "string"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "cursor": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "addresses": {
+                      "type": "object",
+                      "description": "Per requested address: its watch state on the tracker",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "history_status": {
+                            "type": "string",
+                            "enum": [
+                              "complete",
+                              "backfilling",
+                              "not_watched",
+                              "unavailable"
+                            ]
+                          },
+                          "history_from_height": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ],
+                            "description": "Rows from this height are present"
+                          },
+                          "history_refused": {
+                            "type": "string",
+                            "description": "With not_watched: WATCH_LIST_FULL, IP_BUDGET or COOLDOWN"
+                          }
+                        }
+                      }
+                    },
+                    "history_from_height": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "sync": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "description": "Too many batch requests from this client; retry after the window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "TRACKER_UNAVAILABLE: the tracker did not answer (retryable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "COIN_NOT_AVAILABLE, TRACKER_NOT_CONFIGURED, or TRACKER_UNAVAILABLE while the tracker is over this client's budget or paused by its own 429",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "x-registered": "express"
     }
   },
   "components": {
@@ -17543,6 +18324,39 @@
                     "null"
                   ],
                   "description": "Set instead of a status when the sub-command was never dispatched (a VM-reaching action is not run on this public surface); null otherwise"
+                },
+                "legs": {
+                  "type": "array",
+                  "description": "Multi-leg SEND only: each leg and its own settlement status, in wire order.",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "tick": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "amount": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "destination": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "status": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    }
+                  }
                 }
               },
               "required": [
@@ -18682,6 +19496,14 @@
               "string",
               "null"
             ]
+          },
+          "status_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true,
+            "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
           },
           "timestamp": {
             "type": "string",
@@ -21174,6 +21996,14 @@
             "type": "string",
             "pattern": "^[0-9]+$"
           },
+          "block": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9]+$",
+            "description": "Alias of block_index on a multi-part FILE part's action index"
+          },
           "block_index": {
             "type": [
               "string",
@@ -21375,6 +22205,72 @@
             ],
             "description": "Action fee information; null when the action paid none"
           },
+          "file_part": {
+            "type": "object",
+            "description": "Multi-part file part metadata; served only on a part's action index",
+            "properties": {
+              "file_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "manifest_action_index": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "part_index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65534
+              }
+            },
+            "required": [
+              "file_hash",
+              "part_index",
+              "manifest_action_index"
+            ]
+          },
+          "multipart": {
+            "type": "object",
+            "description": "Multi-part file assembly state; served only on a multi-part manifest's detail",
+            "properties": {
+              "file_hash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "parts_received": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "complete",
+                  "mismatch"
+                ]
+              },
+              "total_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 262140000000
+              },
+              "total_parts": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 65535
+              }
+            },
+            "required": [
+              "file_hash",
+              "total_parts",
+              "parts_received",
+              "total_bytes",
+              "status"
+            ]
+          },
           "runtime": {
             "type": "string",
             "description": "Amount of time to execute and return the data"
@@ -21390,6 +22286,14 @@
               "string",
               "null"
             ]
+          },
+          "status_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true,
+            "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
           },
           "timestamp": {
             "type": [
@@ -21500,7 +22404,8 @@
             "description": "Amount of time to execute and return the data"
           },
           "tracker_available": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "False when no tracker is configured, it is unreachable, or it reports itself not synced (behind its node or halted); the tracker figures are then null"
           },
           "type": {
             "type": [
@@ -21941,7 +22846,7 @@
           },
           "decoder_health": {
             "type": "object",
-            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), 'reorg-halt-unverified' (the decoder reports healthy but has not read its REORG_HALT marker since it started, so a durable halt cannot be ruled out), all ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), 'unreachable' (health call failed), or 'rate-limited' (the decoder answered 429 and no earlier good reading is held, a transient condition distinct from 'unreachable'). The set can grow, so treat an unlisted value as unknown rather than failing.",
             "additionalProperties": {
               "type": "string"
             }
@@ -22087,6 +22992,14 @@
               "string",
               "null"
             ]
+          },
+          "status_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "readOnly": true,
+            "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
           },
           "timestamp": {
             "type": "string",
@@ -22713,6 +23626,14 @@
                     "string",
                     "null"
                   ]
+                },
+                "status_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "readOnly": true,
+                  "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
                 }
               }
             }

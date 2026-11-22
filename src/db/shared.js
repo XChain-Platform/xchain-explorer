@@ -108,9 +108,9 @@ const ACTION_SUMMARY_FIELDS = Object.freeze([
 //   deactivation_block  DELEGATE: null until a later revoke deactivates the row.
 //   cooldown_end_block  UNSTAKE v0/v1: status goes valid/pending -> completed at
 //                       cooldown maturity, and a slash during cooldown zeroes the
-//                       amount. ADDRESS format 1 and the UNSTAKE v2 completion
-//                       also select it, so they stop caching too: a query, not a
-//                       correctness cost.
+//                       amount. ADDRESS format 1, ISSUE format 6 and the UNSTAKE
+//                       v2 completion also select it, so they stop caching too:
+//                       a query, not a correctness cost.
 //   bridge_transfer     XBRIDGE user leg: the hub-mirrored transfer, null while in
 //                       flight, then finalized (or retracted) by the hub.
 //

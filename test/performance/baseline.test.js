@@ -11,7 +11,8 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Performance baseline tests: single-request latency for all endpoint categories.
+ * Handler-only performance baseline: excludes the production ingress chain.
+ * Measures single-request latency for all endpoint categories.
  *
  * Measures handler + MariaDB round-trip time for individual requests.
  * Requires: MariaDB on port 3307 (docker compose -f test/integration/fixtures/docker-compose.test.yml up -d)

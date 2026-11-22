@@ -1,6 +1,7 @@
-# Pinned by digest to the node:22.23.2-bookworm build whose V8/ICU/unicode/cldr
-# match xchain-vm's consensus runtime pin: the floating node:22-bookworm tag
-# moved to a Node patch whose V8/ICU no longer match, which fails that check.
+# Pinned by digest, not by the floating node:22-bookworm tag, to the exact image
+# (the FROM line below) whose V8/ICU/unicode/cldr build matches xchain-vm's
+# consensus runtime pin: a floating tag can advance to a Node patch that fails
+# that check.
 # The optional xchain-vm dependency's isolated-vm native build also needs
 # Node 22 V8 headers (same pin as xchain-indexer / xchain-utxo-tracker); the
 # explorer itself runs on any >=22.

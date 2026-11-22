@@ -15,6 +15,7 @@
 'use strict';
 
 const assert = require('assert');
+const { addressSlashScope } = require('../../../../src/db/query_sql/slash_scope/address_slash_scope.js');
 
 const {
     MIRROR_CLAUSE_BUILDERS
@@ -39,10 +40,7 @@ const TYPE_CASES = {
     getSlashEvents: [
         ['block', ' AND m.block_index=?'],
         ['contract', ' AND m.target_contract_index=?'],
-        ['address', ` AND m.signing_pubkey_id IN (
-                SELECT DISTINCT signing_pubkey_id FROM contract_stakes
-                WHERE source_id = (SELECT id FROM index_addresses WHERE address=?)
-            )`]
+        ['address', ' AND ' + addressSlashScope()]
     ],
     getCapabilitySlashEvents: [
         ['block', ' AND m.block_index=?'],
@@ -81,6 +79,33 @@ describe('MIRROR_CLAUSE_BUILDERS', function(){
     it('preserves SQL for unknown types in type-filtered builders', function(){
         for (const method of TYPE_FILTERED_METHODS)
             assert.strictEqual(build(method, 'unknown'), 'WHERE anchor');
+    });
+
+    describe('non-BMP filters on utf8mb3 mirror columns', function(){
+        const EMOJI = '\u{1F600}';
+        const RTL   = '‮';
+        const cases = [
+            ['getOraclePrices', 'token', ' AND m.tick=?'],
+            ['getPriceSnapshots', 'pair', ' AND m.coin_pair=?'],
+            ['getCrossChainMatches', 'match', ' AND m.match_id=?']
+        ];
+        const buildWith = (method, type, search) =>
+            MIRROR_CLAUSE_BUILDERS[method](null, { data: { type, method, search } }, 'WHERE anchor');
+
+        for (const [method, type, fragment] of cases) {
+            it(`${method} ${type}: 4-byte filter becomes an always-false clause with one bind`, function(){
+                const sql = buildWith(method, type, EMOJI);
+                assert.strictEqual(sql, 'WHERE anchor AND (1=0 AND ? IS NOT NULL)');
+                assert.ok(!sql.includes('m.'), 'no column comparison with the 4-byte bind');
+            });
+            it(`${method} ${type}: 3-byte RTL override keeps the normal clause`, function(){
+                assert.strictEqual(buildWith(method, type, RTL), `WHERE anchor${fragment}`);
+            });
+        }
+
+        it('leaves a request without a filter untouched', function(){
+            assert.strictEqual(buildWith('getOraclePrices', 'unknown', EMOJI), 'WHERE anchor');
+        });
     });
 
     it('always appends the call ID predicate for getXcall', function(){

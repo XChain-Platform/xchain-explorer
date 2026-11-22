@@ -30,6 +30,8 @@
 
 'use strict';
 
+const { COIN_MAP } = require('../broadcaster/coin_map.js');
+
 const ChannelManager = require('../channel_manager.js');
 
 // The tip block of WELCOME's data: the server version and clock, the coin's
@@ -173,7 +175,7 @@ class WebSocketWelcome {
 
     // Resolve coin prefix to chain/network (e.g., "TBTC" -> { chain: "BTC", network: "testnet" })
     resolveCoin(coinParam) {
-        // Lazy-load valid coins from config
+        // Lazy-load the shared WebSocket envelope table.
         if (!this.validCoins) {
             this.loadValidCoins();
         }
@@ -182,17 +184,9 @@ class WebSocketWelcome {
 
     loadValidCoins() {
         try {
-            this.validCoins = {};
-            // Build coin map from the known structure: BTC, LTC, DOGE + T/R prefixes
-            const chains   = ['BTC', 'LTC', 'DOGE'];
-            const prefixes = { '': 'mainnet', 'T': 'testnet', 'R': 'regtest' };
-
-            for (const chain of chains) {
-                for (const [prefix, network] of Object.entries(prefixes)) {
-                    const coin = prefix + chain;
-                    this.validCoins[coin] = { chain, network };
-                }
-            }
+            this.validCoins = Object.fromEntries(
+                Object.entries(COIN_MAP).map(([coin, info]) => [coin, { ...info }])
+            );
         } catch (e) {
             this.validCoins = null;
         }

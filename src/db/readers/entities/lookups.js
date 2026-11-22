@@ -14,40 +14,85 @@
  *
  * XChain Explorer - the FILE byte readers and the WebSocket entity snapshots
  *
- * One part of src/db/readers/entities.js (the entry composes it through
- * composeReaderParts). The two reads that serve a FILE action as bytes,
- * and the single-row snapshots the WebSocket layer reads on subscribe and
- * on lifecycle enrichment: a balance set, a token, a market, a dispenser,
- * a coinpay obligation, an order-match settlement and the two dispenser
- * index resolutions.
- *
- * These are one part because they share a shape no other reader has: each
- * answers for exactly one row by a key the caller already holds, with no
- * paging, no filter and no count query.
- *
- * Authored as a class body whose prototype is exported, like every other
- * family under src/db/: `this` is the Database instance at call time, and the
- * methods reach Database.prototype non-enumerable, by descriptor.
+ * Composed into src/db/readers/entities.js through composeReaderParts. It
+ * contains FILE byte reads and single-row WebSocket snapshots keyed by values
+ * the caller already holds. The exported class body runs with the Database
+ * instance as `this` and reaches Database.prototype methods by descriptor.
  *
  ********************************************************************/
 
 'use strict';
 
-// Structured logging. Cached at require time: getLogger() resolves lazily on
-// every call, so this reaches the real shipper once api.js has run
-// installObservability and falls through to bare console.* before that.
+// getLogger resolves lazily to the shipper after observability installation.
 const { getLogger } = require('../../../observability');
 const log = getLogger();
 const { dispenserLifecyclePass } = require('../../query_sql/data_post.js');
+const multipart = require('../../../explorer/multipart_file.js');
+const { setTablesAbsent, isMissingTableError } = require('../../schema_probe.js');
+const { getValidDispenserMutationIndex } = require('./lookup_mutations.js');
 
-// How long a token description read for the /relay check is reused before it is read again.
 const TOKEN_DESCRIPTION_TTL_MS = 60 * 1000;
 
 class EntityLookupReaders {
-    // Get the raw AES-256-GCM ciphertext bytes for a gated FILE by action_index.
-    // Returns the result rows (0 or 1) so the caller can distinguish "no such gated
-    // file" (empty) from a stored ciphertext. Keeps the gated_files table/column
-    // names in the model layer alongside the gated_files joins used elsewhere here.
+    async getMultipartFileRaw(config, actionIndex, options = {}) {
+        const requested = Number(actionIndex);
+        const partColumns = options.metadataOnly
+            ? `(SELECT COUNT(*) FROM file_parts counted_part
+                    WHERE counted_part.source_id=fm.source_id AND counted_part.file_hash=fm.file_hash AND counted_part.part_index < fm.total_parts
+                    AND counted_part.action_index=(SELECT MIN(candidate.action_index) FROM file_parts candidate INNER JOIN index_statuses candidate_status ON (candidate_status.id=candidate.status_id)
+                        WHERE candidate.source_id=fm.source_id AND candidate.file_hash=fm.file_hash AND candidate.part_index=counted_part.part_index AND candidate_status.status='valid')) AS parts_received,
+                NULL AS position, NULL AS part_action_index, NULL AS part_tx_hash, NULL AS byte_length, NULL AS part_digest`
+            : `NULL AS parts_received, fp.part_index AS position, fp.action_index AS part_action_index, part_hash.hash AS part_tx_hash, fp.byte_length, fp.part_digest`;
+        const partJoins = options.metadataOnly ? '' : `
+            LEFT JOIN file_parts fp ON (fp.source_id=fm.source_id AND fp.file_hash=fm.file_hash AND fp.part_index < fm.total_parts
+                AND fp.action_index=(SELECT MIN(candidate.action_index) FROM file_parts candidate INNER JOIN index_statuses candidate_status ON (candidate_status.id=candidate.status_id) WHERE candidate.source_id=fm.source_id AND candidate.file_hash=fm.file_hash AND candidate.part_index=fp.part_index AND candidate_status.status='valid'))
+            LEFT JOIN actions part_action ON (part_action.action_index=fp.action_index) LEFT JOIN transactions part_tx ON (part_tx.tx_index=part_action.tx_index)
+            LEFT JOIN index_transactions part_hash ON (part_hash.id=part_tx.tx_hash_id)`;
+        const query = `SELECT fm.action_index AS manifest_action_index, ms.status AS manifest_status,
+                EXISTS(SELECT 1 FROM file_parts requested_part WHERE requested_part.action_index=?) AS part_exists, fm.file_hash, fm.total_parts, fm.total_bytes,
+                f.name, mt.type, CASE WHEN gf.action_index IS NULL THEN 0 ELSE 1 END AS gated, fc.result AS completion_result,
+                manifest_hash.hash AS manifest_tx_hash, ${partColumns}
+            FROM (SELECT ? AS requested_action_index) requested LEFT JOIN file_manifests fm ON (fm.action_index=requested.requested_action_index)
+            LEFT JOIN index_statuses ms ON (ms.id=fm.status_id) LEFT JOIN files f ON (f.action_index=fm.action_index) LEFT JOIN index_mime_types mt ON (mt.id=f.type_id) LEFT JOIN gated_files gf ON (gf.action_index=fm.action_index)
+            LEFT JOIN file_completions fc ON (fc.manifest_action_index=fm.action_index) LEFT JOIN actions manifest_action ON (manifest_action.action_index=fm.action_index)
+            LEFT JOIN transactions manifest_tx ON (manifest_tx.tx_index=manifest_action.tx_index) LEFT JOIN index_transactions manifest_hash ON (manifest_hash.id=manifest_tx.tx_hash_id)
+            ${partJoins} ORDER BY position ASC`;
+        let rows;
+        try {
+            rows = await this.doQuery(config, query, [requested, requested]);
+        } catch(e) {
+            if(!isMissingTableError(e)) throw e;
+            // A replica without the multipart migration can still serve legacy FILEs.
+            setTablesAbsent(this, config, ['file_manifests', 'file_parts', 'file_completions']);
+            return { kind: 'none' };
+        }
+        return multipart.recordFromRows(rows, this.util);
+    }
+
+    async readPartBytes(config, record, positions) {
+        const dbName = this.decoderDb ? this.decoderDb[config.coin] : null;
+        if(this.util.isNull(dbName) || !/^[A-Za-z0-9_$]+$/.test(dbName)) throw new Error('Multipart FILE decoder database is unavailable');
+        const byPosition = new Map(record.parts.map(part => [Number(part.position), part]));
+        const selected = positions.map(position => byPosition.get(Number(position)));
+        if(selected.some(part => !part || this.util.isNull(part.tx_hash))) throw new Error('Multipart FILE transaction hash is unavailable');
+        const includeManifest = typeof record.data !== 'string';
+        if(includeManifest && this.util.isNull(record.manifest_tx_hash)) throw new Error('Multipart FILE transaction hash is unavailable');
+        const hashes = (includeManifest ? [String(record.manifest_tx_hash)] : []).concat(selected.map(part => String(part.tx_hash)));
+        const placeholders = hashes.map(() => '?').join(',');
+        const decoderQuery = 'SELECT t2.hash, t1.raw_data, t1.data FROM `' + dbName + '`.transactions t1 ' +
+            'INNER JOIN `' + dbName + '`.index_transactions t2 ON (t2.id=t1.tx_hash_id) WHERE t2.hash IN (' + placeholders + ')';
+        const decoderRows = await this.doDecoderQuery(config, decoderQuery, hashes);
+        const rowsByHash = new Map((decoderRows || []).map(row => [String(row.hash), row]));
+        if(includeManifest) {
+            const row = rowsByHash.get(String(record.manifest_tx_hash));
+            record.data = row ? row.data : null;
+        }
+        return selected.map(part => {
+            const row = rowsByHash.get(String(part.tx_hash));
+            return { position: Number(part.position), raw_data: row ? row.raw_data : null };
+        });
+    }
+    // Return raw gated ciphertext rows so callers can distinguish a miss from bytes while table knowledge stays in the model.
     async getGatedFileRaw(config, actionIndex) {
         let query = `SELECT raw_data FROM gated_files WHERE action_index=? LIMIT 1`;
         return await this.doQuery(config, query, [Number(actionIndex)]);
@@ -120,9 +165,10 @@ class EntityLookupReaders {
                         INNER JOIN index_tickers   t1 ON (t1.id=m.tick_id)
                         INNER JOIN index_addresses a1 ON (a1.id=m.address_id)
                     WHERE
-                        a1.address=?
+                        a1.address=? AND a1.address COLLATE utf8_bin = ?
                     ORDER BY t1.tick ASC`;
-        let results = await this.doQuery(config, query, [address]);
+        // Keep the indexed seek and add the byte-exact gate used by address routing.
+        let results = await this.doQuery(config, query, [address, address]);
         return results || [];
     }
 
@@ -288,10 +334,9 @@ class EntityLookupReaders {
     async getOrderMatchSettlement(config, actionIndex) {
         let query = `SELECT
                         om.action_index,
-                        s1.status as settlement_type
+                        om.settlement_type
                     FROM
                         order_matches om
-                        LEFT JOIN index_statuses s1 ON (s1.id=om.settlement_type_id)
                     WHERE
                         om.action_index=?
                     LIMIT 1`;
@@ -339,27 +384,11 @@ class EntityLookupReaders {
         return null;
     }
 
-    async getValidDispenserMutationIndex(config, actionType, actionIndex) {
-        const tables = {
-            DISPENSER_CANCEL: 'dispenser_cancels',
-            DISPENSER_EDIT:   'dispenser_edits'
-        };
-        const table = tables[actionType];
-        if (!table) return null;
-        let query = `SELECT
-                        m.dispenser_action_index
-                    FROM
-                        ${table} m
-                        INNER JOIN index_statuses s ON (s.id=m.status_id)
-                    WHERE
-                        m.action_index=? AND
-                        s.status='valid'
-                    LIMIT 1`;
-        let results = await this.doQuery(config, query, [actionIndex]);
-        if (results && results.length && results[0].dispenser_action_index != null)
-            return results[0].dispenser_action_index;
-        return null;
-    }
 }
 
+Object.defineProperty(EntityLookupReaders.prototype, 'getValidDispenserMutationIndex', {
+    value: getValidDispenserMutationIndex,
+    configurable: true,
+    writable: true
+});
 module.exports = EntityLookupReaders.prototype;

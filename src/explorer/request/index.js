@@ -64,7 +64,9 @@ async function runRequest(explorer, req, res, host){
         if(!validateParams(explorer, st))
             await loadData(explorer, req, st);
 
-        if(!st.dbError && !st.badParam)
+        // A read or parameter check that already answered with an error code (400, 500,
+        // 503 HUB_UNAVAILABLE) keeps that answer: assembling would overwrite its body.
+        if(st.response.code < 400)
             assembleResponse(explorer, st);
     }
 

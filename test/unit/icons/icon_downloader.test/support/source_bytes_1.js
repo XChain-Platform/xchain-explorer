@@ -10,6 +10,8 @@
 // license (without AGPL source-disclosure terms) is available -
 // contact legal@dankest.llc.
 
+const { createHash } = require('crypto');
+
 const {
     ACTION_REF_PATTERN, expect, execCmdText, iconSuite, loadIconDownloader,
     makeExecStub, makeExplorer, makeMockConn, makeMockPool, makeStubs, path,
@@ -27,6 +29,12 @@ const {
         const IconDownloader = loadIconDownloader(stubs);
         const explorer = makeExplorer();
         return new IconDownloader(explorer);
+    }
+
+    async function errorFrom(promise) {
+        try { await promise; }
+        catch (error) { return error; }
+        throw new Error('expected rejection');
     }
 
     iconSuite('_fetchSourceBytes()', function () {
@@ -164,6 +172,81 @@ const {
             }
         });
 
+    });
+
+    iconSuite('_fetchSourceBytes()', function () {
+        for(const scheme of ['json_url', 'ipfs', 'arweave']) {
+            it(`${scheme}: decodes an inline base64 icon from its document`, async function () {
+                const picked = 'data:image/png;base64,aGVsbG8=';
+                const stubs = makeStubs({
+                    axiosResponse: {
+                        status: 200,
+                        headers: { 'content-type': 'application/json' },
+                        data: Buffer.from(JSON.stringify({ image: picked })),
+                    },
+                    selectIconUrlFromCip25Json: sinon.stub().returns(picked),
+                });
+                const d = makeDownloader(stubs);
+                const result = await d.fetchSourceBytes({ scheme, url: 'https://example.com/meta' }, 2);
+                expect(result.toString()).to.equal('hello');
+                expect(stubs.axiosStub.get.callCount).to.equal(1);
+            });
+        }
+
+        it('refuses malformed inline data without a second fetch', async function () {
+            const picked = 'data:image/png,abc';
+            const stubs = makeStubs({
+                axiosResponse: { status: 200, headers: {}, data: Buffer.from('{}') },
+                selectIconUrlFromCip25Json: sinon.stub().returns(picked),
+            });
+            const d = makeDownloader(stubs);
+            const error = await errorFrom(d.fetchSourceBytes(
+                { scheme: 'json_url', url: 'https://example.com/meta' }, 2));
+            expect(error.message).to.include('data URL not base64');
+            expect(stubs.axiosStub.get.callCount).to.equal(1);
+        });
+
+        it('keeps data URLs out of a direct network lane', async function () {
+            const stubs = makeStubs();
+            const d = makeDownloader(stubs);
+            const error = await errorFrom(d.fetchSourceBytes(
+                { scheme: 'image_url', url: 'data:image/png;base64,aGVsbG8=' }, 2));
+            expect(error.message).to.include('data URL reached a network lane');
+            expect(stubs.axiosStub.get.callCount).to.equal(0);
+        });
+
+        it('refuses a pinned document whose exact response bytes do not match', async function () {
+            const body = Buffer.from('{"image":"data:image/png;base64,aGVsbG8="}');
+            const stubs = makeStubs({ axiosResponse: { status: 200, headers: {}, data: body } });
+            const d = makeDownloader(stubs);
+            const error = await errorFrom(d.fetchSourceBytes({
+                scheme: 'json_url', url: 'https://example.com/meta', expectedHash: '00'.repeat(32),
+            }, 2));
+            expect(error.message).to.include('metadata integrity mismatch');
+            expect(createHash('sha256').update(body).digest('hex')).not.to.equal('00'.repeat(32));
+        });
+
+        it('accepts a pinned document whose exact response bytes match', async function () {
+            const body = Buffer.from('{"image":"data:image/png;base64,aGVsbG8="}');
+            const stubs = makeStubs({
+                axiosResponse: { status: 200, headers: {}, data: body },
+                selectIconUrlFromCip25Json: sinon.stub().returns('data:image/png;base64,aGVsbG8='),
+            });
+            const d = makeDownloader(stubs);
+            const result = await d.fetchSourceBytes({
+                scheme: 'json_url', url: 'pinned',
+                expectedHash: createHash('sha256').update(body).digest('hex'),
+            }, 2);
+            expect(result.toString()).to.equal('hello');
+        });
+
+        it('gives a missing image content type a distinct terminal message', async function () {
+            const stubs = makeStubs({ axiosResponse: { status: 200, headers: {}, data: Buffer.from('x') } });
+            const d = makeDownloader(stubs);
+            const error = await errorFrom(d.fetchSourceBytes(
+                { scheme: 'image_url', url: 'https://example.com/icon' }, 2));
+            expect(error.message).to.include('not an image (no content-type)');
+        });
     });
 
     iconSuite('_fetchSourceBytes()', function () {

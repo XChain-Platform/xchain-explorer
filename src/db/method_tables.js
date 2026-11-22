@@ -65,6 +65,12 @@ const ACTION_TABLES = [
     'sweeps'
 ];
 
+// Action tables whose rows supplement another public action family. They stay
+// outside ACTION_TABLES because their public count key differs from the table.
+const SUPPLEMENTAL_ACTION_TABLES = Object.freeze([
+    Object.freeze({ table: 'file_parts', action: 'files' })
+]);
+
 // The table getQueryOffsets reads page boundaries from, per explorer list method.
 // Named explicitly: a method absent here pages on the preserved client cursor
 // (CURSOR_PAGED_METHODS) or by row position (SLICE_PAGED_METHODS).
@@ -211,5 +217,5 @@ const CURSOR_PAGED_METHODS = [
     'getValidators','getValidatorRewards','getMarketHistory'
 ];
 
-module.exports = { ACTION_TABLES, BOUNDARY_TABLE_BY_METHOD, boundaryTable, MULTI_ROW_METHODS, listLimitMax,
-    SLICE_PAGED_METHODS, CURSOR_PAGED_METHODS, buildListsQuery };
+module.exports = { ACTION_TABLES, SUPPLEMENTAL_ACTION_TABLES, BOUNDARY_TABLE_BY_METHOD, boundaryTable,
+    MULTI_ROW_METHODS, listLimitMax, SLICE_PAGED_METHODS, CURSOR_PAGED_METHODS, buildListsQuery };

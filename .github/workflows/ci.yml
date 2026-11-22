@@ -99,6 +99,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The VM bundle check compares the vendored copy with canonical xchain-vm
+      # bytes and fails closed when none sit beside it, so stage the declared
+      # siblings here exactly as the coverage job does.
+      - name: Check out declared sibling repositories
+        uses: XChain-Platform/.github/actions/checkout-siblings@master # one definition for every call site; see the action for why this tracks master
+        with:
+          ref: ${{ (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'hotfix/')) && github.head_ref || github.base_ref || '' }}
+
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:

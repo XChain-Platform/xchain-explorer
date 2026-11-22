@@ -157,6 +157,7 @@ describe('LIST format 5 block totals', function(){
             if(sql.includes('block_time') && !sql.includes('INNER JOIN actions'))
                 return [{ block_index: 12, block_time: 1200 }];
             if(sql.includes('list_metas')) return [{ block_index: 12, count: 1 }];
+            if(/FROM\s+file_parts/.test(sql)) return [];
             return [{ action: 'lists', block_index: 12, count: 1 }];
         };
         const blockConfig = { data: { sql: {
@@ -183,6 +184,7 @@ describe('LIST format 5 block totals', function(){
                 return [{ block_index: 12, block_time: 1200 }];
             if(sql.includes('list_metas'))
                 throw Object.assign(new Error('missing'), { code: 'ER_NO_SUCH_TABLE' });
+            if(/FROM\s+file_parts/.test(sql)) return [];
             return [{ action: 'lists', block_index: 12, count: 1 }];
         };
         const blockConfig = { data: { sql: {

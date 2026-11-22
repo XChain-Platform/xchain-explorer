@@ -27,6 +27,7 @@
 // reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../../observability');
 const log = getLogger();
+const { logWindowed } = require('../../lib/log_window.js');
 
 /**
  * Run the reader this request resolved to, recording either its rows or its failure.
@@ -45,6 +46,14 @@ async function loadData(explorer, req, st){
             st.badParam   = true;
             response.code = 400;
             response.json = { error: e.message, code: e.code || 'INVALID_PARAMETER' };
+        } else if(e && e.name === 'HubUnavailableError'){
+            // The configured hub could not be read and nothing fresh enough is cached: the
+            // database is fine (DB-only routes answer), so name the real fault. Matched on
+            // `name` like DbInputError so a stubbed db module behaves the same.
+            // Windowed: a sustained outage fails every request the same way.
+            logWindowed(explorer, log, 'error', 'PROCESS_REQUEST_HUB_UNAVAILABLE', { path: req.path, err: e.message });
+            response.code = 503;
+            response.json = { error: e.message, code: 'HUB_UNAVAILABLE' };
         } else {
             // A read that genuinely failed (DB outage / rejected query)
             // throws (db/index.js DbQueryError, M-4); answer 5xx instead of a

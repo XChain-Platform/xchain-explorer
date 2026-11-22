@@ -38,15 +38,59 @@
 const path = require('path');
 const { routeTables } = require('./routes/index.js');
 const { STATIC_OPTIONS } = require('../http/static_cache.js');   // year-long cache for hashed URLs, short for bare ones
-const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter,
+const { buildFeeQuoteLimiter, buildFeeQuotePostLimiter, buildPreflightPostLimiter, buildBatchLimiter, buildWalletReadsLimiter,
         buildCheckpointLimiters, buildProofLimiters, buildVmQueryLimiter } = require('./mount/limiters.js');
+const IndexerConnector = require('../connectors/indexer.js');
 
 // Body-parser ceiling for POST /{COIN}/api/preflight. Above
 // MAX_PREFLIGHT_PARAMS_LENGTH (explorer/fees_preflight.js, where the route that
 // enforces it lives) because JSON string escaping can inflate a payload before the
-// length check there can see it; the real refusal is the character check on the
-// decoded value, not this.
-const PREFLIGHT_BODY_LIMIT = '1mb';
+// length check there can see it; the real refusal is the UTF-8 byte check on the
+// decoded value, not this. Sized for the worst legal case: 390,000 control
+// bytes (one byte each) escape to a 6-byte \u00XX sequence each (about 2.34 MB), and the
+// indexer's own body ceiling is the same 2.5 MB so neither hop refuses first.
+const PREFLIGHT_BODY_LIMIT = '2.5mb';
+
+// Body-parser ceiling for POST /{COIN}/api/contract/{idx}/call. The route's
+// validator (contract/vm_query.js) accepts up to 32 params of 1024 bytes each, so
+// the worst legal body is 32 x 1024 control bytes escaped to 6 bytes each (196,608)
+// plus the envelope; 256kb covers it and the tight global ceiling would not.
+const CONTRACT_CALL_BODY_LIMIT = '256kb';
+
+// True for the request the global json() parser must skip because the route parses
+// its own body: POST /{COIN}/api/contract/{idx}/call.
+function isContractCallPostRequest(req){
+    if(!req || String(req.method || '').toUpperCase() !== 'POST') return false;
+    return /^\/[^/]+\/api\/contract\/[^/]+\/call\/?$/i.test(String(req.path || ''));
+}
+
+// Guard for every route that proxies to the coin's indexer. The indexer limits per
+// connecting IP and this whole process is one IP to it, so without a share of our
+// own, the clients draining that one bucket get a client inside its own limits
+// refused. This sheds a client over its fair share of the explorer's egress budget
+// (see connectors/indexer.js) with a local, retryable 429 before the handler runs,
+// and counts the indexer calls the handler makes against the client that caused
+// them. A coin with no indexer configured passes straight to the handler, which
+// gives its own answer. It wraps the handler rather than sitting in the middleware
+// chain so each route keeps the chain shape it registers.
+async function guardIndexerEgress(explorer, req, res, handler){
+    let url = null;
+    try {
+        let config = await explorer.configInfo.getConfig();
+        let parsed = explorer.parseCoinCode(req.params.coin, config);
+        url = parsed ? IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network) : null;
+    } catch(e){
+        url = null;
+    }
+    if(url){
+        let verdict = IndexerConnector.egressAdmit(url, req.ip);
+        if(!verdict.ok){
+            res.set('Retry-After', String(verdict.retryAfter));
+            return res.status(429).json({ error: 'Too many indexer-backed requests', code: 'RATE_LIMITED', retryable: true });
+        }
+    }
+    return IndexerConnector.withEgressClient(req.ip, handler);
+}
 
 class RouteMounts {
 
@@ -151,9 +195,9 @@ class RouteMounts {
         // first. See xchain-documentation/concepts/gas.md (client pre-validation).
 
         const feeQuoteLimiter = buildFeeQuoteLimiter(host);
-        this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { this.processFeeQuoteRequest(req, res); });
-        this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { this.processOracleFeeQuoteRequest(req, res); });
-        this.app.get('/:coin/api/preflight',   (req, res) => { this.processPreflightRequest(req, res); });
+        this.app.get('/:coin/api/feequote',    feeQuoteLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processFeeQuoteRequest(req, res)); });
+        this.app.get('/:coin/api/oraclefeequote', feeQuoteLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processOracleFeeQuoteRequest(req, res)); });
+        this.app.get('/:coin/api/preflight',   (req, res) => { guardIndexerEgress(this, req, res, () => this.processPreflightRequest(req, res)); });
 
         return feeQuoteLimiter;
     }
@@ -175,7 +219,7 @@ class RouteMounts {
         this.app.post('/:coin/api/preflight',
             preflightPostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
-            (req, res) => { this.processPreflightRequest(req, res); });
+            (req, res) => { guardIndexerEgress(this, req, res, () => this.processPreflightRequest(req, res)); });
     }
 
     mountFeeQuotePostRoute(host){
@@ -190,7 +234,7 @@ class RouteMounts {
         this.app.post('/:coin/api/feequote',
             feeQuotePostLimiter,
             express.json({ limit: PREFLIGHT_BODY_LIMIT }),
-            (req, res) => { this.processFeeQuoteRequest(req, res); });
+            (req, res) => { guardIndexerEgress(this, req, res, () => this.processFeeQuoteRequest(req, res)); });
     }
 
     mountBatchRoutes(host, feeQuoteLimiter){
@@ -211,8 +255,21 @@ class RouteMounts {
             (req, res) => { this.processBalancesBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
         this.app.post('/:coin/api/coinpay_obligations', batchLimiter,
             (req, res) => { this.processCoinpayObligationsBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
+        // The wallet's value-over-time reads take their own bucket, so paging a long
+        // history cannot starve the balance beat above. Neither re-drives a per-address
+        // GET: each reads every address or asset in a fixed number of statements
+        // (explorer/address_history.js, explorer/price_history.js).
+        const walletReadsLimiter = buildWalletReadsLimiter(host);
+        this.app.post('/:coin/api/history', walletReadsLimiter,
+            (req, res) => { this.processAddressHistoryBatchRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
+        this.app.get('/:coin/api/price_history', walletReadsLimiter,
+            (req, res) => { this.processPriceHistoryRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
+        // Native coin history is the tracker's: one upstream POST /history per request
+        // (explorer/native_history.js), charged to the caller's tracker budget too.
+        this.app.post('/:coin/api/native_history', walletReadsLimiter,
+            (req, res) => { this.processNativeHistoryRequest(req, res).catch(err => this.sendUnhandled(err, req, res)); });
 
-        this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { this.processFeeScheduleRequest(req, res); });
+        this.app.get('/:coin/api/feeschedule', feeQuoteLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processFeeScheduleRequest(req, res)); });
     }
 
     // Returns the checkpoint-list limiter: /checkpoints/range takes the same tier and
@@ -226,7 +283,7 @@ class RouteMounts {
 
         const { checkpointListLimiter, checkpointVerifyLimiter } = buildCheckpointLimiters(host);
         this.app.get('/:coin/api/checkpoints', checkpointListLimiter, (req, res) => { this.processCheckpointsRequest(req, res); });
-        this.app.get('/:coin/api/checkpoint/:blockIndex/verify', checkpointVerifyLimiter, (req, res) => { this.processCheckpointVerifyRequest(req, res); });
+        this.app.get('/:coin/api/checkpoint/:blockIndex/verify', checkpointVerifyLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processCheckpointVerifyRequest(req, res)); });
         // Self-synced hub-mirror observability: bootstrap +
         // watermark-lag state per coin, {enabled:false} in externally-maintained mode.
         this.app.get('/:coin/api/hub-mirror/status', (req, res) => { this.processHubMirrorStatusRequest(req, res); });
@@ -242,7 +299,7 @@ class RouteMounts {
         this.app.get('/:coin/api/proof/balance/:address/:tick', actionProofLimiter, (req, res) => { this.processBalanceProofRequest(req, res); });
         this.app.get('/:coin/api/checkpoints/range', checkpointListLimiter, (req, res) => { this.processCheckpointsRangeRequest(req, res); });
         this.app.get('/:coin/api/proof/action/:actionIndex', actionProofLimiter, (req, res) => { this.processActionProofRequest(req, res); });
-        this.app.get('/:coin/api/proof/validator-set', validatorSetProofLimiter, (req, res) => { this.processValidatorSetProofRequest(req, res); });
+        this.app.get('/:coin/api/proof/validator-set', validatorSetProofLimiter, (req, res) => { guardIndexerEgress(this, req, res, () => this.processValidatorSetProofRequest(req, res)); });
         // Contract-state proofs carry the action-proof limiter rather than running
         // uncapped: the handler is one 256-deep SMT descent (a sequential DB read per
         // non-empty level) plus two point reads, an unauthenticated CPU/IO amplifier
@@ -257,9 +314,14 @@ class RouteMounts {
         // Read-only contract simulation (the platform's eth_call): runs a method in a
         // sandboxed xchain-vm against current state and discards all effects.
         // Default-off (EXPLORER_VM_QUERY_ENABLED) and capped far below the global
-        // limit, since every call burns real CPU in the VM subprocess.
+        // limit, since every call burns real CPU in the VM subprocess. The limiter
+        // runs before the body parser so a limited caller is refused unread.
+        const { express } = host;
         const vmQueryLimiter = buildVmQueryLimiter(host);
-        this.app.post('/:coin/api/contract/:contractIndex/call', vmQueryLimiter, (req, res) => { this.processContractCallRequest(req, res); });
+        this.app.post('/:coin/api/contract/:contractIndex/call',
+            vmQueryLimiter,
+            express.json({ limit: CONTRACT_CALL_BODY_LIMIT }),
+            (req, res) => { this.processContractCallRequest(req, res); });
     }
 
     mountCatchAllRoute(){
@@ -274,4 +336,4 @@ class RouteMounts {
     }
 }
 
-module.exports = { methods: RouteMounts.prototype, PREFLIGHT_BODY_LIMIT };
+module.exports = { methods: RouteMounts.prototype, PREFLIGHT_BODY_LIMIT, CONTRACT_CALL_BODY_LIMIT, isContractCallPostRequest, guardIndexerEgress };

@@ -93,24 +93,28 @@ const ARCHIVE_CHUNK_SET_BY_AUTHOR_SQL =
 const ARCHIVE_ANCHOR_ROW_LIMIT = 50;
 
 // Archive heads for one batch identified by its content (checkpoint identity plus
-// batch_crc32 and match_count), earliest first. The row-attribute predicate selects
-// legacy and folded archive rows. Status is returned, never filtered, because an
+// batch_crc32 and match_count), earliest first. A folded v3 action stores the
+// checkpoint identity on its wrapper row and the archive sequence on a chain-null
+// row in the same action, so the k/a self-join combines those halves while legacy
+// v1 heads join to themselves. Status is returned, never filtered, because an
 // invalid head still spent the fee. Params: [chain, network, block_index,
 // checkpoint_seq, batch_crc32, match_count].
 const ARCHIVE_ANCHOR_BY_CONTENT_SQL =
-    `SELECT a.action_index, a.version, a.chain, a.network, a.block_index,
-            a.checkpoint_seq, a.snapshot_block, a.match_batch_seq, a.match_count,
+    `SELECT a.action_index, a.version, k.chain, k.network, k.block_index,
+            k.checkpoint_seq, k.snapshot_block, a.match_batch_seq, a.match_count,
             a.batch_crc32, a.total_chunks, a.block_index_doge, s.status,
             adr.address AS source, it.hash AS txid
-     FROM anchor_actions a
+     FROM anchor_actions k
+     JOIN anchor_actions a ON a.action_index = k.action_index
+      AND (a.section_index = k.section_index OR (k.version = 3 AND a.version = 3 AND a.chain IS NULL))
      JOIN index_statuses s ON s.id = a.status_id
      LEFT JOIN actions            act ON act.action_index = a.action_index
      LEFT JOIN index_addresses    adr ON adr.id           = act.source_id
      LEFT JOIN transactions       t   ON t.tx_index       = act.tx_index
      LEFT JOIN index_transactions it  ON it.id            = t.tx_hash_id
      WHERE a.match_batch_seq IS NOT NULL AND a.version <> 2
-       AND a.chain = ? AND a.network = ? AND a.block_index = ? AND a.checkpoint_seq = ?
-       AND a.batch_crc32 = ? AND a.match_count = ?
+       AND k.chain = ? AND k.network = ? AND k.block_index = ? AND k.checkpoint_seq = ?
+       AND k.batch_crc32 = ? AND k.match_count = ?
      ORDER BY a.action_index ASC
      LIMIT ${ARCHIVE_ANCHOR_ROW_LIMIT}`;
 

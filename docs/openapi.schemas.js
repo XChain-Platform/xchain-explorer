@@ -45,6 +45,11 @@ function rowSchema(description, spec, notes, extra) {
 
 const TX_TAIL = 'block_index:D timestamp:D tx_hash:s tx_index:d';
 const ACTION_HEAD = 'action:S action_index:D action_format:i source:s';
+const STATUS_REASON = {
+    type: ['string', 'null'],
+    readOnly: true,
+    description: 'For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise'
+};
 
 // [schema, db method, description, columns, per-column notes]
 const ROWS = [
@@ -89,7 +94,8 @@ const ROWS = [
     ['Dispense', 'getDispenses', 'DISPENSE action data',
         ACTION_HEAD + ' dispenser_action_index:d destination:s give_coin:s give_tick:s give_amount:s get_coin:s'
             + ' get_tick:s get_amount:s status:s ' + TX_TAIL,
-        { get_amount: 'Coin attributed to this dispense. When one payment fills several dispenses in the same transaction, this is that dispense\'s share, not the payment\'s full amount' }],
+        { get_amount: 'Coin attributed to this dispense. When one payment fills several dispenses in the same transaction, this is that dispense\'s share, not the payment\'s full amount' },
+        { status_reason: STATUS_REASON }],
     ['Fee', 'getFees', 'Protocol fee payment data',
         ACTION_HEAD + ' destination:s tick:s method:d amount:s gas_cost:d gas_price:s xchain_amount:s payment_mode:i'
             + ' native_coin_amount:s native_coin:s oracle_round:d fee_preference:i fee_version:i ' + TX_TAIL,
@@ -192,7 +198,7 @@ const SUMMARY_DETAILS = {
 
 const HISTORY = rowSchema('History data', 'action:S action_index:D parent_batch_action_index:d status:s ' + TX_TAIL,
     { parent_batch_action_index: 'The BATCH this action rode in; null outside a batch' },
-    { details: SUMMARY_DETAILS });
+    { details: SUMMARY_DETAILS, status_reason: STATUS_REASON });
 
 const MARKET = rowSchema('DEX market data',
     'tick1:s tick1_price:s tick1_bid:s tick1_ask:s tick1_24hr_price:s tick1_24hr_high:s tick1_24hr_low:s'
@@ -228,14 +234,40 @@ const ACTION_DETAIL = {
         action: { type: 'string' },
         action_format: NULLABLE_INTEGER,
         action_index: COLUMN_TYPES.D,
+        block: Object.assign({}, COLUMN_TYPES.d, {
+            description: 'Alias of block_index on a multi-part FILE part\'s action index'
+        }),
         block_index: COLUMN_TYPES.d,
         credits: LEDGER_EFFECTS('credits'),
         debits: LEDGER_EFFECTS('debits'),
         escrows: LEDGER_EFFECTS('escrows'),
         fee: { oneOf: [{ type: 'null' }, ACTION_FEE], description: 'Action fee information; null when the action paid none' },
+        file_part: {
+            type: 'object',
+            description: 'Multi-part file part metadata; served only on a part\'s action index',
+            properties: {
+                file_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+                manifest_action_index: NULLABLE_INTEGER,
+                part_index: { type: 'integer', minimum: 0, maximum: 65534 },
+            },
+            required: ['file_hash', 'part_index', 'manifest_action_index'],
+        },
+        multipart: {
+            type: 'object',
+            description: 'Multi-part file assembly state; served only on a multi-part manifest\'s detail',
+            properties: {
+                file_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
+                parts_received: { type: 'integer', minimum: 0, maximum: 65535 },
+                status: { type: 'string', enum: ['pending', 'complete', 'mismatch'] },
+                total_bytes: { type: 'integer', minimum: 1, maximum: 262140000000 },
+                total_parts: { type: 'integer', minimum: 2, maximum: 65535 },
+            },
+            required: ['file_hash', 'total_parts', 'parts_received', 'total_bytes', 'status'],
+        },
         runtime: RUNTIME,
         source: NULLABLE_STRING,
         status: NULLABLE_STRING,
+        status_reason: STATUS_REASON,
         timestamp: COLUMN_TYPES.d,
         tx_data: { type: ['string', 'null'], description: 'The decoded action string of the carrying transaction; null for a system-injected action' },
         tx_hash: NULLABLE_STRING,
@@ -265,7 +297,8 @@ const TRANSACTION = {
         actions: {
             type: 'array',
             description: 'Actions this transaction carried, newest first',
-            items: rowSchema('One action summary', 'action:s action_index:D status:s', null, { details: SUMMARY_DETAILS }),
+            items: rowSchema('One action summary', 'action:s action_index:D status:s', null,
+                { details: SUMMARY_DETAILS, status_reason: STATUS_REASON }),
         },
         block_index: COLUMN_TYPES.D,
         runtime: RUNTIME,
@@ -295,7 +328,7 @@ const ADDRESS_INFO = {
             address_id: { type: ['integer', 'null'], description: 'The address\'s deterministic index id, for ^<id> compaction; null when not deterministic' } } },
         mempool_ready: { type: 'boolean', description: 'Present only when the tracker reports it' },
         runtime: RUNTIME,
-        tracker_available: { type: 'boolean' },
+        tracker_available: { type: 'boolean', description: 'False when no tracker is configured, it is unreachable, or it reports itself not synced (behind its node or halted); the tracker figures are then null' },
         type: { type: ['string', 'null'], description: 'Address Type (P2PKH, P2SH, Bech32, P2TR)' },
         utxos: { type: 'object', description: 'Unspent Transaction Output counts (UTXOs)',
             properties: AMOUNTS_OR_NULL(['confirmed', 'pending'], NULLABLE_INTEGER) },
@@ -578,7 +611,7 @@ const EXPLORER_STATUS = {
         },
         "decoder_health": {
             "type": "object",
-            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+            "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), 'reorg-halt-unverified' (the decoder reports healthy but has not read its REORG_HALT marker since it started, so a durable halt cannot be ruled out), all ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), 'unreachable' (health call failed), or 'rate-limited' (the decoder answered 429 and no earlier good reading is held, a transient condition distinct from 'unreachable'). The set can grow, so treat an unlisted value as unknown rather than failing.",
             "additionalProperties": {
                 "type": "string"
             }
@@ -662,6 +695,7 @@ const OPTIONAL_COLUMNS = { getLists: ['name', 'description'] };
 const POST_PASS_COLUMNS = {
     getContracts: ['meta', 'owner_withdraw'],
     getDispensers: ['escrow_remaining', 'current_status', 'price_stale'],
+    getDispenses: ['status_reason'],
 };
 
 const POST_PASS_DROPPED = { getContracts: ['meta_json'] };

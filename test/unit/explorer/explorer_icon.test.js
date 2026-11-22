@@ -18,6 +18,7 @@ const { createConfigInfoStub } = require('../../fixtures/mock-config.js');
 const { mockRes }              = require('../../fixtures/mock-query-args.js');
 
 const ICONS_DIR = path.resolve(path.join(__dirname, '..', '../../src/content/icons'));
+const DEFAULT_IMAGE = path.resolve(path.join(ICONS_DIR, '..', 'images', 'coin-unknown-64.png'));
 
 /**
  * Build a minimal XChainExplorer instance with the given fs stub.
@@ -67,16 +68,26 @@ describe('XChainExplorer#processIconRequest', function () {
     });
 
     it('redirects to /icon/default.png when icon does not exist', async function () {
-        const fsStub = { existsSync: sinon.stub().returns(false) };
+        const fsStub = { existsSync: sinon.stub().callsFake((file) => file === DEFAULT_IMAGE) };
         const explorer = makeExplorer(fsStub);
         const req = makeIconReq('/icon/UNKNOWN.png');
         const res = mockRes();
 
         await explorer.processIconRequest(req, res);
 
-        expect(fsStub.existsSync.calledOnce).to.be.true;
         expect(res._sentFile).to.be.null;
         expect(res._redirect).to.deep.equal({ code: 302, url: '/icon/default.png' });
+
+        const fallback = mockRes();
+        await explorer.processIconRequest(makeIconReq('/icon/default.png'), fallback);
+        expect(fallback._sentFile).to.equal(DEFAULT_IMAGE);
+        expect(fallback._redirect).to.be.null;
+
+        const missingFallback = mockRes();
+        await makeExplorer({ existsSync: sinon.stub().returns(false) })
+            .processIconRequest(makeIconReq('/icon/default.png'), missingFallback);
+        expect(missingFallback._status).to.equal(404);
+        expect(missingFallback._redirect).to.be.null;
     });
 
     it('returns 403 for a path traversal that escapes the icons directory', async function () {

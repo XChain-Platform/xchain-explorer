@@ -19,8 +19,12 @@
 // Display ATTEST action information (v0 request / v1 response / v5 batch head /
 // v6 batch continuation; `attests` table)
 function showAttestDetails(data){
+    let format = Number(data.action_format);
     let version = Number(isNull(data.version) ? data.action_format : data.version);
-    let isResponse = (version === 1);
+    let isRelayRequest = (format === 3);
+    let isRelayResponse = (format === 4);
+    let relayMaterialized = !isNull(data.request_id);
+    let isResponse = (version === 1) || isRelayResponse;
     // ATTEST v2 is the system-synthesized expire: it writes no attests row, so the
     // explorer resolves only baseline fields + version. Badge it as an Expire and
     // show neither the request nor the response sub-panels (their fields are absent).
@@ -31,15 +35,19 @@ function showAttestDetails(data){
     // the request branch renders a signed window as a table of dashes.
     let isBatchHead = (version === 5);
     let isBatch     = isBatchHead || (version === 6);
-    detailAttestVote_renderAttestIdentity(data, version, isResponse, isExpire, isBatchHead, isBatch);
+    detailAttestVote_renderAttestIdentity(data, version, isResponse, isExpire, isBatchHead, isBatch,
+        isRelayRequest, isRelayResponse);
+    detailAttestVote_renderAttestRelay(data, isRelayRequest, isRelayResponse, relayMaterialized);
     detailAttestVote_renderAttestBatch(data, isBatch);
-    detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatch);
-    detailAttestVote_renderAttestResponse(data, isResponse);
+    detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatch, isRelayRequest, relayMaterialized);
+    detailAttestVote_renderAttestResponse(data, isResponse, isRelayResponse);
 }
 
-function detailAttestVote_renderAttestIdentity(data, version, isResponse, isExpire, isBatchHead, isBatch){
+function detailAttestVote_renderAttestIdentity(data, version, isResponse, isExpire, isBatchHead, isBatch, isRelayRequest, isRelayResponse){
     // Render the attestation badge and shared identity fields.
     $('#info-attest .attest-type').html(
+        isRelayRequest  ? '<span class="badge text-bg-info text-dark">Relay request (v3)</span>' :
+        isRelayResponse ? '<span class="badge text-bg-info text-dark">Relay response (v4)</span>' :
         isResponse  ? '<span class="badge text-bg-primary">Response (v' + version + ')</span>' :
         isExpire    ? '<span class="badge text-bg-warning text-dark">Expire (v2)</span>' :
         isBatchHead ? '<span class="badge text-bg-info text-dark">Batch Head (v5)</span>' :
@@ -80,6 +88,34 @@ function detailAttestVote_renderAttestIdentity(data, version, isResponse, isExpi
         $('#info-attest .attest-contract').html(formatLink('/' + XC.coin + '/contract/' + data.contract_index, data.contract_index));
 }
 
+function detailAttestVote_renderAttestRelay(data, isRelayRequest, isRelayResponse, materialized){
+    let isRelay = isRelayRequest || isRelayResponse;
+    $('#info-attest .attest-relay-fields').toggleClass('d-none', !isRelay || !materialized);
+    $('#info-attest .attest-relay-note-row').toggleClass('d-none', !isRelay);
+    $('#info-attest .attest-contract-row').toggleClass('d-none', isRelay);
+    $('#info-attest .attest-fee-payer-row').toggleClass('d-none', isRelay);
+    $('#info-attest .attest-callback-row').toggleClass('d-none', isRelay);
+    $('#info-attest .attest-callback-params-row').toggleClass('d-none', isRelay);
+    $('#info-attest .attest-signature-row').toggleClass('d-none', isRelayResponse);
+    $('#info-attest .attest-relay-quorum-row').toggleClass('d-none', !isRelayResponse);
+    if(!isRelay) return;
+    let originChain = isNull(data.origin_chain) && isRelayResponse ? XC.coin : data.origin_chain;
+    $('#info-attest .attest-origin-chain').text(isNull(originChain) ? '-' : originChain);
+    $('#info-attest .attest-origin-action').text(isNull(data.origin_action_index)
+        ? '-' : String(data.origin_action_index) + ' on ' + originChain);
+    let note = !materialized
+        ? 'Relay request was not materialized because this action was refused.'
+        : isRelayRequest
+            ? 'Relay requests carry no local contract, callback, or fee payer.'
+            : 'Relay signatures verify transport, not the attestation quorum.';
+    $('#info-attest .attest-relay-note').text(note);
+    if(isRelayResponse){
+        let quorum = 'See the home-chain response in this attestation lifecycle.';
+        $('#info-attest .attest-relay-quorum').html(isNull(data.request_id) ? quorum
+            : formatLink('/' + XC.coin + '/attestation/' + data.request_id, quorum));
+    }
+}
+
 function detailAttestVote_renderAttestBatch(data, isBatch){
     // Render fields carried by attestation batches.
     // Batch-side fields
@@ -104,11 +140,12 @@ function detailAttestVote_renderAttestBatch(data, isBatch){
     }
 }
 
-function detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatch){
+function detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatch, isRelayRequest, relayMaterialized){
     // Render fields carried by attestation requests.
     // Request-side fields
-    $('#info-attest .attest-request-fields').toggleClass('d-none', isResponse || isExpire || isBatch);
-    if(!isResponse && !isExpire && !isBatch){
+    let hidden = isResponse || isExpire || isBatch || (isRelayRequest && !relayMaterialized);
+    $('#info-attest .attest-request-fields').toggleClass('d-none', hidden);
+    if(!hidden){
         $('#info-attest .attest-fee-payer').html(isNull(data.fee_payer) ? '-' : formatLink('/' + XC.coin + '/address/' + data.fee_payer, data.fee_payer));
         // Request-side economics the requester escrowed and paid (fee_amount+fee_tick, gas_escrow).
         $('#info-attest .attest-fee').html(isNull(data.fee_amount) ? '-' : formatLink(tokenUrl(XC.coin, data.fee_tick), data.fee_tick, formatAmount(data.fee_amount) + ' ' + data.fee_tick));
@@ -123,7 +160,7 @@ function detailAttestVote_renderAttestRequest(data, isResponse, isExpire, isBatc
     }
 }
 
-function detailAttestVote_renderAttestResponse(data, isResponse){
+function detailAttestVote_renderAttestResponse(data, isResponse, isRelayResponse){
     // Render fields carried by attestation responses.
     // Response-side fields
     $('#info-attest .attest-response-fields').toggleClass('d-none', !isResponse);
@@ -144,7 +181,10 @@ function detailAttestVote_renderAttestResponse(data, isResponse){
         $('#info-attest .attest-response-payload').text(isNull(data.response_payload) ? '-' : String(data.response_payload));
         $('#info-attest .attest-meta').text(isNull(data.meta) ? '-' : data.meta);
         let sigs = Array.isArray(data.signatures) ? data.signatures : [];
-        if(data.signatures_unparseable){
+        if(isRelayResponse){
+            $('#info-attest .attest-sig-count').text('');
+            $('#info-attest .attest-signatures').text('');
+        } else if(data.signatures_unparseable){
             let invalid = '<span class="text-danger">unparseable</span>';
             $('#info-attest .attest-sig-count').html(invalid);
             $('#info-attest .attest-signatures').html(invalid);
@@ -192,7 +232,11 @@ function detailAttestVote_renderVoteFinalize(data, kind){
         $('#info-vote .vote-finalize-poll').html(isNull(data.poll_ref) ? '-' : formatLink('/' + XC.coin + '/action/' + data.poll_ref, data.poll_ref));
         let fst = data.poll_status;
         let fcls = (fst=='finalized') ? 'success' : (fst=='failed_quorum') ? 'danger' : 'secondary';
-        $('#info-vote .vote-finalize-status').html(isNull(fst) ? '-' : '<span class="badge text-bg-' + fcls + '">' + fst + '</span>');
+        // A real finalization always resolves the poll it closed, so none found means the
+        // action was a refused user broadcast rather than a system finalization.
+        $('#info-vote .vote-finalize-status').html(isNull(fst)
+            ? (isNull(data.poll_ref) ? 'No finalized poll recorded (action refused or not applied)' : '-')
+            : '<span class="badge text-bg-' + fcls + '">' + fst + '</span>');
         let fopts = Array.isArray(data.options) ? data.options : [];
         let wo = data.winning_option;
         $('#info-vote .vote-finalize-winning').text(isNull(wo) ? '-' : (wo + (fopts[wo] != null ? ': ' + fopts[wo] : '')));
@@ -201,7 +245,7 @@ function detailAttestVote_renderVoteFinalize(data, kind){
 
 function detailAttestVote_renderPollSummary(data){
     // Render the poll definition and gate parameters.
-        let pcls = (data.poll_status=='finalized') ? 'success' : (data.poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
+        let pcls = (data.poll_status=='finalized') ? 'success' : (data.poll_status=='failed_quorum') ? 'danger' : (data.poll_status=='refused') ? 'secondary' : 'warning text-dark';
         $('#info-vote .vote-token').html(isNull(data.tick) ? '-' : formatLink(tokenUrl(XC.coin, data.tick), data.tick, data.tick));
         $('#info-vote .vote-question').text(isNull(data.question) ? '-' : data.question);
         let opts = Array.isArray(data.options) ? data.options : [];
@@ -304,7 +348,8 @@ function detailAttestVote_renderPollResults(data, opts){
                 html += '</tbody></table>';
                 $('#info-vote .vote-results').html(html);
             } else {
-                $('#info-vote .vote-results').text(data.poll_status=='open' ? 'Voting open (not yet finalized)' : 'No results');
+                $('#info-vote .vote-results').text(data.poll_status=='open' ? 'Voting open (not yet finalized)'
+                    : data.poll_status=='refused' ? 'Poll not created (action refused)' : 'No results');
             }
         });
 }
@@ -317,7 +362,7 @@ function detailAttestVote_renderVoteChoice(data, kind){
         $('#info-vote .vote-choices').html(ballot.length ? ballot.map(function(b){
             let choice = $('<div>').text(formatIndexedLabel(b.choice, b.label)).html();
             return choice + (isNull(b.share) ? '' : ' (share ' + $('<div>').text(b.share).html() + ')');
-        }).join('<br>') : '-');
+        }).join('<br>') : 'No ballot recorded (action refused or not applied)');
         $('#info-vote .vote-memo').text(isNull(data.memo) ? '-' : data.memo);
     }
     if(kind=='delegation'){

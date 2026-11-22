@@ -59,6 +59,24 @@ async function post(ctx, body, params = { coin: 'RBTC' }) {
     return res;
 }
 
+// Invalid action names are refused before the indexer is called; valid ones pass through verbatim.
+async function assertActionCharsetGate() {
+    sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
+    const stub = sinon.stub(IndexerConnector.prototype, 'preflight').resolves({ supported: true, valid: true });
+    for (const action of ['send;drop', 'SEND|X', ' ', 'SEND' + ' '.repeat(253)]) {
+        const res = await call(fakeThis(), { action });
+        expect(res._status, action).to.equal(400);
+        expect(res._json.code, action).to.equal('INVALID_ACTION');
+    }
+    expect(stub.callCount).to.equal(0, 'invalid names never reach the indexer');
+    for (const action of ['send', ' SEND ', 'transfer', 'batch']) {
+        const res = await call(fakeThis(), { action });
+        expect(res._status, action).to.equal(200);
+    }
+    expect(stub.args.map((args) => args[0].action)).to.deep.equal(
+        ['send', ' SEND ', 'transfer', 'batch'], 'the literal action wire is preserved');
+}
+
 describe('processPreflightRequest', function () {
     afterEach(() => sinon.restore());
 
@@ -90,10 +108,7 @@ describe('processPreflightRequest', function () {
     });
 
     it('400 on a bad action charset', async function () {
-        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
-        const res = await call(fakeThis(), { action: 'send;drop' });
-        expect(res._status).to.equal(400);
-        expect(res._json.code).to.equal('INVALID_ACTION');
+        await assertActionCharsetGate();
     });
 
     it('400 when params exceed the length cap', async function () {
@@ -140,6 +155,10 @@ describe('processPreflightRequest', function () {
         await call(fakeThis(), { action: 'ISSUE', params: '0|NEWTICK', source: 'me', feeMode: 'NATIVE' });
         expect(stub.firstCall.args[0].feeMode).to.equal('native');
     });
+});
+
+describe('processPreflightRequest', function () {
+    afterEach(() => sinon.restore());
 
     it('omits feeMode when the caller did not send one (the indexer picks the chain default)', async function () {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
@@ -168,6 +187,18 @@ describe('processPreflightRequest', function () {
         const res = await call(fakeThis(), { action: 'SEND' });
         expect(res._status).to.equal(502);
         expect(res._json.code).to.equal('UPSTREAM_ERROR');
+    });
+
+    it('502 with retryable when the indexer returns a coded not-ready result', async function () {
+        sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
+        sinon.stub(IndexerConnector.prototype, 'preflight').resolves({
+            error: 'indexer not ready', code: 'INDEXER_NOT_READY', retryable: true
+        });
+        const res = await call(fakeThis(), { action: 'SEND' });
+        expect(res._status).to.equal(502);
+        expect(res._json).to.deep.equal({
+            error: 'pre-flight upstream error', code: 'UPSTREAM_ERROR', retryable: true
+        });
     });
 });
 

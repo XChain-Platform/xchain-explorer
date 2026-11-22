@@ -71,6 +71,26 @@ function forwardFreshnessHeaders(res, read){
     }
 }
 
+// Watch one batch response for its client going away. A batch is up to forty
+// reads, and nothing stops them when the socket closes, so a caller that sends
+// a batch and hangs up at once would otherwise make the server do all of it for
+// nobody. isAborted() is checked before each read starts; reads already running
+// finish, since each statement is bounded by the database deadline. The hold
+// keeps the request counted by the global concurrency gate until those reads
+// settle, so an abort storm is refused at the cap instead of admitted past it.
+// The local close listener and res.destroyed cover a gate that is disabled or
+// skips this route, where res.abortSignal is absent.
+function watchAbort(res){
+    let closed = false;
+    if(res && typeof res.once === 'function')
+        res.once('close', () => { closed = true; });
+    const release = (res && typeof res.holdSlot === 'function') ? res.holdSlot() : () => {};
+    const isAborted = () => closed ||
+        (res && res.destroyed === true) ||
+        Boolean(res && res.abortSignal && res.abortSignal.aborted);
+    return { isAborted, release };
+}
+
 class BatchReads {
 
     /**********************************************************
@@ -98,8 +118,12 @@ class BatchReads {
      * were sent (null when the body was not JSON). A throw is degraded to a 500 entry
      * rather than propagated: one address failing must not lose the other
      * nineteen answers the caller already paid for.
+     *
+     * `ip` is the batch caller's own address, carried on the synthetic request so
+     * an inner read that calls an upstream (the UTXO tracker) charges the end
+     * client rather than reading as the explorer itself.
      */
-    async readApi(coin, apiPath, query){
+    async readApi(coin, apiPath, query, ip){
         let code = 200;
         const body = [];
         const headers = {};
@@ -113,7 +137,7 @@ class BatchReads {
             send:   function(chunk){ body.push(chunk); return this; }
         };
         try {
-            await this.processRequest({ path: '/' + coin + '/api' + apiPath, query: query || {} }, res);
+            await this.processRequest({ path: '/' + coin + '/api' + apiPath, query: query || {}, ip }, res);
         } catch(err){
             log.error('BATCH_READ_FAILED', { api_path: apiPath, err: (err && err.message) ? err.message : err });
             return { code: 500, json: { error: 'An unexpected error occurred while serving this request.', code: 'INTERNAL_ERROR' } };
@@ -163,12 +187,13 @@ class BatchReads {
      * `seeded` carries reads the caller already drove (the coin gate probe), so
      * the address that paid for one is not charged for it twice.
      */
-    async batchEntry(coin, address, parts, query, seeded){
+    async batchEntry(coin, address, parts, query, seeded, isAborted, ip){
         const entry = {};
         let failure = null;
         for(const part of parts){
+            if(isAborted && isAborted()) return null;
             const readPath = part.path(address);
-            const read     = seeded.has(readPath) ? seeded.get(readPath) : await this.readApi(coin, readPath, query);
+            const read     = seeded.has(readPath) ? seeded.get(readPath) : await this.readApi(coin, readPath, query, ip);
             if(read.code === 200){
                 entry[part.key] = read.json;
                 continue;
@@ -195,12 +220,19 @@ class BatchReads {
      * [{ key, path(address) }, ..].
      */
     async processBatchRequest(req, res, parts){
-        const coin   = String((req.params && req.params.coin) || '').toUpperCase();
         const parsed = this.parseBatchAddresses(req.body);
         if(parsed.refusal)
             return this.sendBatchJson(res, 400, parsed.refusal);
+        const watch = watchAbort(res);
+        try {
+            return await this.runBatchRequest(req, res, parts, parsed.addresses, watch.isAborted);
+        } finally {
+            watch.release();
+        }
+    }
 
-        const addresses = parsed.addresses;
+    async runBatchRequest(req, res, parts, addresses, isAborted){
+        const coin      = String((req.params && req.params.coin) || '').toUpperCase();
         const query     = (req.query && typeof req.query === 'object') ? req.query : {};
 
         const config = await this.configInfo.getConfig();
@@ -219,7 +251,8 @@ class BatchReads {
             ? canonicalAddresses.get(addresses[0])
             : invalidAddress;
         const firstPath = parts[0].path(firstAddress);
-        const firstRead = await this.readApi(coin, firstPath, query);
+        const firstRead = await this.readApi(coin, firstPath, query, req.ip);
+        if(isAborted()) return;
         forwardFreshnessHeaders(res, firstRead);
         if(firstRead.code === 503 && firstRead.json && String(firstRead.json.code || '').startsWith('COIN_'))
             return this.sendBatchJson(res, firstRead.code, firstRead.json);
@@ -230,22 +263,9 @@ class BatchReads {
             });
 
         const seeded  = new Map([[firstPath, firstRead]]);
-        const entries = new Map();
-        let cursor    = 0;
-        const worker  = async () => {
-            for(;;){
-                const idx = cursor++;
-                if(idx >= addresses.length) return;
-                const address = addresses[idx];
-                const canonical = canonicalAddresses.get(address);
-                entries.set(address, await this.batchEntry(coin, canonical, parts, query, seeded));
-            }
-        };
-
-        const workers = [];
-        for(let i = 0; i < Math.min(BATCH_READ_CONCURRENCY, addresses.length); i++)
-            workers.push(worker());
-        await Promise.all(workers);
+        const entries = await this.fanOutBatch(coin, addresses, canonicalAddresses, parts, query, seeded, isAborted, req.ip);
+        // A response nobody will read is not built or sent.
+        if(isAborted()) return;
 
         // Keyed in the caller's own address order, not completion order, so a
         // response body is deterministic for a given request.
@@ -253,6 +273,29 @@ class BatchReads {
         for(const address of addresses)
             out[address] = entries.get(address);
         return this.sendBatchJson(res, 200, out);
+    }
+
+    // Drive every address through batchEntry, BATCH_READ_CONCURRENCY at a time.
+    // A worker takes no new address once the client has gone away.
+    async fanOutBatch(coin, addresses, canonicalAddresses, parts, query, seeded, isAborted, ip){
+        const entries = new Map();
+        let cursor    = 0;
+        const worker  = async () => {
+            for(;;){
+                if(isAborted()) return;
+                const idx = cursor++;
+                if(idx >= addresses.length) return;
+                const address = addresses[idx];
+                const canonical = canonicalAddresses.get(address);
+                entries.set(address, await this.batchEntry(coin, canonical, parts, query, seeded, isAborted, ip));
+            }
+        };
+
+        const workers = [];
+        for(let i = 0; i < Math.min(BATCH_READ_CONCURRENCY, addresses.length); i++)
+            workers.push(worker());
+        await Promise.all(workers);
+        return entries;
     }
 
     async processBalancesBatchRequest(req, res){

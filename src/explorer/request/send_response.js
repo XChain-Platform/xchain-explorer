@@ -32,6 +32,7 @@
 // reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../../observability');
 const log = getLogger();
+const { logWindowed } = require('../../lib/log_window.js');
 
 /**
  * Stamp this coin's tip freshness onto the response.
@@ -70,7 +71,9 @@ function recordRequestCost(explorer, req, st, host){
     // Anything slower than 400 milliseconds is logged, and counted for /ping.
     if(st.response.time > 400){
         host.stats.slow();
-        log.warn('SLOW_REQUEST', { path: req.path, time: st.response.time + 'ms' });
+        // Windowed: a hub outage makes every request slow, one line each otherwise.
+        // The owner is the explorer instance: the host bag is rebuilt per request, so state kept on it never outlives one request.
+        logWindowed(explorer, log, 'warn', 'SLOW_REQUEST', { path: req.path, time: st.response.time + 'ms' });
     }
 
     // Debug detail, logged only when the DEBUG environment variable is set.

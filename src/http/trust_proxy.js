@@ -31,6 +31,16 @@
  * address past the per-IP limiters (express-rate-limit's
  * ERR_ERL_PERMISSIVE_TRUST_PROXY), so the value is deliberately the number 1.
  *
+ * A numeric hop count trusts the closest hop whatever its address, so it is
+ * sound only while the explorer port is reachable solely through the fronting
+ * proxy. A peer that connects directly can send its own X-Forwarded-For, have
+ * that value read as its address, and take a fresh per-IP rate-limit bucket on
+ * every request. A host install closes this by binding loopback (see
+ * src/http/api_boot/bind_host.js); a container binds every interface, so its
+ * published port must be reachable only from the proxy. The count is kept
+ * numeric rather than tied to the proxy address because a containerized
+ * explorer sees its proxy at a bridge address that varies per host.
+ *
  * The WebSocket upgrade is handled on the raw HTTP server, where Express's
  * trust-proxy setting does not apply at all, so src/ws/websocket_server.js
  * resolves the same address by hand in clientIp using WS_TRUST_PROXY_HOPS

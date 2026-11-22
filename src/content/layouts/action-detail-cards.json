@@ -234,6 +234,34 @@
                     "cell": "file-memo"
                 },
                 {
+                    "label": "File Hash",
+                    "cell": "file-part-hash"
+                },
+                {
+                    "label": "Part Index",
+                    "cell": "file-part-index"
+                },
+                {
+                    "label": "Manifest",
+                    "cell": "file-part-manifest"
+                },
+                {
+                    "label": "File Hash",
+                    "cell": "file-multipart-hash"
+                },
+                {
+                    "label": "Assembly",
+                    "cell": "file-multipart-status"
+                },
+                {
+                    "label": "Parts Received",
+                    "cell": "file-multipart-parts"
+                },
+                {
+                    "label": "Total Size",
+                    "cell": "file-multipart-bytes"
+                },
+                {
                     "label": "Gate Token",
                     "cell": "file-gate-ticker"
                 },
@@ -272,6 +300,18 @@
                 {
                     "label": "Contract",
                     "cell": "attest-contract"
+                },
+                {
+                    "label": "Origin Chain",
+                    "cell": "attest-origin-chain"
+                },
+                {
+                    "label": "Origin Action",
+                    "cell": "attest-origin-action"
+                },
+                {
+                    "label": "Relay",
+                    "cell": "attest-relay-note"
                 },
                 {
                     "label": "Fee Payer",
@@ -332,6 +372,10 @@
                 {
                     "label": "Signing Pubkeys",
                     "cell": "attest-signatures"
+                },
+                {
+                    "label": "Attestation Quorum",
+                    "cell": "attest-relay-quorum"
                 },
                 {
                     "label": "Callback Execute",
@@ -900,6 +944,10 @@
                     "cell": "xcall-call-id"
                 },
                 {
+                    "label": "Request Action",
+                    "cell": "xcall-request-action"
+                },
+                {
                     "label": "Version",
                     "cell": "xcall-version"
                 },
@@ -1345,6 +1393,10 @@
                 {
                     "label": "Version",
                     "cell": "anchor-version"
+                },
+                {
+                    "label": "Payload",
+                    "cell": null
                 },
                 {
                     "label": "Sections",

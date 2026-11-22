@@ -347,3 +347,39 @@ describe('action LRU skips a status a later action restamps in place', function 
     });
 
 });
+
+describe('action LRU checks embedded BATCH members', function () {
+
+    it('caches only batches whose members are all immutable actions', function () {
+        const db = makeDb();
+        const batch = { action: 'BATCH', action_index: 1000, actions: [
+            { action: 'SEND', action_index: 1001 },
+            { action: 'SEND', action_index: 1002 },
+        ] };
+        expect(db.isCacheableAction(batch)).to.equal(true);
+
+        const incomplete = { action: 'FILE', action_index: 1003 };
+        Object.defineProperty(incomplete, 'detail_incomplete', { value: true });
+        const mutableMembers = [
+            { action: 'ORDER', action_index: 1004, state: { status: 'open' } },
+            { action: 'ATTEST', action_index: 1005, request_status: 'pending' },
+            { action: 'DEPLOY', action_index: 1006, status: 'pending: chunks' },
+            incomplete,
+            null,
+            { action: 'SEND' },
+        ];
+        for(const member of mutableMembers)
+            expect(db.isCacheableAction({ ...batch, actions: [member] })).to.equal(false);
+    });
+
+    it('keeps a batch with a mutable member out of the LRU', function () {
+        const db = makeDb();
+        const key = db.cacheKey('BTC', 1000);
+        const batch = { action: 'BATCH', action_index: 1000, actions: [
+            { action: 'ORDER', action_index: 1004, state: { status: 'open' } },
+        ] };
+        if(db.isCacheableAction(batch)) db.cacheSet(db._actionDataCache, key, batch);
+        expect(db.cacheGet(db._actionDataCache, key)).to.be.undefined;
+    });
+
+});

@@ -34,6 +34,8 @@ function makeDb(queryResult){
     db.doQuery = async (config, sql, args) => {
         const call = { sql: String(sql), args: args || [] };
         db.calls.push(call);
+        // These blocks carry no multi-part FILEs; their part count reads no rows.
+        if(/FROM\s+file_parts/.test(call.sql)) return [];
         return queryResult(call, db.calls.length);
     };
     return db;

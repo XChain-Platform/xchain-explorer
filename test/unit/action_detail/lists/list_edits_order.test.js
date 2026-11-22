@@ -66,4 +66,17 @@ describe('LIST edits order', function () {
             { tick: 'BETA', status: 'valid' },
         ]);
     });
+
+    it('orders union edits by numeric member index with unresolved members last', function () {
+        const edits = editsFor(3, [
+            { item_id: 10, status: 'valid' },
+            { item_id: null, status: 'invalid: LIST (unknown)' },
+            { item_id: 9, status: 'valid' },
+        ]);
+        assert.deepStrictEqual(edits, [
+            { list_action_index: 9, status: 'valid' },
+            { list_action_index: 10, status: 'valid' },
+            { list_action_index: null, status: 'invalid: LIST (unknown)' },
+        ]);
+    });
 });

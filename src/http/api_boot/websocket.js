@@ -145,4 +145,4 @@ function startWebsockets(deps){
     runtime.changeDetector = changeDetector;
 }
 
-module.exports = { startWebsockets, startReorgPoll };
+module.exports = { startWebsockets };

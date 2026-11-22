@@ -16,6 +16,9 @@
  * Custom javascript for xchain explorer
  */
 
+var actionDetailAttestListSummary = (typeof actionDetailAttestListSummary === 'function') ? actionDetailAttestListSummary
+    : ((typeof require === 'function') ? require('./action_detail/attest_list_summary.js').actionDetailAttestListSummary : null);
+
 // Handle getting a quick summary of action details
 function getActionDetails(action, info){
     let html = '';
@@ -92,21 +95,7 @@ function attestBatchLabel(info){
 }
 
 function attestListSummary(data){
-    let version = Number(data[4]);
-    let batch = [5, 6].includes(version);
-    let type = version === 5
-        ? '<span class="badge text-bg-info text-dark">Batch head</span>'
-        : version === 6
-            ? '<span class="badge text-bg-info text-dark">Batch continuation</span>'
-            : version === 0
-                ? '<span class="badge text-bg-secondary">Request</span>'
-                : '<span class="badge text-bg-primary">Response</span>';
-    let label = attestBatchLabel({
-        version: version,
-        batch_window_start: data[15], batch_window_end: data[16], batch_row_count: data[17],
-        batch_chunk_index: data[19], batch_total_chunks: data[20]
-    });
-    return { batch: batch, key: data[14], label: label, type: type };
+    return actionDetailAttestListSummary(data, attestBatchLabel);
 }
 
 // Lead text for a multi-leg SEND, DESTROY or AIRDROP summary: the declared total of one token,
@@ -199,13 +188,13 @@ function actionDetail_renderMarketActions(html, action, info, coin){
         html += info.coin2 + ' action ' + formatLink('/' + networkCoin(info.coin2) + '/action/' + info.coin2_action_index, info.coin2_action_index);
     }
     if(action=='LIST'){
-        let action3 = (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create'; 
+        let fmt = isNull(info.action_format) ? null : Number(info.action_format);
+        let action3 = fmt === 2 ? 'Share' : fmt === 3 ? 'Transfer'
+            : (info.edit) ? (info.edit==1) ? 'Add to' : 'Remove from' : 'Create';
         // Read the type off the canonical XC.list_types map, never a second inline copy:
-        // showListDetails consumes the map too, so this keeps one source of truth. An
-        // invalid edit row can carry a null type, the parent lookup having failed while
-        // the row persisted, so name that case rather than printing 'undefined'.
+        // showListDetails also uses it; name a null type when the invalid edit row persisted.
         let type2   = XC.list_types[info.type] || 'Unknown';
-        html = action3 + ' ' + type2 + ' List';
+        html = (fmt === 5) ? 'Update ' + type2 + ' List metadata' : action3 + ' ' + type2 + ' List';
     }
     // Name the BET shape from its record format, the one shape key every summary
     // surface projects; a row with no format keeps the generic name.
@@ -308,9 +297,9 @@ function actionDetail_renderContractActions(html, action, info, coin){
             html += ', cooldown until block ' + formatAmount(info.cooldown_end_block);
     }
     if(action=='DELEGATE'){
-        html = isNull(info.target_contract_index)
-            ? 'Capability delegation'
-            : 'Delegate to contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index);
+        let format = Number(info.action_format); html = format === 2 ? 'Revoke capability signing key'
+            : format === 3 ? 'Revoke delegation on contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index)
+            : isNull(info.target_contract_index) ? 'Capability delegation' : 'Delegate to contract ' + formatLink('/' + coin + '/contract/' + info.target_contract_index, info.target_contract_index);
     }
     if(action=='COLLECT')
         html = 'Claim ' + formatAmount(info.amount) + ' validator reward';
@@ -386,12 +375,14 @@ function actionDetail_renderConsensusActions(html, action, info, coin){
             html = escapeHtml(batchLabel);
     }
     if(action=='XPOLICY')
-        html = 'Policy snapshot (XPOLICY)';
+        html = info.bridge_kind === 'refused'
+            ? 'Policy snapshot (XPOLICY), refused, not applied'
+            : 'Policy snapshot (XPOLICY)';
     if(action=='LIST_SHARE')
         html = 'Shared list version (LIST_SHARE)';
     // Never render a blank Details cell: a type with no summary branch falls back to
-    // its humanized name. The fallback-only set is pinned by a test, so a new type
-    // must either get a branch or join that list on purpose.
+    // its humanized name. The set with no branch here or in action_system_summaries.js
+    // is pinned by a test, so a new type must get a branch or join that list on purpose.
     if(html === ''){
         let words = String(action).toLowerCase().split('_');
         html = words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' ');

@@ -40,7 +40,7 @@ function useHostBindings(host){
     configEnv = host.configEnv;
 }
 
-// Upper bound on the pre-flight `params` string, in characters: the protocol's
+// Upper bound on the pre-flight `params` string, in UTF-8 bytes: the protocol's
 // OWN ENVELOPE_MAX_PAYLOAD ceiling (xchain-documentation/protocol/constants.js,
 // mirrored in xchain-decoder), so this proxy is never the component that refuses
 // an action the indexer would have judged.
@@ -48,11 +48,47 @@ function useHostBindings(host){
 // Payload SIZE is not a work multiplier upstream: the 250-command consensus cap,
 // the 8-pending admission window and the 10s timeout bound the indexer dry-run,
 // and the POST route's own rate limiter bounds the bytes per minute.
+// The ceilings are UTF-8 bytes (the protocol's own ceiling is bytes), not UTF-16 units.
 const MAX_PREFLIGHT_PARAMS_LENGTH = 390000;
 
 // Upper bound on the `source` address string. Unchanged; an address is orders
 // of magnitude below this and it only exists to keep the field bounded.
 const MAX_PREFLIGHT_SOURCE_LENGTH = 4096;
+
+const MAX_PROXY_ACTION_LENGTH = 256;
+const ORACLE_ESCROW_TEXT = /^[0-9]+(\.[0-9]*)?$/;
+const MAX_ORACLE_ESCROW_LENGTH = 80;
+
+// Validate the normalized name but retain the raw wire value: BATCH parses its literal prefix.
+function validProxyAction(action){
+    let raw = String(action);
+    return raw.length <= MAX_PROXY_ACTION_LENGTH && /^[A-Z0-9_]{1,32}$/.test(raw.trim().toUpperCase());
+}
+
+// Answer upstream failures for both fee quotes, preflight and feeschedule.
+// Mark a transient failure retryable and carry Retry-After when the indexer names one.
+// Keep a refusal or error verdict bare.
+
+// Prevent clients from re-sending a request the indexer already judged.
+// Preserve one response contract across all four proxy routes.
+function sendUpstreamError(res, e, message){
+    let body = { error: message, code: 'UPSTREAM_ERROR' };
+    if(e && e.retryable === true){
+        body.retryable = true;
+        if(e.retryAfter > 0 && typeof res.set === 'function') res.set('Retry-After', String(e.retryAfter));
+    }
+    return res.status(502).json(body);
+}
+
+const INDEXER_OUTAGE_CODES = new Set(['INDEXER_NOT_READY', 'INDEXER_INTERNAL']);
+
+function indexerOutage(result){
+    if(!result || typeof result !== 'object' || !INDEXER_OUTAGE_CODES.has(result.code)) return null;
+    return Object.assign(new Error(String(result.error || 'indexer error')), {
+        code: result.code,
+        retryable: result.retryable === true
+    });
+}
 
 class FeesPreflight {
 
@@ -109,13 +145,13 @@ class FeesPreflight {
                     return res.status(400).json({ error: field + ' must be a string', code: 'INVALID_PARAMETER' });
             }
             action = String(action);
-            if(!/^[A-Z0-9_]{1,32}$/.test(action))
+            if(!validProxyAction(action))
                 return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
             if(!this.util.isNull(feeOutputSats) && !/^[0-9]+$/.test(String(feeOutputSats)))
                 return res.status(400).json({ error: 'invalid feeOutputSats', code: 'INVALID_PARAMETER' });
             params = this.util.isNull(params) ? undefined : String(params);
             source = this.util.isNull(source) ? undefined : String(source);
-            if((params && params.length > (isPost ? MAX_PREFLIGHT_PARAMS_LENGTH : 8192)) || (source && source.length > MAX_PREFLIGHT_SOURCE_LENGTH))
+            if((params && Buffer.byteLength(params, 'utf8') > (isPost ? MAX_PREFLIGHT_PARAMS_LENGTH : 8192)) || (source && Buffer.byteLength(source, 'utf8') > MAX_PREFLIGHT_SOURCE_LENGTH))
                 return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
             let connector = new IndexerConnector(url);
             let result = await this.feeQuoteWithBusyRetry(connector, {
@@ -124,12 +160,15 @@ class FeesPreflight {
                 source:        source,
                 feeOutputSats: this.util.isNull(feeOutputSats) ? undefined : String(feeOutputSats)
             });
+            let outage = indexerOutage(result);
+            if(outage) return sendUpstreamError(res, outage, 'fee quote upstream error');
             return res.json(result);
         } catch(e){
             log.error('FEE_QUOTE_REQUEST_FAILED', { err: e.message || e });
-            // `retryable` so a client can tell a transient upstream blip from a verdict; the
-            // code and status stay as they were, because callers already branch on them.
-            return res.status(502).json({ error: 'fee quote upstream error', code: 'UPSTREAM_ERROR', retryable: true });
+            // `retryable` only for a transient upstream failure, so a client can tell a
+            // blip from a verdict; the code and status stay as they were, because callers
+            // already branch on them.
+            return sendUpstreamError(res, e, 'fee quote upstream error');
         }
     }
 
@@ -190,17 +229,21 @@ class FeesPreflight {
             for(let f of ['giveCoin','getCoin'])
                 if(q[f] !== undefined && !/^[A-Z]{2,10}$/.test(q[f]))
                     return res.status(400).json({ error: 'invalid ' + f, code: 'INVALID_PARAMETER' });
-            if(q.giveEscrow !== undefined && !/^[0-9]+(\.[0-9]{1,18})?$/.test(q.giveEscrow))
+            if(q.giveEscrow !== undefined &&
+                (q.giveEscrow.length > MAX_ORACLE_ESCROW_LENGTH || !ORACLE_ESCROW_TEXT.test(q.giveEscrow)))
                 return res.status(400).json({ error: 'invalid giveEscrow', code: 'INVALID_PARAMETER' });
-            if(q.blockTime !== undefined && !/^[0-9]+$/.test(q.blockTime))
+            if(q.blockTime !== undefined &&
+                (!/^[1-9][0-9]*$/.test(q.blockTime) || !Number.isSafeInteger(Number(q.blockTime))))
                 return res.status(400).json({ error: 'invalid blockTime', code: 'INVALID_PARAMETER' });
 
             let connector = new IndexerConnector(url);
             let result = await connector.oraclefeequote(q);
+            let outage = indexerOutage(result);
+            if(outage) return sendUpstreamError(res, outage, 'oracle fee quote upstream error');
             return res.json(result);
         } catch(e){
             log.error('ORACLE_FEE_QUOTE_REQUEST_FAILED', { err: e.message || e });
-            return res.status(502).json({ error: 'oracle fee quote upstream error', code: 'UPSTREAM_ERROR' });
+            return sendUpstreamError(res, e, 'oracle fee quote upstream error');
         }
     }
 
@@ -245,11 +288,11 @@ class FeesPreflight {
                     return res.status(400).json({ error: field + ' must be a string', code: 'INVALID_PARAMETER' });
             }
             action = String(action);
-            if(!/^[A-Z0-9_]{1,32}$/.test(action))
+            if(!validProxyAction(action))
                 return res.status(400).json({ error: 'invalid action', code: 'INVALID_ACTION' });
             params = this.util.isNull(params) ? undefined : String(params);
             source = this.util.isNull(source) ? undefined : String(source);
-            if((params && params.length > MAX_PREFLIGHT_PARAMS_LENGTH) || (source && source.length > MAX_PREFLIGHT_SOURCE_LENGTH))
+            if((params && Buffer.byteLength(params, 'utf8') > MAX_PREFLIGHT_PARAMS_LENGTH) || (source && Buffer.byteLength(source, 'utf8') > MAX_PREFLIGHT_SOURCE_LENGTH))
                 return res.status(400).json({ error: 'parameter too long', code: 'INVALID_PARAMETER' });
             if(!this.util.isNull(feeMode)){
                 feeMode = String(feeMode).toLowerCase();
@@ -260,10 +303,12 @@ class FeesPreflight {
             }
             let connector = new IndexerConnector(url);
             let result = await connector.preflight({ action, params, source, feeMode });
+            let outage = indexerOutage(result);
+            if(outage) return sendUpstreamError(res, outage, 'pre-flight upstream error');
             return res.json(result);
         } catch(e){
             log.error('PREFLIGHT_REQUEST_FAILED', { err: e.message || e });
-            return res.status(502).json({ error: 'pre-flight upstream error', code: 'UPSTREAM_ERROR' });
+            return sendUpstreamError(res, e, 'pre-flight upstream error');
         }
     }
 
@@ -280,10 +325,13 @@ class FeesPreflight {
             let url = IndexerConnector.resolveIndexerUrl(parsed.coin, parsed.network);
             if(!url)
                 return res.status(501).json({ error: 'fee schedule unavailable (indexer API not configured for ' + parsed.coin + '/' + parsed.network + ')', code: 'INDEXER_NOT_CONFIGURED' });
-            return res.json(await feeScheduleCache.get(url, () => new IndexerConnector(url).feeschedule()));
+            let result = await feeScheduleCache.get(url, () => new IndexerConnector(url).feeschedule());
+            let outage = indexerOutage(result);
+            if(outage) return sendUpstreamError(res, outage, 'fee schedule upstream error');
+            return res.json(result);
         } catch(e){
             log.error('FEE_SCHEDULE_REQUEST_FAILED', { err: e.message || e });
-            return res.status(502).json({ error: 'fee schedule upstream error', code: 'UPSTREAM_ERROR' });
+            return sendUpstreamError(res, e, 'fee schedule upstream error');
         }
     }
 }

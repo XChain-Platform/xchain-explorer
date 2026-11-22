@@ -84,7 +84,7 @@ var xcBlockActionIcons = {
     dividends: 'fa-sitemap', files: 'fa-file', full_node_verifications: 'fa-server',
     issues: 'fa-bank', links: 'fa-link', lists: 'fa-list', messages: 'fa-message',
     mints: 'fa-print', orders: 'fa-book', order_cancels: 'fa-book', order_edits: 'fa-book',
-    order_matches: 'fa-book', prices: 'fa-chart-line', sends: 'fa-send', sleeps: 'fa-bed',
+    order_matches: 'fa-book', prices: 'fa-chart-line', sends: 'fa-paper-plane', sleeps: 'fa-bed',
     swaps: 'fa-exchange', swap_cancels: 'fa-exchange', swap_edits: 'fa-exchange',
     swap_matches: 'fa-exchange', sweeps: 'fa-truck'
 };
@@ -108,7 +108,7 @@ function xcDatatableRenderBlockRow(context){
                 icon = xcBlockActionIcons[name] || 'fa-circle';
             // name/num flow into an HTML attribute via .html() below; escape
             // before it lands in markup so an attribute-breakout can't inject.
-            html += '<a title="' + escapeHtml(num) + ' ' + escapeHtml(name) + '">' + escapeHtml(num) + ' <i class="fa ' + icon + ' me-3"></i></a>';
+            html += '<a title="' + escapeHtml(num) + ' ' + escapeHtml(name) + '">' + escapeHtml(num) + ' <i class="fa-solid ' + icon + ' me-3"></i></a>';
         }
     });
     if(html=='')

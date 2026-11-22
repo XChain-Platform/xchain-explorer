@@ -40,4 +40,4 @@ function setStaticCacheHeaders(res){
 // The options object every disk mount passes to express.static.
 const STATIC_OPTIONS = { setHeaders: setStaticCacheHeaders };
 
-module.exports = { STATIC_OPTIONS, setStaticCacheHeaders, VERSIONED, UNVERSIONED };
+module.exports = { STATIC_OPTIONS, VERSIONED, UNVERSIONED };

@@ -17,8 +17,9 @@
  * What a request gets when no route claimed it, when the coin it names cannot be
  * served here, and when the record it asked for does not exist. The order matters:
  * the 404 fallback runs first so an unmatched path becomes a page request, and the
- * not-found answer is skipped whenever a read failed or a parameter was refused,
- * so a 500 or a 400 is never rewritten into a 404.
+ * not-found answer is skipped whenever the response already carries an error code,
+ * so a 500, a 503 or a 400 is never rewritten into a 404 (any response already
+ * carrying an error code is left alone).
  *
  ********************************************************************/
 
@@ -58,7 +59,9 @@ function applyFallbacks(explorer, st){
     // in this service (e.g. :1071, :1133). A 400 made consumers that branch on status
     // (including xchain-sdk) treat "does not exist" as a malformed request. Empty list
     // queries are unaffected (they return 200 with total:0).
-    else if(!st.dbError && !st.badParam && ['api','explorer'].includes(st.cfg.type) && explorer.util.isNull(st.data) && explorer.util.isNull(st.total)){
+    // A response that already carries an error code (400, 500, 503 HUB_UNAVAILABLE) is never
+    // rewritten: no data there means the read failed, not that the record is missing.
+    else if(st.response.code < 400 && ['api','explorer'].includes(st.cfg.type) && explorer.util.isNull(st.data) && explorer.util.isNull(st.total)){
         st.response.code = 404;
         st.response.json = {
             error: 'The requested resource was not found.',

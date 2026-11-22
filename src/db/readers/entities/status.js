@@ -35,91 +35,7 @@ const DecoderConnector = require('../../../connectors/decoder.js');
 const IndexerConnector = require('../../../connectors/indexer.js');
 const { staleFailClosed } = require('../../shared.js');
 const { listAnyCoinItemsAtTip } = require('./list_item_gates.js');
-
-// Tracks the decoder tip and the indexer's distance from it for every coin.
-function decoderMeasurementFields(){
-    return {
-        // Decoder-tip reference and indexer lag per coin. decoder_tip is the
-        // decoder's highest *processed* block; decoder_lag_blocks is
-        // decoder_tip - last_block, i.e. how far the indexer trails the decoder.
-        // This is the indexer->decoder slice of the pipeline ONLY, not a
-        // whole-pipeline health signal. The coin node's actual chain tip is not
-        // visible here: the explorer reads only the indexer/decoder DBs and never
-        // talks to a coin node, so a decoder that has fallen behind the chain node
-        // (the chain->decoder gap) is NOT reflected in these fields. That gap is
-        // surfaced separately below via chain_tip / chain_lag_blocks /
-        // decoder_health, aggregated from each decoder's own health() JSON-RPC.
-        // Both fields are null for a coin when the decoder tip is
-        // unavailable; last_block/last_block_time are unaffected.
-        decoder_tip:        {},
-        decoder_lag_blocks: {}
-    };
-}
-
-// Tracks each indexed tip's age and forward clock skew for every coin.
-function tipTimeMeasurementFields(){
-    return {
-        // Wall-clock age of each measured coin's newest indexed block, and whether
-        // that age has passed the coin's max tip age. Unlike decoder_lag_blocks these
-        // see a JOINT indexer+decoder freeze, because they are measured against the
-        // local clock rather than against the other replica.
-        tip_age_seconds: {},
-        // How far AHEAD of this host's clock each measured coin's newest
-        // indexed block is dated, 0 when it is not ahead. Published because
-        // tip_age_seconds is clamped at 0: without this field a future-dated
-        // tip would be indistinguishable from a block mined this second, and
-        // that skew is the thing an operator has to fix. null when block_time
-        // is missing or unreadable, the same as tip_age_seconds.
-        tip_future_seconds: {}
-    };
-}
-
-// Tracks why the indexer is waiting and when that wait is expected to clear.
-function indexerWaitMeasurementFields(){
-    return {
-        // Why the indexer trails, for consumers that must tell a consensus wait
-        // apart from a wedge. tip_future_seconds cannot answer this: it measures
-        // the block already committed, which is always past-dated, so it reads 0
-        // throughout the wait. These measure the block being WAITED ON instead.
-        // indexer_state: 'live' (lag 0), 'future_block_wait' (the next block is
-        // dated ahead of this host's clock, so no node may commit it yet and the
-        // pause is consensus, not failure), 'behind' (the next block is
-        // admissible now and still uncommitted, including while held on an
-        // oracle-sync barrier or while the indexer is simply slow), or null
-        // when it cannot be determined. indexer_wait_clears_at is the clear instant of a
-        // future wait, or of a 'behind' barrier the indexer still reports as ahead.
-        indexer_state:               {},
-        next_block_time:             {},
-        next_block_future_seconds:   {},
-        indexer_wait_clears_at:      {},
-        stale:                       {}
-    };
-}
-
-// Tracks active consensus-divergence halts for every replica.
-function replicaHaltMeasurementFields(){
-    return {
-        // Durable consensus-divergence halt xchain-sync records into the indexer
-        // or decoder replica DB (sync_halt, cleared_at IS NULL = active).
-        // A halted replica applies no further blocks but keeps reporting a
-        // small lag until its source mints past it, so neither stale nor
-        // tip_age_seconds can see it; this is the only fail-closed signal that
-        // can. true = an active halt row exists; false = the table was read
-        // successfully and holds none; null = the signal could not be
-        // determined (no pool, table absent, or a failed read) and MUST NOT
-        // collapse to false, since a consumer reads false as healthy.
-        replica_halted:  {}
-    };
-}
-
-// Builds the per-coin maps that the status loop fills without exposing helpers.
-function statusMeasurementFields(){
-    return Object.assign({},
-        decoderMeasurementFields(),
-        tipTimeMeasurementFields(),
-        indexerWaitMeasurementFields(),
-        replicaHaltMeasurementFields());
-}
+const { statusMeasurementFields } = require('./status_fields.js');
 
 // The /status report before any coin has been measured. A module function rather
 // than a method: Database.prototype carries the family's public readers and
@@ -288,12 +204,16 @@ function coinCodeParser(coinConfigs){
     };
 }
 
-// Map the decoder's durable REORG_HALT marker to a decoder_health value, or null. The
-// decoder keeps it out of `status` (only an operator clear releases it), so read the halt
-// fields; it outranks node-stale, and strict true leaves older decoders on their status.
+// Map the decoder's durable REORG_HALT state to a decoder_health value, or null.
+// Parked outranks halted, and both outrank an unverified marker read. Older
+// decoders that omit the checked-at field keep their own status.
 function reorgHaltHealth(h){
     if(h && h.reorg_halt_parked === true) return 'reorg-halt-parked';
     if(h && h.reorg_halted === true) return 'reorg-halted';
+    if(h && h.status === 'healthy' &&
+        Object.prototype.hasOwnProperty.call(h, 'reorg_halt_checked_at') &&
+        (h.reorg_halt_checked_at === null || h.reorg_halt_checked_at === undefined))
+        return 'reorg-halt-unverified';
     return null;
 }
 
@@ -314,60 +234,124 @@ async function measureDecoderHealth(db, data, code, parseCode){
         data.decoder_health[code] = 'unconfigured';
         return;
     }
-    try {
-        let h = await new DecoderConnector(url).health();
-        // node_height_stale is set by the decoder when its coin-node RPC
-        // has not refreshed for 2x the normal poll interval, meaning the
-        // cached tip is frozen. In that state chain_tip and chain_lag_blocks
-        // are misleading (lag reads as 0 while the chain may be advancing),
-        // so we null them out and override health to 'node-stale' to make
-        // the outage visible on the /status page.
-        let tipStale = h && h.node_height_stale === true;
-        // A decoder that has never completed getblockchaininfo reports
-        // chainTipBlock -1 and a negative blockLag (its -1 tip sentinel),
-        // and node_height_stale stays false because it never had a tip to
-        // freeze. Publish unknown as null: a -1 tip is not a height, and
-        // clamping the negative lag to 0 would read as "at the tip" for a
-        // decoder that cannot see the chain. Prefer the decoder's own
-        // null-when-unknown lag_blocks; fall back to blockLag for decoders
-        // that predate it, treating a negative value as unknown.
-        let tip = (h && !tipStale && typeof h.chainTipBlock === 'number' && h.chainTipBlock >= 0) ? h.chainTipBlock : null;
-        let lag = null;
-        if(h && !tipStale){
-            if(Object.prototype.hasOwnProperty.call(h, 'lag_blocks')){
-                lag = (typeof h.lag_blocks === 'number') ? h.lag_blocks : null;
-            } else if(typeof h.blockLag === 'number' && h.blockLag >= 0){
-                lag = h.blockLag;
-            }
-        }
-        data.chain_tip[code]        = tip;
-        data.chain_lag_blocks[code] = lag;
-        data.decoder_health[code]   = reorgHaltHealth(h) || (tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable'));
-    } catch(e){
-        data.decoder_health[code] = 'unreachable';
+    let reading = await readDecoderHealth(db, url);
+    if(reading.err){
+        data.decoder_health[code] = DecoderConnector.isRateLimited(reading.err) ? 'rate-limited' : 'unreachable';
+        return;
     }
+    applyDecoderHealth(data, code, reading.h);
+}
+
+// How long one decoder health() reading answers every /status request, and how
+// long a good reading may stand in for a throttled (429) one. The explorer is a
+// single source IP to each decoder, whose per-IP limit (100/min by default) is
+// shared by every explorer client, so /status must cost a bounded number of
+// decoder calls however often it is polled. db.decoderHealthCacheMs overrides
+// the window.
+const DECODER_HEALTH_CACHE_MS = 5000;
+const DECODER_HEALTH_LAST_GOOD_MS = 120000;
+
+function decoderHealthCacheMs(db){
+    let v = Number(db.decoderHealthCacheMs);
+    return (db.decoderHealthCacheMs != null && Number.isFinite(v) && v >= 0) ? v : DECODER_HEALTH_CACHE_MS;
+}
+
+// One health() reading per decoder URL per cache window, shared by concurrent
+// requests while it is in flight. Settles to { h } or { err }, never rejects. A
+// 429 is answered with the last good reading while it is young enough, so a
+// throttled explorer keeps reporting what it last saw rather than an outage.
+function readDecoderHealth(db, url){
+    let cache = db._decoderHealthCache || (db._decoderHealthCache = new Map());
+    let now = Date.now(), hit = cache.get(url);
+    if(hit && (hit.pending || now - hit.t < decoderHealthCacheMs(db))) return hit.outcome;
+    let entry = { t: now, pending: true, lastGood: hit ? hit.lastGood : null };
+    entry.outcome = new DecoderConnector(url).health().then(
+        (h) => { entry.lastGood = { h, at: Date.now() }; return { h }; },
+        (err) => {
+            let good = entry.lastGood;
+            if(DecoderConnector.isRateLimited(err) && good && Date.now() - good.at < DECODER_HEALTH_LAST_GOOD_MS) return { h: good.h };
+            return { err };
+        }).then((reading) => { entry.pending = false; entry.t = Date.now(); return reading; });
+    cache.set(url, entry);
+    return entry.outcome;
+}
+
+// Publish one decoder health() reply as the coin's chain_tip, chain_lag_blocks
+// and decoder_health.
+function applyDecoderHealth(data, code, h){
+    // node_height_stale is set by the decoder when its coin-node RPC
+    // has not refreshed for 2x the normal poll interval, meaning the
+    // cached tip is frozen. In that state chain_tip and chain_lag_blocks
+    // are misleading (lag reads as 0 while the chain may be advancing),
+    // so we null them out and override health to 'node-stale' to make
+    // the outage visible on the /status page.
+    let tipStale = h && h.node_height_stale === true;
+    // A decoder that has never completed getblockchaininfo reports
+    // chainTipBlock -1 and a negative blockLag (its -1 tip sentinel),
+    // and node_height_stale stays false because it never had a tip to
+    // freeze. Publish unknown as null: a -1 tip is not a height, and
+    // clamping the negative lag to 0 would read as "at the tip" for a
+    // decoder that cannot see the chain. Prefer the decoder's own
+    // null-when-unknown lag_blocks; fall back to blockLag for decoders
+    // that predate it, treating a negative value as unknown.
+    let tip = (h && !tipStale && typeof h.chainTipBlock === 'number' && h.chainTipBlock >= 0) ? h.chainTipBlock : null;
+    let lag = null;
+    if(h && !tipStale){
+        if(Object.prototype.hasOwnProperty.call(h, 'lag_blocks')){
+            lag = (typeof h.lag_blocks === 'number') ? h.lag_blocks : null;
+        } else if(typeof h.blockLag === 'number' && h.blockLag >= 0){
+            lag = h.blockLag;
+        }
+    }
+    data.chain_tip[code]        = tip;
+    data.chain_lag_blocks[code] = lag;
+    data.decoder_health[code]   = reorgHaltHealth(h) || (tipStale ? 'node-stale' : ((h && h.status) ? h.status : 'unreachable'));
 }
 
 // The chain->decoder slice for every advertised coin, in parallel.
 async function measureChainVisibility(db, data, coinConfigs, available){
-    // Chain->decoder visibility: the slice the DB-derived fields above can't
-    // see (the explorer never talks to a coin node, so a decoder stalled far
-    // behind the chain still shows decoder_lag_blocks=0 once the indexer
-    // catches up to its tip). Best-effort per coin via the decoder's own
-    // health() JSON-RPC: chain_tip is the coin node's tip as the decoder
-    // sees it, chain_lag_blocks the decoder's self-reported gap to it, and
-    // decoder_health the decoder's own status ('healthy'/'unhealthy'),
-    // 'reorg-halted' / 'reorg-halt-parked' while it carries a REORG_HALT
-    // marker (see reorgHaltHealth), 'node-stale' when its node tip froze,
-    // 'unconfigured' when no endpoint resolves for the coin (neither the
-    // loaded config nor DECODER_API_URL[_<COIN>_<NETWORK>]), or 'unreachable'
-    // when the call fails. Calls run in parallel and are bounded by the
+    // Chain->decoder slice the DB fields can't see (a decoder stalled behind
+    // its node still shows decoder_lag_blocks=0): per coin, best-effort via the
+    // decoder's health() (see measureDecoderHealth), in parallel, bounded by the
     // connector timeout so /status stays responsive.
     data.chain_tip        = {};
     data.chain_lag_blocks = {};
     data.decoder_health   = {};
     let parseCode = coinCodeParser(coinConfigs);
     await Promise.all(Object.keys(available).map((code) => measureDecoderHealth(db, data, code, parseCode)));
+}
+
+// A coin past its deadline degrades to the nulls a failed read gives.
+const STATUS_COIN_DEADLINE_MS = 8000;
+async function measureCoinWithDeadline(db, data, coin, coinConfigs, deadlineMs){
+    let timer;
+    // Measure into a private copy of this coin's slice and publish it only if the
+    // coin finishes in time. A measurement that outlives its deadline keeps running
+    // (it cannot be cancelled) but writes only into the discarded copy, so it can
+    // never rewrite fields the deadline already nulled, nor touch a returned report.
+    let scratch = {};
+    for (let k of ['available', 'last_block', 'last_block_time', 'list_any_coin_items', ...Object.keys(statusMeasurementFields())])
+        scratch[k] = Object.assign({}, data[k]);
+    let work = measureCoinStatus(db, scratch, coin, coinConfigs).then(() => false);
+    work.catch(() => {});
+    let late = new Promise((resolve) => { timer = setTimeout(() => resolve(true), deadlineMs); });
+    let timedOut = await Promise.race([work, late]);
+    clearTimeout(timer);
+    if (!timedOut) {
+        for (let k of Object.keys(scratch)) {
+            if (Object.prototype.hasOwnProperty.call(scratch[k], coin)) data[k][coin] = scratch[k][coin];
+            else delete data[k][coin];
+        }
+        return;
+    }
+    for (let k of ['last_block', 'last_block_time', 'decoder_tip', 'decoder_lag_blocks']) data[k][coin] = null;
+    // A coin whose measurement was abandoned was never shown to be fresh, so it
+    // reads stale (the verdict getCoinFreshness gives a read that hit the DB
+    // deadline) and is delisted under the fail-closed opt-in, exactly as a
+    // measured stale coin is. The halt state could not be determined: null.
+    data.stale[coin] = true;
+    data.replica_halted[coin] = null;
+    if (staleFailClosed(db.configInfo)) delete data.available[coin];
 }
 
 class EntityStatusReaders {
@@ -383,10 +367,12 @@ class EntityStatusReaders {
                                 : null;
         let data = statusReportSkeleton(coinConfigs, hubFetchedAtMs);
         let available = coinConfigs['COIN_AVAILABLE'] || {};
-        for (let coin of Object.keys(available)) {
-            if (this.pools && this.pools[coin] && this.pools[coin].pool)
-                await measureCoinStatus(this, data, coin, coinConfigs);
-        }
+        // Coins run in parallel, each under a deadline: one coin's unreachable DB
+        // must not stall the route (one deadline at most, never the sum).
+        let deadlineMs = Number(this.statusCoinDeadlineMs) > 0 ? Number(this.statusCoinDeadlineMs) : STATUS_COIN_DEADLINE_MS;
+        await Promise.all(Object.keys(available)
+            .filter((coin) => this.pools && this.pools[coin] && this.pools[coin].pool)
+            .map((coin) => measureCoinWithDeadline(this, data, coin, coinConfigs, deadlineMs)));
         await measureChainVisibility(this, data, coinConfigs, available);
         return [data];
     }

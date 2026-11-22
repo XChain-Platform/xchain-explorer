@@ -129,4 +129,4 @@ async function countTotal(db, config, count, args){
     return loadTotal(db, config, key, sql, args);
 }
 
-module.exports = { TIP_TOTAL_METHODS, MIRROR_TOTAL_METHODS, countTotal };
+module.exports = { TIP_TOTAL_METHODS, countTotal };

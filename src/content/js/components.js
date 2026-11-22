@@ -21,9 +21,11 @@
  * carries mount points, and ends with ONE JSON block naming what to mount on
  * them. The runtime reads that block and calls each component's mount function.
  * The manifest is DATA, never code: it ships as <script type="application/json">
- * so the Content-Security-Policy that already forbids inline script does not
- * have to be widened, which is the whole reason a JSON block was chosen over
- * an inline call.
+ * so the browser never executes it, whatever the page's script policy is. The
+ * served policy does allow inline script today (the per-page ready blocks need
+ * it), so escaping stored text stays the defense; the JSON block is chosen over
+ * an inline call so this system adds no executable inline script of its own and
+ * would keep working if that allowance is ever narrowed.
  *
  * Props are validated against the component's declared prop table before mount.
  * The point is not type safety for its own sake: a theme author writing a

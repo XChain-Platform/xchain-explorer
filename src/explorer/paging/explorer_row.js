@@ -71,7 +71,12 @@ function rowBlockActions(info, method){
  * status, the packed lock and action strings, and the formatted balance figures.
  */
 function explorerRowContext(util, info, ctx){
-    let status = (info.status=='valid') ? 1 : 0; // 1=valid, 2=invalid
+    let action = info.action;
+    if(!action && ['getUnstakes','getContractUnstakes'].includes(ctx.method))
+        action = 'UNSTAKE';
+    let accepted = info.status=='valid'
+        || (action=='UNSTAKE' && String(info.status)=='completed');
+    let status = accepted ? 1 : 0; // 1=accepted, 0=anything else
     let percent = 0;                             // Percentage of total supply
     let value   = 0;                             // Estimated value
     let amount  = 0;                             // Amount formatted to correct decimal precision
@@ -113,4 +118,4 @@ function explorerRow(util, info, ctx){
     return info;
 }
 
-module.exports = { explorerRow };
+module.exports = { explorerRow, explorerRowContext };

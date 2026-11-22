@@ -27,8 +27,8 @@
 
 'use strict';
 
-const { TERMINAL_OFFER_STATUSES } = require('../../action-detail/shared.js');
-const { attachOwnerWithdraw, resolveContractNetwork } = require('../../contract/owner_withdraw.js');
+const { TERMINAL_OFFER_STATUSES, applyActionStatusReason } = require('../../action-detail/shared.js');
+const { attachOwnerWithdrawRows, resolveContractNetwork } = require('../../contract/owner_withdraw.js');
 
 // A dispenser list lane with no escrow leaves a client listing
 // dispensers unable to say how full any of them is, so give_escrow
@@ -68,16 +68,20 @@ async function dispenserPass(db, config, data){
         row.price_stale = priceStale[String(row.action_index)] === true;
 }
 
+function dispensePass(data){
+    for(let row of data)
+        applyActionStatusReason(row);
+}
+
 // Contract list rows carry the same identity shape the single-contract route
 // serves: three flat meta_* columns plus the parsed `meta` object, and the
 // derived owner_withdraw flag, which reads meta_json before it is parsed away.
 // Done here rather than in getContracts because that method returns SQL, not rows.
 async function contractPass(db, config, data){
     let network = await resolveContractNetwork(db, config);
-    for(let row of data){
-        attachOwnerWithdraw(row, network);
+    await attachOwnerWithdrawRows(db, config, data, network);
+    for(let row of data)
         db.attachContractMeta(row);
-    }
 }
 
 // /validators stays the ONE validator table (no second federation-registry
@@ -124,6 +128,8 @@ async function applyPostPasses(db, config, data){
     let method = config.data.method;
     if(method=='getDispensers')
         await dispenserPass(db, config, data);
+    if(method=='getDispenses')
+        dispensePass(data);
     if(method=='getContracts')
         await contractPass(db, config, data);
     if(method=='getValidators')
@@ -135,4 +141,4 @@ async function applyPostPasses(db, config, data){
     return data;
 }
 
-module.exports = { dispenserLifecyclePass, dispenserPass, contractPass, validatorPass, orderPass, balancePass, applyPostPasses };
+module.exports = { dispenserLifecyclePass, dispenserPass, applyPostPasses };

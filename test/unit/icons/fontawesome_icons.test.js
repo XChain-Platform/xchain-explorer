@@ -29,10 +29,12 @@
 const { expect } = require('chai');
 const fs         = require('fs');
 const path       = require('path');
-const { srcText } = require('../../helpers/source_text');
-
 const CONTENT = path.join(__dirname, '..', '..', '..', 'src', 'content');
 const FA_DIR  = path.dirname(require.resolve('@fortawesome/fontawesome-free/package.json'));
+const VENDOR_JS = new Set([
+    'chart.umd.js', 'jquery.dataTables.js', 'math.min.js',
+    'moment.min.js', 'swagger-ui-bundle.js'
+]);
 
 // Layout/behaviour utility classes: part of Font Awesome's API but not icon
 // names, so they have no glyph selector to resolve against.
@@ -42,8 +44,18 @@ const STRUCTURAL = new Set([
     'fa-spin', 'fa-pulse', 'fa-stack', 'fa-stack-1x', 'fa-stack-2x', 'fa-inverse',
     'fa-rotate-90', 'fa-rotate-180', 'fa-rotate-270',
     'fa-flip-horizontal', 'fa-flip-vertical',
-    'fa-solid', 'fa-regular', 'fa-light', 'fa-brands', 'fa-duotone'
+    'fa-solid', 'fa-regular', 'fa-brands'
 ]);
+
+function contentFiles(dir = CONTENT){
+    const files = [];
+    for(const entry of fs.readdirSync(dir, { withFileTypes: true })){
+        const file = path.join(dir, entry.name);
+        if(entry.isDirectory()) files.push(...contentFiles(file));
+        else if(/\.(?:html|js|json)$/.test(entry.name) && !VENDOR_JS.has(entry.name)) files.push(file);
+    }
+    return files;
+}
 
 // Every .fa-* selector a stylesheet defines (icon glyphs, aliases, shims).
 function selectorNames(cssFile){
@@ -54,18 +66,9 @@ function selectorNames(cssFile){
 // Every fa-* token the UI's own markup and scripts use. Vendored third-party
 // js is excluded: only files this repo authors can introduce icon names.
 function usedNames(){
-    const files = fs.readdirSync(path.join(CONTENT, 'html'))
-        .filter(f => f.endsWith('.html'))
-        .map(f => path.join(CONTENT, 'html', f));
-    files.push(path.join(CONTENT, 'js', 'xchain.js'));
-    files.push(path.join(CONTENT, 'js', 'xchain_ws.js'));
-    files.push(path.join(CONTENT, 'js', 'xchain_ws_catch_up.js'));
-
     const used = new Map();
-    for(const file of files){
-        const text = file === path.join(CONTENT, 'js', 'xchain.js')
-            ? srcText('src/content/js/xchain.js')
-            : fs.readFileSync(file, 'utf8');
+    for(const file of contentFiles()){
+        const text = fs.readFileSync(file, 'utf8');
         for(const m of text.matchAll(/fa-[a-z0-9-]+/g)){
             if(!used.has(m[0])) used.set(m[0], []);
             const where = used.get(m[0]);
@@ -73,6 +76,18 @@ function usedNames(){
         }
     }
     return used;
+}
+
+function legacyStyleUses(){
+    const uses = [];
+    for(const file of contentFiles()){
+        const text = fs.readFileSync(file, 'utf8');
+        for(const match of text.matchAll(/(?:class|className)\s*=\s*(["'])(.*?)\1/g)){
+            const legacy = match[2].split(/\s+/).filter(token => /^(?:fa|fas|far|fab)$/.test(token));
+            if(legacy.length) uses.push(`${path.relative(CONTENT, file)}: ${legacy.join(', ')}`);
+        }
+    }
+    return uses;
 }
 
 describe('Font Awesome icon coverage (self-hosted Free build)', () => {
@@ -93,6 +108,10 @@ describe('Font Awesome icon coverage (self-hosted Free build)', () => {
         expect(template).to.include('/fontawesome/css/all.min.css');
         expect(template).to.include('/fontawesome/css/v4-shims.min.css');
         expect(template).to.not.match(/fontawesome-kit|kit\.fontawesome\.com|ka-[fp]\.fontawesome\.com/);
+    });
+
+    it('uses the Font Awesome 7 style class names', () => {
+        expect(legacyStyleUses()).to.deep.equal([]);
     });
 
     it('every icon class the UI uses resolves in Free, the v4 shims, or xchain.css', () => {

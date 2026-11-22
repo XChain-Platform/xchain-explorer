@@ -74,7 +74,8 @@ class EntityUpdates {
         const cache = entityCache || null;
 
         // Only addresses someone is watching, and only when this action names one of
-        // them as its source or one of its destinations.
+        // them as its source or one of its destinations, or moved its balance in the
+        // ledger (the only record of the parties to an action the indexer mints itself).
         const subscribedAddresses = this.channelManager.getSubscribedAddresses(coin);
         if (subscribedAddresses.size > 0) {
             await emitAddressUpdates(this, coin, config, action, cache, subscribedAddresses);
@@ -88,11 +89,13 @@ class EntityUpdates {
             if (ticks.length > 0) await emitTokenUpdates(this, coin, config, action, cache, ticks);
         }
 
-        // Same gate for dispensers: refresh only the ones with a subscriber, and only on
-        // the dispenser-family actions that can change one (DISPENSER_REFRESH_ACTIONS).
+        // Resolve the one dispenser this action touched before refreshing it. A failed
+        // lookup falls back to every subscriber so a transient read cannot hide a change.
         const subscribedDispensers = this.channelManager.getSubscribedDispensers(coin);
         if (subscribedDispensers.size > 0 && DISPENSER_REFRESH_ACTIONS.has(action.action)) {
-            await emitDispenserUpdates(this, coin, config, cache, subscribedDispensers);
+            const dispensers = await dispensersToRefresh(this, config, action, subscribedDispensers);
+            if (dispensers.length > 0)
+                await emitDispenserUpdates(this, coin, config, cache, dispensers);
         }
 
         // Same gate for markets, keyed by the tick pair and limited to the actions after
@@ -106,11 +109,14 @@ class EntityUpdates {
 
 // ADDRESS_UPDATE for each subscribed address the action names as its source or
 // one of its destinations (the plural field getActionsSince attaches; no producer
-// sets a singular `destination`, the parties NEW_ACTION routes on in onAction).
+// sets a singular `destination`, the parties NEW_ACTION routes on in onAction), or
+// whose credit, debit or escrow rows the action wrote. Order and swap matches and the
+// expiry passes carry no source, so their balance changes are reachable only there.
 async function emitAddressUpdates(detector, coin, config, action, cache, subscribedAddresses) {
     const involvedAddresses = new Set();
     const destinations = Array.isArray(action.destinations) ? action.destinations : [];
-    for (const party of [action.source, ...destinations]) {
+    const ledgerAddresses = await ledgerAddressesOf(detector, config, action, cache);
+    for (const party of [action.source, ...destinations, ...(ledgerAddresses || [])]) {
         if (party && subscribedAddresses.has(party)) involvedAddresses.add(party);
     }
 
@@ -167,6 +173,23 @@ async function ledgerTicksOf(detector, config, action, cache) {
     return ledger.ticks ? ledger.ticks.get(String(action.action_index)) || null : null;
 }
 
+// The addresses one action moved, from one ledger read per poll covering the whole
+// batch (cache.ledger, filled in emitNewActions). Null when there is no batch or the
+// read failed, which leaves the source and destinations routing as it was.
+async function ledgerAddressesOf(detector, config, action, cache) {
+    const ledger = cache && cache.ledger;
+    if (!ledger || typeof detector.db.getActionLedgerAddresses !== 'function') return null;
+    if (ledger.addresses === undefined) {
+        try {
+            ledger.addresses = await detector.db.getActionLedgerAddresses(config, ledger.actions.map((a) => a.action_index));
+        } catch (e) {
+            ledger.addresses = null;
+            log.warn('CHANGE_DETECTOR_LEDGER_ADDRESSES_FAILED', { coin: config.coin, err: e && e.message });
+        }
+    }
+    return ledger.addresses ? ledger.addresses.get(String(action.action_index)) || null : null;
+}
+
 // TOKEN_UPDATE for each of the given subscribed ticks.
 async function emitTokenUpdates(detector, coin, config, action, cache, subscribedTicks) {
     for (const tick of subscribedTicks) {
@@ -196,7 +219,27 @@ async function emitTokenUpdates(detector, coin, config, action, cache, subscribe
     }
 }
 
-// DISPENSER_UPDATE for every subscribed dispenser.
+async function dispensersToRefresh(detector, config, action, subscribedDispensers) {
+    try {
+        let index;
+        if (action.action === 'DISPENSER') index = action.action_index;
+        else if (action.action === 'DISPENSE')
+            index = await detector.db.getDispenseDispenserIndex(config, action.action_index);
+        else if (action.action === 'DISPENSER_CLOSE' || action.action === 'DISPENSER_EXPIRE') {
+            const table = action.action === 'DISPENSER_CLOSE' ? 'dispenser_closes' : 'dispenser_expires';
+            index = await detector.db.getDispenserLifecycleDispenserIndex(config, table, action.action_index);
+        } else {
+            index = await detector.db.getValidDispenserMutationIndex(config, action.action, action.action_index);
+        }
+        if (index === null || index === undefined) return [];
+        const matched = [...subscribedDispensers].find((key) => String(key) === String(index));
+        return matched === undefined ? [] : [matched];
+    } catch (e) {
+        return [...subscribedDispensers];
+    }
+}
+
+// DISPENSER_UPDATE for the subscribed dispenser this action changed.
 async function emitDispenserUpdates(detector, coin, config, cache, subscribedDispensers) {
     for (const dispenserIdx of subscribedDispensers) {
         try {

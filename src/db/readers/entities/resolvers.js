@@ -99,11 +99,13 @@ class EntityResolverReaders {
         return id;
     }
 
-    // Resolve an address to its index id ONLY when that id is in the DETERMINISTIC set
-    // (assigned inside a block tx, block_index IS NOT NULL) - the id-space a wire ^<id>
-    // may safely reference. Backs the SDK-facing info.address_id in getAddress (F3
-    // id-determinism). Distinct from getAddressId, which resolves ANY id (incl. out-of-band
-    // recovery pre-seeds) for internal string<->id display/lookup paths that must not change.
+    // Resolve an address to its index id only when the stored spelling is byte-exact
+    // and that id is in the deterministic set (assigned inside a block tx,
+    // block_index IS NOT NULL). A wire ^<id> resolves to the stored string, so a
+    // case-insensitive near match can change the address the sender supplied. See
+    // getExactAddressId for why the indexed comparison and binary gate are paired.
+    // Backs the SDK-facing info.address_id in getAddress. Distinct from getAddressId,
+    // which resolves any id for internal display and lookup paths that must not change.
     // Uncached: one call per getAddress request, and a NULL-block id must never be cached as
     // compactable (it could be upgraded to a deterministic id on a later reindex).
     async getCompactableAddressId(config, address){
@@ -112,9 +114,9 @@ class EntityResolverReaders {
                     FROM
                         index_addresses
                     WHERE
-                        address=? AND block_index IS NOT NULL
+                        address=? AND address COLLATE utf8_bin = ? AND block_index IS NOT NULL
                     LIMIT 1`;
-        let results = await this.doQuery(config, query, [address]);
+        let results = await this.doQuery(config, query, [address, address]);
         return (results && results.length) ? results[0].id : null;
     }
 

@@ -125,6 +125,7 @@ function attestDetail(data) {
         ${extractFn('formatIndexedLabel')}
     `);
     dom.window.eval(extractFn('detailAttestVote_renderAttestIdentity'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestRelay'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestBatch'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestRequest'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestResponse'));
@@ -220,6 +221,10 @@ describe('client: the compact LIST label reads the canonical enum', function () 
         expect(LIST_TYPES[2]).to.equal('Address');
     });
 
+    it('the shipped enum declares 3=Union', function () {
+        expect(LIST_TYPES[3]).to.equal('Union');
+    });
+
     it('a type-1 list summarizes as a Token list', function () {
         expect(summary('LIST', { type: 1, edit: 0 })).to.equal('Create Token List');
     });
@@ -228,10 +233,25 @@ describe('client: the compact LIST label reads the canonical enum', function () 
         expect(summary('LIST', { type: 2, edit: 1 })).to.equal('Add to Address List');
     });
 
+    it('a type-3 list summarizes as a Union list', function () {
+        expect(summary('LIST', { type: 3, edit: 0 })).to.equal('Create Union List');
+    });
+
     it('an undeclared type names itself rather than printing undefined', function () {
         // An invalid edit row can persist with a null type (the parent-list lookup failed),
         // and the old inline ternary silently called that an Address list.
         expect(summary('LIST', { type: null, edit: 1 })).to.equal('Add to Unknown List');
+    });
+
+    it('labels share, transfer and metadata formats by their actual action', function () {
+        expect(summary('LIST', { action_format: 2, type: 2, edit: null })).to.equal('Share Address List');
+        expect(summary('LIST', { action_format: 3, type: 1, edit: null })).to.equal('Transfer Token List');
+        expect(summary('LIST', { action_format: 5, type: 1, edit: null })).to.equal('Update Token List metadata');
+    });
+
+    it('keeps metadata creates and edits on their existing labels', function () {
+        expect(summary('LIST', { action_format: 4, type: 1, edit: null })).to.equal('Create Token List');
+        expect(summary('LIST', { action_format: 1, type: 2, edit: 2 })).to.equal('Remove from Address List');
     });
 
     it('the compact label agrees with the canonical map for every declared type', function () {

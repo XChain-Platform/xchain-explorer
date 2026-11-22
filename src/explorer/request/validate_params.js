@@ -37,6 +37,11 @@ const ADDRESS_PATH_TYPES = new Set(['address', 'source', 'destination', 'oracle'
 // its COIN), SWAP GET_ADDRESS (checked against GET_COIN) behind the swap match
 // lane, and XBRIDGE DEST_ADDRESS. A wallet reads its inbox on every chain's
 // explorer with one address, so these accept any configured chain's address.
+// Methods whose rows come only from the hub mirror.
+const MIRROR_GATED_METHODS = new Set(['getCrossChainMatches', 'getOraclePrices']);
+// Methods reading hub-local tables a self-synced mirror never holds; refused outright
+// on such a coin (explorer.hubLocalGate) instead of failing in the database.
+const HUB_LOCAL_METHODS = new Set(['getPeers', 'getConsensusState', 'getConfigs', 'getTelemetryPings']);
 const MULTI_CHAIN_ADDRESS_METHODS = new Set(['getOraclePrices', 'getMessages', 'getSwapMatches', 'getXbridges']);
 
 // Path filter types that bind an integer column, with the refusal each answers.
@@ -80,6 +85,24 @@ function integerPathRefusal(explorer, cfg){
     return { error, code };
 }
 
+// The hub's slash_proposals read refuses any status outside this set and any
+// validator_pubkey that is not 64 hex characters (it lowercases first). The
+// explorer would report that refusal as a hub outage (500), so the same shapes
+// are checked here and answer a 400 without a hub call.
+const SLASH_STATUSES = new Set(['pending', 'approved', 'rejected', 'expired']);
+const SLASH_PUBKEY_RE = /^[0-9a-f]{64}$/i;
+
+function slashFilterRefusal(cfg){
+    if(cfg.data.method !== 'getSlashProposals' || isNoFilterSegment(cfg.data.method, cfg.data.search))
+        return null;
+    let { type, search } = cfg.data;
+    if(type === 'status' && !SLASH_STATUSES.has(search))
+        return { error: 'Invalid slash proposal status', code: 'INVALID_SLASH_STATUS' };
+    if(type === 'pubkey' && !(typeof search === 'string' && SLASH_PUBKEY_RE.test(search)))
+        return { error: 'Invalid validator pubkey', code: 'INVALID_SLASH_PUBKEY' };
+    return null;
+}
+
 function lookupPathRefusal(explorer, st){
     let cfg    = st.cfg;
     let method = cfg.data.method;
@@ -119,6 +142,17 @@ function lookupPathRefusal(explorer, st){
     return null;
 }
 
+// The mirror verdict a method takes, or null for a method no mirror serves. The
+// hub-local pages take the stricter gate: on a self-synced coin their table cannot
+// exist, so they are refused however healthy the mirror is.
+function mirrorGateFor(explorer, cfg){
+    if(HUB_LOCAL_METHODS.has(cfg.data.method))
+        return explorer.hubLocalGate(cfg.coin);
+    if(MIRROR_GATED_METHODS.has(cfg.data.method))
+        return explorer.mirrorGate(cfg.coin);
+    return null;
+}
+
 /**
  * Settle the request without a query where its parameters say to.
  *
@@ -136,9 +170,11 @@ function validateParams(explorer, st){
     // SELF-SYNCED mirror has never bootstrapped, refuse to serve (an
     // empty mirror must read as an outage, not an empty ledger), and
     // otherwise annotate lag. Same gate as the checkpoint routes.
-    st.mirrorGate = (cfg.data.method === 'getCrossChainMatches') ? explorer.mirrorGate(cfg.coin) : null;
+    // getOraclePrices reads the mirror-only oracle_prices table, so it takes the
+    // same gate.
+    st.mirrorGate = mirrorGateFor(explorer, cfg);
     let mirrorGate = st.mirrorGate;
-    let refusal    = integerPathRefusal(explorer, cfg) || lookupPathRefusal(explorer, st);
+    let refusal    = integerPathRefusal(explorer, cfg) || slashFilterRefusal(cfg) || lookupPathRefusal(explorer, st);
     // /{COIN}/api/action/{QUERY} binds its path segment against the BIGINT
     // action_index column, and MariaDB coerces the string, so `/api/action/7junk`
     // answered 200 with action 7 and `/api/action/junk` with action 0. Reject the

@@ -48,6 +48,7 @@ const { sendProofError } = require('./proof_errors.js');
 const { hasSupersedeFields, supersedeSuffix } = require('./supersede_suffix.js');
 const { supersessionBody } = require('./checkpoint_supersession.js');
 const { finalityFromRules } = require('./replay_finality.js');
+const { canonicalCoinAddress } = require('./request/address_shape.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -81,9 +82,10 @@ class CheckpointProofs {
             // clamped to 1 rather than reading as the malformed input it is.
             let limit = 10;
             if(!this.util.isNull(req.query.limit)){
-                if(!/^[0-9]+$/.test(String(req.query.limit)))
+                // Positive digits only: 0 is refused like every other list route's min-1 limit.
+                if(!/^[0-9]+$/.test(String(req.query.limit)) || parseInt(req.query.limit, 10) < 1)
                     return res.status(400).json({ error: 'Invalid limit', code: 'INVALID_LIMIT' });
-                limit = Math.max(1, Math.min(parseInt(req.query.limit, 10), 100));
+                limit = Math.min(parseInt(req.query.limit, 10), 100);
             }
             let rows = await this.db.getCheckpointRows({ coin, data: {} }, null, limit);
             return res.json({ checkpoints: rows || [], count: (rows || []).length, ...(gate.annotate || {}) });
@@ -130,7 +132,11 @@ class CheckpointProofs {
             // Canonical signing string, byte-identical to the hub engine + ANCHOR
             // verifier + SDK (canonicalCheckpointString below the class; exported so
             // the unit suite cross-checks it against the SDK builder byte-for-byte).
-            let canonical = canonicalCheckpointString(cp);
+            let canonical = null;
+            try { canonical = canonicalCheckpointString(cp); }
+            catch(e) {
+                if(!hasSupersedeFields(cp) || isCheckpointSupersedeActive(cp.snapshot_block, cp.network)) throw e;
+            }
 
             let validators = await this.db.getCapabilitySnapshotRows(config, 'oracle_publish', cp.snapshot_block) || [];
             let result = this.checkpointVerifyResult(cp, canonical, validators);
@@ -190,6 +196,9 @@ class CheckpointProofs {
             valid_sigs:    counted.validSigs,
             valid_signers: counted.validSigners,
             verified:      verified,
+            // Both inputs are hub-mirrored, so this verdict is not a trust anchor.
+            validator_source: 'hub-mirror',
+            anchored:         false,
             // Tells a client the verdict is STRUCTURAL, not a signature shortfall.
             commitment_missing:      commitmentMissing,
             // qualified.size === 0 → the oracle_publish snapshot isn't mirrored
@@ -212,6 +221,7 @@ class CheckpointProofs {
         if (Array.isArray(cp.validator_signatures)) sigs = cp.validator_signatures;
         else { try { sigs = JSON.parse(cp.validator_signatures || '[]'); } catch(e){ log.error('CHECKPOINT_VERIFY_SIGNATURES_PARSE_FAILED', { chain: cp.chain, block_index: cp.block_index, err: e && e.message ? e.message : e, stack: e && e.stack }); sigs = []; sigsParseFailed = true; } }
         let validSigs = 0, seen = new Set(), validSigners = [];
+        if(canonical == null) return { validSigs, validSigners, sigsParseFailed };
         for(let s of sigs){
             let pk  = String(s && s.pubkey || '').toLowerCase();
             let sig = String(s && s.sig || '');
@@ -259,13 +269,18 @@ class CheckpointProofs {
             let gate = this.mirrorGate(coin);
             if(gate.blocked)
                 return res.status(503).json(this.mirrorBlockedBody(gate.blocked));
-            let parsed = this.parseCoinCode(coin, await this.configInfo.getConfig());
+            let explorerConfig = await this.configInfo.getConfig();
+            let parsed = this.parseCoinCode(coin, explorerConfig);
             if(!parsed)
                 return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
             let address = String(req.params.address || '');
             let tick    = String(req.params.tick || '');
             if(!address || !tick)
                 return res.status(400).json({ error: 'address and tick are required', code: 'MISSING_PARAMETER' });
+            let canonical = canonicalCoinAddress(explorerConfig, coin, address);
+            if(canonical === false)
+                return res.status(400).json({ error: 'Invalid address', code: 'INVALID_ADDRESS' });
+            if(canonical !== null) address = canonical;
             let height = (req.query.height !== undefined && req.query.height !== '') ? req.query.height : null;
             if(height !== null && !this.util.isSafeIntegerParam(height))
                 return res.status(400).json({ error: 'Invalid height', code: 'INVALID_HEIGHT' });
@@ -341,8 +356,10 @@ function canonicalCheckpointString(cp){
        cp.state_root_version != null && cp.block_merkle_version != null)
         canonRaw += '|' + [String(cp.state_root).toLowerCase(), String(cp.state_root_version),
                            String(cp.block_merkle_root).toLowerCase(), String(cp.block_merkle_version)].join('|');
-    if(isCheckpointSupersedeActive(cp.snapshot_block, cp.network))
-        canonRaw += supersedeSuffix(cp);
+    const supersedeActive = isCheckpointSupersedeActive(cp.snapshot_block, cp.network);
+    if(!supersedeActive && hasSupersedeFields(cp))
+        throw new Error('checkpoint supersession fields are not active for snapshot_block ' + cp.snapshot_block);
+    if(supersedeActive) canonRaw += supersedeSuffix(cp);
     return eq.isEquivHeaderActive(cp.snapshot_block, cp.network)
         ? eq.buildEquivCanonical(eq.ENGINE_TAGS.CHECKPOINT,
             cp.chain + '|' + cp.network + '|' + cp.block_index + '|' + cp.checkpoint_seq, 0, canonRaw)

@@ -66,6 +66,15 @@ function docsFiles(absoluteDir){
     return fs.readdirSync(absoluteDir).filter((f) => f.endsWith('.js')).sort();
 }
 
+// Name the canonical owner before directing a maintainer to reconcile copies.
+function gateRegistryDriftMessage(f){
+    const source = f === 'core.js'
+        ? 'xchain-hub/src/consensus/gate_registry/core.js'
+        : 'xchain-indexer/src/protocol_changes/' + f;
+    return 'this repo\'s consensus/gate_registry/' + f + ' has drifted from the canonical source; ' +
+        'edit ' + source + ' and re-run reconcile-twins.sh to re-vendor every copy, never this copy alone.';
+}
+
 const quorumVec     = require(path.join(ACTIVE_VEC_DIR, 'stake_weighted_quorum.json'));
 const equivVec      = require(path.join(ACTIVE_VEC_DIR, 'equivocation_header.json'));
 const activationVec = require(path.join(ACTIVE_VEC_DIR, 'activation_predicates.json'));
@@ -134,8 +143,17 @@ describe('consensus-primitive conformance: activation predicate vectors @regress
     const groups = activationVec || {};
 
     it('every group this repo runs is a non-empty list', function(){
-        for(const g of ['isStakeWeightedQuorumActive', 'isEquivHeaderActive'])
-            assert.ok(Array.isArray(groups[g]) && groups[g].length > 0, g + ' is missing or empty');
+        const allGroups = {
+            'stake_weighted_quorum.meetsStakeThreshold': quorumVec.meetsStakeThreshold,
+            'stake_weighted_quorum.totalStake': quorumVec.totalStake,
+            'equivocation_header.equivKey': equivVec.equivKey,
+            'equivocation_header.equivPrefix': equivVec.equivPrefix,
+            'equivocation_header.buildEquivCanonical': equivVec.buildEquivCanonical,
+            'activation_predicates.isStakeWeightedQuorumActive': groups.isStakeWeightedQuorumActive,
+            'activation_predicates.isEquivHeaderActive': groups.isEquivHeaderActive,
+        };
+        for(const [name, vectors] of Object.entries(allGroups))
+            assert.ok(Array.isArray(vectors) && vectors.length > 0, name + ' is missing or empty');
     });
     (groups.isStakeWeightedQuorumActive || []).forEach(function(c){
         it('isStakeWeightedQuorumActive: ' + c.name, function(){
@@ -187,10 +205,12 @@ describe('consensus-primitive conformance: gate_registry row parts byte-identity
     it('every vendored gate_registry/ part is byte-identical to the canonical copy', function(){
         const parts = canonParts();
         assert.ok(parts.length > 0, 'canonical gate_registry/ is empty');
+        assert.match(gateRegistryDriftMessage('core.js'), /xchain-hub\/src\/consensus\/gate_registry\/core\.js/);
+        assert.match(gateRegistryDriftMessage('shared_rows.js'), /xchain-indexer\/src\/protocol_changes\/shared_rows\.js/);
         for(const f of parts){
             const local = fs.readFileSync(path.join(LOCAL_DIR, 'consensus', 'gate_registry', f), 'utf8');
             const canon = docsFile(path.join(CANON_DIR, 'consensus', 'gate_registry', f));
-            assert.strictEqual(local, canon, 'consensus/gate_registry/' + f + ' has drifted from the canonical source; re-vendor it from xchain-indexer.');
+            assert.strictEqual(local, canon, gateRegistryDriftMessage(f));
         }
     });
 });

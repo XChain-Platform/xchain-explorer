@@ -163,7 +163,8 @@ describe('Database F3 id-determinism: only deterministic ids are compaction-expo
         expect(id).to.equal(42);
         const [, queryStr, args] = dq.firstCall.args;
         expect(queryStr).to.include('block_index IS NOT NULL');
-        expect(args).to.deep.equal(['bc1qSrc']);
+        expect(queryStr).to.include('address COLLATE utf8_bin = ?');
+        expect(args).to.deep.equal(['bc1qSrc', 'bc1qSrc']);
     });
 
     it('getCompactableAddressId returns null for a non-deterministic / unindexed address', async () => {

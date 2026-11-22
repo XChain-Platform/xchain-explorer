@@ -94,6 +94,17 @@ function buildFieldsFilter(params) {
     return { filter: new Set(params.fields) };
 }
 
+function buildBooleanFilters(params) {
+    const filter = {};
+    for (const name of ['once', 'snapshot']) {
+        const value = params[name];
+        if (value === undefined || value === null) filter[name] = false;
+        else if (typeof value === 'boolean') filter[name] = value;
+        else return { error: { code: 'INVALID_PARAMS', message: name + ' must be a boolean' } };
+    }
+    return { filter };
+}
+
 // Validates the filter params in the order the checks always ran and returns
 // { error } for the first refusal, or { filter } shared by every subscription
 // the request names.
@@ -107,12 +118,15 @@ function buildFilter(channels, params) {
     const fields = buildFieldsFilter(params);
     if (fields.error) return fields;
 
+    const booleans = buildBooleanFilters(params);
+    if (booleans.error) return booleans;
+
     // Build filter object
     const filter = {
         types:              types.filter,
         fields:             fields.filter,
-        once:               !!params.once,
-        snapshot:           !!params.snapshot,
+        once:               booleans.filter.once,
+        snapshot:           booleans.filter.snapshot,
         since_action_index: params.since_action_index || null
     };
     return { filter };
@@ -139,7 +153,7 @@ function resolveEntries(manager, client, channels, params) {
             continue;
         }
         // Entity channel: resolve entity key(s) from params
-        const entityKeys = manager.resolveEntityKeys(channel, params);
+        const entityKeys = manager.resolveEntityKeys(channel, params, client.coin);
         if (entityKeys.error) return { error: entityKeys.error };
         for (const entityKey of entityKeys.keys) add(channel, entityKey);
     }
@@ -211,7 +225,7 @@ class ChannelSubscriptions {
                 const was_subscribed = this.removeSubscription(client, channel, null);
                 unsubscribed.push({ channel, was_subscribed });
             } else {
-                const entityKeys = this.resolveEntityKeys(channel, params);
+                const entityKeys = this.resolveEntityKeys(channel, params, client.coin);
                 if (entityKeys.error) {
                     refused.push(entityKeys.error);
                     continue;

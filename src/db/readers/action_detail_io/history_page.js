@@ -17,7 +17,8 @@
  * historyPageRows picks the page of action_indexes with only the joins that
  * decide membership, then reads the feed columns for just those rows. The
  * single-statement DISTINCT form stays here as the fallback for a page whose
- * ids repeat. getHistoryData in history.js is the one caller.
+ * ids repeat. getHistoryData in history.js is the one caller of the page; the
+ * batch address history (wallet_reads/address_history.js) reuses the rows leg.
  *
  * Plain functions, not a class body: they take the Database as `db` for
  * doQuery, and nothing here reaches Database.prototype.
@@ -138,4 +139,4 @@ async function historyPageRows(db, config, sql, cursor, source, where, args){
     return historyRows(await db.doQuery(config, historyPageRowsQuery(sql, ids.length), ids));
 }
 
-module.exports = { historyPageRows };
+module.exports = { historyPageRows, historyPageRowsQuery };

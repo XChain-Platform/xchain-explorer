@@ -70,8 +70,10 @@ const SNAPSHOTS = new Map([
             ({ channel: 'network', block_height: String(maxBlock || 0), total_actions: String(maxAction || 0) })
     }],
     ['address', {
-        reads: [(db, config, sub) => db.getAddressBalances(config, sub.address), (db, config) => db.getMaxActionIndex(config)],
-        shape: (sub, [balances, maxAction]) =>
+        // Cursor first makes it a lower bound on the balances read after it.
+        reads: [(db, config) => db.getMaxActionIndex(config),
+            (db, config, sub) => db.getAddressBalances(config, sub.address)],
+        shape: (sub, [maxAction, balances]) =>
             ({ channel: 'address', address: sub.address, balances: balances || [], last_action_index: String(maxAction || 0) })
     }],
     // The subscribed tick spelling is set after the row, which carries the
@@ -157,11 +159,25 @@ class WebSocketSnapshots {
         }
     }
 
-    // Send snapshot data for subscribed entities
-    async sendSnapshots(client, subscribed) {
+    // Read one entity's snapshot, retrying while live frames overtake it
+    async readSnapshotData(client, sub, snapshot, key) {
         const db     = this.explorer.db;
         const config = { coin: client.coin };
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const before = client.snapshotLiveSeq.get(key);
+            const values = [];
+            for (const read of snapshot.reads) values.push(await read(db, config, sub, this));
+            if (client.snapshotLiveSeq.get(key) !== before) continue;
+            return snapshot.shape(sub, values);
+        }
+        this.sendError(client, 'SNAPSHOT_OVERTAKEN',
+            'Live updates for this entity kept arriving while its snapshot was read; ' +
+            'the delivered live frames already describe its current state.');
+        return null;
+    }
 
+    // Send snapshot data for subscribed entities
+    async sendSnapshots(client, subscribed) {
         // A SNAPSHOT is the WS answer to "what is the current state of this
         // address/token/market". On a stale replica it is answered out of tables
         // that are behind, so it carries `stale: true` (the same additive marker
@@ -177,6 +193,7 @@ class WebSocketSnapshots {
         }
 
         for (const sub of subscribed) {
+            let key = null;
             try {
                 let snapshotData = null;
 
@@ -186,9 +203,10 @@ class WebSocketSnapshots {
                 // snapshot that seeds state must not seed it with the other type.
                 const snapshot = SNAPSHOTS.get(sub.channel);
                 if (snapshot) {
-                    const values = [];
-                    for (const read of snapshot.reads) values.push(await read(db, config, sub, this));
-                    snapshotData = snapshot.shape(sub, values);
+                    key = this.channelManager.channelKeyForSub(client.coin, sub);
+                    if (!(client.snapshotLiveSeq instanceof Map)) client.snapshotLiveSeq = new Map();
+                    client.snapshotLiveSeq.set(key, 0);
+                    snapshotData = await this.readSnapshotData(client, sub, snapshot, key);
                 }
 
                 if (snapshotData) {
@@ -204,6 +222,8 @@ class WebSocketSnapshots {
             } catch (e) {
                 // Non-fatal: skip this snapshot
                 log.error('WS_SNAPSHOT_FAILED', { channel: sub.channel, err: e.message, stack: e.stack });
+            } finally {
+                if (key && client.snapshotLiveSeq instanceof Map) client.snapshotLiveSeq.delete(key);
             }
         }
     }

@@ -22,7 +22,7 @@
  * their own, but the indexer rejects it (invalid: VERSION unknown), landing
  * it with status 'invalid'. Labelling on action_format alone would let
  * anyone mint an action that reads as somebody being evicted, so the badge
- * requires BOTH action_format===3 AND status==='valid'.
+ * requires BOTH action_format===3 AND an accepted UNSTAKE lifecycle status.
  *
  * The markup is loaded from the SHIPPED action.html rather than a hand-built
  * fixture, matching content-client-action-detail-render.test.js, so a
@@ -86,6 +86,26 @@ describe('UNSTAKE detail: ROLLCALL eviction label @regression', function(){
         expect(cell).to.not.contain('Evicted');
     });
 
+    it('keeps the Evicted badge after the cooldown status becomes completed', function(){
+        const win = bootPage();
+        win.showUnstakeDetails({
+            action_format: 3, signing_pubkey: 'bb'.repeat(32),
+            amount: '5000.00000000', cooldown_end_block: 1025, status: 'completed'
+        });
+        expect(html(win, '#info-unstake .unstake-amount')).to.contain('Evicted');
+    });
+});
+
+describe('UNSTAKE detail: ROLLCALL eviction label @regression', function(){
+    it('rejects an invalid status with a reason from the Evicted badge', function(){
+        const win = bootPage();
+        win.showUnstakeDetails({
+            action_format: 3, signing_pubkey: 'bb'.repeat(32),
+            amount: '5.00000000', cooldown_end_block: null, status: 'invalid: VERSION unknown'
+        });
+        expect(html(win, '#info-unstake .unstake-amount')).to.not.contain('Evicted');
+    });
+
     it('does not badge an ordinary valid capability unstake (action_format 0)', function(){
         const win = bootPage();
         win.showUnstakeDetails({
@@ -94,6 +114,15 @@ describe('UNSTAKE detail: ROLLCALL eviction label @regression', function(){
         });
         const cell = html(win, '#info-unstake .unstake-amount');
         expect(cell).to.not.contain('Evicted');
+    });
+
+    it('does not badge an ordinary completed capability unstake', function(){
+        const win = bootPage();
+        win.showUnstakeDetails({
+            action_format: 0, signing_pubkey: 'cc'.repeat(32),
+            amount: '250.00000000', cooldown_end_block: 500, status: 'completed'
+        });
+        expect(html(win, '#info-unstake .unstake-amount')).to.not.contain('Evicted');
     });
 
     it('does not badge a valid UNSTAKE v2 cooldown-completion (action_format 2)', function(){

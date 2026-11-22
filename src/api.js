@@ -47,7 +47,7 @@ const { startWebsockets }    = require('./http/api_boot/websocket.js');
 const { createBridgePanelHandlers, mountBridgePanelRoutes, bridgeHubEndpoints } = require('./http/bridge_panel_routes.js');
 
 // Read the .env file before anything below reads an environment variable.
-dotenv.config();
+dotenv.config({ quiet: true });
 
 // Before anything else logs. installObservability does not run until
 // ~150 lines further down, inside startApi(), and this covers every line
@@ -82,10 +82,10 @@ const runtime = {
     explorer:       null
 };
 
-// Static assets (icons, images) are served from disk, cost no DB work, and
-// every page pulls a burst of them at once, so they are exempt from both
-// the per-IP rate limit and the global concurrency gate in api_boot/rate_limits.js.
-// Counting them would shed real queries to make room for favicons.
+// GET and HEAD static assets (icons, images) are served from disk, cost no DB
+// work, and every page pulls a burst of them at once, so they are exempt from
+// both guards in api_boot/rate_limits.js.
+// Other methods fall through static mounts and remain counted by both guards.
 //
 // Exempt by FIRST PATH SEGMENT, from the one mount list in
 // src/http/static_mounts.js, never by file extension: a suffix is a claim about
@@ -273,7 +273,13 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
 
 module.exports = { createApp, createBridgePanelHandlers, mountBridgePanelRoutes };
 
-if(!require.main || require.main === module || module.parent === require.main){
+// Start when this is the entry script, when the entry script requires it (a
+// process manager's wrapper), or when node -e or stdin requires it. An ESM
+// entry also leaves require.main undefined, and test runners such as mocha 12
+// are ESM entries, so an undefined require.main alone must never start it.
+const launcher = module.parent;
+const evalLaunch = !!launcher && (launcher.id === '[eval]' || launcher.id === '[stdin]');
+if(require.main === module || (!!require.main && launcher === require.main) || evalLaunch){
     startApi().catch(err => {
         log.error('FATAL_STARTUP_ERROR', { err: err && err.message ? err.message : err, stack: err && err.stack });
         process.exit(1);

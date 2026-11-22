@@ -34,7 +34,8 @@ const RENDERERS = [
     'actionDetail_renderBasicActions', 'actionDetail_renderMarketActions', 'actionDetail_renderMessageActions',
     'actionDetail_renderContractActions', 'actionDetail_renderConsensusActions',
     'actionDetail_renderStructureMarkers', 'actionDetail_disclosureToggle',
-    'actionDetail_renderDisclosure', 'actionDetail_renderAirdropLegs', 'actionDetail_statusClass',
+    'actionDetail_renderDisclosure', 'actionDetail_renderAirdropLegs',
+    'actionDetail_isAcceptedStatus', 'actionDetail_statusClass',
 ];
 
 function makeWindow() {
@@ -104,6 +105,24 @@ describe('structure markers client: getActionDetails', function () {
 });
 
 describe('structure markers client: actionDetail_renderDisclosure', function () {
+    it('colours completed UNSTAKE members green and leaves missing status neutral', function () {
+        const w = makeWindow();
+        expect(w.actionDetail_statusClass('completed', 'UNSTAKE')).to.equal('bg-green');
+        expect(w.actionDetail_statusClass('completed', 'SEND')).to.equal('bg-red');
+        expect(w.actionDetail_statusClass(undefined, 'ROLLCALL')).to.equal('');
+    });
+
+    it('keeps pending red for every action other than UNSTAKE', function () {
+        const w = makeWindow();
+        expect(w.actionDetail_statusClass('pending', 'SEND')).to.equal('bg-red');
+        expect(w.actionDetail_statusClass('pending', undefined)).to.equal('bg-red');
+    });
+
+    it('keeps pending UNSTAKE members red until they are indexed', function () {
+        const w = makeWindow();
+        expect(w.actionDetail_statusClass('pending', 'UNSTAKE')).to.equal('bg-red');
+    });
+
     it('lists every leg of a multi-send with the memo escaped', function () {
         const w = makeWindow();
         const html = w.actionDetail_renderDisclosure({
@@ -120,7 +139,9 @@ describe('structure markers client: actionDetail_renderDisclosure', function () 
         expect(html).to.include('bg-green');
         expect(html).to.include('bg-red');
     });
+});
 
+describe('structure markers client: actionDetail_renderDisclosure', function () {
     it('lists every leg of a multi-leg airdrop, linking the list as an action, memo escaped', function () {
         const w = makeWindow();
         const html = w.actionDetail_renderDisclosure({

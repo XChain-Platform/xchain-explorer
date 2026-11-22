@@ -104,7 +104,8 @@ describe('checkpoint.html verify verdict: renderCheckpointVerdict @regression', 
         const $ = renderVerdict({ ...BASE, verified: true, valid_sigs: 3, quorum: 3 });
         const ok = $('#checkpoint-verdict .alert-success');
         expect(ok.length).to.equal(1);
-        expect(ok.text()).to.equal('Verified: a qualifying quorum signed this checkpoint.');
+        expect(ok.text()).to.include('Signatures meet quorum against the hub-mirrored validator set.');
+        expect(ok.text()).to.include('not independently pinned');
         expect($('#checkpoint-verdict .alert-warning').length).to.equal(0);
     });
 

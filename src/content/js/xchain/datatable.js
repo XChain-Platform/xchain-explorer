@@ -43,10 +43,10 @@ function initStaticDatatable(tableId, autoWidth=true){
             info: "_TOTAL_ results",
             infoEmpty: "No records available",
             paginate: {
-                first: "<i class='fa fa-chevron-left'></i><i class='fa fa-chevron-left'></i>",
-                previous: "<i class='fa fa-chevron-left'></i><span id='" + tableId + "-paginate-info'></span>",
-                next: "<i class='fa fa-chevron-right'></i>",
-                last: "<i class='fa fa-chevron-right'></i><i class='fa fa-chevron-right'></i>"
+                first: "<i class='fa-solid fa-chevron-left'></i><i class='fa-solid fa-chevron-left'></i>",
+                previous: "<i class='fa-solid fa-chevron-left'></i><span id='" + tableId + "-paginate-info'></span>",
+                next: "<i class='fa-solid fa-chevron-right'></i>",
+                last: "<i class='fa-solid fa-chevron-right'></i><i class='fa-solid fa-chevron-right'></i>"
             }
         },
         fnDrawCallback: function(o){

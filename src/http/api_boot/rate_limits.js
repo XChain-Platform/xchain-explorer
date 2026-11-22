@@ -29,6 +29,7 @@
 'use strict';
 
 const rateLimit = require('express-rate-limit');
+const { isJsonRpcPath, globalJsonBody } = require('./json_body.js');   // the dispatcher's two entry paths and the one global parser
 const concurrencyGate = require('../concurrency_gate.js');
 const { limitedHandler } = require('../rate_limit_log.js');  // limiter counter line, shared with XChainExplorer's per-route limiters
 const { isFileMount } = require('../static_mounts.js');     // disk-served mounts, which take the static bucket below
@@ -86,6 +87,21 @@ function staticPolicyFor(configInfo){
 }
 
 /**
+ * Whether a request is a single JSON-RPC ping, the call that reports the
+ * gate's own stats and that the container healthcheck sends. A batch is never
+ * one: the dispatcher runs every element, so a batch of pings draws one pool
+ * connection each.
+ *
+ * @param {object} req the request, after the JSON-RPC body is parsed
+ * @returns {boolean} true for a lone { method: 'ping' } object
+ */
+function isPingRequest(req){
+    const body = req.body;
+    return req.method === 'POST' && isJsonRpcPath(req.path) &&
+        body !== null && typeof body === 'object' && !Array.isArray(body) && body.method === 'ping';
+}
+
+/**
  * Mount the per-IP limiters and then the global concurrency cap.
  *
  * @param {object} app the express app
@@ -106,7 +122,7 @@ function applyRateLimits(app, configInfo, isStaticAsset){
 
     // File mounts leave the app-wide bucket for their own: counting them there
     // refused a page's scripts after two page views. The image exemption still
-    // applies first, so /images and /icon stay unlimited as before.
+    // applies first, so GET and HEAD on /images and /icon stay unlimited.
     const staticPolicy = staticPolicyFor(configInfo);
     app.use(rateLimit({
         windowMs:        staticPolicy.windowMs,
@@ -123,16 +139,33 @@ function applyRateLimits(app, configInfo, isStaticAsset){
     // are being served at any instant across ALL callers and sheds the excess
     // with an immediate 429 rather than queueing it. Override with
     // EXPLORER_MAX_CONCURRENT_REQUESTS; 0 disables the cap.
+    //
+    // The gate reports on itself through JSON-RPC ping (request_gate), and the
+    // container healthcheck is that same ping. Behind the cap, both answered
+    // 429 exactly while the gate was saturated, so in_flight and shed were
+    // unreadable when they mattered and a full gate failed the healthcheck.
+    // The skip needs the RPC method, which lives in the body, so the two
+    // dispatcher paths are parsed here, ahead of the gate, by the global
+    // parser instance itself; the later mount then finds the body already
+    // read and passes it through. A lone ping skips the cap and stays
+    // bounded per IP by the limiter above.
+    app.use((req, res, next) => {
+        if(req.method !== 'POST' || !isJsonRpcPath(req.path)) return next();
+        return globalJsonBody(req, res, next);
+    });
+
     const requestGate = concurrencyGate.createConcurrencyGate({
         limit:      concurrencyGate.resolveLimit(configInfo.env.EXPLORER_MAX_CONCURRENT_REQUESTS, 200),
         retryAfter: 1,
-        // A disk read holds no pool connection, so file mounts skip the cap too.
+        // A GET or HEAD disk read holds no pool connection, so file mounts skip the cap too.
         skip:       (req) => isStaticAsset(req) || isFileMount(req),
-        body:       { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' }
+        probe:      isPingRequest,
+        body:       { error: 'Server busy, retry shortly', code: 'SERVER_BUSY' },
+        envVar:     'EXPLORER_MAX_CONCURRENT_REQUESTS'
     });
     app.use(requestGate);
 
     return requestGate;
 }
 
-module.exports = { applyRateLimits };
+module.exports = { applyRateLimits, isPingRequest };

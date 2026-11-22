@@ -106,7 +106,7 @@ describe('xchain-ws.js catch-up cursor precision', function () {
         ws.subscriptions = [{ channels: ['actions'], params: {} }];
         ws._resubscribe();
         expect(sent).to.have.lengthOf(1);
-        expect(sent[0].params).to.not.have.property('since_action_index');
+        expect(sent[0].params.since_action_index).to.equal('0');
     });
 
     it('never moves the cursor backwards', function () {

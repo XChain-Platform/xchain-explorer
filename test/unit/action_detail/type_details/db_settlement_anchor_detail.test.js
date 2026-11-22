@@ -79,6 +79,22 @@ async function assertsPolicySnapshot() {
     assert.equal(hubReads(h, 'list_snapshots').length, 0);
     assert.equal(data.snapshot_id, SNAP);
     assert.deepEqual(data.bridge_settlement, settle);
+    assert.equal(data.bridge_kind, 'policy');
+    assert.equal(data.snapshot_outcome, 'applied');
+    assert.match(reads(h, 'bridge_settlements')[0].sql, /SELECT transfer_id, kind/);
+    assert.deepEqual(data.policy_snapshot, snap);
+}
+
+async function assertsRefusedPolicySnapshot() {
+    const settle = { transfer_id: SNAP, kind: 'refused', block_index: 9, src_chain: 'BTC',
+                     src_action_index: null, dest_chain: 'DOGE', dest_address: null, tick: 'FUFU' };
+    const snap = { snapshot_id: SNAP, policy_seq: 3, origin_chain: 'BTC', tick: 'FUFU' };
+    const h = ctx(BOTH, [['FROM bridge_settlements', [settle]], ['FROM `hubdb`.policy_snapshots', [snap]]]);
+    const data = {};
+    await REGISTRY.XPOLICY.afterMain(h.ctx, data);
+    assert.equal(data.bridge_kind, 'refused');
+    assert.equal(data.snapshot_outcome, 'refused');
+    assert.equal(data.status, 'refused: policy snapshot not applied');
     assert.deepEqual(data.policy_snapshot, snap);
 }
 
@@ -89,6 +105,8 @@ async function assertsListSnapshot() {
     const h = ctx(BOTH, [['FROM bridge_settlements', [settle]], ['FROM `hubdb`.list_snapshots', [snap]]]);
     const data = {};
     await REGISTRY.LIST_SHARE.afterMain(h.ctx, data);
+    assert.doesNotMatch(reads(h, 'bridge_settlements')[0].sql, /kind IN/);
+    assert.equal('snapshot_outcome' in data, false);
     assert.deepEqual(hubReads(h, 'list_snapshots')[0].args, [SNAP, 'testnet']);
     assert.equal(reads(h, 'list_snapshots').length, 0);
     assert.equal(hubReads(h, 'policy_snapshots').length, 0);
@@ -138,6 +156,7 @@ async function assertsNoHubDb() {
 describe('settlement-anchor action detail handlers @regression', function () {
     it('registers XPOLICY and LIST_SHARE with no static query slots', assertsRegistration);
     it('XPOLICY reads the settlement by its own index, then the policy snapshot by transfer_id', assertsPolicySnapshot);
+    it('marks a refused XPOLICY snapshot as not applied while retaining its proposal', assertsRefusedPolicySnapshot);
     it('LIST_SHARE reads the list snapshot, not the policy one', assertsListSnapshot);
     it('reports a missing settlement row as null without reading a snapshot', assertsMissingSettlement);
     it('omits every key on a replica without bridge_settlements and names no table', assertsMissingSettlementTable);

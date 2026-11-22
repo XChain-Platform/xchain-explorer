@@ -26,10 +26,11 @@
 
 const path      = require('path');
 const net       = require('net');
+const crypto    = require('crypto');
 const ssrfGuard = require('../http/ssrf_guard.js');
 // The token page's own description-to-URL rule, so the relay and the page can never
 // disagree about which URL a token references.
-const { tokenInfo_metadataUrl } = require('../content/js/xchain/token_info.js');
+const { tokenInfo_metadataUrl, tokenInfo_expectedHash } = require('../content/js/xchain/token_info.js');
 
 // The entry file's own `axios` and `dns`, handed over at install time rather than
 // required here. The SSRF suites build the explorer through proxyquire with both
@@ -46,6 +47,17 @@ const RELAY_HOSTS = new Set([
     'inscription-decoder.vercel.app',
     'ipfsc.crystalsuite.com'
 ]);
+const RELAY_DEADLINE_MS = 10000;
+
+function relayClientSignal(res){
+    if(res && res.abortSignal) return res.abortSignal;
+    if(!res || typeof res.once !== 'function') return undefined;
+    const controller = new AbortController();
+    res.once('close', () => {
+        if(!res.writableEnded && !controller.signal.aborted) controller.abort();
+    });
+    return controller.signal;
+}
 
 function useHostBindings(host){
     // Refuse a missing dns binding before touching either binding: makeSafeLookup would
@@ -93,17 +105,17 @@ class RelayEgress {
                 if(refusal)
                     return res.status(refusal.status).json(refusal.body);
 
-                // Outside the fixed gateways, relay only a URL that a token on the named
-                // chain actually references, so this never serves as a general proxy.
-                if(!RELAY_HOSTS.has(parsed.hostname.toLowerCase()) &&
-                   !(await this.isTokenMetadataUrl(req.query.coin, req.query.tick, parsed)))
+                const reference = await this.tokenMetadataReference(
+                    req.query.coin, req.query.tick, parsed);
+                if(!RELAY_HOSTS.has(parsed.hostname.toLowerCase()) && !reference.matches)
                     return res.status(403).json({ error: 'Destination not permitted', code: 'RELAY_DENIED' });
 
                 // Answered only for the content kinds a page can actually use; anything
                 // else falls through to the 503 below, exactly as before.
-                if(await this.relayContent(parsed, res))
+                if(await this.relayContent(parsed, res, reference.expectedHash))
                     return;
             } catch(e) {
+                if(res.headersSent || res.destroyed || res.writableEnded) return;
                 return res.status(400).json({ error: 'Invalid or unreachable URL', code: 'RELAY_FETCH_FAILED' });
             }
         }
@@ -172,24 +184,30 @@ class RelayEgress {
      * @returns {boolean} false on any missing, unknown or unreadable input, never a throw
      */
     async isTokenMetadataUrl(coin, tick, parsed){
+        return (await this.tokenMetadataReference(coin, tick, parsed)).matches;
+    }
+
+    async tokenMetadataReference(coin, tick, parsed){
+        const absent = { matches: false, expectedHash: null };
         // Both identifiers must be single non-empty values; a repeated parameter arrives
         // as an array.
         if(typeof coin !== 'string' || typeof tick !== 'string' || !coin || !tick)
-            return false;
+            return absent;
         // Only a chain this explorer holds a database for has tokens to consult.
         coin = coin.toUpperCase();
         if(!this.db.pools || !Object.prototype.hasOwnProperty.call(this.db.pools, coin))
-            return false;
+            return absent;
         try {
             const description = await this.db.findTokenDescription({ coin, data: {} }, tick);
             if(this.util.isNull(description))
-                return false;
+                return absent;
             // An action: or ord: description derives through page-only helpers and never
             // names a non-gateway host, so a throw there is simply no match.
             const derived = tokenInfo_metadataUrl(String(description));
-            return Boolean(derived) && new URL(derived).href === parsed.href;
+            const matches = Boolean(derived) && new URL(derived).href === parsed.href;
+            return { matches, expectedHash: matches ? tokenInfo_expectedHash(String(description)) : null };
         } catch(e) {
-            return false;
+            return absent;
         }
     }
 
@@ -200,40 +218,58 @@ class RelayEgress {
      * @returns {boolean} true when the response has been sent, false when the URL
      *          named no kind this endpoint relays
      */
-    async relayContent(parsed, res){
+    async relayContent(parsed, res, expectedHash = null){
         const ext  = String(path.extname(parsed.pathname)).replace('.','').toLowerCase();
+        const release = (res && typeof res.holdSlot === 'function') ? res.holdSlot() : () => {};
         // The literal-hostname blocklist only catches IPs in the URL; a domain whose
         // DNS record points at a private address (or rebinds) would sail past it.
         // ssrfSafeLookup validates the address axios actually connects to, closing
         // the TOCTOU window between a separate re-resolution check and the connection.
-        const opts = { timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
+        const opts = { ...ssrfGuard.directEgressOptions(),
+                       timeout: 5000, maxContentLength: 5 * 1024 * 1024, maxRedirects: 0,
+                       signal: ssrfGuard.egressSignal(RELAY_DEADLINE_MS, relayClientSignal(res)),
                        lookup: this.ssrfSafeLookup.bind(this) };
 
-        // JSON files and the exact extensionless gateway forms the token page emits.
-        const hostname      = parsed.hostname.toLowerCase();
-        const isArweave     = hostname === 'arweave.net';
-        const isIpfs        = hostname === 'ipfsc.crystalsuite.com' && ext === '';
-        const isInscription = hostname === 'inscription-decoder.vercel.app' &&
-            parsed.pathname === '/api/image' && parsed.searchParams.get('type') === 'json' &&
-            /^[0-9a-f]{64}$/i.test(String(parsed.searchParams.get('tx') || ''));
-        if(ext=='json' || isArweave || isIpfs || isInscription){
-            let response = await axios.get(parsed.href, opts);
-            if(!this.util.isNull(response.data)){
-                res.type('json').send(this.util.jsonStringify(response.data));
+        try {
+            // JSON files and the exact extensionless gateway forms the token page emits.
+            const hostname      = parsed.hostname.toLowerCase();
+            const isArweave     = hostname === 'arweave.net';
+            const isIpfs        = hostname === 'ipfsc.crystalsuite.com' && ext === '';
+            const isInscription = hostname === 'inscription-decoder.vercel.app' &&
+                parsed.pathname === '/api/image' && parsed.searchParams.get('type') === 'json' &&
+                /^[0-9a-f]{64}$/i.test(String(parsed.searchParams.get('tx') || ''));
+            if(ext=='json' || isArweave || isIpfs || isInscription){
+                const requestOpts = expectedHash ? { ...opts, responseType: 'arraybuffer' } : opts;
+                let response = await axios.get(parsed.href, requestOpts);
+                if(!this.util.isNull(response.data)){
+                    let data = response.data;
+                    if(expectedHash){
+                        const body = Buffer.isBuffer(data) ? data : Buffer.from(data);
+                        const digest = crypto.createHash('sha256').update(body).digest('hex');
+                        if(digest !== expectedHash){
+                            res.status(502).json({ error: 'Token metadata integrity mismatch', code: 'RELAY_HASH_MISMATCH' });
+                            return true;
+                        }
+                        data = JSON.parse(body.toString('utf8'));
+                    }
+                    res.type('json').send(this.util.jsonStringify(data));
+                    return true;
+                }
+            }
+
+            // PNG images, handed back base64-encoded for the page to embed.
+            if(ext=='png'){
+                let response    = await axios.get(parsed.href, { ...opts, responseType: 'arraybuffer' });
+                let base64Image = btoa(new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+                res.send(base64Image);
                 return true;
             }
-        }
 
-        // PNG images, handed back base64-encoded for the page to embed.
-        if(ext=='png'){
-            let response    = await axios.get(parsed.href, { ...opts, responseType: 'arraybuffer' });
-            let base64Image = btoa(new Uint8Array(response.data).reduce((data, byte) => data + String.fromCharCode(byte), ''));
-            res.send(base64Image);
-            return true;
+            // No kind this endpoint relays.
+            return false;
+        } finally {
+            release();
         }
-
-        // No kind this endpoint relays.
-        return false;
     }
 }
 

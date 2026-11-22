@@ -22,6 +22,8 @@
  ********************************************************************/
 
 const axios = require('axios');
+const { AsyncLocalStorage } = require('async_hooks');
+const { budgetIn, INTERNAL_CLIENT } = require('./egress_budget.js');
 
 // Every environment read goes through config.js's live read-through view of
 // process.env, so config.js stays the one place the gate lets env be read. The
@@ -44,6 +46,90 @@ function resolveIndexerUrl(coin, network){
         || null;
 }
 
+// EGRESS BUDGET
+//
+// The indexer rate-limits per connecting IP and this whole process is one IP to it,
+// so the explorer keeps its own fair-share budget per indexer URL below the
+// indexer's ceiling (see egress_budget.js for the mechanism).
+// Below the indexer's default 600 per minute, leaving room for the odd call that
+// slips between the admission check and the call itself.
+const DEFAULT_EGRESS_RPM  = 540;
+
+const egressClient  = new AsyncLocalStorage();
+const egressBudgets = new Map();   // indexer url -> EgressBudget
+
+function egressLimit(){
+    let n = parseInt(configEnv().EXPLORER_INDEXER_EGRESS_RPM, 10);
+    return n > 0 ? n : DEFAULT_EGRESS_RPM;
+}
+
+function budgetFor(url){
+    return budgetIn(egressBudgets, url);
+}
+
+// Would a request from `client` to the indexer at `url` be admitted now? The route
+// guard asks this before the handler runs, so a shed client is refused locally.
+// Returns { ok, retryAfter }.
+function egressAdmit(url, client){
+    let now = Date.now();
+    let b = budgetFor(url);
+    if(b.admits(String(client || INTERNAL_CLIENT), now, egressLimit())) return { ok: true, retryAfter: 0 };
+    return { ok: false, retryAfter: b.retryAfter(now) };
+}
+
+// Run `fn` with every indexer call inside it counted against `client`.
+function withEgressClient(client, fn){
+    return egressClient.run(String(client || INTERNAL_CLIENT), fn);
+}
+
+// Forget every window. For suites, which share this module across files.
+function resetEgressBudgets(){
+    egressBudgets.clear();
+}
+
+// FAILURE CLASSIFICATION
+//
+// A proxy route tells its caller whether the same request is worth sending again,
+// so the connector, the one place that sees the transport error, marks the failures
+// that are: `retryable` on the thrown error, plus `retryAfter` (seconds) when the
+// indexer named one. Transient means the indexer is slow, busy or briefly out of
+// reach: a 429 or 503, a 504 or client timeout, or a connection that never got an
+// answer. A 4xx refusal, an auth rejection or a JSON-RPC error result is a verdict
+// on this request and is never marked. ENOTFOUND is transient: the indexer URLs
+// use Docker container names, which resolve only while the container runs, so a
+// stopped or restarting indexer fails with ENOTFOUND rather than ECONNREFUSED.
+const TRANSIENT_STATUSES   = new Set([429, 503, 504]);
+const TRANSIENT_NET_CODES  = new Set(['ECONNABORTED', 'ETIMEDOUT', 'ESOCKETTIMEDOUT', 'ECONNREFUSED', 'ECONNRESET',
+    'EPIPE', 'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN', 'ENOTFOUND', 'ERR_NETWORK']);
+
+// Retry-After only in the seconds form, 1 to 6 digits; anything else is dropped.
+function retryAfterSeconds(headers){
+    const ra = String((headers && headers['retry-after']) || '').trim();
+    return /^[0-9]{1,6}$/.test(ra) ? Number(ra) : 0;
+}
+
+// The error call() throws for a failed axios post. Auth and rate-limit answers get a
+// fresh error with fixed text (no header or key material); anything else is the
+// original error, marked when it is transient.
+function upstreamFailure(err){
+    const status = err && err.response && err.response.status;
+    if(status === 401 || status === 403)
+        return Object.assign(new Error('indexer authentication required'), { code: 'INDEXER_AUTH_REQUIRED' });
+    if(status === 429){
+        const e = Object.assign(new Error('indexer rate limited'), { code: 'INDEXER_RATE_LIMITED', retryable: true });
+        const ra = retryAfterSeconds(err.response.headers);
+        if(ra > 0) e.retryAfter = ra;
+        return e;
+    }
+    if(!err || typeof err !== 'object') return err;
+    if(status ? TRANSIENT_STATUSES.has(status) : TRANSIENT_NET_CODES.has(err.code)){
+        err.retryable = true;
+        const ra = status ? retryAfterSeconds(err.response.headers) : 0;
+        if(ra > 0) err.retryAfter = ra;
+    }
+    return err;
+}
+
 class XChainIndexerConnector {
 
     constructor(url){
@@ -61,21 +147,26 @@ class XChainIndexerConnector {
     async call(method, params){
         const config = { timeout: this.timeout };
         if(this.apiKey) config.headers = { 'x-api-key': this.apiKey };
+        // Hard cap: no call leaves once the window holds the whole budget, whoever
+        // makes it. It answers the same tagged shape as an indexer 429, so the proxy
+        // routes relay it as retryable.
+        let now = Date.now();
+        let budget = budgetFor(this.url);
+        if(budget.used(now) >= egressLimit()){
+            const e = new Error('indexer egress budget exhausted');
+            e.code = 'INDEXER_RATE_LIMITED';
+            e.retryable = true;
+            e.retryAfter = budget.retryAfter(now);
+            throw e;
+        }
+        budget.record(egressClient.getStore() || INTERNAL_CLIENT, now);
         let response;
         try {
             response = await axios.post(this.url, { jsonrpc: '2.0', method, params, id: 1 }, config);
         } catch(err){
-            // Distinguish an indexer auth rejection (gate enabled, no/wrong key)
-            // from a transport outage so the caller can surface a clean
-            // configuration error rather than a generic "unavailable". The thrown
-            // error carries no header/key material.
-            const status = err && err.response && err.response.status;
-            if(status === 401 || status === 403){
-                const e = new Error('indexer authentication required');
-                e.code = 'INDEXER_AUTH_REQUIRED';
-                throw e;
-            }
-            throw err;
+            // Auth rejections read as a configuration error, rate limits and other
+            // transient failures carry `retryable`; see upstreamFailure.
+            throw upstreamFailure(err);
         }
         if(response.data && response.data.error)
             throw new Error(response.data.error.message || 'indexer error');
@@ -119,5 +210,6 @@ class XChainIndexerConnector {
 }
 
 // One export shape: the class is the export and the URL resolver hangs on it,
-// so a requirer reads IndexerConnector.resolveIndexerUrl exactly as before.
-module.exports = Object.assign(XChainIndexerConnector, { resolveIndexerUrl });
+// so a requirer reads IndexerConnector.resolveIndexerUrl exactly as before. The
+// egress-budget entry points hang on it the same way.
+module.exports = Object.assign(XChainIndexerConnector, { resolveIndexerUrl, egressAdmit, withEgressClient, resetEgressBudgets });

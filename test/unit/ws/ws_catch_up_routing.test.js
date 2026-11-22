@@ -310,3 +310,59 @@ describe('catch-up in-progress latch release', function () {
         expect(frames(client, 'CATCH_UP_COMPLETE').map(m => m.id).sort()).to.deep.equal(['r1', 'r2']);
     });
 });
+
+describe('catch-up replay with a failed bet parent read', function () {
+    afterEach(() => sinon.restore());
+
+    const BET_ROW = { action_index: 4, action: 'BET', action_format: 2, block_index: 10, source: 'X', destinations: [] };
+
+    it('refuses with the retryable CATCH_UP_NOT_READY before any frame, then replays the BET keyed on retry', async function () {
+        const parent = sinon.stub();
+        parent.onFirstCall().rejects(new Error('temporary'));
+        parent.onSecondCall().resolves(7);
+        const db = mkDb({ getActionsSince: sinon.stub().resolves([BET_ROW]), getBetActionFeedIndex: parent });
+        const { s } = setup(db);
+        const client = addClient(s, 1);
+
+        subscribe(s, client, ['actions'], { since_action_index: '0' }, 'r1');
+        await settle();
+        expect(frames(client, 'error').map(e => [e.id, e.data.code])).to.deep.equal([['r1', 'CATCH_UP_NOT_READY']]);
+        expect(frames(client, 'NEW_ACTION')).to.have.lengthOf(0);
+        expect(frames(client, 'CATCH_UP_COMPLETE')).to.have.lengthOf(0);
+        expect(client.catchUpInProgress).to.equal(false);
+
+        subscribe(s, client, ['actions'], { since_action_index: '0' }, 'r2');
+        await settle();
+        const sent = client.ws.send.getCalls().map(c => JSON.parse(c.args[0]));
+        const betFrames = sent.filter(m => m.data && m.data.feed_action_index !== undefined);
+        expect(betFrames).to.have.lengthOf(1);
+        expect(betFrames[0].data.feed_action_index).to.equal(7);
+        expect(frames(client, 'NEW_ACTION')).to.have.lengthOf(1);
+        expect(frames(client, 'CATCH_UP_COMPLETE').map(m => m.id)).to.deep.equal(['r2']);
+    });
+
+    it('refuses before any frame when a coinpay obligation read fails, then replays it on retry', async function () {
+        const obligation = sinon.stub();
+        obligation.onFirstCall().rejects(new Error('temporary'));
+        obligation.onSecondCall().resolves({ obligation_action_index: 4, order_match_action_index: 4,
+            payer_address: 'P', payee_address: 'Q', coin_amount: '1', expiration: '20' });
+        const row = { action_index: 4, action: 'ORDER_MATCH', block_index: 10, source: 'P', destinations: [] };
+        const db = mkDb({
+            getActionsSince: sinon.stub().resolves([row]),
+            getOrderMatchSettlement: sinon.stub().resolves({ settlement_type: 'coinpay' }),
+            getCoinpayObligation: obligation
+        });
+        const { s } = setup(db);
+        const client = addClient(s, 1);
+
+        subscribe(s, client, ['actions'], { since_action_index: '0' }, 'r1');
+        await settle();
+        expect(frames(client, 'error').map(e => [e.id, e.data.code])).to.deep.equal([['r1', 'CATCH_UP_NOT_READY']]);
+        expect(frames(client, 'NEW_ACTION')).to.have.lengthOf(0);
+
+        subscribe(s, client, ['actions'], { since_action_index: '0' }, 'r2');
+        await settle();
+        expect(frames(client, 'COINPAY_REQUIRED')).to.have.lengthOf(1);
+        expect(frames(client, 'CATCH_UP_COMPLETE').map(m => m.id)).to.deep.equal(['r2']);
+    });
+});

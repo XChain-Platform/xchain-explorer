@@ -41,7 +41,7 @@ function xcDatatableRenderFileRow(context){
     // so we annotate an existing cell rather than add a column).
     let gate = data[7];
     if(!isNull(gate))
-        $('td', row).eq(4).append(' <span class="badge text-bg-warning" title="Gated by ' + escapeHtml(gate) + '"><i class="fa fa-lock"></i></span>');
+        $('td', row).eq(4).append(' <span class="badge text-bg-warning" title="Gated by ' + escapeHtml(gate) + '"><i class="fa-solid fa-lock"></i></span>');
     $('td', row).eq(7).html(action_link);
 
 }
@@ -78,7 +78,7 @@ function xcDatatableRenderIssueRow(context){
     // NFT collections (nft-standard.md#collections))
     let transfer = data[8];
     if(!isNull(transfer))
-        $('td', row).eq(3).html(source_link + ' <i class="fa fa-arrow-right ps-1 pe-1" title="Token ownership transferred"></i> ' + formatLink('/' + coin + '/address/' + transfer, transfer));
+        $('td', row).eq(3).html(source_link + ' <i class="fa-solid fa-arrow-right ps-1 pe-1" title="Token ownership transferred"></i> ' + formatLink('/' + coin + '/address/' + transfer, transfer));
     $('td', row).eq(5).text(formatZeroSentinel(amount, 'No cap declared'));
     $('td', row).eq(6).text(formatZeroSentinel(amount2, 'No per-transaction cap'));
     $('td', row).eq(7).html(formatLocks(locks));

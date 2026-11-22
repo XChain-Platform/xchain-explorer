@@ -26,9 +26,20 @@ const { getLogger } = require('../observability');
 const log = getLogger();
 
 // Send the mapped reply for `code`, or SERVER_ERROR with the raw error logged.
-function sendProofError(res, map, code, raw){
+// A mapped transient upstream failure can retain its retry hint without changing
+// the stable status or code clients already use.
+function sendProofError(res, map, code, raw, hint){
     const hit = Object.prototype.hasOwnProperty.call(map, code) ? map[code] : null;
-    if(hit) return res.status(hit[0]).json({ error: hit[1], code });
+    if(hit){
+        const body = { error: hit[1], code };
+        if(hint && hint.retryable === true){
+            body.retryable = true;
+            if(typeof hint.retryAfter === 'number' && Number.isFinite(hint.retryAfter) && hint.retryAfter > 0 &&
+                typeof res.set === 'function')
+                res.set('Retry-After', String(hint.retryAfter));
+        }
+        return res.status(hit[0]).json(body);
+    }
     log.error('PROOF_UNMAPPED_ERROR', { err: String(raw === undefined ? code : raw) });
     return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
 }

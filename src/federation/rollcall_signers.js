@@ -182,7 +182,6 @@ async function getrollcallsigners({ db, dbConfig, chain }, {network, epoch_heigh
 }
 
 module.exports = {
-    ROLLCALL_READ_MAX_KEYS, MANIFEST_PATH,
     ROLLCALL_ACTIVATION, ROLLCALL_GATES_ACTIVATION,
-    rollcallManifestHash, rollcallSignersRequest, rollcallPresence, getrollcallsigners
+    rollcallManifestHash, getrollcallsigners
 };

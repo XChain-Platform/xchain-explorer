@@ -193,6 +193,33 @@ const FILE_QUERY = `SELECT
                     f1.action_index=?
                 LIMIT 1`;
 
+const FILE_PART_QUERY = `SELECT
+                    fp.action_index,
+                    ia.address as source,
+                    txh.hash as tx_hash,
+                    fp.block_index,
+                    ps.status,
+                    fp.file_hash,
+                    fp.part_index,
+                    (SELECT fm.action_index
+                        FROM file_manifests fm
+                        INNER JOIN index_statuses ms ON (ms.id=fm.status_id)
+                        WHERE fm.source_id=fp.source_id
+                            AND fm.file_hash=fp.file_hash
+                            AND ms.status='valid'
+                        ORDER BY fm.action_index ASC
+                        LIMIT 1) as manifest_action_index
+                FROM
+                    file_parts fp
+                    INNER JOIN index_addresses ia ON (ia.id=fp.source_id)
+                    LEFT JOIN index_statuses ps ON (ps.id=fp.status_id)
+                    LEFT JOIN actions a1 ON (a1.action_index=fp.action_index)
+                    LEFT JOIN transactions tx ON (tx.tx_index=a1.tx_index)
+                    LEFT JOIN index_transactions txh ON (txh.id=tx.tx_hash_id)
+                WHERE
+                    fp.action_index=?
+                LIMIT 1`;
+
 const MESSAGE_QUERY = `SELECT
                     a2.action,
                     a1.action_format,
@@ -282,6 +309,7 @@ const LIST_QUERY = `SELECT
 
 // List
 const LIST_QUERY2 = `SELECT
+                    l1.item_id,
                     a1.address,
                     t1.tick
                 FROM
@@ -293,6 +321,7 @@ const LIST_QUERY2 = `SELECT
 
 // List edits: each item this action changed on the list, with its own status
 const LIST_QUERY3 = `SELECT
+                    l1.item_id,
                     a1.address,
                     t1.tick,
                     s1.status
@@ -333,6 +362,7 @@ module.exports = {
     BROADCAST_QUERY,
     CALLBACK_QUERY,
     FILE_QUERY,
+    FILE_PART_QUERY,
     MESSAGE_QUERY,
     SLEEP_QUERY,
     LIST_QUERY,

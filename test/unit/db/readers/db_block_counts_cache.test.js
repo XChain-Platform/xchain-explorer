@@ -59,6 +59,8 @@ function makeDb(state){
         if(/block_time/.test(call.sql)) return state.page.map(b => ({ block_index: b, block_time: b * 100 }));
         if(/list_metas/.test(call.sql))
             return call.args.filter(b => RENAME_ROWS[b]).map(b => ({ block_index: b, count: RENAME_ROWS[b] }));
+        // The fake chain holds no multi-part FILEs.
+        if(/FROM\s+file_parts/.test(call.sql)) return [];
         const rows = [];
         for(const b of new Set(call.args))
             for(const r of ACTION_ROWS[b] || []) rows.push({ block_index: b, action: r.action, count: r.count });

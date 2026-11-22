@@ -31,13 +31,15 @@
 
 'use strict';
 
-const { DbInputError } = require('../../shared.js');
+const { DbInputError, DbQueryError } = require('../../shared.js');
 const { canonicalTransactionHash } = require('../../../lib/transaction_hash.js');
 
 async function findPendingTransaction(db, config) {
     let search = String(config.data.search).toLowerCase();
-    let rows = await db.getDecoderMempoolRows(config, 500);
-    let row = (rows || []).find((candidate) =>
+    let feed = await db.getDecoderMempoolFeed(config, 500);
+    if(feed === null)
+        throw new DbQueryError('DECODER_MEMPOOL_UNAVAILABLE: decoder mempool is configured but not answering for ' + config.coin);
+    let row = (feed.rows || []).find((candidate) =>
         candidate && String(candidate.tx_hash || '').toLowerCase() === search);
     let decoded = row ? db.decodeMempoolRow(row) : null;
     if(!decoded) return null;

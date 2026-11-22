@@ -20,6 +20,7 @@ const { JSDOM } = require('jsdom');
 const { srcText } = require('../../../helpers/source_text');
 const { openIndexerTables } = require('../../../helpers/indexer_ddl_sqlite.js');
 const { XCALL } = require('../../../../src/action-detail/crosschain');
+const xcallReaders = require('../../../../src/db/readers/xcall/xcall_detail.js');
 
 let sqlite = null;
 try { sqlite = require('node:sqlite'); } catch (e) { sqlite = null; }
@@ -85,5 +86,43 @@ describe('XCALL result delivery request lookup', function() {
         assert.ok(link);
         assert.equal(link.getAttribute('href'), '/BTC/action/502');
         assert.equal(link.textContent, '502');
+    });
+});
+
+describe('XCALL result delivery request lookup', function() {
+    it('resolves a rowless v2 expiry to its original request', async function() {
+        const db = {
+            util: { isNull: value => value === null || value === undefined },
+            resolveXcallExpireRequest: async () => ({
+                action_index: 100, version: 0, call_id: 'expired-call', contract_index: 8,
+                target_chain: 'LTC', method: 'ping', params_json: '["x"]',
+                callback_params_json: '[]', request_status: 'expired', result_status: 'expired',
+                resolved_block: 700
+            }),
+            doQuery: async () => []
+        };
+        const data = { call_id: null, action_format: 2, block_index: 700 };
+        await XCALL.afterMain({ db, config: {}, action_index: 900 }, data);
+        assert.equal(data.version, 2);
+        assert.equal(data.call_id, 'expired-call');
+        assert.equal(data.request_action_index, 100);
+        assert.deepEqual(data.params, ['x']);
+    });
+
+    it('pairs multiple expiries by deterministic order and rejects unequal lists', async function() {
+        const actions = [{ action_index: 900 }, { action_index: 901 }];
+        const requests = [
+            { action_index: 100, call_id: 'first', deadline_block: 10 },
+            { action_index: 101, call_id: 'second', deadline_block: 11 }
+        ];
+        const db = {
+            util: { isNull: value => value === null || value === undefined },
+            doQuery: async (config, sql) => String(sql).includes('FROM xcalls') ? requests : actions
+        };
+        db.correlateXcallExpiries = xcallReaders.correlateXcallExpiries;
+        db.resolveXcallExpireRequest = xcallReaders.resolveXcallExpireRequest;
+        assert.equal((await db.resolveXcallExpireRequest({}, 901, 700)).call_id, 'second');
+        requests.pop();
+        assert.equal(await db.resolveXcallExpireRequest({}, 901, 700), null);
     });
 });

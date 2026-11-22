@@ -86,12 +86,12 @@ async function main() {
             // Same probe path as the real run, but doQuery refuses to execute
             // anything that is not a read-only probe.
             const probeOnly = {
-                doQuery: (sql, p) => {
+                doQuery: (sql, p, opts) => {
                     if (!/^SHOW /i.test(sql)) {
                         console.log('[dry-run] would execute: ' + sql);
                         return Promise.resolve();
                     }
-                    return pool.doQuery(sql, p);
+                    return pool.doQuery(sql, p, opts);
                 }
             };
             await ensureMirrorColumns(probeOnly, (msg) => console.log('[dry-run] ' + msg));

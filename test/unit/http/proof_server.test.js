@@ -85,6 +85,18 @@ describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
             'non-inclusion proof must verify against balances_root');
         assert.ok(M.verifyFixedMerkleProof(stateRoot, M.toBuf(p.balances_root), p.sub_root_path.index, p.sub_root_path.siblings));
     });
+});
+describe('SPV Phase 3: ProofServer.balanceProof round-trip', function () {
+    it('uses the spelling stored by the indexer for the proof key and amount', async function () {
+        const { server } = makeServer('5');
+        server.db.getStoredAddressSpelling = async () => ADDR_A;
+        const r = await server.balanceProof({ coin: COIN }, CHAIN, NET, ADDR_A.toLowerCase(), TICK, 100);
+
+        assert.ok(!r.error);
+        assert.strictEqual(r.proof.address, ADDR_A);
+        assert.strictEqual(r.proof.amount, M.canonicalAmount('5'));
+        assert.strictEqual(r.proof.smt_proof.leaf_value, M.toHex(M.amountLeaf('5')));
+    });
 
     it('refuses to serve when the local state tree does not reassemble the signed state_root', async function () {
         const { server } = makeServer('5');
@@ -349,5 +361,40 @@ describe('SPV Phase 5: ProofServer.validatorSetProof round-trip', function () {
             answering(good(), { error: 'capability not configured: ' + OTHER }));
         assert.ok(!r.error, 'no error: ' + r.error);
         assert.deepStrictEqual(Object.keys(r.proof.capabilities), [CAP]);
+    });
+});
+
+describe('SPV Phase 5: validatorSetProof retry hints', function () {
+    it('retains a retry hint when the first stake lookup has a transient failure', async function () {
+        const { server } = makeValidatorSetServer();
+        const failure = Object.assign(new Error('rate limited'),
+            { code: 'INDEXER_RATE_LIMITED', retryable: true, retryAfter: 7 });
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            { async stakeWeights() { throw failure; } }, [CAP]);
+        assert.deepStrictEqual(r, { error: 'INDEXER_UNAVAILABLE', retryable: true, retryAfter: 7 });
+    });
+
+    it('retains a retry hint when a later stake lookup has a transient failure', async function () {
+        const { server, indexerConn } = makeValidatorSetServer();
+        let calls = 0;
+        const conn = {};
+        conn.stakeWeights = async (cap) => {
+            if(calls++ === 0) return indexerConn.stakeWeights(cap);
+            throw Object.assign(new Error('temporarily unavailable'), { retryable: true });
+        };
+        const r = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            conn, [CAP, 'cross_chain']);
+        assert.deepStrictEqual(r, { error: 'INDEXER_UNAVAILABLE', retryable: true });
+    });
+
+    it('does not mark auth or ordinary stake lookup failures retryable', async function () {
+        const { server } = makeValidatorSetServer();
+        const auth = Object.assign(new Error('auth'), { code: 'INDEXER_AUTH_REQUIRED', retryable: true });
+        const authResult = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            { async stakeWeights() { throw auth; } }, [CAP]);
+        assert.deepStrictEqual(authResult, { error: 'INDEXER_AUTH_REQUIRED' });
+        const plainResult = await server.validatorSetProof({ coin: 'RBTC' }, 'BTC', NET, S,
+            { async stakeWeights() { throw new Error('offline'); } }, [CAP]);
+        assert.deepStrictEqual(plainResult, { error: 'INDEXER_UNAVAILABLE' });
     });
 });

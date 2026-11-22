@@ -94,9 +94,12 @@ describe('action detail render: fields that reached the API with nowhere to go',
             const win = bootPage();
             win.showIssueDetails({
                 action_format: 6, tick: 'CAMPA',
-                controller: '1138', action_class: 'mint', cooldown_blocks: 5, unbind: 1
+                controller: '1138', action_class: 'mint', cooldown_blocks: 5,
+                cooldown_end_block: 2890, unbind: 1
             });
             expect(text(win, '#info-issue .issue-unbind')).to.equal('Unbind');
+            expect(text(win, '#info-issue .issue-cooldown-blocks'))
+                .to.equal('5 blocks (drops at block 2890)');
         });
 
         it('hides the card on a non-v6 ISSUE, which carries none of these fields', function(){

@@ -292,7 +292,7 @@ function xcDatatableRenderPollRow(context){
     let binding       = data[8];
     let winner_index  = data[9];
     let winner_label  = data[10];
-    let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : 'warning text-dark';
+    let pcls = (poll_status=='finalized') ? 'success' : (poll_status=='failed_quorum') ? 'danger' : (poll_status=='refused') ? 'secondary' : 'warning text-dark';
     $('td', row).eq(4).html(isNull(token) ? '-' : formatLink(tokenUrl(coin, token), token, token));
     $('td', row).eq(5).text(isNull(question) ? '-' : question);
     $('td', row).eq(6).html('<span class="badge text-bg-' + pcls + '">' + escapeHtml(String(poll_status || '-')) + '</span>');
@@ -340,7 +340,7 @@ function xcDatatableRenderBetFeedRow(context){
     $('td', row).eq(6).html('<span class="badge text-bg-' + fcls + '">' + escapeHtml(String(feed_status || '-')) + '</span>');
     $('td', row).eq(7).html(isNull(deadline) ? '-' : formatLivestamp(deadline));
     // The view button targets the MARKET page, not the raw action page.
-    $('td', row).eq(8).html(formatLinkHtml('/' + coin + '/bet_feed/' + data[9], '<i class="fa fa-eye"></i>', 'View market'));
+    $('td', row).eq(8).html(formatLinkHtml('/' + coin + '/bet_feed/' + data[9], '<i class="fa-solid fa-eye"></i>', 'View market'));
 
 }
 xcDatatableRowHandlers.bet_feed = xcDatatableRenderBetFeedRow;

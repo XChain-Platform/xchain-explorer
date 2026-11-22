@@ -73,7 +73,7 @@ const {
         const stubs = makeStubs();
         const IconDownloader = loadIconDownloader(stubs);
         const d = new IconDownloader(makeExplorer());
-        const conn = makeMockConn([[], [], []]);
+        const conn = makeMockConn([[], [], [], []]);
         await d.discover(conn);
         const sql = conn.query.thirdCall.args[0];
         const m = /CONVERT\(TRIM\(t\.description\) USING binary\)\s+REGEXP\s+'([^']+)'/.exec(sql);

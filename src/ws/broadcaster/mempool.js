@@ -31,7 +31,7 @@
 
 'use strict';
 
-const { COIN_MAP } = require('./coin_map.js');
+const { envelopeFor } = require('./coin_map.js');
 
 class MempoolFrames {
 
@@ -60,7 +60,7 @@ class MempoolFrames {
     }
 
     async emitMempoolAction(coin, row) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         const base = {
@@ -92,7 +92,7 @@ class MempoolFrames {
     }
 
     async emitMempoolRemoved(coin, row) {
-        const info = COIN_MAP[coin];
+        const info = envelopeFor(coin);
         if (!info) return;
 
         // `source` is additive (spec M1.1): without it a removal cannot be routed

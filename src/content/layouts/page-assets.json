@@ -57,6 +57,7 @@
                 "/js/xchain/datatable/rows_protocol_c.js",
                 "/js/xchain/datatable/request.js",
                 "/js/xchain/datatable.js",
+                "/js/xchain/action_detail/attest_list_summary.js",
                 "/js/xchain/action_detail.js",
                 "/js/xchain/action_markers.js",
                 "/js/xchain/action_system_summaries.js"
@@ -88,7 +89,11 @@
         },
         "token-info": {
             "requires": ["math"],
-            "assets": ["/js/xchain/token_media.js", "/js/xchain/token_info.js"]
+            "assets": [
+                "/js/xchain/token_media.js",
+                "/js/xchain/token_info_integrity.js",
+                "/js/xchain/token_info.js"
+            ]
         },
         "token": {
             "requires": ["token-info", "anchor-price"],

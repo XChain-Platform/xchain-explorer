@@ -42,7 +42,7 @@ function makeDb(queryRows = []) {
     const db = Object.create(Database.prototype);
     db.util = new Utility();
     db.doQuery = sinon.stub().resolves(queryRows);
-    db.getDecoderMempoolRows = sinon.stub().resolves([ROW]);
+    db.getDecoderMempoolFeed = sinon.stub().resolves({ rows: [ROW], read_ok_at: Date.now() });
     sinon.spy(db, 'decodeMempoolRow');
     db.getTransactionData = sinon.stub().resolves(null);
     db.getActionSummaryData = sinon.stub().callsFake(async (cfg, actions) => actions);
@@ -68,7 +68,7 @@ describe('Database#getTransaction pending mempool match', function () {
             tx_data: ROW.data,
             actions: [{ action_index: null, action: 'SEND' }]
         });
-        sinon.assert.calledOnceWithExactly(db.getDecoderMempoolRows, cfg, 500);
+        sinon.assert.calledOnceWithExactly(db.getDecoderMempoolFeed, cfg, 500);
         sinon.assert.calledOnce(db.decodeMempoolRow);
         sinon.assert.notCalled(db.getTransactionData);
         sinon.assert.notCalled(db.getActionSummaryData);
@@ -92,8 +92,20 @@ describe('Database#getTransaction pending mempool precedence', function () {
 
         expect(data).not.to.have.property('tx_hash');
         expect(data.actions).to.deep.equal([]);
-        sinon.assert.calledOnce(db.getDecoderMempoolRows);
+        sinon.assert.calledOnce(db.getDecoderMempoolFeed);
         sinon.assert.notCalled(db.decodeMempoolRow);
+    });
+
+    it('throws when the decoder mempool availability is unknown', async function () {
+        const db = makeDb();
+        db.getDecoderMempoolFeed.resolves(null);
+
+        let error = null;
+        try { await db.getTransaction(config('unknown')); }
+        catch(e) { error = e; }
+
+        expect(error).to.have.property('name', 'DbQueryError');
+        expect(error.message).to.match(/^DECODER_MEMPOOL_UNAVAILABLE:/);
     });
 
     it('never consults the mempool for a tx_index search', async function () {
@@ -102,7 +114,7 @@ describe('Database#getTransaction pending mempool precedence', function () {
         const [data] = await db.getTransaction(config(123, 'tx_index'));
 
         expect(data).not.to.have.property('tx_hash');
-        sinon.assert.notCalled(db.getDecoderMempoolRows);
+        sinon.assert.notCalled(db.getDecoderMempoolFeed);
         sinon.assert.notCalled(db.decodeMempoolRow);
     });
 
@@ -121,7 +133,7 @@ describe('Database#getTransaction pending mempool precedence', function () {
         expect(data.tx_hash).to.equal(HASH);
         expect(data.block_index).to.equal(100);
         expect(data).not.to.have.property('pending');
-        sinon.assert.notCalled(db.getDecoderMempoolRows);
+        sinon.assert.notCalled(db.getDecoderMempoolFeed);
         sinon.assert.notCalled(db.decodeMempoolRow);
     });
 });

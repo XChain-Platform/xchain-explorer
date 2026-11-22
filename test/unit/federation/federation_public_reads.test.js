@@ -98,7 +98,8 @@ describe('federation reads: wiring in the service', function () {
         const bodyIdx   = src.indexOf('if (req.body === undefined) req.body = {}');
         const routerIdx = src.indexOf('app.use(jsonRouter(');
         assert.ok(bodyIdx > -1 && routerIdx > bodyIdx, 'body default < router');
-        assert.strictEqual((src.match(/app\.use\(/g) || []).length, 3, 'batch cap, body default, router');
+        assert.strictEqual((src.match(/app\.use\(/g) || []).length, 4,
+            'batch cap, body default, version guard, router');
         assert.doesNotMatch(src, /x-api-key|FEDERATION_READ_KEY|key_gate/);
     });
 

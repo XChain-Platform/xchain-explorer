@@ -92,6 +92,7 @@ describe('XChainExplorer#processRelayRequest', function () {
         expect(axiosStub.get.calledOnce).to.be.true;
         // An image must be fetched as raw bytes, or it would be mangled as text.
         expect(axiosStub.get.firstCall.args[1]).to.have.property('responseType', 'arraybuffer');
+        expect(axiosStub.get.firstCall.args[1].signal).to.be.instanceOf(AbortSignal);
         // Those bytes come back to the page as a non-empty base64 string.
         expect(res._body).to.be.a('string').and.have.length.above(0);
     });
@@ -302,6 +303,7 @@ describe('XChainExplorer#processRelayRequest token-referenced hosts', function (
         // The token path keeps the same egress limits as the gateways.
         const opts = axiosStub.get.firstCall.args[1];
         expect(opts).to.include({ maxRedirects: 0, timeout: 5000, maxContentLength: 5 * 1024 * 1024 });
+        expect(opts.signal).to.be.instanceOf(AbortSignal);
         expect(opts.lookup).to.be.a('function');
         expect(res._type).to.equal('json');
         expect(res._body).to.include('FAIRYWINK');

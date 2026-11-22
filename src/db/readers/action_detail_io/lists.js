@@ -38,24 +38,24 @@ class ActionListMembershipReaders {
     /******************************************************************
      * Commonly used functions 
      *****************************************************************/
-
-    // Extract the revoke target of a DELEGATE v2/v3 from the transaction's decoded
-    // action string. Returns { pubkey } for v2 (capability revoke) and
-    // { pubkey, target, tick } for v3 (contract-targeted revoke), or null when the
-    // wire is absent/unparseable. Locates the `DELEGATE|<fmt>|...` segment so it works
-    // for a standalone DELEGATE and one nested in a BATCH (`VERSION|CMD;CMD`); the
-    // 64-hex signing pubkey is a fixed-width token, so the match is unambiguous.
-    parseDelegateRevokeWire(wire, fmt){
+    // Extract a same-format DELEGATE by its indexed ordinal from standalone or BATCH wire.
+    parseDelegateRevokeWire(wire, fmt, ordinal = 0){
         if(this.util.isNull(wire)) return null;
-        let str = String(wire);
+        let commands = String(wire).split(';');
+        commands[0] = commands[0].replace(/^BATCH\|[^|]+\|/i, '');
+        commands = commands.filter((command) => {
+            let parts = String(command).split('|');
+            return String(parts[0]).trim().toUpperCase()==='DELEGATE' && Number(parts[1])===Number(fmt);
+        });
+        let str = commands[Number(ordinal)];
+        if(str===undefined) return null;
         if(Number(fmt)===3){
-            let m = str.match(/DELEGATE\|3\|([0-9a-fA-F]{64})\|([0-9]+)\|([^;|]+)/);
+            let m = str.match(/^DELEGATE\|3\|([0-9a-fA-F]{64})\|([0-9]+)\|([^;|]+)/i);
             return m ? { pubkey: m[1], target: m[2], tick: m[3] } : null;
         }
-        let m = str.match(/DELEGATE\|2\|([0-9a-fA-F]{64})/);
+        let m = str.match(/^DELEGATE\|2\|([0-9a-fA-F]{64})(?:\||$)/i);
         return m ? { pubkey: m[1] } : null;
     }
-
     // Split a route code ('BTC' / 'TBTC' / 'RDOGE') into its base coin and
     // network. Prefixed networks are tested first so 'TBTC' is not read as a
     // mainnet coin literally named 'TBTC'. Returns null when the code names no
@@ -365,7 +365,7 @@ class ActionListMembershipReaders {
     // rows and the explorer must not advertise a rule the chain is not applying
     // yet. An unresolvable coin/network is treated as inactive (the safe side).
     // @param {action_index}  integer  ACTION_INDEX of the LIST action being viewed
-    // @param {type}          integer  list type (1 = tick, 2 = address)
+    // @param {type}          integer  list type (1 = tick, 2 = address, 3 = member list index)
     async getListCurrentMembership(config, action_index, type){
         let active = await this.isListEditResolutionActiveAtTip(config);
         let owners = await this.getListOwnerAddresses(config, [action_index]);
@@ -375,8 +375,7 @@ class ActionListMembershipReaders {
         let head = await this.getListHeadIndex(config, action_index);
         state.membership_action_index = Number(head);
         let rows = await this.doQuery(config, `SELECT
-                        a1.address,
-                        t1.tick
+                        l1.item_id, a1.address, t1.tick
                     FROM
                         list_items l1
                         LEFT JOIN index_addresses a1 ON (a1.id=l1.item_id)
@@ -387,8 +386,9 @@ class ActionListMembershipReaders {
         for(let row of (rows || [])){
             if(Number(type) == 1) items.push(row.tick);
             if(Number(type) == 2) items.push(row.address);
+            if(Number(type) == 3 && row.item_id != null) items.push(Number(row.item_id));
         }
-        state.current_list = items.sort();
+        state.current_list = Number(type) == 3 ? items.sort((a, b) => a - b) : items.sort();
         return state;
     }
 }

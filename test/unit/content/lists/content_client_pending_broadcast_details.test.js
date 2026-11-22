@@ -1,4 +1,16 @@
-/**
+/*********************************************************************
+ *
+ * Copyright © 2025–2026 Dankest, LLC
+ * Based on XChain Platform by Dankest, LLC – https://dankest.llc
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * This file is part of XChain Platform. Licensed under the GNU Affero
+ * General Public License v3.0 or later; see LICENSE.md. A commercial
+ * license (without AGPL source-disclosure terms) is available -
+ * contact legal@dankest.llc.
+ *
+ **********************************************************************
  * Transaction page: a pending BROADCAST names its message in the action row.
  *
  * A transaction still in the mempool has no indexed action summary, only the
@@ -94,5 +106,18 @@ describe('transaction page: a pending BROADCAST action row', function () {
         const cells = render(tx).querySelectorAll('td');
         expect(cells[3].textContent).to.equal('indexed');
         expect(cells[4].textContent).to.equal('valid');
+    });
+});
+
+describe('transaction page: a pending UNSTAKE action row', function () {
+    it('keeps an unconfirmed unstake neutral until the indexer accepts it', function () {
+        const row = render({
+            pending: true,
+            tx_data: 'UNSTAKE|0|1',
+            actions: [{ action_index: null, action: 'UNSTAKE' }]
+        });
+        expect(row.querySelectorAll('td')[4].textContent).to.equal('pending');
+        expect(row.className).to.not.contain('bg-green');
+        expect(row.className).to.not.contain('bg-red');
     });
 });

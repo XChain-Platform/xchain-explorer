@@ -99,6 +99,7 @@ module.exports = {
     ACTION_TYPES,
     ACTION_DETAIL_ONLY_TYPES,
     getHandler,
+    applyActionStatusReason: shared.applyActionStatusReason,
     // The two pipeline steps that are the same for every action.
     deblankBaseline:     shared.deblankBaseline,
     attachLedgerEffects: shared.attachLedgerEffects,

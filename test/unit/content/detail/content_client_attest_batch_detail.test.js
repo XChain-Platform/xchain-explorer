@@ -65,6 +65,7 @@ function render(data) {
         ${extractFn('isNull')}
     `);
     dom.window.eval(extractFn('detailAttestVote_renderAttestIdentity'));
+    dom.window.eval(extractFn('detailAttestVote_renderAttestRelay'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestBatch'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestRequest'));
     dom.window.eval(extractFn('detailAttestVote_renderAttestResponse'));
@@ -82,6 +83,14 @@ function render(data) {
         btcHeight:     cell('attest-batch-btc-height'),
         crc32:         cell('attest-batch-crc32'),
         chunk:         cell('attest-batch-chunk'),
+        originChain:   cell('attest-origin-chain'),
+        originAction:  cell('attest-origin-action'),
+        relayNote:     cell('attest-relay-note'),
+        relayQuorum:   cell('attest-relay-quorum'),
+        relayHref:     $('#info-attest .attest-relay-quorum a').attr('href'),
+        contractHidden:$('#info-attest .attest-contract-row').hasClass('d-none'),
+        signatureHidden:$('#info-attest .attest-signature-row').hasClass('d-none'),
+        relayNoteHidden:$('#info-attest .attest-relay-note-row').hasClass('d-none'),
         batchHidden:   $('#info-attest .attest-batch-fields').hasClass('d-none'),
         requestHidden: $('#info-attest .attest-request-fields').hasClass('d-none'),
         responseHidden:$('#info-attest .attest-response-fields').hasClass('d-none')
@@ -133,6 +142,49 @@ describe('ATTEST batch (v5 head / v6 continuation) detail render', function () {
     // reader-facing slot is index+1 of total on both.
     it('renders the head as chunk 1 of N', function () {
         expect(render(HEAD).chunk).to.equal('1 of 3');
+    });
+});
+
+describe('ATTEST relay legs render by action format', function () {
+    it('renders a materialized format-3 request with its origin', function(){
+        const r = render({
+            action_format: 3, version: 0, request_id: 'a'.repeat(64), provider_id: 'p1',
+            origin_chain: 'DOGE', origin_action_index: 44100, request_status: 'pending',
+            payload: '{}', redundancy: 3, deadline_block: 900000
+        });
+        expect(r.type).to.equal('Relay request (v3)');
+        expect(r.originChain).to.equal('DOGE');
+        expect(r.originAction).to.equal('44100 on DOGE');
+        expect(r.relayNote).to.contain('no local contract');
+        expect(r.contractHidden).to.equal(true);
+    });
+
+    it('renders format 4 without a zero-signature claim', function(){
+        const requestId = 'b'.repeat(64);
+        const r = render({
+            action_format: 4, version: 1, request_id: requestId, provider_id: 'p1',
+            response_status: 'ok', response_hash: 'ff00', response_payload: '{}', signatures: []
+        });
+        expect(r.type).to.equal('Relay response (v4)');
+        expect(r.signatureHidden).to.equal(true);
+        expect(r.relayQuorum).to.contain('home-chain response');
+        expect(r.relayHref).to.equal('/BTC/attestation/' + requestId);
+    });
+
+    it('renders a refused format-3 action as not materialized', function(){
+        const r = render({ action_format: 3, version: 3, request_id: null, status: 'invalid' });
+        expect(r.type).to.equal('Relay request (v3)');
+        expect(r.relayNote).to.contain('not materialized');
+        expect(r.requestHidden).to.equal(true);
+    });
+
+    it('does not infer a relay from origin fields on format 0', function(){
+        const r = render({
+            action_format: 0, version: 0, request_id: 'c'.repeat(64), provider_id: 'p1',
+            origin_chain: 'LTC', origin_action_index: 7, payload: '{}'
+        });
+        expect(r.type).to.equal('Request (v0)');
+        expect(r.relayNoteHidden).to.equal(true);
     });
 });
 

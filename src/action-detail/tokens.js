@@ -235,8 +235,8 @@ function attachXbridgeRecord(data, rows){
     data['tick'] = data['tick'] || row.tick || null;
 }
 
-// Lift the settle row's identifying fields so the card reads one shape whether the
-// leg was injected or broadcast; no row on a read table is the in-flight state.
+// Lift the settle row's identifying fields and destination so the card and summary
+// read one shape whether the leg was injected or broadcast. Keep record values when present.
 function attachXbridgeSettlement(data, settle){
     let row = (settle && settle.length) ? settle[0] : null;
     data['bridge_settlement'] = row;
@@ -244,6 +244,10 @@ function attachXbridgeSettlement(data, settle){
     data['bridge_kind']   = (row) ? row.kind        : null;
     data['tick']          = (row) ? row.tick        : (data['tick'] || null);
     data['bridge_pending'] = (row) ? false : true;
+    if(row){
+        for(const key of ['dest_chain', 'dest_address'])
+            if(data[key] == null && row[key] != null) data[key] = row[key];
+    }
 }
 
 // The mirror-injected formats (v2/v5): their source ref names a leg on another chain.
@@ -293,8 +297,12 @@ const XBRIDGE = {
         const settle = await readBridgeTable(ctx, bridgeSql.BRIDGE_SETTLEMENTS_TABLE, bridgeSql.XBRIDGE_SETTLEMENT);
         if(settle === null) return;
         attachXbridgeSettlement(data, settle);
-        if(!data['bridge_settlement'] && !XBRIDGE_INJECTED_FORMATS.includes(Number(data.action_format)))
+        const injectedFormat = XBRIDGE_INJECTED_FORMATS.includes(Number(data.action_format));
+        if(!data['bridge_settlement'] && !injectedFormat)
             attachUserLegTransfer(data, await readUserLegTransfer(ctx));
+        // A refused broadcast of a system-injected format moved nothing and never settles.
+        if(!data['bridge_settlement'] && injectedFormat && /^invalid/i.test(String(data['status'] || '')))
+            data['bridge_pending'] = false;
     },
 };
 
@@ -314,7 +322,7 @@ async function readHubSnapshot({ db, config }, snapshotTable, snapshotSql, snaps
     }
 }
 
-function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
+function settlementAnchor(snapshotTable, snapshotSql, snapshotKey, attachOutcome){
     return {
         queries() {
             return { query: null, query2: null, query3: null };
@@ -325,6 +333,7 @@ function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
             const row = settle.length ? settle[0] : null;
             data['bridge_settlement'] = row;
             data['snapshot_id'] = row ? row.transfer_id : null;
+            if(attachOutcome) attachOutcome(data, row);
             if(!row) return;
             const snap = await readHubSnapshot(ctx, snapshotTable, snapshotSql, row.transfer_id);
             if(snap !== null) data[snapshotKey] = snap.length ? snap[0] : null;
@@ -332,7 +341,15 @@ function settlementAnchor(snapshotTable, snapshotSql, snapshotKey){
     };
 }
 
-const XPOLICY = settlementAnchor(bridgeSql.POLICY_SNAPSHOTS_TABLE, bridgeSql.policySnapshotSql, 'policy_snapshot');
+function attachPolicyOutcome(data, row){
+    data['bridge_kind'] = row ? row.kind : null;
+    data['snapshot_outcome'] = !row ? null : row.kind === 'policy' ? 'applied' : row.kind;
+    if(row && row.kind === 'refused')
+        data['status'] = 'refused: policy snapshot not applied';
+}
+
+const XPOLICY = settlementAnchor(bridgeSql.POLICY_SNAPSHOTS_TABLE, bridgeSql.policySnapshotSql,
+    'policy_snapshot', attachPolicyOutcome);
 const LIST_SHARE = settlementAnchor(bridgeSql.LIST_SNAPSHOTS_TABLE, bridgeSql.listSnapshotSql, 'list_snapshot');
 
 // AIRDROP, DESTROY and SEND show every leg in one table whatever format encoded it,

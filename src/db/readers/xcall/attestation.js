@@ -33,66 +33,10 @@ const {
     attestBatchColumnsPresent, batchProjection, installAttestBatchListReader,
     readBatchResponses, batchLifecycle, resolveAttestationRequestId, ATTEST_BATCH_CHUNK_LIMIT
 } = require('../../shared.js');
+const { readAttestationLegs, resolveResponseLeg } = require('./attestation_legs.js');
 
 installAttestBatchListReader(listReaders);
 
-// Every leg of one round in one bounded read, oldest first so the caller renders the
-// lifecycle in the order it happened. request_id+version is indexed.
-//
-// `blocks` resolves off the action's own block_index, not the transaction's: a
-// mirror-applied response has an action_index but no transaction row, and routing
-// through t1 left the timestamp NULL for it (attest-response-mirror spec section 4.4).
-async function readAttestationLegs(db, config, requestId, limit, withBatch){
-    return await db.doQuery(config,
-            `SELECT
-                a4.action,
-                m.action_index,
-                a1.action_format,
-                m.version,
-                m.request_id,
-                m.provider_id,
-                m.contract_index,
-                a2.address as source,
-                fp.address as fee_payer,
-                m.payload,
-                m.callback_method,
-                m.callback_params_json,
-                m.redundancy,
-                m.deadline_block,
-                m.gas_escrow,
-                ft.tick as fee_tick,
-                m.fee_amount,
-                m.request_status,
-                m.resolved_block,
-                m.responsible_set_json,
-                m.origin_chain,
-                m.origin_action_index,
-                m.response_hash,
-                m.response_payload,
-                m.response_status,
-                m.meta,
-                m.validator_signatures,
-                m.callback_execute_action_index` + batchProjection(withBatch) + `,
-                m.block_index,
-                b1.block_time as timestamp,
-                t2.hash as tx_hash,
-                t1.tx_index,
-                s1.status
-            FROM
-                attests m
-                LEFT JOIN actions             a1 ON (a1.action_index=m.action_index)
-                LEFT JOIN transactions        t1 ON (t1.tx_index=a1.tx_index)
-                LEFT JOIN blocks              b1 ON (b1.block_index=a1.block_index)
-                LEFT JOIN index_addresses     a2 ON (a2.id=COALESCE(a1.source_id, t1.source_id))
-                LEFT JOIN index_addresses     fp ON (fp.id=m.fee_payer_id)
-                LEFT JOIN index_tickers       ft ON (ft.id=m.fee_tick_id)
-                LEFT JOIN index_statuses      s1 ON (s1.id=m.status_id)
-                LEFT JOIN index_transactions  t2 ON (t2.id=t1.tx_hash_id)
-                LEFT JOIN index_actions       a4 ON (a4.id=a1.action_id)
-            WHERE m.request_id=?
-            ORDER BY m.version ASC, m.action_index ASC
-            LIMIT ` + limit, [requestId]);
-}
 // The v0 REQUEST leg, with the two JSON columns a reader cannot use raw parsed.
 function parseRequestLeg(db, rows){
     let request  = rows.find(r => Number(r.version) === 0) || null;
@@ -104,14 +48,6 @@ function parseRequestLeg(db, rows){
         request.responsible_set = db.parseSignaturesArray(request.responsible_set_json);
     }
     return request;
-}
-
-// The v1 RESPONSE leg, carrying the quorum set that signed it.
-function parseResponseLeg(db, rows){
-    let response = rows.find(r => Number(r.version) === 1) || null;
-    if(response)
-        response.quorum_signatures = db.parseSignaturesArray(response.validator_signatures);
-    return response;
 }
 
 // The stored callback link lives on the v1 RESPONSE row alone, so an EXPIRED
@@ -320,7 +256,7 @@ class AttestationReaders {
         }
 
         let request  = parseRequestLeg(this, rows);
-        let response = parseResponseLeg(this, rows);
+        let response = await resolveResponseLeg(this, config, rows, resolved.requestId, legLimit, withBatch);
         let status   = (request) ? request.request_status : null;
         let links    = await resolveExpiryLinks(this, config, request, response, status);
 

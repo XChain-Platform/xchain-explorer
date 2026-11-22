@@ -84,12 +84,12 @@ describe('client: system action summaries', function(){
 
     it('renders a bridge destination with escaped external address text', function(){
         const html = render('XBRIDGE', {
-            tick: 'DANK', dest_chain: 'DOGE', dest_address: '<b>x</b>', bridge_kind: 'settle'
+            tick: 'DANK', dest_chain: 'DOGE', dest_address: '<b>x</b>', bridge_kind: 'transfer'
         });
         expect(html).to.include('/TDOGE/token/DANK');
         expect(html).to.include('to DOGE');
         expect(html).to.include('&lt;b&gt;x&lt;/b&gt;');
-        expect(html).to.include('(settle)');
+        expect(html).to.include('(transfer)');
         expect(html).to.not.include('<b>');
     });
 

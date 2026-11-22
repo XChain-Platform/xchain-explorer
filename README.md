@@ -4,8 +4,8 @@
 # XChain Platform Explorer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.27.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/tests-8%2C754%2B%20passing-brightgreen" alt="Tests">
+  <img src="https://img.shields.io/badge/version-0.28.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/tests-9%2C466%2B%20passing-brightgreen" alt="Tests">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node">
   <img src="https://img.shields.io/badge/license-AGPL--3.0--or--later-blue" alt="License">
 </p>
@@ -180,6 +180,7 @@ The `icons` table backing this feature is created automatically by xchain-indexe
     "intervalMinutes": 15,
     "batchSize":       50,
     "fetchTimeoutMs":  5000,
+    "fetchDeadlineMs": 30000,
     "maxBytes":        5242880,
     "iconSize":        64
 }
@@ -187,7 +188,7 @@ The `icons` table backing this feature is created automatically by xchain-indexe
 
 Generated icons are written to `src/content/icons/{COIN}/{NETWORK}/{TICK}.png` and served by the existing `/icon/...` endpoint. Failed fetches back off (1h -> 1d -> 7d -> permanent) so unreachable URLs aren't repeatedly retried.
 
-Decoding is bounded as well as downloading. `maxBytes` caps the bytes fetched, which says nothing about what they decode to: a small raster declaring enormous dimensions expands to gigabytes of pixel buffer. Every ImageMagick invocation therefore carries `-limit memory` / `-limit map` / `-limit disk` (`convertMemoryLimit`, `convertMapLimit`, `convertDiskLimit`; defaults `256MiB`, `256MiB`, `0`) and a `convertTimeoutMs` wall-clock ceiling (default 20000) after which the child is SIGKILLed and the row fails into the normal backoff. Both bounds exist because one pass holds a re-entrancy guard covering every coin and network, so a single hostile image would otherwise stall icon downloading until the process restarts.
+Downloading has a `fetchDeadlineMs` wall-clock ceiling (default 30000) in addition to the idle `fetchTimeoutMs`. `maxBytes` caps the bytes fetched, which says nothing about what they decode to: a small raster declaring enormous dimensions expands to gigabytes of pixel buffer. Every ImageMagick invocation therefore carries `-limit memory` / `-limit map` / `-limit disk` (`convertMemoryLimit`, `convertMapLimit`, `convertDiskLimit`; defaults `256MiB`, `256MiB`, `0`) and a `convertTimeoutMs` wall-clock ceiling (default 20000) after which the child is SIGKILLed and the row fails into the normal backoff. These bounds exist because one pass holds a re-entrancy guard covering every coin and network, so a single hostile image would otherwise stall icon downloading until the process restarts.
 
 Accepted source formats are PNG, JPEG, GIF and WebP, decided by sniffing the downloaded bytes rather than by trusting the URL. **SVG is refused:** the renderer behind it dereferences external references, and those fetches would leave ImageMagick without passing the downloader's private-address and web-port checks, so a token whose only icon is an SVG gets no icon: a description that is a bare `.svg` URL resolves to no icon source and is never fetched, and an SVG reached any other way (a JSON metadata link, an extensionless URL) is recorded failed (`unsupported mime 'image/svg+xml'`). A conversion writes to a temporary file beside the icon and replaces the served PNG only once it completes, so a failed or killed conversion leaves the previous icon in place. Egress is restricted to ports 80 and 443, on the first request and on every redirect hop, the same restriction `/relay` enforces.
 
@@ -225,23 +226,23 @@ neither source sets one, so these defaults hold on an unconfigured box:
 | Command | Description |
 |---|---|
 | `npm run api` | Start the explorer (HTTP + HTTPS servers) |
-| `npm test` | Run unit tests (~7,962 tests) |
+| `npm test` | Run unit tests (~8,651 tests) |
 | `npm run test:integration` | Integration tests (~154 tests, requires MariaDB) |
 | `npm run test:conformance` | Real-schema conformance canary against the indexer's live DDL (34 tests) |
-| `npm run test:e2e` | End-to-end tests (56 tests, requires full stack) |
+| `npm run test:e2e` | End-to-end tests (57 tests, requires full stack) |
 | `npm run test:boundary` | Boundary condition tests (212 tests) |
 | `npm run test:boundary:unit` | Boundary tests (unit only, no DB, 154 tests) |
 | `npm run test:boundary:integration` | Boundary tests (integration, requires MariaDB, 58 tests) |
 | `npm run test:smoke` | Smoke tests (unit + connected, 40 tests) |
 | `npm run test:smoke:unit` | Smoke tests (unit only, 14 tests) |
 | `npm run test:smoke:connected` | Smoke tests (connected, requires services, 27 tests) |
-| `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal, 225 tests) |
+| `npm run test:security` | Security tests (SQL injection, SSRF, XSS, path traversal, 245 tests) |
 | `npm run test:fuzz` | Fuzz tests (property-based, 11 tests) |
 | `npm run test:fuzz:deep` | Fuzz tests with `FUZZ_ITERATIONS=10000` (11 tests) |
 | `npm run test:performance` | Performance tests (baseline, throughput, concurrency, pool, memory, 34 tests) |
-| `npm run test:chaos` | Chaos engineering tests (55 tests) |
+| `npm run test:chaos` | Chaos engineering tests (57 tests) |
 | `npm run test:chaos:db` | Chaos: database resilience (15 tests) |
-| `npm run test:chaos:api` | Chaos: API overload (7 tests) |
+| `npm run test:chaos:api` | Chaos: API overload (9 tests) |
 | `npm run test:chaos:network` | Chaos: network partition (14 tests) |
 | `npm run test:chaos:resource` | Chaos: resource saturation (8 tests) |
 | `npm run test:chaos:external` | Chaos: external dependency failure (15 tests) |

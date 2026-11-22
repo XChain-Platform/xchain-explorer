@@ -52,14 +52,73 @@ function resolveMaxBatch(rawValue, defaultMax){
  */
 function makeRpcBatchGuard(maxBatch){
     return function rpcBatchGuard(req, res, next){
-        if(Array.isArray(req.body) && req.body.length > maxBatch){
-            return res.status(400).json({
-                jsonrpc: '2.0', id: null,
-                error: { code: -32600, message: 'Batch too large (max ' + maxBatch + ' requests per call)' }
-            });
+        if(Array.isArray(req.body)){
+            // JSON-RPC 2.0 section 6: an empty array is one Invalid Request, not an empty reply.
+            if(req.body.length === 0){
+                return res.status(400).json({
+                    jsonrpc: '2.0', id: null,
+                    error: { code: -32600, message: 'Invalid Request: empty batch' }
+                });
+            }
+            if(req.body.length > maxBatch){
+                return res.status(400).json({
+                    jsonrpc: '2.0', id: null,
+                    error: { code: -32600, message: 'Batch too large (max ' + maxBatch + ' requests per call)' }
+                });
+            }
+            // The router destructures and dereferences every element, so a
+            // null, number, string or nested array makes it reject unhandled
+            // and Express answers an HTML 500 with a stack. Refuse the whole
+            // batch up front as an Invalid Request instead.
+            const bad = req.body.findIndex((el) => el === null || typeof el !== 'object' || Array.isArray(el));
+            if(bad !== -1){
+                return res.status(400).json({
+                    jsonrpc: '2.0', id: null,
+                    error: { code: -32600, message: 'Invalid Request: batch element ' + bad + ' is not a call object' }
+                });
+            }
         }
         next();
     };
 }
 
-module.exports = { resolveMaxBatch, makeRpcBatchGuard };
+/**
+ * Refuse call objects that lack jsonrpc "2.0" with a spec envelope.
+ *
+ * The router's own wrong-version reply omits the jsonrpc member, and a
+ * non-JSON POST reaches it as the {} default. Answer here so every refusal
+ * carries jsonrpc "2.0". In a mixed batch, only valid calls reach the router.
+ *
+ * @returns {function} Express middleware.
+ */
+function versionErrorReply(call){
+    const id = (typeof call.id === 'string' || typeof call.id === 'number') ? call.id : null;
+    return {
+        jsonrpc: '2.0', id,
+        error: { code: -32600, message: 'Invalid Request, wrong version - ' + (typeof call.jsonrpc === 'string' ? call.jsonrpc : 'undefined') }
+    };
+}
+
+function rpcVersionGuard(req, res, next){
+    const body = req.body;
+    if(body !== null && typeof body === 'object' && !Array.isArray(body)){
+        if(body.jsonrpc !== '2.0') return res.status(200).json(versionErrorReply(body));
+        return next();
+    }
+    if(!Array.isArray(body)) return next();
+
+    const valid = body.filter((call) => call.jsonrpc === '2.0');
+    if(valid.length === body.length) return next();
+    const invalidReplies = body.filter((call) => call.jsonrpc !== '2.0').map(versionErrorReply);
+    if(valid.length === 0) return res.status(200).json(invalidReplies);
+
+    req.body = valid;
+    const send = res.send.bind(res);
+    res.send = function mergeVersionErrors(reply){
+        res.send = send;
+        return send(Array.isArray(reply) ? reply.concat(invalidReplies) : invalidReplies);
+    };
+    next();
+}
+
+module.exports = { resolveMaxBatch, makeRpcBatchGuard, rpcVersionGuard, versionErrorReply };

@@ -26,6 +26,23 @@ const {
     ledgerEffectsBatchQuery
 } = require('../db/action_detail/shared_sql');
 
+const DISPENSE_ZERO_FILL_STATUS = 'invalid: insufficient funds ';
+const DISPENSE_ZERO_FILL_REASON = 'The payment was too small to buy one fill at the dispenser\'s price; the coin was kept.';
+
+// Keep the consensus status byte-for-byte intact while giving API clients the
+// specific reason for the one DISPENSE rejection that the status cannot express.
+function actionStatusReason(row) {
+    return row && row.action === 'DISPENSE' && row.status === DISPENSE_ZERO_FILL_STATUS
+        ? DISPENSE_ZERO_FILL_REASON
+        : null;
+}
+
+function applyActionStatusReason(row) {
+    if(row && typeof row === 'object')
+        row.status_reason = actionStatusReason(row);
+    return row;
+}
+
 // Build the offer's live state: what is left to give and get, its expiration,
 // its allow/block lists and its newest status.
 async function applyOfferState({ db, config, action_index, type }, data) {
@@ -186,4 +203,14 @@ async function prefetchLedgerEffects(db, config, indexesByEffect) {
     return out;
 }
 
-module.exports = { applyOfferState, applyTerminalOfferState, TERMINAL_OFFER_STATUSES, applyOfferListEdits, deblankBaseline, attachLedgerEffects, prefetchLedgerEffects };
+module.exports = {
+    actionStatusReason,
+    applyActionStatusReason,
+    applyOfferState,
+    applyTerminalOfferState,
+    TERMINAL_OFFER_STATUSES,
+    applyOfferListEdits,
+    deblankBaseline,
+    attachLedgerEffects,
+    prefetchLedgerEffects
+};

@@ -24,6 +24,7 @@ const {
     supersedeSuffix
 } = require('../../../src/explorer/supersede_suffix.js');
 const { canonicalCheckpointString } = require('../../../src/explorer/proofs.js');
+const CHECKPOINT_VECTORS = require('../../fixtures/checkpoint_canonical_vectors.json');
 
 const RULES_DIGEST = 'CD'.repeat(32);
 
@@ -79,6 +80,12 @@ function testsPlainCanonicalCheckpoint(){
     };
 
     expect(canonicalCheckpointString(checkpoint)).not.to.include('SUPERSEDE');
+    for (const vector of CHECKPOINT_VECTORS.cases) {
+        if (vector.throws)
+            expect(() => canonicalCheckpointString(vector.checkpoint), vector.name).to.throw();
+        else
+            expect(canonicalCheckpointString(vector.checkpoint), vector.name).to.equal(vector.expected);
+    }
 }
 
 function supersedeSuffixBytes(){

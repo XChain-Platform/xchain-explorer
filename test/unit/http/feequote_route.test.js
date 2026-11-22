@@ -123,9 +123,12 @@ describe('processFeeQuoteRequest busy-retry', function () {
         expect(stub.callCount).to.equal(1);
     });
 
-    it('a transport failure is still a 502, now flagged retryable', async function () {
+    // The connector marks a transient failure; see feequote/feequote_upstream_failures.test.js
+    // for which failures it marks and which it leaves as verdicts.
+    it('a transport failure the connector marked transient is a retryable 502', async function () {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
-        sinon.stub(IndexerConnector.prototype, 'feequote').rejects(new Error('timeout of 5000ms exceeded'));
+        sinon.stub(IndexerConnector.prototype, 'feequote')
+            .rejects(Object.assign(new Error('timeout of 5000ms exceeded'), { code: 'ECONNABORTED', retryable: true }));
         const res = await call(fakeThis(), { action: 'ISSUE', params: '0|NEWTICK', source: 'me' });
         expect(res._status).to.equal(502);
         expect(res._json.code).to.equal('UPSTREAM_ERROR');
@@ -135,10 +138,18 @@ describe('processFeeQuoteRequest busy-retry', function () {
     it('input validation still runs before any hop', async function () {
         sinon.stub(IndexerConnector, 'resolveIndexerUrl').returns('http://x:1');
         const stub = sinon.stub(IndexerConnector.prototype, 'feequote').resolves(QUOTE);
-        const res = await call(fakeThis(), { action: 'send;drop' });
-        expect(res._status).to.equal(400);
-        expect(res._json.code).to.equal('INVALID_ACTION');
-        expect(stub.callCount).to.equal(0);
+        for (const action of ['send;drop', 'SEND|X', ' ', 'SEND' + ' '.repeat(253)]) {
+            const res = await call(fakeThis(), { action });
+            expect(res._status, action).to.equal(400);
+            expect(res._json.code, action).to.equal('INVALID_ACTION');
+        }
+        expect(stub.callCount).to.equal(0, 'invalid names never reach the indexer');
+        for (const action of ['send', ' SEND ', 'transfer', 'batch']) {
+            const res = await call(fakeThis(), { action });
+            expect(res._status, action).to.equal(200);
+        }
+        expect(stub.args.map((args) => args[0].action)).to.deep.equal(
+            ['send', ' SEND ', 'transfer', 'batch'], 'the literal action wire is preserved');
     });
 });
 

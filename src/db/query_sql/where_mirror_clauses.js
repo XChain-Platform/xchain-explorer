@@ -29,17 +29,16 @@
 'use strict';
 
 const { blockClause } = require('./where_source_lanes.js');
+const { addressSlashScope } = require('./slash_scope/address_slash_scope.js');
 
 function slashEventsClause(db, config, sql){
     let type = config.data.type;
     // slash_events has no actions/transactions chain; join directly via m.block_index
-    // and resolve type=address through the staker's pubkey (signing_pubkey_id).
+    // and resolve type=address through the staker's pubkey (signing_pubkey_id),
+    // including keys a delegation rotation replaced (see address_slash_scope.js).
     if(type=='block')    sql += ' AND m.block_index=?';
     if(type=='contract') sql += ' AND m.target_contract_index=?';
-    if(type=='address')  sql += ` AND m.signing_pubkey_id IN (
-                SELECT DISTINCT signing_pubkey_id FROM contract_stakes
-                WHERE source_id = (SELECT id FROM index_addresses WHERE address=?)
-            )`;
+    if(type=='address')  sql += ' AND ' + addressSlashScope();
     return sql;
 }
 
@@ -256,8 +255,8 @@ function xcallClause(db, config, sql){
     return sql;
 }
 
-const MIRROR_CLAUSE_BUILDERS = {
-    getSlashEvents:               slashEventsClause,
+const RAW_CLAUSE_BUILDERS = {
+    getSlashEvents:              slashEventsClause,
     getCapabilitySlashEvents:     capabilitySlashEventsClause,
     getFullNodeVerifications:     fullNodeVerificationsClause,
     getPriceSnapshots:            priceSnapshotsClause,
@@ -282,5 +281,29 @@ const MIRROR_CLAUSE_BUILDERS = {
     getCommitments:               commitmentsClause,
     getXcall:                     xcallClause
 };
+
+// The hub-mirror columns are utf8mb3, so a filter holding a code point above
+// U+FFFF (4 bytes in utf8mb4) makes MariaDB raise errno 1267 (illegal mix of
+// collations) on the comparison and the request answers 500. No stored value
+// can match such a filter, so the one-placeholder fragment a builder added is
+// swapped for an always-false one that still takes the bound filter: the route
+// answers 200 with 0 rows, the same as the core routes do.
+const NON_BMP       = /[\u{10000}-\u{10FFFF}]/u;
+const NEVER_MATCHES = ' AND (1=0 AND ? IS NOT NULL)';
+
+function guardNonBmp(build){
+    return function(db, config, sql){
+        const out    = build(db, config, sql);
+        const search = config.data.search;
+        if(typeof search !== 'string' || !NON_BMP.test(search)) return out;
+        if(out === sql || !out.startsWith(sql)) return out;
+        if(out.slice(sql.length).split('?').length !== 2) return out;
+        return sql + NEVER_MATCHES;
+    };
+}
+
+const MIRROR_CLAUSE_BUILDERS = {};
+for(const [method, build] of Object.entries(RAW_CLAUSE_BUILDERS))
+    MIRROR_CLAUSE_BUILDERS[method] = guardNonBmp(build);
 
 module.exports = { MIRROR_CLAUSE_BUILDERS };

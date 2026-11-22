@@ -118,7 +118,8 @@ XC = {
     // List of lists types
     list_types: {
         1: 'Token',
-        2: 'Address'
+        2: 'Address',
+        3: 'Union'
     },
 
     // List of list edit types

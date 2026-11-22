@@ -25,6 +25,7 @@
 const { expect } = require('chai');
 const express    = require('express');
 const supertest  = require('supertest');
+const zlib       = require('zlib');
 const { srcText } = require('../../../helpers/source_text');
 const XChainExplorer = require('../../../../src/XChainExplorer.js');
 const { PREFLIGHT_BODY_LIMIT } = require('../../../../src/explorer/mount.js');
@@ -41,6 +42,12 @@ function bootApp(){
     applyCors(app, configInfo);
     applyRateLimits(app, configInfo, () => false);
     applyJsonBody(app, XChainExplorer);
+    app.get('/:coin/api/tx/:id', (req, res) => res.json({ ok: true }));
+    app.get('/:coin/api/address/:addr', (req, res) => res.json({ ok: true }));
+    app.get('/:coin/api/status', (req, res) => res.json({ ok: true }));
+    app.get('/boom/generic', () => { throw new Error('secret internal /XChainExplorer/node_modules/x'); });
+    app.get('/boom/client', (req, res, next) => next(Object.assign(new Error('nope at node_modules'), { status: 403 })));
+    app.get('/boom/late', (req, res, next) => { res.write('partial'); next(new Error('after headers')); });
     app.post('/:coin/api/balances', (req, res) => res.json({ ok: true }));
     app.post('/:coin/api/preflight', express.json({ limit: PREFLIGHT_BODY_LIMIT }), (req, res) => res.json({ ok: true }));
     mountJsonRpc(app, configInfo, { ping: () => 'pong' });
@@ -76,7 +83,7 @@ describe('json body refusals on the boot steps', function () {
 
     it('answers a preflight body over its own route ceiling with 413 BODY_TOO_LARGE', async function () {
         const res = await request.post('/RBTC/api/preflight')
-            .set('Content-Type', 'application/json').send(bigJson(2 * 1024 * 1024));
+            .set('Content-Type', 'application/json').send(bigJson(3 * 1024 * 1024));
         expect(res.status).to.equal(413);
         expect(res.body.code).to.equal('BODY_TOO_LARGE');
     });
@@ -93,6 +100,76 @@ describe('json body refusals on the boot steps', function () {
             .send(bigJson(20 * 1024));
         expect(res.status).to.equal(413);
         expect(res.body.error.code).to.equal(-32600);
+    });
+});
+
+describe('json body refusals on the boot steps', function () {
+    let request;
+    before(function () {
+        request = supertest(bootApp());
+    });
+
+    it('answers malformed compressed bodies in each published refusal shape', async function () {
+        for (const encoding of ['gzip', 'deflate', 'br']) {
+            for (const path of ['/RBTC/api/balances', '/RBTC/api/preflight', '/', '/RBTC/api/']) {
+                const res = await request.post(path).set('Content-Type', 'application/json')
+                    .set('Content-Encoding', encoding).serialize((body) => body)
+                    .send(Buffer.from('not a compressed stream'));
+                expect(res.status, encoding + ' ' + path).to.equal(400);
+                if (path === '/' || path === '/RBTC/api/')
+                    expect(res.body.error.code, encoding + ' ' + path).to.equal(-32700);
+                else expect(res.body.code, encoding + ' ' + path).to.equal('INVALID_JSON_BODY');
+            }
+        }
+    });
+
+    it('continues accepting well-formed gzip JSON', async function () {
+        const body = zlib.gzipSync(Buffer.from('{"addresses":[]}'));
+        const rest = await request.post('/RBTC/api/balances').set('Content-Type', 'application/json')
+            .set('Content-Encoding', 'gzip').serialize((value) => value).send(body);
+        expect(rest.status).to.equal(200);
+        const rpcBody = zlib.gzipSync(Buffer.from('{"jsonrpc":"2.0","id":1,"method":"ping"}'));
+        const rpc = await request.post('/').set('Content-Type', 'application/json')
+            .set('Content-Encoding', 'gzip').serialize((value) => value).send(rpcBody);
+        expect(rpc.status).to.equal(200);
+        expect(rpc.body.result).to.equal('pong');
+    });
+});
+
+describe('json body: thrown errors on the boot steps', function () {
+    let request;
+    before(function () {
+        request = supertest(bootApp());
+    });
+
+    it('answers a malformed percent-escape in a route param with a JSON 400 and no stack', async function () {
+        for(const p of ['/RBTC/api/tx/%E0%A4%A', '/%ZZ/api/status', '/RBTC/api/address/%']){
+            const res = await request.get(p).set('Origin', 'https://example.com');
+            expect(res.status, p).to.equal(400);
+            expect(res.headers['content-type'], p).to.match(/json/);
+            expect(res.body.code, p).to.equal('INVALID_PARAMETER');
+            expect(res.text, p).to.not.match(/URIError|node_modules|\n\s+at /);
+            expect(res.headers['access-control-allow-origin'], p).to.equal('https://example.com');
+        }
+    });
+
+    it('answers any other thrown error with a bounded JSON body and no stack', async function () {
+        const res = await request.get('/boom/generic');
+        expect(res.status).to.equal(500);
+        expect(res.headers['content-type']).to.match(/application\/json/);
+        expect(res.body.code).to.equal('INTERNAL_ERROR');
+        expect(res.text).to.not.match(/node_modules|XChainExplorer|Error:|\n\s+at |secret/);
+        const client = await request.get('/boom/client');
+        expect(client.status).to.equal(403);
+        expect(client.headers['content-type']).to.match(/application\/json/);
+        expect(client.body.code).to.equal('BAD_REQUEST');
+        expect(client.text).to.not.match(/node_modules|nope/);
+    });
+
+    it('delegates to the default handler once headers are sent', async function () {
+        const res = await request.get('/boom/late').catch((e) => e);
+        // The socket is torn down by the default handler; no JSON error body is appended.
+        expect(res.text || '').to.not.include('INTERNAL_ERROR');
     });
 
     it('still serves a well-formed body', async function () {
@@ -119,9 +196,92 @@ describe('json body refusal rules', function () {
         expect(res.sent).to.equal(null);
     });
 
+    it('answers untyped decompressor errors but leaves other untyped 400s alone', function () {
+        const decode = Object.assign(new Error('decode'), { status: 400, errno: -3, code: 'Z_DATA_ERROR' });
+        const rpc = fakeRes();
+        expect(sendBodyError(decode, { path: '/' }, rpc)).to.equal(true);
+        expect(rpc.sent.error.code).to.equal(-32700);
+        const plain = Object.assign(new Error('plain'), { status: 400 });
+        expect(sendBodyError(plain, { path: '/RBTC/api/balances' }, fakeRes())).to.equal(false);
+    });
+
+    it('answers a synthetic URIError with status 400 and leaves a status-less one alone', function () {
+        const res = fakeRes();
+        const err = Object.assign(new URIError('Failed to decode param'), { status: 400 });
+        expect(sendBodyError(err, { path: '/x' }, res)).to.equal(true);
+        expect(res.code).to.equal(400);
+        expect(res.sent.code).to.equal('INVALID_PARAMETER');
+        expect(sendBodyError(new URIError('x'), { path: '/x' }, fakeRes())).to.equal(false);
+    });
+
     it('treats only / and /{COIN}/api as the dispatcher paths', function () {
         for (const p of ['/', '/RBTC/api', '/RBTC/api/']) expect(isJsonRpcPath(p), p).to.equal(true);
         for (const p of ['/RBTC/api/balances', '/RBTC/explorer/blocks', '/RBTC']) expect(isJsonRpcPath(p), p).to.equal(false);
+    });
+});
+
+// A JSON object whose serialized length is exactly n bytes.
+const jsonOfBytes = (n) => '{"pad":"' + 'x'.repeat(n - 10) + '"}';
+// A JSON-RPC ping whose serialized length is exactly n bytes.
+const pingOfBytes = (n) => {
+    const head = '{"jsonrpc":"2.0","id":1,"method":"ping","pad":"';
+    return head + 'x'.repeat(n - head.length - 2) + '"}';
+};
+
+describe('json body ceilings at the byte boundary', function () {
+    const TEN_KB = 10 * 1024;
+    let request;
+    before(function () {
+        request = supertest(bootApp());
+    });
+    const send = (path, body) => request.post(path).set('Content-Type', 'application/json').send(body);
+
+    it('accepts a REST body of exactly 10kb and refuses one byte more', async function () {
+        expect((await send('/RBTC/api/balances', jsonOfBytes(TEN_KB))).status).to.equal(200);
+        const over = await send('/RBTC/api/balances', jsonOfBytes(TEN_KB + 1));
+        expect(over.status).to.equal(413);
+        expect(over.body.code).to.equal('BODY_TOO_LARGE');
+    });
+
+    it('holds both dispatcher paths to the same 10kb boundary', async function () {
+        for (const p of ['/', '/RBTC/api/']) {
+            const ok = await send(p, pingOfBytes(TEN_KB));
+            expect(ok.status, p).to.equal(200);
+            expect(ok.body.result, p).to.equal('pong');
+            const over = await send(p, pingOfBytes(TEN_KB + 1));
+            expect(over.status, p).to.equal(413);
+            expect(over.body.error.code, p).to.equal(-32600);
+        }
+    });
+
+    it('pins the preflight route ceiling to 2.5mb and accepts its worst legal body', async function () {
+        expect(PREFLIGHT_BODY_LIMIT).to.equal('2.5mb');
+        const limit = 2.5 * 1024 * 1024;
+        const worst = JSON.stringify({ params: '\u0001'.repeat(XChainExplorer.MAX_PREFLIGHT_PARAMS_LENGTH) });
+        expect(Buffer.byteLength(worst)).to.be.greaterThan(2.3 * 1000 * 1000).and.to.be.lessThan(limit);
+        expect((await send('/RBTC/api/preflight', worst)).status).to.equal(200);
+        expect((await send('/RBTC/api/preflight', jsonOfBytes(limit + 1))).status).to.equal(413);
+    });
+});
+
+describe('json body: one global parser', function () {
+    const fs = require('fs');
+    const path = require('path');
+    const read = (f) => fs.readFileSync(path.join(__dirname, '../../../../src/http/api_boot', f), 'utf8');
+
+    it('builds the 10kb parser once and shares it with the pre-gate dispatcher parse', function () {
+        const files = fs.readdirSync(path.join(__dirname, '../../../../src/http/api_boot')).filter((f) => f.endsWith('.js'));
+        const builders = files.filter((f) => /express\.json\(/.test(read(f)));
+        expect(builders).to.deep.equal(['json_body.js']);
+        expect(read('json_body.js').match(/express\.json\(\{\s*limit:\s*'10kb'\s*\}\)/g)).to.have.length(1);
+        expect(read('rate_limits.js')).to.match(/globalJsonBody\(req, res, next\)/);
+    });
+
+    it('answers an oversized body on an unclaimed POST path in the REST shape', async function () {
+        const res = await supertest(bootApp()).post('/RBTC/api/tx/abc')
+            .set('Content-Type', 'application/json').send(jsonOfBytes(20 * 1024));
+        expect(res.status).to.equal(413);
+        expect(res.body).to.deep.equal({ error: 'Request body too large', code: 'BODY_TOO_LARGE' });
     });
 });
 

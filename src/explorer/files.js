@@ -27,6 +27,8 @@
 
 const path        = require('path');
 const compression = require('../http/compression.js');
+const multipart   = require('./multipart_file.js');
+const multipartStream = require('./multipart_stream.js');
 // Module-scope logger, not a method on the class these parts install onto: every
 // log line below reaches the shipper api.js installs, exactly as it did inline.
 const { getLogger } = require('../observability');
@@ -72,12 +74,14 @@ class FileRoutes {
 
     // ICON request handler: serves token icons from a fixed directory and refuses
     // any resolved path that escapes it, because the request path reaches here
-    // unvalidated; a miss redirects to the default so a page never renders a 404
-    // image.
+    // unvalidated. A miss redirects to the default request, which serves the
+    // fixed unknown-coin image without re-entering the redirect path.
     async processIconRequest(req, res){
         // '..' because this part sits one directory below the class file the route
         // was written in: the icons still live at src/content/icons.
         const dirPath  = path.resolve(path.join(__dirname, '..', 'content/icons'));
+        const fallbackPath = path.resolve(path.join(dirPath, 'default.png'));
+        const fallbackImage = path.resolve(path.join(dirPath, '..', 'images', 'coin-unknown-64.png'));
         // req.path is the raw, still-encoded path. The client percent-encodes
         // the tick segment (getTokenIcon), and the downloader names the file
         // after the raw tick, so the segment is decoded before the disk lookup
@@ -96,6 +100,9 @@ class FileRoutes {
             return res.status(403).json({ error: 'Access denied', code: 'PATH_DENIED' });
         if(fs.existsSync(filePath)){
             res.sendFile(filePath);
+        } else if(filePath === fallbackPath) {
+            if(fs.existsSync(fallbackImage)) return res.sendFile(fallbackImage);
+            return res.status(404).json({ error: 'Icon not found', code: 'ICON_NOT_FOUND' });
         } else {
             res.redirect(302, '/icon/default.png');
         }
@@ -126,38 +133,134 @@ class FileRoutes {
             return res.status(400).json({ error: 'Invalid action_index', code: 'INVALID_ACTION_INDEX' });
         if(!this.db.pools || !this.db.pools[coin])
             return res.status(404).json({ error: 'Unknown coin', code: 'UNKNOWN_COIN' });
-        let config = { coin, data: {} };
-        let raw  = null;
-        let file = null;
         try {
-            // Token-gated file first; its stored bytes are served untouched.
-            let rows = await this.db.getGatedFileRaw(config, actionIndex);
-            if(rows && rows.length > 0) raw = rows[0].raw_data;
-            // Nothing gated under that index, so fall through to the plain FILE
-            // bytes in the decoder database.
-            if(!raw)
-                file = await this.db.getFileRaw(config, actionIndex);
+            const rangeHeader = req.headers ? req.headers.range : undefined;
+            return await this.serveFileRaw({ coin, data: {} }, actionIndex, res, rangeHeader);
         } catch (e) {
-            log.error('FILE_RAW_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
-            return res.status(500).json({ error: 'Server error', code: 'SERVER_ERROR' });
+            if(res.headersSent || res.destroyed) {
+                if(typeof res.destroy === 'function' && !res.destroyed) res.destroy(e);
+                return res;
+            }
+            const status = e instanceof multipart.MultipartFileError ? e.status : 500;
+            const code = e instanceof multipart.MultipartFileError ? e.code : 'SERVER_ERROR';
+            if(status >= 500)
+                log.error('FILE_RAW_REQUEST_FAILED', { err: e && e.message ? e.message : e, stack: e && e.stack });
+            const body = { error: e instanceof multipart.MultipartFileError ? e.message : 'Server error', code };
+            if(code === 'FILE_INCOMPLETE') {
+                body.parts_received = e.parts_received;
+                body.total_parts = e.total_parts;
+            }
+            res.set('Cache-Control', 'no-store');
+            return res.status(status).json(body);
         }
+    }
+
+    async serveFileRaw(config, actionIndex, res, rangeHeader){
+        if(typeof this.db.getMultipartFileRaw === 'function') {
+            const multipartFile = await this.db.getMultipartFileRaw(config, actionIndex);
+            const refusal = multipart.refusalForMultipart(multipartFile);
+            if(refusal) throw refusal;
+            if(multipartFile.kind === 'manifest')
+                return await this.sendMultipartFileBytes(res, multipartFile, config, rangeHeader);
+        }
+        const rows = await this.db.getGatedFileRaw(config, actionIndex);
+        const raw = rows && rows.length > 0 ? rows[0].raw_data : null;
+        const file = raw ? null : await this.db.getFileRaw(config, actionIndex);
         if(!raw && !file)
             return res.status(404).json({ error: 'Not found', code: 'NOT_FOUND' });
-        // Never let the browser sniff a different content type out of the bytes
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Cache-Control', 'public, max-age=31536000, immutable');
         if(raw){
-            // Token-gated: ALWAYS serve the stored ciphertext untouched. If the
-            // action declares COMPRESSION=1 it means inflate-AFTER-decrypt
-            // (per the file-compression spec §5.4), which only the key holder can
-            // do; inflating ciphertext here would be nonsense at best.
-            res.set('Content-Type', 'application/octet-stream');
-            res.set('X-XChain-Stored-Form', 'encrypted');
-            let disposition = await gatedFileDisposition(this.db, coin, actionIndex);
-            if(disposition) res.set('Content-Disposition', disposition);
-            return res.send(raw);
+            const disposition = await gatedFileDisposition(this.db, config.coin, actionIndex);
+            return this.sendGatedFileBytes(res, raw, disposition);
         }
         return this.sendStoredFileBytes(res, file);
+    }
+
+    setPlainFilePresentation(res, type){
+        type = String(type || '').toLowerCase();
+        const valid = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type);
+        const inline = valid && (
+            ((/^(image|audio|video)\//).test(type) && type !== 'image/svg+xml') ||
+            type === 'application/pdf' || type === 'application/json'
+        );
+        if(inline) {
+            res.set('Content-Type', type);
+        } else {
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('Content-Disposition', 'attachment');
+        }
+    }
+
+    sendMultipartRangeError(res, plan){
+        res.set('Content-Range', `bytes */${plan.totalBytes}`);
+        res.set('Accept-Ranges', 'bytes');
+        res.status(416);
+        res.end();
+        return res;
+    }
+
+    async sendMultipartFileBytes(res, file, config, rangeHeader){
+        const preliminaryPlan = multipartStream.planServe(file, rangeHeader);
+        await multipartStream.prefetchManifest(this.db, config, file, preliminaryPlan.fromByte || 0);
+        const plan = multipartStream.planServe(file, rangeHeader);
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.set('Cache-Control', 'public, max-age=31536000, immutable');
+        if(plan.status === 416) return this.sendMultipartRangeError(res, plan);
+        if(file.gated) {
+            const disposition = file.name ? safeAttachmentFilename(file.name) : null;
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('X-XChain-Stored-Form', 'encrypted');
+            if(disposition) res.set('Content-Disposition', disposition);
+        } else if(plan.storedForm) {
+            this.setPlainFilePresentation(res, file.type);
+        }
+
+        if(plan.storedForm) {
+            res.status(plan.status);
+            res.set('Accept-Ranges', 'bytes');
+            res.set('Content-Length', String(plan.toByte - plan.fromByte + 1));
+            if(plan.status === 206)
+                res.set('Content-Range', `bytes ${plan.fromByte}-${plan.toByte}/${plan.totalBytes}`);
+            await multipartStream.streamParts(this.db, config, file, plan.fromByte, plan.toByte, res);
+            res.end();
+            return res;
+        }
+
+        const inspected = await multipartStream.inspectInflated(this.db, config, file);
+        if(res.destroyed) return res;
+        if(!inspected.ok) {
+            res.set('X-XChain-Stored-Form', 'compressed');
+            res.set('X-XChain-Compression-Error', inspected.error);
+            res.set('Content-Type', 'application/octet-stream');
+            res.set('Content-Disposition', 'attachment');
+            res.set('Content-Length', String(file.total_bytes));
+            res.set('Accept-Ranges', 'none');
+            await multipartStream.streamParts(this.db, config, file, 0, Number(file.total_bytes) - 1, res);
+            res.end();
+            return res;
+        }
+
+        this.setPlainFilePresentation(res, file.type);
+        res.set('X-XChain-Compression', 'deflate-raw');
+        res.set('X-XChain-Stored-Length', String(file.total_bytes));
+        res.set('X-XChain-Original-Length', String(inspected.length));
+        res.set('Content-Length', String(inspected.length));
+        res.set('Accept-Ranges', 'none');
+        if(typeof res.flushHeaders === 'function') res.flushHeaders();
+        try {
+            await multipartStream.streamInflated(this.db, config, file, res);
+        } catch(error) {
+            if(typeof res.destroy === 'function') res.destroy(error);
+        }
+        return res;
+    }
+
+    sendGatedFileBytes(res, bytes, disposition){
+        res.set('Content-Type', 'application/octet-stream');
+        res.set('X-XChain-Stored-Form', 'encrypted');
+        if(disposition) res.set('Content-Disposition', disposition);
+        return res.send(bytes);
     }
 
     /**
@@ -168,27 +271,18 @@ class FileRoutes {
      * point; the headers already set there (nosniff, immutable caching) are the
      * caller's, and this adds only what the served form calls for.
      */
-    async sendStoredFileBytes(res, file){
+    async sendStoredFileBytes(res, file, options = {}){
         // Non-gated: honor the declared MIME type inline only when it is a
         // well-formed, render-safe media type; anything else (html, svg, xml,
         // scripts, unknown) is forced to download as an opaque attachment.
-        let type   = String(file.type || '').toLowerCase();
-        let valid  = /^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/.test(type);
-        let inline = valid && (
-            ((/^(image|audio|video)\//).test(type) && type!='image/svg+xml') ||
-            type=='application/pdf' ||
-            // On-chain TIS documents (DESCRIPTION = action:<index>) are JSON
-            // FILEs fetched same-origin by clients. JSON is render-safe:
-            // with nosniff set it can't be coerced into a scriptable type.
-            type=='application/json'
-        );
+        let type = String(file.type || '').toLowerCase();
         // Transparent decompression (file-compression spec, Part B). COMPRESSION derives
         // from the stored ACTION STRING, never a parsed column (§5.1), and the read is
         // fail-closed: a lying field, a corrupt stream or a tripped 150:1 ratio guard
         // serves the STORED bytes under a header rather than partial output (§5.5).
         let served;
         try {
-            served = await compression.resolveServedBytes(file.raw_data, file.data);
+            served = await compression.resolveServedBytes(file.raw_data, file.data, options);
         } catch (e) {
             // resolveServedBytes is contractually non-throwing; this is a
             // belt-and-braces guard so a reader bug can never 500 a file route.
@@ -211,12 +305,7 @@ class FileRoutes {
             res.set('X-XChain-Stored-Length', String(served.storedLength));
             res.set('X-XChain-Original-Length', String(served.originalLength));
         }
-        if(inline){
-            res.set('Content-Type', type);
-        } else {
-            res.set('Content-Type', 'application/octet-stream');
-            res.set('Content-Disposition', 'attachment');
-        }
+        this.setPlainFilePresentation(res, type);
         return res.send(served.bytes);
     }
 }

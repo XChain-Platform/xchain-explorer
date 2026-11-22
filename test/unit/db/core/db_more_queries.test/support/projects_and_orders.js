@@ -148,11 +148,17 @@ describe('Database#getAddressBalances', () => {
         expect(result).to.deep.equal([]);
     });
 
-    it('passes address as arg', async () => {
+    it('uses an indexed seek plus a byte-exact address gate', async () => {
         let capturedArgs = null;
-        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => { capturedArgs = a; return []; });
+        let capturedQuery = null;
+        sinon.stub(db, 'doQuery').callsFake(async (c, q, a) => {
+            capturedQuery = q;
+            capturedArgs = a;
+            return [];
+        });
         await db.getAddressBalances(cfg(), 'bc1qtest');
-        expect(capturedArgs).to.deep.equal(['bc1qtest']);
+        expect(capturedQuery).to.include('a1.address=? AND a1.address COLLATE utf8_bin = ?');
+        expect(capturedArgs).to.deep.equal(['bc1qtest', 'bc1qtest']);
     });
 });
 

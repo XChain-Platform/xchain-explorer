@@ -43,6 +43,27 @@ const log = getLogger();
 // a busy fan-out can hit the drop thousands of times a second).
 const BACKPRESSURE_LOG_WINDOW_MS = 60000;
 
+// Frames that describe state rather than an action: no action name, and not a
+// name the types filter can be asked for. A types filter narrows action and
+// lifecycle frames only, so these pass it, or a blocks, network, token or market
+// subscription (and a narrowed address or dispenser one) could never be served.
+const STATE_FRAME_TYPES = new Set([
+    'NEW_BLOCK', 'NETWORK_STATS',
+    'ADDRESS_UPDATE', 'TOKEN_UPDATE', 'MARKET_UPDATE', 'DISPENSER_UPDATE'
+]);
+
+// Channels that carry action or lifecycle frames next to their state frames.
+// Only there does a state frame bypass a types filter without being a match.
+const MIXED_CHANNELS = new Set(['address', 'dispenser']);
+
+// A once subscription is spent by a match. On a mixed channel a types-narrowed
+// subscription is not matched by a state frame that merely passed the filter.
+function spendsOnce(filter, event, channelKey) {
+    if (!filter.once) return false;
+    if (!filter.types || !STATE_FRAME_TYPES.has(event.type)) return true;
+    return !MIXED_CHANNELS.has(channelKey.split(':')[1]);
+}
+
 class ChannelFanout {
 
     // Send an event to every client subscribed to one channel. An entityId narrows the
@@ -74,10 +95,10 @@ class ChannelFanout {
             if (!client) continue;
             if (replayed && actionRow && actionRow.joined && actionRow.joined.has(clientId + '|' + channelKey)) continue;
 
-            if (!deliverToSubscriber(this, client, filter, event, actionData, actionRow)) continue;
+            if (!deliverToSubscriber(this, client, filter, event, actionData, actionRow, channelKey)) continue;
 
             // Track once subscriptions for removal
-            if (filter.once) {
+            if (spendsOnce(filter, event, channelKey)) {
                 toRemove.push({ clientId, channelKey });
             }
         }
@@ -103,8 +124,9 @@ class ChannelFanout {
 
     // Evaluate filter pipeline against an event
     passesFilter(filter, event, actionData) {
-        // Types filter: check event type or action field
-        if (filter.types) {
+        // Types filter: check event type or action field. State frames are not
+        // action families and always pass.
+        if (filter.types && !STATE_FRAME_TYPES.has(event.type)) {
             const actionType = (actionData && actionData.action) || (event.data && event.data.action) || event.type;
             if (!filter.types.has(actionType) && !filter.types.has(event.type)) {
                 return false;
@@ -136,13 +158,17 @@ class ChannelFanout {
         return projected;
     }
 
-    // Extract the address fields a lifecycle payload names (no producer sets a singular `destination`).
+    // Extract the address fields a lifecycle payload names (no producer sets a singular
+    // `destination`). `destinations` names the parties of a system action, which has no source.
     extractAddresses(data) {
         const addrs = new Set();
         if (data.source)        addrs.add(data.source);
         if (data.payer_address) addrs.add(data.payer_address);
         if (data.payee_address) addrs.add(data.payee_address);
         if (data.address)       addrs.add(data.address);
+        if (Array.isArray(data.destinations)) {
+            for (const party of data.destinations) if (party) addrs.add(party);
+        }
         return addrs;
     }
 
@@ -193,7 +219,7 @@ function shedBackedUpClient(broadcaster, client) {
 // filtered out, skipped, or its send threw, which is what keeps a once subscription
 // that was never delivered from being removed; true otherwise, including a socket
 // that is not open (no send, but the once subscription still counts as spent).
-function deliverToSubscriber(broadcaster, client, filter, event, actionData, actionRow) {
+function deliverToSubscriber(broadcaster, client, filter, event, actionData, actionRow, channelKey) {
     // Filter pipeline (AND logic): all non-null filters must pass
     if (!broadcaster.passesFilter(filter, event, actionData)) return false;
 
@@ -235,6 +261,10 @@ function deliverToSubscriber(broadcaster, client, filter, event, actionData, act
                 broadcaster.changeDetector.staleCoins.has(client.coin))
                 msg.stale = true;
             client.ws.send(safeStringify(msg));
+            // Snapshot reads arm only their active entity key. A successful live
+            // send during that window forces the snapshot to re-read before send.
+            if (client.snapshotLiveSeq instanceof Map && client.snapshotLiveSeq.has(channelKey))
+                client.snapshotLiveSeq.set(channelKey, client.snapshotLiveSeq.get(channelKey) + 1);
         } catch (e) {
             // Connection error
             return false;

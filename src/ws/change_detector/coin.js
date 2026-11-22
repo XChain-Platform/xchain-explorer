@@ -50,8 +50,7 @@ class CoinPass {
 
         // First poll: seed state without emitting
         if (!prev.initialized) {
-            seedCursors(prev, currentBlockIndex, currentActionIndex);
-            await seedHistory(this, config, prev, currentBlockIndex, currentActionIndex);
+            await seedCoin(this, config, prev, currentBlockIndex, currentActionIndex);
             return;
         }
 
@@ -152,8 +151,7 @@ async function seedOnDemand(detector, coin) {
     const prev   = detector.state[coin];
     const { currentBlockIndex, currentActionIndex } = await readTip(detector, config);
     if (prev.initialized) return;
-    seedCursors(prev, currentBlockIndex, currentActionIndex);
-    await seedHistory(detector, config, prev, currentBlockIndex, currentActionIndex);
+    await seedCoin(detector, config, prev, currentBlockIndex, currentActionIndex);
 }
 
 // The tip step: the reorg verdict and the two high-water marks, read in that order.
@@ -236,21 +234,22 @@ function rememberBlocks(prev, blocks) {
     if (blocks.length) trimHistory(history, Number(blocks[blocks.length - 1].block_index));
 }
 
-// The blocks and actions already at the tip when this process starts are never
-// announced, but a reorg of them must still be recognised. action_index is a
-// contiguous chain cursor, so each block's action_count locates its first action
-// while walking backward from the current maximum.
-async function seedHistory(detector, config, prev, currentBlockIndex, currentActionIndex) {
+// Seed the cursors and block history together. The history is read before the coin
+// counts as initialized, so a failed read leaves it unseeded and the next poll seeds
+// afresh, and a reorg landing in between is never owed a rewind over unrecorded
+// history. Each block takes first_action_index from the row that carries its hash, so
+// a tip advance during the read cannot shift it. A rival seed that finished first wins.
+async function seedCoin(detector, config, prev, currentBlockIndex, currentActionIndex) {
     const rows = await detector.db.getBlocksSince(config, currentBlockIndex - HISTORY_DEPTH, HISTORY_DEPTH * 2) || [];
+    if (prev.initialized) return;
+    seedCursors(prev, currentBlockIndex, currentActionIndex);
     rememberBlocks(prev, rows);
-    if (!rows.length || Number(rows[rows.length - 1].block_index) !== Number(currentBlockIndex)) return;
-
     const history = historyOf(prev);
-    let nextAction = BigInt(currentActionIndex) + 1n;
-    for (let i = rows.length - 1; i >= 0; i--) {
-        const count = BigInt(rows[i].action_count || 0);
-        if (count > 0n) history.get(Number(rows[i].block_index)).firstAction = nextAction - count;
-        nextAction -= count;
+    for (const row of rows) {
+        if (row.first_action_index === null || row.first_action_index === undefined) continue;
+        const entry = history.get(Number(row.block_index));
+        const first = BigInt(row.first_action_index);
+        if (entry.firstAction === null || first < entry.firstAction) entry.firstAction = first;
     }
 }
 
@@ -361,9 +360,10 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
             token:     new Map(),
             dispenser: new Map(),
             market:    new Map(),
-            // The batch's ledger ticks, read on first need (entities.js ledgerTicksOf).
-            ledger:    { actions: newActions, ticks: undefined }
+            // The batch's ledger ticks, addresses and system-action parties, each read once.
+            ledger:    { actions: newActions, ticks: undefined, addresses: undefined, parties: undefined }
         };
+        if (typeof detector.prefetchLifecycleReads === 'function') await detector.prefetchLifecycleReads(config, entityCache.ledger);
         // Each new action fans out four ways: the raw indexed row on `actions`,
         // the typed lifecycle events its type maps to, entity updates for whatever
         // has a subscriber, and, for ATTEST only, the `attestation` channel.
@@ -374,9 +374,9 @@ async function emitNewActions(detector, coin, config, prev, currentActionIndex) 
             detector.emit('action_row_start', coin, action);
             try {
                 detector.emit('action', coin, action);
-                await detector.emitLifecycleEvents(coin, config, action);
+                await detector.emitLifecycleEvents(coin, config, action, entityCache.ledger);
                 await detector.emitEntityUpdates(coin, config, action, entityCache);
-                await detector.emitAttestationEvents(coin, config, action);
+                await detector.emitAttestationEvents(coin, config, action, entityCache.ledger);
             } finally {
                 detector.emit('action_row_end', coin, action);
             }

@@ -40,6 +40,7 @@ export default {
   // which lands inside the page markup list_page.js composes and breaks
   // test/unit/render/list_page_composition.test.js on the ready-block regex.
   disableTypeChecks: false,
+  plugins: ['./test/mutation/mocha12_plugin.mjs'],
   testRunner: 'mocha',
   mochaOptions: {
     spec: ['test/unit/**/*.test.js'],

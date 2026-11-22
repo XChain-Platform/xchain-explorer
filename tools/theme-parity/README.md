@@ -34,8 +34,8 @@ pasted, not loaded from a string.
 5. Repeat per page, using the tags and URLs recorded in the baseline JSON.
 
 Each call snapshots BOTH light and dark, writes the full snapshots to
-localStorage, and returns per-mode fingerprints plus a `rendered` reading of
-the surface colours that capture actually measured. Compare the hashes against
+localStorage, and returns per-mode fingerprints, a `rendered` reading of
+the surface colours, and per-sheet selector coverage unioned across both modes. Compare the hashes against
 a dated baseline built by `capture-baseline.js`, one that carries a `probe`
 schema object: every hash must reproduce exactly.
 `baseline-2026-08-20.json` predates the 2026-09-05 mode-switch correction, so
@@ -45,11 +45,17 @@ correction (2026-09-05)" below.
 A capture can also come back as `{ invalid: [reasons] }` with no hashes at
 all. That is not a failed comparison, it is a refusal to mint evidence: the
 probe rejects a run where no stylesheet matched `SHEET`, where a sheet was
-unreadable, where the rule snapshot came back empty, where the render census
+unreadable, where a first-party linked sheet did not load, was absent from
+`document.styleSheets`, or loaded no rules, where the rule snapshot came back empty, where the render census
 matched no anchor, where the browser had no Typed OM `computedStyleMap` for the
-layout-derived keys, or where the two modes rendered identically. A rejected
-capture writes nothing to localStorage, so it cannot overwrite a good stored
-snapshot, and it must never be compared against a baseline.
+layout-derived keys, where a declared-path longhand is empty with no readable
+owning shorthand, or where the Bootstrap mode witness on `body` does not change.
+A comment-only component sheet on the probe's empty-by-design list may load with zero rules; a disk-backed unit test
+pins that list exactly so new or newly populated sheets cannot drift through the exemption.
+A mode-flat theme may render identical surfaces and still produce valid
+evidence. A rejected capture writes nothing to localStorage, so it cannot
+overwrite a good stored snapshot, and it must never be compared against a
+baseline.
 
 Every accepted capture also stores a compact result for baseline export. Use
 one phase name for all pages in the run. After capturing the final page, copy
@@ -69,7 +75,10 @@ node tools/theme-parity/capture-baseline.js \
   --output tools/theme-parity/baseline-2026-10-12.json
 ```
 
-The output path must not already exist. The builder checks the probe schema on
+The output path must not already exist. The builder requires selector coverage,
+unions matches across pages, records per-sheet and page-level/component/theme
+totals, and refuses captures that mix selector lists from different CSS revisions.
+It also checks the probe schema on
 the manifest and every page, verifies both modes have the expected render-key
 count, and records the rule hash per mode, as it does the render hash, because
 the rule layer can follow mode (see "What the two layers mean"). A page whose
@@ -94,7 +103,8 @@ historical record, but it cannot be supplied as evidence for the current
 baseline's pages pass, a missing `probe`, or the bare script path the
 2026-08-20 file carries in its place, is refused with `Baseline probe schema
 must be an object`, and a schema whose census hashes differ from the current
-probe is refused too. `test/unit/content/components/theme_parity_baselines.test.js`
+probe is refused too. Every page's per-mode rule and render hashes must be 8
+digit lowercase hex strings. `test/unit/content/components/theme_parity_baselines.test.js`
 runs this check on every `baseline-*.json` here, so a probe change that strands
 a baseline fails the suite.
 
@@ -102,8 +112,11 @@ a baseline fails the suite.
 
 Every dated baseline is a record and stays as it is.
 
-- `baseline-2026-10-20.json` is the first builder-made baseline the current
-  probe accepts (`--check` passes), so it arms the baseline guard in
+- `baseline-2026-10-20.json` is a probe schema version 1 record, which the
+  current schema version 2 probe refuses (`Baseline schema version (1)
+  incompatible with current probe (2)`), so no dated baseline is valid
+  evidence until a schema version 2 capture lands and clears
+  `AWAITING_VALID_BASELINE` in
   `test/unit/content/components/theme_parity_baselines.test.js`. It is a real
   capture, not a conversion of an older file: `parity-probe.js` ran in headless
   Playwright Chromium (1280 by 900 viewport, each page given 8 s to settle
@@ -112,7 +125,8 @@ Every dated baseline is a record and stays as it is.
   owner), `token` and `market` for XCHAIN, `action` 5625 and that action's
   `transaction`. Every page returned 200 with no console errors and no
   rejected capture, and `capture-baseline.js` built the file from the probe's
-  own `__XC.export` manifest. Each page's `url` is recorded in the file.
+  own `__XC.export` manifest. Each page's `url` is recorded in the file. It has
+  no `coverage` block; see "The blind spot, stated plainly" below.
 - `baseline-2026-08-20.json` is the M1 tokens capture from the regtest venue,
   taken with the 23-property census and the pre-correction mode flip (see
   "Mode-switch correction (2026-09-05)" below).
@@ -153,8 +167,11 @@ Object.keys(a).filter(k => a[k] !== b[k]).map(k => [k, a[k], b[k]]);
 
 **rule** - every property a rule in `xchain.css` / `xchain-charts.css`, a
 theme's `tokens.css`, or a component's `component.css` declares, read back as
-the computed value on the first element that rule matches. Derived from the
-stylesheet at runtime, so it cannot fall behind the CSS.
+the computed value on the first element that rule matches. A matched non-theme
+rule that declares only custom properties records the rendered census values
+on that element. Theme token-only rules contribute selector coverage but no
+duplicate snapshot keys. Derived from the stylesheet at runtime, so it cannot
+fall behind the CSS.
 
 Because it reads computed values, the rule layer follows mode wherever one of
 those values does: a declared value that resolves through a token the theme's
@@ -191,7 +208,9 @@ imported sheet never appears in `document.styleSheets`: the probe follows each
 import rule's own `styleSheet` under the same `SHEET` test, refuses a capture
 whose first-party import came back empty or missing (Chrome hands a 404 import
 an empty sheet, not a null one), and the gate checks the pattern against
-every `themes/*/tokens.css` import target too. The `baseline-2026-08-20.json` capture
+every `themes/*/tokens.css` import target too. Top-level first-party links are
+also reconciled with `document.styleSheets`, so partial page loads are refused.
+The `baseline-2026-08-20.json` capture
 predates the component layer: its per-page `cssRules` counts are one revision
 behind, and so is its rule hash on any page that now mounts a component
 (`coin_home` has mounted stat tiles since 2026-09-26).
@@ -217,6 +236,32 @@ margin is still `auto`. The keys stay in the census: a real CSS change on
 them still flags (proven below), while content drift no longer can. Without
 Typed OM the probe refuses the capture instead of falling back to used values.
 
+The grid track templates (`grid-template-columns`, `grid-template-rows`) are
+layout-derived keys too: on a grid container the computed value is the used
+track list in pixels, which follows the viewport and the cell content.
+
+**Declared-path keys are joined** (2026-11-18) when several admitted sheets
+declare the same selector and property in the same condition scope. State-rule
+keys and layout-derived keys store declared text under `selector | property`.
+The probe keeps every declaration, joined with ` || ` in walk order, so an edit
+to any declaration moves the rule hash.
+
+**Declared shorthand recovery** (2026-11-18) keeps layout and state keys visible
+when CSSOM expands a `var()` shorthand into longhands that serialize as empty.
+The probe resolves the owning shorthand text and prefixes it with the shorthand
+name. If neither the longhand nor a candidate shorthand has text, the capture is
+refused. Rule hashes move on pages matching the affected margin and state rules,
+including console navigation and data-table states, so captures from before and
+after this revision are not comparable on those pages.
+
+**Conditional rule keys** (2026-11-19) carry the enclosing `@media`,
+`@supports`, and `@container` conditions. A breakpoint-only edit therefore
+moves the rule hash, and base declarations no longer share a key with their
+conditional overrides. The probe still does not model the cascade or which
+condition matches the capture viewport. Among the admitted sheets, conditional
+groups occur in the console theme, so compare its rule hashes only with captures
+taken after this revision. The classic theme sheets have no conditional groups.
+
 Both layers are needed. The rule layer sees mode only through the few rules
 whose declared values follow it, and only on pages that render them, so a
 dark-mode acceptance test riding on it would pass vacuously wherever none
@@ -232,6 +277,11 @@ whole `.xc-chart*` family, the external-explorer glyphs, the `#transaction`
 detail table, and the row colours `xchain.js` applies only to non-valid or
 negative rows.
 
+Rules that declare only custom properties are included in selector coverage.
+When such a non-theme rule matches, the rule layer also records its rendered
+census properties. This keeps component variable bindings visible even when a
+generic render anchor matches an earlier element.
+
 That measurement is dated, and it is not a statement of current coverage:
 
 - The 120 counts the page-level sheets only. The per-component `component.css`
@@ -240,9 +290,14 @@ That measurement is dated, and it is not a statement of current coverage:
 - It is a selector count, so the later render-census property change does not
   touch it, but that file's hashes are not evidence for the current probe (see
   "Mode-switch correction (2026-09-05)").
-- No later baseline records coverage: `baseline-2026-10-12-classic.json` has no
-  `coverage` block. Current runtime coverage cannot be stated until a fresh
-  `baseline-<date>.json` is captured with the current probe.
+- No later baseline records coverage. Neither `baseline-2026-10-12-classic.json`
+  nor `baseline-2026-10-20.json` has a `coverage` block, although the latter is
+  a real capture with the previous probe. The current probe records per-sheet
+  selector coverage across both modes, and the builder refuses a new manifest
+  without it. The dated records remain unchanged, so a new capture is still
+  required before current runtime coverage can be claimed. The baseline suite
+  records this as pending and requires the reason to be cleared when a valid
+  baseline with page-level and component coverage lands.
 
 A rule no page instantiates cannot be proven at runtime by any amount of
 capturing. That is why the static token-literal gate is a
@@ -313,3 +368,13 @@ Two consequences for anyone reading older evidence:
   mode it arrived in, and a degenerate capture must return `invalid` and write
   nothing. Every one of those assertions fails against the pre-correction
   probe, which is the point of them.
+
+The mode witness was refined on 2026-11-18 to read
+`--bs-primary-text-emphasis` from `body`. The vendor stylesheet declares a
+different value on both mode selectors, and first-party sheets do not override
+it, so the signal proves the attribute changed on the same element the
+application marks. Surface colours remain in the saved `rendered` field, but
+they no longer decide whether the switch took. This accepts intentionally
+mode-flat themes such as console while still rejecting a probe that changes
+the root element. `color-scheme` was not used because its light value can be
+inherited from the root and would let that wrong-element change pass.

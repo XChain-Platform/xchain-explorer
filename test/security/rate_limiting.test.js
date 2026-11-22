@@ -187,10 +187,10 @@ describe('Security: Rate Limiting: Body size limit', function () {
     });
 
     it('body size limit is 10kb or less', function () {
-        const match = apiSource.match(/express\.json\(\{\s*limit:\s*'(\d+)kb'/);
-        expect(match).to.not.be.null;
-        const limitKb = parseInt(match[1], 10);
-        expect(limitKb).to.be.at.most(100);
+        const all = apiSource.match(/express\.json\(\{\s*limit:\s*'(\d+)kb'/g);
+        expect(all, 'exactly one global parser literal in the boot steps').to.have.length(1);
+        const limitKb = parseInt(all[0].match(/'(\d+)kb'/)[1], 10);
+        expect(limitKb).to.be.at.most(10);
     });
 });
 

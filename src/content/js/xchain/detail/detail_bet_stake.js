@@ -195,10 +195,11 @@ function showUnstakeDetails(data){
     let isContract = !isNull(data.target_contract_index);
     // ROLLCALL eviction (action_format 3): the protocol removed this validator for
     // missing liveness, the holder never broadcast anything. A user CAN broadcast a
-    // format-3 UNSTAKE, but the indexer rejects it as invalid, so requiring status
-    // 'valid' alongside the format keeps a rejected broadcast from reading as an
-    // eviction that never happened.
-    let isEviction = (Number(data.action_format) === 3 && data.status === 'valid');
+    // format-3 UNSTAKE, but the indexer rejects it as invalid. Accepted lifecycle
+    // values include completed after cooldown maturity, while rejected broadcasts
+    // still cannot read as an eviction that never happened.
+    let isEviction = Number(data.action_format) === 3
+        && actionDetail_isAcceptedStatus('UNSTAKE', data.status);
     $('#info-unstake .unstake-pubkey').html(formatHash(data.signing_pubkey, 24));
     $('#info-unstake .unstake-amount').html(
         (isEviction ? '<span class="badge text-bg-danger me-2">Evicted</span>' : '') + formatAmount(data.amount));
@@ -225,13 +226,19 @@ function showDelegateDetails(data){
     // Stake-key revoke variant: the indexer writes only a stake_key_revocations row (no
     // delegations/contract_delegations row), so signing_pubkey COALESCEs to NULL and the
     // pubkey/deactivation arrive under the revoked_pubkey/revocation_deactivation_block aliases.
-    let isRevoke = isNull(data.signing_pubkey) && !isNull(data.revoked_pubkey);
+    let isStakeKeyRevoke = isNull(data.signing_pubkey) && !isNull(data.revoked_pubkey);
+    let isDelegationRevoke = [2, 3].includes(Number(data.action_format)) && !isStakeKeyRevoke;
+    let isRevoke = isStakeKeyRevoke || isDelegationRevoke;
     let pubkey = isNull(data.signing_pubkey) ? data.revoked_pubkey : data.signing_pubkey;
     let deactivation = isNull(data.deactivation_block) ? data.revocation_deactivation_block : data.deactivation_block;
     $('#info-delegate .delegate-pubkey').html(isNull(pubkey) ? '-' : formatHash(pubkey, 24));
     $('#info-delegate .delegate-revoke-row').toggleClass('d-none', !isRevoke);
-    if(isRevoke)
-        $('#info-delegate .delegate-revoked').html('<span class="badge text-bg-warning text-dark">Stake-key revocation</span>');
+    if(isRevoke){
+        let label = isStakeKeyRevoke ? 'Stake-key revocation' : 'Revoke';
+        let note = isDelegationRevoke && (!isNull(data.activation_block) || !isNull(deactivation))
+            ? ' <span class="text-muted">activation/deactivation below are the revoked delegation\'s window</span>' : '';
+        $('#info-delegate .delegate-revoked').html('<span class="badge text-bg-warning text-dark">' + label + '</span>' + note);
+    }
     $('#info-delegate .delegate-contract-row').toggleClass('d-none', !isContract);
     if(isContract){
         $('#info-delegate .delegate-contract').html(formatLink('/' + XC.coin + '/contract/' + data.target_contract_index, data.target_contract_index));

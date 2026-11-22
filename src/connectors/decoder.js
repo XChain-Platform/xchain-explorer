@@ -95,6 +95,14 @@ class XChainDecoderConnector {
     }
 }
 
-// One export shape: the class is the export and the URL resolver hangs on it,
-// so a requirer reads DecoderConnector.resolveDecoderUrl exactly as before.
-module.exports = Object.assign(XChainDecoderConnector, { resolveDecoderUrl });
+// True when a call failed because the decoder throttled this explorer (HTTP 429).
+// The decoder limits each source IP, and the explorer is one source IP for all of
+// its clients, so a 429 says the explorer spent its budget, never that the decoder
+// is down; callers must not report it as an outage.
+function isRateLimited(err){
+    return Boolean(err && err.response && Number(err.response.status) === 429);
+}
+
+// One export shape: the class is the export and the helpers hang on it, so a
+// requirer reads DecoderConnector.resolveDecoderUrl exactly as before.
+module.exports = Object.assign(XChainDecoderConnector, { resolveDecoderUrl, isRateLimited });

@@ -20,6 +20,8 @@
 
 // Statement text lives under src/db/ with the rest of the explorer's SQL.
 const sql = require('../db/action_detail/misc_sql.js');
+const multipartFiles = require('../db/readers/entities/files_multipart.js');
+const { buildMultipartSummary, buildFilePartDetail } = require('./multipart_detail.js');
 
 // Declare which user-encodable wire formats this handler's page renders, and why any
 // other format is left unrendered. Non-enumerable, so the declaration is not mistaken
@@ -127,6 +129,30 @@ const FILE = {
         // TODO: Add code to lookup actual file data from transactions and return an `data` item
         return { query, query2, query3 };
     },
+    async afterQueries({ db, config, action_index }, data) {
+        if(data.action_format == 2){
+            const part = await multipartFiles.readFilePartDetail(db, config, action_index);
+            if(part){
+                const detail = buildFilePartDetail(part);
+                if(detail){
+                    Object.assign(data, detail);
+                    data['file_part'] = detail.file_part;
+                    data.block = data.block_index;
+                    // An unlinked part can acquire its manifest on a later indexed action.
+                    if(detail.file_part.manifest_action_index == null)
+                        Object.defineProperty(data, 'detail_incomplete', { value: true, configurable: true });
+                }
+            }
+            return;
+        }
+        if(data.action_format != 1) return;
+        const record = await db.getMultipartFileRaw(config, action_index, { metadataOnly: true });
+        const summary = buildMultipartSummary(record);
+        if(!summary) return;
+        data.multipart = summary;
+        if(summary.status === 'pending')
+            Object.defineProperty(data, 'detail_incomplete', { value: true, configurable: true });
+    },
 };
 
 const MESSAGE = {
@@ -145,8 +171,18 @@ function compareCodeUnits(a, b) {
     return x < y ? -1 : (x > y ? 1 : 0);
 }
 
-// Compare two LIST edit rows by their item (tick or address), then by status
+// Compare union member indexes numerically, with an unresolved member last.
+function compareListIndexes(a, b) {
+    if(a == null) return b == null ? 0 : 1;
+    if(b == null) return -1;
+    return Number(a) - Number(b);
+}
+
+// Compare two LIST edit rows by their item, then by status.
 function compareListEdits(a, b) {
+    if(Object.hasOwn(a, 'list_action_index') || Object.hasOwn(b, 'list_action_index'))
+        return compareListIndexes(a.list_action_index, b.list_action_index)
+            || compareCodeUnits(a.status, b.status);
     return compareCodeUnits(a.tick != null ? a.tick : a.address, b.tick != null ? b.tick : b.address)
         || compareCodeUnits(a.status, b.status);
 }
@@ -172,14 +208,15 @@ const LIST = {
         return { query, query2, query3 };
     },
     // Populate the list from the membership rows, keyed off the list TYPE field
-    // (1 = tokens, 2 = addresses).
+    // (1 = tokens, 2 = addresses, 3 = member list action indexes).
     afterQuery2(ctx, data, results) {
         let list = [];
         for(let row of results){
             if(data.type==1) list.push(row.tick);
             if(data.type==2) list.push(row.address);
+            if(data.type==3) list.push(row.item_id == null ? null : Number(row.item_id));
         }
-        data.list = list.sort();
+        data.list = data.type==3 ? list.sort(compareListIndexes) : list.sort();
     },
     // Order the edits by item, then status, in the code-unit order `list` uses
     // (LIST_QUERY3 has no ORDER BY, and a bare sort() leaves objects unordered).
@@ -188,6 +225,10 @@ const LIST = {
         for(let row of results){
             if(data.type==1) edits.push({ tick: row.tick, status: row.status });
             if(data.type==2) edits.push({ address: row.address, status: row.status });
+            if(data.type==3) edits.push({
+                list_action_index: row.item_id == null ? null : Number(row.item_id),
+                status: row.status
+            });
         }
         data.edits = edits.sort(compareListEdits);
     },
@@ -225,7 +266,7 @@ declareFormats(ADDRESS,   [0, 1], {});
 declareFormats(BATCH,     [0], {});
 declareFormats(BROADCAST, [0, 1, 2, 3], {});
 declareFormats(CALLBACK,  [0], {});
-declareFormats(FILE,      [0], {});
+declareFormats(FILE,      [0, 1, 2], {});
 declareFormats(MESSAGE,   [0, 1, 2, 3], {});
 declareFormats(SLEEP,     [0, 1], {});
 declareFormats(LIST,      [0, 1, 2, 3, 5], {

@@ -44,7 +44,7 @@ function actionDetail_renderStructureMarkers(html, action, info, coin){
 
 function actionDetail_disclosureToggle(action_index, label){
     return '<a href="#" class="badge text-bg-secondary xc-legs-toggle" data-action-index="' + escapeHtml(action_index) + '" title="Show each one">'
-        + escapeHtml(label) + ' <i class="fa fa-caret-down"></i></a>';
+        + escapeHtml(label) + ' <i class="fa-solid fa-caret-down"></i></a>';
 }
 
 // Open or close the legs/members under a list row. The list feed carries only
@@ -126,7 +126,7 @@ function actionDetail_renderDisclosure(o){
             // Members carry their summary under `summary` (never `details`, which a
             // BET feed member uses for its raw payload), the same rule the batch page keeps.
             let details = (m.summary && typeof m.summary === 'object') ? m.summary : m;
-            rows += '<tr class="' + actionDetail_statusClass(m.status) + '">'
+            rows += '<tr class="' + actionDetail_statusClass(m.status, m.action) + '">'
                 + '<td>' + (i + 1) + '</td>'
                 + '<td>' + escapeHtml(m.action) + '</td>'
                 + '<td>' + getActionDetails(m.action, details) + '</td>'
@@ -157,9 +157,16 @@ function actionDetail_renderAirdropLegs(legs, coin){
     return rows;
 }
 
-function actionDetail_statusClass(status){
+function actionDetail_isAcceptedStatus(action, status){
+    let value = String(status);
+    if(value=='valid' || value=='1') return true;
+    return String(action).toUpperCase()=='UNSTAKE'
+        && value=='completed';
+}
+
+function actionDetail_statusClass(status, action){
     if(isNull(status)) return '';
-    return (String(status)=='valid' || String(status)=='1') ? 'bg-green' : 'bg-red';
+    return actionDetail_isAcceptedStatus(action, status) ? 'bg-green' : 'bg-red';
 }
 
 // One delegated listener covers every list on the page, including rows a

@@ -15,7 +15,10 @@
 'use strict';
 
 const { expect } = require('chai');
-const { COIN_MAP } = require('../../../../src/ws/broadcaster/coin_map.js');
+const sinon = require('sinon');
+const { getLogger } = require('../../../../src/observability');
+const { baseCoinTables } = require('../../../../src/config/resolve_coins.js');
+const { COIN_MAP, buildCoinMap, envelopeFor } = require('../../../../src/ws/broadcaster/coin_map.js');
 
 describe('broadcaster coin map', () => {
 
@@ -39,6 +42,33 @@ describe('broadcaster coin map', () => {
             RLTC:  { chain: 'LTC',  network: 'regtest' },
             RDOGE: { chain: 'DOGE', network: 'regtest' }
         });
+    });
+
+    it('derives the live map from the base coin tables', () => {
+        expect(COIN_MAP).to.deep.equal(buildCoinMap(baseCoinTables()));
+    });
+
+    it('expands additional chains and network prefixes without another table edit', () => {
+        const map = buildCoinMap({
+            COIN_NETWORKS: { BTC: 'Bitcoin', BCH: 'Bitcoin Cash' },
+            COIN_PREFIXES: { mainnet: '', testnet: 'T', signet: 'S' }
+        });
+        expect(map).to.deep.equal({
+            BTC:  { chain: 'BTC', network: 'mainnet' },
+            TBTC: { chain: 'BTC', network: 'testnet' },
+            SBTC: { chain: 'BTC', network: 'signet' },
+            BCH:  { chain: 'BCH', network: 'mainnet' },
+            TBCH: { chain: 'BCH', network: 'testnet' },
+            SBCH: { chain: 'BCH', network: 'signet' }
+        });
+    });
+
+    it('warns only once when a frame names an unmapped coin', () => {
+        const warn = sinon.stub(getLogger(), 'warn');
+        expect(envelopeFor('UNMAPPED_TEST')).to.equal(undefined);
+        expect(envelopeFor('UNMAPPED_TEST')).to.equal(undefined);
+        expect(warn.calledOnceWith('WS_COIN_UNMAPPED', { coin: 'UNMAPPED_TEST' })).to.equal(true);
+        warn.restore();
     });
 
 });

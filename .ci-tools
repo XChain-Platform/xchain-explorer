@@ -22,3 +22,8 @@
 # and the scan reads each as a binary. Same false positive, same correction.
 -BEGIN
 -COMMIT
+#
+# ATTACH is SQL as well: test/unit/explorer/wallet_reads/support/wallet_fixture.js attaches an
+# in-memory schema with sqlite.exec('ATTACH DATABASE ...'), and the scan reads its leading word
+# as a binary. Same false positive, same correction.
+-ATTACH

@@ -25,7 +25,7 @@
 'use strict';
 
 const jsonRouter = require('express-json-rpc-router')
-const { resolveMaxBatch, makeRpcBatchGuard } = require('../rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
+const { resolveMaxBatch, makeRpcBatchGuard, rpcVersionGuard } = require('../rpc_batch_guard.js');   // JSON-RPC batch cardinality cap
 
 /**
  * Mount the batch cap, the body default and the router, in that order.
@@ -53,11 +53,20 @@ function mountJsonRpc(app, configInfo, jsonRpcController){
     // that fall through to this root-mounted router get a normal JSON-RPC error
     // response instead of crashing the request.
     app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
+    // Missing or wrong jsonrpc version: answer each call with a full 2.0 envelope
+    // while valid calls in a mixed batch continue to the router.
+    app.use(rpcVersionGuard);
 
     // The federation reads on the controller are public like every other route: the
     // rows are the replica's, readable through the pages already, and the per-IP rate
     // limiter above bounds a validator client retrying every block. No key gate.
-    app.use(jsonRouter({methods: jsonRpcController}))
+    // The router tests `method in controller` and then indexes its own hook maps by the
+    // caller-supplied name, so on a plain object every Object.prototype member
+    // (constructor, toString, valueOf, __proto__ ...) passes as a method. A
+    // null-prototype copy holds only the real methods, so any other name answers
+    // -32601 Method not found before a hook or method is looked up.
+    const methods = Object.assign(Object.create(null), jsonRpcController);
+    app.use(jsonRouter({methods}))
 }
 
 module.exports = { mountJsonRpc };

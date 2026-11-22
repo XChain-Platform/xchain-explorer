@@ -62,7 +62,10 @@ class MirrorGate {
         // message pointing at the configuration that is missing.
         if(status.configured === false)
             return { blocked: 'MIRROR_NOT_CONFIGURED', annotate: null };
-        if(!status.bootstrapDrained)
+        // A mirror that drained once and then lost its socket (bootstrapDrained drops on every
+        // close) is a lagging mirror, not an unbootstrapped one: it keeps serving with the lag
+        // annotation. Only a mirror that never drained is refused here.
+        if(!status.bootstrapDrained && !status.everBootstrapped)
             return { blocked: 'MIRROR_NOT_BOOTSTRAPPED', annotate: null };
         let annotate = { mirror_bootstrapped: true, mirror_lag_seconds: status.mirrorLagSeconds };
         let maxLag = parseInt(configEnv().MIRROR_MAX_LAG_S, 10) || 0;
@@ -90,9 +93,24 @@ class MirrorGate {
         return { blocked: null, annotate };
     }
 
+    // Gate for the hub-local operational tables (p2p_peers, consensus_state, configs,
+    // telemetry_pings). They are read from the coin's checkpoint schema, which on a
+    // self-synced coin is this process's own hub mirror, and the mirror client never
+    // replicates them. So the read can only fail with a missing table, whatever the
+    // mirror's health: refuse every request for a self-synced coin before any query.
+    hubLocalGate(coin){
+        let mgr = this.hubMirrorSync;
+        if(mgr && mgr.managesCoin(coin))
+            return { blocked: 'HUB_LOCAL_TABLE_NOT_MIRRORED', annotate: null };
+        return { blocked: null, annotate: null };
+    }
+
     mirrorBlockedBody(blocked){
         let error;
-        if(blocked === 'MIRROR_NOT_CONFIGURED')
+        if(blocked === 'HUB_LOCAL_TABLE_NOT_MIRRORED')
+            error = 'This hub-local operational table is not replicated into a self-synced hub mirror; ' +
+                'it is served only on an install that points database.checkpoint at a co-located hub DB.';
+        else if(blocked === 'MIRROR_NOT_CONFIGURED')
             error = 'Hub-mirror self-sync is configured for this coin but no hub endpoint is set ' +
                 '(database.checkpoint.hub_url or HUB_API_URL), so nothing updates the mirror; ' +
                 'consensus data is refused rather than served stale.';

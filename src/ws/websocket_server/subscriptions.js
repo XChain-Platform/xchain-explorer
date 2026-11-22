@@ -171,6 +171,28 @@ function freezeReplayCeilings(server, client, prevKeys) {
 
 class WebSocketSubscriptions {
 
+    // Rows at and above firstInvalid are sent live again after a rollback. Held
+    // keys must stop below them when a later catch-up resumes, or those rows are
+    // delivered once live and once from replay.
+    capReplayCeilings(coin, firstInvalid) {
+        let cap;
+        try { cap = BigInt(firstInvalid) - 1n; }
+        catch (e) { return; }
+        const detector = this.broadcaster && this.broadcaster.changeDetector;
+        const seed = detector && typeof detector.seedActionMark === 'function'
+            ? detector.seedActionMark(coin) : null;
+        for (const client of this.getClients().values()) {
+            if (client.coin !== coin || !(client.replayCeilings instanceof Map)) continue;
+            for (const [key, frozen] of client.replayCeilings) {
+                if (frozen === null) {
+                    client.replayCeilings.set(key, seed === null || seed > cap ? cap : seed);
+                } else if (frozen > cap) {
+                    client.replayCeilings.set(key, cap);
+                }
+            }
+        }
+    }
+
     // The burst allowance this server enforces, which WELCOME advertises (welcome.js).
     messageBurst() {
         return messageBurst(this);
@@ -261,7 +283,7 @@ class WebSocketSubscriptions {
 
         this.log('subscribe', client.id, { channels: channels.join(','), count: result.subscribed.length });
 
-        if (params.snapshot) requestSnapshots(this, client, result, prevKeys, msg);
+        if (result.filter.snapshot) requestSnapshots(this, client, result, prevKeys, msg);
 
         // Handle catch-up requests
         if (params.since_action_index !== undefined && params.since_action_index !== null) {

@@ -115,6 +115,8 @@ function attestDetailQuery(withBatch){
                     m.version,
                     m.request_id,
                     m.provider_id,
+                    m.origin_chain,
+                    m.origin_action_index,
                     m.contract_index,
                     fp.address as fee_payer,
                     m.callback_method,

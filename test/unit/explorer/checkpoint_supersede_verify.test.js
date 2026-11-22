@@ -115,7 +115,7 @@ async function refusesFieldsBelowGate(){
         checkpoint_seq: cp.checkpoint_seq, supersedes_from: 400, rules_digest: DIGEST
     };
     const res = await verify(cp, [metadata]);
-    expect(res._body.canonical).to.not.include('|SUPERSEDE|');
+    expect(res._body.canonical).to.equal(null);
     expect(res._body.verified).to.equal(false);
 }
 

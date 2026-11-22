@@ -147,8 +147,9 @@ function actionRefToRawPath(ref){
 
 // Resolve TIS `data_ref` entries across the media arrays. A data_ref of
 // "action:<index>" points at an on-chain FILE action; clients prefer it over
-// `data` when both are present (Token_Information_Standard.md, File Entry
-// Fields). Resolves to the explorer's own raw FILE endpoint. Also guarantees
+// `data` when both are present; see
+// xchain-documentation/protocol/token-information-standard.md#file-entry-fields.
+// Resolves to the explorer's own raw FILE endpoint. Also guarantees
 // every entry carries a string `data` so downstream substring/split calls are
 // safe on data_ref-only entries.
 function resolveTisDataRefs(o){
@@ -158,7 +159,9 @@ function resolveTisDataRefs(o){
         o[key].forEach(function(item){
             if(!item)
                 return;
-            var path = (typeof item.data_ref === 'string') ? actionRefToRawPath(item.data_ref) : false;
+            // Match the icon worker and the token-description path: normalize
+            // surrounding whitespace before applying the action-ref grammar.
+            var path = (typeof item.data_ref === 'string') ? actionRefToRawPath(item.data_ref.trim()) : false;
             if(path)
                 item.data = path;
             if(isNull(item.data))
@@ -171,7 +174,7 @@ function resolveTisDataRefs(o){
 // Lock marker for token-gated TIS entries (`locked: true`). Lets media lists
 // render a locked state without fetching the FILE action first.
 function lockedContentIcon(item){
-    return (item && item.locked) ? '<i class="fa fa-lock pe-1" title="Token-gated content: holders decrypt with their unlock key"></i>' : '';
+    return (item && item.locked) ? '<i class="fa-solid fa-lock pe-1" title="Token-gated content: holders decrypt with their unlock key"></i>' : '';
 }
 
 // Pick the entry whose media should display from a TIS media array: prefer the

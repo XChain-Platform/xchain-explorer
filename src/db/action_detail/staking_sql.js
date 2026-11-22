@@ -83,7 +83,19 @@ const DELEGATE_DETAIL = `SELECT
                     a1.action_index=?
                 LIMIT 1`;
 
-// Find the newest contract delegation a v3 revoke targeted, by source, key, contract and tick.
+// Count earlier same-format DELEGATE children in this transaction output. Contract
+// emissions have no wire command, so they cannot contribute to the wire ordinal.
+const DELEGATE_REVOKE_ORDINAL = `SELECT COUNT(*) AS ordinal
+                           FROM actions self
+                           INNER JOIN actions prior ON (prior.tx_index=self.tx_index
+                               AND prior.tx_vout <=> self.tx_vout
+                               AND prior.action_format=self.action_format
+                               AND prior.action_index<self.action_index)
+                           INNER JOIN index_actions ia ON (ia.id=prior.action_id)
+                           LEFT JOIN contract_emissions ce ON (ce.action_index=prior.action_index)
+                          WHERE self.action_index=? AND ia.action='DELEGATE' AND ce.action_index IS NULL`;
+
+// Find the newest older contract delegation a v3 revoke targeted.
 const DELEGATE_CONTRACT_REVOKE_PARENT = `SELECT cd.activation_block, cd.deactivation_block, cds.status
                            FROM contract_delegations cd
                            INNER JOIN index_addresses a  ON (a.id=cd.source_id)
@@ -91,15 +103,16 @@ const DELEGATE_CONTRACT_REVOKE_PARENT = `SELECT cd.activation_block, cd.deactiva
                            INNER JOIN index_tickers   tk ON (tk.id=cd.tick_id)
                            LEFT  JOIN index_statuses  cds ON (cds.id=cd.status_id)
                           WHERE a.address=? AND pk.pubkey=? AND cd.target_contract_index=? AND tk.tick=?
+                            AND cd.action_index<?
                           ORDER BY cd.action_index DESC LIMIT 1`;
 
-// Find the newest capability delegation a v2 revoke targeted, by source and key.
+// Find the newest older capability delegation a v2 revoke targeted.
 const DELEGATE_CAPABILITY_REVOKE_PARENT = `SELECT d.activation_block, d.deactivation_block, ds.status
                            FROM delegations d
                            INNER JOIN index_addresses a  ON (a.id=d.source_id)
                            INNER JOIN index_pubkeys   pk ON (pk.id=d.signing_pubkey_id)
                            LEFT  JOIN index_statuses  ds ON (ds.id=d.status_id)
-                          WHERE a.address=? AND pk.pubkey=?
+                          WHERE a.address=? AND pk.pubkey=? AND d.action_index<?
                           ORDER BY d.action_index DESC LIMIT 1`;
 
 // Read one SLASH proof with the slash event it produced. The indexer stores no
@@ -195,7 +208,6 @@ const UNSTAKE_DETAIL = `SELECT
                     INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                     LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
-                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id))
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)
                     LEFT  JOIN unstakes           u  ON (u.action_index=a1.action_index)
                     LEFT  JOIN index_pubkeys      pk1 ON (pk1.id=u.signing_pubkey_id)
@@ -204,6 +216,7 @@ const UNSTAKE_DETAIL = `SELECT
                     LEFT  JOIN index_pubkeys      pk2 ON (pk2.id=cu.signing_pubkey_id)
                     LEFT  JOIN index_tickers      tk ON (tk.id=cu.tick_id)
                     LEFT  JOIN index_statuses     cus ON (cus.id=cu.status_id)
+                    LEFT  JOIN index_addresses    a3 ON (a3.id=COALESCE(a1.source_id, t1.source_id, u.source_id, cu.source_id))
                 WHERE
                     a1.action_index=?
                 LIMIT 1`;
@@ -211,6 +224,7 @@ const UNSTAKE_DETAIL = `SELECT
 module.exports = {
     COLLECT_DETAIL,
     DELEGATE_DETAIL,
+    DELEGATE_REVOKE_ORDINAL,
     DELEGATE_CONTRACT_REVOKE_PARENT,
     DELEGATE_CAPABILITY_REVOKE_PARENT,
     SLASH_DETAIL,

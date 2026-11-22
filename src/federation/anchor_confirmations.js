@@ -131,4 +131,4 @@ async function getanchorconfirmations({ db, dbConfig, chain }, {txid, after_acti
     }
 }
 
-module.exports = { validateAnchorConfirmationsParams, buildAnchorConfirmationsResponse, getanchorconfirmations };
+module.exports = { getanchorconfirmations };

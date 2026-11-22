@@ -55,7 +55,16 @@ function exactStakeTotal(validators){
 async function capabilitySetProof(server, config, cp, tr, cap, indexerConn) {
     let res;
     try { res = await indexerConn.stakeWeights(cap, Number(cp.block_index)); }
-    catch (e) { return { error: (e && e.code === 'INDEXER_AUTH_REQUIRED') ? 'INDEXER_AUTH_REQUIRED' : 'INDEXER_UNAVAILABLE' }; }
+    catch (e) {
+        if (e && e.code === 'INDEXER_AUTH_REQUIRED') return { error: 'INDEXER_AUTH_REQUIRED' };
+        const failure = { error: 'INDEXER_UNAVAILABLE' };
+        if (e && e.retryable === true) {
+            failure.retryable = true;
+            if (typeof e.retryAfter === 'number' && Number.isFinite(e.retryAfter) && e.retryAfter > 0)
+                failure.retryAfter = e.retryAfter;
+        }
+        return failure;
+    }
     // Refuse an empty answer: the indexer always returns an object for this method
     if (!res || typeof res !== 'object') return { error: 'INDEXER_STAKE_WEIGHTS_UNAVAILABLE:' + cap };
     // Skip only a capability the indexer says is not configured here; its other in-band
@@ -118,6 +127,8 @@ class ProofBuilders {
         let stateRoot;
         try { stateRoot = this.bindRoots(cp, tr); }
         catch (e) { return rootBindFailure(e); }
+        if (typeof this.db.getStoredAddressSpelling === 'function')
+            address = await this.db.getStoredAddressSpelling(config, address) || address;
         const keyBuf = M.balanceKey(chain, network, address, tick);
         const smt    = await this.prove(config, tr.balances_root, keyBuf);
         const sub    = M.stateRootProof(this.subRoots(tr), 'balances_root');
@@ -174,6 +185,8 @@ class ProofBuilders {
         let stateRoot;
         try { stateRoot = this.bindRoots(cp, tr); }
         catch (e) { return rootBindFailure(e); }
+        if (typeof this.db.getStoredAddressSpelling === 'function')
+            address = await this.db.getStoredAddressSpelling(config, address) || address;
         const keyBuf = M.escrowKey(chain, network, address, tick);
         const smt    = await this.prove(config, tr.balances_root, keyBuf);
         const sub    = M.stateRootProof(this.subRoots(tr), 'balances_root');
@@ -277,7 +290,7 @@ class ProofBuilders {
         for (const cap of caps) {
             const answer = await capabilitySetProof(this, config, cp, tr, cap, indexerConn);
             if (answer === null) continue;
-            if (answer.error) return { error: answer.error };
+            if (answer.error) return answer;
             out[cap] = answer.set;
         }
         return {

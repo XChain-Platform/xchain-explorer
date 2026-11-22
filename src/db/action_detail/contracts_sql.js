@@ -123,6 +123,14 @@ const DEPLOY_CARRIER_CONTRACT = `SELECT
                 c1.action_index=?
              LIMIT 1`;
 
+const DEPLOY_CONSTRUCTOR_VERDICT = `SELECT
+                s1.status,
+                m.error_message
+             FROM contract_executions m
+             LEFT JOIN index_statuses s1 ON (s1.id=m.status_id)
+             WHERE m.action_index=?
+             LIMIT 1`;
+
 // Read which DEPLOY assembler the execution at this action_index consumed.
 const DEPLOY_ASSEMBLER = `SELECT
                 e1.assembler_action_index
@@ -216,6 +224,7 @@ module.exports = {
     DEPLOY_CHUNK_DETAIL,
     DEPLOY_CONTRACT_DETAIL,
     DEPLOY_CARRIER_CONTRACT,
+    DEPLOY_CONSTRUCTOR_VERDICT,
     DEPLOY_ASSEMBLER,
     EXECUTE_DETAIL,
     EXECUTE_EMISSIONS,

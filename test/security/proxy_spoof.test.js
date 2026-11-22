@@ -120,6 +120,11 @@ describe('Security: Proxy spoofing: req.ip through Cloudflare and Apache', funct
 
 describe('Security: Proxy spoofing: rate-limit buckets', function () {
 
+    it('uses the forwarded client address through the fronting proxy hop', async function () {
+        const res = await whoami(makeApp(), { 'X-Forwarded-For': VISITOR });
+        expect(res.body.ip).to.equal(VISITOR);
+    });
+
     it('two forged values behind one appended entry share one bucket', async function () {
         const app = makeLimitedApp();
         const first  = await whoami(app, { 'X-Forwarded-For': forwardedChain('192.0.2.1', EDGE) });

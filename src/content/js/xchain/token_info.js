@@ -108,7 +108,7 @@ function tokenInfo_renderProjectBanners(o){
         o.projects.forEach(function(p){
             let name = escapeHtml(p.project);
             projectBanners += '<div class="alert alert-success mb-1" role="alert">'
-                 +  '<i class="fa fa-certificate pe-1"></i>This token is an official token in the '
+                 +  '<i class="fa-solid fa-certificate pe-1"></i>This token is an official token in the '
                  +  formatLinkHtml(tokenUrl(XC.coin, p.project), '<b>' + name + '</b>', p.project)
                  +  ' project.'
                  +  '<a href="/' + XC.coin + '/action/' + Number(p.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
@@ -120,7 +120,7 @@ function tokenInfo_renderProjectBanners(o){
     // Official Tokens tab
     if(o.registry){
         projectBanners += '<div class="alert alert-success mb-1" role="alert">'
-             +  '<i class="fa fa-certificate pe-1"></i>This token is the owner of the <b>' + escapeHtml(o.info.tick) + '</b> project. '
+             +  '<i class="fa-solid fa-certificate pe-1"></i>This token is the owner of the <b>' + escapeHtml(o.info.tick) + '</b> project. '
              +  '<a href="#" id="registry-link">View its ' + numeral(o.registry.total).format('0,0') + ' official token' + (o.registry.total==1?'':'s') + '</a>.'
              +  '<a href="/' + XC.coin + '/action/' + Number(o.registry.link_action_index) + '" class="float-end small" title="View the on-chain roster attestation">attestation</a>'
              +  '</div>';
@@ -247,25 +247,26 @@ function showTokenInfo(){
 
     let description = tokenInfo_prepareDescription(desc);
     let jsonUrl = tokenInfo_getJsonUrl(description);
-    tokenInfo_loadContent(jsonUrl, XC.coin, o.info.tick);
+    tokenInfo_loadContent(jsonUrl, XC.coin, o.info.tick, tokenInfo_expectedHash(desc));
 }
 
-// Derive the one metadata URL a token description points at, or false when it names
-// none. Pure, so the /relay endpoint runs this same rule to confirm that a URL it is
-// asked to fetch is one the named token really references.
 function tokenInfo_metadataUrl(desc){
     return tokenInfo_getJsonUrl(tokenInfo_parseDescription(desc));
 }
 
-// Match a description that names a JSON document: ".json" ends it or precedes a
-// ';', '?' or '#'. The page, the /relay check and the server icon resolver all use
-// this one rule, so the listing icon and the rendered page pick the same source.
+function tokenInfo_expectedHash(desc){
+    let info = tokenInfo_parseDescription(desc);
+    if(!(info.arweave.test(info.desc) || (info.arr && info.json.test(info.desc)))) return null;
+    let semi = info.desc.lastIndexOf(';');
+    if(semi < 0) return null;
+    let suffix = info.desc.slice(semi + 1).trim();
+    return /^[0-9a-f]{64}$/i.test(suffix) ? suffix.toLowerCase() : null;
+}
+
 function tokenInfo_jsonPattern(){
     return /\.json($|;|\?|#)/i;
 }
 
-// Read a description into the patterns and ';'-separated parts the fetch rule uses.
-// Touches no page state, so the server can run it too.
 function tokenInfo_parseDescription(desc){
     // RegExp for pattern matching in description
     let json    = tokenInfo_jsonPattern(),
@@ -277,17 +278,13 @@ function tokenInfo_parseDescription(desc){
         arweave = /^https?:\/\/arweave\.net\//i,
         // On-chain TIS document: DESCRIPTION = "action:<index>" (same chain)
         // or "action:<COIN>:<index>" (sibling chain) pointing at a FILE
-        // action whose bytes are the TIS JSON
-        // (Token_Information_Standard.md, On-Chain Format).
+        // action whose bytes are the TIS JSON. See
+        // xchain-documentation/protocol/token-information-standard.md#on-chain-format-action-index.
         act     = /^action:(?:(BTC|LTC|DOGE):)?([0-9]+)$/i;
 
-    // Trim first, as the server icon resolver does, then rescue legacy arweave "/x.json" URLs,
-    // with or without a ';<sha256>' suffix, which stays on the description for display.
     if(typeof desc === 'string')
         desc = desc.trim().replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json(?=;|$)/i, '$1');
 
-    // A description that starts with http or names a .json file is a link, and its
-    // first ';'-separated part is the URL itself.
     var arr = (json.test(desc)||http.test(desc)||https.test(desc)) ? desc.split(';') : undefined;
     return { desc: desc, json: json, ord: ord, ipfs: ipfs, ar: ar, arweave: arweave, act: act, arr: arr };
 }
@@ -362,22 +359,21 @@ function tokenInfo_getJsonUrl(info){
     return jsonUrl;
 }
 
-// The same-origin relay address for a token's metadata. The relay fetches a host
-// outside its fixed gateways only for the URL this coin and tick's description names,
-// so both travel with it; each value is encoded so a query string inside the metadata
-// URL stays part of that URL instead of splitting into relay parameters.
 function tokenInfo_relayUrl(jsonUrl, coin, tick){
     return '/relay?url=' + encodeURIComponent(jsonUrl)
          + '&coin=' + encodeURIComponent(nullToBlank(coin))
          + '&tick=' + encodeURIComponent(nullToBlank(tick));
 }
 
-// Load token content through the direct and relay fallbacks.
-function tokenInfo_loadContent(jsonUrl, coin, tick){
+function tokenInfo_loadContent(jsonUrl, coin, tick, expectedHash){
     // Handle trying to load any JSON content and show the token content
     if(jsonUrl){
         if(XC.debug)
             XCLogger.log('Attempting to get JSON...');
+        if(expectedHash){
+            tokenInfo_loadPinnedContent(jsonUrl, coin, tick, expectedHash);
+            return;
+        }
         // Try to make a request for the JSON directly (might fail due to missing CORS headers)
         $.getJSON( jsonUrl, function(o){ 
             showTokenContent(o);
@@ -397,4 +393,5 @@ function tokenInfo_loadContent(jsonUrl, coin, tick){
 // Node requires this file for the pure metadata-URL rule (the /relay check and the
 // unit suites); the browser keeps the globals above.
 if(typeof module !== 'undefined' && module.exports)
-    module.exports = { tokenInfo_metadataUrl: tokenInfo_metadataUrl, tokenInfo_jsonPattern: tokenInfo_jsonPattern };
+    module.exports = { tokenInfo_metadataUrl: tokenInfo_metadataUrl,
+        tokenInfo_jsonPattern: tokenInfo_jsonPattern, tokenInfo_expectedHash: tokenInfo_expectedHash };

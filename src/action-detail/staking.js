@@ -57,16 +57,21 @@ const DELEGATE = {
     // The main query's `delegations` / `contract_delegations` joins are on
     // a1.action_index, so they return nothing and the page renders blank. Resolve
     // the revoke target from the transaction's decoded wire (signing_pubkey, plus
-    // target_contract_index + tick for v3), then look up the parent row by
+    // target_contract_index + tick for v3), then look up an older parent row by
     // (source, signing_pubkey[, target_contract_index, tick]) to surface its
-    // activation/deactivation window + status. Rotates (signing_pubkey already set
+    // activation/deactivation window. The parent status is not the revoke verdict,
+    // which the indexer does not persist, so a missing revoke status stays null.
+    // Rotates (signing_pubkey already set
     // via pk1/pk2) and stake-key revokes (revoked_pubkey set via
     // stake_key_revocations) are left untouched. Backward compatible: below the
     // flag-day a v2 revoke still carries its own delegations row so this no-ops.
     async afterMain({ db, config }, data) {
         let fmt = Number(data['action_format']);
         if((fmt===2 || fmt===3) && db.util.isNull(data['signing_pubkey']) && db.util.isNull(data['revoked_pubkey'])){
-            let seg = db.parseDelegateRevokeWire(data['wire_data'], fmt);
+            let orows = await db.doQuery(config, sql.DELEGATE_REVOKE_ORDINAL, [Number(data['action_index'])]);
+            let ordinal = (orows && orows.length) ? Number(orows[0].ordinal) : 0;
+            if(!Number.isInteger(ordinal) || ordinal < 0) ordinal = 0;
+            let seg = db.parseDelegateRevokeWire(data['wire_data'], fmt, ordinal);
             if(seg && seg.pubkey){
                 data['signing_pubkey'] = seg.pubkey;
                 let prow;
@@ -75,16 +80,16 @@ const DELEGATE = {
                     data['tick'] = seg.tick;
                     prow = await db.doQuery(config,
                         sql.DELEGATE_CONTRACT_REVOKE_PARENT,
-                        [data['source'], seg.pubkey.toLowerCase(), Number(seg.target), seg.tick]);
+                        [data['source'], seg.pubkey.toLowerCase(), Number(seg.target), seg.tick,
+                            Number(data['action_index'])]);
                 } else {
                     prow = await db.doQuery(config,
                         sql.DELEGATE_CAPABILITY_REVOKE_PARENT,
-                        [data['source'], seg.pubkey.toLowerCase()]);
+                        [data['source'], seg.pubkey.toLowerCase(), Number(data['action_index'])]);
                 }
                 if(prow && prow.length){
                     data['activation_block']   = prow[0].activation_block;
                     data['deactivation_block'] = prow[0].deactivation_block;
-                    if(db.util.isNull(data['status'])) data['status'] = prow[0].status;
                 }
             }
         }

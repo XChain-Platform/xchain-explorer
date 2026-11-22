@@ -396,4 +396,4 @@ async function shutdown(){
 }
 
 module.exports = { isEnabled, consensusFault, simulate, shutdown, VmQueryError,
-                   MAX_CODE_SIZE, MAX_STATE_VALUE_SIZE, REQUIRED_VM_CONSENSUS_VERSION };
+                   MAX_CODE_SIZE, MAX_STATE_VALUE_SIZE, REQUIRED_VM_CONSENSUS_VERSION, MAX_PARAMS, MAX_PARAM_BYTES };

@@ -68,6 +68,10 @@ const TWIN_DIR = path.join(__dirname, '..', 'sql', 'hub-mirror');
 // Columns whose value the hub stamps on insert: rows stored before the ALTER keep NULL (or
 // 0) in them until the table is rebuilt from the hub (most mirror writes are INSERT IGNORE),
 // and the log line names them.
+// Every ALTER below runs as DDL: HubMirrorPool lifts the 30 s read limit for it, since
+// rebuilding an index on a million-row mirror outlasts that on a loaded server.
+const DDL = Object.freeze({ ddl: true });
+
 const RESTAMPED_COLUMN = /^(?:admit_block(?:_[a-z]+)?|batch_block_time|batch_action_index)$/;
 
 // The non-additive reconciliations, per table: indexes by name, uq_* widens, charset and
@@ -77,7 +81,14 @@ const DATETIME_RETYPE = { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `c
 const DATETIME_NOT_NULL_RETYPE = { name: 'created_at', from: 'timestamp', ddl: 'MODIFY `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP' };
 const TABLE_REWRITES = {
     price_snapshots: {
-        indexes: [{ name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' }],
+        indexes: [
+            { name: 'idx_source_chain', ddl: 'ADD KEY idx_source_chain (source_chain)' },
+            // The wallet price-history read (db/readers/wallet_reads/price_history.js) pins
+            // coin_pair and status and ranges over block_timestamp; a mirror adopted before
+            // this key reads one clustered row per round in the range without it.
+            { name: 'price_snapshots_pair_status_ts',
+              ddl: 'ADD KEY price_snapshots_pair_status_ts (coin_pair, status, block_timestamp, price)' }
+        ],
         retypeColumns: [DATETIME_RETYPE]
     },
     // tick widens to the 250 PRICE v1 admits. The hub keeps its own column narrow until
@@ -201,7 +212,7 @@ async function addMissingColumnsAndIndexes(dbConn, table, spec, log, applied) {
         // One ALTER per table so MariaDB rebuilds it at most once.
         const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
         log('[hub-mirror] migrating ' + table + ': ' + clauses.join('; ') + restampNote(restamp));
-        await dbConn.doQuery(sql);
+        await dbConn.doQuery(sql, undefined, DDL);
         applied.push(sql);
     }
 }
@@ -234,7 +245,7 @@ async function widenColumnCharsets(dbConn, table, spec, log, applied) {
     if (widenClauses.length > 0) {
         const sql = 'ALTER TABLE `' + table + '` ' + widenClauses.join(', ');
         log('[hub-mirror] widening ' + table + ': ' + widenClauses.join('; '));
-        await dbConn.doQuery(sql);
+        await dbConn.doQuery(sql, undefined, DDL);
         applied.push(sql);
     }
 }
@@ -257,7 +268,7 @@ async function widenColumnLengths(dbConn, table, spec, log, applied) {
     const sql = 'ALTER TABLE `' + table + '` ' + clauses.join(', ');
     try {
         log('[hub-mirror] widening ' + table + ': ' + clauses.join('; '));
-        await dbConn.doQuery(sql);
+        await dbConn.doQuery(sql, undefined, DDL);
         applied.push(sql);
     } catch (err) {
         logger.error('HUB_MIRROR_WIDEN_FAILED', { table, err: err && err.message ? err.message : err,
@@ -282,7 +293,7 @@ async function retypeColumnTypes(dbConn, table, spec, log, applied) {
     const sql = "SET STATEMENT time_zone = '+00:00' FOR ALTER TABLE `" + table + '` ' + clauses.join(', ');
     try {
         log('[hub-mirror] retyping ' + table + ': ' + clauses.join('; '));
-        await dbConn.doQuery(sql);
+        await dbConn.doQuery(sql, undefined, DDL);
         applied.push(sql);
     } catch (err) {
         logger.error('HUB_MIRROR_RETYPE_FAILED', {

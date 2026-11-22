@@ -19,6 +19,7 @@ const PART_PATHS = [1, 2, 3, 4, 5].map((part) => require.resolve(
     '../../../../src/consensus/gate_registry/shared_rows_' + part + '.js'
 ));
 const EXPECTED_ROW_COUNT = 114;
+const EXPECTED_REGTEST_ARMING_COUNT = 49;
 const LISTS_MARKET_HEIGHT_KEYS = [
     'list_owner_activation.LIST_OWNER_ACTIVATION',
     'empty_allow_list_denies_activation.EMPTY_ALLOW_LIST_DENIES',
@@ -64,6 +65,7 @@ describe('shared gate row exports', function () {
         assert.notStrictEqual(sharedRows.UNARMED, sharedRows.UNPINNED);
         assert.deepStrictEqual(foldRule.keys, ['regtest']);
         assert.strictEqual(foldRule.env, 'XC_ANCHOR_FOLD_REGTEST_ACTIVATION');
+        assert.strictEqual(Object.keys(sharedRows.REGTEST_ARMING).length, EXPECTED_REGTEST_ARMING_COUNT);
     });
 
     it('names UNARMED instead of spelling its numeric sentinel in shared gate rows', function () {
@@ -116,6 +118,31 @@ describe('shared gate row registration', function () {
         assert.strictEqual(new Set(registry.keys()).size, EXPECTED_ROW_COUNT);
         assert.throws(() => registerRows(registry, {}), /duplicate key/);
         assert.strictEqual(registry.keys().length, EXPECTED_ROW_COUNT);
+    });
+});
+
+describe('shared gate row regtest arming', function () {
+    it('arms execute native metered gas on regtest through its named environment reader', function () {
+        const sharedRows = freshSharedRows();
+        const key = 'execute_native_metered_gas_activation.EXECUTE_NATIVE_METERED_GAS_ACTIVATION';
+        const env = { XC_EXECUTE_NATIVE_METERED_GAS_REGTEST_ACTIVATION: '0' };
+        const committed = {
+            mainnet: sharedRows.UNARMED,
+            testnet: sharedRows.UNARMED,
+            regtest: sharedRows.UNPINNED,
+        };
+        const registry = core.createRegistry();
+
+        sharedRows.addGate(key, 'height', committed);
+        sharedRows.registerRows(registry, env);
+
+        assert.strictEqual(sharedRows.REGTEST_ARMING[key].env,
+            'XC_EXECUTE_NATIVE_METERED_GAS_REGTEST_ACTIVATION');
+        assert.deepStrictEqual(registry.get(key), {
+            mainnet: sharedRows.UNARMED,
+            testnet: sharedRows.UNARMED,
+            regtest: 0,
+        });
     });
 });
 

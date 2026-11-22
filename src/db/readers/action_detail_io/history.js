@@ -160,12 +160,12 @@ class ActionHistoryReaders {
         return [data, total];
     }
 
-    // Action type + owning transaction hash for a SET of action_indexes.
-    // Mirrors getActionType's join and adds the transactions / index_transactions hop
+    // Action type, transaction index and hash for a SET of action_indexes.
+    // Mirrors getActionType's read and adds the transaction index and hash hops
     // getTransactionData keys on, so one query gives a page both the type it dispatches
     // the handler on and the tx_hash it prefetches transactions by.
-    // Returns a Map of action_index -> { type, tx_hash }; an index with no row is absent,
-    // which the caller reads the same way getActionType reads a row-less result (null).
+    // Returns a Map of action_index -> { type, tx_index, tx_hash }; an index with no row
+    // is absent, which the caller reads like getActionType's row-less result.
     async getActionMetaBatch(config, action_indexes){
         let map = new Map();
         if(!action_indexes || !action_indexes.length) return map;
@@ -173,6 +173,7 @@ class ActionHistoryReaders {
         let sql = `SELECT
                         a1.action_index,
                         a2.action,
+                        a1.tx_index,
                         t2.hash as tx_hash
                     FROM
                         actions a1
@@ -188,6 +189,7 @@ class ActionHistoryReaders {
             if(map.has(key)) continue;
             map.set(key, {
                 type:    (row.action === undefined)  ? null : row.action,
+                tx_index: row.tx_index,
                 tx_hash: (row.tx_hash === undefined) ? null : row.tx_hash
             });
         }
@@ -281,6 +283,7 @@ class ActionHistoryReaders {
         let preload = {
             indexes:  new Set(idxs),
             types:    new Map(),
+            txIndexes: new Map(),
             fees:     new Map(),
             txs:      new Map(),
             emitted:  new Map(),
@@ -291,8 +294,9 @@ class ActionHistoryReaders {
         let typed         = [];
         let hashes        = [];
         for(let idx of idxs){
-            let row = meta.get(idx) || { type: null, tx_hash: null };
+            let row = meta.get(idx) || { type: null, tx_index: undefined, tx_hash: null };
             preload.types.set(idx, row.type);
+            preload.txIndexes.set(idx, row.tx_index);
             // An untyped index short-circuits in getActionData before any shared leg
             // runs, so it contributes nothing to the effect / fee / tx prefetch sets.
             if(this.util.isNull(row.type)) continue;

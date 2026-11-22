@@ -54,8 +54,8 @@ const VENDOR = 'http://localhost:18080/css/bootstrap.min.css';
 // element whose declarations win. This fixture reproduces exactly that much:
 // two mode-dependent declarations that move only when the marked element does.
 const MODE_CSS = `
-  [data-bs-theme="light"] { background-color: rgb(255, 255, 255); color: rgb(17, 17, 17); }
-  [data-bs-theme="dark"]  { background-color: rgb(0, 0, 0); color: rgb(238, 238, 238); }
+  [data-bs-theme="light"] { --bs-primary-text-emphasis: #052c65; background-color: rgb(255, 255, 255); color: rgb(17, 17, 17); }
+  [data-bs-theme="dark"]  { --bs-primary-text-emphasis: #6ea8fe; background-color: rgb(0, 0, 0); color: rgb(238, 238, 238); }
 `;
 
 // A CSSStyleDeclaration is array-like over its declared property names, which
@@ -128,6 +128,8 @@ describe('theme parity probe (behavioural)', () => {
       assert.equal(light['body | background-color'], 'rgb(255, 255, 255)');
       assert.equal(dark['body | background-color'], 'rgb(0, 0, 0)');
       assert.notEqual(res.light.rend.hash, res.dark.rend.hash);
+      assert.deepEqual([res.light.rule.hash, res.dark.rule.hash], ['64325fee', '813da30c']);
+      assert.deepEqual([res.light.rend.hash, res.dark.rend.hash], ['bb9da7d7', '1245fcf5']);
     });
 
     it('renders the same pair whichever mode the page arrived in', () => {
@@ -312,6 +314,21 @@ describe('theme parity probe (behavioural)', () => {
 });
 
 describe('theme parity probe (behavioural)', () => {
+
+  it('exports per-component selector coverage unioned across both modes', () => {
+    const component = new URL('/components/stat-tile/component.css', FIRST_PARTY).href;
+    const win = page({ markup: '<div class="xc-stat-tile xc-night"></div>', sheets: [sheet(component, [
+      rule('.xc-stat-tile', { color: 'red' }),
+      rule('[data-bs-theme="dark"] .xc-night', { color: 'white' }),
+      rule('.xc-timeline-item', { color: 'blue' }),
+    ])] });
+    const res = win.__XC('coin_home', 'before');
+    assert.ok(!res.invalid, `capture rejected: ${JSON.stringify(res.invalid)}`);
+    const row = win.__XC.export('before').pages.coin_home.coverage.sheets['/components/stat-tile/component.css'];
+    assert.equal(row.selectors.length, 3);
+    assert.equal(Array.from(row.matched).join('|'), '.xc-stat-tile|[data-bs-theme="dark"] .xc-night');
+  });
+
   // The render census is a hand-written property list, so a side it omits is a
   // side no capture can see. The table-cell anchor declares padding-right and its
   // edge cells set border-left-width and border-right-width.

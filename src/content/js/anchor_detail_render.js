@@ -49,7 +49,6 @@ function anchorFamilyVerdict(rows, cls){
         .filter(function(status, i, all){ return all.indexOf(status) === i; });
     return '<span class="' + cls + '">' + statuses.map(anchorStatusBadge).join(' ') + '</span>';
 }
-
 function renderAnchorHeights(d){
     let row   = d || {};
     let t     = anchorRenderTraits(row);
@@ -57,7 +56,7 @@ function renderAnchorHeights(d){
     let html  = '<table class="table table-sm table-borderless mb-0"><tbody>';
     if(t.bundle)
         html += anchorBundleHeightRow(Object.assign({}, row, { sections: anchorCheckpointRows(row) }));
-    else
+    else if(!t.undecoded)
         html += anchorHeightRow('anchor-height-checkpointed', 'Checkpointed Block', row.block_index, 'checkpointed',
             'The height on ' + chain + ' that this anchor commits to. Checkpoint and commitment lookups key off THIS height.', row.chain);
     html += anchorHeightRow('anchor-height-broadcast', 'Anchor Transaction Block', row.block_index_doge, 'broadcast',
@@ -70,25 +69,22 @@ function renderAnchorHeights(d){
 function renderAnchorIdentity(d){
     let row = d || {};
     let t   = anchorRenderTraits(row);
-    let verdicts = anchorFoldedVerdicts(row);
+    let verdicts = t.undecoded ? null : anchorFoldedVerdicts(row);
     let html = '';
     html += anchorFieldRow('Action', isNull(row.action_index)
         ? '-'
         : formatLink('/' + anchorCoin() + '/action/' + row.action_index, anchorNum(row.action_index)));
     html += anchorFieldRow('Version', '<span class="badge text-bg-primary anchor-version-badge">v'
-        + anchorEsc(isNull(row.version) ? '?' : row.version) + '</span> <span class="anchor-kind">'
+        + anchorEsc((t.unparsedVersion || isNull(row.version)) ? '?' : row.version) + '</span> <span class="anchor-kind">'
         + anchorEsc(t.label) + '</span>'
-        + (t.known ? '' : anchorNote(t.legacy
-            ? ('This ANCHOR was mined before the activation height for its network, so its version byte predates the current v0/v1/v2/v3 wire set and is not read against today\'s traits table. Stored status: '
-                + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
-            : t.preFold ? ('This ANCHOR carries version 3 but was mined before the fold activation height for its network, so the indexer does not accept it as a folded bundle. Stored status: '
-                + (isNull(t.reason) ? 'unknown' : t.reason) + '.')
-            : 'This build does not recognize this ANCHOR version, so the payload legs below were read from the row itself rather than from the version.')));
+        + (t.known ? '' : anchorNote(anchorTraitsNote(t))));
     if(verdicts){
         html += anchorFieldRow('Checkpoint Sections Status', anchorFamilyVerdict(verdicts.checkpoints, 'anchor-checkpoint-verdict'), 'anchor-checkpoint-status-row');
         html += anchorFieldRow('Archive Status', anchorFamilyVerdict([verdicts.archive], 'anchor-archive-verdict'), 'anchor-archive-status-row');
     } else html += anchorFieldRow('Status', anchorStatusBadge(row.status));
-    if(t.bundle){
+    if(t.undecoded)
+        html += anchorFieldRow('Payload', 'Not decoded for this version');
+    else if(t.bundle){
         let chains = anchorCheckpointRows(row).map(function(s){ return String(s.chain); });
         html += anchorFieldRow('Chains', '<span class="anchor-bundle-chains">'
             + anchorEsc(chains.length ? chains.join(', ') : '-') + '</span>'
@@ -112,6 +108,8 @@ function renderAnchorIdentity(d){
 function renderAnchorCheckpointPayload(d){
     let row = d || {};
     let t   = anchorRenderTraits(row);
+    if(t.undecoded)
+        return anchorEmpty('This ANCHOR version was not decoded, so its payload fields are not shown.');
     if(!t.checkpoint)
         return anchorEmpty('This anchor carries no checkpoint payload. A continuation chunk only extends an archive batch published by an earlier anchor.');
     // A bundle's checkpoint payload is per section, so this card carries only what
@@ -225,7 +223,7 @@ function renderAnchorChunks(d){
         html += '<tr class="anchor-chunk-row' + (self ? ' anchor-chunk-self table-active' : '') + '">'
             + '<td>' + anchorChunkLabel(c) + '</td>'
             + '<td>' + (isNull(c.action_index) ? '-' : formatLink('/' + anchorCoin() + '/anchor/' + c.action_index, anchorNum(c.action_index))) + '</td>'
-            + '<td>v' + anchorEsc(isNull(c.version) ? '?' : c.version) + '</td>'
+            + '<td>v' + anchorEsc(anchorVersionText(c)) + '</td>'
             + '<td>' + anchorBlockLink(c.block_index_doge, 'DOGE') + '</td>'
             + '<td>' + (isNull(c.archive_b64_length) ? '-' : anchorNum(c.archive_b64_length)) + '</td>'
             + '<td>' + anchorStatusBadge(c.status) + '</td>'
@@ -242,6 +240,7 @@ function renderAnchorChunks(d){
 // anchor being unpublished.
 function renderAnchorCoveringCheckpoint(d){
     let row = d || {};
+    if(anchorPayloadUndecoded(row)) return anchorEmpty('No covering-checkpoint comparison applies to an undecoded payload.');
     let cp  = row.checkpoint;
     // On a bundle the mirror is filtered to THIS coin's chain, so the height that
     // was looked up, and the payload the mirror is compared against, both come from
@@ -280,6 +279,7 @@ function renderAnchorCoveringCheckpoint(d){
 // chain-agnostic, so this set is the platform-wide one at that snapshot block.
 function renderAnchorElection(d){
     let row   = d || {};
+    if(anchorPayloadUndecoded(row)) return anchorEmpty('No publisher election is shown for an undecoded payload.');
     let t     = anchorRenderTraits(row);
     let set   = Array.isArray(row.publisher_election) ? row.publisher_election : [];
     let tail  = Array.isArray(row.publisher_attestations) ? row.publisher_attestations : [];

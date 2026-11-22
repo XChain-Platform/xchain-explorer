@@ -30,6 +30,11 @@
 
 'use strict';
 
+const { canonicalCoinAddress } = require('../../explorer/request/address_shape.js');
+const { baseCoinTables } = require('../../config/resolve_coins.js');
+
+const COIN_TABLES = baseCoinTables();
+
 // Canonical decimal form of an action_index subscription key: no sign, no leading
 // zeros, no fraction, no trailing junk. Anything else is a distinct subscription
 // identity that the DB would silently coerce back to a real row.
@@ -72,17 +77,23 @@ function addressError(addr) {
     return { error: { code: 'INVALID_CHANNEL', message: 'address channel address must be a non-empty string' } };
 }
 
-function addressKeys(params, keys) {
+function addressKeys(params, keys, coin) {
+    const add = (addr) => {
+        const canonical = canonicalCoinAddress(COIN_TABLES, coin, addr);
+        // Keep every subscription response and routing key on the stored
+        // lowercase spelling for recognized bech32 addresses.
+        keys.push({ address: typeof canonical === 'string' ? canonical : addr });
+    };
     if (params.addresses && Array.isArray(params.addresses)) {
         for (const addr of params.addresses) {
             const refused = addressError(addr);
             if (refused) return refused;
-            keys.push({ address: addr });
+            add(addr);
         }
     } else if (params.address) {
         const refused = addressError(params.address);
         if (refused) return refused;
-        keys.push({ address: params.address });
+        add(params.address);
     } else {
         return { error: { code: 'INVALID_CHANNEL', message: 'address channel requires address or addresses param' } };
     }
@@ -227,7 +238,7 @@ class ChannelKeys {
     }
 
     // Resolve entity keys from subscribe params (supports batch via plural keys)
-    resolveEntityKeys(channel, params) {
+    resolveEntityKeys(channel, params, coin) {
         const keys = [];
         let refused;
 
@@ -236,7 +247,7 @@ class ChannelKeys {
         // 'constructor' or 'toString' to an inherited function instead of
         // falling to the default refusal.
         switch (channel) {
-            case 'address':   refused = addressKeys(params, keys); break;
+            case 'address':   refused = addressKeys(params, keys, coin); break;
             case 'token':     refused = tokenKeys(params, keys); break;
             case 'market':    refused = marketKeys(params, keys); break;
             case 'dispenser':

@@ -152,6 +152,53 @@ describe('catch-up replay stops at the live-start ceiling', function () {
         expect(detector.liveActionMark('BTC')).to.equal(3n);
     });
 
+    it('a reorg between truncated rounds does not replay replacement rows twice', async function () {
+        const db = fakeDb(Array.from({ length: 10 }, (_unused, i) => row(i + 1)));
+        const { s, detector, client } = setup(db);
+        await detector.checkCoin('BTC');
+        s.catchUpMaxEvents = 5;
+        subscribe(s, client, { since_action_index: '0' });
+        db.release();
+        await settle();
+
+        db.rows.splice(7);
+        db.checkReorgAndInvalidate = async () => true;
+        await detector.checkCoin('BTC');
+        db.checkReorgAndInvalidate = async () => false;
+        db.rows.push(row(8), row(9), row(10), row(11));
+        await detector.checkCoin('BTC');
+
+        subscribe(s, client, { since_action_index: '5' });
+        await settle();
+
+        const counts = new Map();
+        for (const index of actionIndexes(client)) counts.set(index, (counts.get(index) || 0) + 1);
+        expect(counts.size).to.equal(11);
+        expect([...counts.values()]).to.deep.equal(new Array(11).fill(1));
+        const completed = frames(client, 'CATCH_UP_COMPLETE');
+        expect(completed[completed.length - 1].data.latest_action_index).to.equal('7');
+    });
+});
+
+describe('catch-up replay stops at the live-start ceiling', function () {
+    afterEach(() => sinon.restore());
+
+    it('caps null ceilings without raising lower ceilings or touching another coin', async function () {
+        const db = fakeDb([row(1), row(2), row(3)]);
+        const { s, detector, client } = setup(db);
+        await detector.checkCoin('BTC');
+        client.replayCeilings = new Map([['null', null], ['low', 1n], ['high', 9n]]);
+        const other = { coin: 'DOGE', replayCeilings: new Map([['high', 9n]]) };
+        s.clients.set(2, other);
+
+        s.capReplayCeilings('BTC', '5');
+
+        expect([...client.replayCeilings.entries()]).to.deep.equal([
+            ['null', 3n], ['low', 1n], ['high', 4n]
+        ]);
+        expect(other.replayCeilings.get('high')).to.equal(9n);
+    });
+
     it('the live detector reads its own feed with no upper bound', async function () {
         const db = fakeDb([row(1)]);
         const { detector } = setup(db);
@@ -168,8 +215,8 @@ describe('catch-up replay stops at the live-start ceiling', function () {
     afterEach(() => sinon.restore());
 
     it('a subscribe landing mid-row gets that row\'s lifecycle frames once, after its NEW_ACTION', async function () {
-        // The row's ORDER_MATCH waits on a settlement read; the subscribe lands inside
-        // that wait, so its ceiling freezes at the row and the replay owns the row whole.
+        // Lifecycle reads finish before the row starts. A subscribe during that wait
+        // therefore owns the whole row live, with NEW_ACTION still first.
         const db = fakeDb([row(1)]);
         let settle2;
         const settlement = new Promise((resolve) => { settle2 = resolve; });
@@ -190,6 +237,6 @@ describe('catch-up replay stops at the live-start ceiling', function () {
         const sent = client.ws.send.getCalls().map(c => JSON.parse(c.args[0]))
             .filter(m => m.type === 'NEW_ACTION' || m.type === 'ORDER_MATCH');
         expect(sent.map(m => m.type + (m.catch_up ? ' replay' : ' live')))
-            .to.deep.equal(['NEW_ACTION replay', 'ORDER_MATCH replay']);
+            .to.deep.equal(['NEW_ACTION live', 'ORDER_MATCH live']);
     });
 });

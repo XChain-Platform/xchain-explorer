@@ -65,6 +65,7 @@ const contractReaders          = require('./readers/contracts.js');
 const pollBetReaders           = require('./readers/polls_bets.js');
 const xcallReaders             = require('./readers/xcall.js');
 const federationReaders        = require('./readers/federation_reads.js');
+const walletReaders            = require('./readers/wallet_reads.js');
 
 // The descriptor copy and collision check every family goes through, and the two
 // name lists each instance is handed a copy of.
@@ -140,7 +141,7 @@ class Database {
 mixinReaders(Database.prototype, connectionMethods, queryBuilder,
     actionListReaders, marketReaders, stakingGovernanceReaders, checkpointReaders,
     entityReaders, actionDetailIoReaders, healthReaders, projectReaders,
-    contractReaders, pollBetReaders, xcallReaders, federationReaders);
+    contractReaders, pollBetReaders, xcallReaders, federationReaders, walletReaders);
 
 // One export, the class, carrying the shared names as static properties so every
 // caller's `require('./db/index.js').DbQueryError` still resolves.

@@ -24,7 +24,7 @@
  * bytes are already encoded).
  *
  ********************************************************************/
-const { tokenInfo_jsonPattern } = require('../content/js/xchain/token_info.js');   // the page's own JSON-link rule
+const { tokenInfo_jsonPattern, tokenInfo_expectedHash } = require('../content/js/xchain/token_info.js');   // the page's own JSON-link rule
 
 // The one IPFS gateway this service resolves ipfs: through, root-addressed
 // (`<gateway><hash>`, no /ipfs/ path segment). Held as a constant because the
@@ -103,14 +103,10 @@ function resolveDescriptionToSource(description){
     return null;
 }
 
-// Each branch below answers undefined when the description is not its form, and
-// otherwise its final answer (a source, or null for a recognised form that has
-// nothing fetchable), so a later branch never sees a description an earlier one
-// claimed.
-
 // 0. action:<index> / action:<COIN>:<index>: an on-chain TIS document, the
-// format the platform's own Token_Information_Standard promotes. The token
-// page resolves it live (actionRefToRawPath, content/js/xchain/token_media.js)
+// format the platform's Token Information Standard promotes. See
+// xchain-documentation/protocol/token-information-standard.md#on-chain-format-action-index.
+// The token page resolves it live (actionRefToRawPath, content/js/xchain/token_media.js)
 // and this file's whole contract is to pick the source that page would, so it
 // has to match the page's regex exactly: same three sibling tickers, same
 // digits-only index, and the sibling coin's network tier supplied by the caller
@@ -205,7 +201,8 @@ function arweaveUrlSource(desc){
     if(!/^https?:\/\/arweave\.net\//i.test(desc)) return undefined;
     let url = desc.replace(/^(https?:\/\/arweave\.net\/[^\/?#]+)\/x\.json(?=;|$)/i, '$1');
     url = url.split(';')[0];   // strip ;hash suffix if any
-    return { scheme: 'arweave_url', url };
+    const expectedHash = tokenInfo_expectedHash(desc);
+    return { scheme: 'arweave_url', url, ...(expectedHash ? { expectedHash } : {}) };
 }
 
 // 5. URL ending in .json (optional ";<sha256>" suffix), by the page's tokenInfo_jsonPattern
@@ -220,7 +217,8 @@ function jsonUrlSource(desc){
     // for a token whose page renders fine. http-only JSON origins now fail on
     // both sides rather than disagreeing.
     url = 'https://' + url.replace(/^https?:\/\//i, '');
-    return { scheme: 'json_url', url };
+    const expectedHash = tokenInfo_expectedHash(desc);
+    return { scheme: 'json_url', url, ...(expectedHash ? { expectedHash } : {}) };
 }
 
 // 9. Bare image URL: recognized by extension on the path component.

@@ -61,8 +61,9 @@ const ANCHOR = {
     // these same version bytes under an older, unrelated meaning; this query has
     // no version filter and selects every row identically regardless of version
     // or activation, so a legacy row's columns come back exactly as stored and
-    // it is the RENDERER's job (anchor_detail_render.js) to tell a legacy row
-    // from a current one, not this query's. archive_b64 is omitted (large; only
+    // it is the renderer's job to tell a legacy row from a current one, not this
+    // query's: showAnchorDetails (detail_anchor_price.js) does it through
+    // anchorTraits (anchor_detail_render/state.js). archive_b64 is omitted (large; only
     // the recovery assembler needs it). The SPV root columns (state_root,
     // state_root_version, block_merkle_root, block_merkle_version) and
     // publisher / publisher_attestations (the elected PUBLISHER pubkey and the
@@ -202,6 +203,9 @@ const NODEPROOF = {
     // per verified full node (sharing this action_index), each carrying the verified
     // signing pubkey and its staking source address (index_pubkeys / index_addresses).
     async afterMain({ db, config, action_index }, data) {
+        // A verification row can only be written after the verdict is accepted.
+        // No row remains unknown because a valid verdict may record zero passes.
+        if(!db.util.isNull(data['challenge_id'])) data['status'] = 'valid';
         let verifs = await db.doQuery(config, NODEPROOF_VERIFICATIONS, [action_index]);
         data['verifications'] = (verifs && verifs.length) ? verifs : [];
     },
@@ -304,6 +308,9 @@ const ROLLCALL = {
             let legacy = await db.doQuery(config, ROLLCALL_DETAIL, [action_index]);
             if(legacy && legacy.length) Object.assign(data, legacy[0]);
         }
+        // Either ROLLCALL domain table contains rows only for accepted actions.
+        // No row remains unknown because the legacy table has no complete backfill.
+        if(!db.util.isNull(data['epoch_height'])) data['status'] = 'valid';
         let signers = await db.doQuery(config, ROLLCALL_SIGNERS, [action_index]);
         data['signers'] = (signers && signers.length) ? signers : [];
         data['signers_scope'] = 'first_seen';

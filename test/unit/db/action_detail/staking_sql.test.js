@@ -20,8 +20,9 @@ const stakingSql = require('../../../../src/db/action_detail/staking_sql.js');
 const EXPECTED_BINDINGS = {
     COLLECT_DETAIL: 1,
     DELEGATE_DETAIL: 1,
-    DELEGATE_CONTRACT_REVOKE_PARENT: 4,
-    DELEGATE_CAPABILITY_REVOKE_PARENT: 2,
+    DELEGATE_REVOKE_ORDINAL: 1,
+    DELEGATE_CONTRACT_REVOKE_PARENT: 5,
+    DELEGATE_CAPABILITY_REVOKE_PARENT: 3,
     SLASH_DETAIL: 1,
     STAKE_DETAIL: 1,
     UNSTAKE_DETAIL: 1
@@ -58,5 +59,36 @@ describe('SLASH detail status', function() {
         // The indexer writes capability_slash_events for a valid proof and only for one.
         expect(flat).to.include("CASE WHEN m.slash_action_index IS NULL THEN 'invalid' ELSE 'valid' END as status");
         expect(flat).to.include('LEFT JOIN capability_slash_events m ON (m.slash_action_index=a1.action_index)');
+    });
+});
+
+describe('UNSTAKE detail source', function() {
+    it('falls back to the capability or contract unstake source after both joins', function() {
+        const flat = stakingSql.UNSTAKE_DETAIL.replace(/\s+/g, ' ');
+        const capabilityJoin = flat.indexOf('LEFT JOIN unstakes u ');
+        const contractJoin = flat.indexOf('LEFT JOIN contract_unstakes cu ');
+        const addressJoin = flat.indexOf('LEFT JOIN index_addresses a3 ');
+
+        expect(capabilityJoin).to.be.greaterThan(-1);
+        expect(contractJoin).to.be.greaterThan(capabilityJoin);
+        expect(addressJoin).to.be.greaterThan(contractJoin);
+        expect(flat).to.include('COALESCE(a1.source_id, t1.source_id, u.source_id, cu.source_id)');
+    });
+});
+
+describe('DELEGATE revoke selection', function() {
+    it('counts only older same-format wire-backed DELEGATE actions', function() {
+        const flat = stakingSql.DELEGATE_REVOKE_ORDINAL.replace(/\s+/g, ' ');
+        expect(flat).to.include('prior.tx_index=self.tx_index');
+        expect(flat).to.include('prior.tx_vout <=> self.tx_vout');
+        expect(flat).to.include('prior.action_format=self.action_format');
+        expect(flat).to.include('prior.action_index<self.action_index');
+        expect(flat).to.include("ia.action='DELEGATE'");
+        expect(flat).to.include('ce.action_index IS NULL');
+    });
+
+    it('bounds each parent lookup below the revoke action index', function() {
+        expect(stakingSql.DELEGATE_CONTRACT_REVOKE_PARENT).to.include('cd.action_index<?');
+        expect(stakingSql.DELEGATE_CAPABILITY_REVOKE_PARENT).to.include('d.action_index<?');
     });
 });

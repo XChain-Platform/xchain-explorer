@@ -31,11 +31,7 @@
 
 'use strict';
 
-// Structured logging. Cached at require time: getLogger() resolves lazily on
-// every call, so this reaches the real shipper once api.js has run
-// installObservability and falls through to bare console.* before that.
-const { getLogger } = require('../../../observability');
-const log = getLogger();
+const { readTrackerInfo } = require('../../../connectors/utxo_tracker.js');
 
 // The total order of a credit, debit or escrow list. An action writes several rows,
 // so the row's own columns break action_index ties and a page edge never splits or
@@ -43,6 +39,38 @@ const log = getLogger();
 function ledgerRowOrder(dir){
     return ['m.action_index', 'm.address_id', 'm.tick_id', 'm.amount']
         .map((col) => col + ' ' + dir).join(', ');
+}
+
+// Fill the figures a usable tracker reading carries into the address payload.
+async function applyTrackerInfo(reader, config, data, info){
+    // A tracker that is behind its node, halted or serving a stale tip still answers /info
+    // with figures, but they are not a reading of the chain. Its own sync verdict decides:
+    // synced === false is answered as unavailable, as the spend path refuses the same state.
+    // A body with no sync object (an older tracker) keeps its figures.
+    const trackerSynced = !(info && info.sync && info.sync.synced === false);
+    if(info && info.balances && info.utxos && trackerSynced){
+        data.type     = info.type || null;
+        data.balances = {
+            confirmed: info.balances.confirmed,
+            pending:   info.balances.pending,
+            received:  info.balances.received
+        };
+        data.utxos = {
+            confirmed: info.utxos.confirmed,
+            pending:   info.utxos.pending
+        };
+        data.tracker_available = true;
+        if(info.mempool_ready !== undefined) data.mempool_ready = info.mempool_ready;
+        // Estimated fiat value of the confirmed balance: confirmed amount * live USD price
+        // (null on testnet/regtest or when the hub oracle has no price for this coin).
+        let price = await reader.getCoinPriceUsd(config);
+        data.estimated_value = {
+            btc: data.balances.confirmed,
+            usd: (price != null && data.balances.confirmed != null)
+                ? reader.util.bcmul(String(data.balances.confirmed), String(price), 2)
+                : null
+        };
+    }
 }
 
 class EntityAddressReaders {
@@ -62,29 +90,7 @@ class EntityAddressReaders {
             tracker_available: false
         };
         let info = await this.getAddressTrackerInfo(config, address);
-        if(info && info.balances && info.utxos){
-            data.type     = info.type || null;
-            data.balances = {
-                confirmed: info.balances.confirmed,
-                pending:   info.balances.pending,
-                received:  info.balances.received
-            };
-            data.utxos = {
-                confirmed: info.utxos.confirmed,
-                pending:   info.utxos.pending
-            };
-            data.tracker_available = true;
-            if(info.mempool_ready !== undefined) data.mempool_ready = info.mempool_ready;
-            // Estimated fiat value of the confirmed balance: confirmed amount * live USD price
-            // (null on testnet/regtest or when the hub oracle has no price for this coin).
-            let price = await this.getCoinPriceUsd(config);
-            data.estimated_value = {
-                btc: data.balances.confirmed,
-                usd: (price != null && data.balances.confirmed != null)
-                    ? this.util.bcmul(String(data.balances.confirmed), String(price), 2)
-                    : null
-            };
-        }
+        await applyTrackerInfo(this, config, data, info);
         // Controller bindings still gating this address's native actions
         // (protocol/controller-bound-tokens.md). [] when nothing gates.
         data.controllers = await this.getAddressControllerBindings(config, config.data.search);
@@ -113,21 +119,15 @@ class EntityAddressReaders {
     // (type + balances{confirmed,pending,received} + utxos{confirmed,pending}, full-precision
     // decimal strings). Returns null when no tracker is configured for this coin or it is
     // unreachable, so getAddress can fall back to an honest "Unavailable" instead of fake values.
+    // The read is charged to the end client (config.clientIp) against the explorer's
+    // fair-share tracker budget, so one client's batches cannot blank another's answers;
+    // see connectors/utxo_tracker.js.
     async getAddressTrackerInfo(config, address){
         const code = config.coin;
-        const base = this.configInfo.env['UTXO_TRACKER_URL_' + code] || this.configInfo.env.UTXO_TRACKER_URL;
+        const env  = this.configInfo.env;
+        const base = env['UTXO_TRACKER_URL_' + code] || env.UTXO_TRACKER_URL;
         if(!base || !address) return null;
-        try {
-            const url = base.replace(/\/+$/, '') + '/info/' + encodeURIComponent(address);
-            const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-            if(!res.ok) throw new Error('HTTP ' + res.status);
-            const j = await res.json();
-            if(j && j.balances && j.utxos) return j;
-            throw new Error('malformed /info response');
-        } catch(e){
-            log.warn('UTXO_TRACKER_UNAVAILABLE', { method: 'getAddressTrackerInfo', code, err: e && e.message ? e.message : e });
-            return null;
-        }
+        return readTrackerInfo({ base, address, client: config.clientIp, coin: code, env });
     }
 
     async getBalances(config){

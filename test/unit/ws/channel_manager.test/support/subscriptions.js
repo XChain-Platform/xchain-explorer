@@ -78,6 +78,20 @@ describe('ChannelManager', function () {
             expect(result.subscribed[0].address).to.equal('1abc');
         });
 
+        it('uses one lowercase bech32 key for subscribe and unsubscribe', function () {
+            const lower = 'bcrt1qrc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7sser7p';
+            const upper = lower.toUpperCase();
+            const client = createClient(1, 'RBTC');
+            const result = cm.subscribe(client, ['address'], { address: upper, snapshot: true });
+            expect(result.success).to.be.true;
+            expect(result.subscribed).to.deep.equal([{ channel: 'address', address: lower }]);
+            expect(client.subscriptions.has('RBTC:address:' + lower)).to.equal(true);
+            const removed = cm.unsubscribe(client, ['address'], { address: upper });
+            expect(removed.unsubscribed).to.deep.equal([
+                { channel: 'address', address: lower, was_subscribed: true }
+            ]);
+        });
+
         it('subscribes to token channel', function () {
             const client = createClient(1);
             const result = cm.subscribe(client, ['token'], { tick: 'PEPE' });
@@ -240,6 +254,21 @@ describe('ChannelManager', function () {
             cm.subscribe(client, ['actions'], { once: true });
             const subs = cm.listSubscriptions(client);
             expect(subs[0].filters.once).to.be.true;
+        });
+
+        it('rejects non-boolean once and snapshot flags', function () {
+            for (const name of ['once', 'snapshot']) {
+                for (const bad of ['false', 'true', 0, 1, {}, []]) {
+                    const client = createClient(1);
+                    const result = cm.subscribe(client, ['blocks'], { [name]: bad });
+                    expect(result.success, name + '=' + JSON.stringify(bad) + ' must be rejected').to.be.false;
+                    expect(result.error.code).to.equal('INVALID_PARAMS');
+                    expect(cm.listSubscriptions(client)).to.deep.equal([]);
+                }
+            }
+            expect(cm.subscribe(createClient(1), ['blocks'], { once: false }).filter.once).to.equal(false);
+            expect(cm.subscribe(createClient(1), ['blocks'], { snapshot: true }).filter.snapshot).to.equal(true);
+            expect(cm.subscribe(createClient(1), ['blocks'], { once: null }).filter.once).to.equal(false);
         });
 
         it('rejects invalid types', function () {

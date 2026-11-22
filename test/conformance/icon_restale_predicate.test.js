@@ -151,7 +151,7 @@ async function setUpRestalePredicate() {
     }
 
     const statements = await shippedDiscoverStatements();
-    expect(statements, 'expected discover to emit three statements').to.have.length(3);
+    expect(statements, 'expected discover to emit four statements').to.have.length(4);
     restaleSql = statements[2];
 
     // The description conjunct of the shipped statement, pulled out so the

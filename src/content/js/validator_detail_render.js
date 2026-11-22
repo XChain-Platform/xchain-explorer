@@ -121,7 +121,7 @@ function renderValidatorCapabilities(d){
         var s = validatorCapabilityState(r);
         html += '<span class="badge ' + s.badge + ' vd-capability" data-capability="' + vdEsc(s.capability)
              +  '" data-state="' + vdEsc(s.key) + '">'
-             +  '<i class="fa ' + vdEsc(s.icon) + ' me-1"></i>'
+             +  '<i class="fa-solid ' + vdEsc(s.icon) + ' me-1"></i>'
              +  vdEsc(isNull(s.capability) ? '-' : s.capability)
              +  ' <span class="fw-normal">(' + vdEsc(s.label) + ')</span></span>';
     });

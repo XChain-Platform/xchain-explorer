@@ -26,7 +26,7 @@ const https = require('https');
 const url   = require('url');
 
 // The hub's own JSON-RPC code for "you are being rate limited"
-// (xchain-hub/src/lib/rate_limit_policy.js). Keyed on rather than the HTTP status
+// (xchain-hub/src/api/rate_limit_policy.js). Keyed on rather than the HTTP status
 // because a fronting proxy can rewrite the status while the envelope survives.
 const HUB_RATE_LIMIT_RPC_CODE = -32029;
 
@@ -39,11 +39,22 @@ function readRateLimitHeaders(headers){
     headers = headers || {};
     let limit  = parseInt(headers['ratelimit-limit'] || headers['x-ratelimit-limit'], 10);
     let retry  = parseInt(headers['retry-after'], 10);
-    if(!Number.isFinite(retry)) retry = parseInt(headers['ratelimit-reset'] || headers['x-ratelimit-reset'], 10);
+    if(!Number.isFinite(retry)) retry = resetDeltaSeconds(headers['ratelimit-reset'] || headers['x-ratelimit-reset']);
     return {
         limit:        Number.isFinite(limit) ? limit : null,
         retryAfterMs: Number.isFinite(retry) && retry >= 0 ? retry * 1000 : null
     };
+}
+
+// Seconds until a reset header's moment, or NaN when it names none still ahead.
+// Many gateways send X-RateLimit-Reset as an absolute Unix time, which read as a
+// delta parks the queue for decades; no real delta comes near 1e9 s (31 years).
+const EPOCH_RESET_FLOOR_SEC = 1e9;
+function resetDeltaSeconds(value){
+    let reset = parseInt(value, 10);
+    if(!Number.isFinite(reset) || reset <= EPOCH_RESET_FLOOR_SEC) return reset;
+    let left = reset - Math.floor(Date.now() / 1000);
+    return left > 0 ? left : NaN;
 }
 
 // Stamp an error as a throttle so callers can hold off instead of burning a
@@ -58,9 +69,34 @@ function markRateLimited(err, facts){
     return err;
 }
 
+function resultFromParsedResponse(parsed, data, status, rl){
+    if(status === 429){
+        let limitText = rl.limit != null ? rl.limit + ' req/min' : 'limit not advertised';
+        let waitText  = rl.retryAfterMs != null ? Math.round(rl.retryAfterMs / 1000) + 's' : 'unknown';
+        throw markRateLimited(new Error(
+            'hub rate limit exceeded (' + limitText + '); retry after ' + waitText +
+            ' [HTTP 429, JSON body without a JSON-RPC error]'),
+        { limit: rl.limit, retryAfterMs: rl.retryAfterMs, httpStatus: status });
+    }
+    if(status && (status < 200 || status >= 300)){
+        throw Object.assign(
+            new Error('hub returned HTTP ' + status + ' without a JSON-RPC envelope: ' +
+                String(data).slice(0, 200)),
+            { httpStatus: status });
+    }
+    const rpcShape = parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+        Object.prototype.hasOwnProperty.call(parsed, 'result');
+    if(!rpcShape)
+        throw Object.assign(
+            new Error('hub reply carried neither result nor error [HTTP ' + status + ']'),
+            { httpStatus: status });
+    return parsed.result;
+}
+
 // Read a hub JSON-RPC response body into its result, or throw the classified error
-// `call` rejects with. The 'end' handler below settles the latch with whichever one
-// comes back, so the classification lives here and nowhere else.
+// `call` rejects with. HTTP failure is independent of body format: a gateway's
+// JSON diagnostic must never look like a successful RPC result. The 'end' handler
+// below settles the latch with whichever one comes back, so classification lives here.
 function parseHubResponse(data, status, headers){
     let rl = readRateLimitHeaders(headers);
     let parsed;
@@ -88,7 +124,7 @@ function parseHubResponse(data, status, headers){
                 { httpStatus: status });
         throw new Error('Invalid JSON response: ' + e.message);
     }
-    if(parsed.error){
+    if(parsed && parsed.error){
         let err = new Error(parsed.error.message || JSON.stringify(parsed.error));
         if(parsed.error.code !== undefined) err.rpcCode = parsed.error.code;
         if(status) err.httpStatus = status;
@@ -106,7 +142,7 @@ function parseHubResponse(data, status, headers){
         }
         throw err;
     }
-    return parsed.result;
+    return resultFromParsedResponse(parsed, data, status, rl);
 }
 
 // Wire the terminal socket/response events for one hub call onto resolve/reject.
@@ -135,88 +171,57 @@ function attachResponseHandlers(res, req, resolve, reject){
     });
 }
 
-function createSettlementLatch(settleResolve, settleReject){
-    // Route every exit through one latch because a hub that dies mid-body can
-    // fire several terminal events, and a deadline can race them all. Settling
-    // each event directly would try to settle the promise more than once.
-
-    // Keep response classification centralized in its `end` handler while the
-    // settlement guard stays reusable across every terminal event.
-    let settled = false;
-    function resolve(value){
-        if(settled) return;
-        settled = true;
-        settleResolve(value);
-    }
-    function reject(err){
-        if(settled) return;
-        settled = true;
-        settleReject(err);
-    }
-    return { resolve, reject };
-}
-
-function readHubTarget(targetUrl){
-    let parsed = url.parse(targetUrl);
-    let isHttps = parsed.protocol === 'https:';
-    return { parsed, isHttps, lib: isHttps ? https : http };
-}
-
-function encodeHubRequest(method, params){
-    return JSON.stringify({
-        jsonrpc: '2.0',
-        id:      Date.now(),
-        method:  method,
-        params:  params
-    });
-}
-
-function createRequestOptions(target, body, apiKey){
-    let headers = {
-        'Content-Type':   'application/json',
-        'Content-Length': Buffer.byteLength(body)
-    };
-    if(apiKey) headers['x-api-key'] = apiKey;
-    return {
-        hostname: target.parsed.hostname,
-        port:     target.parsed.port || (target.isHttps ? 443 : 80),
-        path:     target.parsed.pathname || '/',
-        method:   'POST',
-        headers:  headers,
-        timeout:  5000
-    };
-}
-
-function openHubRequest(lib, opts, resolve, reject){
-    let req = lib.request(opts, (res) => attachResponseHandlers(res, req, resolve, reject));
-    req.on('error', (err) => reject(err));
-    req.on('timeout', () => { req.destroy(new Error('Request timeout')); });
-    return req;
-}
-
-function armCallDeadline(req, reject, callDeadlineMs){
-    // Arm a wall-clock ceiling because the idle-socket timer cannot bound a
-    // drip-fed body. Leave it unref'd so it cannot hold the process open, then
-    // clear it on request teardown so a settled call drops the timer.
-    let deadlineTimer = setTimeout(() => {
-        req.destroy();
-        reject(new Error('hub call exceeded its ' + callDeadlineMs + 'ms deadline'));
-    }, callDeadlineMs);
-    if(deadlineTimer.unref) deadlineTimer.unref();
-    req.once('close', () => clearTimeout(deadlineTimer));
-}
-
 // Make a JSON-RPC 2.0 request to the hub over http/https and settle with the parsed
 // result. This owns the transport mechanics only; HubClient.call supplies the URL,
 // key and deadline.
 function sendHubRequest(targetUrl, method, params, apiKey, callDeadlineMs){
     return new Promise((settleResolve, settleReject) => {
-        let { resolve, reject } = createSettlementLatch(settleResolve, settleReject);
-        let target = readHubTarget(targetUrl);
-        let body = encodeHubRequest(method, params);
-        let opts = createRequestOptions(target, body, apiKey);
-        let req = openHubRequest(target.lib, opts, resolve, reject);
-        armCallDeadline(req, reject, callDeadlineMs);
+        // Every exit runs through one latch, and the local `resolve`/`reject` below
+        // ARE that latch: a hub that dies mid-body can fire several of the terminal
+        // events, and a deadline abort races them all, so a direct settle would be a
+        // double-settle. Shadowing the executor's own names keeps the classification
+        // logic in the 'end' handler unchanged rather than restating it.
+        let settled = false;
+        let resolve = (v) => { if(!settled){ settled = true; settleResolve(v); } };
+        let reject  = (e) => { if(!settled){ settled = true; settleReject(e); } };
+        let parsed = url.parse(targetUrl);
+        let isHttps = parsed.protocol === 'https:';
+        let lib = isHttps ? https : http;
+
+        let body = JSON.stringify({
+            jsonrpc: '2.0',
+            id:      Date.now(),
+            method:  method,
+            params:  params
+        });
+
+        let headers = {
+            'Content-Type':   'application/json',
+            'Content-Length': Buffer.byteLength(body)
+        };
+        if(apiKey) headers['x-api-key'] = apiKey;
+
+        let opts = {
+            hostname: parsed.hostname,
+            port:     parsed.port || (isHttps ? 443 : 80),
+            path:     parsed.pathname || '/',
+            method:   'POST',
+            headers:  headers,
+            timeout:  5000
+        };
+
+        let req = lib.request(opts, (res) => attachResponseHandlers(res, req, resolve, reject));
+        req.on('error', (err) => reject(err));
+        req.on('timeout', () => { req.destroy(new Error('Request timeout')); });
+        // The idle-socket timer above cannot bound a drip-fed body, so arm the
+        // wall-clock ceiling beside it. Unref'd so it never holds the process open,
+        // and cleared on the request's own teardown so a settled call drops it.
+        let deadlineTimer = setTimeout(() => {
+            req.destroy();
+            reject(new Error('hub call exceeded its ' + callDeadlineMs + 'ms deadline'));
+        }, callDeadlineMs);
+        if(deadlineTimer.unref) deadlineTimer.unref();
+        req.once('close', () => clearTimeout(deadlineTimer));
         req.write(body);
         req.end();
     });

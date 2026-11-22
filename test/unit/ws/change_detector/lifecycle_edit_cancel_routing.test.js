@@ -46,23 +46,9 @@ describe('edit and cancel lifecycle routing', function () {
         });
     }
 
-    it('routes a valid BET_EDIT to its parent feed with the format discriminator', async function () {
-        const lookup = sinon.stub().resolves(52);
-        const events = await collect({ getValidBetEditFeedIndex: lookup }, {
-            action: 'BET_EDIT', action_index: 91, action_format: 4, status: null
-        });
-
-        expect(events).to.have.lengthOf(1);
-        expect(events[0]).to.include({ type: 'BET_EDIT', action: 'BET_EDIT', channel: 'bet_feed' });
-        expect(events[0].data.feed_action_index).to.equal(52);
-        expect(events[0].data.action_format).to.equal(4);
-        expect(lookup.calledOnceWith({ coin: 'BTC' }, 91)).to.equal(true);
-    });
-
     for (const testCase of [
         { action: 'DISPENSER_CANCEL', method: 'getValidDispenserMutationIndex' },
-        { action: 'DISPENSER_EDIT', method: 'getValidDispenserMutationIndex' },
-        { action: 'BET_EDIT', method: 'getValidBetEditFeedIndex' }
+        { action: 'DISPENSER_EDIT', method: 'getValidDispenserMutationIndex' }
     ]) {
         it(`does not route ${testCase.action} when no valid protocol row exists`, async function () {
             const db = { [testCase.method]: sinon.stub().resolves(null) };
@@ -87,6 +73,43 @@ describe('edit and cancel lifecycle routing', function () {
 
         expect(routed.filter((type) => !VALID_TYPES.has(type))).to.deep.equal([]);
         expect(routed.filter((type) => !ChangeDetector.LIFECYCLE_MAP[type])).to.deep.equal([]);
+    });
+});
+
+describe('edit and cancel lifecycle routing', function () {
+    afterEach(() => sinon.restore());
+
+    const testCase = { action: 'BET_EDIT', method: 'getValidBetEditFeedIndex' };
+
+    it('routes a valid BET_EDIT to its parent feed with the format discriminator', async function () {
+        const lookup = sinon.stub().resolves(52);
+        const events = await collect({ getValidBetEditFeedIndex: lookup }, {
+            action: 'BET_EDIT', action_index: 91, action_format: 4, status: null
+        });
+
+        expect(events).to.have.lengthOf(1);
+        expect(events[0]).to.include({ type: 'BET_EDIT', action: 'BET_EDIT', channel: 'bet_feed' });
+        expect(events[0].data.feed_action_index).to.equal(52);
+        expect(events[0].data.action_format).to.equal(4);
+        expect(lookup.calledOnceWith({ coin: 'BTC' }, 91)).to.equal(true);
+    });
+
+    it(`does not route ${testCase.action} when no valid protocol row exists`, async function () {
+        const db = { [testCase.method]: sinon.stub().resolves(null) };
+        const events = await collect(db, {
+            action: testCase.action, action_index: 92, action_format: 4,
+            status: 'valid'
+        });
+
+        expect(events).to.deep.equal([]);
+    });
+
+    it(`fails closed when ${testCase.action} validity cannot be read`, async function () {
+        const db = { [testCase.method]: sinon.stub().rejects(new Error('read failed')) };
+        let failure;
+        try { await collect(db, { action: testCase.action, action_index: 93 }); }
+        catch (err) { failure = err; }
+        expect(failure).to.have.property('message', 'read failed');
     });
 });
 

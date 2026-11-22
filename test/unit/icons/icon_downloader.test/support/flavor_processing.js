@@ -68,12 +68,12 @@ const {
                 query:   sinon.stub(),
                 release: sinon.stub().resolves(),
             };
-            // First three calls: discover (insert, description-drift re-stale, action:
-            // one-shot re-stale); fourth call: SELECT
+            // First four calls are discovery writes; the fifth is the batch SELECT.
             conn.query.onCall(0).resolves([]);
             conn.query.onCall(1).resolves([]);
             conn.query.onCall(2).resolves([]);
-            conn.query.onCall(3).resolves(rows);
+            conn.query.onCall(3).resolves([]);
+            conn.query.onCall(4).resolves(rows);
 
             const pool = makeMockPool(conn);
             const flavor = { coin: 'BTC', network: 'mainnet', pool };
@@ -130,12 +130,12 @@ const {
                 query:   sinon.stub(),
                 release: sinon.stub().resolves(),
             };
-            // First three calls: discover (insert, description-drift re-stale, action:
-            // one-shot re-stale); fourth call: SELECT
+            // First four calls are discovery writes; the fifth is the batch SELECT.
             conn.query.onCall(0).resolves([]);
             conn.query.onCall(1).resolves([]);
             conn.query.onCall(2).resolves([]);
-            conn.query.onCall(3).resolves(rows);
+            conn.query.onCall(3).resolves([]);
+            conn.query.onCall(4).resolves(rows);
 
             const pool = makeMockPool(conn);
             const flavor = { coin: 'BTC', network: 'mainnet', pool };

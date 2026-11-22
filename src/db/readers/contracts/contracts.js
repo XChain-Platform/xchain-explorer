@@ -32,7 +32,7 @@
 
 const crypto  = require('crypto');
 const { extractMethods } = require('../../../contract/introspect.js');
-const { attachOwnerWithdraw, resolveContractNetwork } = require('../../../contract/owner_withdraw.js');
+const { attachOwnerWithdrawRows, resolveContractNetwork } = require('../../../contract/owner_withdraw.js');
 const { indexPresent } = require('../../schema_probe.js');
 
 // The columns the name lane's MATCH names; the FULLTEXT index must cover exactly these.
@@ -246,7 +246,7 @@ class ContractDetailReaders {
             let row = results[0];
             // owner_withdraw reads the raw meta_json, so it is derived before
             // attachContractPermissions parses that column away.
-            attachOwnerWithdraw(row, await resolveContractNetwork(this, config));
+            await attachOwnerWithdrawRows(this, config, row, await resolveContractNetwork(this, config));
             attachContractPermissions(this, row);
             attachContractCodeSurface(this, row);
 

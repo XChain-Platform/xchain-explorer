@@ -115,6 +115,15 @@ async function readContractLeafRows(db, config, bi){
 }
 
 class StateTreeReaders {
+    // The state commitment hashes the spelling held by index_addresses. Its
+    // case-insensitive lookup may resolve an alternate valid bech32 spelling to
+    // a row whose first-seen spelling differs, so proof keys use the stored text.
+    async getStoredAddressSpelling(config, address) {
+        let rows = await this.doQuery(config,
+            'SELECT address FROM index_addresses WHERE address = ? LIMIT 1', [String(address)]);
+        return (rows && rows.length) ? String(rows[0].address) : null;
+    }
+
     // Per-block sub-roots from the indexer DB (state_tree_nodes' companion roots).
     async getStateTreeRow(config, blockIndex) {
         // contract_state_root is the reserved-slot extension column (SPV sub-tree

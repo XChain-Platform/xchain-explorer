@@ -7,8 +7,8 @@
             <div class="card table-responsive mb-3">
                 <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#transaction-info" aria-expanded="false" aria-controls="transaction-info" id="transaction-info-header">
                     <div class="card-title mb-0 p-1 fw-bold">
-                        <i class="fa fa-chain asset-icon-sm"></i> Transaction Information
-                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                        <i class="fa-solid fa-chain asset-icon-sm"></i> Transaction Information
+                        <span class="float-end"><i class="fa-solid fa-chevron-up collapse-icon"></i></span>
                     </div>
                 </a>
                 <div class="collapse show" id="transaction-info">
@@ -51,8 +51,8 @@
             <div class="card table-responsive mb-3">
                 <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#action-info" aria-expanded="false" aria-controls="action-info" id="action-info-header">
                     <div class="card-title mb-0 p-1 fw-bold">
-                        <i class="fa fa-chain asset-icon-sm"></i> Action Information
-                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                        <i class="fa-solid fa-chain asset-icon-sm"></i> Action Information
+                        <span class="float-end"><i class="fa-solid fa-chevron-up collapse-icon"></i></span>
                     </div>
                 </a>
                 <div class="collapse show" id="action-info">
@@ -72,7 +72,10 @@
                     </tr>
                     <tr>
                         <th>Action Status</th>
-                        <td id="action-status"></td>
+                        <td id="action-status">
+                            <span id="action-status-value"></span>
+                            <div id="action-status-reason" class="small text-muted d-none"></div>
+                        </td>
                     </tr>
                     </tbody>
                     </table>
@@ -88,9 +91,9 @@
             <div class="card table-responsive mb-3">
                 <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#action-proof-body" aria-expanded="true" aria-controls="action-proof-body" id="action-proof-header">
                     <div class="card-title mb-0 p-1 fw-bold">
-                        <i class="fa fa-lg fa-shield-halved"></i> SPV Action Proof
+                        <i class="fa-solid fa-lg fa-shield-halved"></i> SPV Action Proof
                         <span class="badge text-bg-light text-muted fw-normal">cryptographic proof against a signed checkpoint</span>
-                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                        <span class="float-end"><i class="fa-solid fa-chevron-up collapse-icon"></i></span>
                     </div>
                 </a>
                 <div class="collapse show" id="action-proof-body">
@@ -117,7 +120,7 @@
                 <div class="container">
                     <div class="row border-bottom">
                         <div class="col-6 text-start pt-1 pb-1 ps-1 align-top fw-bold">
-                            <i id="datatable-header-icon" class="fa fa-info-circle"></i>
+                            <i id="datatable-header-icon" class="fa-solid fa-info-circle"></i>
                             <span id="datatable-header-text">Action Details</span>
                         </div>
                         <div class="col-6 text-end   pt-0 pb-1 pe-1 align-middle">
@@ -126,11 +129,11 @@
                                     more info
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" id="tab-dropdown-info"     ><i class="fa fa-info-circle"       ></i> Details</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-credit"   ><i class="fa fa-plus"              ></i> Credits</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-debit"    ><i class="fa fa-minus"             ></i> Debits</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-escrow"   ><i class="fa fa-clock"             ></i> Escrows</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa fa-cent-sign"         ></i> Fees</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-info"     ><i class="fa-solid fa-info-circle"       ></i> Details</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-credit"   ><i class="fa-solid fa-plus"              ></i> Credits</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-debit"    ><i class="fa-solid fa-minus"             ></i> Debits</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-escrow"   ><i class="fa-solid fa-clock"             ></i> Escrows</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa-solid fa-cent-sign"         ></i> Fees</a></li>
                                 </ul>
                             </div>
                         </div>
@@ -342,7 +345,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-list"></i> Dispenser Status</th>                                    
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-list"></i> Dispenser Status</th>
                             </tr>
                             </thead>
                             </table>
@@ -530,22 +533,29 @@
                         <div class="d-none" id="info-file">
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <tbody>
-                            <tr>
+                            <tr class="file-meta-row">
                                 <th width="155">Name</th>
                                 <td class="file-name"></td>
                             </tr>
-                            <tr>
+                            <tr class="file-meta-row">
                                 <th>Title</th>
                                 <td class="file-title"></td>
                             </tr>
-                            <tr>
+                            <tr class="file-meta-row">
                                 <th>Type</th>
                                 <td class="file-type"></td>
                             </tr>
-                            <tr>
+                            <tr class="file-meta-row">
                                 <th>Memo</th>
                                 <td class="file-memo"></td>
                             </tr>
+                            <tr class="file-part-row d-none"><th>File Hash</th><td class="file-part-hash"></td></tr>
+                            <tr class="file-part-row d-none"><th>Part Index</th><td class="file-part-index"></td></tr>
+                            <tr class="file-part-row d-none"><th>Manifest</th><td class="file-part-manifest"></td></tr>
+                            <tr class="file-multipart-row d-none"><th>File Hash</th><td class="file-multipart-hash"></td></tr>
+                            <tr class="file-multipart-row d-none"><th>Assembly</th><td class="file-multipart-status"></td></tr>
+                            <tr class="file-multipart-row d-none"><th>Parts Received</th><td class="file-multipart-parts"></td></tr>
+                            <tr class="file-multipart-row d-none"><th>Total Size</th><td class="file-multipart-bytes"></td></tr>
                             <tr class="file-gated-row d-none">
                                 <th>Gate Token</th>
                                 <td class="file-gate-ticker"></td>
@@ -571,7 +581,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-file"></i> File Viewer</th>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-file"></i> File Viewer</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -589,26 +599,30 @@
                             <tr><th width="175">Type</th><td class="attest-type"></td></tr>
                             <tr><th class="attest-id-label">Request ID</th><td class="attest-request-id"></td></tr>
                             <tr><th>Provider</th><td class="attest-provider"></td></tr>
-                            <tr><th>Contract</th><td class="attest-contract"></td></tr>
+                            <tr class="attest-contract-row"><th>Contract</th><td class="attest-contract"></td></tr>
+                            <tr class="attest-relay-fields d-none"><th>Origin Chain</th><td class="attest-origin-chain"></td></tr>
+                            <tr class="attest-relay-fields d-none"><th>Origin Action</th><td class="attest-origin-action"></td></tr>
+                            <tr class="attest-relay-note-row d-none"><th>Relay</th><td class="attest-relay-note"></td></tr>
                             </tbody>
                             <tbody class="attest-request-fields">
-                            <tr><th>Fee Payer</th><td class="attest-fee-payer"></td></tr>
+                            <tr class="attest-fee-payer-row"><th>Fee Payer</th><td class="attest-fee-payer"></td></tr>
                             <tr><th>Fee</th><td class="attest-fee"></td></tr>
                             <tr><th>Gas Escrow</th><td class="attest-gas-escrow"></td></tr>
-                            <tr><th>Callback Method</th><td class="attest-callback"></td></tr>
+                            <tr class="attest-callback-row"><th>Callback Method</th><td class="attest-callback"></td></tr>
                             <tr><th>Redundancy</th><td class="attest-redundancy"></td></tr>
                             <tr><th>Deadline Block</th><td class="attest-deadline"></td></tr>
                             <tr><th>Request Status</th><td class="attest-request-status"></td></tr>
                             <tr><th>Payload</th><td class="attest-payload text-break"></td></tr>
-                            <tr><th>Callback Params</th><td class="attest-callback-params text-break"></td></tr>
+                            <tr class="attest-callback-params-row"><th>Callback Params</th><td class="attest-callback-params text-break"></td></tr>
                             </tbody>
                             <tbody class="attest-response-fields">
                             <tr><th>Response Status</th><td class="attest-response-status"></td></tr>
                             <tr><th>Response Hash</th><td class="attest-response-hash"></td></tr>
                             <tr><th>Response Payload</th><td class="attest-response-payload text-break"></td></tr>
                             <tr><th>Meta</th><td class="attest-meta"></td></tr>
-                            <tr><th>Validator Sigs</th><td class="attest-sig-count"></td></tr>
-                            <tr><th>Signing Pubkeys</th><td class="attest-signatures"></td></tr>
+                            <tr class="attest-signature-row"><th>Validator Sigs</th><td class="attest-sig-count"></td></tr>
+                            <tr class="attest-signature-row"><th>Signing Pubkeys</th><td class="attest-signatures"></td></tr>
+                            <tr class="attest-relay-quorum-row d-none"><th>Attestation Quorum</th><td class="attest-relay-quorum"></td></tr>
                             <tr><th>Callback Execute</th><td class="attest-callback-execute"></td></tr>
                             </tbody>
                             <tbody class="attest-batch-fields">
@@ -873,6 +887,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <tbody>
                             <tr><th width="175">Call ID</th><td class="xcall-call-id"></td></tr>
+                            <tr><th>Request Action</th><td class="xcall-request-action"></td></tr>
                             <tr><th>Version</th><td class="xcall-version"></td></tr>
                             <tr><th>Source Contract</th><td class="xcall-contract"></td></tr>
                             <tr><th>Target Chain</th><td class="xcall-target-chain"></td></tr>
@@ -989,7 +1004,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-print"></i> Mints</th>                                    
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-print"></i> Mints</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -1014,7 +1029,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-recycle"></i> Callback</th>                                    
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-recycle"></i> Callback</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -1033,7 +1048,7 @@
                             </tbody>
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-lock"></i> Locks</th>                                    
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-lock"></i> Locks</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -1070,7 +1085,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0 d-none issue-controller-card" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-link"></i> Controller</th>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-link"></i> Controller</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -1095,7 +1110,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0 d-none issue-bridge-card" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-exchange"></i> Bridge Opt-in</th>
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-exchange"></i> Bridge Opt-in</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -1152,7 +1167,7 @@
                                 <th width="155">List Type</th>
                                 <td class="list-type"></td>
                             </tr>
-                            <tr>
+                            <tr class="list-edit-type-row">
                                 <th>Edit Type</th>
                                 <td class="list-edit-type"></td>
                             </tr>
@@ -1181,7 +1196,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-list"></i> List Information</th>                                    
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-list"></i> List Information</th>
                             </tr>
                             </thead>
                             <tbody>
@@ -1197,10 +1212,10 @@
                             </table>
                             <ul class="nav nav-pills nav-justified" id="list-tabs" role="tablist">
                                   <li class="nav-item" role="presentation">
-                                        <button class="nav-link active" id="list-edits-tab" data-bs-toggle="tab" data-bs-target="#list-edits-panel" type="button" role="tab" aria-controls="list-edits-panel" aria-selected="true"><i class="fa fa-lg fa-edit"></i> List Edits</button>
+                                        <button class="nav-link active" id="list-edits-tab" data-bs-toggle="tab" data-bs-target="#list-edits-panel" type="button" role="tab" aria-controls="list-edits-panel" aria-selected="true"><i class="fa-solid fa-lg fa-edit"></i> List Edits</button>
                                   </li>
                                   <li class="nav-item" role="presentation">
-                                        <button class="nav-link" id="list-items-tab" data-bs-toggle="tab" data-bs-target="#list-items-panel" type="button" role="tab" aria-controls="list-items-panel" aria-selected="false"><i class="fa fa-lg fa-list"></i> Full List</button>
+                                        <button class="nav-link" id="list-items-tab" data-bs-toggle="tab" data-bs-target="#list-items-panel" type="button" role="tab" aria-controls="list-items-panel" aria-selected="false"><i class="fa-solid fa-lg fa-list"></i> Full List</button>
                                   </li>
                             </ul>
                             <div class="tab-content" id="list-tab-content">
@@ -1330,7 +1345,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-list"></i> Order Status</th>                                    
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-list"></i> Order Status</th>
                             </tr>
                             </thead>
                             </table>
@@ -1565,7 +1580,7 @@
                             <table class="table table-sm table-striped table-hover table-bordered mb-0" width="100%">
                             <thead>
                             <tr>
-                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa fa-lg fa-list"></i> Swap Status</th>                                    
+                                <th colspan="2" class="bg-dark text-white ps-2"><i class="fa-solid fa-lg fa-list"></i> Swap Status</th>
                             </tr>
                             </thead>
                             </table>
@@ -1781,6 +1796,10 @@
                                 <th width="155">Version</th>
                                 <td class="anchor-version"></td>
                             </tr>
+                            <tr class="anchor-undecoded-row d-none">
+                                <th>Payload</th>
+                                <td>Not decoded for this version</td>
+                            </tr>
                             <tr>
                                 <th>Sections</th>
                                 <td class="anchor-sections"></td>
@@ -1934,7 +1953,7 @@
                                  (and empty) on a single-round v0 row and on a v1 oracle. -->
                             <div class="price-rounds-block d-none">
                                 <div class="mt-3 mb-1 fw-semibold">
-                                    <i class="fa fa-line-chart fa-fw me-1"></i>Round Prices
+                                    <i class="fa-solid fa-line-chart fa-fw me-1"></i>Round Prices
                                     <span class="opacity-50 fw-normal price-rounds-summary"></span>
                                 </div>
                                 <div class="price-rounds"></div>
@@ -2079,14 +2098,22 @@
                         <td class="fee-tick"></td>
                     </tr>
                     <tr>
-                        <th>Amount</th>
+                        <th class="fee-amount-label">Amount</th>
                         <td class="fee-amount"></td>
+                    </tr>
+                    <tr class="fee-native-row d-none">
+                        <th>Paid in Native Coin</th>
+                        <td class="fee-native"></td>
+                    </tr>
+                    <tr class="fee-oracle-row d-none">
+                        <th>Oracle Round</th>
+                        <td class="fee-oracle"></td>
                     </tr>
                     <tr>
                         <th>Method</th>
                         <td class="fee-method"></td>
                     </tr>
-                    <tr>
+                    <tr class="fee-destination-row">
                         <th>Destination</th>
                         <td class="fee-destination"></td>
                     </tr>
@@ -2103,7 +2130,13 @@
      showActionDetails() needs them before it can mount anything and a second
      round trip would block the render on the busiest detail page here. -->
 <script type="application/json" id="xc-action-detail-cards">{DATA:action-detail-cards}</script>
+<script type="text/javascript" src="/js/xbridge_panels_render/settlement.js"></script>
 <script type="text/javascript" src="/js/xbridge_panels_render.js"></script>
+<script type="text/javascript">
+var ANCHOR_ACTIVATION = {ANCHOR_ACTIVATION};
+var ANCHOR_FOLD_ACTIVATION = {ANCHOR_FOLD_ACTIVATION};
+</script>
+<script type="text/javascript" src="/js/anchor_detail_render/state.js"></script>
 <script type="text/javascript">
 
 // Render for the SPV action-proof widget. leaf/merkle_proof are the raw
@@ -2164,6 +2197,7 @@ $(document).ready(function(){
 
     function renderActionNotFound(){
         XC.actionInfo = null;
+        XC.actionNoSourceTx = false;
         $('#transaction-info tbody').html('<tr><td colspan="2" class="text-muted" id="action-not-found">No action exists at this index.</td></tr>');
         $('#action-info tbody').html('<tr><td colspan="2" class="text-muted">-</td></tr>');
         $('#data-panels').html('<div class="p-5 text-center text-muted">No action details to show.</div>');
@@ -2191,7 +2225,7 @@ $(document).ready(function(){
                 renderActionNotFound();
                 return;
             }
-            XC.actionInfo = null2string(o);
+            setActionInfo(o);
             showActionDetails();
             if(o.action === 'LIST'){
                 $('#info-list .list-name').text(isNull(o.name) ? '' : String(o.name));

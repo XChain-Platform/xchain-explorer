@@ -5,7 +5,7 @@
         <div class="col-12 col-lg-7">
             <div class="card mb-3">
                 <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-lg fa-certificate"></i> Checkpoint at Block <span id="checkpoint-block"></span>
+                    <i class="fa-solid fa-lg fa-certificate"></i> Checkpoint at Block <span id="checkpoint-block"></span>
                 </div>
                 <div class="card-body p-2">
                     <table class="table table-sm table-borderless mb-0">
@@ -20,7 +20,7 @@
         <div class="col-12 col-lg-5">
             <div class="card mb-3">
                 <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-lg fa-user-shield"></i> Signers
+                    <i class="fa-solid fa-lg fa-user-shield"></i> Signers
                 </div>
                 <div class="card-body p-2" id="checkpoint-signers">
                     <span class="text-muted">Loading signers...</span>
@@ -29,7 +29,7 @@
 
             <div class="card mb-3">
                 <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-lg fa-list-check"></i> Verification
+                    <i class="fa-solid fa-lg fa-list-check"></i> Verification
                 </div>
                 <div class="card-body p-2">
                     <!-- Verification is a button rather than part of the page load: the route
@@ -37,7 +37,7 @@
                          set, which is why it carries its own tighter rate limiter. -->
                     <button class="btn btn-sm btn-primary" id="checkpoint-verify-btn">Verify Signatures</button>
                     <div class="mt-2" id="checkpoint-verdict">
-                        <span class="text-muted small">Not verified yet. Verifying re-checks every signature against the validator set that qualified at the snapshot block.</span>
+                        <span class="text-muted small">Not verified yet. Verifying re-checks every signature against the validator set mirrored from the hub at the snapshot block.</span>
                     </div>
                 </div>
             </div>
@@ -46,7 +46,7 @@
         <div class="col-12">
             <div class="card mb-3">
                 <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-lg fa-timeline"></i> Settlement Lifecycle
+                    <i class="fa-solid fa-lg fa-timeline"></i> Settlement Lifecycle
                 </div>
                 <div class="card-body p-2" id="checkpoint-timeline"></div>
             </div>

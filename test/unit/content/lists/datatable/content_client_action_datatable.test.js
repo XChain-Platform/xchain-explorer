@@ -55,7 +55,9 @@ function renderRows(type, rows) {
         function tokenUrl(coin, tick){ return "/" + coin + "/token/" + encodeURIComponent(String(tick)); }
         function formatLink(href, text){ return '<a href="' + href + '">' + text + '</a>'; }
         function formatAmount(v){ return String(v); }
+        function escapeHtml(v){ return String(v); }
         function initStaticDatatable(){ }
+        function isNull(v){ return v === null || v === undefined || v === ''; }
     `);
     dom.window.XC = { coin: 'BTC' };
     const seen = [];
@@ -63,9 +65,11 @@ function renderRows(type, rows) {
         seen.push({ action, details });
         return 'summary';
     };
+    dom.window.eval(extractFn('actionDetail_isAcceptedStatus'));
+    dom.window.eval(extractFn('actionDetail_statusClass'));
     dom.window.eval(extractFn('showActionDatatable'));
     dom.window.showActionDatatable(type, rows);
-    return seen;
+    return { seen, html: dom.window.document.querySelector('tbody').innerHTML };
 }
 
 describe('showActionDatatable client: unwraps only a summary OBJECT, never a raw feed BET details string', function () {
@@ -74,7 +78,7 @@ describe('showActionDatatable client: unwraps only a summary OBJECT, never a raw
         // governance.js keeps the raw DETAILS payload verbatim on a feed BET, and a
         // batch member row is the flat getActionData payload, so `.details` here is
         // hostile base64, not a summary object.
-        const seen = renderRows('batch', [{
+        const { seen } = renderRows('batch', [{
             action: 'BET', action_index: 42, status: 'valid',
             bet_kind: 'feed', label: 'Will it rain?', tick: 'XCP',
             details: 'eyJ1cmwiOiJodHRwczovL2V2aWwuZXhhbXBsZSJ9',
@@ -89,7 +93,7 @@ describe('showActionDatatable client: unwraps only a summary OBJECT, never a raw
     it('the transaction actions table still gets its nested summary object', function () {
         // getActionSummaryData builds this shape; unwrapping it is the behavior the
         // renderer was written for and must be preserved.
-        const seen = renderRows('actions', [{
+        const { seen } = renderRows('actions', [{
             action: 'SEND', action_index: 7, status: 'valid',
             details: { tick: 'XCP', amount: '10', destination: 'addr2' },
         }]);
@@ -99,10 +103,23 @@ describe('showActionDatatable client: unwraps only a summary OBJECT, never a raw
 
     it('a row with no summary (details false) falls back to the flat row', function () {
         // getActionSummaryData assigns `false` when no summary field matched.
-        const seen = renderRows('actions', [{
+        const { seen } = renderRows('actions', [{
             action: 'ISSUE', action_index: 9, status: 'valid', tick: 'XCP', details: false,
         }]);
         expect(seen).to.have.lengthOf(1);
         expect(seen[0].details.tick).to.equal('XCP');
+    });
+
+    it('renders completed UNSTAKE green and a missing consensus status neutral with a dash', function () {
+        const completed = renderRows('actions', [{
+            action: 'UNSTAKE', action_index: 10, status: 'completed', details: false,
+        }]).html;
+        const unknown = renderRows('actions', [{
+            action: 'ROLLCALL', action_index: 11, details: false,
+        }]).html;
+        expect(completed).to.include('bg-green');
+        expect(unknown).to.not.include('bg-red');
+        expect(unknown).to.include('<td>-</td>');
+        expect(unknown).to.not.include('undefined');
     });
 });

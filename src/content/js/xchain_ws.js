@@ -28,13 +28,8 @@
 // test (test/unit/ws/schema_version_client.test.js) fails the build if they drift.
 var CLIENT_WS_SCHEMA_VERSION = 2;
 
-// The cursor tracking (xcWsTrackCursor, xcWsMaxIndex) lives in xchain_ws_catch_up.js
-// beside the reconnect catch-up it feeds; the page loads that file right after this one.
-// The rules it applies to lastActionIndex, which _onMessage runs on every frame: WELCOME
-// seeds the cursor only while it is unset; only NEW_ACTION and CATCH_UP_COMPLETE move it
-// forward, and only to a higher index; a REORG frame moves it back below the rollback's
-// first invalidated index; and while a reconnect catch-up runs, frames are held in its
-// maxSeen and applied only once every queued replay has closed.
+// Cursor tracking lives in xchain_ws_catch_up.js, loaded after this file. WELCOME seeds
+// an unset cursor, action delivery advances it, and a REORG rewinds it.
 
 // Envelope schema gate: the server stamps every frame with
 // schema_version (distinct from the build version). If the server
@@ -47,7 +42,41 @@ function xcWsCheckSchema(client, msg) {
             ' is newer than this client understands (' + CLIENT_WS_SCHEMA_VERSION + '); event payload shapes may have changed.');
     }
 }
+// Entity params and each channel's singular and plural request names.
+var XC_WS_ENTITY_PARAMS = ['address', 'addresses', 'tick', 'ticks', 'tick1', 'tick2',
+    'pairs', 'action_index', 'action_indexes', 'call_id', 'call_ids'];
+var XC_WS_ENTITY_NAMES = { address: ['address', 'addresses'], token: ['tick', 'ticks', true],
+    dispenser: ['action_index', 'action_indexes'], bet_feed: ['action_index', 'action_indexes'],
+    xcall: ['call_id', 'call_ids'] };
 
+// The channel and entity key named by an UNSUBSCRIBED frame.
+function xcWsFrameKey(d) {
+    var id = d.channel === 'market' ? d.tick1 + '|' + d.tick2 : [d.address, d.tick, d.action_index, d.call_id].filter(function(v) { return v !== undefined; })[0];
+    id = id === undefined ? '' : String(id);
+    return d.channel + ':' + (d.channel === 'xcall' ? id.toLowerCase() : id);
+}
+// Mark unsubscribed channel/entity keys and discard entries with none left.
+function xcWsRemoveTracked(client, channels, params) {
+    for (var c = 0; c < channels.length; c++) {
+        var channel = channels[c], removed = xcWsKeysOf(channel, params);
+        if (removed.length === 0) continue;
+        for (var s = 0; s < client.subscriptions.length; s++) {
+            var sub = client.subscriptions[s]; if (sub.channels.indexOf(channel) === -1) continue;
+            var held = xcWsKeysOf(channel, sub.params);
+            for (var r = 0; r < removed.length; r++) for (var h = 0; h < held.length; h++) {
+                if (removed[r].id === held[h].id) (sub.removed = sub.removed || {})[channel + ':' + held[h].id] = true;
+            }
+        }
+    }
+    client.subscriptions = client.subscriptions.filter(function(sub) {
+        for (var c = 0; c < sub.channels.length; c++) {
+            var keys = xcWsKeysOf(sub.channels[c], sub.params);
+            for (var k = 0; k < keys.length; k++) if (!sub.removed ||
+                !sub.removed[sub.channels[c] + ':' + keys[k].id]) return true;
+        }
+        return false;
+    });
+}
 // Handle system messages
 function xcWsHandleSystemMessage(client, msg) {
     if (msg.type === 'WELCOME') {
@@ -76,6 +105,8 @@ function xcWsHandleSystemMessage(client, msg) {
     if (client._catchUp && (msg.type === 'CATCH_UP_COMPLETE' || msg.type === 'error')) {
         client._catchUpAnswered(msg);
     }
+
+    if (msg.type === 'UNSUBSCRIBED' && msg.data && msg.data.reason === 'once') client._noteOnceSpent(msg.data);
 
     // The answer to a plain subscribe this client sent (xchain_ws_catch_up.js).
     if (msg.id !== undefined) client._subscribeAnswered(msg);
@@ -107,14 +138,11 @@ function xcWsDispatchMessage(client, msg) {
 
 var XChainWS = {
 
-    // State
     ws:                   null,
     url:                  null,
     coin:                 null,
     subscriptions:        [],
-    // Exact decimal STRING from the v2 wire, or null when unseeded. Number() rounded
-    // it above 2^53 and the rounded value went back out as since_action_index, so a
-    // reconnect asked for rows after an action never delivered.
+    // Exact decimal STRING from the v2 wire, or null when unseeded.
     lastActionIndex:      null,
     reconnectAttempts:    0,
     maxReconnectAttempts: 10,
@@ -125,14 +153,11 @@ var XChainWS = {
     intentionalClose:     false,
     serverInfo:           null,
     catchingUp:           false,
-    // The reconnect catch-up in progress, or null. It and the methods that drive it
-    // live in xchain_ws_catch_up.js, which the page loads right after this file.
+    // The reconnect catch-up in progress, or null.
     _catchUp:             null,
     _schemaWarned:        false,
     handlers:             {},
-    // Outbound pacing state and the resubscribe retry table live with the reconnect
-    // code in xchain_ws_catch_up.js, which the page loads right after this file.
-
+    // Outbound pacing and retry state live in xchain_ws_catch_up.js.
     // Connect to the WebSocket server for a given coin
     connect: function(coin) {
         if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
@@ -173,7 +198,6 @@ var XChainWS = {
         }
     },
 
-    // Register an event handler
     on: function(eventType, callback) {
         if (!this.handlers[eventType]) {
             this.handlers[eventType] = [];
@@ -200,11 +224,7 @@ var XChainWS = {
     unsubscribe: function(channels, params) {
         var msg = { action: 'unsubscribe', channels: channels };
         if (params) msg.params = params;
-        // Remove from tracked subscriptions
-        this.subscriptions = this.subscriptions.filter(function(sub) {
-            return JSON.stringify(sub.channels) !== JSON.stringify(channels) ||
-                   JSON.stringify(sub.params) !== JSON.stringify(params || {});
-        });
+        xcWsRemoveTracked(this, channels, params || {});
         this._send(msg);
     },
 

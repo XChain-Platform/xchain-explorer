@@ -36,6 +36,11 @@ const DETAIL_STATEMENTS = [
 const LIST_STATEMENTS = ['ORDER_EDITS', 'ORDER_MATCHES'];
 
 describe('order action-detail SQL', function() {
+    it('keeps rejected cancel and edit rows when the parent is missing', function() {
+        expect(statements.ORDER_CANCEL_DETAIL).to.match(/LEFT\s+JOIN orders/);
+        expect(statements.ORDER_EDIT_DETAIL).to.match(/LEFT\s+JOIN orders/);
+    });
+
     it('exports exactly the documented statements', function() {
         expect(statements).to.have.all.keys(Object.keys(EXPECTED_PLACEHOLDERS));
     });

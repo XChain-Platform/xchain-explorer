@@ -24,6 +24,9 @@ const DEFAULTS = {
     intervalMinutes: 15,
     batchSize:       50,
     fetchTimeoutMs:  5000,
+    // Total time for one GET, including redirects and a body that never goes
+    // idle. The pass is serial, so one unbounded fetch would stop every flavor.
+    fetchDeadlineMs: 30000,
     maxBytes:        5 * 1024 * 1024,
     iconSize:        64,
     requestDelayMs:  200,

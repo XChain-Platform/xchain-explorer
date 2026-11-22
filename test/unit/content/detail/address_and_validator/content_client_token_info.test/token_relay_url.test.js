@@ -10,14 +10,16 @@
 'use strict';
 
 const fs = require('fs');
+const { createHash } = require('crypto');
 const { JSDOM } = require('jsdom');
 const { expect } = require('chai');
 const SOURCE = require('../../../../../helpers/content-source.js');
 // The copy the /relay endpoint loads: the same file, required through Node.
-const { tokenInfo_metadataUrl } = require(SOURCE.JS_DIR + '/xchain/token_info.js');
+const { tokenInfo_metadataUrl, tokenInfo_expectedHash } = require(SOURCE.JS_DIR + '/xchain/token_info.js');
 
 const PAGE_HTML = fs.readFileSync(SOURCE.HTML_DIR + '/token.html', 'utf8');
 const TOKEN_INFO_SRC = fs.readFileSync(SOURCE.JS_DIR + '/xchain/token_info.js', 'utf8');
+const TOKEN_INFO_INTEGRITY_SRC = fs.readFileSync(SOURCE.JS_DIR + '/xchain/token_info_integrity.js', 'utf8');
 const JQUERY_SRC = fs.readFileSync(SOURCE.JS_DIR + '/jquery.min.js', 'utf8');
 
 const FAIRYWINK_URL = 'https://cryptowave.neocities.org/smokingfairywink.json';
@@ -47,6 +49,7 @@ function boot(){
             return { fail: function(fn){ fn(); return this; } };
         };
     `);
+    win.eval(TOKEN_INFO_INTEGRITY_SRC);
     win.eval(TOKEN_INFO_SRC);
     return win;
 }
@@ -62,30 +65,45 @@ function tokenFixture(tick, description){
     };
 }
 
+function installPinnedFetch(win, body){
+    const bytes = Buffer.from(body);
+    win.TextDecoder = TextDecoder;
+    win.fetch = async () => ({
+        ok: true,
+        arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    });
+    Object.defineProperty(win.crypto, 'subtle', { configurable: true, value: {
+        digest: async (_algorithm, input) => {
+            const digest = createHash('sha256').update(Buffer.from(input)).digest();
+            return digest.buffer.slice(digest.byteOffset, digest.byteOffset + digest.byteLength);
+        },
+    } });
+}
+
+// Cover forms that can name a non-gateway host for both page and relay parsing.
+const METADATA_DESCRIPTIONS = [
+    FAIRYWINK_URL,
+    STARE_URL,
+    'http://example.org/meta.json',
+    'https://example.org/meta.json;see the site',
+    'example.org/meta.json',
+    'https://example.org/page',
+    'ipfs://QmMetadataHash',
+    'ar:abc123',
+    'https://arweave.net/abc123/x.json',
+    'ord:' + 'ab'.repeat(32),
+    'just a sentence',
+    'https://api.example.com/token/json',
+    'https://host.example/meta.json/icon.png',
+    'a jsonish coin',
+    'The first JSON token;XChain',
+    'https://example.org/meta.json?v=2',
+    'https://example.org/meta.JSON',
+    null
+];
+
 describe('client: token metadata URL rule shared with the relay', function () {
-    // action: and short ord: forms derive through page-only helpers and never name a
-    // non-gateway host, so the relay does not need them and they are left out here.
-    const descriptions = [
-        FAIRYWINK_URL,
-        STARE_URL,
-        'http://example.org/meta.json',
-        'https://example.org/meta.json;see the site',
-        'example.org/meta.json',
-        'https://example.org/page',
-        'ipfs://QmMetadataHash',
-        'ar:abc123',
-        'https://arweave.net/abc123/x.json',
-        'ord:' + 'ab'.repeat(32),
-        'just a sentence',
-        'https://api.example.com/token/json',
-        'https://host.example/meta.json/icon.png',
-        'a jsonish coin',
-        'The first JSON token;XChain',
-        'https://example.org/meta.json?v=2',
-        'https://example.org/meta.JSON',
-        null
-    ];
-    for (const desc of descriptions) {
+    for (const desc of METADATA_DESCRIPTIONS) {
         it(`derives the same URL on the page and in Node for ${JSON.stringify(desc)}`, function () {
             const win = boot();
             const pageUrl = win.tokenInfo_getJsonUrl(win.tokenInfo_prepareDescription(desc));
@@ -119,6 +137,13 @@ describe('client: token metadata URL rule shared with the relay', function () {
     it('derives an ordinary JSON host to the URL itself', function () {
         expect(tokenInfo_metadataUrl(FAIRYWINK_URL)).to.equal(FAIRYWINK_URL);
         expect(tokenInfo_metadataUrl('http://example.org/meta.json;x')).to.equal('https://example.org/meta.json');
+    });
+
+    it('recognizes only a 64-hex URL suffix as an integrity pin', function () {
+        const hash = 'aB'.repeat(32);
+        expect(tokenInfo_expectedHash(`https://example.org/meta.json;${hash}`)).to.equal(hash.toLowerCase());
+        expect(tokenInfo_expectedHash('https://example.org/meta.json;title')).to.equal(null);
+        expect(tokenInfo_expectedHash(`ipfs:QmHash;${hash}`)).to.equal(null);
     });
 });
 
@@ -154,5 +179,34 @@ describe('client: token metadata relay request', function () {
         expect(relay.searchParams.get('url')).to.equal(inscription);
         expect(relay.searchParams.get('tick')).to.equal('A&B');
         expect(relay.searchParams.has('tx')).to.be.false;
+    });
+});
+
+describe('client: token metadata integrity', function () {
+    it('renders a pinned document only after its exact bytes match', async function () {
+        const win = boot();
+        const body = '{"name":"PINNED"}';
+        const hash = createHash('sha256').update(body).digest('hex');
+        installPinnedFetch(win, body);
+        win.eval('var rendered = []; showTokenContent = function(o){ rendered.push(o); };');
+
+        win.tokenInfo_loadContent('https://example.org/meta.json', 'TDOGE', 'PINNED', hash);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(win.rendered).to.deep.equal([{ name: 'PINNED' }]);
+    });
+
+    it('shows an integrity warning and does not relay a direct mismatch', async function () {
+        const win = boot();
+        installPinnedFetch(win, '{"name":"SWAPPED"}');
+        win.eval('var rendered = []; showTokenContent = function(o){ rendered.push(o); };');
+
+        win.tokenInfo_loadContent('https://example.org/meta.json', 'TDOGE', 'PINNED', '00'.repeat(32));
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(win.rendered).to.deep.equal([undefined]);
+        expect(win.document.querySelector('#token-metadata-integrity-error').textContent)
+            .to.include('failed its integrity check');
+        expect(win.fetched).to.have.length(0);
     });
 });

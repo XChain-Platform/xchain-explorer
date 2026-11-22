@@ -65,19 +65,21 @@ function stageRoot() {
     return { root, src, dest: path.join(root, 'xchain-vm') };
 }
 
-function runCheck(fixture) {
+function runCheck(fixture, overrides = {}) {
+    const env = Object.assign({}, process.env);
+    delete env.XCHAIN_REQUIRE_SIBLINGS;
+    delete env.XCHAIN_VM_ALLOW_UNVERIFIED;
     return spawnSync('bash', [path.join(fixture.root, 'bin', 'vendor-vm.sh'), 'check'], {
         encoding: 'utf8',
-        env: Object.assign({}, process.env, { XCHAIN_VM_SOURCE: fixture.src })
+        env: Object.assign(env, { XCHAIN_VM_SOURCE: fixture.src }, overrides)
     });
 }
 
+after(function () {
+    for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
+});
+
 describe('vendored-VM check mode write boundary @regression', function () {
-
-    after(function () {
-        for (const root of roots) fs.rmSync(root, { recursive: true, force: true });
-    });
-
     it('VMCHK-1: refuses a vendored tree that is present with an unreadable CONSENSUS_VERSION', function () {
         if (!haveRsync()) return this.skip();
         const fixture = stageRoot();
@@ -127,5 +129,52 @@ describe('vendored-VM check mode write boundary @regression', function () {
 
         assert.notStrictEqual(run.status, 0, `check accepted a version mismatch:\n${out}`);
         assert.match(out, /DRIFT/, out);
+    });
+});
+
+describe('vendored-VM check mode write boundary @regression', function () {
+    it('rejects a present copy when canonical source is missing', function () {
+        const fixture = stageRoot();
+        fs.mkdirSync(path.join(fixture.dest, 'src'), { recursive: true });
+        fs.writeFileSync(path.join(fixture.dest, 'src', 'marker.js'), 'unchanged\n');
+        const missing = path.join(fixture.root, 'missing-vm');
+
+        const run = runCheck(fixture, { XCHAIN_VM_SOURCE: missing });
+        assert.notStrictEqual(run.status, 0);
+        assert.match(`${run.stdout}${run.stderr}`, /UNVERIFIED/);
+        assert.strictEqual(fs.readFileSync(path.join(fixture.dest, 'src', 'marker.js'), 'utf8'), 'unchanged\n');
+    });
+
+    it('accepts a missing source when no vendored copy exists', function () {
+        const fixture = stageRoot();
+        const run = runCheck(fixture, { XCHAIN_VM_SOURCE: path.join(fixture.root, 'missing-vm') });
+
+        assert.strictEqual(run.status, 0, run.stderr);
+        assert.strictEqual(fs.existsSync(fixture.dest), false);
+    });
+
+    it('allows a present unverified copy only through the explicit opt-out', function () {
+        const fixture = stageRoot();
+        fs.mkdirSync(path.join(fixture.dest, 'src'), { recursive: true });
+        const run = runCheck(fixture, {
+            XCHAIN_VM_SOURCE: path.join(fixture.root, 'missing-vm'),
+            XCHAIN_VM_ALLOW_UNVERIFIED: '1'
+        });
+
+        assert.strictEqual(run.status, 0, run.stderr);
+        assert.match(`${run.stdout}${run.stderr}`, /UNVERIFIED/);
+    });
+
+    it('keeps strict mode stronger than the unverified opt-out', function () {
+        const fixture = stageRoot();
+        fs.mkdirSync(path.join(fixture.dest, 'src'), { recursive: true });
+        const run = runCheck(fixture, {
+            XCHAIN_VM_SOURCE: path.join(fixture.root, 'missing-vm'),
+            XCHAIN_VM_ALLOW_UNVERIFIED: '1',
+            XCHAIN_REQUIRE_SIBLINGS: '1'
+        });
+
+        assert.notStrictEqual(run.status, 0);
+        assert.match(`${run.stdout}${run.stderr}`, /refusing to skip/);
     });
 });

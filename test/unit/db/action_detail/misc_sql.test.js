@@ -25,6 +25,7 @@ const EXPECTED_BINDINGS = {
     BROADCAST_QUERY: 1,
     CALLBACK_QUERY: 1,
     FILE_QUERY: 1,
+    FILE_PART_QUERY: 1,
     MESSAGE_QUERY: 1,
     SLEEP_QUERY: 1,
     LIST_QUERY: 1,
@@ -68,4 +69,9 @@ describe('miscellaneous action-detail SQL', function() {
             }
         });
     }
+
+    it('selects the raw item id for union list members and edits', function() {
+        expect(miscSql.LIST_QUERY2).to.match(/SELECT\s+l1\.item_id,/i);
+        expect(miscSql.LIST_QUERY3).to.match(/SELECT\s+l1\.item_id,/i);
+    });
 });

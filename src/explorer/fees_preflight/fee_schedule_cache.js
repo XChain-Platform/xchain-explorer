@@ -127,4 +127,4 @@ class FeeScheduleCache {
 // The process-wide instance the route reads through.
 const feeScheduleCache = new FeeScheduleCache();
 
-module.exports = { FeeScheduleCache, feeScheduleCache, DEFAULT_TTL_MS, DEFAULT_STALE_MAX_MS };
+module.exports = { FeeScheduleCache, feeScheduleCache };

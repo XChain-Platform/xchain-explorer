@@ -19,6 +19,7 @@
  * fails here instead of silently leaving every baseline unusable as evidence.
  * While no baseline validates, AWAITING_VALID_BASELINE must say why; the first
  * one that validates must clear it, which arms a check that one stays usable.
+ * AWAITING_COVERED_BASELINE applies the same rule to current component coverage.
  *
  ********************************************************************/
 
@@ -41,11 +42,14 @@ const KNOWN_INCOMPATIBLE = {
     'baseline-2026-08-20.json': /Render census property count \(23\) incompatible with current probe \(29\)/,
     // Headless capture in a per-mode shape the builder never writes: no anchors, no probe schema
     'baseline-2026-10-12-classic.json': /Page coin_home\.anchors must have matched\/total form$/,
+    // Probe schema v2 records rendered values for custom-property-only rules
+    'baseline-2026-10-20.json': /Baseline schema version \(1\) incompatible with current probe \(2\)/,
 };
 
-// Why no baseline is usable evidence today; null since baseline-2026-10-20.json, a builder-made
-// testnet capture, validates against the current probe
-const AWAITING_VALID_BASELINE = null;
+// Why no baseline is usable evidence today: baseline-2026-10-20.json, the only builder-made
+// testnet capture, is probe schema v1, and no schema v2 capture has landed yet
+const AWAITING_VALID_BASELINE = 'probe schema v2 awaits a fresh custom-property-rule capture';
+const AWAITING_COVERED_BASELINE = 'no current-probe capture includes component selector coverage';
 
 // List the dated baseline files in the tool directory
 function baselineFiles() {
@@ -62,6 +66,17 @@ function validBaselineCount() {
     return baselineFiles().filter((name) => {
         try { return validateBaseline(readBaseline(name)) === true; }
         catch (_) { return false; }
+    }).length;
+}
+
+// Count current-probe baselines that measure both page and component selectors
+function coveredBaselineCount() {
+    return baselineFiles().filter((name) => {
+        const baseline = readBaseline(name);
+        try { validateBaseline(baseline); }
+        catch (_) { return false; }
+        return baseline.coverage && baseline.coverage.pageLevel.selectors > 0 &&
+            baseline.coverage.components.selectors > 0;
     }).length;
 }
 
@@ -103,6 +118,18 @@ describe('theme parity baselines: every dated baseline is accounted for', functi
         assert.ok(typeof AWAITING_VALID_BASELINE === 'string' && AWAITING_VALID_BASELINE.trim(),
             'AWAITING_VALID_BASELINE must state why no baseline validates');
         assert.equal(valid, 0, 'a baseline now validates: set AWAITING_VALID_BASELINE to null to arm this check');
+    });
+
+    it('holds a valid baseline with component coverage, or records why not', function () {
+        const covered = coveredBaselineCount();
+        if (AWAITING_COVERED_BASELINE === null) {
+            assert.ok(covered >= 1, 'no valid baseline measures page-level and component selectors');
+            return;
+        }
+        assert.ok(typeof AWAITING_COVERED_BASELINE === 'string' && AWAITING_COVERED_BASELINE.trim(),
+            'AWAITING_COVERED_BASELINE must state why coverage is missing');
+        assert.equal(covered, 0,
+            'a covered baseline now validates: set AWAITING_COVERED_BASELINE to null');
     });
 });
 

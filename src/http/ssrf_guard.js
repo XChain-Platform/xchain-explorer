@@ -14,16 +14,53 @@
  *
  * XChain Explorer - SSRF guard
  *
- * Canonical private/internal-address classifier plus a dns.lookup-compatible
- * shim, shared by every outbound-fetch path that follows an attacker-influenced
- * URL (the /relay endpoint and the IconDownloader, which fetches URLs derived
- * from on-chain token descriptions). Single-sourcing the range list here keeps
- * the two egress paths from drifting apart (they previously carried two
- * different, incomplete copies).
+ * Canonical private/internal-address classifier, direct-egress options and a
+ * dns.lookup-compatible shim shared by every outbound-fetch path that follows
+ * an attacker-influenced URL.
  *
  ********************************************************************/
 
 const netmod = require('net');
+const http   = require('http');
+const https  = require('https');
+
+const DIRECT_HTTP_AGENT = new http.Agent();
+const DIRECT_HTTPS_AGENT = new https.Agent();
+
+const PROXY_ENV_KEYS = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'];
+const configEnv = () => require('../config.js').env;
+let proxyEnvWarned = false;
+
+// A proxy resolves the destination host itself, so the lookup guard never sees
+// the real target. Guarded requests therefore always connect directly; when the
+// environment names a proxy, say once that it is being ignored so a deployment
+// that depends on one finds out from the log instead of from failed fetches.
+function warnIgnoredProxyEnv(log) {
+    if (proxyEnvWarned) return false;
+    const set = PROXY_ENV_KEYS.filter((key) => configEnv()[key]);
+    if (!set.length) return false;
+    proxyEnvWarned = true;
+    log('[ssrf_guard] ' + set.join(', ') + ' ignored: guarded fetches connect directly');
+    return true;
+}
+
+// A guarded lookup only validates the socket destination. Keep forward proxies
+// and proxy-aware global agents out of requests that depend on that lookup.
+function directEgressOptions(log = console.warn) {
+    warnIgnoredProxyEnv(log);
+    return {
+        proxy: false,
+        httpAgent: DIRECT_HTTP_AGENT,
+        httpsAgent: DIRECT_HTTPS_AGENT
+    };
+}
+
+// Axios timeout becomes an idle timer after response headers arrive. Pair it
+// with this signal when a guarded request also needs a total wall-clock bound.
+function egressSignal(deadlineMs, clientSignal) {
+    const deadline = AbortSignal.timeout(deadlineMs);
+    return clientSignal ? AbortSignal.any([deadline, clientSignal]) : deadline;
+}
 
 // Expand an IPv6 literal to its eight 16-bit groups, so every spelling of one
 // address classifies alike. Returns null when the text cannot be read as IPv6,
@@ -148,4 +185,4 @@ function makeSafeLookup(dnsModule) {
     };
 }
 
-module.exports = { isPrivateAddress, makeSafeLookup };
+module.exports = { isPrivateAddress, makeSafeLookup, directEgressOptions, egressSignal, warnIgnoredProxyEnv };

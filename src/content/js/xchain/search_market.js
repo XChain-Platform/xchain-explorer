@@ -47,19 +47,28 @@ function highlightSearchTerm(term, text){
     // third route: blank it before the coercion below can name it.
     if(isNull(text)) return '';
     // This result is inserted via .html() on the list pages, and `text` is
-    // untrusted on-chain content (memo / message / description). Escape it
-    // first so the only markup we introduce is the highlight <span>. Without
+    // untrusted on-chain content (memo / message / description). Every piece
+    // is escaped, so the only markup we introduce is the highlight <span>. Without
     // this, a token memo/description of "<img src=x onerror=…>" is stored XSS.
-    text = escapeHtml(String(text));
-    term = escapeHtml(String(term));
-    if(!term) return text;
-    // Escape regex metacharacters so a crafted search term can't form an invalid
-    // or catastrophic-backtracking (ReDoS) pattern; match within the escaped text.
-    let safe  = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    let regex = new RegExp(safe, 'gi');
-    return text.replace(regex, function(match){
-        return '<span class="highlight-search-term">' + match + '</span>';
-    });
+    text = String(text);
+    term = String(term);
+    if(!term) return escapeHtml(text);
+    // Match on the RAW text and escape each piece afterwards. Matching the
+    // escaped term over escaped text lets a term such as "lt", "quot" or "#39"
+    // hit inside an entity body and split it with the highlight span, so the
+    // stored character displays as literal "&lt;". Regex metacharacters in the
+    // term are escaped so a crafted term can not form an invalid or
+    // catastrophic-backtracking (ReDoS) pattern.
+    let safe  = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    let regex = new RegExp(safe, "gi");
+    let out = "", last = 0, m;
+    while((m = regex.exec(text)) !== null){
+        if(m[0].length === 0){ regex.lastIndex++; continue; }
+        out += escapeHtml(text.slice(last, m.index)) +
+            "<span class=\"highlight-search-term\">" + escapeHtml(m[0]) + "</span>";
+        last = m.index + m[0].length;
+    }
+    return out + escapeHtml(text.slice(last));
 }
 
 // Handle update the search network on the search page
@@ -96,7 +105,7 @@ function populateSearchNetworks(type='supported'){
         let chain   = String(info[0]).trim();
         let network = String(info[1]).toLowerCase();
         let iconCls = getNetworkIcon(chain, network);
-        let item    = '<li><a class="dropdown-item" data-coin="' + coin + '" title="' + chain + '" ><span class="wrapicon-25"><i class="fa ' + iconCls + '" ></i></span>' + chain + '</a></li>';
+        let item    = '<li><a class="dropdown-item" data-coin="' + coin + '" title="' + chain + '" ><span class="wrapicon-25"><i class="fa-solid ' + iconCls + '" ></i></span>' + chain + '</a></li>';
         if(network=='mainnet') mainnet += item;
         if(network=='testnet') testnet += item;
         if(network=='regtest') regtest += item;

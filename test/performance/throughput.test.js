@@ -11,7 +11,8 @@
  * contact legal@dankest.llc.
  *
  **********************************************************************
- * Throughput tests: measures maximum sustained requests/second using autocannon.
+ * Handler-only throughput tests: excludes the production ingress chain.
+ * Measures maximum sustained requests/second using autocannon.
  *
  * Requires: MariaDB on port 3307 (docker compose -f test/integration/fixtures/docker-compose.test.yml up -d)
  */

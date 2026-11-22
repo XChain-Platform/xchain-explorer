@@ -201,6 +201,13 @@ describe('Database#getActionType', () => {
         expect(type).to.equal('SEND');
     });
 
+    it('can return the action type and transaction origin from the same read', async () => {
+        sinon.stub(db, 'doQuery').resolves([{ action: 'SEND', tx_index: 12 }]);
+
+        const metadata = await db.getActionType(cfg(), 100, true);
+        expect(metadata).to.deep.equal({ type: 'SEND', tx_index: 12 });
+    });
+
     it('returns null when action_index is not found (empty results)', async () => {
         sinon.stub(db, 'doQuery').resolves([]);
 

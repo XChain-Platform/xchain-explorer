@@ -2753,6 +2753,11 @@
                     "status": {
                         "type": "integer"
                     },
+                    "status_reason": {
+                        "type": ["string", "null"],
+                        "readOnly": true,
+                        "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
+                    },
                     "timestamp": {
                         "type": "integer"
                     }
@@ -3245,6 +3250,11 @@
                         },
                         "destination": {
                             "type": "string"
+                        },
+                        "status_reason": {
+                            "type": ["string", "null"],
+                            "readOnly": true,
+                            "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
                         }
 
                     }
@@ -3515,7 +3525,7 @@
                     },
                     "decoder_health": {
                         "type": "object",
-                        "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), both ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), or 'unreachable' (health call failed).",
+                        "description": "Decoder self-reported status per coin ticker: 'healthy', 'unhealthy', 'reorg-halt-parked' (the decoder has stopped on a durable REORG_HALT marker that only an operator clear removes), 'reorg-halted' (the decoder carries that marker but is still parsing), 'reorg-halt-unverified' (the decoder reports healthy but has not read its REORG_HALT marker since it started, so a durable halt cannot be ruled out), all ranked above 'node-stale' and the decoder's own status, 'node-stale' (the decoder's cached coin-node height is frozen, so chain_tip and chain_lag_blocks are nulled out), 'unconfigured' (no decoder URL set), 'unreachable' (health call failed), or 'rate-limited' (the decoder answered 429 and no earlier good reading is held, a transient condition distinct from 'unreachable'). The set can grow, so treat an unlisted value as unknown rather than failing.",
                         "additionalProperties": {
                             "type": "string"
                         }
@@ -3594,6 +3604,11 @@
                     },
                     "status": {
                         "type": "string"
+                    },
+                    "status_reason": {
+                        "type": ["string", "null"],
+                        "readOnly": true,
+                        "description": "For a DISPENSE rejected because its payment bought zero fills, explains that the payment was below one fill and the coin was kept; null otherwise"
                     },
                     "timestamp": {
                         "type": "integer"

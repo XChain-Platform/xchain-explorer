@@ -51,6 +51,18 @@ function showDeployDetails(data){
         detailContractsXcall_renderDeployChunk(data, deployed);
         return;
     }
+    if(data.contract_deleted === true){
+        let failure = isNull(data.error_message) ? data.status : data.error_message;
+        $('#info-deploy .deploy-contract').text('Not deployed: ' + failure);
+        $('#info-deploy .deploy-code-hash, #info-deploy .deploy-api-version, #info-deploy .deploy-stakeable').closest('tr').addClass('d-none');
+        $('#info-deploy .deploy-staking-row').addClass('d-none');
+        return;
+    }
+    detailContractsXcall_renderDeployContract(data, deployed);
+}
+
+// Render the contract cell and staking fields of an ordinary or assembling deployment.
+function detailContractsXcall_renderDeployContract(data, deployed){
     // An assembler whose group is still incomplete has no contract to point at: link its own
     // index and the reader gets a dead /contract/ page, so the cell states the assembly status
     // instead. Once the group completes, the contract lives at the piece that completed it,
@@ -160,9 +172,10 @@ function showXcallDetails(data){
         return '<span class="badge text-bg-' + cls + '">' + (s || '-') + '</span>';
     };
     $('#info-xcall .xcall-call-id').html(formatHash(data.call_id, 32));
-    // Version badge: v0 is the cross-chain call request, v1 the result-delivery marker
-    // (its data living in cross_chain_call_callbacks, surfaced as callback_delivery
-    // below), v2 the expire. All three need a branch; v1 has no request row of its own.
+    $('#info-xcall .xcall-request-action').html(isNull(data.request_action_index) ? '-' :
+        formatLink('/' + XC.coin + '/action/' + data.request_action_index, data.request_action_index));
+    // Label v0 requests, v1 result-delivery markers, and v2 expiries; v1 has no
+    // request row because its data lives in callback_delivery.
     let xcallV = Number(data.version);
     $('#info-xcall .xcall-version').html(
         xcallV === 2 ? '<span class="badge text-bg-secondary">Expire (v2)</span>' :
@@ -178,11 +191,8 @@ function showXcallDetails(data){
     $('#info-xcall .xcall-callback-method').text(isNull(data.callback_method) ? '-' : data.callback_method);
     $('#info-xcall .xcall-deadline').html(isNull(data.deadline_block) ? '-' : formatLink('/' + XC.coin + '/block/' + data.deadline_block, numeral(data.deadline_block).format('0,0')));
     $('#info-xcall .xcall-request-status').html(statusBadge(data.request_status));
-    // The outcome as RECORDED ON THIS CHAIN (xcalls.result_status / result_payload /
-    // resolved_block), not a duplicate of the execution block below: the indexer writes
-    // these three when it flips the request terminal, and they are what the VM's
-    // xchain.crossChain.getCallResult reads, so this is the value a contract sees.
-    // Hidden as a group while the call is pending, none of the three being set then.
+    // Show the result recorded on this chain for contract reads, not the execution below.
+    // Hide all three fields while the request is pending.
     let resolved = !isNull(data.result_status) || !isNull(data.resolved_block);
     $('#info-xcall .xcall-resolved-row').toggleClass('d-none', !resolved);
     if(resolved){

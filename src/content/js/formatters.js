@@ -167,13 +167,13 @@ function formatAmount(amount=null){
 function formatLocks(locks=null){
     var lock = String(locks).split('|'),
         html = '';
-    if(lock[0]==1) html += '<i class="fa fa-coins pe-1"         title="Max Supply"></i>';
-    if(lock[1]==1) html += '<i class="fa fa-print pe-1"        title="Mint"></i>';
-    if(lock[2]==1) html += '<i class="fa fa-bank pe-1"         title="Mint Supply"></i>';
-    if(lock[3]==1) html += '<i class="fa fa-coins pe-1"        title="Max Mint"></i>';
-    if(lock[4]==1) html += '<i class="fa fa-circle-info pe-1"  title="Description"></i>';
-    if(lock[5]==1) html += '<i class="fa fa-bed pe-1"       title="Sleep"></i>';
-    if(lock[6]==1) html += '<i class="fa fa-recycle pe-1"      title="Callback"></i>';
+    if(lock[0]==1) html += '<i class="fa-solid fa-coins pe-1"         title="Max Supply"></i>';
+    if(lock[1]==1) html += '<i class="fa-solid fa-print pe-1"        title="Mint"></i>';
+    if(lock[2]==1) html += '<i class="fa-solid fa-bank pe-1"         title="Mint Supply"></i>';
+    if(lock[3]==1) html += '<i class="fa-solid fa-coins pe-1"        title="Max Mint"></i>';
+    if(lock[4]==1) html += '<i class="fa-solid fa-circle-info pe-1"  title="Description"></i>';
+    if(lock[5]==1) html += '<i class="fa-solid fa-bed pe-1"       title="Sleep"></i>';
+    if(lock[6]==1) html += '<i class="fa-solid fa-recycle pe-1"      title="Callback"></i>';
     return html;
 }
 
@@ -257,6 +257,9 @@ function formatListReference(coin, actionIndex, isEdit=false, linkLabel=null){
     let label = isNull(linkLabel) ? formatAmount(actionIndex) : linkLabel;
     return formatLink('/' + coin + '/action/' + actionIndex, label);
 }
+function formatParentActionLink(coin, actionIndex){
+    return (isNull(actionIndex) || Number(actionIndex) === 0) ? '-' : formatLink('/' + coin + '/action/' + actionIndex, formatAmount(actionIndex));
+}
 // Return a truncated hex string (hash / pubkey / request_id) with the full value as
 // a hover title, keeping long 64/128-hex identifiers readable in tables.
 
@@ -309,7 +312,7 @@ function formatCoinLegAmount(pageCoin, legCoin, legTick, amount){
 // Escaped here, not per call site: both are on-chain fields bound for a .html() sink.
 // NOT formatCoinLegAmount - that omits the icon and adds thousands separators.
 function formatNativeCoinLeg(amount, coin){
-    return ' <i class="fa ' + getNetworkIcon() + '"></i> ' + escapeHtml(amount) + ' ' + escapeHtml(coin);
+    return ' <i class="fa-solid ' + getNetworkIcon() + '"></i> ' + escapeHtml(amount) + ' ' + escapeHtml(coin);
 }
 
 // Badge rendered in place of an amount cell when a row represents a

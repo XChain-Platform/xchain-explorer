@@ -29,6 +29,8 @@
 
 'use strict';
 
+const { addressSlashScope } = require('../../query_sql/slash_scope/address_slash_scope.js');
+
 // What this address has staked, on both ledgers: contract_stakes (targeted at one
 // contract) and stakes (the consensus capability ledger).
 async function addressPositionSections(db, config, address, limit){
@@ -203,10 +205,7 @@ function addressContractSlashRows(db, config, address, limit){
                 LEFT  JOIN index_pubkeys   pk  ON (pk.id=m.signing_pubkey_id)
                 LEFT  JOIN index_tickers   t3  ON (t3.id=m.tick_id)
                 LEFT  JOIN index_addresses dst ON (dst.id=m.destination_id)
-            WHERE m.signing_pubkey_id IN (
-                SELECT cs.signing_pubkey_id FROM contract_stakes cs
-                    INNER JOIN index_addresses sa ON (sa.id=cs.source_id)
-                WHERE sa.address=?)
+            WHERE ${addressSlashScope()}
             ORDER BY m.id DESC
             LIMIT ` + limit, [address]);
 }
@@ -234,6 +233,9 @@ class AddressStakingReaders {
     // this address staked, drawn from the ledger that family actually burns from (`stakes`
     // for the capability family, `contract_stakes` for the contract family). Scoping both
     // from one ledger would over- or under-report, depending which one was picked.
+    // The contract family also reaches slashes recorded under a key a delegation
+    // rotation has since replaced, through contract_delegation_rotations, bounded by
+    // contract and block (see address_slash_scope.js).
     async getAddressStaking(config){
         let limit   = this.detailLimit(config);
         let address = config.data.search;

@@ -237,12 +237,17 @@ class CheckpointSourceReaders {
     hubOperationalOutage(table){
         let ops     = this.explorer ? this.explorer.hubOperational : null;
         let ceiling = (ops && this.util.isNumeric(ops.staleMaxMs)) ? Math.round(ops.staleMaxMs / 1000) : 600;
-        throw new Error('Hub unreachable: ' + table + ' could not be read over hub JSON-RPC and the ' +
-            'last cached rows are older than the ' + ceiling + 's stale ceiling ' +
-            '(EXPLORER_HUB_CACHE_STALE_MAX_MS). With a hub endpoint configured this table is served ' +
+        // Coded so the request layer answers 503 HUB_UNAVAILABLE, not a database fault. The
+        // message makes no claim about cache history: a key never cached has no stale rows.
+        const err = new Error('Hub unreachable: ' + table + ' could not be read over hub JSON-RPC and ' +
+            'no cached rows within the ' + ceiling + 's stale ceiling ' +
+            '(EXPLORER_HUB_CACHE_STALE_MAX_MS) are available. With a hub endpoint configured this table is served ' +
             'from the hub only, never from the co-located hub schema, which carries no freshness ' +
             'bound. Restore the hub endpoint, or unset HUB_API_URL and hub discovery to run this ' +
             'install on the co-located schema.');
+        err.name = 'HubUnavailableError';
+        err.code = 'HUB_UNAVAILABLE';
+        throw err;
     }
 
     // BIGINT columns (block_index/checkpoint_seq/snapshot_block) come back from

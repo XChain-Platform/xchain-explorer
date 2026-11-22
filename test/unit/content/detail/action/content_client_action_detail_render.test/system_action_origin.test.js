@@ -20,6 +20,7 @@ const { expect } = require('chai');
 const { JSDOM } = require('jsdom');
 
 const content = path.resolve(__dirname, '..', '..', '..', '..', '../../src/content');
+const actionPage = path.join(content, 'html', 'action.html');
 
 function bootSystemAction(){
     const markup = fs.readFileSync(path.join(content, 'html', 'action.html'), 'utf8');
@@ -44,8 +45,9 @@ function bootSystemAction(){
 function systemAction(){
     return {
         action: 'BET_EXPIRE', action_format: 0, action_index: '2201',
-        source: null, status: null, tx_index: null, tx_hash: null,
-        block_index: '2933', timestamp: '1787864999', tx_data: null
+        source: null, status: 'valid', tx_index: null, tx_hash: null,
+        block_index: '2933', timestamp: '1787864999', tx_data: null,
+        protocol_generated: true
     };
 }
 
@@ -53,12 +55,46 @@ function text(win, selector){
     return win.jQuery(selector).text().trim();
 }
 
-describe('action page: null system-action origin fields', function(){
+function registerOriginFields1() {
+    it('classifies the raw page response before normalizing display values', function(){
+        const win = bootSystemAction();
+        win.setActionInfo(systemAction());
+        win.showTransactionDetails();
+        expect(win.XC.actionInfo.source).to.equal('');
+        expect(text(win, '#action-status')).to.equal('valid');
+        expect(text(win, '#source')).to.equal('Protocol-generated');
+        expect(text(win, '#tx-hash')).to.equal('Not applicable, no source transaction');
+        expect(text(win, '#tx-index')).to.equal('Not applicable, no source transaction');
+        expect(text(win, '#tx-data')).to.equal('Not applicable, no source transaction');
+    });
+
+    it('wires the page loader through the raw-response classifier', function(){
+        const source = fs.readFileSync(actionPage, 'utf8');
+        expect(source).to.include('setActionInfo(o);');
+        expect(source).to.not.include('XC.actionInfo = null2string(o);');
+        expect(source).to.include('XC.actionNoSourceTx = false;');
+    });
+
+    it('clears the raw classification when an ordinary action is loaded next', function(){
+        const win = bootSystemAction();
+        win.setActionInfo(systemAction());
+        const ordinary = Object.assign(systemAction(), {
+            source: 'bc1qsource', status: 'valid', tx_index: '1121',
+            tx_hash: 'abc123', tx_data: 'SEND|0|dest|XCHAIN|1',
+            protocol_generated: false
+        });
+        win.setActionInfo(ordinary);
+        win.showTransactionDetails();
+        expect(win.XC.actionNoSourceTx).to.equal(false);
+        expect(text(win, '#action-status')).to.equal('valid');
+        expect(text(win, '#tx-data')).to.equal('SEND|0|dest|XCHAIN|1');
+    });
+
     it('replaces all four ambiguous dashes with origin information', function(){
         const win = bootSystemAction();
         win.XC.actionInfo = systemAction();
         win.showTransactionDetails();
-        expect(text(win, '#action-status')).to.equal('Protocol-generated action');
+        expect(text(win, '#action-status')).to.equal('valid');
         expect(text(win, '#source')).to.equal('Protocol-generated');
         expect(text(win, '#tx-hash')).to.equal('Not applicable, no source transaction');
         expect(text(win, '#tx-index')).to.equal('Not applicable, no source transaction');
@@ -71,13 +107,16 @@ describe('action page: null system-action origin fields', function(){
         win.XC.actionInfo = systemAction();
         win.XC.actionInfo.tx_index = '1121';
         win.XC.actionInfo.status = 'valid';
+        win.XC.actionInfo.protocol_generated = false;
         win.showTransactionDetails();
         expect(text(win, '#action-status')).to.equal('valid');
         expect(text(win, '#source')).to.equal('-');
         expect(text(win, '#tx-hash')).to.equal('-');
         expect(text(win, '#tx-data')).to.equal('-');
     });
+}
 
+function registerOriginFields2() {
     it('requires every origin field to be explicitly null', function(){
         const falseyNonNull = [undefined, '', 0, false];
         for(const field of ['status', 'source', 'tx_hash', 'tx_data']){
@@ -86,8 +125,7 @@ describe('action page: null system-action origin fields', function(){
                 win.XC.actionInfo = systemAction();
                 win.XC.actionInfo[field] = value;
                 win.showTransactionDetails();
-                expect(text(win, '#source'), field + '=' + String(value)).to.equal('-');
-                expect(text(win, '#tx-index'), field + '=' + String(value)).to.equal('-');
+                expect(text(win, '#source'), field + '=' + String(value)).to.equal('Protocol-generated');
             }
         }
     });
@@ -97,9 +135,21 @@ describe('action page: null system-action origin fields', function(){
         win.XC.actionInfo = systemAction();
         win.XC.actionInfo.tx_index = '1121';
         win.showTransactionDetails();
-        expect(text(win, '#action-status')).to.equal('Protocol-generated action');
+        expect(text(win, '#action-status')).to.equal('valid');
         expect(text(win, '#source')).to.equal('Protocol-generated');
-        expect(text(win, '#tx-index')).to.equal('Not applicable, no source transaction');
+        expect(text(win, '#tx-index')).to.equal('1,121');
+    });
+
+    it('requires the server protocol_generated flag and preserves a real source', function(){
+        const win = bootSystemAction();
+        const unflagged = Object.assign(systemAction(), { protocol_generated: undefined });
+        win.setActionInfo(unflagged);
+        win.showTransactionDetails();
+        expect(text(win, '#source')).to.equal('-');
+
+        win.setActionInfo(Object.assign(systemAction(), { source: 'bc1qevicted' }));
+        win.showTransactionDetails();
+        expect(text(win, '#source')).to.equal('bc1qevicted');
     });
 
     it('does not relabel a transaction page', function(){
@@ -111,4 +161,9 @@ describe('action page: null system-action origin fields', function(){
         win.showTransactionDetails();
         expect(text(win, '#source')).to.equal('-');
     });
+}
+
+describe('action page: null system-action origin fields', function(){
+    registerOriginFields1();
+    registerOriginFields2();
 });

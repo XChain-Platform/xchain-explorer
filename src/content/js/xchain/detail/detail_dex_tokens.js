@@ -49,8 +49,10 @@ function showIssueDetails(data){
         $('#info-issue .issue-controller').html(isNull(data.controller) ? '-' :
             formatLink('/' + XC.coin + '/contract/' + data.controller, data.controller));
         $('#info-issue .issue-action-class').text(isNull(data.action_class) ? '-' : data.action_class);
-        $('#info-issue .issue-cooldown-blocks').text(isNull(data.cooldown_blocks) ? '-' :
-            numeral(data.cooldown_blocks).format('0,0') + ' blocks');
+        let cooldown = isNull(data.cooldown_blocks) ? '-' : numeral(data.cooldown_blocks).format('0,0') + ' blocks';
+        if(Number(data.unbind) === 1 && !isNull(data.cooldown_end_block))
+            cooldown += ' (drops at block ' + numeral(data.cooldown_end_block).format('0,0') + ')';
+        $('#info-issue .issue-cooldown-blocks').text(cooldown);
         // Bind and unbind are the same wire format and differ only in this flag, so it
         // is rendered as the row's headline rather than a bare 0/1.
         $('#info-issue .issue-unbind').html(Number(data.unbind) === 1
@@ -81,7 +83,8 @@ function showIssueFieldGroups(actionFormat){
     let format = Number(actionFormat);
     let groups = [
         [['.issue-description'], [0,1]],
-        [['.issue-decimals','.issue-max-supply','.issue-mint-supply','.issue-transfer-supply','.issue-transfer'], [0]],
+        [['.issue-decimals','.issue-max-supply','.issue-transfer'], [0]],
+        [['.issue-mint-supply','.issue-transfer-supply'], [0,2]],
         [['.issue-allow-list','.issue-block-list'], [0,5]],
         [['.issue-max-mint','.issue-mint-address-max','.issue-mint-start-block','.issue-mint-stop-block'], [0,2]],
         [['.issue-callback-block','.issue-callback-tick','.issue-callback-amount'], [0,4]],
@@ -108,21 +111,26 @@ function showLinkDetails(data){
 function showListDetails(data){
     if(!data.edit)
         data.edit = 0;
-    let list_type = XC.list_types[data.type];
+    // An invalid edit row can carry a null or unmapped type, so name that case
+    // rather than printing 'undefined' in the type cell and the column headers.
+    let list_type = XC.list_types[data.type] || 'Unknown';
+    let item_header = Number(data.type) === 3 ? 'List' : list_type;
     let type = (data.type) ? (data.type + ' - ' + list_type) : '';
     let edit = (isNumeric(data.edit)) ? (data.edit + ' - ' + XC.list_edit_types[data.edit]) : '';
     $('#info-list .list-type').text(type);
     $('#info-list .list-edit-type').text(edit);
+    let format = Number(data.action_format);
+    $('#info-list .list-edit-type-row').toggleClass('d-none', [2, 3, 5].includes(format));
     $('#info-list .list-action-index').html(formatLink('/' + XC.coin + '/action/' + data.list_action_index, formatAmount(data.list_action_index)));
     $('#info-list .list-memo').text((data.memo == null) ? '' : data.memo);
     // A format 3 LIST transfers the list, so name the address it went to.
-    let isTransfer = (Number(data.action_format) === 3);
+    let isTransfer = (format === 3);
     $('#info-list .list-destination-row').toggleClass('d-none', !isTransfer);
     $('#info-list .list-destination').html(!isTransfer || isNull(data.destination) ? '-'
         : formatLink('/' + XC.coin + '/address/' + data.destination, data.destination));
     // Add header columns
-    $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th></tr>');
-    $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + list_type + '</th><th>Status</th></tr>');
+    $('#datatable-list-items thead').html('<tr><th class="record" width="155">#</th><th>' + item_header + '</th></tr>');
+    $('#datatable-list-edits thead').html('<tr><th class="record" width="155">#</th><th>' + item_header + '</th><th>Status</th></tr>');
     showActionDatatable('list-edits', data.edits, list_type, false);
     // `list` is what THIS action wrote; edits land under their own action
     // index, so on a create with later edits it is a create-time snapshot. Show
@@ -146,7 +154,7 @@ function showListDetails(data){
             + ', version ' + $('<span>').text(mirror.version).html());
     else
         mirrorInfo.empty();
-    $('#list-items-tab').html('<i class="fa fa-lg fa-list"></i> ' + (current ? 'Current List' : 'Full List'));
+    $('#list-items-tab').html('<i class="fa-solid fa-lg fa-list"></i> ' + (current ? 'Current List' : 'Full List'));
     showActionDatatable('list-items', current || data.list, list_type, false);
 
 }
@@ -227,13 +235,13 @@ function showOrderDetails(data){
 
 // Display ORDER_CANCEL action information
 function showOrderCancelDetails(data){
-    $('#info-order-cancel .order-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    $('#info-order-cancel .order-cancel-action-index').html(formatParentActionLink(XC.coin, data.order_action_index));
     $('#info-order-cancel .order-cancel-memo').text(nullToBlank(data.memo));
 }
 
 // Display ORDER_EDIT action information
 function showOrderEditDetails(data){
-    $('#info-order-edit .order-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.order_action_index, formatAmount(data.order_action_index)));
+    $('#info-order-edit .order-edit-action-index').html(formatParentActionLink(XC.coin, data.order_action_index));
     if(!isNull(data.expiration))
         $('#info-order-edit .order-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-order-edit .order-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));
@@ -307,13 +315,13 @@ function showSwapDetails(data){
 
 // Display SWAP_CANCEL action information
 function showSwapCancelDetails(data){
-    $('#info-swap-cancel .swap-cancel-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+    $('#info-swap-cancel .swap-cancel-action-index').html(formatParentActionLink(XC.coin, data.swap_action_index));
     $('#info-swap-cancel .swap-cancel-memo').text(nullToBlank(data.memo));
 }
 
 // Display SWAP_EDIT action information
 function showSwapEditDetails(data){
-    $('#info-swap-edit .swap-edit-action-index').html(formatLink('/' + XC.coin + '/action/' + data.swap_action_index, formatAmount(data.swap_action_index)));
+    $('#info-swap-edit .swap-edit-action-index').html(formatParentActionLink(XC.coin, data.swap_action_index));
     if(!isNull(data.expiration))
         $('#info-swap-edit .swap-edit-expiration').html(data.expiration + ' - ' + formatLivestamp(data.expiration) + ' (' + moment.unix(data.expiration).utcOffset(0).format() + ' GMT)');
     $('#info-swap-edit .swap-edit-allow-list').html(formatListReference(XC.coin, data.allow_list, true));

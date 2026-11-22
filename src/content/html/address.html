@@ -7,8 +7,8 @@
             <div class="card">
                 <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#address-stats" aria-expanded="false" aria-controls="address-stats" id="address-stats-header">
                     <div class="card-title mb-0 p-1 fw-bold">
-                        <i class="fa fa-xchain asset-icon-sm"></i> Address Information
-                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                        <i class="fa-solid fa-xchain asset-icon-sm"></i> Address Information
+                        <span class="float-end"><i class="fa-solid fa-chevron-up collapse-icon"></i></span>
                     </div>
                 </a>
                 <div class="row table-responsive collapse show" id="address-stats">
@@ -76,7 +76,7 @@
         <div class="col-12 pb-3">
             <div class="card table-responsive">
                 <div class="card-title mb-0 p-1 fw-bold">
-                    <i class="fa fa-lg fa-shield-halved"></i> Controller Bindings
+                    <i class="fa-solid fa-lg fa-shield-halved"></i> Controller Bindings
                 </div>
                 <table class="table table-sm table-striped table-bordered mb-0">
                 <thead>
@@ -108,9 +108,9 @@
             <div class="card">
                 <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#address-proof-body" aria-expanded="true" aria-controls="address-proof-body" id="address-proof-header">
                     <div class="card-title mb-0 p-1 fw-bold">
-                        <i class="fa fa-lg fa-shield-halved"></i> SPV Balance Proof
+                        <i class="fa-solid fa-lg fa-shield-halved"></i> SPV Balance Proof
                         <span class="badge text-bg-light text-muted fw-normal">cryptographic proof against a signed checkpoint</span>
-                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                        <span class="float-end"><i class="fa-solid fa-chevron-up collapse-icon"></i></span>
                     </div>
                 </a>
                 <div class="collapse show" id="address-proof-body">
@@ -160,27 +160,27 @@
             <div class="card">
                 <a href="#" class="text-decoration-none text-reset collapse-header" data-bs-toggle="collapse" data-bs-target="#addr-staking-body" aria-expanded="true" aria-controls="addr-staking-body" id="addr-staking-header">
                     <div class="card-title mb-0 p-1 fw-bold">
-                        <i class="fa fa-lg fa-lock"></i> Staking
+                        <i class="fa-solid fa-lg fa-lock"></i> Staking
                         <span class="badge text-bg-light text-muted fw-normal">cooldowns count down in blocks, not time</span>
-                        <span class="float-end"><i class="fa fa-chevron-up collapse-icon"></i></span>
+                        <span class="float-end"><i class="fa-solid fa-chevron-up collapse-icon"></i></span>
                     </div>
                 </a>
                 <div class="collapse show" id="addr-staking-body">
                     <div class="p-2 border-bottom" id="addr-staking-summary"></div>
                     <div class="p-2 border-bottom">
-                        <div class="fw-bold small mb-2"><i class="fa fa-hourglass-half me-1"></i> Cooldowns</div>
+                        <div class="fw-bold small mb-2"><i class="fa-solid fa-hourglass-half me-1"></i> Cooldowns</div>
                         <div id="addr-staking-cooldowns"></div>
                     </div>
                     <div class="p-2 border-bottom">
-                        <div class="fw-bold small mb-2"><i class="fa fa-coins me-1"></i> Positions</div>
+                        <div class="fw-bold small mb-2"><i class="fa-solid fa-coins me-1"></i> Positions</div>
                         <div id="addr-staking-positions"></div>
                     </div>
                     <div class="p-2 border-bottom">
-                        <div class="fw-bold small mb-2"><i class="fa fa-hand-holding-dollar me-1"></i> Rewards &amp; COLLECT trail</div>
+                        <div class="fw-bold small mb-2"><i class="fa-solid fa-hand-holding-dollar me-1"></i> Rewards &amp; COLLECT trail</div>
                         <div id="addr-staking-rewards"></div>
                     </div>
                     <div class="p-2">
-                        <div class="fw-bold small mb-2"><i class="fa fa-gavel me-1"></i> Slash exposure</div>
+                        <div class="fw-bold small mb-2"><i class="fa-solid fa-gavel me-1"></i> Slash exposure</div>
                         <div id="addr-staking-slashes"></div>
                     </div>
                 </div>
@@ -207,36 +207,36 @@
                         <div class="col-6 text-end   pt-0 pb-1 pe-1 align-middle">
                             <div class="dropdown">
                                 <button class="badge badge-sm bg-success dropdown-toggle border" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fa fa-bars"></i> More Info
+                                    <i class="fa-solid fa-bars"></i> More Info
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" id="tab-dropdown-address"  ><i class="fa fa-gears"             ></i> Addresses</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-airdrop"  ><i class="fa fa-parachute-box"     ></i> Airdrops</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-balance"  ><i class="fa fa-list"              ></i> Balances</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-batch"    ><i class="fa fa-layer-group"       ></i> Batches</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-broadcast"><i class="fa fa-bullhorn"          ></i> Broadcasts</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-callback" ><i class="fa fa-recycle"           ></i> Callbacks</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-credit"   ><i class="fa fa-plus"              ></i> Credits</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-debit"    ><i class="fa fa-minus"             ></i> Debits</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-destroy"  ><i class="fa fa-trash"             ></i> Destroys</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dispenser"><i class="fa fa-arrows-h"          ></i> Dispensers</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dispense" ><i class="fa fa-hand-holding-heart"></i> Dispenses</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-dividend" ><i class="fa fa-sitemap"           ></i> Dividends</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-escrow"   ><i class="fa fa-clock"             ></i> Escrows</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa fa-cent-sign"         ></i> Fees</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-file"     ><i class="fa fa-file"              ></i> Files</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-history"  ><i class="fa fa-clock-o"           ></i> History</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-issue"    ><i class="fa fa-bank"              ></i> Issues</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-link"     ><i class="fa fa-chain"             ></i> Links</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-list"     ><i class="fa fa-list"              ></i> Lists</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-message"  ><i class="fa fa-message"           ></i> Messages</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-mint"     ><i class="fa fa-print"             ></i> Mints</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa fa-book"              ></i> Orders</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa fa-send"              ></i> Sends</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa fa-bed"            ></i> Sleeps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-swap"     ><i class="fa fa-exchange"          ></i> Swaps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-sweep"    ><i class="fa fa-truck"             ></i> Sweeps</a></li>
-                                    <li><a class="dropdown-item" id="tab-dropdown-token"    ><i class="fa fa-database"          ></i> Tokens</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-address"  ><i class="fa-solid fa-gears"             ></i> Addresses</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-airdrop"  ><i class="fa-solid fa-parachute-box"     ></i> Airdrops</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-balance"  ><i class="fa-solid fa-list"              ></i> Balances</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-batch"    ><i class="fa-solid fa-layer-group"       ></i> Batches</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-broadcast"><i class="fa-solid fa-bullhorn"          ></i> Broadcasts</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-callback" ><i class="fa-solid fa-recycle"           ></i> Callbacks</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-credit"   ><i class="fa-solid fa-plus"              ></i> Credits</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-debit"    ><i class="fa-solid fa-minus"             ></i> Debits</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-destroy"  ><i class="fa-solid fa-trash"             ></i> Destroys</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dispenser"><i class="fa-solid fa-arrows-h"          ></i> Dispensers</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dispense" ><i class="fa-solid fa-hand-holding-heart"></i> Dispenses</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-dividend" ><i class="fa-solid fa-sitemap"           ></i> Dividends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-escrow"   ><i class="fa-solid fa-clock"             ></i> Escrows</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-fee"      ><i class="fa-solid fa-cent-sign"         ></i> Fees</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-file"     ><i class="fa-solid fa-file"              ></i> Files</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-history"  ><i class="fa-regular fa-clock"           ></i> History</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-issue"    ><i class="fa-solid fa-bank"              ></i> Issues</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-link"     ><i class="fa-solid fa-chain"             ></i> Links</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-list"     ><i class="fa-solid fa-list"              ></i> Lists</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-message"  ><i class="fa-solid fa-message"           ></i> Messages</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-mint"     ><i class="fa-solid fa-print"             ></i> Mints</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-order"    ><i class="fa-solid fa-book"              ></i> Orders</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-send"     ><i class="fa-solid fa-paper-plane"              ></i> Sends</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-sleep"    ><i class="fa-solid fa-bed"            ></i> Sleeps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-swap"     ><i class="fa-solid fa-exchange"          ></i> Swaps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-sweep"    ><i class="fa-solid fa-truck"             ></i> Sweeps</a></li>
+                                    <li><a class="dropdown-item" id="tab-dropdown-token"    ><i class="fa-solid fa-database"          ></i> Tokens</a></li>
 
                                 </ul>
                             </div>                              

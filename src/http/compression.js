@@ -52,6 +52,30 @@ const COMPRESSION_MAX_RATIO = 150;
 // FILE|0|NAME|TYPE|TITLE|MEMO|GATE_TICKER|ENCRYPTION_METHOD|KEY_HASH|GATE_MIN_AMOUNT|COMPRESSION
 const GATE_TICKER_FIELD_INDEX = 6;
 const COMPRESSION_FIELD_INDEX = 10;
+const MANIFEST_GATE_TICKER_FIELD_INDEX = 9;
+const MANIFEST_COMPRESSION_FIELD_INDEX = 13;
+
+// Mirrors xchain-indexer/src/utility/action_format.js getFormatVersion after
+// transaction parameters are trimmed. The services ship independently, so the
+// reader keeps this small normalizer local and uses it only to select fields.
+function fileFormatVersion(raw) {
+    if (typeof raw === 'object' && raw !== null) return null;
+    if (typeof raw === 'number' && Number.isInteger(raw) && raw <= 255) return raw;
+    if (typeof raw === 'undefined') return 0;
+    let format = (typeof raw === 'string') ? raw.trim() : raw;
+    if (format === '') return 0;
+    if (typeof format === 'string') format = format.replace(/"|'/g, '');
+    const parsed = parseFloat(format);
+    const numeric = !isNaN(parsed) && isFinite(format);
+    const fractionalOnWire = parsed === +parsed && parsed !== (parsed | 0);
+    if (numeric && !fractionalOnWire && format <= 255) return parseInt(format);
+    return null;
+}
+
+function fileFieldIndex(version, legacyIndex, manifestIndex) {
+    const normalized = fileFormatVersion(version);
+    return normalized === 0 ? legacyIndex : (normalized === 1 ? manifestIndex : -1);
+}
 
 // Unwrap a BATCH-wrapped FILE to its own sub-command, or hand the string back
 // unchanged. A FILE may legally ride inside a BATCH (protocol actions/file.md),
@@ -83,21 +107,21 @@ function extractFileSubcommand(actionString) {
 function isCompressedAction(actionString) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
     const parts = extractFileSubcommand(actionString).split('|');
-    if (parts.length <= COMPRESSION_FIELD_INDEX) return false;
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
-    if (String(parts[1]) !== '0') return false;
-    return String(parts[COMPRESSION_FIELD_INDEX]) === COMPRESSION_CODE_DEFLATE_RAW;
+    const index = fileFieldIndex(parts[1], COMPRESSION_FIELD_INDEX, MANIFEST_COMPRESSION_FIELD_INDEX);
+    return index >= 0 && parts.length > index &&
+        String(parts[index]) === COMPRESSION_CODE_DEFLATE_RAW;
 }
 
 // Is this FILE token-gated? Gated bytes are ciphertext and are never inflated
-// here (the client inflates after decrypting).
+// here (the client inflates after decrypting). Trim the field to match the
+// indexer's action-field normalization before deciding whether it is populated.
 function isGatedAction(actionString) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
     const parts = extractFileSubcommand(actionString).split('|');
-    if (parts.length <= GATE_TICKER_FIELD_INDEX) return false;
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
-    if (String(parts[1]) !== '0') return false;
-    return String(parts[GATE_TICKER_FIELD_INDEX]).length > 0;
+    const index = fileFieldIndex(parts[1], GATE_TICKER_FIELD_INDEX, MANIFEST_GATE_TICKER_FIELD_INDEX);
+    return index >= 0 && parts.length > index && String(parts[index]).trim().length > 0;
 }
 
 // The stored-form answer: the input served exactly as stored, with the reason
@@ -187,7 +211,9 @@ function inflateStoredBytes(stored, options = {}) {
     if (stored === null) return Promise.resolve(asStored(Buffer.alloc(0), 'INVALID_INPUT'));
     if (stored.length === 0) return Promise.resolve(asStored(stored, 'EMPTY_STREAM'));
 
-    const ceiling = Math.max(1, Math.ceil(stored.length * maxRatio));
+    let ceiling = Math.max(1, Math.ceil(stored.length * maxRatio));
+    if (Number.isFinite(options.maxOutputBytes))
+        ceiling = Math.min(ceiling, Math.max(0, Math.floor(options.maxOutputBytes)));
 
     return inflateWithinCeiling(stored, ceiling);
 }
@@ -229,9 +255,12 @@ module.exports = {
     inflateStoredBytes,
     isCompressedAction,
     isGatedAction,
+    fileFormatVersion,
     extractFileSubcommand,
     COMPRESSION_CODE_DEFLATE_RAW,
     COMPRESSION_MAX_RATIO,
     COMPRESSION_FIELD_INDEX,
-    GATE_TICKER_FIELD_INDEX
+    GATE_TICKER_FIELD_INDEX,
+    MANIFEST_COMPRESSION_FIELD_INDEX,
+    MANIFEST_GATE_TICKER_FIELD_INDEX
 };

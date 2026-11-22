@@ -35,7 +35,7 @@ const bodyParser = require('body-parser');
 const jsonRouter = require('express-json-rpc-router');
 const { srcText } = require('../../helpers/source_text');
 
-const { resolveMaxBatch, makeRpcBatchGuard } = require('../../../src/http/rpc_batch_guard.js');
+const { resolveMaxBatch, makeRpcBatchGuard, rpcVersionGuard } = require('../../../src/http/rpc_batch_guard.js');
 
 const CAP = 20;
 
@@ -46,20 +46,21 @@ function buildApp(withGuard, counter) {
     app.use(bodyParser.json());
     if (withGuard) app.use(makeRpcBatchGuard(CAP));
     app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
+    if (withGuard) app.use(rpcVersionGuard);
     app.use(jsonRouter({ methods: { ping: () => { counter.calls++; return 'pong'; } } }));
     app.use((err, req, res, next) => { res.status(500).json({ error: 'internal' }); }); // eslint-disable-line no-unused-vars
     return app;
 }
 
-async function post(app, body) {
+async function post(app, body, contentType = 'application/json') {
     const server = http.createServer(app);
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const port = server.address().port;
     try {
         const res = await fetch(`http://127.0.0.1:${port}/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            headers: { 'Content-Type': contentType },
+            body: typeof body === 'string' ? body : JSON.stringify(body)
         });
         return { status: res.status, text: await res.text() };
     } finally {
@@ -97,6 +98,28 @@ describe('JSON-RPC batch cap', function () {
         assert.strictEqual(JSON.parse(r.text).length, CAP);
     });
 
+    it('refuses a batch with a non-object element as JSON -32600, never an HTML 500', async () => {
+        const ping = { jsonrpc: '2.0', method: 'ping', id: 7 };
+        for (const body of [[null], [1], ['x'], [[]], [null, ping], [ping, null]]) {
+            const counter = { calls: 0 };
+            const r = await post(buildApp(true, counter), body);
+            assert.strictEqual(r.status, 400, JSON.stringify(body));
+            const parsed = JSON.parse(r.text);
+            assert.strictEqual(parsed.error.code, -32600);
+            assert.match(parsed.error.message, /Invalid Request: batch element \d+ is not a call object/);
+            assert.strictEqual(parsed.id, null);
+            assert.ok(!/TypeError|<pre>/.test(r.text));
+            assert.strictEqual(counter.calls, 0);
+        }
+    });
+
+    it('still dispatches a batch of valid object elements', async () => {
+        const counter = { calls: 0 };
+        const r = await post(buildApp(true, counter), batch(3));
+        assert.strictEqual(r.status, 200);
+        assert.strictEqual(counter.calls, 3);
+    });
+
     it('leaves a single (non-array) call untouched', async () => {
         const counter = { calls: 0 };
         const r = await post(buildApp(true, counter), { jsonrpc: '2.0', id: 1, method: 'ping' });
@@ -105,6 +128,93 @@ describe('JSON-RPC batch cap', function () {
         assert.strictEqual(counter.calls, 1);
     });
 
+});
+
+function registerEnvelopeConformance1() {
+    it('answers an empty batch with 400 and one -32600 envelope', async () => {
+        const counter = { calls: 0 };
+        const r = await post(buildApp(true, counter), []);
+        assert.strictEqual(r.status, 400);
+        const b = JSON.parse(r.text);
+        assert.strictEqual(b.jsonrpc, '2.0');
+        assert.strictEqual(b.id, null);
+        assert.strictEqual(b.error.code, -32600);
+    });
+
+    it('carries jsonrpc 2.0 on a missing-version call and keeps its id', async () => {
+        const r = await post(buildApp(true, { calls: 0 }), { id: 5, method: 'ping' });
+        const b = JSON.parse(r.text);
+        assert.strictEqual(b.jsonrpc, '2.0');
+        assert.strictEqual(b.error.code, -32600);
+        assert.strictEqual(b.id, 5);
+    });
+
+    it('rejects missing and wrong versions inside batches without dispatching them', async () => {
+        for (const call of [{ id: 5, method: 'ping' }, { jsonrpc: '1.0', id: 'a', method: 'ping' }]) {
+            const counter = { calls: 0 };
+            const b = JSON.parse((await post(buildApp(true, counter), [call])).text);
+            assert.strictEqual(b.length, 1);
+            assert.strictEqual(b[0].jsonrpc, '2.0');
+            assert.strictEqual(b[0].error.code, -32600);
+            assert.strictEqual(b[0].id, call.id);
+            assert.strictEqual(counter.calls, 0);
+        }
+    });
+
+    it('keeps id zero on an invalid-version batch element', async () => {
+        const b = JSON.parse((await post(buildApp(true, { calls: 0 }), [{ id: 0, method: 'ping' }])).text);
+        assert.strictEqual(b[0].id, 0);
+    });
+
+    it('dispatches only valid calls in a mixed-version batch', async () => {
+        const counter = { calls: 0 };
+        const calls = [
+            { jsonrpc: '2.0', id: 1, method: 'ping' },
+            { id: 2, method: 'ping' },
+            { jsonrpc: '1.0', id: 3, method: 'ping' }
+        ];
+        const b = JSON.parse((await post(buildApp(true, counter), calls)).text);
+        assert.strictEqual(counter.calls, 1);
+        assert.strictEqual(b.length, 3);
+        assert.ok(b.every((reply) => reply.jsonrpc === '2.0'));
+        assert.strictEqual(b.find((reply) => reply.id === 1).result, 'pong');
+        assert.strictEqual(b.find((reply) => reply.id === 2).error.code, -32600);
+        assert.strictEqual(b.find((reply) => reply.id === 3).error.code, -32600);
+    });
+}
+
+function registerEnvelopeConformance2() {
+    it('returns only the invalid reply when the valid batch item is a notification', async () => {
+        const counter = { calls: 0 };
+        const calls = [{ jsonrpc: '2.0', method: 'ping' }, { id: 9, method: 'ping' }];
+        const b = JSON.parse((await post(buildApp(true, counter), calls)).text);
+        assert.strictEqual(counter.calls, 1);
+        assert.strictEqual(b.length, 1);
+        assert.strictEqual(b[0].id, 9);
+        assert.strictEqual(b[0].error.code, -32600);
+    });
+
+    it('carries jsonrpc 2.0 on a text/plain POST', async () => {
+        const r = await post(buildApp(true, { calls: 0 }), '{"id":1}', 'text/plain');
+        const b = JSON.parse(r.text);
+        assert.strictEqual(b.jsonrpc, '2.0');
+        assert.strictEqual(b.error.code, -32600);
+        assert.strictEqual(b.id, null);
+    });
+
+    it('still serves a valid call and a valid batch', async () => {
+        const c = { calls: 0 };
+        const one = JSON.parse((await post(buildApp(true, c), { jsonrpc: '2.0', id: 1, method: 'ping' })).text);
+        assert.strictEqual(one.result, 'pong');
+        const many = JSON.parse((await post(buildApp(true, c), batch(2))).text);
+        assert.strictEqual(many.length, 2);
+    });
+}
+
+describe('JSON-RPC envelope conformance', function () {
+    this.timeout(10000);
+    registerEnvelopeConformance1();
+    registerEnvelopeConformance2();
 });
 
 describe('JSON-RPC batch cap', function () {

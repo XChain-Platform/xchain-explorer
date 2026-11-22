@@ -158,6 +158,7 @@ describe('ChangeDetector', function () {
         it('emits DISPENSER_UPDATE for a subscribed dispenser on a dispense action', async function () {
             let det = mk();
             det.channelManager.getSubscribedDispensers.returns(new Set([7]));
+            det.db.getDispenseDispenserIndex.resolves(7);
             det.db.getDispenserInfo.resolves({ dispenser_index: 7 });
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));
@@ -183,9 +184,16 @@ describe('ChangeDetector', function () {
                 let det = mk();
                 det.channelManager.getSubscribedDispensers.returns(new Set([7]));
                 det.db.getDispenserInfo.resolves({ action_index: 7, status: 'cancelling' });
+                if (action === 'DISPENSE') det.db.getDispenseDispenserIndex.resolves(7);
+                if (action === 'DISPENSER_CLOSE' || action === 'DISPENSER_EXPIRE')
+                    det.db.getDispenserLifecycleDispenserIndex.resolves(7);
+                if (action === 'DISPENSER_CANCEL' || action === 'DISPENSER_EDIT')
+                    det.db.getValidDispenserMutationIndex.resolves(7);
                 let evs = [];
                 det.on('entity_update', (c, e) => evs.push(e));
-                await det.emitEntityUpdates('BTC', {}, { action, action_index: 8 });
+                await det.emitEntityUpdates('BTC', {}, {
+                    action, action_index: action === 'DISPENSER' ? 7 : 8
+                });
                 expect(evs.map((e) => e.type)).to.deep.equal(['DISPENSER_UPDATE']);
             });
         }
@@ -255,6 +263,7 @@ describe('ChangeDetector', function () {
             det.db.getAddressBalances.rejects(new Error('db'));
             det.db.getTokenInfo.rejects(new Error('db'));
             det.db.getDispenserInfo.rejects(new Error('db'));
+            det.db.getDispenseDispenserIndex.rejects(new Error('db'));
             det.db.getMarketInfo.rejects(new Error('db'));
             let evs = [];
             det.on('entity_update', (c, e) => evs.push(e));

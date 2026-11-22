@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-22
+
+### Added
+- Added multipart FILE action details, assembly state and raw-file serving with integrity-checked streaming pages.
+- Added wallet, price and native history reads under a dedicated rate bucket.
+- Showed the action status reason on action pages and explained zero-fill DISPENSE statuses.
+
+### Changed
+- Expanded multipart details to 65,535 parts and streamed inflation through a bounded two-pass reader.
+
+### Fixed
+- Hardened JSON-RPC and HTTP errors, request timeouts, concurrency slots and fair upstream egress budgets.
+- Kept drained hub mirrors available through reconnects and answered hub outages with a typed 503 and bounded retries and logging.
+- Measured coin status in parallel under deadlines and kept decoder health reads inside a shared rate budget.
+- Refused malformed filters, limit values and percent-encoded paths with clear 400 responses instead of server errors.
+- Marked only transient indexer failures as retryable and relayed Retry-After to clients.
+
+### Security
+- Updated vulnerable runtime and development dependencies, including undici, express, ws, zod, qs, serialize-javascript, minimatch and the bundled Font Awesome.
+
 ## [0.27.0] - 2026-11-01
 
 ### Added

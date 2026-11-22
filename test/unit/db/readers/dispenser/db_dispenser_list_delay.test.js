@@ -35,6 +35,7 @@ const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
 const { expect } = require('chai');
 const Utility    = require('../../../../../src/lib/utility.js');
+const gateRegistry = require('../../../../../src/consensus/gate_registry.js');
 const { createConfigInfoStub } = require('../../../../fixtures/mock-config.js');
 const { makeConfig }           = require('../../../../fixtures/mock-query-args.js');
 
@@ -51,8 +52,8 @@ const DELAY = 3600;
 // Chain tip used as "now" for every activation comparison
 const TIP   = 1700000000;
 
-function cfg() {
-    return makeConfig({ coin: 'BTC' });
+function cfg(coin = 'BTC') {
+    return makeConfig({ coin });
 }
 
 function dispenserRow(extra = {}) {
@@ -82,12 +83,17 @@ function dispenserRow(extra = {}) {
 
 // Runs getActionData() for a DISPENSER whose edit lane returns `edits`, and
 // hands back both the result and the SQL the edit lane actually ran.
-async function runDispenser(db, edits) {
+async function runDispenser(db, edits, options = {}) {
     let editQuery = null;
+    let rawTip = options.rawTip === undefined ? TIP : options.rawTip;
+    let tipHeight = options.tipHeight === undefined ? 500 : options.tipHeight;
+    let times = options.protocolTimes || new Map([[tipHeight, rawTip]]);
     sinon.stub(db, 'getActionType').resolves('DISPENSER');
     sinon.stub(db, 'getActionFeeData').resolves(null);
     sinon.stub(db, 'getTransactionData').resolves(null);
-    sinon.stub(db, 'getMaxBlockTime').resolves(TIP);
+    sinon.stub(db, 'getMaxBlockTime').resolves(rawTip);
+    sinon.stub(db, 'getMaxBlockIndex').resolves(tipHeight);
+    sinon.stub(db, 'getProtocolTimesForBlocks').resolves(times);
     sinon.stub(db, 'doQuery').callsFake(async (c, q) => {
         if(q && /\b(credits|debits|escrows)\b/i.test(q)) return [];
         if(q && /dispenser_edits/i.test(q)){
@@ -97,7 +103,7 @@ async function runDispenser(db, edits) {
         if(q && /\bdispenses\b/i.test(q)) return [];
         return [dispenserRow()];
     });
-    const result = await db.getActionData(cfg(), 100);
+    const result = await db.getActionData(cfg(options.coin), 100);
     return { result, editQuery };
 }
 
@@ -107,10 +113,11 @@ describe('db.getActionData - DISPENSER list-edit activation delay', () => {
     beforeEach(() => { db = new Database(mockExplorer); });
     afterEach(() => { sinon.restore(); });
 
-    it('the edit query selects block_time through actions -> blocks', async () => {
+    it('the edit query selects block time and height through actions -> blocks', async () => {
         const { editQuery } = await runDispenser(db, []);
         expect(editQuery, 'edit lane never ran').to.be.a('string');
         expect(editQuery).to.match(/block_time/i);
+        expect(editQuery).to.match(/block_index/i);
         expect(editQuery).to.match(/INNER\s+JOIN\s+actions\b/i);
         expect(editQuery).to.match(/INNER\s+JOIN\s+blocks\b/i);
     });
@@ -210,5 +217,80 @@ describe('db.getActionData - DISPENSER list-edit activation delay', () => {
         ];
         const { result } = await runDispenser(db, edits);
         expect(result.state.allow_list).to.equal(7);
+    });
+});
+
+describe('db.getActionData - DISPENSER protocol-time delay', () => {
+    beforeEach(() => { db = new Database(mockExplorer); });
+    afterEach(() => { sinon.restore(); });
+
+    const edit = {
+        dispenser_action_index: 100, give_escrow: null, expiration: null,
+        allow_list: 7, block_list: null, block_index: 155000, block_time: 10000
+    };
+
+    it('withholds an activated testnet edit that raw time would release early', async () => {
+        const protocolTimes = new Map([[156230, 11000], [155000, 9000]]);
+        const { result } = await runDispenser(db, [edit], {
+            coin: 'TBTC', tipHeight: 156230, rawTip: 14000, protocolTimes
+        });
+        expect(util.bcgt(14000, util.bcadd(10000, DELAY))).to.equal(true);
+        expect(result.state.allow_list).to.equal(null);
+    });
+
+    it('applies an activated testnet edit after protocol time passes its delay', async () => {
+        const protocolTimes = new Map([[156230, 12601], [155000, 9000]]);
+        const { result } = await runDispenser(db, [edit], {
+            coin: 'TBTC', tipHeight: 156230, rawTip: 14000, protocolTimes
+        });
+        expect(result.state.allow_list).to.equal(7);
+    });
+
+    it('uses raw edit time below the gate but protocol time for the testnet tip', async () => {
+        const protocolTimes = new Map([[156229, 11000]]);
+        const { result } = await runDispenser(db, [edit], {
+            coin: 'TBTC', tipHeight: 156229, rawTip: 14000, protocolTimes
+        });
+        expect(result.state.allow_list).to.equal(null);
+    });
+
+    it('withholds a gated edit whose stored protocol time cannot be resolved', async () => {
+        const protocolTimes = new Map([[156230, 20000]]);
+        const { result } = await runDispenser(db, [edit], {
+            coin: 'TBTC', tipHeight: 156230, rawTip: 20000, protocolTimes
+        });
+        expect(result.state.allow_list).to.equal(null);
+    });
+});
+
+describe('dispenser protocol-time support', () => {
+    afterEach(() => { sinon.restore(); });
+
+    it('pins the display gate to the indexer boundaries', () => {
+        const key = 'dispenser_delay_protocol_time_activation.DISPENSER_DELAY_PROTOCOL_TIME_ACTIVATION';
+        expect(gateRegistry.activeAt(key, 'testnet', 'BTC', 156229, null)).to.equal(false);
+        expect(gateRegistry.activeAt(key, 'testnet', 'BTC', 156230, null)).to.equal(true);
+        expect(gateRegistry.activeAt(key, 'testnet', 'LTC', 4912984, null)).to.equal(true);
+        expect(gateRegistry.activeAt(key, 'testnet', 'DOGE', 67989993, null)).to.equal(true);
+        expect(gateRegistry.activeAt(key, 'mainnet', 'BTC', 999999999, null)).to.equal(false);
+        expect(gateRegistry.activeAt(key, 'regtest', 'BTC', 0, null)).to.equal(true);
+    });
+
+    it('resolves stored protocol time from newest-first prior timestamps', async () => {
+        db = new Database(mockExplorer);
+        sinon.stub(db, 'doQuery').resolves([
+            { requested_block_index: 20, block_index: 20, block_time: 14000 },
+            { requested_block_index: 20, block_index: 19, block_time: 10000 },
+            { requested_block_index: 20, block_index: 18, block_time: 9000 },
+            { requested_block_index: 20, block_index: 17, block_time: 8000 },
+            { requested_block_index: 30, block_index: 30, block_time: 7000 },
+            { requested_block_index: 30, block_index: 29, block_time: 10000 },
+            { requested_block_index: 30, block_index: 28, block_time: 9000 },
+            { requested_block_index: 30, block_index: 27, block_time: 8000 }
+        ]);
+        const times = await db.getProtocolTimesForBlocks(cfg('TBTC'), [20, 30], 'testnet');
+        expect(times.get(20)).to.equal(9000);
+        expect(times.get(30)).to.equal(7000);
+        expect(db.doQuery.firstCall.args[2]).to.deep.equal([20, 30, 11]);
     });
 });

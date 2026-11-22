@@ -77,10 +77,8 @@ class HealthTipReaders {
         return 0;
     }
 
-    // Get the block_time of the highest (tip) block in the blocks table.
-    // Used as the deterministic "now" for display-side activation checks so the
-    // result matches the indexer's consensus logic (which uses block_time) and is
-    // identical across explorer hosts irrespective of local wall-clock.
+    // Get the raw block_time of the highest block in the blocks table. Callers
+    // projecting protocol state must resolve protocol time separately.
     async getMaxBlockTime(config) {
         let query   = `SELECT block_time FROM blocks ORDER BY block_index DESC LIMIT 1`;
         let results = await this.doQuery(config, query, []);

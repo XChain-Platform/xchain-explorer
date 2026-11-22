@@ -222,10 +222,12 @@ const ORDER_MATCH_DETAIL = `SELECT
                     c1.coin as give_coin,
                     t3.tick as give_tick,
                     m1.give_amount,
+                    o1.give_ownership,
                     m1.give_action_index,
                     c2.coin as get_coin,
                     t4.tick as get_tick,
                     m1.get_amount,
+                    o1.get_ownership,
                     m1.get_action_index,
                     m1.settlement_type,
                     b1.block_index,
@@ -236,6 +238,7 @@ const ORDER_MATCH_DETAIL = `SELECT
                     INNER JOIN actions            a1 ON (a1.action_index=m1.action_index)
                     INNER JOIN blocks             b1 ON (b1.block_index=a1.block_index)
                     LEFT  JOIN transactions       t1 ON (t1.tx_index=a1.tx_index)
+                    LEFT  JOIN orders             o1 ON (o1.action_index=m1.get_action_index)
                     LEFT  JOIN index_actions      a2 ON (a2.id=a1.action_id)
                     LEFT  JOIN index_statuses     s1 ON (s1.id=m1.status_id)
                     LEFT  JOIN index_transactions t2 ON (t2.id=t1.tx_hash_id)

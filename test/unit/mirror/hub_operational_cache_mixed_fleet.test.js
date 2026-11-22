@@ -24,6 +24,7 @@ const quietObservability = require('../../helpers/quiet-observability.js');
 const OLD = 'http://a.test:10000';
 const NEW = 'http://b.test:10000';
 const RPC_ERROR = { data: { jsonrpc: '2.0', id: 1, error: { code: -32601, message: 'Method not found' } } };
+const rpcError = (code) => ({ data: { jsonrpc: '2.0', id: 1, error: { code, message: 'rpc ' + code } } });
 const REFUSED = () => Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
 const DEGRADED = () => Object.assign(new Error('Request failed with status code 503'),
     { response: { status: 503, data: { result: { status: 'degraded' } } } });
@@ -73,6 +74,15 @@ async function seedAndAge(cache, state, ageMs) {
     state.mode = 'live';
 }
 
+function mixedRpcFleet(oldCode, newCode) {
+    const state = { mode: 'seed' };
+    state.post = (url) => {
+        if (state.mode === 'seed' && url === NEW) return Promise.resolve({ data: { result: [{ id: 'v1' }] } });
+        return Promise.resolve(rpcError(url === OLD ? oldCode : newCode));
+    };
+    return state;
+}
+
 describe('HubOperationalCache: mixed-version fleet with the upgraded hub down', function () {
     afterEach(function () { sinon.restore(); });
 
@@ -112,11 +122,35 @@ describe('HubOperationalCache: mixed-version fleet with the upgraded hub down', 
         expect(err.message).to.contain('-32601').and.to.contain('not supported');
     });
 
+    it('serves stale rows for mixed RPC errors in either endpoint order', async function () {
+        for (const codes of [[-32601, -32603], [-32603, -32601]]) {
+            const state = mixedRpcFleet(...codes);
+            const { cache } = loadFleetCache(state.post);
+            await seedAndAge(cache, state, 60000);
+            expect(await cache.getRows('getvotes', {}), codes.join('/')).to.deep.equal([{ id: 'v1' }]);
+        }
+    });
+
+    it('returns null past the stale ceiling for mixed RPC errors ending in -32601', async function () {
+        const state = mixedRpcFleet(-32601, -32603);
+        const { cache } = loadFleetCache(state.post);
+        await seedAndAge(cache, state, 700000);
+        expect(await cache.getRows('getvotes', {})).to.equal(null);
+    });
+
     it('the connector flags allEndpointsAnswered only when every endpoint gave a protocol answer', async function () {
         const { XChainHubConnector } = loadFleetCache(() => Promise.resolve(RPC_ERROR));
         const all = {};
         await new XChainHubConnector([OLD, NEW]).call({ jsonrpc: '2.0', method: 'm', id: 1 }, { attempts: 2, delayMs: 0, out: all });
         expect(all.allEndpointsAnswered).to.equal(true);
+        expect(all.allEndpointsMethodNotFound).to.equal(true);
+
+        const mixedCodes = {};
+        const mixedPost = (url) => Promise.resolve(rpcError(url === OLD ? -32603 : -32601));
+        const { XChainHubConnector: MixedCodes } = loadFleetCache(mixedPost);
+        await new MixedCodes([OLD, NEW]).call({ jsonrpc: '2.0', method: 'm', id: 1 }, { attempts: 2, delayMs: 0, out: mixedCodes });
+        expect(mixedCodes.allEndpointsAnswered).to.equal(true);
+        expect(mixedCodes.allEndpointsMethodNotFound).to.equal(false);
 
         const mixed = fleet(REFUSED);
         mixed.mode = 'live';

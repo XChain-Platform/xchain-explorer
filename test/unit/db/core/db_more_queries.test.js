@@ -51,6 +51,7 @@ require('./db_more_queries.test/support/markets_and_actions.js');
 require('./db_more_queries.test/support/blocks_and_search.js');
 require('./db_more_queries.test/support/history_and_files.js');
 require('./db_more_queries.test/support/projects_and_orders.js');
+require('./db_more_queries.test/support/block_hashes.js');
 require('./db_more_queries.test/support/contracts_and_staking.js');
 require('./db_more_queries.test/support/prices_and_query_filters.js');
 require('./db_more_queries.test/support/query_execution.js');

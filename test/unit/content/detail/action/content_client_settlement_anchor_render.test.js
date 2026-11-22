@@ -51,7 +51,7 @@ function feedLabel(action, info = {}){
 function normalized(row){
     const dom = new JSDOM('<!DOCTYPE html><body></body>', { runScripts: 'outside-only' });
     dom.window.eval(fs.readFileSync(path.join(content, 'js', 'xchain', 'api_proof.js'), 'utf8'));
-    return dom.window.null2string(row);
+    return dom.window.normalizeActionInfo(row);
 }
 
 // Name a fully populated XPOLICY snapshot row with no block list.

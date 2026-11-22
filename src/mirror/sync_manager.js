@@ -45,7 +45,8 @@
  * two coins sharing one mirror schema must not double-subscribe. Lifecycle
  * follows the IconDownloader precedent: constructed in XChainExplorer.init(),
  * start()/stop(), failures logged rather than fatal. Initialization retries
- * locally; once constructed, HubDbSync reconnects and re-bootstraps on its own.
+ * locally. A client that starts successfully reconnects on its own; a start
+ * rejection returns to this manager's initialization retry.
  *
  ********************************************************************/
 
@@ -97,6 +98,19 @@ function scheduleRetry(inst, t, key){
     return delay;
 }
 
+async function failInstance(inst, t, key, err){
+    await cleanFailedInstance(inst);
+    inst.initFailed = true;
+    inst.lastInitErrorCode = errorCode(err);
+    let retryInMs = null;
+    if(!inst.cancelled && inst.lastInitErrorCode !== 'UNSAFE_SCHEMA_NAME' && !inst.retryTimer)
+        retryInMs = scheduleRetry(inst, t, key);
+    log.error('HUB_MIRROR_INIT_FAILED', {
+        target: key, attempt: inst.initAttempts, retryInMs,
+        err: err && err.message ? err.message : err, stack: err && err.stack
+    });
+}
+
 // Bring up one registered mirror target: pool, schema, tables, column drift,
 // then the client. A host reboot can start this process before the database;
 // failed initialization retries with capped backoff without blocking other targets.
@@ -133,27 +147,20 @@ async function startMirrorInstance(inst, t, key){
             coin: t.chain, network: t.network,
             hubUrl: inst.hubUrl, selector: inst.selector
         });
-        // start() rejects when the hub is unreachable at boot; the client
-        // keeps reconnecting/re-bootstrapping on its own after that, and the
-        // staleness surface reports bootstrapDrained=false meanwhile.
-        inst.sync.start().catch((err) => {
+        // Keep explorer startup independent of the initial mirror bootstrap. A
+        // rejection before the client enables its own recovery returns here.
+        const sync = inst.sync;
+        sync.start().catch(async (err) => {
             log.error('HUB_MIRROR_SYNC_START_FAILED', { target: key, err: err && err.message ? err.message : err });
+            if(inst.cancelled || inst.sync !== sync) return;
+            await failInstance(inst, t, key, err);
         });
         inst.initFailed = false;
         inst.lastInitErrorCode = null;
         inst.nextInitRetryAt = null;
         log.info('HUB_MIRROR_SYNC_STARTED', { target: key, coins: inst.coins.join(',') });
     } catch (err){
-        await cleanFailedInstance(inst);
-        inst.initFailed = true;
-        inst.lastInitErrorCode = errorCode(err);
-        let retryInMs = null;
-        if(!inst.cancelled && inst.lastInitErrorCode !== 'UNSAFE_SCHEMA_NAME')
-            retryInMs = scheduleRetry(inst, t, key);
-        log.error('HUB_MIRROR_INIT_FAILED', {
-            target: key, attempt: inst.initAttempts, retryInMs,
-            err: err && err.message ? err.message : err, stack: err && err.stack
-        });
+        await failInstance(inst, t, key, err);
     } finally {
         inst.initPromise = null;
     }

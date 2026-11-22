@@ -22,8 +22,9 @@
  * a status, a source), an INNER join that dropped some, or a GROUP BY or
  * DISTINCT that merged them would hold the cursor below a filtered tip row for
  * good, and run a fork search on every poll. This test fails if the WHERE
- * clause of readActionsSinceRows (behind getActionsSince) or of getBlocksSince
- * ever holds more than the cursor bounds, or the row-dropping shapes appear.
+ * clause of readActionsSinceRows (behind getActionsSince), getBlocksSince, or
+ * getBlockHashesSince ever holds more than the cursor bounds, or the
+ * row-dropping shapes appear.
  *
  ********************************************************************/
 
@@ -91,6 +92,12 @@ describe('live feed since-queries stay unfiltered (WS-02 cursor guard)', functio
 
     it('getBlocksSince filters on the cursor alone', async function () {
         const sql = await statementOf((db, cfg) => db.getBlocksSince(cfg, 5, 100));
+        expect(whereOf(sql)).to.equal('b1.block_index > ?');
+        expect(rowDroppingShapes(sql)).to.deep.equal([]);
+    });
+
+    it('getBlockHashesSince filters on the cursor alone', async function () {
+        const sql = await statementOf((db, cfg) => db.getBlockHashesSince(cfg, 5, 100));
         expect(whereOf(sql)).to.equal('b1.block_index > ?');
         expect(rowDroppingShapes(sql)).to.deep.equal([]);
     });

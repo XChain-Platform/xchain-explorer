@@ -172,6 +172,7 @@ const GET_DISPENSES_QUERY_SQL = `SELECT
                         c1.coin as give_coin,
                         t3.tick as give_tick,
                         m.give_amount,
+                        d1.give_ownership,
                         c2.coin as get_coin,
                         t4.tick as get_tick,
                         m.get_amount,

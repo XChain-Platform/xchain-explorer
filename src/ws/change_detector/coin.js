@@ -37,6 +37,7 @@ const rollback = require('./rollback.js');
 const { announceRollback, noteShortFetch } = rollback;
 // The ceiling and rewind of the two (block, action_index) cursors (pair_cursor.js).
 const { deliveredBlock, lowerPairCursor } = require('./pair_cursor.js');
+const verifyDelivered = require('./delivered_identity.js');
 
 class CoinPass {
 
@@ -53,12 +54,11 @@ class CoinPass {
             await seedCoin(this, config, prev, currentBlockIndex, currentActionIndex);
             return;
         }
-
-        // On a reorg, rewind each cursor to just below the fork point: the lowest
-        // remembered height whose block hash changed or vanished, and never above the
-        // (possibly lower) new tip. A replacement at an unchanged height therefore
-        // re-enters the feed instead of sitting under the high-water mark. The
-        // pending flag, not this poll's verdict, gates it (see readTip).
+        await verifyDelivered(this, config, prev);
+        // Rewind below the lowest remembered changed or vanished block, never above
+        // the new tip. The pending flag comes from the tip probe, a short fetch, or
+        // the delivered identity check, and stays set across a failed rewind read.
+        // This lets a same-height replacement re-enter the feed past its old cursor.
         if (prev.pendingReorg) {
             const before = { blockIndex: prev.blockIndex, actionIndex: prev.actionIndex };
             const fork = await findForkPoint(this, config, prev);

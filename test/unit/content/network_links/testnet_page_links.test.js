@@ -89,7 +89,7 @@ const LIST_CASES = {
         { coin: 'LTC', action_format: 2, destination: 'addr1' }), ['PLTC/address/addr1']],
     'DISPENSER_CLOSE leg': (w) => [w.formatCoinLegAmount(w.XC.coin, 'BTC', 'TOK', 1), ['PBTC/token/TOK']],
     'ORDER_MATCH list row': (w) => [listRow(w, 'order_match',
-        [1, 100, 0, 'BTC', 11, '1', 'LTC', 12, '2', 'settled', 1, 99], [3, 5]), ['PBTC/action/11', 'PLTC/action/12']],
+        [1, 100, 0, 'BTC', 11, '1', 'LTC', 12, '2', 'settled', 0, 0, 1, 99], [3, 5]), ['PBTC/action/11', 'PLTC/action/12']],
     'DISPENSER list row': (w) => [listRow(w, 'dispenser',
         [1, 100, 0, 'src', 'BTC', 'GIVE', '1', 'LTC', 'GET', '2', 0, 1, 99], [4, 5]), ['PBTC/token/GIVE', 'PLTC/token/GET']],
     'LINK list row': (w) => [listRow(w, 'link',

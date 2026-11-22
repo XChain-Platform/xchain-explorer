@@ -45,14 +45,14 @@ function pendingTransactionActions(tx){
     });
 }
 
-// This check must see the raw API row before null2string makes null ambiguous.
+// This check must see the raw API row before display normalization changes nulls.
 function isProtocolGeneratedAction(o){
     return Boolean(o) && o.protocol_generated === true;
 }
 
 function setActionInfo(raw){
     XC.actionNoSourceTx = isProtocolGeneratedAction(raw);
-    XC.actionInfo = null2string(raw);
+    XC.actionInfo = normalizeActionInfo(raw);
 }
 
 function renderActionStatus(status, reason){

@@ -25,6 +25,10 @@ const {
     ledgerEffectsQuery,
     ledgerEffectsBatchQuery
 } = require('../db/action_detail/shared_sql');
+const gateRegistry = require('../consensus/gate_registry.js');
+
+const DISPENSER_DELAY_PROTOCOL_TIME_GATE =
+    'dispenser_delay_protocol_time_activation.DISPENSER_DELAY_PROTOCOL_TIME_ACTIVATION';
 
 const DISPENSE_ZERO_FILL_STATUS = 'invalid: insufficient funds ';
 const DISPENSE_ZERO_FILL_REASON = 'The payment was too small to buy one fill at the dispenser\'s price; the coin was kept.';
@@ -92,11 +96,25 @@ function applyTerminalOfferState(data) {
 // accumulated since it was created. Shared by all three because the rows have
 // the same shape; only DISPENSER gates an edit on the activation delay.
 async function applyOfferListEdits({ db, config, coinConfigs, type }, data, results) {
-    // Mirror consensus when deriving DISPENSER list-edit activation: the indexer
-    // gates activation on the deterministic block timestamp (block_time), never on
-    // wall-clock. Comparing against the latest indexed block_time keeps activation
-    // status identical across explorer hosts regardless of each host's local clock.
     let now = await db.getMaxBlockTime(config);
+    let protocolTimes = new Map();
+    let delayUsesProtocolTime = false;
+    if(type=='DISPENSER'){
+        let resolved = null;
+        try { resolved = await db.resolveCoinNetwork(config); }
+        catch(e){ /* unavailable config keeps the raw-time fallback */ }
+        if(resolved){
+            let tip = await db.getMaxBlockIndex(config);
+            delayUsesProtocolTime = gateRegistry.activeAt(
+                DISPENSER_DELAY_PROTOCOL_TIME_GATE,
+                resolved.network, resolved.coin, tip, null);
+            let indexes = [tip];
+            if(delayUsesProtocolTime)
+                indexes.push(...results.map((row) => row.block_index));
+            protocolTimes = await db.getProtocolTimesForBlocks(config, indexes, resolved.network);
+            if(protocolTimes.has(tip)) now = protocolTimes.get(tip);
+        }
+    }
     for(let row of results){
         let active = true;
         if(type=='DISPENSER'){
@@ -108,9 +126,12 @@ async function applyOfferListEdits({ db, config, coinConfigs, type }, data, resu
             // A row with no block_time cannot be aged, and bcadd() would read it as 0
             // (i.e. active since the epoch), so withhold it instead of leaking a list
             // edit the delay has not released yet. The query2 join guarantees a value.
-            active = db.util.isNull(row.block_time)
+            let delayStart = delayUsesProtocolTime
+                ? protocolTimes.get(Number(row.block_index))
+                : row.block_time;
+            active = db.util.isNull(delayStart)
                 ? false
-                : db.util.bcgt(now, db.util.bcadd(row.block_time, coinConfigs['DISPENSER_LIST_DELAY']));
+                : db.util.bcgt(now, db.util.bcadd(delayStart, coinConfigs['DISPENSER_LIST_DELAY']));
         }
         if(!db.util.isNull(row.expiration))  data.state.expiration  = row.expiration;
         if(active){

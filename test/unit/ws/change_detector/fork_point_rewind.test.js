@@ -55,8 +55,12 @@ function makeDetector(chain, actions) {
         getMaxActionIndex: async () => BigInt(actions.rows[actions.rows.length - 1].action_index),
         getBlocksSince: async (config, since, limit) => blocksWithFirstActions(
             chain.blocks.filter((b) => b.block_index > since).slice(0, limit), actions.rows),
+        getBlockHashesSince: async (config, since, limit) => chain.blocks
+            .filter((b) => b.block_index > since).slice(0, limit)
+            .map((b) => ({ block_index: b.block_index, block_hash: b.block_hash })),
         getActionsSince: async (config, since, limit) =>
-            actions.rows.filter((a) => BigInt(a.action_index) > BigInt(since)).slice(0, limit)
+            actions.rows.filter((a) => BigInt(a.action_index) > BigInt(since)).slice(0, limit),
+        bumpReorgGeneration: sinon.spy()
     };
     return detector;
 }
@@ -220,6 +224,65 @@ describe('change detector startup history integrity', function () {
         const rollback = detector.emit.getCalls().find((c) => c.args[0] === 'reorg');
         expect(rollback.args[2].first_invalid_action_index).to.equal('10');
         expect(emitted(detector).actions).to.deep.equal([10n, 11n]);
+    });
+});
+
+describe('change detector sent-block identity check', function () {
+    it('rewinds a block delivered beyond the earlier reorg probe when it is replaced', async function () {
+        const chain = { blocks: [block(10, 'a', 1)] };
+        const actions = { rows: [action(5n, 10)] };
+        const detector = makeDetector(chain, actions);
+        await detector.checkCoin('BTC');
+
+        let grew = false;
+        detector.db.checkReorgAndInvalidate = async () => {
+            if (!grew) {
+                grew = true;
+                chain.blocks.push(block(11, 'b', 1));
+                actions.rows.push(action(6n, 11));
+            }
+            return false;
+        };
+        await detector.checkCoin('BTC');
+        expect(emitted(detector)).to.deep.equal({ blocks: ['b'], actions: [6n] });
+
+        detector.emit.resetHistory();
+        detector.db.checkReorgAndInvalidate = async () => false;
+        chain.blocks[1] = block(11, 'b2', 1);
+        await detector.checkCoin('BTC');
+        const reorg = detector.emit.getCalls().find((call) => call.args[0] === 'reorg');
+        expect(reorg.args[2].fork_block_index).to.equal('11');
+        expect(emitted(detector)).to.deep.equal({ blocks: ['b2'], actions: [6n] });
+        expect(detector.state.BTC.history.get(11).hash).to.equal('b2');
+        expect(detector.db.bumpReorgGeneration.calledOnceWithExactly('BTC')).to.equal(true);
+
+        detector.emit.resetHistory();
+        await detector.checkCoin('BTC');
+        expect(detector.emit.called).to.equal(false);
+    });
+
+    it('rewinds when the last delivered block vanishes', async function () {
+        const chain = { blocks: [block(10, 'a', 1), block(11, 'b', 1)] };
+        const actions = { rows: [action(5n, 10), action(6n, 11)] };
+        const detector = makeDetector(chain, actions);
+        await detector.checkCoin('BTC');
+        chain.blocks = [block(10, 'a', 1)];
+        actions.rows = [action(5n, 10)];
+        await detector.checkCoin('BTC');
+        expect(detector.emit.calledWithMatch('reorg', 'BTC')).to.equal(true);
+        expect(detector.state.BTC.blockIndex).to.equal(10);
+        expect(detector.db.bumpReorgGeneration.calledOnceWithExactly('BTC')).to.equal(true);
+    });
+
+    it('does not call a null remembered hash a replacement while its row remains', async function () {
+        const chain = { blocks: [block(10, null, 1)] };
+        const actions = { rows: [action(5n, 10)] };
+        const detector = makeDetector(chain, actions);
+        await detector.checkCoin('BTC');
+        detector.emit.resetHistory();
+        await detector.checkCoin('BTC');
+        expect(detector.emit.calledWithMatch('reorg', 'BTC')).to.equal(false);
+        expect(detector.db.bumpReorgGeneration.called).to.equal(false);
     });
 });
 

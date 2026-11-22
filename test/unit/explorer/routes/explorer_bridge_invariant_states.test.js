@@ -38,7 +38,9 @@ function buildApp(hub){
 // real connector does, then resolves to `result`.
 function hubAnswering(result, out){
     return { call: sinon.spy(async (_data, opts) => {
-        if(opts && opts.out) Object.assign(opts.out, { rpcError: null, failures: [], allEndpointsAnswered: false }, out);
+        if(opts && opts.out) Object.assign(opts.out, {
+            rpcError: null, failures: [], allEndpointsAnswered: false, allEndpointsMethodNotFound: false
+        }, out);
         return result;
     }) };
 }
@@ -62,7 +64,10 @@ describe('explorer bridge-invariant route: hub states', function(){
     });
 
     it('answers 200 available:false when every hub endpoint lacks the method', async function(){
-        const hub = hubAnswering(null, { allEndpointsAnswered: true, rpcError: { code: -32601, message: 'Method not found' } });
+        const hub = hubAnswering(null, {
+            allEndpointsAnswered: true, allEndpointsMethodNotFound: true,
+            rpcError: { code: -32601, message: 'Method not found' }
+        });
         const res = await request(buildApp(hub)).get('/BTC/api/bridge-invariant/XCHAIN');
         expect(res.status).to.equal(200);
         expect(res.body).to.deep.equal({ available: false, reason: 'HUB_METHOD_MISSING' });
@@ -70,6 +75,16 @@ describe('explorer bridge-invariant route: hub states', function(){
 
     it('keeps 503 when only some endpoints lack the method and the rest are down', async function(){
         const hub = hubAnswering(null, { allEndpointsAnswered: false, rpcError: { code: -32601 } });
+        const res = await request(buildApp(hub)).get('/BTC/api/bridge-invariant/XCHAIN');
+        expect(res.status).to.equal(503);
+        expect(res.body.code).to.equal('BRIDGE_INVARIANT_UNAVAILABLE');
+    });
+
+    it('keeps 503 when every endpoint answers but only the last lacks the method', async function(){
+        const hub = hubAnswering(null, {
+            allEndpointsAnswered: true, allEndpointsMethodNotFound: false,
+            rpcError: { code: -32601, message: 'Method not found' }
+        });
         const res = await request(buildApp(hub)).get('/BTC/api/bridge-invariant/XCHAIN');
         expect(res.status).to.equal(503);
         expect(res.body.code).to.equal('BRIDGE_INVARIANT_UNAVAILABLE');

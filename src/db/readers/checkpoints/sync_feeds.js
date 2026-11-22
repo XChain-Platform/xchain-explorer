@@ -159,6 +159,22 @@ class SyncFeedReaders {
         return results || [];
     }
 
+    // Hash-only identity read for the change detector's delivered-block check.
+    async getBlockHashesSince(config, sinceBlockIndex, limit) {
+        let query = `SELECT
+                        b1.block_index,
+                        t1.hash as block_hash
+                    FROM
+                        blocks b1
+                        LEFT JOIN index_transactions t1 ON (t1.id=b1.ledger_hash_id)
+                    WHERE
+                        b1.block_index > ?
+                    ORDER BY b1.block_index ASC
+                    LIMIT ?`;
+        let results = await this.doQuery(config, query, [sinceBlockIndex, limit]);
+        return results || [];
+    }
+
     async getActionsSince(config, sinceActionIndex, limit, upToActionIndex) {
         let results = await readActionsSinceRows(this, config, sinceActionIndex, limit, upToActionIndex);
         if(!results || !results.length) return [];

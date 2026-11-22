@@ -342,7 +342,10 @@ function xcDatatableRenderDispenseRow(context){
     let get_coin    = data[7];
     let get_token   = data[8];
     let get_amount  = data[9];
-    let giveLeg = isNull(give_token)
+    let give_ownership = data[10];
+    let giveLeg = (give_ownership == 1)
+        ? formatCoinLegTicker(coin, give_coin, give_token) + ' ' + ownershipBadge()
+        : isNull(give_token)
         ? formatNativeCoinLeg(give_amount, give_coin)
         : formatLinkAmount(tokenUrl(give_coin, give_token), give_token, give_token, give_amount);
     $('td', row).eq(4).html(giveLeg);

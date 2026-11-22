@@ -116,9 +116,9 @@ describe('client: native coin market legs', function () {
     it('renders empty and null ticks as native coin legs in current and terminal list rows', function () {
         const win = boot();
         const current = [1, 3051, 0, ACTION_3051.source, 'DOGE', ACTION_3051.give_tick, '1',
-            'DOGE', null, '0.00001985', 1, 3051];
+            'DOGE', null, '0.00001985', 0, 1, 3051];
         const reversed = [1, 3052, 0, ACTION_3051.source, 'DOGE', '', '0.00001985',
-            'DOGE', ACTION_3051.give_tick, '1', 1, 3052];
+            'DOGE', ACTION_3051.give_tick, '1', 0, 1, 3052];
         const closed = [1, 3053, 0, ACTION_3051.source, 3048, 'DOGE', '', '0.00001985',
             'DOGE', ACTION_3051.give_tick, '1', 'empty', 1, 3053];
 

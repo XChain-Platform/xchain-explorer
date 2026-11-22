@@ -68,12 +68,14 @@ describe('method: getOrderMatches', function () {
             get_action_index:  80,
             get_amount:        '30',
             settlement_type:   'TOKEN',
+            give_ownership:    1,
+            get_ownership:     0,
             status:            'valid'
         };
         const cfg    = makeExplorerConfig('getOrderMatches', null, null, { start: 0, length: 10 });
         const result = explorer.getPagingDataResults(cfg, [row], 1);
         const r = result[0];
-        expect(r).to.be.an('array').with.length(12);
+        expect(r).to.be.an('array').with.length(14);
         expect(toNum(r[0])).to.equal(1);
         expect(r[1]).to.equal(800);
         expect(r[2]).to.equal(1730000000);
@@ -84,6 +86,8 @@ describe('method: getOrderMatches', function () {
         expect(r[7]).to.equal(80);
         expect(r[8]).to.equal('30');
         expect(r[9]).to.equal('TOKEN');
+        expect(r[10]).to.equal(1);
+        expect(r[11]).to.equal(0);
         expect(r[r.length - 2]).to.equal(1);  // status stays second-to-last
         expect(r[r.length - 1]).to.equal(90); // action_index stays last (cursor)
     });
@@ -101,17 +105,21 @@ describe('method: getSwapMatches', function () {
             give_action_index: 71,
             get_coin:          'BTC',
             get_action_index:  81,
+            give_ownership:    0,
+            get_ownership:     1,
             status:            'invalid'
         };
         const cfg    = makeExplorerConfig('getSwapMatches', null, null, { start: 0, length: 10 });
         const result = explorer.getPagingDataResults(cfg, [row], 1);
         const r = result[0];
-        expect(r).to.be.an('array').with.length(9);
+        expect(r).to.be.an('array').with.length(11);
         expect(r[1]).to.equal(801);
         expect(r[3]).to.equal('DOGE');
         expect(r[4]).to.equal(71);
         expect(r[5]).to.equal('BTC');
         expect(r[6]).to.equal(81);
+        expect(r[7]).to.equal(0);
+        expect(r[8]).to.equal(1);
         expect(r[r.length - 2]).to.equal(0);  // invalid => 0, second-to-last
         expect(r[r.length - 1]).to.equal(91); // action_index stays last (cursor)
     });

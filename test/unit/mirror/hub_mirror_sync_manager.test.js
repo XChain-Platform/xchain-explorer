@@ -119,6 +119,63 @@ describe('HubMirrorSyncManager', function () {
     });
 });
 
+describe('HubMirrorSyncManager client startup failures', function () {
+    afterEach(function () { sinon.restore(); });
+
+    it('cleans up and retries when client start rejects', async function () {
+        const clock = sinon.useFakeTimers(1000);
+        sinon.stub(Math, 'random').returns(0.5);
+        const harness = load({ env: { HUB_API_URL: 'http://hub:10000' } });
+        harness.syncStart.onFirstCall().rejects(Object.assign(new Error('gone'), { code: 'ECONNREFUSED' }));
+        sinon.stub(console, 'error');
+        try {
+            const mgr = new harness.HubMirrorSyncManager(makeExplorer({ RBTC: TARGET() }));
+            await mgr.start();
+            await clock.tickAsync(0);
+            expect(mgr.statusForCoin('RBTC')).to.include({
+                initFailed: true, lastInitErrorCode: 'ECONNREFUSED'
+            });
+            expect(harness.syncStop.calledOnce).to.equal(true);
+            expect(harness.poolEnd.calledOnce).to.equal(true);
+            await clock.tickAsync(2000);
+            expect(harness.ensureDatabase.calledTwice).to.equal(true);
+            expect(harness.syncStart.calledTwice).to.equal(true);
+            expect(mgr.statusForCoin('RBTC')).not.to.have.property('initFailed');
+            await mgr.stop();
+        } finally { clock.restore(); harness.restoreEnv(); }
+    });
+
+    it('ignores a client rejection that settles after stop', async function () {
+        const clock = sinon.useFakeTimers(1000);
+        const harness = load({ env: { HUB_API_URL: 'http://hub:10000' } });
+        let rejectStart;
+        harness.syncStart.returns(new Promise((_resolve, reject) => { rejectStart = reject; }));
+        sinon.stub(console, 'error');
+        try {
+            const mgr = new harness.HubMirrorSyncManager(makeExplorer({ RBTC: TARGET() }));
+            await mgr.start();
+            await mgr.stop();
+            rejectStart(Object.assign(new Error('late'), { code: 'ECONNREFUSED' }));
+            await clock.tickAsync(60 * 60 * 1000);
+            expect(harness.ensureDatabase.calledOnce).to.equal(true);
+            expect(harness.syncStart.calledOnce).to.equal(true);
+        } finally { clock.restore(); harness.restoreEnv(); }
+    });
+
+    it('does not wait for client bootstrap to finish', async function () {
+        const harness = load({ env: { HUB_API_URL: 'http://hub:10000' } });
+        harness.syncStart.returns(new Promise(() => {}));
+        try {
+            const mgr = new harness.HubMirrorSyncManager(makeExplorer({ RBTC: TARGET() }));
+            const started = await Promise.race([
+                mgr.start().then(() => true), new Promise(resolve => setImmediate(() => resolve(false)))
+            ]);
+            expect(started).to.equal(true);
+            await mgr.stop();
+        } finally { harness.restoreEnv(); }
+    });
+});
+
 describe('HubMirrorSyncManager', function () {
     afterEach(function () { sinon.restore(); });
 

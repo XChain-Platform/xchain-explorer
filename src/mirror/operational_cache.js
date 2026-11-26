@@ -43,12 +43,9 @@
  * filter params.
  *
  * Outage cost: one failed read costs the connector's whole retry window
- * (two attempts plus backoff, about 2 s on an unreachable hub). A failed
- * read is therefore remembered per key for one TTL window, and requests
- * inside that window answer at once from the same stale-or-null rule
- * without another hub round-trip; concurrent misses on one key share a
- * single in-flight read. Without both, every request during an outage held
- * its request slot for the full retry window.
+ * (about 2 s on an unreachable hub), so a failed read is remembered per key
+ * for one TTL window (later requests answer from the stale-or-null rule at
+ * once) and concurrent misses on one key share a single in-flight read.
  *
  * Both are per key, and a HUNG hub costs about 12 s per read, so distinct-key
  * misses each held a slot of the API's global concurrency gate that long and
@@ -144,6 +141,15 @@ function settleMissedRead(method, result, call, hit, after, staleMaxMs, owner){
     return rows;
 }
 
+// What a hub that DID answer said instead of rows (an {error} body, or a JSON-RPC
+// error other than -32601, which settleMissedRead owns), else null: the caller's
+// outage error names this cause instead of calling a live hub unreachable.
+function hubAnswerCause(result, call){
+    if(result && typeof result.error === 'string' && result.error) return result.error;
+    const e = call.rpcError;
+    return (e && Number(e.code) !== -32601 && e.message) ? String(e.message) : null;
+}
+
 class HubOperationalCache {
 
     constructor(explorer){
@@ -156,6 +162,8 @@ class HubOperationalCache {
         this.failedAt = new Map();
         // key -> the read in flight for it, so concurrent misses share one call.
         this.inflight = new Map();
+        // method -> { at, cause }: the error a reachable hub last answered it with.
+        this.hubCause = new Map();
 
         // Process-wide hub read bound and down latch (see the header).
         this.maxHubReads = MAX_HUB_READS;
@@ -180,6 +188,13 @@ class HubOperationalCache {
 
     enabled(){
         return this.connector !== null;
+    }
+
+    // The cause a reachable hub gave for not serving `method`, within the one TTL
+    // window its failure memo answers in; null when the last miss was an outage.
+    hubReportedCause(method){
+        const c = this.hubCause.get(method);
+        return (c && (Date.now() - c.at) < this.ttlMs) ? c.cause : null;
     }
 
     // Fetch rows for one hub RPC read method, TTL-cached per (method, params).
@@ -285,45 +300,34 @@ class HubOperationalCache {
 
     // One hub read for `key`, shared by every concurrent getRows that missed it.
     async readFromHub(method, key, cleaned, hit, now){
-        // Call-scoped diagnostics sink. The connector is one object for the whole
-        // process and its lastRpcError is last-call-wins, so reading it after this
-        // await let a CONCURRENT call's -32601 decide this call's outcome: the
-        // capability-gap throw below fired for a method the hub serves fine and
-        // skipped the stale-cache bridge, and the reverse (a concurrent healthy
-        // call clearing the field on entry) erased a real -32601.
+        // Call-scoped diagnostics sink: the shared connector's lastRpcError is
+        // last-call-wins, so a CONCURRENT call's -32601 could decide this outcome.
         let call = {};
         let result = await this.connector.call(
             { jsonrpc: '2.0', method, params: cleaned, id: 1 },
             { attempts: 2, out: call }
         );
-        // Read the clock AGAIN. `now` above was taken before the RPC, and the RPC
-        // is the slow part of this function: two attempts plus their timeouts, so
-        // an unreachable hub burns real seconds here. Measuring the stale ceiling
-        // with the pre-await stamp measures the age the rows had when this request
-        // STARTED, which lets an entry be served past
-        // EXPLORER_HUB_CACHE_STALE_MAX_MS by the whole retry window and understates
-        // the age in the operator warning by the same amount. The ceiling is the
-        // only freshness bound on this path (db/index.js fails loud rather than falling
-        // through to the co-located schema, which has no bound at all), so it has
-        // to be measured against the clock now, not the clock then.
-        //
-        // The cache WRITE below deliberately keeps `now`. An entry's `at` is a
-        // claim about how old its DATA is, and the rows the hub just returned
-        // describe hub state at some point from the request onward; stamping them
-        // at the response instead would credit them with the RPC's duration of
-        // freshness they do not have. Request-start is the conservative end of
-        // that interval, and both the TTL and the ceiling should read it that way.
+        // Read the clock AGAIN: the RPC burns real seconds on an unreachable hub,
+        // and the pre-await stamp would let an entry be served past
+        // EXPLORER_HUB_CACHE_STALE_MAX_MS (the only freshness bound on this path)
+        // by the whole retry window. The cache WRITE deliberately keeps `now`: an
+        // entry's `at` claims how old its DATA is, and request-start is the
+        // conservative end of the interval the returned rows describe.
         let after = Date.now();
         if(Array.isArray(result)){
             rememberRows(this._cache, key, now, result);
             this.failedAt.delete(key);
             this.hubDownUntil = 0;
+            this.hubCause.delete(method);
             return result;
         }
         // settleMissedRead throws on a capability gap, which is a definitive
         // answer and is never remembered as an outage.
         const rows = settleMissedRead(method, result, call, hit, after, this.staleMaxMs, this);
         rememberFailure(this.failedAt, key, after);
+        const cause = hubAnswerCause(result, call);
+        if(cause) this.hubCause.set(method, { at: after, cause });
+        else this.hubCause.delete(method);
         // No endpoint answered at all (no JSON-RPC error, no degraded body): the
         // hub itself is unreachable or hung, which no other key can read past.
         if((result === null || result === undefined) && !call.rpcError)
@@ -383,15 +387,11 @@ class HubOperationalCache {
             });
     }
 
-    // getslashproposals filters status and validator_pubkey SERVER-side (unlike
-    // getreorghistory, which has no filters at all and forces client-side
-    // narrowing), so both params ride the RPC and the cache key fragments per
-    // filter combination the same way getvalidatorcapabilities/getvotes already
-    // do. limit:500 matches the hub's own page cap (SlashDetector.MAX_PAGE), so
-    // the explorer never asks for more than the hub will serve. The rows the hub
-    // returns carry evidence_hash, never the verbatim evidence blob: that
-    // redaction is hub-side by design, because the hub's POST surface serves the
-    // same RPC to any caller.
+    // getslashproposals filters status and validator_pubkey SERVER-side, so both
+    // ride the RPC and the cache key fragments per filter combination. limit:500
+    // matches the hub's page cap (SlashDetector.MAX_PAGE). Rows carry
+    // evidence_hash, never the evidence blob: that redaction is hub-side by
+    // design, because the hub's POST surface serves the same RPC to any caller.
     getSlashProposals({ status, validator_pubkey } = {}){
         return this.getRows('getslashproposals', { status, validator_pubkey, limit: 500 });
     }

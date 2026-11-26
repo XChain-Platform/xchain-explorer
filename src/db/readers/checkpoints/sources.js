@@ -28,6 +28,34 @@
 
 'use strict';
 
+// The hub JSON-RPC read method each hub-served operational table is fetched with
+// (mirror/operational_cache.js), so an outage can ask for the cause the hub gave.
+const HUB_OPERATIONAL_METHODS = {
+    validator_capabilities: 'getvalidatorcapabilities',
+    governance_proposals:   'getproposals',
+    governance_votes:       'getvotes',
+    reorg_attestations:     'getreorghistory',
+    slash_proposals:        'getslashproposals'
+};
+
+// Longest hub-reported cause echoed into a response body.
+const MAX_CAUSE_CHARS = 200;
+
+// A reachable hub declined the read and nothing fresh enough is cached. Named
+// HubUnavailableError so the request layer still answers 503 rather than a database
+// fault; the message carries the hub's cause, flattened to one bounded line.
+function throwHubAnsweredError(table, cause, ceiling){
+    const said = String(cause).replace(/\s+/g, ' ').trim().slice(0, MAX_CAUSE_CHARS);
+    const err = new Error('Hub answered but did not serve ' + table + ': the hub JSON-RPC read ' +
+        'returned the error "' + said + '", and no cached rows within the ' + ceiling + 's stale ' +
+        'ceiling (EXPLORER_HUB_CACHE_STALE_MAX_MS) are available. The hub is reachable; enable ' +
+        'the hub subsystem that serves ' + table + ', or fix the cause it reported.');
+    err.name = 'HubUnavailableError';
+    err.code = 'HUB_READ_ERROR';
+    err.hubCause = said;
+    throw err;
+}
+
 class CheckpointSourceReaders {
     // Resolve the checkpoint-table source for a coin. These hub-mirrored tables
     // (state_checkpoints, capability_snapshots) are pushed/retracted by the hub
@@ -234,9 +262,16 @@ class CheckpointSourceReaders {
     // accepted cost is that these three pages blank on a co-located install whose hub
     // PROCESS is down while its hub DB is still up; a blank page with a reason beats a
     // stale page without one.
+    //
+    // A hub that ANSWERED with an error (e.g. "slash detector not active" on a hub run
+    // without that subsystem) is not unreachable: the same 503 then names the hub's own
+    // cause, since "restore the hub endpoint" would send the operator after a live hub.
     hubOperationalOutage(table){
         let ops     = this.explorer ? this.explorer.hubOperational : null;
         let ceiling = (ops && this.util.isNumeric(ops.staleMaxMs)) ? Math.round(ops.staleMaxMs / 1000) : 600;
+        let cause   = (ops && typeof ops.hubReportedCause === 'function')
+            ? ops.hubReportedCause(HUB_OPERATIONAL_METHODS[table]) : null;
+        if(cause) throwHubAnsweredError(table, cause, ceiling);
         // Coded so the request layer answers 503 HUB_UNAVAILABLE, not a database fault. The
         // message makes no claim about cache history: a key never cached has no stale rows.
         const err = new Error('Hub unreachable: ' + table + ' could not be read over hub JSON-RPC and ' +

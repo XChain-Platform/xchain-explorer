@@ -2664,6 +2664,16 @@
       "not_a_test_script": 11
     },
     "title_sets": {
+      "0023bc318aa0fab2": [
+        "hub operational reads: a hub application error is not an outage answers 503 with a body that names the cause through the request layer",
+        "hub operational reads: a hub application error is not an outage flattens and bounds the hub string echoed into the body",
+        "hub operational reads: a hub application error is not an outage keeps naming the cause on repeat reads answered from the failure memo",
+        "hub operational reads: a hub application error is not an outage names the hub-reported cause instead of \"Hub unreachable\"",
+        "hub operational reads: outage and stale-bridge controls control: an outage after an application error drops the old cause",
+        "hub operational reads: outage and stale-bridge controls control: an unreachable hub (null, no error) still raises \"Hub unreachable\"",
+        "hub operational reads: outage and stale-bridge controls control: cached rows inside the stale ceiling are still served on an application error",
+        "hub operational reads: outage and stale-bridge controls every hub-served table asks the cache under the method it is read with"
+      ],
       "0057a5c1523de213": [
         "pruned list COUNT against the REAL indexer DDL answers every list lane with the same total before and after pruning",
         "pruned list COUNT against the REAL indexer DDL finds every pruned join key unique in the indexer DDL"
@@ -13344,8 +13354,8 @@
         "not_a_test_script": true
       },
       "test": {
-        "fileCount": 564,
-        "titleCount": 8691,
+        "fileCount": 565,
+        "titleCount": 8699,
         "files": {
           "test/unit/action_detail/action_detail_cards.test.js": "ff48afd63b75d2cc",
           "test/unit/action_detail/action_detail_deploy_resolution.test.js": "19763ddde29bfb7f",
@@ -13829,6 +13839,7 @@
           "test/unit/mirror/hub_operational_cache_mixed_fleet.test.js": "8a95edc34c6654ac",
           "test/unit/mirror/hub_schema_version.test.js": "2414be2fcc6a6bbd",
           "test/unit/mirror/operational_cache/hub_hang_gate.test.js": "d0d1f9cac07e1213",
+          "test/unit/mirror/operational_cache/hub_operational_cache_app_error.test.js": "0023bc318aa0fab2",
           "test/unit/mirror/operational_cache/hub_operational_cache_eviction.test.js": "e22ec8314947af64",
           "test/unit/mirror/pool_sizing/query_timeout.test.js": "3afc43217b5456a4",
           "test/unit/mirror/validators_hub_registry.test.js": "6ba3113e0aba826f",

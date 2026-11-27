@@ -83,30 +83,34 @@ function fileFieldIndex(version, legacyIndex, manifestIndex) {
 // stored string is then `BATCH|<v>|FILE|0|...;...` and the FILE-prefix gates
 // below would read `BATCH` and pass deflated bytes through as raw.
 //
-// Splitting on ';' and then '|' IS how consensus reads a BATCH
-// (xchain-indexer/src/actions/batch.js splits TX_DATA on ';' and each command on
-// '|'), so no field of an on-chain-valid FILE can carry either delimiter; a
-// BATCH carries at most one FILE, since a transaction carries one rawData
-// payload (protocol actions/batch.md). Fail-closed: with no FILE sub-command
-// found the string is returned untouched, the gates read false, and the caller
-// serves the stored bytes exactly as before.
-function extractFileSubcommand(actionString) {
+// Splitting on ';' and then '|' matches BATCH dispatch, so no field of an
+// on-chain-valid FILE can carry either delimiter. A sender-built BATCH may have
+// several FILE sub-commands sharing one payload. The requested FILE is selected
+// by its rank among the transaction's FILE actions; an unresolved rank returns
+// null so the caller can serve stored form.
+function extractFileSubcommand(actionString, selector) {
     if (typeof actionString !== 'string' || actionString.length === 0) return actionString;
     const parts = actionString.split('|');
     if (String(parts[0]).toUpperCase() !== 'BATCH') return actionString;
-    // Drop the BATCH|<VERSION>| prefix, then take the first FILE command.
-    for (const command of parts.slice(2).join('|').split(';')) {
-        if (String(command.split('|')[0]).toUpperCase() === 'FILE') return command;
-    }
-    return actionString;
+    const files = parts.slice(2).join('|').split(';').filter(command =>
+        String(command.split('|')[0]).toUpperCase() === 'FILE');
+    if (files.length === 0) return actionString;
+    if (selector == null) return files.length === 1 ? files[0] : null;
+    const ordinal = selector.fileOrdinal;
+    const count = selector.fileCount;
+    if (!Number.isInteger(ordinal) || ordinal < 0 || ordinal >= files.length) return null;
+    if (!Number.isInteger(count) || count !== files.length) return null;
+    return files[ordinal];
 }
 
 // Does this FILE v0 action string declare deflate-raw? Lenient by design:
 // anything that is not exactly the known code reads as raw, so an unknown
 // future code degrades safely instead of erroring.
-function isCompressedAction(actionString) {
+function isCompressedAction(actionString, selector) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
-    const parts = extractFileSubcommand(actionString).split('|');
+    const selected = extractFileSubcommand(actionString, selector);
+    if (typeof selected !== 'string') return false;
+    const parts = selected.split('|');
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
     const index = fileFieldIndex(parts[1], COMPRESSION_FIELD_INDEX, MANIFEST_COMPRESSION_FIELD_INDEX);
     return index >= 0 && parts.length > index &&
@@ -116,9 +120,11 @@ function isCompressedAction(actionString) {
 // Is this FILE token-gated? Gated bytes are ciphertext and are never inflated
 // here (the client inflates after decrypting). Trim the field to match the
 // indexer's action-field normalization before deciding whether it is populated.
-function isGatedAction(actionString) {
+function isGatedAction(actionString, selector) {
     if (typeof actionString !== 'string' || actionString.length === 0) return false;
-    const parts = extractFileSubcommand(actionString).split('|');
+    const selected = extractFileSubcommand(actionString, selector);
+    if (typeof selected !== 'string') return false;
+    const parts = selected.split('|');
     if (String(parts[0]).toUpperCase() !== 'FILE') return false;
     const index = fileFieldIndex(parts[1], GATE_TICKER_FIELD_INDEX, MANIFEST_GATE_TICKER_FIELD_INDEX);
     return index >= 0 && parts.length > index && String(parts[index]).trim().length > 0;
@@ -228,6 +234,8 @@ function inflateStoredBytes(stored, options = {}) {
  * @param {object} [options]
  * @param {boolean} [options.gated] - force the gated branch (the caller often
  *   already knows, because it read gated_files).
+ * @param {number} [options.fileOrdinal] - rank among FILE actions in the tx.
+ * @param {number} [options.fileCount] - total FILE actions in the tx.
  * @returns {Promise<{bytes, inflated, storedForm, error, storedLength, originalLength}>}
  */
 async function resolveServedBytes(stored, actionString, options = {}) {
@@ -243,9 +251,19 @@ async function resolveServedBytes(stored, actionString, options = {}) {
     // Gated ciphertext is served exactly as stored, always. Even when the
     // action declares COMPRESSION=1: there it means inflate-after-decrypt, and
     // the explorer holds no key.
-    if (options.gated || isGatedAction(actionString)) return passthrough(stored);
+    if (options.gated) return passthrough(stored);
 
-    if (!isCompressedAction(actionString)) return passthrough(stored);
+    const hasSelector = options.fileOrdinal !== undefined || options.fileCount !== undefined;
+    const selector = hasSelector ? {
+        fileOrdinal: options.fileOrdinal,
+        fileCount: options.fileCount
+    } : undefined;
+    const selected = extractFileSubcommand(actionString, selector);
+    if (selected === null && typeof actionString === 'string')
+        return asStored(stored, 'AMBIGUOUS_BATCH_FILE');
+    if (isGatedAction(selected)) return passthrough(stored);
+
+    if (!isCompressedAction(selected)) return passthrough(stored);
 
     return await inflateStoredBytes(stored, options);
 }

@@ -106,10 +106,12 @@ class EntityLookupReaders {
     // across them). Returns null when the FILE is unknown, has no stored bytes,
     // or the decoder DB isn't reachable from this server.
     async getFileRaw(config, actionIndex) {
-        // Resolve the FILE's tx hash + declared MIME type from the indexer DB
+        // Resolve the FILE's tx hash, MIME type, and rank among transaction FILEs.
         let meta = `SELECT
                         t2.hash,
-                        t3.type
+                        t3.type,
+                        CASE WHEN a1.tx_index IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM actions fa INNER JOIN index_actions ia ON (ia.id=fa.action_id) WHERE fa.tx_index=a1.tx_index AND ia.action='FILE' AND fa.action_index<a1.action_index) END AS file_ordinal,
+                        CASE WHEN a1.tx_index IS NULL THEN NULL ELSE (SELECT COUNT(*) FROM actions fa INNER JOIN index_actions ia ON (ia.id=fa.action_id) WHERE fa.tx_index=a1.tx_index AND ia.action='FILE') END AS file_count
                     FROM
                         files f1
                         INNER JOIN actions            a1 ON (a1.action_index=f1.action_index)
@@ -142,7 +144,9 @@ class EntityLookupReaders {
                         'WHERE t2.hash=? LIMIT 1';
             let results = await this.doDecoderQuery(config, query, [rows[0].hash]);
             if(results && results.length && !this.util.isNull(results[0].raw_data))
-                return { raw_data: results[0].raw_data, type: rows[0].type, data: results[0].data };
+                return { raw_data: results[0].raw_data, type: rows[0].type, data: results[0].data,
+                    fileOrdinal: this.util.isNull(rows[0].file_ordinal) ? null : Number(rows[0].file_ordinal),
+                    fileCount: this.util.isNull(rows[0].file_count) ? null : Number(rows[0].file_count) };
         } catch(e){
             // Decoder DB unreachable, missing, or no cross-DB grant: omit the bytes.
             log.warn('FILE_RAW_UNAVAILABLE', { method: 'getFileRaw', coin: config.coin, actionIndex, err: e && e.message ? e.message : e });

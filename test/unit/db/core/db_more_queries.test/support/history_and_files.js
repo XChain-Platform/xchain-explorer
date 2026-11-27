@@ -214,13 +214,13 @@ describe('Database#getFileRaw', () => {
         const bytes = Buffer.from('png-bytes');
         const action = 'FILE|0|logo.png|image/png|Logo|';
         const stub  = sinon.stub(db, 'doQuery');
-        stub.onFirstCall().resolves([{ hash: 'abc123', type: 'image/png' }]);
+        stub.onFirstCall().resolves([{ hash: 'abc123', type: 'image/png', file_ordinal: '1', file_count: '2' }]);
         stub.onSecondCall().resolves([{ raw_data: bytes, data: action }]);
         const result = await db.getFileRaw(cfg(), 42);
         // `data` carries the FULL stored ACTION string so the serve path can
         // derive the trailing COMPRESSION field at serve time rather than
         // trusting a parsed-at-ingest column.
-        expect(result).to.deep.equal({ raw_data: bytes, type: 'image/png', data: action });
+        expect(result).to.deep.equal({ raw_data: bytes, type: 'image/png', data: action, fileOrdinal: 1, fileCount: 2 });
         // The decoder read must be database-qualified and matched by tx HASH
         // (tx ids are numbered independently per DB and cannot be joined)
         const [, decoderQuery, decoderArgs] = stub.secondCall.args;
@@ -228,6 +228,8 @@ describe('Database#getFileRaw', () => {
         expect(decoderQuery).to.include('`XChain_Decoder_BTC`.index_transactions');
         expect(decoderQuery).to.include('t1.data');
         expect(decoderArgs).to.deep.equal(['abc123']);
+        expect(stub.firstCall.args[1]).to.include("ia.action='FILE'");
+        expect(stub.firstCall.args[1]).to.include('fa.action_index<a1.action_index');
     });
 
     it('returns null when the FILE action is unknown', async () => {

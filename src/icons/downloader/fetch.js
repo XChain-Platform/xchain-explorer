@@ -225,7 +225,9 @@ async function fetchActionFileBytes(dl, src, flavor){
         throw new Error('action: FILE ' + poolKey + ':' + src.index +
             ' has no readable bytes here (unknown action, or decoder DB unreachable)');
 
-    const served = await compression.resolveServedBytes(file.raw_data, file.data);
+    const served = await compression.resolveServedBytes(file.raw_data, file.data, {
+        fileOrdinal: file.fileOrdinal, fileCount: file.fileCount
+    });
     // storedForm means the bytes are NOT the original file (a lying COMPRESSION
     // field, a corrupt stream, or the ratio guard). The route hands those to a
     // client under a header; an icon renderer has nothing to do with them.

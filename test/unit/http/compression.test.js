@@ -120,6 +120,7 @@ describe('explorer FILE decompression', function () {
         it('reads the marker through the BATCH wrapper', function () {
             assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_COMPRESSED), true);
             assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_RAW), false);
+            assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_COMPRESSED, { fileOrdinal: 0, fileCount: 1 }), true);
         });
 
         it('finds the FILE wherever it sits in the command list', function () {
@@ -166,6 +167,34 @@ describe('explorer FILE decompression', function () {
             assert.strictEqual(r.inflated, false);
             assert.strictEqual(r.storedForm, false);
             assert.ok(r.bytes.equals(DEFLATED), 'gated bytes are served exactly as stored');
+        });
+
+        it('selects each FILE by its transaction rank', async function () {
+            const batch = 'BATCH|0|' + PUBLIC_RAW + ';' + PUBLIC_COMPRESSED;
+            const raw = await compression.resolveServedBytes(ORIGINAL, batch, { fileOrdinal: 0, fileCount: 2 });
+            const compressed = await compression.resolveServedBytes(DEFLATED, batch, { fileOrdinal: 1, fileCount: 2 });
+            assert.strictEqual(raw.inflated, false);
+            assert.ok(raw.bytes.equals(ORIGINAL));
+            assert.strictEqual(compressed.inflated, true);
+            assert.ok(compressed.bytes.equals(ORIGINAL));
+        });
+
+        it('serves ambiguous multi-FILE payloads in stored form', async function () {
+            const batch = 'BATCH|0|' + PUBLIC_RAW + ';' + PUBLIC_COMPRESSED;
+            for (const options of [undefined, { fileOrdinal: 1, fileCount: 3 }, { fileOrdinal: 2, fileCount: 2 }]) {
+                const r = await compression.resolveServedBytes(DEFLATED, batch, options);
+                assert.strictEqual(r.storedForm, true);
+                assert.strictEqual(r.error, 'AMBIGUOUS_BATCH_FILE');
+                assert.ok(r.bytes.equals(DEFLATED));
+            }
+        });
+
+        it('reads gate and version fields from the selected FILE', function () {
+            const manifest = ['FILE', '1', 'a', 'b', 'c', 'd', '', '', '', 'GATE', '', '', '', ''].join('|');
+            const batch = 'BATCH|0|' + manifest + ';' + PUBLIC_COMPRESSED;
+            assert.strictEqual(compression.isGatedAction(batch, { fileOrdinal: 0, fileCount: 2 }), true);
+            assert.strictEqual(compression.isGatedAction(batch, { fileOrdinal: 1, fileCount: 2 }), false);
+            assert.strictEqual(compression.isCompressedAction(batch, { fileOrdinal: 1, fileCount: 2 }), true);
         });
     });
 

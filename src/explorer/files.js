@@ -282,7 +282,9 @@ class FileRoutes {
         // serves the STORED bytes under a header rather than partial output (§5.5).
         let served;
         try {
-            served = await compression.resolveServedBytes(file.raw_data, file.data, options);
+            served = await compression.resolveServedBytes(file.raw_data, file.data, {
+                ...options, fileOrdinal: file.fileOrdinal, fileCount: file.fileCount
+            });
         } catch (e) {
             // resolveServedBytes is contractually non-throwing; this is a
             // belt-and-braces guard so a reader bug can never 500 a file route.

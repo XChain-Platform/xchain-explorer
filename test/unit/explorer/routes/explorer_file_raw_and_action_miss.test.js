@@ -12,10 +12,12 @@
 
 const proxyquire = require('proxyquire');
 const sinon      = require('sinon');
+const zlib       = require('zlib');
 const { expect } = require('chai');
 const { createConfigInfoStub } = require('../../../fixtures/mock-config.js');
 const { mockRes }              = require('../../../fixtures/mock-query-args.js');
 const { safeAttachmentFilename } = require('../../../../src/explorer/files.js');
+const iconFetch = require('../../../../src/icons/downloader/fetch.js');
 
 // Build an explorer with heavy dependencies stubbed, then hand it the db under test.
 function makeExplorer(db) {
@@ -125,6 +127,25 @@ describe('XChainExplorer#processFileRawRequest plain filename', function () {
 
     it('safeAttachmentFilename answers null for a name that is empty after stripping', function () {
         expect(safeAttachmentFilename('\u0000\r\n ')).to.equal(null);
+    });
+
+    it('uses FILE rank metadata for route and icon reads', async function () {
+        const original = Buffer.from('selected FILE payload '.repeat(20));
+        const stored = zlib.deflateRawSync(original);
+        const raw = 'FILE|0|a.txt|text/plain|A|memo';
+        const compressed = 'FILE|0|b.txt|text/plain|B|memo|||||1';
+        const file = { raw_data: stored, type: 'text/plain', data: 'BATCH|0|' + raw + ';' + compressed,
+            fileOrdinal: 1, fileCount: 2 };
+        const db = { pools: { RDOGE: {} }, getGatedFileRaw: sinon.stub().resolves([]),
+            getFileRaw: sinon.stub().resolves(file) };
+        const res = mockRes();
+
+        await makeExplorer(db).sendStoredFileBytes(res, file);
+        const icon = await iconFetch.fetchActionFileBytes(
+            { explorer: { db } }, { index: '8' }, { poolKey: 'RDOGE' });
+
+        expect(res._body.equals(original)).to.equal(true);
+        expect(icon.equals(original)).to.equal(true);
     });
 });
 

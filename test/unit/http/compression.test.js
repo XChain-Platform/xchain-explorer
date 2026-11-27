@@ -111,95 +111,99 @@ describe('explorer FILE decompression', function () {
 
 });
 
-describe('explorer FILE decompression', function () {
+function registerBatchWrappedFile1() {
+    it('reads the marker through the BATCH wrapper', function () {
+        assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_COMPRESSED), true);
+        assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_RAW), false);
+        assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_COMPRESSED, { fileOrdinal: 0, fileCount: 1 }), true);
+    });
 
+    it('finds the FILE wherever it sits in the command list', function () {
+        const msg = 'MESSAGE|2|XCHAIN|' + 'b'.repeat(64);
+        assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_COMPRESSED + ';' + msg), true);
+        assert.strictEqual(compression.isCompressedAction('BATCH|0|' + msg + ';' + PUBLIC_COMPRESSED), true);
+    });
+
+    it('reads gating through the wrapper too', function () {
+        assert.strictEqual(compression.isGatedAction('BATCH|0|' + GATED_COMPRESSED), true);
+        assert.strictEqual(compression.isGatedAction('BATCH|0|' + PUBLIC_COMPRESSED), false);
+    });
+
+    it('fails closed on a BATCH carrying no FILE', function () {
+        const b = 'BATCH|0|SEND|0|X|1|a|b|c|d|e|f|1;MINT|0|XCHAIN|100';
+        assert.strictEqual(compression.isCompressedAction(b), false);
+        assert.strictEqual(compression.isGatedAction(b), false);
+    });
+
+    it('unwraps to the FILE sub-command and leaves everything else alone', function () {
+        assert.strictEqual(compression.extractFileSubcommand('BATCH|0|' + PUBLIC_COMPRESSED), PUBLIC_COMPRESSED);
+        assert.strictEqual(compression.extractFileSubcommand(PUBLIC_COMPRESSED), PUBLIC_COMPRESSED);
+        assert.strictEqual(compression.extractFileSubcommand('BATCH|0'), 'BATCH|0');
+        for (const junk of [null, undefined, '', 42, {}, []])
+            assert.strictEqual(compression.extractFileSubcommand(junk), junk);
+    });
+
+    it('inflates a compressed public FILE published inside a BATCH', async function () {
+        const r = await compression.resolveServedBytes(DEFLATED, 'BATCH|0|' + PUBLIC_COMPRESSED + ';MESSAGE|0|hi');
+        assert.strictEqual(r.inflated, true);
+        assert.strictEqual(r.storedForm, false);
+        assert.ok(r.bytes.equals(ORIGINAL));
+    });
+}
+
+function registerBatchWrappedFile2() {
+    it('inflates an empty-version FILE published inside a BATCH', async function () {
+        const action = 'BATCH|0|FILE||doc.txt|text/plain|Doc|memo|||||1';
+        const r = await compression.resolveServedBytes(DEFLATED, action);
+        assert.strictEqual(r.inflated, true);
+        assert.ok(r.bytes.equals(ORIGINAL));
+    });
+
+    it('still never inflates a gated FILE published inside a BATCH', async function () {
+        const r = await compression.resolveServedBytes(DEFLATED, 'BATCH|0|' + GATED_COMPRESSED + ';MESSAGE|0|key');
+        assert.strictEqual(r.inflated, false);
+        assert.strictEqual(r.storedForm, false);
+        assert.ok(r.bytes.equals(DEFLATED), 'gated bytes are served exactly as stored');
+    });
+
+    it('selects each FILE by its transaction rank', async function () {
+        const batch = 'BATCH|0|' + PUBLIC_RAW + ';' + PUBLIC_COMPRESSED;
+        const raw = await compression.resolveServedBytes(ORIGINAL, batch, { fileOrdinal: 0, fileCount: 2 });
+        const compressed = await compression.resolveServedBytes(DEFLATED, batch, { fileOrdinal: 1, fileCount: 2 });
+        assert.strictEqual(raw.inflated, false);
+        assert.ok(raw.bytes.equals(ORIGINAL));
+        assert.strictEqual(compressed.inflated, true);
+        assert.ok(compressed.bytes.equals(ORIGINAL));
+    });
+
+    it('serves ambiguous multi-FILE payloads in stored form', async function () {
+        const batch = 'BATCH|0|' + PUBLIC_RAW + ';' + PUBLIC_COMPRESSED;
+        for (const options of [undefined, { fileOrdinal: 1, fileCount: 3 }, { fileOrdinal: 2, fileCount: 2 }]) {
+            const r = await compression.resolveServedBytes(DEFLATED, batch, options);
+            assert.strictEqual(r.storedForm, true);
+            assert.strictEqual(r.error, 'AMBIGUOUS_BATCH_FILE');
+            assert.ok(r.bytes.equals(DEFLATED));
+        }
+    });
+
+    it('reads gate and version fields from the selected FILE', function () {
+        const manifest = ['FILE', '1', 'a', 'b', 'c', 'd', '', '', '', 'GATE', '', '', '', ''].join('|');
+        const batch = 'BATCH|0|' + manifest + ';' + PUBLIC_COMPRESSED;
+        assert.strictEqual(compression.isGatedAction(batch, { fileOrdinal: 0, fileCount: 2 }), true);
+        assert.strictEqual(compression.isGatedAction(batch, { fileOrdinal: 1, fileCount: 2 }), false);
+        assert.strictEqual(compression.isCompressedAction(batch, { fileOrdinal: 1, fileCount: 2 }), true);
+    });
+}
+
+describe('explorer FILE decompression', function () {
     // A FILE may ride inside a BATCH, and what the serve path is handed is the
     // decoder's TRANSACTION-level string, so the marker arrives wrapped. Reading
     // it as a non-FILE served deflated bytes inline under the declared MIME.
     describe('BATCH-wrapped FILE', function () {
-        it('reads the marker through the BATCH wrapper', function () {
-            assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_COMPRESSED), true);
-            assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_RAW), false);
-            assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_COMPRESSED, { fileOrdinal: 0, fileCount: 1 }), true);
-        });
-
-        it('finds the FILE wherever it sits in the command list', function () {
-            const msg = 'MESSAGE|2|XCHAIN|' + 'b'.repeat(64);
-            assert.strictEqual(compression.isCompressedAction('BATCH|0|' + PUBLIC_COMPRESSED + ';' + msg), true);
-            assert.strictEqual(compression.isCompressedAction('BATCH|0|' + msg + ';' + PUBLIC_COMPRESSED), true);
-        });
-
-        it('reads gating through the wrapper too', function () {
-            assert.strictEqual(compression.isGatedAction('BATCH|0|' + GATED_COMPRESSED), true);
-            assert.strictEqual(compression.isGatedAction('BATCH|0|' + PUBLIC_COMPRESSED), false);
-        });
-
-        it('fails closed on a BATCH carrying no FILE', function () {
-            const b = 'BATCH|0|SEND|0|X|1|a|b|c|d|e|f|1;MINT|0|XCHAIN|100';
-            assert.strictEqual(compression.isCompressedAction(b), false);
-            assert.strictEqual(compression.isGatedAction(b), false);
-        });
-
-        it('unwraps to the FILE sub-command and leaves everything else alone', function () {
-            assert.strictEqual(compression.extractFileSubcommand('BATCH|0|' + PUBLIC_COMPRESSED), PUBLIC_COMPRESSED);
-            assert.strictEqual(compression.extractFileSubcommand(PUBLIC_COMPRESSED), PUBLIC_COMPRESSED);
-            assert.strictEqual(compression.extractFileSubcommand('BATCH|0'), 'BATCH|0');
-            for (const junk of [null, undefined, '', 42, {}, []])
-                assert.strictEqual(compression.extractFileSubcommand(junk), junk);
-        });
-
-        it('inflates a compressed public FILE published inside a BATCH', async function () {
-            const r = await compression.resolveServedBytes(DEFLATED, 'BATCH|0|' + PUBLIC_COMPRESSED + ';MESSAGE|0|hi');
-            assert.strictEqual(r.inflated, true);
-            assert.strictEqual(r.storedForm, false);
-            assert.ok(r.bytes.equals(ORIGINAL));
-        });
-
-        it('inflates an empty-version FILE published inside a BATCH', async function () {
-            const action = 'BATCH|0|FILE||doc.txt|text/plain|Doc|memo|||||1';
-            const r = await compression.resolveServedBytes(DEFLATED, action);
-            assert.strictEqual(r.inflated, true);
-            assert.ok(r.bytes.equals(ORIGINAL));
-        });
-
-        it('still never inflates a gated FILE published inside a BATCH', async function () {
-            const r = await compression.resolveServedBytes(DEFLATED, 'BATCH|0|' + GATED_COMPRESSED + ';MESSAGE|0|key');
-            assert.strictEqual(r.inflated, false);
-            assert.strictEqual(r.storedForm, false);
-            assert.ok(r.bytes.equals(DEFLATED), 'gated bytes are served exactly as stored');
-        });
-
-        it('selects each FILE by its transaction rank', async function () {
-            const batch = 'BATCH|0|' + PUBLIC_RAW + ';' + PUBLIC_COMPRESSED;
-            const raw = await compression.resolveServedBytes(ORIGINAL, batch, { fileOrdinal: 0, fileCount: 2 });
-            const compressed = await compression.resolveServedBytes(DEFLATED, batch, { fileOrdinal: 1, fileCount: 2 });
-            assert.strictEqual(raw.inflated, false);
-            assert.ok(raw.bytes.equals(ORIGINAL));
-            assert.strictEqual(compressed.inflated, true);
-            assert.ok(compressed.bytes.equals(ORIGINAL));
-        });
-
-        it('serves ambiguous multi-FILE payloads in stored form', async function () {
-            const batch = 'BATCH|0|' + PUBLIC_RAW + ';' + PUBLIC_COMPRESSED;
-            for (const options of [undefined, { fileOrdinal: 1, fileCount: 3 }, { fileOrdinal: 2, fileCount: 2 }]) {
-                const r = await compression.resolveServedBytes(DEFLATED, batch, options);
-                assert.strictEqual(r.storedForm, true);
-                assert.strictEqual(r.error, 'AMBIGUOUS_BATCH_FILE');
-                assert.ok(r.bytes.equals(DEFLATED));
-            }
-        });
-
-        it('reads gate and version fields from the selected FILE', function () {
-            const manifest = ['FILE', '1', 'a', 'b', 'c', 'd', '', '', '', 'GATE', '', '', '', ''].join('|');
-            const batch = 'BATCH|0|' + manifest + ';' + PUBLIC_COMPRESSED;
-            assert.strictEqual(compression.isGatedAction(batch, { fileOrdinal: 0, fileCount: 2 }), true);
-            assert.strictEqual(compression.isGatedAction(batch, { fileOrdinal: 1, fileCount: 2 }), false);
-            assert.strictEqual(compression.isCompressedAction(batch, { fileOrdinal: 1, fileCount: 2 }), true);
-        });
+        registerBatchWrappedFile1();
+        registerBatchWrappedFile2();
     });
-
 });
-
 function registerResolveServedBytes1() {
     it('inflates a compressed public FILE and reports both sizes', async function () {
         const r = await compression.resolveServedBytes(DEFLATED, PUBLIC_COMPRESSED);
